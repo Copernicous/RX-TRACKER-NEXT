@@ -304,12 +304,32 @@
     </div>
 </div>
 
+<!-- API URL store: FortiGate correctly rewrites URLs in HTML attributes -->
+<div id="x-api" class="d-none"
+    data-stats="/api/dashboard/stats"
+    data-charts="/api/dashboard/charts"
+    data-rxp="/api/dashboard/rx-pipeline"
+    data-drill="/api/dashboard/"
+    data-ap="/api/dashboard/active-patients"
+    data-ip="/api/dashboard/inactive-patients"
+    data-tr="/api/dashboard/total-rx"
+    data-pr="/api/dashboard/pending-rx"
+    data-nr="/api/dashboard/patients-no-rx"
+    data-s2fa="/api/auth/2fa/status"
+    data-u2fa="/api/auth/2fa/setup"
+    data-e2fa="/api/auth/2fa/enable"
+    data-d2fa="/api/auth/2fa/disable"
+></div>
+
 <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index:1100"></div>
 <script src="/assets/bootstrap.bundle.min.js"></script>
 <script src="/assets/chart.umd.min.js"></script>
 <script src="/js/app.js"></script>
 <script src="/js/help.js"></script>
 <script>
+    // Read API URLs from HTML data-* attributes (FortiGate rewrites those correctly)
+    var _api = (function() { var e = document.getElementById('x-api'); return e ? e.dataset : {}; })();
+
     var drilldownModal = null, drilldownCurrentData = [], drilldownType = '';
     var _dashFrom = '', _dashTo = '';
 
@@ -352,7 +372,7 @@
     async function refreshDashboard() {
         const q = buildDateQuery();
         try {
-            const res = await fetchWithAuth('/api/dashboard/stats' + q);
+            const res = await fetchWithAuth(_api.stats + q);
             if (!res) return;
             const data = await res.json();
             document.getElementById('activePatientsCount').textContent    = data.activePatients         ?? 0;
@@ -416,7 +436,7 @@
         await refreshDashboard();
 
         try {
-            const chartRes = await fetchWithAuth('/api/dashboard/charts');
+            const chartRes = await fetchWithAuth(_api.charts);
             if (chartRes && chartRes.ok) renderCharts(await chartRes.json());
         } catch(e) { console.warn('Charts failed:', e); }
     });
@@ -426,7 +446,7 @@
         if (!stepsEl) return;
         stepsEl.innerHTML = '<div class="text-muted text-center py-3"><i class="fas fa-spinner fa-spin me-2"></i>Loading...</div>';
         try {
-            const res = await fetchWithAuth('/api/dashboard/rx-pipeline');
+            const res = await fetchWithAuth(_api.rxp);
             if (!res || !res.ok) throw new Error('Failed');
             const d = await res.json();
             document.getElementById('rxPipelineNotStarted').textContent = d.notStarted ?? 0;
@@ -517,7 +537,7 @@
         if (fp) fp.href = _getPageLink(type);
         drilldownModal.show();
         try {
-            const res = await fetchWithAuth('/api/dashboard/' + type);
+            const res = await fetchWithAuth(_api.drill + type);
             if (!res) return;
             const data = await res.json();
             drilldownCurrentData = data;
@@ -598,11 +618,11 @@
         btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Exporting...';
         try {
             const [active, inactive, totalRx, pending, noRx] = await Promise.all([
-                fetchWithAuth('/api/dashboard/active-patients').then(r=>r.json()),
-                fetchWithAuth('/api/dashboard/inactive-patients').then(r=>r.json()),
-                fetchWithAuth('/api/dashboard/total-rx').then(r=>r.json()),
-                fetchWithAuth('/api/dashboard/pending-rx').then(r=>r.json()),
-                fetchWithAuth('/api/dashboard/patients-no-rx').then(r=>r.json())
+                fetchWithAuth(_api.ap).then(r=>r.json()),
+                fetchWithAuth(_api.ip).then(r=>r.json()),
+                fetchWithAuth(_api.tr).then(r=>r.json()),
+                fetchWithAuth(_api.pr).then(r=>r.json()),
+                fetchWithAuth(_api.nr).then(r=>r.json())
             ]);
             const headers = ['Section','Patient/RX ID','Name','Status','DOB / Arrival Date','Service Date','Clinic / Pharmacy'];
             const rows = [];
@@ -638,7 +658,7 @@
 
     async function load2FAStatus() {
         try {
-            const res  = await fetchWithAuth('/api/auth/2fa/status');
+            const res  = await fetchWithAuth(_api.s2fa);
             if (!res) return;
             const data = await res.json();
             const enabled = !!data.twoFactorEnabled;
@@ -677,7 +697,7 @@
         btn.disabled = true;
         btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Generating QR code…';
         try {
-            const res  = await fetchWithAuth('/api/auth/2fa/setup');
+            const res  = await fetchWithAuth(_api.u2fa);
             if (!res || !res.ok) { showToast('Failed to generate 2FA setup.', 'danger'); return; }
             const data = await res.json();
             document.getElementById('twoFAQRImg').src            = data.qrCode;
@@ -701,7 +721,7 @@
         if (rawCode.length !== 6) { errEl.textContent='Enter the full 6-digit code.'; errEl.classList.remove('d-none'); return; }
         btn.disabled = true; spinner.classList.remove('d-none');
         try {
-            const res  = await fetchWithAuth('/api/auth/2fa/enable', { method:'POST', body: JSON.stringify({ code: rawCode }) });
+            const res  = await fetchWithAuth(_api.e2fa, { method:'POST', body: JSON.stringify({ code: rawCode }) });
             const data = await res.json();
             if (res.ok) { showToast('2FA enabled! You will need your authenticator app on next login.', 'success'); load2FAStatus(); }
             else        { errEl.textContent = data.message || 'Invalid code.'; errEl.classList.remove('d-none'); }
@@ -718,7 +738,7 @@
         if (rawCode.length !== 6) { errEl.textContent='Enter the full 6-digit code.'; errEl.classList.remove('d-none'); return; }
         btn.disabled = true; spinner.classList.remove('d-none');
         try {
-            const res  = await fetchWithAuth('/api/auth/2fa/disable', { method:'POST', body: JSON.stringify({ code: rawCode }) });
+            const res  = await fetchWithAuth(_api.d2fa, { method:'POST', body: JSON.stringify({ code: rawCode }) });
             const data = await res.json();
             if (res.ok) { showToast('2FA has been disabled.', 'warning'); load2FAStatus(); }
             else        { errEl.textContent = data.message || 'Invalid code.'; errEl.classList.remove('d-none'); }
