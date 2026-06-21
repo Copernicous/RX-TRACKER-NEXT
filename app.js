@@ -81,6 +81,10 @@ const loginLimiter = rateLimit({
     skipSuccessfulRequests: true        // only count failures toward the limit
 });
 
+// Trust FortiGate SSL VPN as a reverse proxy — allows Express to correctly read
+// X-Forwarded-For (real client IP) and X-Forwarded-Proto (https) headers
+app.set('trust proxy', 1);
+
 // Middleware
 // SEC-04 FIX: Restrict CORS to the app's own origin, not wildcard
 const corsOrigin = process.env.APP_ORIGIN || 'http://localhost:3000';
