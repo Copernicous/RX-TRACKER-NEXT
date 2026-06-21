@@ -499,17 +499,22 @@
             'pending-rx':        'Pending RX Records (Incomplete Workflow)',
             'patients-no-rx':    'Active Patients with No RX Records'
         };
-        const pageLinks = {
-            'active-patients':   '/patients?status=active',
-            'inactive-patients': '/patients?status=inactive',
-            'total-rx':          '/rx-records',
-            'pending-rx':        '/rx-records?pending=true',
-            'patients-no-rx':    '/patients?status=norx'
-        };
+        // Build page link from parts — avoids FortiGate rewriting bare URL strings in object literals
+        function _getPageLink(t) {
+            var m = {
+                'active-patients':   ['patients',   'status=active'],
+                'inactive-patients': ['patients',   'status=inactive'],
+                'total-rx':          ['rx-records', ''],
+                'pending-rx':        ['rx-records', 'pending=true'],
+                'patients-no-rx':    ['patients',   'status=norx']
+            };
+            var p = m[t]; if (!p) return '#';
+            return '/' + p[0] + (p[1] ? '?' + p[1] : '');
+        }
         document.getElementById('drilldownTitle').textContent = titles[type] || 'Report';
         document.getElementById('drilldownBody').innerHTML = '<p class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin me-2"></i>Loading...</p>';
         const fp = document.getElementById('drilldownFullPageBtn');
-        if (fp) fp.href = pageLinks[type] || '#';
+        if (fp) fp.href = _getPageLink(type);
         drilldownModal.show();
         try {
             const res = await fetchWithAuth('/api/dashboard/' + type);

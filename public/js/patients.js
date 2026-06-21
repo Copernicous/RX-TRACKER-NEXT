@@ -170,17 +170,17 @@ var allPatients = [];
         function openExportModal() {
             if (!filteredPatients.length) { showToast('No records to export. Adjust filters first.', 'warning'); return; }
             document.getElementById('exportModalCount').textContent =
-                `Exporting ${filteredPatients.length} record${filteredPatients.length !== 1 ? 's' : ''} matching current filters`;
+                'Exporting ' + filteredPatients.length + ' record' + (filteredPatients.length !== 1 ? 's' : '') + ' matching current filters';
             const list = document.getElementById('exportColList');
-            list.innerHTML = EXPORT_COLS.map(c => `
-                <div class="col-6">
-                    <label class="d-flex align-items-center gap-2 p-2 rounded" style="border:1px solid var(--border-color,#dee2e6);cursor:pointer" id="ecWrap_${c.key}">
-                        <input type="checkbox" class="form-check-input mt-0" id="ec_${c.key}" ${_exportColState[c.key] ? 'checked' : ''}
-                            onchange="_exportColState['${c.key}']=this.checked;updateEcStyle('${c.key}')">
-                        <span class="small">${c.label}</span>
-                    </label>
-                </div>
-            `).join('');
+            list.innerHTML = EXPORT_COLS.map(function(c) {
+                return '<div class="col-6">' +
+                    '<label class="d-flex align-items-center gap-2 p-2 rounded" style="border:1px solid var(--border-color,#dee2e6);cursor:pointer" id="ecWrap_' + c.key + '">' +
+                        '<input type="checkbox" class="form-check-input mt-0" id="ec_' + c.key + '" ' + (_exportColState[c.key] ? 'checked' : '') +
+                            ' onchange="_exportColState[\'' + c.key + '\']=this.checked;updateEcStyle(\'' + c.key + '\')"> ' +
+                        '<span class="small">' + c.label + '</span>' +
+                    '</label>' +
+                '</div>';
+            }).join('');
             EXPORT_COLS.forEach(c => updateEcStyle(c.key));
             new bootstrap.Modal(document.getElementById('exportColumnsModal')).show();
         }
@@ -205,7 +205,7 @@ var allPatients = [];
             const rows    = filteredPatients.map(p => selected.map(c => c.fn(p)));
             exportToCsv('patients_' + new Date().toISOString().slice(0,10) + '.csv', headers, rows);
             bootstrap.Modal.getInstance(document.getElementById('exportColumnsModal')).hide();
-            showToast(`Exported ${filteredPatients.length} records (${selected.length} columns).`, 'success');
+            showToast('Exported ' + filteredPatients.length + ' records (' + selected.length + ' columns).', 'success');
         });
 
         // Apply permissions to top-level buttons
@@ -229,8 +229,8 @@ var allPatients = [];
                 const srchPtSel = document.getElementById('srchPatientTransport');
                 pt.forEach(c => {
                     const label = c.contactPerson || c.companyName;
-                    ptSel.innerHTML += `<option value="${c.id}">${label}</option>`;
-                    if (srchPtSel) srchPtSel.innerHTML += `<option value="${c.id}">${label}</option>`;
+                    ptSel.innerHTML += '<option value="' + c.id + '">' + label + '</option>';
+                    if (srchPtSel) srchPtSel.innerHTML += '<option value="' + c.id + '">' + label + '</option>';
                 });
             }
             if (rxRes && rxRes.ok) {
@@ -239,8 +239,8 @@ var allPatients = [];
                 const srchRxSel = document.getElementById('srchPharmacyTransport');
                 rx.forEach(c => {
                     const label = c.companyName || c.contactPerson;
-                    rxSel.innerHTML += `<option value="${c.id}">${label}</option>`;
-                    if (srchRxSel) srchRxSel.innerHTML += `<option value="${c.id}">${label}</option>`;
+                    rxSel.innerHTML += '<option value="' + c.id + '">' + label + '</option>';
+                    if (srchRxSel) srchRxSel.innerHTML += '<option value="' + c.id + '">' + label + '</option>';
                 });
             }
             if (clRes && clRes.ok) {
@@ -249,15 +249,15 @@ var allPatients = [];
                 const srchSel = document.getElementById('srchClinic');
                 cl.forEach(c => {
                     const label = c.name + (c.address ? ' – ' + c.address : '');
-                    clSel.innerHTML   += `<option value="${c.id}">${label}</option>`;
-                    srchSel.innerHTML += `<option value="${c.id}">${c.name}</option>`;
+                    clSel.innerHTML   += '<option value="' + c.id + '">' + label + '</option>';
+                    srchSel.innerHTML += '<option value="' + c.id + '">' + c.name + '</option>';
                 });
             }
             if (phRes && phRes.ok) {
                 const ph = await phRes.json();
                 const phSel = document.getElementById('pPharmacyId');
                 ph.forEach(p => {
-                    phSel.innerHTML += `<option value="${p.id}">${p.name}${p.address ? ' – ' + p.address : ''}</option>`;
+                    phSel.innerHTML += '<option value="' + p.id + '">' + p.name + (p.address ? ' – ' + p.address : '') + '</option>';
                 });
             }
         } catch(e) {}
@@ -388,43 +388,54 @@ var allPatients = [];
             tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-4">No patients found.</td></tr>';
         } else {
             const pp = getPagePerms();
-        tbody.innerHTML = page.map(p => `
-                <tr data-patient-id="${p.id}">
-                    <td><code>${p.patientCode || p.id}</code></td>
-                    <td><strong>${p.firstName} ${p.lastName}</strong></td>
-                    <td>${p.Clinic ? '<span class="badge bg-info text-dark"><i class="fas fa-hospital me-1"></i>' + p.Clinic.name + '</span>' : '<span class="text-muted">\u2014</span>'}</td>
-                    <td>${p.dob || '\u2014'}</td>
-                    <td>${p.phone || '\u2014'}</td>
-                    <td>${p.serviceDate || '\u2014'}</td>
-                    <td>
-                        ${p.isDeleted ? '<span class="badge bg-danger">Deleted</span>' : (p.isActive ? '<span class="badge bg-success">Active</span>' : '<span class="badge bg-secondary">Inactive</span>')}
-                    </td>
-                    <td>
-                        ${p.isDeleted
-                            ? (pp.canDelete ? `<button class="btn btn-sm btn-outline-success" onclick="restorePatient(${p.id})"><i class="fas fa-undo"></i> Restore</button>` : '')
-                            : `
-                                <button class="btn btn-sm btn-outline-info me-1" data-pid="${p.id}" data-pname="${encodeURIComponent((p.firstName||'')+' '+(p.lastName||''))}" onclick="goToRxByEl(this)" title="View RX Records"><i class="fas fa-prescription-bottle-alt"></i></button>
-                                <button class="btn btn-sm me-1" data-pid="${p.id}" onclick="goToTimeline(parseInt(this.dataset.pid))" title="View Timeline" style="border-color:#20c9a0;color:#20c9a0" onmouseover="this.style.background='rgba(32,201,160,.1)'" onmouseout="this.style.background=''"><i class="fas fa-history"></i></button>
-                                <button class="btn btn-sm btn-outline-warning me-1 position-relative" data-nid="${p.id}" data-nfirst="${(p.firstName||'').replace(/"/g,'&quot;')}" data-nlast="${(p.lastName||'').replace(/"/g,'&quot;')}" onclick="openNotesByEl(this)" title="${(p.PatientNotes&&p.PatientNotes.length)?p.PatientNotes.length+' note'+(p.PatientNotes.length!==1?'s':''):'Notes'}" id="notes-btn-${p.id}">
-                                    <i class="fas fa-sticky-note"></i>
-                                    ${(p.PatientNotes && p.PatientNotes.length > 0) ? `<span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-warning text-dark" style="font-size:.6rem;min-width:1.1rem;padding:2px 4px;border:1.5px solid #fff">${p.PatientNotes.length}</span>` : ''}
-                                </button>
-                                <button class="btn btn-sm btn-outline-secondary me-1" onclick="printPatientRecord(${p.id})" title="Print / PDF"><i class="fas fa-print"></i></button>
-                                ${pp.canEdit   ? `<button class="btn btn-sm btn-outline-primary me-1" onclick="openPatientModal(${p.id})"><i class="fas fa-edit"></i></button>` : ''}
-                                ${pp.canDelete ? `<button class="btn btn-sm btn-outline-danger" onclick="promptDeletePatient(${p.id})"><i class="fas fa-trash"></i></button>` : ''}
-                            `}
-                    </td>
-                </tr>
-            `).join('');
+        tbody.innerHTML = page.map(function(p) {
+            var clinicBadge = p.Clinic
+                ? '<span class="badge bg-info text-dark"><i class="fas fa-hospital me-1"></i>' + p.Clinic.name + '</span>'
+                : '<span class="text-muted">—</span>';
+            var statusBadge = p.isDeleted
+                ? '<span class="badge bg-danger">Deleted</span>'
+                : (p.isActive ? '<span class="badge bg-success">Active</span>' : '<span class="badge bg-secondary">Inactive</span>');
+            var noteCount = (p.PatientNotes && p.PatientNotes.length) || 0;
+            var noteBadge = noteCount > 0
+                ? '<span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-warning text-dark" style="font-size:.6rem;min-width:1.1rem;padding:2px 4px;border:1.5px solid #fff">' + noteCount + '</span>'
+                : '';
+            var noteTitle = noteCount ? (noteCount + ' note' + (noteCount !== 1 ? 's' : '')) : 'Notes';
+            var actions;
+            if (p.isDeleted) {
+                actions = pp.canDelete
+                    ? '<button class="btn btn-sm btn-outline-success" onclick="restorePatient(' + p.id + ')"><i class="fas fa-undo"></i> Restore</button>'
+                    : '';
+            } else {
+                actions =
+                    '<button class="btn btn-sm btn-outline-info me-1" data-pid="' + p.id + '" data-pname="' + encodeURIComponent((p.firstName||'')+' '+(p.lastName||'')) + '" onclick="goToRxByEl(this)" title="View RX Records"><i class="fas fa-prescription-bottle-alt"></i></button> ' +
+                    '<button class="btn btn-sm me-1" data-pid="' + p.id + '" onclick="goToTimeline(parseInt(this.dataset.pid))" title="View Timeline" style="border-color:#20c9a0;color:#20c9a0" onmouseover="this.style.background=\'rgba(32,201,160,.1)\'" onmouseout="this.style.background=\'\'"><i class="fas fa-history"></i></button> ' +
+                    '<button class="btn btn-sm btn-outline-warning me-1 position-relative" data-nid="' + p.id + '" data-nfirst="' + (p.firstName||'').replace(/"/g,'&quot;') + '" data-nlast="' + (p.lastName||'').replace(/"/g,'&quot;') + '" onclick="openNotesByEl(this)" title="' + noteTitle + '" id="notes-btn-' + p.id + '">' +
+                        '<i class="fas fa-sticky-note"></i>' + noteBadge +
+                    '</button> ' +
+                    '<button class="btn btn-sm btn-outline-secondary me-1" onclick="printPatientRecord(' + p.id + ')" title="Print / PDF"><i class="fas fa-print"></i></button>' +
+                    (pp.canEdit   ? ' <button class="btn btn-sm btn-outline-primary me-1" onclick="openPatientModal(' + p.id + ')"><i class="fas fa-edit"></i></button>' : '') +
+                    (pp.canDelete ? ' <button class="btn btn-sm btn-outline-danger" onclick="promptDeletePatient(' + p.id + ')"><i class="fas fa-trash"></i></button>' : '');
+            }
+            return '<tr data-patient-id="' + p.id + '">' +
+                '<td><code>' + (p.patientCode || p.id) + '</code></td>' +
+                '<td><strong>' + (p.firstName||'') + ' ' + (p.lastName||'') + '</strong></td>' +
+                '<td>' + clinicBadge + '</td>' +
+                '<td>' + (p.dob || '—') + '</td>' +
+                '<td>' + (p.phone || '—') + '</td>' +
+                '<td>' + (p.serviceDate || '—') + '</td>' +
+                '<td>' + statusBadge + '</td>' +
+                '<td>' + actions + '</td>' +
+            '</tr>';
+        }).join('');
 
         }
         const pi = document.getElementById('patientPageInfo');
         pi.textContent = 'Showing ' + (Math.min(start+1, filteredPatients.length)) + '–' + Math.min(start+pageSize, filteredPatients.length) + ' of ' + filteredPatients.length;
 
         const pages = Math.ceil(filteredPatients.length / pageSize);
-        let pagHtml = `<li class="page-item${currentPage===1?' disabled':''}"><a class="page-link" href="#" onclick="goPPage(${currentPage-1});return false;">&laquo;</a></li>`;
-        for(let i=1;i<=pages;i++) pagHtml += `<li class="page-item${i===currentPage?' active':''}"><a class="page-link" href="#" onclick="goPPage(${i});return false;">${i}</a></li>`;
-        pagHtml += `<li class="page-item${currentPage===pages||pages===0?' disabled':''}"><a class="page-link" href="#" onclick="goPPage(${currentPage+1});return false;">&raquo;</a></li>`;
+        var pagHtml = '<li class="page-item' + (currentPage===1?' disabled':'') + '"><a class="page-link" href="#" onclick="goPPage(' + (currentPage-1) + ');return false;">&laquo;</a></li>';
+        for(var pi=1;pi<=pages;pi++) pagHtml += '<li class="page-item' + (pi===currentPage?' active':'') + '"><a class="page-link" href="#" onclick="goPPage(' + pi + ');return false;">' + pi + '</a></li>';
+        pagHtml += '<li class="page-item' + ((currentPage===pages||pages===0)?' disabled':'') + '"><a class="page-link" href="#" onclick="goPPage(' + (currentPage+1) + ');return false;">&raquo;</a></li>';
         document.getElementById('patientPagination').innerHTML = pagHtml;
     }
 
@@ -527,7 +538,7 @@ var allPatients = [];
     function promptDeletePatient(id) {
         deletingPatientId = id;
         const patient = allPatients.find(p => p.id === id);
-        const fullName = `${patient.firstName} ${patient.lastName}`;
+        var fullName = (patient.firstName||'') + ' ' + (patient.lastName||'');
         document.getElementById('deleteConfirmNameText').textContent = fullName;
         const input = document.getElementById('deleteConfirmInput');
         input.value = '';
@@ -636,26 +647,20 @@ var allPatients = [];
 
             let delBtn = '';
             if (canDel) {
-                delBtn = `<button class="btn btn-sm btn-outline-danger py-0 px-2" onclick="deleteNote(${n.id})" title="Delete note">
-                    <i class="fas fa-trash-alt" style="font-size:.7rem"></i>
-                </button>`;
+                delBtn = '<button class="btn btn-sm btn-outline-danger py-0 px-2" onclick="deleteNote(' + n.id + ')" title="Delete note"><i class="fas fa-trash-alt" style="font-size:.7rem"></i></button>';
             } else {
-                delBtn = `<span class="text-muted" title="You don't have permission to delete notes" data-bs-toggle="tooltip">
-                    <i class="fas fa-lock" style="font-size:.75rem;opacity:.5"></i>
-                </span>`;
+                delBtn = '<span class="text-muted" title="You don\'t have permission to delete notes" data-bs-toggle="tooltip"><i class="fas fa-lock" style="font-size:.75rem;opacity:.5"></i></span>';
             }
 
-            return `<div class="card mb-2 border-0" id="note-${n.id}" style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1) !important;border-radius:8px">
-                <div class="card-body py-2 px-3">
-                    <div class="d-flex justify-content-between align-items-start gap-2">
-                        <div style="min-width:0">
-                            <span class="badge bg-secondary me-1">${author}</span><small class="text-muted">${dateStr}</small>
-                        </div>
-                        <div class="flex-shrink-0">${delBtn}</div>
-                    </div>
-                    <p class="mb-0 mt-2" style="white-space:pre-wrap;font-size:.9rem">${n.note.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</p>
-                </div>
-            </div>`;
+            return '<div class="card mb-2 border-0" id="note-' + n.id + '" style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1) !important;border-radius:8px">' +
+                '<div class="card-body py-2 px-3">' +
+                    '<div class="d-flex justify-content-between align-items-start gap-2">' +
+                        '<div style="min-width:0"><span class="badge bg-secondary me-1">' + author + '</span><small class="text-muted">' + dateStr + '</small></div>' +
+                        '<div class="flex-shrink-0">' + delBtn + '</div>' +
+                    '</div>' +
+                    '<p class="mb-0 mt-2" style="white-space:pre-wrap;font-size:.9rem">' + n.note.replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</p>' +
+                '</div>' +
+            '</div>';
         }).join('');
 
         // Activate Bootstrap tooltips on lock icons
@@ -921,41 +926,41 @@ var allPatients = [];
 
         const win = window.open('', '_blank', 'width=900,height=750');
         if (_printLayout === 'card') {
-            win.document.write(`<!DOCTYPE html><html><head>
-    <meta charset="UTF-8">
-    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-                <title>Patient Record &mdash; ${p.firstName} ${p.lastName}</title>
-                <style>
-                    @import url('/assets/inter.css');
-                    * { box-sizing:border-box; margin:0; padding:0; }
-                    body { font-family:'Inter',Arial,sans-serif; background:#f0f2f5; padding:32px; }
-                    #printContentCard { background:#fff; border-radius:12px; overflow:hidden; box-shadow:0 2px 16px rgba(0,0,0,.1); }
-                    @media print {
-                        @page { margin:15mm; size:A4 portrait; }
-                        body { background:#fff; padding:0; }
-                        #printContentCard { box-shadow:none; border-radius:0; }
-                        thead tr, div[style*="background:linear-gradient"] { -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; }
-                    }
-                </style></head>
-                <body>${body.outerHTML}
-                <script>window.onload=function(){window.print();}<\/script>
-                </body></html>`);
+            win.document.write('<!DOCTYPE html><html><head>' +
+                '<meta charset="UTF-8">' +
+                '<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">' +
+                '<title>Patient Record — ' + (p.firstName||'') + ' ' + (p.lastName||'') + '</title>' +
+                '<style>' +
+                    '@import url("/assets/inter.css");' +
+                    '* { box-sizing:border-box; margin:0; padding:0; }' +
+                    'body { font-family:Inter,Arial,sans-serif; background:#f0f2f5; padding:32px; }' +
+                    '#printContentCard { background:#fff; border-radius:12px; overflow:hidden; box-shadow:0 2px 16px rgba(0,0,0,.1); }' +
+                    '@media print {' +
+                        '@page { margin:15mm; size:A4 portrait; }' +
+                        'body { background:#fff; padding:0; }' +
+                        '#printContentCard { box-shadow:none; border-radius:0; }' +
+                        'thead tr { -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; }' +
+                    '}' +
+                '</style></head>' +
+                '<body>' + body.outerHTML +
+                '<script>window.onload=function(){window.print();}' + '<\/script>' +
+                '</body></html>');
         } else {
-            win.document.write(`<!DOCTYPE html><html><head>
-    <meta charset="UTF-8">
-    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-                <title>Patient Record &mdash; ${p.firstName} ${p.lastName}</title>
-                <style>
-                    @import url('/assets/inter.css');
-                    body { font-family:Inter,Arial,sans-serif; color:#1a2234; padding:32px; max-width:860px; margin:0 auto; }
-                    table { width:100%; border-collapse:collapse; }
-                    thead tr { background:#1a2234 !important; color:#fff !important; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
-                    th,td { padding:7px 10px; text-align:left; border-bottom:1px solid #dee2e6; }
-                    @media print { @page { margin:20mm; } body { padding:0; } }
-                </style></head>
-                <body>${body.outerHTML}
-                <script>window.onload=function(){window.print();}<\/script>
-                </body></html>`);
+            win.document.write('<!DOCTYPE html><html><head>' +
+                '<meta charset="UTF-8">' +
+                '<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">' +
+                '<title>Patient Record — ' + (p.firstName||'') + ' ' + (p.lastName||'') + '</title>' +
+                '<style>' +
+                    '@import url("/assets/inter.css");' +
+                    'body { font-family:Inter,Arial,sans-serif; color:#1a2234; padding:32px; max-width:860px; margin:0 auto; }' +
+                    'table { width:100%; border-collapse:collapse; }' +
+                    'thead tr { background:#1a2234 !important; color:#fff !important; -webkit-print-color-adjust:exact; print-color-adjust:exact; }' +
+                    'th,td { padding:7px 10px; text-align:left; border-bottom:1px solid #dee2e6; }' +
+                    '@media print { @page { margin:20mm; } body { padding:0; } }' +
+                '</style></head>' +
+                '<body>' + body.outerHTML +
+                '<script>window.onload=function(){window.print();}' + '<\/script>' +
+                '</body></html>');
         }
         win.document.close();
         win.focus();
@@ -1026,10 +1031,10 @@ var allPatients = [];
             .map(id => {
                 const el  = document.getElementById(id);
                 const val = el.tagName === 'SELECT' ? el.options[el.selectedIndex].text : el.value;
-                return `<span class="badge" style="background:rgba(74,144,226,.12);color:#4a90e2;font-size:.72rem;font-weight:500;border:1px solid rgba(74,144,226,.25);border-radius:20px;padding:3px 10px">
-                    ${CHIP_LABELS[id]}: ${val}
-                    <i class="fas fa-times ms-1" style="cursor:pointer" onclick="clearOneFilter('${id}')"></i>
-                </span>`;
+                return '<span class="badge" style="background:rgba(74,144,226,.12);color:#4a90e2;font-size:.72rem;font-weight:500;border:1px solid rgba(74,144,226,.25);border-radius:20px;padding:3px 10px">' +
+                    (CHIP_LABELS[id]||id) + ': ' + val +
+                    '<i class="fas fa-times ms-1" style="cursor:pointer" onclick="clearOneFilter(\'' + id + '\')"></i>' +
+                '</span>';
             }).join('');
     }
 
