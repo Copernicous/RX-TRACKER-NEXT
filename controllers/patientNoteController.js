@@ -2,17 +2,18 @@ const db = require('../models');
 
 // Helper: get patient_notes permission for a user
 function getNotesPerm(user) {
-    if (!user) return { canEdit: false, canDelete: false };
+    if (!user) return { canAdd: false, canEdit: false, canDelete: false };
     // Administrators and Supervisors always have full note access
     if (user.role === 'Administrator' || user.role === 'Supervisor') {
-        return { canEdit: true, canDelete: true };
+        return { canAdd: true, canEdit: true, canDelete: true };
     }
     // Check stored granular permissions
     const perms = user.permissions || {};
     const np = perms.patient_notes || {};
     return {
-        canEdit:   np.canEdit   !== undefined ? !!np.canEdit   : true,  // default allow add
-        canDelete: np.canDelete !== undefined ? !!np.canDelete : false  // default deny delete
+        canAdd:    np.canAdd    !== undefined ? !!np.canAdd    : !!np.canEdit, // fallback for old data
+        canEdit:   np.canEdit   !== undefined ? !!np.canEdit   : false,
+        canDelete: np.canDelete !== undefined ? !!np.canDelete : false
     };
 }
 
@@ -36,9 +37,9 @@ exports.addNote = async (req, res) => {
             return res.status(400).json({ error: 'Note text is required.' });
         }
 
-        // Permission check: canEdit on patient_notes
+        // Permission check: canAdd on patient_notes (rbac middleware already checked, but defense-in-depth)
         const np = getNotesPerm(req.user);
-        if (!np.canEdit) {
+        if (!np.canAdd) {
             return res.status(403).json({ error: 'You do not have permission to add patient notes.' });
         }
 
