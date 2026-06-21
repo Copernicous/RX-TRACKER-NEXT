@@ -186,7 +186,8 @@ function setupGlobalSearch() {
         dropdown.innerHTML = '<p class="text-center text-muted small py-3 mb-0"><i class="fas fa-spinner fa-spin me-1"></i>Searching\u2026</p>';
         dropdown.style.display = 'block';
         try {
-            const res = await fetchWithAuth('/api/search?q=' + encodeURIComponent(q));
+            var _uSearch = '/api/search?q=' + encodeURIComponent(q);
+            const res = await fetchWithAuth(_uSearch);
             if (!res || !res.ok) { dropdown.innerHTML = '<p class="text-danger small text-center py-2 mb-0">Search error</p>'; return; }
             const data = await res.json();
             renderResults(data, q);
@@ -717,7 +718,8 @@ async function loadCrudModule(moduleName, apiEndpoint) {
 // Fetches /api/roles and populates the roleId field options in the users module config
 async function loadRolesForUserForm() {
     try {
-        const res = await fetchWithAuth('/api/roles', { silent: true });
+        var _uRoles = '/api/roles';
+        const res = await fetchWithAuth(_uRoles, { silent: true });
         if (res && res.ok) {
             const roles = await res.json();
             const cfg = MODULE_CONFIGS['users'];
@@ -1335,7 +1337,8 @@ function getRoleDefaultPermissions(roleName) {
 async function fetchRoleDefaults(roleName) {
     if (!_roleDefaultsCache) {
         try {
-            var res = await fetchWithAuth('/api/roles/permission-defaults', { silent: true });
+            var _uRD = '/api/roles/permission-defaults';
+            var res = await fetchWithAuth(_uRD, { silent: true });
             if (res && res.ok) {
                 _roleDefaultsCache = await res.json();
             }
@@ -1350,7 +1353,8 @@ async function renderRolePermissionsMatrix(containerId) {
     if (!container) return;
     container.innerHTML = '<p class="text-center text-muted py-3"><i class="fas fa-spinner fa-spin me-2"></i>Loading permissions matrix...</p>';
 
-    var res = await fetchWithAuth('/api/roles/permission-defaults', { silent: true });
+    var _uRD2 = '/api/roles/permission-defaults';
+    var res = await fetchWithAuth(_uRD2, { silent: true });
     if (!res || !res.ok) {
         container.innerHTML = '<p class="text-danger text-center">Failed to load permissions matrix.</p>';
         return;
