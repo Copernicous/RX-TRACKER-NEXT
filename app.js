@@ -1,10 +1,12 @@
 require('dotenv').config();
-const express = require('express');
-const cors = require('cors');
-const morgan = require('morgan');
-const bodyParser = require('body-parser');
-const path = require('path');
-const db = require('./models');
+const express     = require('express');
+const cors        = require('cors');
+const morgan      = require('morgan');
+const bodyParser  = require('body-parser');
+const path        = require('path');
+const helmet      = require('helmet');
+const rateLimit   = require('express-rate-limit');
+const db          = require('./models');
 
 // Start backup scheduler on boot
 require('./services/backupService');
@@ -22,6 +24,48 @@ cron.schedule('5 0 * * *', async () => {
 const settingsService = require('./services/settingsService');
 
 const app = express();
+
+// ── Trust proxy (for correct IP behind nginx/Cloudflare/Heroku) ──────────────
+app.set('trust proxy', 1);
+
+// ── HTTPS redirect (enable with FORCE_HTTPS=true in .env) ────────────────────
+if (process.env.FORCE_HTTPS === 'true') {
+    app.use((req, res, next) => {
+        if (req.secure || req.headers['x-forwarded-proto'] === 'https') return next();
+        return res.redirect(301, 'https://' + req.headers.host + req.url);
+    });
+}
+
+// ── Security headers (Helmet) ─────────────────────────────────────────────────
+app.use(helmet({
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc:     ["'self'"],
+            scriptSrc:      ["'self'", "'unsafe-inline'", 'cdn.jsdelivr.net', 'cdnjs.cloudflare.com'],
+            styleSrc:       ["'self'", "'unsafe-inline'", 'cdn.jsdelivr.net', 'cdnjs.cloudflare.com', 'fonts.googleapis.com'],
+            fontSrc:        ["'self'", 'fonts.gstatic.com', 'cdnjs.cloudflare.com'],
+            imgSrc:         ["'self'", 'data:', 'blob:'],
+            connectSrc:     ["'self'"],
+            frameSrc:       ["'none'"],
+            objectSrc:      ["'none'"],
+            upgradeInsecureRequests: process.env.FORCE_HTTPS === 'true' ? [] : null
+        }
+    },
+    hsts: process.env.FORCE_HTTPS === 'true'
+        ? { maxAge: 31536000, includeSubDomains: true, preload: true }
+        : false,
+    crossOriginEmbedderPolicy: false // Allow CDN assets
+}));
+
+// ── Rate limiting — brute-force protection on auth endpoints ──────────────────
+const loginLimiter = rateLimit({
+    windowMs:         15 * 60 * 1000,  // 15 minutes
+    max:              15,               // max 15 login attempts per IP per window
+    standardHeaders:  true,
+    legacyHeaders:    false,
+    message:          { message: 'Too many login attempts. Please try again in 15 minutes.' },
+    skipSuccessfulRequests: true        // only count failures toward the limit
+});
 
 // Middleware
 // SEC-04 FIX: Restrict CORS to the app's own origin, not wildcard
@@ -43,19 +87,25 @@ app.get('/favicon.ico', (req, res) => res.status(204).end());
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Routes (to be added)
-const authRoutes   = require('./routes/authRoutes');
-const apiRoutes    = require('./routes/apiRoutes');
-const importRoutes = require('./routes/importRoutes');
-const webRoutes    = require('./routes/webRoutes');
-const webAuth      = require('./middleware/webAuth');
+const authRoutes         = require('./routes/authRoutes');
+const apiRoutes          = require('./routes/apiRoutes');
+const importRoutes       = require('./routes/importRoutes');
+const webRoutes          = require('./routes/webRoutes');
+const webAuth            = require('./middleware/webAuth');
+const twoFactorRoutes    = require('./routes/twoFactorRoutes');
 
 // Tag each sub-router with its mount prefix so routeInspector can read it
-authRoutes._mountPrefix   = '/api/auth';
-importRoutes._mountPrefix = '/api/import';
-apiRoutes._mountPrefix    = '/api';
-webRoutes._mountPrefix    = '/';
+authRoutes._mountPrefix        = '/api/auth';
+importRoutes._mountPrefix      = '/api/import';
+apiRoutes._mountPrefix         = '/api';
+webRoutes._mountPrefix         = '/';
+twoFactorRoutes._mountPrefix   = '/api/auth';
+
+// Apply rate limiter to login routes only
+app.use('/api/auth/login', loginLimiter);
 
 app.use('/api/auth',    authRoutes);
+app.use('/api/auth',    twoFactorRoutes);
 app.use('/api/import',  importRoutes);
 app.use('/api',         apiRoutes);
 app.use('/',            webAuth, webRoutes);   // webAuth decodes rxToken cookie → res.locals.userPerms
@@ -136,7 +186,17 @@ const startServer = async () => {
         }
     }
 
-    // ─── Custom Roles Migration ───────────────────────────────────────────────
+    // ─── 2FA & Account Security Migration ────────────────────────────────────
+    try {
+        await db.sequelize.query('ALTER TABLE "Users" ADD COLUMN IF NOT EXISTS "twoFactorSecret" TEXT;');
+        await db.sequelize.query('ALTER TABLE "Users" ADD COLUMN IF NOT EXISTS "twoFactorEnabled" BOOLEAN DEFAULT FALSE;');
+        await db.sequelize.query('ALTER TABLE "Users" ADD COLUMN IF NOT EXISTS "failedLoginCount" INTEGER DEFAULT 0;');
+        await db.sequelize.query('ALTER TABLE "Users" ADD COLUMN IF NOT EXISTS "lockedUntil" TIMESTAMP WITH TIME ZONE;');
+        console.log('Database verified: Users 2FA and lockout columns ready.');
+    } catch (e) {
+        console.warn('Startup migration warning (Users 2FA columns, non-fatal):', e.message);
+    }
+
     // Add new columns to Roles table and seed built-in role permissions
     try {
         await db.sequelize.query('ALTER TABLE "Roles" ADD COLUMN IF NOT EXISTS "permissions" TEXT;');

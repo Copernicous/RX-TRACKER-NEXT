@@ -134,6 +134,29 @@
             </button>
         </form>
 
+        <!-- 2FA second step (hidden until server returns requires2FA) -->
+        <div id="twoFAStep" class="d-none">
+            <div class="text-center mb-4">
+                <div style="font-size:2.5rem;margin-bottom:.5rem"><i class="fas fa-shield-alt" style="color:#4a90e2"></i></div>
+                <h5 style="color:#fff">Two-Factor Authentication</h5>
+                <p style="color:rgba(255,255,255,.55);font-size:.85rem">Enter the 6-digit code from your authenticator app</p>
+            </div>
+            <div id="twoFAError" class="mb-3 d-none"></div>
+            <div class="mb-4">
+                <input type="text" id="twoFACode" class="form-control text-center fw-bold"
+                       inputmode="numeric" pattern="[0-9]*" maxlength="7"
+                       placeholder="000 000" autocomplete="one-time-code"
+                       style="font-size:1.8rem;letter-spacing:.4rem;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;">
+            </div>
+            <button type="button" class="btn btn-login w-100 mb-2" id="verify2FABtn" onclick="verify2FA()">
+                <span id="verify2FASpinner" class="spinner-border spinner-border-sm me-2 d-none"></span>
+                <i class="fas fa-check-circle me-1"></i>Verify
+            </button>
+            <button type="button" class="btn btn-link w-100" style="color:rgba(255,255,255,.4);font-size:.8rem" onclick="back2Login()">
+                <i class="fas fa-arrow-left me-1"></i>Back to login
+            </button>
+        </div>
+
         <p class="text-center mt-4" style="color:rgba(255,255,255,0.3);font-size:0.75rem;">
             Patient RX &copy; 2026 &mdash; All rights reserved
         </p>
@@ -181,7 +204,6 @@
             const spinner = document.getElementById('loginSpinner');
             const errorMsg = document.getElementById('errorMsg');
 
-            // Clear previous error
             errorMsg.classList.add('d-none');
             errorMsg.textContent = '';
 
@@ -191,7 +213,6 @@
                 return;
             }
 
-            // Show loading state
             btn.disabled = true;
             spinner.classList.remove('d-none');
 
@@ -204,26 +225,102 @@
 
                 const data = await res.json();
 
-                if (res.ok && data.token) {
-                    localStorage.setItem('token', data.token);
-                    localStorage.setItem('user', JSON.stringify(data.user));
-                    // Also set a cookie so the server can read permissions for sidebar rendering
-                    const maxAge = 86400; // 24 hours (matches JWT expiry)
-                    document.cookie = 'rxToken=' + encodeURIComponent(data.token) +
-                        '; path=/; max-age=' + maxAge + '; SameSite=Strict';
-                    window.location.href = '/dashboard';
+                if (res.ok && data.requires2FA) {
+                    // 2FA required — show second step
+                    window._2faTempToken = data.tempToken;
+                    document.getElementById('loginForm').classList.add('d-none');
+                    document.getElementById('twoFAStep').classList.remove('d-none');
+                    setTimeout(() => document.getElementById('twoFACode').focus(), 100);
+                } else if (res.ok && data.token) {
+                    loginSuccess(data);
                 } else {
-                    errorMsg.textContent = data.message || 'Invalid username or password.';
-                    errorMsg.classList.remove('d-none');
+                    showLoginError(errorMsg, data.message || 'Invalid username or password.');
                 }
             } catch (err) {
-                errorMsg.textContent = 'Could not connect to the server. Please try again.';
-                errorMsg.classList.remove('d-none');
+                showLoginError(errorMsg, 'Could not connect to the server. Please try again.');
             } finally {
                 btn.disabled = false;
                 spinner.classList.add('d-none');
             }
         });
+
+        // Auto-format 2FA code input: insert space after 3 digits
+        document.getElementById('twoFACode').addEventListener('input', function() {
+            let v = this.value.replace(/\D/g,'').substring(0,6);
+            this.value = v.length > 3 ? v.slice(0,3) + ' ' + v.slice(3) : v;
+        });
+        document.getElementById('twoFACode').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') verify2FA();
+        });
+
+        async function verify2FA() {
+            const rawCode = document.getElementById('twoFACode').value.replace(/\s/g,'');
+            const errEl   = document.getElementById('twoFAError');
+            const btn     = document.getElementById('verify2FABtn');
+            const spinner = document.getElementById('verify2FASpinner');
+
+            errEl.classList.add('d-none');
+            if (rawCode.length !== 6) {
+                showError(errEl, 'Please enter the full 6-digit code.');
+                return;
+            }
+
+            btn.disabled = true;
+            spinner.classList.remove('d-none');
+
+            try {
+                const res  = await fetch('/api/auth/login/2fa', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ tempToken: window._2faTempToken, code: rawCode })
+                });
+                const data = await res.json();
+
+                if (res.ok && data.token) {
+                    loginSuccess(data);
+                } else {
+                    showError(errEl, data.message || 'Invalid code. Please try again.');
+                    document.getElementById('twoFACode').value = '';
+                    document.getElementById('twoFACode').focus();
+                }
+            } catch (err) {
+                showError(errEl, 'Network error. Please try again.');
+            } finally {
+                btn.disabled = false;
+                spinner.classList.add('d-none');
+            }
+        }
+
+        function back2Login() {
+            window._2faTempToken = null;
+            document.getElementById('twoFACode').value = '';
+            document.getElementById('twoFAError').classList.add('d-none');
+            document.getElementById('twoFAStep').classList.add('d-none');
+            document.getElementById('loginForm').classList.remove('d-none');
+        }
+
+        function loginSuccess(data) {
+            localStorage.setItem('token', data.token);
+            localStorage.setItem('user', JSON.stringify(data.user));
+            const maxAge = 86400;
+            document.cookie = 'rxToken=' + encodeURIComponent(data.token) +
+                '; path=/; max-age=' + maxAge + '; SameSite=Strict';
+            window.location.href = '/dashboard';
+        }
+
+        function showLoginError(el, msg) {
+            showError(el, msg);
+        }
+
+        function showError(el, msg) {
+            el.innerHTML = '<i class="fas fa-exclamation-circle me-1"></i>' + msg;
+            el.classList.remove('d-none');
+            el.style.background    = 'rgba(220,53,69,.15)';
+            el.style.color         = '#f8d7da';
+            el.style.border        = '1px solid rgba(220,53,69,.4)';
+            el.style.borderRadius  = '8px';
+            el.style.padding       = '10px 14px';
+        }
     </script>
 </body>
 </html>
