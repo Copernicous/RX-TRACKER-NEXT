@@ -265,7 +265,7 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <!-- Add new note (shown/hidden based on patient_notes.canEdit permission) -->
+                <!-- Add new note (shown/hidden based on patient_notes.canAdd permission) -->
                 <div class="mb-3" id="noteAddArea">
                     <label class="form-label fw-semibold">Add Note</label>
                     <div class="d-flex gap-2">
@@ -908,14 +908,15 @@
             const u = JSON.parse(localStorage.getItem('user') || '{}');
             // Admins and Supervisors always have full note access
             if (u.role === 'Administrator' || u.role === 'Supervisor') {
-                return { canEdit: true, canDelete: true };
+                return { canAdd: true, canEdit: true, canDelete: true };
             }
             const np = (u.permissions || {}).patient_notes || {};
             return {
-                canEdit:   np.canEdit   !== undefined ? !!np.canEdit   : true,
+                canAdd:    np.canAdd    !== undefined ? !!np.canAdd    : !!np.canEdit, // fallback
+                canEdit:   np.canEdit   !== undefined ? !!np.canEdit   : false,
                 canDelete: np.canDelete !== undefined ? !!np.canDelete : false
             };
-        } catch(e) { return { canEdit: true, canDelete: false }; }
+        } catch(e) { return { canAdd: true, canEdit: true, canDelete: false }; }
     }
 
     async function openNotesModal(patientId, patientName) {
@@ -927,7 +928,7 @@
         // Apply add-note permission
         const np = getNotesPerms();
         const addArea = document.getElementById('noteAddArea');
-        if (addArea) addArea.style.display = np.canEdit ? '' : 'none';
+        if (addArea) addArea.style.display = np.canAdd ? '' : 'none';
 
         if (!notesModal) {
             notesModal = new bootstrap.Modal(document.getElementById('patientNotesModal'));
@@ -961,7 +962,7 @@
         if (!notes.length) {
             const np2 = getNotesPerms();
             container.innerHTML = '<p class="text-center text-muted py-3"><i class="fas fa-comment-slash me-1"></i>' +
-                (np2.canEdit ? 'No notes yet. Add the first one above.' : 'No notes yet.') + '</p>';
+                (np2.canAdd ? 'No notes yet. Add the first one above.' : 'No notes yet.') + '</p>';
             return;
         }
         container.innerHTML = notes.map(n => {
@@ -1005,7 +1006,7 @@
 
     async function addNote() {
         const np = getNotesPerms();
-        if (!np.canEdit) { showToast('You do not have permission to add notes.', 'warning'); return; }
+        if (!np.canAdd) { showToast('You do not have permission to add notes.', 'warning'); return; }
         const text = document.getElementById('newNoteText').value.trim();
         if (!text) { showToast('Please enter a note.', 'warning'); return; }
         const btn = document.getElementById('addNoteBtn');

@@ -2805,3 +2805,16 @@ Server is running on port 3000.
 [0mGET /favicon.ico [32m204[0m 0.038 ms - -[0m
 [0mGET /api/patients [36m304[0m 13.172 ms - -[0m
 [0mGET /api/audit-logs?limit=20&page=1 [33m403[0m 5.413 ms - 56[0m
+◇ injected env (4) from .env // tip: ⌘ suppress logs { quiet: true }
+◇ injected env (0) from .env // tip: ⌁ auth for agents [www.vestauth.com]
+[Backup] Scheduler started with expression: 0 2 * * *
+[SiteBackup] Weekly scheduler started: 0 3 * * 0
+Database verified: Users.permissions column ready.
+Database verified: RXRecords warehouse columns ready.
+Database verified: AuditLogs.previousValue column ready.
+Database verified: Users.notes column ready.
+Database verified: MedicationCatalogs.sortOrder column ready.
+Database verified: Roles custom columns ready.
+Database verified: Built-in role permissions seeded.
+[Settings] Loaded. Timezone: America/New_York | SMTP: (not set)
+Server is running on port 3000.
