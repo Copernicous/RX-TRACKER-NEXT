@@ -815,7 +815,7 @@
             try {
                 const _pu = JSON.parse(localStorage.getItem('user') || '{}');
                 const _pp = (_pu.permissions || {}).patients || {};
-                const _canAddPat  = _pp.canAdd  !== undefined ? !!_pp.canAdd  : true;
+                const _canAddPat  = _pp.canAdd  !== undefined ? !!_pp.canAdd  : !!_pp.canEdit; // fallback
                 const _canEditPat = _pp.canEdit !== undefined ? !!_pp.canEdit : true;
                 _saveBtn.style.display = (id === null ? _canAddPat : _canEditPat) ? '' : 'none';
             } catch(e) { _saveBtn.style.display = ''; }

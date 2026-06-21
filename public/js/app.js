@@ -786,7 +786,7 @@ function getPagePerms() {
         // Permission entry EXISTS → any unset action defaults to FALSE (least privilege)
         return {
             visible:   p.visible   !== undefined ? !!p.visible   : true,
-            canAdd:    p.canAdd    !== undefined ? !!p.canAdd    : false,
+            canAdd:    p.canAdd    !== undefined ? !!p.canAdd    : !!p.canEdit, // fallback: if canAdd unset, inherit canEdit
             canEdit:   p.canEdit   !== undefined ? !!p.canEdit   : false,
             canDelete: p.canDelete !== undefined ? !!p.canDelete : false,
             canExport: p.canExport !== undefined ? !!p.canExport : false,
@@ -1046,7 +1046,7 @@ function openModal(id) {
             var _modKey = _rawKey ? _sidebarMap[_rawKey] : null;
             var _mp = _modKey && _perms ? _perms[_modKey] : null;
             if (_mp) {
-                var _canAdd  = _mp.canAdd  !== undefined ? !!_mp.canAdd  : false;
+                var _canAdd  = _mp.canAdd  !== undefined ? !!_mp.canAdd  : !!_mp.canEdit; // fallback for old data
                 var _canEdit = _mp.canEdit !== undefined ? !!_mp.canEdit : false;
                 // id===null → adding; id is set → editing
                 if (id === null) {
@@ -1566,7 +1566,7 @@ function applyReadOnlyRestrictions() {
     var perm = rawP
         ? {
             visible:   rawP.visible   !== undefined ? !!rawP.visible   : true,
-            canAdd:    rawP.canAdd    !== undefined ? !!rawP.canAdd    : false,
+            canAdd:    rawP.canAdd    !== undefined ? !!rawP.canAdd    : !!rawP.canEdit, // fallback for old data
             canEdit:   rawP.canEdit   !== undefined ? !!rawP.canEdit   : false,
             canDelete: rawP.canDelete !== undefined ? !!rawP.canDelete : false,
             canExport: rawP.canExport !== undefined ? !!rawP.canExport : false,
