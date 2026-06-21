@@ -1,6 +1,30 @@
 const db = require('../models');
 const { BUILT_IN_DEFAULTS } = require('../middleware/rbac');
 
+/**
+ * normalizePermissions — ensures consistency in a permissions object.
+ *
+ * Rule: if any action flag is enabled (canAdd/canEdit/canDelete/canExport/canUndo),
+ * the module must also be visible. This prevents the broken state where
+ * canAdd=true but visible=false causes "module is hidden" API errors.
+ */
+function normalizePermissions(perms) {
+    if (!perms || typeof perms !== 'object') return perms || null;
+    const normalized = {};
+    const actions = ['canAdd', 'canEdit', 'canDelete', 'canExport', 'canUndo'];
+    for (const [key, mod] of Object.entries(perms)) {
+        if (!mod || typeof mod !== 'object') { normalized[key] = mod; continue; }
+        const hasAction = actions.some(a => mod[a] === true);
+        normalized[key] = {
+            ...mod,
+            // Auto-set visible when any action is enabled
+            visible: hasAction ? true : !!mod.visible
+        };
+    }
+    return normalized;
+}
+
+
 // GET /api/roles — list all roles with user counts
 exports.getAll = async (req, res) => {
     try {
@@ -61,7 +85,7 @@ exports.create = async (req, res) => {
             name: name.trim(),
             description: description || null,
             isSystem: false,
-            permissions: permissions || null
+            permissions: normalizePermissions(permissions)
         });
         res.status(201).json({ id: role.id, name: role.name, message: 'Role created.' });
     } catch (err) { res.status(400).json({ error: err.message }); }
@@ -83,7 +107,7 @@ exports.update = async (req, res) => {
         await role.update({
             name:        (name && !role.isSystem) ? name.trim() : role.name,
             description: description !== undefined ? description : role.description,
-            permissions: permissions !== undefined ? permissions : role.permissions
+            permissions: permissions !== undefined ? normalizePermissions(permissions) : role.permissions
         });
 
         res.json({ id: role.id, name: role.name, message: 'Role updated.' });
