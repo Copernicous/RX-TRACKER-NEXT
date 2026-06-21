@@ -198,7 +198,7 @@
     const DATASET_SPECS = {
         'patients': {
             title: 'Patients Import',
-            desc: 'Import patients with validation. Duplicate patient names matching identical birth dates will be skipped. Transport company columns can use either active company names or database IDs. Patient ID (patientCode) is optional — one will be auto-generated if left blank.',
+            desc: 'Import patients with validation. Duplicate patient names matching identical birth dates will be skipped. Transport company columns can use either active company names or database IDs. Patient ID (patientCode) is optional &mdash; one will be auto-generated if left blank.',
             fields: [
                 { name: 'patientCode', req: false, format: 'e.g. PAT-00001 (Auto-generated if blank)' },
                 { name: 'firstName',   req: true,  format: 'Plain Text' },
@@ -445,17 +445,17 @@
 
         badge.textContent   = errCnt > 0 ? errCnt + ' row(s) with errors' : 'All rows valid';
         badge.className     = 'badge ' + (errCnt > 0 ? 'bg-warning text-dark' : 'bg-success');
-        countEl.textContent = total + ' rows found — ' + goodCnt + ' valid, ' + errCnt + ' with errors';
+        countEl.textContent = total + ' rows found &mdash; ' + goodCnt + ' valid, ' + errCnt + ' with errors';
 
         tHead.innerHTML = '<tr>' + headers.map(h => '<th class="text-nowrap">' + h + '</th>').join('') + '<th>Status</th></tr>';
 
         tBody.innerHTML = rows.slice(0, 200).map(row => {
             const hasErr   = row._errors.length > 0;
             const rowClass = hasErr ? 'table-danger' : 'table-success';
-            const cells    = headers.map(h => '<td>' + (row[h] || '<span class="text-muted">—</span>') + '</td>').join('');
+            const cells    = headers.map(h => '<td>' + (row[h] || '<span class="text-muted">&mdash;</span>') + '</td>').join('');
             const status   = hasErr
-                ? '<td><span class="badge bg-danger" title="' + row._errors.join('; ') + '">⚠ ' + row._errors.length + ' error(s)</span></td>'
-                : '<td><span class="badge bg-success">✓ Valid</span></td>';
+                ? '<td><span class="badge bg-danger" title="' + row._errors.join('; ') + '">&#9888; ' + row._errors.length + ' error(s)</span></td>'
+                : '<td><span class="badge bg-success">&#10003; Valid</span></td>';
             return '<tr class="' + rowClass + '">' + cells + status + '</tr>';
         }).join('');
 

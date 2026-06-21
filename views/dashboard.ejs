@@ -137,7 +137,7 @@
                 <div class="d-flex align-items-center gap-1 ms-2">
                     <span class="small text-muted">Custom:</span>
                     <input type="date" id="dashFrom" class="form-control form-control-sm" style="width:140px;font-size:.78rem">
-                    <span class="small text-muted">â€“</span>
+                    <span class="small text-muted">&ndash;</span>
                     <input type="date" id="dashTo" class="form-control form-control-sm" style="width:140px;font-size:.78rem">
                 </div>
                 <span id="dashRangeLabel" class="ms-auto badge rounded-pill" style="background:rgba(74,144,226,.12);color:#4a90e2;font-size:.72rem;white-space:nowrap">Showing all time</span>
@@ -152,7 +152,7 @@
                         <div class="me-2 card-icon" style="font-size:2rem;color:#4a90e2"><i class="fas fa-user-check"></i></div>
                         <div>
                             <div class="text-muted small">Active Patients</div>
-                            <div class="fs-2 fw-bold" id="activePatientsCount">â€”</div>
+                            <div class="fs-2 fw-bold" id="activePatientsCount">&mdash;</div>
                             <small class="text-primary"><i class="fas fa-external-link-alt me-1"></i>View list</small>
                         </div>
                     </div>
@@ -162,7 +162,7 @@
                         <div class="me-2 card-icon" style="font-size:2rem;color:#e24a4a"><i class="fas fa-user-times"></i></div>
                         <div>
                             <div class="text-muted small">Inactive Patients</div>
-                            <div class="fs-2 fw-bold" id="inactivePatientsCount">â€”</div>
+                            <div class="fs-2 fw-bold" id="inactivePatientsCount">&mdash;</div>
                             <small class="text-danger"><i class="fas fa-external-link-alt me-1"></i>View list</small>
                         </div>
                     </div>
@@ -172,7 +172,7 @@
                         <div class="me-2 card-icon" style="font-size:2rem;color:#50e3c2"><i class="fas fa-prescription-bottle-alt"></i></div>
                         <div>
                             <div class="text-muted small">Total RX Records</div>
-                            <div class="fs-2 fw-bold" id="activeRxCount">â€”</div>
+                            <div class="fs-2 fw-bold" id="activeRxCount">&mdash;</div>
                             <small class="text-success"><i class="fas fa-external-link-alt me-1"></i>View list</small>
                         </div>
                     </div>
@@ -182,7 +182,7 @@
                         <div class="me-2 card-icon" style="font-size:2rem;color:#9b59b6"><i class="fas fa-user-slash"></i></div>
                         <div>
                             <div class="text-muted small">Total No-RX Records</div>
-                            <div class="fs-2 fw-bold" id="patientsWithNoRxCount">â€”</div>
+                            <div class="fs-2 fw-bold" id="patientsWithNoRxCount">&mdash;</div>
                             <small style="color:#9b59b6"><i class="fas fa-external-link-alt me-1"></i>View list</small>
                         </div>
                     </div>
@@ -192,7 +192,7 @@
                         <div class="me-2 card-icon" style="font-size:2rem;color:#f5a623"><i class="fas fa-truck-loading"></i></div>
                         <div>
                             <div class="text-muted small">Pending Deliveries</div>
-                            <div class="fs-2 fw-bold" id="pendingDeliveriesCount">â€”</div>
+                            <div class="fs-2 fw-bold" id="pendingDeliveriesCount">&mdash;</div>
                             <small class="text-warning"><i class="fas fa-external-link-alt me-1"></i>View list</small>
                         </div>
                     </div>
@@ -203,7 +203,7 @@
             <div class="row g-4 mb-4" id="chartsRow">
                 <div class="col-md-7">
                     <div class="glass-card p-4 h-100">
-                        <h6 class="mb-3 fw-semibold"><i class="fas fa-chart-bar me-2 text-primary"></i>New Patients â€” Last 6 Months</h6>
+                        <h6 class="mb-3 fw-semibold"><i class="fas fa-chart-bar me-2 text-primary"></i>New Patients &mdash; Last 6 Months</h6>
                         <div style="position:relative;height:220px"><canvas id="patientsBarChart"></canvas></div>
                     </div>
                 </div>
@@ -231,26 +231,26 @@
                             <div class="col-md-4">
                                 <div style="background:rgba(108,117,125,.08);border-radius:12px;padding:16px 20px;display:flex;align-items:center;gap:14px">
                                     <div style="width:44px;height:44px;border-radius:50%;background:rgba(108,117,125,.15);display:flex;align-items:center;justify-content:center;flex-shrink:0"><i class="fas fa-hourglass-start" style="color:#6c757d;font-size:1.1rem"></i></div>
-                                    <div><div class="text-muted" style="font-size:.75rem;text-transform:uppercase;letter-spacing:.05em">Not Started</div><div class="fw-bold fs-3" id="rxPipelineNotStarted">â€”</div></div>
+                                    <div><div class="text-muted" style="font-size:.75rem;text-transform:uppercase;letter-spacing:.05em">Not Started</div><div class="fw-bold fs-3" id="rxPipelineNotStarted">&mdash;</div></div>
                                 </div>
                             </div>
                             <div class="col-md-4">
                                 <div style="background:rgba(253,126,20,.08);border-radius:12px;padding:16px 20px;display:flex;align-items:center;gap:14px">
                                     <div style="width:44px;height:44px;border-radius:50%;background:rgba(253,126,20,.15);display:flex;align-items:center;justify-content:center;flex-shrink:0"><i class="fas fa-spinner" style="color:#fd7e14;font-size:1.1rem"></i></div>
-                                    <div><div class="text-muted" style="font-size:.75rem;text-transform:uppercase;letter-spacing:.05em">In Progress</div><div class="fw-bold fs-3" id="rxPipelineInProgress">â€”</div></div>
+                                    <div><div class="text-muted" style="font-size:.75rem;text-transform:uppercase;letter-spacing:.05em">In Progress</div><div class="fw-bold fs-3" id="rxPipelineInProgress">&mdash;</div></div>
                                 </div>
                             </div>
                             <div class="col-md-4">
                                 <div style="background:rgba(25,135,84,.08);border-radius:12px;padding:16px 20px;display:flex;align-items:center;gap:14px">
                                     <div style="width:44px;height:44px;border-radius:50%;background:rgba(25,135,84,.15);display:flex;align-items:center;justify-content:center;flex-shrink:0"><i class="fas fa-check-circle" style="color:#198754;font-size:1.1rem"></i></div>
-                                    <div><div class="text-muted" style="font-size:.75rem;text-transform:uppercase;letter-spacing:.05em">Completed</div><div class="fw-bold fs-3" id="rxPipelineCompleted">â€”</div></div>
+                                    <div><div class="text-muted" style="font-size:.75rem;text-transform:uppercase;letter-spacing:.05em">Completed</div><div class="fw-bold fs-3" id="rxPipelineCompleted">&mdash;</div></div>
                                 </div>
                             </div>
                         </div>
                         <div class="mb-3">
                             <div class="d-flex justify-content-between mb-1">
                                 <small class="text-muted fw-semibold">Overall Completion</small>
-                                <small class="text-muted" id="rxPipelinePercent">â€”</small>
+                                <small class="text-muted" id="rxPipelinePercent">&mdash;</small>
                             </div>
                             <div style="height:10px;border-radius:6px;background:rgba(0,0,0,.07);overflow:hidden">
                                 <div id="rxPipelineProgressBar" style="height:100%;border-radius:6px;background:linear-gradient(90deg,#4a90e2,#198754);transition:width .6s ease;width:0%"></div>
@@ -364,7 +364,7 @@
                 const tbody = document.getElementById('recentActivityBody');
                 if (tbody) {
                     tbody.innerHTML = data.recentActivity && data.recentActivity.length > 0
-                        ? data.recentActivity.map(a => `<tr><td>${a.User ? a.User.firstName+' '+a.User.lastName : 'System'}</td><td>${a.module}</td><td><span class="badge bg-secondary">${a.action}</span></td><td>${a.date||'â€”'}</td><td>${a.ipAddress||'â€”'}</td></tr>`).join('')
+                        ? data.recentActivity.map(a => `<tr><td>${a.User ? a.User.firstName+' '+a.User.lastName : 'System'}</td><td>${a.module}</td><td><span class="badge bg-secondary">${a.action}</span></td><td>${a.date||'&mdash;'}</td><td>${a.ipAddress||'&mdash;'}</td></tr>`).join('')
                         : '<tr><td colspan="5" class="text-center text-muted">No recent activity</td></tr>';
                 }
             }
@@ -437,7 +437,7 @@
             }
             stepsEl.innerHTML = `
                 <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#888;margin-bottom:10px">
-                    Workflow Step Breakdown â€” RX records waiting at each step
+                    Workflow Step Breakdown &mdash; RX records waiting at each step
                 </div>
                 <div style="display:flex;flex-direction:column;gap:8px">
                     ${d.stepBreakdown.map((step, i) => {
@@ -532,10 +532,10 @@
                         <tbody>${data.map(p => `<tr>
                             <td><code>${p.patientCode || p.id}</code></td>
                             <td><strong>${p.firstName} ${p.lastName}</strong></td>
-                            <td>${p.dob||'â€”'}</td><td>${p.phone||'â€”'}</td><td>${p.serviceDate||'â€”'}</td>
-                            <td>${p.Clinic ? p.Clinic.name : 'â€”'}</td>
-                            <td>${p.PatientTransportCompany ? (p.PatientTransportCompany.contactPerson||p.PatientTransportCompany.companyName||'â€”') : 'â€”'}</td>
-                            <td>${p.PharmacyTransportCompany ? (p.PharmacyTransportCompany.contactPerson||p.PharmacyTransportCompany.companyName||'â€”') : 'â€”'}</td>
+                            <td>${p.dob||'&mdash;'}</td><td>${p.phone||'&mdash;'}</td><td>${p.serviceDate||'&mdash;'}</td>
+                            <td>${p.Clinic ? p.Clinic.name : '&mdash;'}</td>
+                            <td>${p.PatientTransportCompany ? (p.PatientTransportCompany.contactPerson||p.PatientTransportCompany.companyName||'&mdash;') : '&mdash;'}</td>
+                            <td>${p.PharmacyTransportCompany ? (p.PharmacyTransportCompany.contactPerson||p.PharmacyTransportCompany.companyName||'&mdash;') : '&mdash;'}</td>
                         </tr>`).join('')}</tbody>
                     </table>
                 </div>
@@ -552,10 +552,10 @@
                             const steps = (rx.RXWorkflowTrackings || []).length;
                             return `<tr>
                                 <td><strong>#${rx.id}</strong></td>
-                                <td>${rx.Patient ? rx.Patient.firstName+' '+rx.Patient.lastName : 'â€”'}</td>
+                                <td>${rx.Patient ? rx.Patient.firstName+' '+rx.Patient.lastName : '&mdash;'}</td>
                                 <td><code>${rx.Patient ? (rx.Patient.patientCode||rx.patientId) : rx.patientId}</code></td>
-                                <td>${rx.Pharmacy ? rx.Pharmacy.name : 'â€”'}</td>
-                                <td>${rx.arrivalDate||'â€”'}</td><td>${rx.serviceDate||'â€”'}</td>
+                                <td>${rx.Pharmacy ? rx.Pharmacy.name : '&mdash;'}</td>
+                                <td>${rx.arrivalDate||'&mdash;'}</td><td>${rx.serviceDate||'&mdash;'}</td>
                                 <td><div class="progress" style="height:8px;min-width:60px"><div class="progress-bar bg-primary" style="width:${steps>0?Math.round(steps/Math.max(steps,1)*100):0}%"></div></div><small>${steps} step(s) completed</small></td>
                             </tr>`;
                         }).join('')}</tbody>
@@ -613,7 +613,7 @@
         showToast('Recent activity exported!', 'success');
     }
 
-    // â”€â”€ My Account / 2FA Management â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── My Account / 2FA Management ──────────────────────────────────────────
     let _accountModal = null;
     function openAccountModal() {
         if (!_accountModal) _accountModal = new bootstrap.Modal(document.getElementById('accountModal'));
@@ -660,7 +660,7 @@
     async function start2FASetup() {
         const btn = document.getElementById('startSetupBtn');
         btn.disabled = true;
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Generating QR codeâ€¦';
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Generating QR code&hellip;';
         try {
             const res  = await fetchWithAuth('/api/auth/2fa/setup');
             if (!res || !res.ok) { showToast('Failed to generate 2FA setup.', 'danger'); return; }

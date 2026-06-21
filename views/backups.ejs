@@ -126,7 +126,7 @@
                         </div>
                         <div>
                             <h6 class="fw-bold mb-0">Full Site Backup <span class="badge ms-2" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9);font-size:.65rem">ZIP</span></h6>
-                            <p class="text-muted small mb-0">Creates a complete ZIP of the application code <strong>+ a fresh database dump</strong> saved to <code id="siteBackupDirLabel">C:\RX-SiteBackups\</code> — outside the project folder. Use this to move the system to another computer.</p>
+                            <p class="text-muted small mb-0">Creates a complete ZIP of the application code <strong>+ a fresh database dump</strong> saved to <code id="siteBackupDirLabel">C:\RX-SiteBackups\</code> &mdash; outside the project folder. Use this to move the system to another computer.</p>
                         </div>
                     </div>
 
@@ -187,7 +187,7 @@
                                     <i class="fas fa-info-circle me-1" style="color:#8b5cf6"></i>
                                     <strong>What is inside the ZIP?</strong> All application code + a fresh database dump as <code>db_backup.dump</code>. 
                                     <strong>Excludes:</strong> <code>node_modules/</code>, <code>.git/</code>, <code>logs/</code> (regeneratable). 
-                                    Last <strong>5 ZIPs</strong> are kept automatically — older ones are deleted.
+                                    Last <strong>5 ZIPs</strong> are kept automatically &mdash; older ones are deleted.
                                 </div>
                             </div>
                         </div>
@@ -211,7 +211,7 @@
                         </div>
                         <div>
                             <h5 class="fw-bold mb-0">How to Restore / Move to Another Server</h5>
-                            <p class="text-muted small mb-0">Complete step-by-step guide — dependencies, database setup, and restore process.</p>
+                            <p class="text-muted small mb-0">Complete step-by-step guide &mdash; dependencies, database setup, and restore process.</p>
                         </div>
                         <button class="btn btn-sm btn-outline-secondary ms-auto" onclick="toggleRestoreGuide()" id="restoreGuideToggleBtn">
                             <i class="fas fa-chevron-down me-1" id="restoreGuideChev"></i>Show Guide
@@ -223,12 +223,12 @@
                         <!-- Question 1: Do I need to create tables? -->
                         <div class="alert mb-4" style="background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.25);border-radius:12px;">
                             <h6 class="fw-bold" style="color:#16a34a;"><i class="fas fa-question-circle me-2"></i>Do I need to create the database tables manually on the new server?</h6>
-                            <p class="mb-2"><strong>Short answer: No — if you restore from a backup dump, the tables are included automatically.</strong></p>
+                            <p class="mb-2"><strong>Short answer: No &mdash; if you restore from a backup dump, the tables are included automatically.</strong></p>
                             <p class="mb-2">The <code>.dump</code> file (created by pg_dump) contains <em>everything</em>: the table structure (schema), all your data (patients, RX records, users, settings), and all relationships. When you run <code>pg_restore</code>, PostgreSQL recreates it all from scratch.</p>
                             <p class="mb-2"><strong>The two scenarios:</strong></p>
                             <ul class="mb-0">
-                                <li><strong>Restoring from backup</strong> → Run <code>pg_restore</code>. Tables + data are created automatically. <span class="text-success">No migrations needed.</span></li>
-                                <li><strong>Fresh install (no backup)</strong> → Run <code>setup.bat</code> (included in the project). It runs migrations to create empty tables and seeds a default admin account.</li>
+                                <li><strong>Restoring from backup</strong> &rarr; Run <code>pg_restore</code>. Tables + data are created automatically. <span class="text-success">No migrations needed.</span></li>
+                                <li><strong>Fresh install (no backup)</strong> &rarr; Run <code>setup.bat</code> (included in the project). It runs migrations to create empty tables and seeds a default admin account.</li>
                             </ul>
                         </div>
 
@@ -250,7 +250,7 @@
                         <div id="restorePanel-fromBackup">
                             <!-- PART 1: Dependencies -->
                             <h6 class="fw-bold text-uppercase mb-3" style="color:#16a34a;letter-spacing:.06em;">
-                                <i class="fas fa-download me-2"></i>Part 1 — Install Dependencies on the New Computer
+                                <i class="fas fa-download me-2"></i>Part 1 &mdash; Install Dependencies on the New Computer
                             </h6>
                             <div class="table-responsive mb-4">
                                 <table class="table table-bordered align-middle small">
@@ -282,7 +282,7 @@
 
                             <!-- PART 2: Steps -->
                             <h6 class="fw-bold text-uppercase mb-3" style="color:#16a34a;letter-spacing:.06em;">
-                                <i class="fas fa-list-ol me-2"></i>Part 2 — Step-by-Step Restore Process
+                                <i class="fas fa-list-ol me-2"></i>Part 2 &mdash; Step-by-Step Restore Process
                             </h6>
                             <div class="d-flex flex-column gap-3">
 
@@ -314,12 +314,12 @@ TZ=America/New_York                               &lt;-- your timezone</code></p
                                 <div class="p-3 rounded-3" style="background:var(--bg-subtle,#f8fafc);border-left:3px solid #22c55e;">
                                     <div class="d-flex align-items-center gap-2 mb-2">
                                         <span class="badge rounded-circle" style="background:#22c55e;min-width:24px;height:24px;line-height:24px;text-align:center;">3</span>
-                                        <strong>Run setup.bat with restore mode — ONE COMMAND does everything</strong>
+                                        <strong>Run setup.bat with restore mode &mdash; ONE COMMAND does everything</strong>
                                     </div>
-                                    <p class="text-muted small mb-2">Open <strong>Command Prompt</strong> as Administrator (<kbd>Win</kbd> → type <code>cmd</code> → right-click → "Run as administrator"). Navigate to the project folder and run:</p>
+                                    <p class="text-muted small mb-2">Open <strong>Command Prompt</strong> as Administrator (<kbd>Win</kbd> &rarr; type <code>cmd</code> &rarr; right-click &rarr; "Run as administrator"). Navigate to the project folder and run:</p>
                                     <pre class="rounded p-2 mb-2 small" style="background:#1e293b;color:#e2e8f0;"><code>cd C:\PatientRX
 setup.bat restore db_backup.dump</code></pre>
-                                    <p class="text-muted small mb-0">This script: ① checks PostgreSQL ② creates the database ③ restores all your data from the dump ④ runs <code>npm install</code> automatically. Done.</p>
+                                    <p class="text-muted small mb-0">This script: &#9312; checks PostgreSQL &#9313; creates the database &#9314; restores all your data from the dump &#9315; runs <code>npm install</code> automatically. Done.</p>
                                 </div>
 
                                 <!-- Step 4 -->
@@ -374,7 +374,7 @@ pm2 save</code></pre>
                                 <div class="p-3 rounded-3" style="background:var(--bg-subtle,#f8fafc);border-left:3px solid #3b82f6;">
                                     <div class="d-flex align-items-center gap-2 mb-2">
                                         <span class="badge rounded-circle" style="background:#3b82f6;min-width:24px;height:24px;line-height:24px;text-align:center;">3</span>
-                                        <strong>Run setup.bat (no arguments) — creates all tables automatically</strong>
+                                        <strong>Run setup.bat (no arguments) &mdash; creates all tables automatically</strong>
                                     </div>
                                     <pre class="rounded p-2 mb-2 small" style="background:#1e293b;color:#e2e8f0;"><code>cd C:\PatientRX
 setup.bat</code></pre>
@@ -383,10 +383,10 @@ setup.bat</code></pre>
                                 <div class="p-3 rounded-3" style="background:var(--bg-subtle,#f8fafc);border-left:3px solid #3b82f6;">
                                     <div class="d-flex align-items-center gap-2 mb-2">
                                         <span class="badge rounded-circle" style="background:#3b82f6;min-width:24px;height:24px;line-height:24px;text-align:center;">4</span>
-                                        <strong>Start the server — default login: admin / admin123</strong>
+                                        <strong>Start the server &mdash; default login: admin / admin123</strong>
                                     </div>
                                     <pre class="rounded p-2 mb-1 small" style="background:#1e293b;color:#e2e8f0;"><code>npm start</code></pre>
-                                    <p class="text-muted small mb-0"><strong>Change the admin password immediately after first login</strong> — go to User Management → edit the admin user.</p>
+                                    <p class="text-muted small mb-0"><strong>Change the admin password immediately after first login</strong> &mdash; go to User Management &rarr; edit the admin user.</p>
                                 </div>
                             </div>
                         </div><!-- /#restorePanel-freshInstall -->
@@ -603,7 +603,7 @@ setup.bat</code></pre>
         const result = await res.json();
         if (result.status === 'success') {
             const sz = result.size > 1048576 ? (result.size/1048576).toFixed(1) + ' MB' : (result.size/1024).toFixed(1) + ' KB';
-            showToast('\u2705 Site backup created! (' + sz + ') — saved to C:\\RX-SiteBackups\\', 'success');
+            showToast('\u2705 Site backup created! (' + sz + ') &mdash; saved to C:\\RX-SiteBackups\\', 'success');
         } else {
             showToast('Site backup failed: ' + (result.error || 'unknown error'), 'danger');
         }

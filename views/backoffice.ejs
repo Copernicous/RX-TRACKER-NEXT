@@ -5,7 +5,7 @@
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
     <script>document.documentElement.setAttribute('data-theme','dark');</script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Back Office â€” Data Control Center</title>
+    <title>Back Office &mdash; Data Control Center</title>
     <link href="/assets/bootstrap.min.css" rel="stylesheet">
     <link href="/assets/inter.css" rel="stylesheet">
     <link rel="stylesheet" href="/assets/fontawesome.all.min.css">
@@ -26,7 +26,7 @@
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
 
-        /* â”€â”€ Header â”€â”€ */
+        /* ── Header ── */
         .bo-header {
             background: linear-gradient(135deg, #0d1117 0%, #1a0a0a 50%, #0d1117 100%);
             border-bottom: 1px solid rgba(239,68,68,0.25);
@@ -56,21 +56,21 @@
         .btn-bo-primary { background: linear-gradient(135deg, #6366f1, #4f46e5); color: #fff; }
         .btn-bo-primary:hover { filter: brightness(1.1); transform: translateY(-1px); }
 
-        /* â”€â”€ Warning Banner â”€â”€ */
+        /* ── Warning Banner ── */
         .warning-banner { background: linear-gradient(135deg, rgba(239,68,68,0.1), rgba(220,38,38,0.05)); border: 1px solid rgba(239,68,68,0.2); border-radius: var(--radius); padding: 0.875rem 1.125rem; display: flex; align-items: flex-start; gap: 0.75rem; margin-bottom: 1.75rem; }
         .warning-banner i { color: var(--red); font-size: 1.1rem; margin-top: 0.1rem; flex-shrink: 0; }
         .warning-banner p { margin: 0; font-size: 0.82rem; color: #fca5a5; line-height: 1.5; }
 
-        /* â”€â”€ Stats â”€â”€ */
+        /* ── Stats ── */
         .stats-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 0.65rem; margin-bottom: 1.75rem; }
         .stat-pill { background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.7rem 1rem; text-align: center; }
         .stat-pill .num { font-size: 1.5rem; font-weight: 800; line-height: 1; margin-bottom: 0.15rem; }
         .stat-pill .lbl { font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
 
-        /* â”€â”€ Section Title â”€â”€ */
+        /* ── Section Title ── */
         .section-title { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted); margin-bottom: 0.75rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
 
-        /* â”€â”€ Table Cards â”€â”€ */
+        /* ── Table Cards ── */
         .tables-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 0.75rem; margin-bottom: 2rem; }
         .table-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem; position: relative; overflow: hidden; transition: all 0.2s; }
         .table-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, transparent, var(--card-color, #6366f1), transparent); opacity: 0; transition: opacity 0.2s; }
@@ -92,7 +92,7 @@
         .check-dot i { font-size: 0.6rem; opacity: 0; transition: opacity 0.2s; }
         .table-card.selected .check-dot i { opacity: 1; }
 
-        /* â”€â”€ Card action buttons â”€â”€ */
+        /* ── Card action buttons ── */
         .tc-actions { display: flex; gap: 0.4rem; margin-top: 0.625rem; }
         .tc-btn { flex: 1; border: none; border-radius: 6px; padding: 0.4rem 0.6rem; font-size: 0.72rem; font-weight: 600; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 0.3rem; }
         .tc-btn-view { background: rgba(99,102,241,0.12); border: 1px solid rgba(99,102,241,0.25); color: #a5b4fc; }
@@ -105,12 +105,12 @@
 
         .dep-badge { font-size: 0.6rem; background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.18); color: #fca5a5; border-radius: 4px; padding: 0.08rem 0.3rem; margin-top: 0.2rem; display: inline-block; }
 
-        /* â”€â”€ Action Bar â”€â”€ */
+        /* ── Action Bar ── */
         .action-bar { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem 1.25rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; position: sticky; bottom: 1.25rem; box-shadow: 0 4px 40px rgba(0,0,0,0.5); }
         .selected-count { font-size: 0.82rem; color: var(--text-muted); }
         .selected-count strong { color: var(--text); }
 
-        /* â”€â”€ Data Viewer Overlay â”€â”€ */
+        /* ── Data Viewer Overlay ── */
         .viewer-overlay {
             position: fixed; inset: 0; background: rgba(0,0,0,0.88); backdrop-filter: blur(8px);
             z-index: 9000; display: none; flex-direction: column;
@@ -179,7 +179,7 @@
         .pag-btn.active { background: rgba(99,102,241,0.2); border-color: rgba(99,102,241,0.4); color: #a5b4fc; }
         .pag-size { background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px; color: var(--text-muted); padding: 0.28rem 0.5rem; font-size: 0.75rem; cursor: pointer; }
 
-        /* â”€â”€ Confirm Purge Modal â”€â”€ */
+        /* ── Confirm Purge Modal ── */
         .bo-modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.82); backdrop-filter: blur(6px); z-index: 9500; display: none; align-items: center; justify-content: center; }
         .bo-modal-backdrop.show { display: flex; }
         .bo-modal { background: var(--surface); border: 1px solid rgba(239,68,68,0.3); border-radius: 20px; width: 100%; max-width: 520px; margin: 1rem; overflow: hidden; animation: modalIn 0.2s ease; }
@@ -200,7 +200,7 @@
         .confirm-input:focus { border-color: rgba(239,68,68,0.4); }
         .confirm-input.valid { border-color: rgba(239,68,68,0.65); background: rgba(239,68,68,0.05); }
 
-        /* â”€â”€ Toast â”€â”€ */
+        /* ── Toast ── */
         .bo-toast-wrap { position: fixed; top: 1.25rem; right: 1.25rem; z-index: 9999; display: flex; flex-direction: column; gap: 0.4rem; }
         .bo-toast { background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.65rem 1.1rem; font-size: 0.8rem; font-weight: 500; min-width: 240px; box-shadow: 0 4px 20px rgba(0,0,0,0.4); animation: toastIn 0.2s ease; display: flex; align-items: center; gap: 0.45rem; }
         @keyframes toastIn { from { transform: translateX(28px); opacity: 0; } to { transform: none; opacity: 1; } }
@@ -208,19 +208,19 @@
         .bo-toast.danger  { border-color: rgba(239,68,68,0.4);  color: #fca5a5; }
         .bo-toast.info    { border-color: rgba(99,102,241,0.4); color: #a5b4fc; }
 
-        /* â”€â”€ Denied / misc â”€â”€ */
+        /* ── Denied / misc ── */
         .denied-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 60vh; text-align: center; gap: 1rem; }
         .main-wrap { max-width: 1200px; margin: 0 auto; padding: 1.75rem 1.5rem 6rem; }
         .spinner-sm { width: 13px; height: 13px; border: 2px solid rgba(255,255,255,0.25); border-top-color: #fff; border-radius: 50%; animation: spin 0.65s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
 
-        /* â”€â”€ Tab Nav â”€â”€ */
+        /* ── Tab Nav ── */
         .tab-nav { display:flex; gap:0.25rem; margin-bottom:1.5rem; background:var(--surface-2); border:1px solid var(--border); border-radius:10px; padding:0.3rem; }
         .tab-btn { flex:1; border:none; border-radius:7px; padding:0.55rem 1rem; font-size:0.8rem; font-weight:600; cursor:pointer; transition:all 0.2s; color:var(--text-muted); background:transparent; }
         .tab-btn.active { background:var(--surface); color:var(--text); box-shadow:0 1px 8px rgba(0,0,0,0.3); }
         .tab-btn i { margin-right:0.4rem; }
 
-        /* â”€â”€ Schema Panel â”€â”€ */
+        /* ── Schema Panel ── */
         .schema-wrap { display:none; }
         .schema-wrap.show { display:block; }
         .schema-layout { display:grid; grid-template-columns:260px 1fr; gap:1rem; align-items:start; min-height:500px; }
@@ -274,13 +274,13 @@
 </head>
 <body>
 
-<!-- â”€â”€ Header â”€â”€ -->
+<!-- ── Header ── -->
 <header class="bo-header">
     <div class="bo-brand">
         <div class="bo-brand-icon"><i class="fas fa-skull-crossbones"></i></div>
         <div>
             <h1>Data Control Center</h1>
-            <small>âš  Back Office â€” Administrator Only</small>
+            <small>&#9888; Back Office &mdash; Administrator Only</small>
         </div>
     </div>
     <div style="display:flex;align-items:center;gap:0.75rem">
@@ -290,7 +290,7 @@
     </div>
 </header>
 
-<!-- â”€â”€ Main â”€â”€ -->
+<!-- ── Main ── -->
 <div class="main-wrap" id="mainWrap" style="display:none">
     <div class="warning-banner">
         <i class="fas fa-exclamation-triangle"></i>
@@ -376,7 +376,7 @@
         </div>
     </div>
 
-    <!-- â•â• Orphan Records Panel â•â• -->
+    <!-- ══ Orphan Records Panel ══ -->
     <div id="orphanContent" class="schema-wrap">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:0.75rem">
             <div>
@@ -391,7 +391,7 @@
         </div>
     </div>
 
-    <!-- â•â• Duplicate Patients Panel â•â• -->
+    <!-- ══ Duplicate Patients Panel ══ -->
     <div id="dupesContent" class="schema-wrap">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:0.75rem">
             <div>
@@ -410,7 +410,7 @@
         </div>
     </div>
 
-    <!-- â•â• Audit Log Panel â•â• -->
+    <!-- ══ Audit Log Panel ══ -->
     <div id="auditContent" class="schema-wrap">
         <!-- Filters -->
         <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1rem;margin-bottom:1rem">
@@ -435,7 +435,7 @@
         <div id="auditPagination" style="display:flex;gap:0.4rem;justify-content:center;flex-wrap:wrap;margin-top:1rem"></div>
     </div>
 
-    <!-- â•â• System Settings Panel â•â• -->
+    <!-- ══ System Settings Panel ══ -->
     <div id="settingsContent" class="schema-wrap">
         <div style="font-size:1rem;font-weight:700;margin-bottom:0.25rem">System Settings</div>
         <div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:1.5rem">Configure application and backup behaviour</div>
@@ -482,7 +482,7 @@
         </form>
     </div>
 
-    <!-- â•â• Backup Manager Panel â•â• -->
+    <!-- ══ Backup Manager Panel ══ -->
     <div id="backupsContent" class="schema-wrap">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:0.75rem">
             <div>
@@ -500,7 +500,7 @@
         </div>
     </div>
 
-    <!-- â•â• System Health Panel â•â• -->
+    <!-- ══ System Health Panel ══ -->
     <div id="healthContent" class="schema-wrap">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem">
             <div><div style="font-size:1rem;font-weight:700">System Health</div><div style="font-size:0.75rem;color:var(--text-muted)">Server, database, and table statistics</div></div>
@@ -511,7 +511,7 @@
         <div id="healthTables"><p style="text-align:center;padding:3rem;color:var(--text-muted)"><i class="fas fa-spinner fa-spin me-2"></i>Loading...</p></div>
     </div>
 
-    <!-- â•â• Lock Manager Panel â•â• -->
+    <!-- ══ Lock Manager Panel ══ -->
     <div id="locksContent" class="schema-wrap">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:0.75rem">
             <div><div style="font-size:1rem;font-weight:700">Patient Lock Manager</div><div style="font-size:0.75rem;color:var(--text-muted)">View and force-release active or stale patient record locks</div></div>
@@ -524,7 +524,7 @@
         <div id="locksList"><p style="text-align:center;padding:4rem;color:var(--text-muted)"><i class="fas fa-spinner fa-spin me-2"></i>Loading locks...</p></div>
     </div>
 
-    <!-- â•â• User Manager Panel â•â• -->
+    <!-- ══ User Manager Panel ══ -->
     <div id="usersContent" class="schema-wrap">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:0.75rem">
             <div><div style="font-size:1rem;font-weight:700">User Manager</div><div style="font-size:0.75rem;color:var(--text-muted)">View users, change roles, enable/disable accounts, reset passwords</div></div>
@@ -533,7 +533,7 @@
         <div id="usersList"><p style="text-align:center;padding:4rem;color:var(--text-muted)"><i class="fas fa-spinner fa-spin me-2"></i>Loading users...</p></div>
     </div>
 
-    <!-- â•â• Error Logs Panel â•â• -->
+    <!-- ══ Error Logs Panel ══ -->
     <div id="errlogContent" class="schema-wrap">
         <!-- Header -->
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:0.75rem">
@@ -645,13 +645,13 @@
     </div>
 
 
-    <!-- â•â• Analytics Panel â•â• -->
+    <!-- ══ Analytics Panel ══ -->
     <div id="analyticsContent" class="schema-wrap">
         <!-- Header -->
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:0.75rem">
             <div>
-                <div style="font-size:1rem;font-weight:700">ðŸ“Š Daily Analytics</div>
-                <div style="font-size:0.75rem;color:var(--text-muted)">Automated daily snapshots â€” captured every night at 00:05</div>
+                <div style="font-size:1rem;font-weight:700">📊 Daily Analytics</div>
+                <div style="font-size:0.75rem;color:var(--text-muted)">Automated daily snapshots &mdash; captured every night at 00:05</div>
             </div>
             <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
                 <input type="date" id="anlFrom" class="schema-search" style="margin:0" onchange="loadAnalytics()">
@@ -665,7 +665,7 @@
         <!-- KPI Cards (latest snapshot) -->
         <div id="anlKpiCards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:0.65rem;margin-bottom:1.5rem"></div>
 
-        <!-- Charts 2Ã—2 grid -->
+        <!-- Charts 2×2 grid -->
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.5rem" id="anlChartGrid">
             <!-- Chart 1: Patients -->
             <div class="schema-card" style="padding:1rem">
@@ -704,9 +704,9 @@
     </div>
 </div>
 
-<!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
 <!-- Data Viewer Overlay                                                     -->
-<!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
 <div class="viewer-overlay" id="viewerOverlay">
 
     <!-- Viewer Header -->
@@ -777,14 +777,14 @@
     </div>
 </div>
 
-<!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
 <!-- Row Delete Impact Modal                                                  -->
-<!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
 <div class="bo-modal-backdrop" id="impactBackdrop">
     <div class="bo-modal" style="max-width:560px">
         <div class="bo-modal-header">
             <i class="fas fa-exclamation-triangle" style="color:#f59e0b;font-size:1.1rem"></i>
-            <h5 style="color:#fde68a">Impact Analysis â€” Confirm Row Deletion</h5>
+            <h5 style="color:#fde68a">Impact Analysis &mdash; Confirm Row Deletion</h5>
         </div>
         <div class="bo-modal-body">
             <p style="font-size:0.8rem;color:var(--text-muted);margin-bottom:1rem">
@@ -813,9 +813,9 @@
     </div>
 </div>
 
-<!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
 <!-- Purge Confirm Modal                                                      -->
-<!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
 <div class="bo-modal-backdrop" id="confirmBackdrop">
     <div class="bo-modal">
         <div class="bo-modal-header">
@@ -842,7 +842,7 @@
 
 <div class="bo-toast-wrap" id="toastWrap"></div>
 
-<!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
 <script>
 const TOKEN = localStorage.getItem('token');
 const USER  = JSON.parse(localStorage.getItem('user') || '{}');
@@ -851,10 +851,10 @@ let tableMeta    = [];
 let tableCounts  = {};
 let selected     = new Set();
 
-// â”€â”€ Viewer state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Viewer state ──────────────────────────────────────────────────────────
 let viewerRows    = [];   // raw rows from API
 let viewerCols    = [];   // all column keys
-let viewerVis     = {};   // col key â†’ visible boolean
+let viewerVis     = {};   // col key &rarr; visible boolean
 let viewerFilter  = '';   // search string
 let viewerFiltRows = [];  // filtered subset
 let viewerPage    = 1;
@@ -863,7 +863,7 @@ let viewerSortCol = null;
 let viewerSortDir = 'asc';
 let viewerMeta    = null; // current table meta
 
-// â”€â”€ Auth Guard â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Auth Guard ────────────────────────────────────────────────────────────
 (function(){
     const roleId = USER.roleId || USER.role;
     const isAdmin = roleId === 1 || roleId === 'Administrator';
@@ -871,12 +871,12 @@ let viewerMeta    = null; // current table meta
         document.getElementById('deniedWrap').style.display = 'block';
     } else {
         document.getElementById('mainWrap').style.display = 'block';
-        document.getElementById('userBadge').textContent = (USER.firstName || '') + ' â€” Administrator';
+        document.getElementById('userBadge').textContent = (USER.firstName || '') + ' &mdash; Administrator';
         loadStats();
     }
 })();
 
-// â”€â”€ Load Stats â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Load Stats ────────────────────────────────────────────────────────────
 async function loadStats() {
     document.getElementById('refreshBtn').innerHTML = '<span class="spinner-sm"></span>';
     try {
@@ -902,7 +902,7 @@ function renderStatsRow() {
         <div class="stat-pill"><div class="num" style="color:#f59e0b">${selected.size}</div><div class="lbl">Selected</div></div>`;
 }
 
-// â”€â”€ Render Grid â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Render Grid ───────────────────────────────────────────────────────────
 function renderGrid() {
     document.getElementById('tablesGrid').innerHTML = tableMeta.map(t => {
         const count = tableCounts[t.key] ?? 0;
@@ -962,9 +962,9 @@ function updateActionBar() {
     document.getElementById('purgeBtn').disabled          = selected.size === 0;
 }
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ══════════════════════════════════════════════════════════════════════════
 // DATA VIEWER
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ══════════════════════════════════════════════════════════════════════════
 
 async function openViewer(tableKey) {
     viewerMeta = tableMeta.find(t => t.key === tableKey);
@@ -991,7 +991,7 @@ async function openViewer(tableKey) {
 
         viewerRows  = data.rows;
         viewerCols  = data.columns;
-        // Init visibility â€” all visible by default
+        // Init visibility &mdash; all visible by default
         viewerVis = {};
         viewerCols.forEach(c => { viewerVis[c] = true; });
 
@@ -1070,7 +1070,7 @@ function renderViewerTable() {
     const end      = ps ? Math.min(start + ps, total) : total;
     const pageRows = viewerFiltRows.slice(start, end);
 
-    document.getElementById('viewerInfo').textContent = `Showing ${start+1}â€“${end} of ${total.toLocaleString()} ${viewerFilter ? '(filtered)' : ''}`;
+    document.getElementById('viewerInfo').textContent = `Showing ${start+1}&ndash;${end} of ${total.toLocaleString()} ${viewerFilter ? '(filtered)' : ''}`;
 
     if (!pageRows.length) {
         document.getElementById('viewerTableWrap').innerHTML = `<p class="no-rows"><i class="fas fa-search me-2"></i>No records${viewerFilter ? ' match your search' : ''}.</p>`;
@@ -1101,11 +1101,11 @@ function renderViewerTable() {
         </td>`;
         const tds = visCols.map(c => {
             const val = row[c];
-            if (val === null || val === undefined) return `<td class="null-cell">â€”</td>`;
-            if (val === true  || val === 'true')   return `<td class="bool-true">âœ“ true</td>`;
-            if (val === false || val === 'false')   return `<td class="bool-false">âœ— false</td>`;
+            if (val === null || val === undefined) return `<td class="null-cell">&mdash;</td>`;
+            if (val === true  || val === 'true')   return `<td class="bool-true">&#10003; true</td>`;
+            if (val === false || val === 'false')   return `<td class="bool-false">✗ false</td>`;
             const str = String(val);
-            const display = str.length > 80 ? str.slice(0, 80) + 'â€¦' : str;
+            const display = str.length > 80 ? str.slice(0, 80) + '&hellip;' : str;
             return `<td title="${str.replace(/"/g,'&quot;')}">${display}</td>`;
         }).join('');
         return `<tr class="${isSel ? 'sel-row' : ''}">${checkTd}${tds}</tr>`;
@@ -1125,7 +1125,7 @@ function renderViewerTable() {
     updateViewerSelUI();
 }
 
-// â”€â”€ Row selection â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Row selection ─────────────────────────────────────────────────────────
 let viewerSelectedIds = new Set(); // string IDs, persists across pages
 
 function toggleRowSel(id, checked) {
@@ -1167,7 +1167,7 @@ function updateViewerSelUI() {
     if (cnt) cnt.textContent = n;
 }
 
-// â”€â”€ Row delete impact modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Row delete impact modal ───────────────────────────────────────────────
 async function openImpactModal() {
     if (!viewerSelectedIds.size || !viewerMeta) return;
     document.getElementById('impactBackdrop').classList.add('show');
@@ -1241,7 +1241,7 @@ async function executeRowDelete() {
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Delete failed');
         const cascadeInfo = Object.entries(data.results.cascaded || {}).map(([t,n]) => `${n} ${t}`).join(', ');
-        toast(`âœ“ Deleted ${data.results.deleted} row(s)${cascadeInfo ? ' + cascaded: ' + cascadeInfo : ''}`, 'success');
+        toast(`&#10003; Deleted ${data.results.deleted} row(s)${cascadeInfo ? ' + cascaded: ' + cascadeInfo : ''}`, 'success');
         closeImpactModal();
         viewerSelectedIds.clear();
         await openViewer(viewerMeta.key);
@@ -1253,27 +1253,27 @@ async function executeRowDelete() {
     }
 }
 function renderPagination(page, pages, total) {
-    document.getElementById('pagInfo').textContent = `Page ${page} of ${pages} â€” ${total.toLocaleString()} rows`;
+    document.getElementById('pagInfo').textContent = `Page ${page} of ${pages} &mdash; ${total.toLocaleString()} rows`;
     const ctrl = document.getElementById('pagControls');
     if (pages <= 1) { ctrl.innerHTML = ''; return; }
 
-    let html = `<button class="pag-btn" onclick="goPage(1)" ${page===1?'disabled':''}>Â«</button>`;
-    html    += `<button class="pag-btn" onclick="goPage(${page-1})" ${page===1?'disabled':''}>â€¹</button>`;
+    let html = `<button class="pag-btn" onclick="goPage(1)" ${page===1?'disabled':''}>«</button>`;
+    html    += `<button class="pag-btn" onclick="goPage(${page-1})" ${page===1?'disabled':''}>‹</button>`;
 
     const range = 2;
     let lo = Math.max(1, page - range), hi = Math.min(pages, page + range);
-    if (lo > 1) html += `<button class="pag-btn" onclick="goPage(1)">1</button>${lo > 2 ? '<span style="color:var(--text-muted);padding:0 4px">â€¦</span>' : ''}`;
+    if (lo > 1) html += `<button class="pag-btn" onclick="goPage(1)">1</button>${lo > 2 ? '<span style="color:var(--text-muted);padding:0 4px">&hellip;</span>' : ''}`;
     for (let i = lo; i <= hi; i++) html += `<button class="pag-btn ${i===page?'active':''}" onclick="goPage(${i})">${i}</button>`;
-    if (hi < pages) html += `${hi < pages-1 ? '<span style="color:var(--text-muted);padding:0 4px">â€¦</span>' : ''}<button class="pag-btn" onclick="goPage(${pages})">${pages}</button>`;
+    if (hi < pages) html += `${hi < pages-1 ? '<span style="color:var(--text-muted);padding:0 4px">&hellip;</span>' : ''}<button class="pag-btn" onclick="goPage(${pages})">${pages}</button>`;
 
-    html += `<button class="pag-btn" onclick="goPage(${page+1})" ${page===pages?'disabled':''}>â€º</button>`;
-    html += `<button class="pag-btn" onclick="goPage(${pages})" ${page===pages?'disabled':''}>Â»</button>`;
+    html += `<button class="pag-btn" onclick="goPage(${page+1})" ${page===pages?'disabled':''}>›</button>`;
+    html += `<button class="pag-btn" onclick="goPage(${pages})" ${page===pages?'disabled':''}>»</button>`;
     ctrl.innerHTML = html;
 }
 
 function goPage(p) { viewerPage = p; renderViewerTable(); }
 
-// â”€â”€ CSV Export â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── CSV Export ────────────────────────────────────────────────────────────
 function exportCurrentTable() {
     if (!viewerMeta) return;
     exportRowsAsCSV(viewerMeta.key, viewerMeta.label, viewerFiltRows, viewerCols.filter(c => viewerVis[c]));
@@ -1287,7 +1287,7 @@ async function exportTable(tableKey) {
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Load failed');
         exportRowsAsCSV(tableKey, meta?.label || tableKey, data.rows, data.columns);
-        toast(`âœ“ Exported ${data.total.toLocaleString()} records from ${meta?.label || tableKey}`, 'success');
+        toast(`&#10003; Exported ${data.total.toLocaleString()} records from ${meta?.label || tableKey}`, 'success');
     } catch(e) { toast('Export failed: ' + e.message, 'danger'); }
 }
 
@@ -1313,9 +1313,9 @@ function exportRowsAsCSV(tableKey, label, rows, cols) {
     URL.revokeObjectURL(url);
 }
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ══════════════════════════════════════════════════════════════════════════
 // PURGE CONFIRM
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ══════════════════════════════════════════════════════════════════════════
 function openConfirm() {
     if (selected.size === 0) return;
     document.getElementById('confirmSummary').innerHTML = [...selected].map(key => {
@@ -1354,14 +1354,14 @@ async function executePurge() {
         if (!res.ok) throw new Error(data.error || 'Purge failed');
         closeConfirm();
         const totalDel = Object.values(data.results).reduce((a,b)=>a+b, 0);
-        toast(`âœ“ Purged ${Object.keys(data.results).length} table(s) â€” ${totalDel.toLocaleString()} records deleted`, 'success');
+        toast(`&#10003; Purged ${Object.keys(data.results).length} table(s) &mdash; ${totalDel.toLocaleString()} records deleted`, 'success');
         selected.clear();
         await loadStats();
     } catch(e) { toast('Error: ' + e.message, 'danger'); }
     finally { btn.disabled = false; sp.style.display = 'none'; ic.style.display = 'inline-block'; }
 }
 
-// â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Helpers ───────────────────────────────────────────────────────────────
 async function apiFetch(url, opts = {}) {
     const res = await fetch(url, { ...opts, headers: { 'Authorization': 'Bearer ' + TOKEN, ...(opts.headers || {}) } });
     if (res.status === 401) { window.location.href = '/login'; return res; }
@@ -1378,9 +1378,9 @@ function toast(msg, type = 'info') {
     setTimeout(() => el.remove(), 5000);
 }
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ══════════════════════════════════════════════════════════════════════════
 // TAB SWITCHER
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ══════════════════════════════════════════════════════════════════════════
 function switchTab(tab) {
     const tabs  = ['tables','schema','orphans','dupes','audit','settings','backups','health','locks','users','errlog','analytics'];
     const ids   = { tables:'tablesContent', schema:'schemaContent', orphans:'orphanContent', dupes:'dupesContent', audit:'auditContent', settings:'settingsContent', backups:'backupsContent', health:'healthContent', locks:'locksContent', users:'usersContent', errlog:'errlogContent', analytics:'analyticsContent' };
@@ -1404,9 +1404,9 @@ function switchTab(tab) {
     if (tab === 'analytics' && !analyticsLoaded) loadAnalytics();
 }
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ══════════════════════════════════════════════════════════════════════════
 // SCHEMA & RELATIONSHIPS
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ══════════════════════════════════════════════════════════════════════════
 let schemaData     = null;   // full API response
 let schemaFiltered = [];     // filtered tables list
 let activeSchemaTable = null;
@@ -1545,9 +1545,9 @@ function renderAllFKList() {
         </div>`).join('')}`;
 }
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ══════════════════════════════════════════════════════════════════════════
 // ORPHAN RECORD DETECTOR
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ══════════════════════════════════════════════════════════════════════════
 let orphanData = null;
 
 async function loadOrphans() {
@@ -1572,7 +1572,7 @@ function renderOrphans() {
         <div style="background:${d.clean ? 'rgba(16,185,129,0.08)' : 'rgba(251,191,36,0.08)'};border:1px solid ${d.clean ? 'rgba(16,185,129,0.2)' : 'rgba(251,191,36,0.2)'};border-radius:8px;padding:0.75rem 1rem;display:flex;align-items:center;gap:0.75rem">
             <i class="fas ${statusIcon}" style="color:${statusColor};font-size:1.2rem"></i>
             <div>
-                <div style="font-weight:700;color:${statusColor}">${d.clean ? 'âœ” Database is clean' : 'âš  ' + d.totalOrphans.toLocaleString() + ' orphaned record(s) found'}</div>
+                <div style="font-weight:700;color:${statusColor}">${d.clean ? '✔ Database is clean' : '&#9888; ' + d.totalOrphans.toLocaleString() + ' orphaned record(s) found'}</div>
                 <div style="font-size:0.75rem;color:var(--text-muted)">${d.results.length} FK relationships checked</div>
             </div>
         </div>`;
@@ -1586,13 +1586,13 @@ function renderOrphans() {
                         <span style="font-family:monospace;font-size:0.82rem;color:${r.clean ? 'var(--text)' : '#fbbf24'}">
                             ${r.childTable}.<span style="color:#a5b4fc">${r.childCol}</span>
                         </span>
-                        <span style="color:var(--text-muted);margin:0 0.4rem">â†’</span>
+                        <span style="color:var(--text-muted);margin:0 0.4rem">&rarr;</span>
                         <span style="font-family:monospace;font-size:0.82rem;color:var(--text-muted)">${r.parentTable}.${r.parentCol}</span>
                     </div>
                 </div>
                 <div style="display:flex;align-items:center;gap:0.75rem">
                     <span style="font-size:0.85rem;font-weight:700;color:${r.clean ? '#6ee7b7' : '#f59e0b'}">
-                        ${r.clean ? 'âœ” Clean' : r.orphanCount.toLocaleString() + ' orphans'}
+                        ${r.clean ? '✔ Clean' : r.orphanCount.toLocaleString() + ' orphans'}
                     </span>
                     ${!r.clean ? `<button class="btn-bo btn-bo-danger" onclick="cleanOrphans('${r.childTable}','${r.childCol}','${r.parentTable}','${r.parentCol}',this)" style="padding:0.3rem 0.7rem;font-size:0.72rem">
                         <i class="fas fa-broom me-1"></i>Clean Up
@@ -1614,14 +1614,14 @@ async function cleanOrphans(childTable, childCol, parentTable, parentCol, btn) {
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Clean failed');
-        toast(`âœ“ Cleaned ${data.deleted} orphaned rows from ${childTable}`, 'success');
+        toast(`&#10003; Cleaned ${data.deleted} orphaned rows from ${childTable}`, 'success');
         await loadOrphans(); // re-scan
     } catch(e) { toast('Clean failed: ' + e.message, 'danger'); btn.disabled = false; btn.innerHTML = '<i class="fas fa-broom me-1"></i>Clean Up'; }
 }
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ══════════════════════════════════════════════════════════════════════════
 // DUPLICATE PATIENT FINDER
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ══════════════════════════════════════════════════════════════════════════
 let dupesData = null;
 let dupeTabMode = 'name'; // 'name' or 'phone'
 
@@ -1652,11 +1652,11 @@ function renderDupes() {
     const label  = dupeTabMode === 'name' ? 'full name' : 'phone number';
 
     if (!total) {
-        document.getElementById('dupesStatus').innerHTML = `<div style="background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.2);border-radius:8px;padding:0.75rem 1rem;color:#6ee7b7;font-weight:600">âœ” No duplicate patients found by ${label}.</div>`;
+        document.getElementById('dupesStatus').innerHTML = `<div style="background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.2);border-radius:8px;padding:0.75rem 1rem;color:#6ee7b7;font-weight:600">✔ No duplicate patients found by ${label}.</div>`;
         document.getElementById('dupesList').innerHTML = '';
         return;
     }
-    document.getElementById('dupesStatus').innerHTML = `<div style="background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.2);border-radius:8px;padding:0.75rem 1rem;color:#fbbf24;font-weight:600">âš  ${total} duplicate group(s) found by ${label}</div>`;
+    document.getElementById('dupesStatus').innerHTML = `<div style="background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.2);border-radius:8px;padding:0.75rem 1rem;color:#fbbf24;font-weight:600">&#9888; ${total} duplicate group(s) found by ${label}</div>`;
 
     document.getElementById('dupesList').innerHTML = groups.map(g => {
         const recs = typeof g.records === 'string' ? JSON.parse(g.records) : g.records;
@@ -1668,7 +1668,7 @@ function renderDupes() {
                         <div style="font-weight:600;font-size:0.85rem">${p.firstName} ${p.lastName}</div>
                         <div style="font-size:0.72rem;color:var(--text-muted)">
                             DOB: ${p.dob || '\u2014'} &bull; Phone: ${p.phone || '\u2014'} &bull;
-                            Added: ${p.createdAt ? new Date(p.createdAt).toLocaleDateString() : 'â€”'}
+                            Added: ${p.createdAt ? new Date(p.createdAt).toLocaleDateString() : '&mdash;'}
                             ${p.isActive === false ? '<span style="color:#fca5a5;margin-left:0.3rem">(inactive)</span>' : ''}
                         </div>
                     </div>
@@ -1698,15 +1698,15 @@ async function deleteDupPatient(id, btn) {
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Delete failed');
-        toast(`âœ“ Patient ${id} deleted`, 'success');
+        toast(`&#10003; Patient ${id} deleted`, 'success');
         await loadDupes();
         loadStats();
     } catch(e) { toast('Delete failed: ' + e.message, 'danger'); btn.disabled = false; btn.innerHTML = '<i class="fas fa-trash-alt me-1"></i>Delete'; }
 }
 
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ══════════════════════════════════════════════════════════════════════════
 // AUDIT LOG VIEWER
-// â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+// ══════════════════════════════════════════════════════════════════════════
 let auditLoaded = false;
 let auditCurrentPage = 1;
 let auditDebounceTimer = null;
@@ -1781,10 +1781,10 @@ async function loadAuditLogs(page) {
                     <td style="padding:0.45rem 0.875rem;color:var(--text-muted);white-space:nowrap">${new Date(r.createdAt).toLocaleString()}</td>
                     <td style="padding:0.45rem 0.875rem;white-space:nowrap">${r.firstName ? r.firstName + ' ' + r.lastName : (r.userId ? 'User #' + r.userId : '<span style="color:var(--text-muted)">System</span>')}</td>
                     <td style="padding:0.45rem 0.875rem;white-space:nowrap">
-                        <span style="font-size:0.65rem;font-weight:700;border-radius:4px;padding:0.15rem 0.45rem;background:${actionColor(r.action)}22;color:${actionColor(r.action)};border:1px solid ${actionColor(r.action)}44">${r.action || 'â€”'}</span>
+                        <span style="font-size:0.65rem;font-weight:700;border-radius:4px;padding:0.15rem 0.45rem;background:${actionColor(r.action)}22;color:${actionColor(r.action)};border:1px solid ${actionColor(r.action)}44">${r.action || '&mdash;'}</span>
                     </td>
-                    <td style="padding:0.45rem 0.875rem;color:#a5b4fc">${r.entity || 'â€”'}${r.entityId ? ' <span style="color:var(--text-muted);font-size:0.7rem">#' + r.entityId + '</span>' : ''}</td>
-                    <td style="padding:0.45rem 0.875rem;color:var(--text-muted);max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${String(r.details||'').replace(/"/g,'&quot;')}">${r.details || 'â€”'}</td>
+                    <td style="padding:0.45rem 0.875rem;color:#a5b4fc">${r.entity || '&mdash;'}${r.entityId ? ' <span style="color:var(--text-muted);font-size:0.7rem">#' + r.entityId + '</span>' : ''}</td>
+                    <td style="padding:0.45rem 0.875rem;color:var(--text-muted);max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${String(r.details||'').replace(/"/g,'&quot;')}">${r.details || '&mdash;'}</td>
                 </tr>`).join('')}
                 </tbody>
             </table></div>`;
@@ -1794,9 +1794,9 @@ async function loadAuditLogs(page) {
         if (data.pages > 1) {
             if (page > 1) pag += `<button class="pag-btn" onclick="loadAuditLogs(${page-1})">&#8249;</button>`;
             const lo = Math.max(1, page-2), hi = Math.min(data.pages, page+2);
-            if (lo > 1) pag += `<button class="pag-btn" onclick="loadAuditLogs(1)">1</button>${lo>2 ? '<span style="padding:0 4px;color:var(--text-muted)">â€¦</span>' : ''}`;
+            if (lo > 1) pag += `<button class="pag-btn" onclick="loadAuditLogs(1)">1</button>${lo>2 ? '<span style="padding:0 4px;color:var(--text-muted)">&hellip;</span>' : ''}`;
             for (let i=lo; i<=hi; i++) pag += `<button class="pag-btn ${i===page?'active':''}" onclick="loadAuditLogs(${i})">${i}</button>`;
-            if (hi < data.pages) pag += `${hi<data.pages-1 ? '<span style="padding:0 4px;color:var(--text-muted)">â€¦</span>' : ''}<button class="pag-btn" onclick="loadAuditLogs(${data.pages})">${data.pages}</button>`;
+            if (hi < data.pages) pag += `${hi<data.pages-1 ? '<span style="padding:0 4px;color:var(--text-muted)">&hellip;</span>' : ''}<button class="pag-btn" onclick="loadAuditLogs(${data.pages})">${data.pages}</button>`;
             if (page < data.pages) pag += `<button class="pag-btn" onclick="loadAuditLogs(${page+1})">&#8250;</button>`;
         }
         document.getElementById('auditPagination').innerHTML = pag;

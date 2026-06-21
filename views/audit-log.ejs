@@ -104,7 +104,7 @@
                         <i class="fas fa-trash me-1"></i>Delete Selected (<span id="selCount">0</span>)
                     </button>
                     <div class="vr"></div>
-                    <span class="small">Rotate — remove entries older than</span>
+                    <span class="small">Rotate &mdash; remove entries older than</span>
                     <select class="form-select form-select-sm" style="width:auto" id="rotateDays">
                         <option value="30">30 days</option>
                         <option value="60">60 days</option>
@@ -162,7 +162,7 @@
 
                 <!-- Pagination -->
                 <div class="d-flex justify-content-between align-items-center mt-3 flex-wrap gap-2">
-                    <small class="text-muted" id="pgInfo">—</small>
+                    <small class="text-muted" id="pgInfo">&mdash;</small>
                     <nav><ul class="pagination pagination-sm mb-0" id="pgNav"></ul></nav>
                 </div>
             </div>
@@ -321,7 +321,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     } catch(e) {}
 
-    // Load filter dropdowns in parallel — failures are non-fatal
+    // Load filter dropdowns in parallel &mdash; failures are non-fatal
     await Promise.allSettled([loadUserFilter(), loadModuleFilter()]);
 
     // Load first page
@@ -463,7 +463,7 @@ function renderTable() {
             ? '<span class="fw-semibold text-primary" style="font-size:.82rem">' + lbl + '</span>'
             : (log.recordId ? '<code>#' + log.recordId + '</code>' : '<span class="text-muted">-</span>');
 
-        // Data cell — readable summary
+        // Data cell &mdash; readable summary
         let dataCell = '<span class="text-muted">-</span>';
         let nv = log.newValue;
         if (typeof nv === 'string') { try { nv = JSON.parse(nv); } catch(e) { nv = null; } }
@@ -497,7 +497,7 @@ function renderTable() {
             }
 
             if (parts.length) {
-                const preview = parts.slice(0, 2).join(' · ');
+                const preview = parts.slice(0, 2).join(' &middot; ');
                 const more    = parts.length > 2 ? ' <small class="text-muted">+' + (parts.length - 2) + ' more</small>' : '';
                 dataCell = '<span class="data-cell" onclick="showDetail(' + log.id + ')" title="Click for full detail" style="cursor:pointer;font-size:.82rem">'
                          + preview + more + '</span>';
@@ -537,18 +537,18 @@ function renderPagination() {
     const start = Math.min((currentPage - 1) * pageSize + 1, totalCount);
     const end   = Math.min(currentPage * pageSize, totalCount);
     document.getElementById('pgInfo').textContent =
-        `Showing ${start.toLocaleString()}–${end.toLocaleString()} of ${totalCount.toLocaleString()} entries`;
+        `Showing ${start.toLocaleString()}&ndash;${end.toLocaleString()} of ${totalCount.toLocaleString()} entries`;
 
     const nav = document.getElementById('pgNav');
     let html = `<li class="page-item${currentPage===1?' disabled':''}"><a class="page-link" href="#" onclick="goPage(${currentPage-1});return false;">&laquo;</a></li>`;
 
     const lo = Math.max(1, currentPage - 2);
     const hi = Math.min(pages, currentPage + 2);
-    if (lo > 1) html += `<li class="page-item disabled"><a class="page-link">…</a></li>`;
+    if (lo > 1) html += `<li class="page-item disabled"><a class="page-link">&hellip;</a></li>`;
     for (let i = lo; i <= hi; i++) {
         html += `<li class="page-item${i===currentPage?' active':''}"><a class="page-link" href="#" onclick="goPage(${i});return false;">${i}</a></li>`;
     }
-    if (hi < pages) html += `<li class="page-item disabled"><a class="page-link">…</a></li>`;
+    if (hi < pages) html += `<li class="page-item disabled"><a class="page-link">&hellip;</a></li>`;
     html += `<li class="page-item${currentPage>=pages?' disabled':''}"><a class="page-link" href="#" onclick="goPage(${currentPage+1});return false;">&raquo;</a></li>`;
     nav.innerHTML = html;
 }
@@ -591,7 +591,7 @@ function formatVal(key, val) {
         const d = new Date(s);
         return isNaN(d) ? s : d.toLocaleDateString();
     }
-    return s.length > 120 ? s.substring(0,120) + '…' : s;
+    return s.length > 120 ? s.substring(0,120) + '&hellip;' : s;
 }
 
 function showDetail(id) {
@@ -599,7 +599,7 @@ function showDetail(id) {
     if (!log) return;
 
     // Modal title
-    document.getElementById('detailModalTitle').innerHTML = '<i class="fas fa-file-alt me-2"></i>Change Details — ' + (log.module || 'System') + ' #' + (log.recordId || log.id);
+    document.getElementById('detailModalTitle').innerHTML = '<i class="fas fa-file-alt me-2"></i>Change Details &mdash; ' + (log.module || 'System') + ' #' + (log.recordId || log.id);
 
     // Action color
     const actionColors = { Create:'success', Update:'primary', Delete:'danger', Login:'info', Logout:'secondary', Restore:'warning', Disable:'danger' };
@@ -671,8 +671,8 @@ function showDetail(id) {
                     const lbl = FIELD_LABELS[k] || k.replace(/([A-Z])/g,' $1').replace(/^./,s=>s.toUpperCase());
                     return `<tr>
                         <td class="fw-semibold text-muted small" style="text-transform:uppercase;letter-spacing:.04em">${lbl}</td>
-                        <td style="background:rgba(220,53,69,0.06)">${ov !== undefined ? formatVal(k,ov) : '<span class="text-muted fst-italic">—</span>'}</td>
-                        <td style="background:rgba(25,135,84,0.06)">${nv !== undefined ? formatVal(k,nv) : '<span class="text-muted fst-italic">—</span>'}</td>
+                        <td style="background:rgba(220,53,69,0.06)">${ov !== undefined ? formatVal(k,ov) : '<span class="text-muted fst-italic">&mdash;</span>'}</td>
+                        <td style="background:rgba(25,135,84,0.06)">${nv !== undefined ? formatVal(k,nv) : '<span class="text-muted fst-italic">&mdash;</span>'}</td>
                     </tr>`;
                 }).join('')}
                 </tbody>
@@ -837,10 +837,10 @@ async function loadErrors() {
         var sevBadge = e.severity === 'error'
             ? '<span class="badge bg-danger">Error</span>'
             : '<span class="badge bg-secondary">Warning</span>';
-        var user2  = e.User ? (e.User.username || e.User.firstName) : '<span class="text-muted">—</span>';
-        var dt     = e.createdAt ? new Date(e.createdAt).toLocaleString() : '—';
-        var msg    = (e.message || '').substring(0, 80) + (e.message && e.message.length > 80 ? '…' : '');
-        var urlShort = (e.url || '—').replace(/^https?:\/\/[^/]+/, '').substring(0, 40) || '—';
+        var user2  = e.User ? (e.User.username || e.User.firstName) : '<span class="text-muted">&mdash;</span>';
+        var dt     = e.createdAt ? new Date(e.createdAt).toLocaleString() : '&mdash;';
+        var msg    = (e.message || '').substring(0, 80) + (e.message && e.message.length > 80 ? '&hellip;' : '');
+        var urlShort = (e.url || '&mdash;').replace(/^https?:\/\/[^/]+/, '').substring(0, 40) || '&mdash;';
         var status2 = e.resolved
             ? '<span class="badge bg-success">Resolved</span>'
             : '<span class="badge bg-danger">Open</span>';
@@ -925,7 +925,7 @@ async function resolveError(id) {
 
 async function unresolveError(id) {
     // Re-open a resolved error by patching resolved=false via update
-    showToast('Re-open not available — use filters to view open/resolved separately.', 'secondary');
+    showToast('Re-open not available &mdash; use filters to view open/resolved separately.', 'secondary');
 }
 
 async function clearResolvedErrors() {

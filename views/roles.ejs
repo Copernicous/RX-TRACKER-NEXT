@@ -160,7 +160,7 @@
 <script src="/js/app.js"></script>
 <script src="/js/help.js"></script>
 <script>
-// â”€â”€ Module definitions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Module definitions ────────────────────────────────────────────────────────
 const MODULE_DEFS = [
     { key: 'dashboard',          label: 'Dashboard',             group: 'Core',      hasUndo: false, visibleLocked: true },
     { key: 'patients',           label: 'Patients',              group: 'Core',      hasUndo: false },
@@ -182,13 +182,13 @@ const MODULE_DEFS = [
 
 const GROUP_COLORS = { Core: '#0d6efd', Admin: '#fd7e14', Settings: '#6c757d', 'Admin-Only': '#dc3545' };
 
-// â”€â”€ State â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── State ─────────────────────────────────────────────────────────────────────
 let allRoles    = [];
 let editingId   = null;  // null = new role
 let deletingId  = null;
 let roleDefaults = {};
 
-// â”€â”€ Init â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Init ──────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
     initApp();
     await Promise.all([loadRoles(), loadDefaults()]);
@@ -207,7 +207,7 @@ async function loadDefaults() {
     renderMatrix();
 }
 
-// â”€â”€ Roles Table â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Roles Table ───────────────────────────────────────────────────────────────
 function renderRolesTable() {
     const tbody = document.getElementById('rolesTableBody');
     if (!allRoles.length) {
@@ -247,7 +247,7 @@ function renderRolesTable() {
     }).join('');
 }
 
-// â”€â”€ Permission Matrix (read-only overview) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Permission Matrix (read-only overview) ────────────────────────────────────
 function renderMatrix() {
     const container = document.getElementById('permMatrixContainer');
     if (!Object.keys(roleDefaults).length) {
@@ -319,7 +319,7 @@ function renderMatrix() {
         </div>`;
 }
 
-// â”€â”€ Role Modal (create / edit) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Role Modal (create / edit) ────────────────────────────────────────────────
 async function openRoleModal(id) {
     editingId = id;
     const isNew = (id === null);
@@ -386,10 +386,10 @@ function buildPermEditor(perms) {
             </tr>`;
         }
 
-        const dash = '<span class="text-muted">â€”</span>';
+        const dash = '<span class="text-muted">&mdash;</span>';
 
         if (m.visibleLocked) {
-            // Dashboard â€” always visible, no write actions
+            // Dashboard &mdash; always visible, no write actions
             return groupRow + `<tr data-module="${m.key}">
                 <td class="ps-3 fw-semibold">${m.label} <span class="badge bg-secondary ms-1" style="font-size:.6rem">Always On</span></td>
                 <td class="text-center"><input type="checkbox" class="form-check-input perm-visible" checked disabled></td>
@@ -411,9 +411,9 @@ function buildPermEditor(perms) {
             // Patient notes: canAdd = can add notes, canDelete = can delete notes, no canEdit
             return groupRow + `<tr data-module="${m.key}" style="background:rgba(255,193,7,.04)">
                 <td class="ps-3 fw-semibold">${m.label} <span class="badge bg-warning text-dark ms-1" style="font-size:.6rem">Per-patient</span></td>
-                <td class="text-center"><span class="text-muted" title="Always visible">â€”</span></td>
+                <td class="text-center"><span class="text-muted" title="Always visible">&mdash;</span></td>
                 <td class="text-center" title="Can add new notes"><input type="checkbox" class="form-check-input perm-canadd" ${p.canAdd ? 'checked' : ''}></td>
-                <td class="text-center" title="Cannot edit existing notes (notes are immutable)"><span class="text-muted">â€”</span></td>
+                <td class="text-center" title="Cannot edit existing notes (notes are immutable)"><span class="text-muted">&mdash;</span></td>
                 <td class="text-center" title="Can delete notes"><input type="checkbox" class="form-check-input perm-candelete" ${p.canDelete ? 'checked' : ''}></td>
                 <td class="text-center">${dash}</td><td class="text-center">${dash}</td><td class="text-center">${dash}</td><td class="text-center">${dash}</td>
             </tr>`;
@@ -426,7 +426,7 @@ function buildPermEditor(perms) {
                <td class="text-center" title="Can return to warehouse"><input type="checkbox" class="form-check-input perm-canwarehouse"  ${p.canWarehouse  ? 'checked' : ''}></td>`
             : `<td class="text-center">${dash}</td><td class="text-center">${dash}</td><td class="text-center">${dash}</td>`;
 
-        // For rx_records with hasWorkflow, canAdd is shown in workflow column â€” hide from standard Add column
+        // For rx_records with hasWorkflow, canAdd is shown in workflow column &mdash; hide from standard Add column
         const addCell = m.hasWorkflow
             ? `<td class="text-center">${dash}</td>`
             : `<td class="text-center"><input type="checkbox" class="form-check-input perm-canadd"   ${p.canAdd   ? 'checked' : ''}></td>`;
@@ -465,7 +465,7 @@ function readPermEditor() {
     // Patient notes: no canEdit (notes are immutable once written)
     if (perms.patient_notes) perms.patient_notes.canEdit = false;
     // RX Records: canAdd is shown as 'Complete' column in the workflow section
-    // (already read from .perm-canadd â€” no extra action needed)
+    // (already read from .perm-canadd &mdash; no extra action needed)
     return perms;
 }
 

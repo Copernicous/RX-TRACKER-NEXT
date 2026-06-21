@@ -227,7 +227,7 @@
                 const data = await res.json();
 
                 if (res.ok && data.requires2FA) {
-                    // 2FA required â€” show second step
+                    // 2FA required &mdash; show second step
                     window._2faTempToken = data.tempToken;
                     document.getElementById('loginForm').classList.add('d-none');
                     document.getElementById('twoFAStep').classList.remove('d-none');
