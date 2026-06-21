@@ -39,18 +39,21 @@ if (process.env.FORCE_HTTPS === 'true') {
 // ── Security headers (Helmet) ─────────────────────────────────────────────────
 app.use(helmet({
     contentSecurityPolicy: {
+        useDefaults: false,  // Prevent Helmet adding upgrade-insecure-requests by default
         directives: {
             defaultSrc:     ["'self'"],
             scriptSrc:      ["'self'", "'unsafe-inline'", 'cdn.jsdelivr.net', 'cdnjs.cloudflare.com'],
-            // REQUIRED: app uses inline onclick="..." handlers throughout — allow them
-            scriptSrcAttr:  ["'unsafe-inline'"],
+            scriptSrcAttr:  ["'unsafe-inline'"],  // Required: app uses inline onclick handlers
             styleSrc:       ["'self'", "'unsafe-inline'", 'cdn.jsdelivr.net', 'cdnjs.cloudflare.com', 'fonts.googleapis.com'],
             fontSrc:        ["'self'", 'fonts.gstatic.com', 'cdnjs.cloudflare.com'],
             imgSrc:         ["'self'", 'data:', 'blob:'],
             connectSrc:     ["'self'"],
             frameSrc:       ["'none'"],
             objectSrc:      ["'none'"],
-            // Only add upgradeInsecureRequests when HTTPS is forced (Helmet rejects false/null)
+            baseUri:        ["'self'"],
+            formAction:     ["'self'"],
+            frameAncestors: ["'self'"],
+            // upgradeInsecureRequests intentionally omitted — only add when HTTPS is configured
             ...(process.env.FORCE_HTTPS === 'true' ? { upgradeInsecureRequests: [] } : {})
         }
     },
