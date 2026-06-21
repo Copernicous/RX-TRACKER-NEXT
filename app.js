@@ -43,10 +43,11 @@ app.get('/favicon.ico', (req, res) => res.status(204).end());
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Routes (to be added)
-const authRoutes = require('./routes/authRoutes');
-const apiRoutes = require('./routes/apiRoutes');
+const authRoutes   = require('./routes/authRoutes');
+const apiRoutes    = require('./routes/apiRoutes');
 const importRoutes = require('./routes/importRoutes');
-const webRoutes = require('./routes/webRoutes');
+const webRoutes    = require('./routes/webRoutes');
+const webAuth      = require('./middleware/webAuth');
 
 // Tag each sub-router with its mount prefix so routeInspector can read it
 authRoutes._mountPrefix   = '/api/auth';
@@ -57,7 +58,7 @@ webRoutes._mountPrefix    = '/';
 app.use('/api/auth',    authRoutes);
 app.use('/api/import',  importRoutes);
 app.use('/api',         apiRoutes);
-app.use('/',            webRoutes);
+app.use('/',            webAuth, webRoutes);   // webAuth decodes rxToken cookie → res.locals.userPerms
 
 
 

@@ -1,32 +1,48 @@
 <%#
-  Shared sidebar partial.
-  Expects: locals.activePage — one of:
-    'dashboard' | 'patients' | 'rx-records' |
-    'pharmacies' | 'patient-transport' | 'pharmacy-transport' | 'clinics' |
-    'workflow-actions' | 'medication-catalog' |
-    'reports' | 'audit-log' | 'import' |
-    'roles' | 'users' | 'system-settings' | 'backups'
+  Shared sidebar partial — server-side permission-aware.
+  Uses res.locals.userPerms set by middleware/webAuth.js from the rxToken cookie.
+  If userPerms is null (no cookie yet), all items are shown and client JS handles auth redirect.
+%>
+<%
+  // Build a visible-set from userPerms
+  const UP = locals.userPerms || null;
+  // Returns true if visible (permissive when no perms — JS redirect handles it)
+  function sv(key) {
+    if (!UP) return true;
+    const p = UP[key];
+    return !!(p && p.visible);
+  }
+
+  const ap = locals.activePage || '';
+  const refActive   = ['pharmacies','patient-transport','pharmacy-transport','clinics'].includes(ap);
+  const rptActive   = ['reports','audit-log'].includes(ap);
+  const adminActive = ['workflow-actions','medication-catalog','roles','users','system-settings','backups','import'].includes(ap);
+
+  const refVisible   = sv('pharmacies') || sv('patient_transport') || sv('pharmacy_transport') || sv('clinics');
+  const rptVisible   = sv('reports') || sv('audit_log');
+  const adminVisible = sv('workflow_actions') || sv('medication_catalog') || sv('users') || sv('backups') || sv('system_settings') || sv('import');
 %>
 <nav id="sidebar">
     <div class="sidebar-header"><i class="fas fa-pills me-2"></i>Patient RX</div>
     <ul class="list-unstyled components">
 
-        <!-- Core Navigation -->
-        <li class="<%= locals.activePage === 'dashboard'   ? 'active' : '' %>">
+        <li class="<%= ap === 'dashboard' ? 'active' : '' %>">
             <a href="/dashboard"><i class="fas fa-tachometer-alt me-2"></i>Dashboard</a>
         </li>
-        <li class="<%= locals.activePage === 'patients'    ? 'active' : '' %>">
+
+        <% if (!UP || sv('patients')) { %>
+        <li class="<%= ap === 'patients' ? 'active' : '' %>">
             <a href="/patients"><i class="fas fa-user-injured me-2"></i>Patients</a>
         </li>
-        <li class="<%= locals.activePage === 'rx-records'  ? 'active' : '' %>">
+        <% } %>
+
+        <% if (!UP || sv('rx_records')) { %>
+        <li class="<%= ap === 'rx-records' ? 'active' : '' %>">
             <a href="/rx-records"><i class="fas fa-prescription me-2"></i>RX Records</a>
         </li>
+        <% } %>
 
-        <!-- Reference Data — operational lookup tables that all staff may need -->
-        <%
-          const refPages = ['pharmacies','patient-transport','pharmacy-transport','clinics'];
-          const refActive = refPages.includes(locals.activePage);
-        %>
+        <% if (!UP || refVisible) { %>
         <li>
             <a href="#refDataSubmenu" data-bs-toggle="collapse"
                aria-expanded="<%= refActive ? 'true' : 'false' %>"
@@ -34,26 +50,31 @@
                 <i class="fas fa-book-open me-2"></i>Reference Data
             </a>
             <ul class="collapse <%= refActive ? 'show' : '' %> list-unstyled ps-3" id="refDataSubmenu">
-                <li class="<%= locals.activePage === 'pharmacies'         ? 'active' : '' %>">
+                <% if (!UP || sv('pharmacies')) { %>
+                <li class="<%= ap === 'pharmacies' ? 'active' : '' %>">
                     <a href="/pharmacies"><i class="fas fa-clinic-medical me-2"></i>Pharmacies</a>
                 </li>
-                <li class="<%= locals.activePage === 'patient-transport'  ? 'active' : '' %>">
+                <% } %>
+                <% if (!UP || sv('patient_transport')) { %>
+                <li class="<%= ap === 'patient-transport' ? 'active' : '' %>">
                     <a href="/patient-transport"><i class="fas fa-ambulance me-2"></i>Patient Transport</a>
                 </li>
-                <li class="<%= locals.activePage === 'pharmacy-transport' ? 'active' : '' %>">
+                <% } %>
+                <% if (!UP || sv('pharmacy_transport')) { %>
+                <li class="<%= ap === 'pharmacy-transport' ? 'active' : '' %>">
                     <a href="/pharmacy-transport"><i class="fas fa-truck me-2"></i>Pharmacy Transport</a>
                 </li>
-                <li class="<%= locals.activePage === 'clinics'            ? 'active' : '' %>">
+                <% } %>
+                <% if (!UP || sv('clinics')) { %>
+                <li class="<%= ap === 'clinics' ? 'active' : '' %>">
                     <a href="/clinics"><i class="fas fa-hospital me-2"></i>Clinics</a>
                 </li>
+                <% } %>
             </ul>
         </li>
+        <% } %>
 
-        <!-- Reports -->
-        <%
-          const rptPages = ['reports','audit-log'];
-          const rptActive = rptPages.includes(locals.activePage);
-        %>
+        <% if (!UP || rptVisible) { %>
         <li>
             <a href="#reportsSubmenu" data-bs-toggle="collapse"
                aria-expanded="<%= rptActive ? 'true' : 'false' %>"
@@ -61,20 +82,21 @@
                 <i class="fas fa-chart-bar me-2"></i>Reports
             </a>
             <ul class="collapse <%= rptActive ? 'show' : '' %> list-unstyled ps-3" id="reportsSubmenu">
-                <li class="<%= locals.activePage === 'reports'   ? 'active' : '' %>">
+                <% if (!UP || sv('reports')) { %>
+                <li class="<%= ap === 'reports' ? 'active' : '' %>">
                     <a href="/reports"><i class="fas fa-chart-pie me-2"></i>Analytics &amp; Export</a>
                 </li>
-                <li class="<%= locals.activePage === 'audit-log' ? 'active' : '' %>">
+                <% } %>
+                <% if (!UP || sv('audit_log')) { %>
+                <li class="<%= ap === 'audit-log' ? 'active' : '' %>">
                     <a href="/audit-log"><i class="fas fa-history me-2"></i>Audit Log</a>
                 </li>
+                <% } %>
             </ul>
         </li>
+        <% } %>
 
-        <!-- Administration — config & user management, admin-only -->
-        <%
-          const adminPages = ['workflow-actions','medication-catalog','roles','users','system-settings','backups','import'];
-          const adminActive = adminPages.includes(locals.activePage);
-        %>
+        <% if (!UP || adminVisible) { %>
         <li>
             <a href="#adminSubmenu" data-bs-toggle="collapse"
                aria-expanded="<%= adminActive ? 'true' : 'false' %>"
@@ -82,29 +104,42 @@
                 <i class="fas fa-cogs me-2"></i>Administration
             </a>
             <ul class="collapse <%= adminActive ? 'show' : '' %> list-unstyled ps-3" id="adminSubmenu">
-                <li class="<%= locals.activePage === 'workflow-actions'   ? 'active' : '' %>">
+                <% if (!UP || sv('workflow_actions')) { %>
+                <li class="<%= ap === 'workflow-actions' ? 'active' : '' %>">
                     <a href="/workflow-actions"><i class="fas fa-tasks me-2"></i>Workflow Actions</a>
                 </li>
-                <li class="<%= locals.activePage === 'medication-catalog' ? 'active' : '' %>">
+                <% } %>
+                <% if (!UP || sv('medication_catalog')) { %>
+                <li class="<%= ap === 'medication-catalog' ? 'active' : '' %>">
                     <a href="/medication-catalog"><i class="fas fa-clipboard-list me-2"></i>RX Actions</a>
                 </li>
-                <li class="<%= locals.activePage === 'roles'             ? 'active' : '' %>">
+                <% } %>
+                <% if (!UP || sv('users')) { %>
+                <li class="<%= ap === 'roles' ? 'active' : '' %>">
                     <a href="/roles"><i class="fas fa-shield-alt me-2"></i>Roles</a>
                 </li>
-                <li class="<%= locals.activePage === 'users'             ? 'active' : '' %>">
+                <li class="<%= ap === 'users' ? 'active' : '' %>">
                     <a href="/users"><i class="fas fa-users-cog me-2"></i>User Management</a>
                 </li>
-                <li class="<%= locals.activePage === 'system-settings'   ? 'active' : '' %>">
+                <% } %>
+                <% if (!UP || sv('system_settings')) { %>
+                <li class="<%= ap === 'system-settings' ? 'active' : '' %>">
                     <a href="/system-settings"><i class="fas fa-sliders-h me-2"></i>System Settings</a>
                 </li>
-                <li class="<%= locals.activePage === 'backups'           ? 'active' : '' %>">
+                <% } %>
+                <% if (!UP || sv('backups')) { %>
+                <li class="<%= ap === 'backups' ? 'active' : '' %>">
                     <a href="/backups"><i class="fas fa-database me-2"></i>Backups</a>
                 </li>
-                <li class="<%= locals.activePage === 'import'            ? 'active' : '' %>">
+                <% } %>
+                <% if (!UP || sv('import')) { %>
+                <li class="<%= ap === 'import' ? 'active' : '' %>">
                     <a href="/import"><i class="fas fa-file-import me-2"></i>Data Import</a>
                 </li>
+                <% } %>
             </ul>
         </li>
+        <% } %>
 
     </ul>
 </nav>

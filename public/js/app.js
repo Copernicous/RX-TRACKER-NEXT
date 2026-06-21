@@ -309,17 +309,18 @@ function checkAuth() {
             '/patients':           'patients',
             '/rx-records':         'rx_records',
             '/reports':            'reports',
+            '/audit-log':          'audit_log',
             '/import':             'import',
             '/pharmacies':         'pharmacies',
             '/patient-transport':  'patient_transport',
             '/pharmacy-transport': 'pharmacy_transport',
-            '/workflow-actions':   'workflow_actions',
             '/clinics':            'clinics',
+            '/workflow-actions':   'workflow_actions',
             '/medication-catalog': 'medication_catalog',
+            '/roles':              'users',         // roles page = admin, tied to users perm
             '/users':              'users',
             '/backups':            'backups',
-            '/system-settings':    'system_settings',
-            '/audit-log':          'audit_log'
+            '/system-settings':    'system_settings'
         };
 
         const role = user.role;
@@ -351,22 +352,25 @@ function checkAuth() {
             }
         });
 
-        // Hide settings submenu toggler if all submenus are hidden
-        const settingsSubmenu = document.getElementById('settingsSubmenu');
-        if (settingsSubmenu) {
-            const visibleItems = settingsSubmenu.querySelectorAll('li:not(.d-none)');
-            const settingsToggleA = document.querySelector('#sidebar a[href="#settingsSubmenu"]');
-            if (settingsToggleA) {
-                const settingsToggleLi = settingsToggleA.closest('li');
-                if (settingsToggleLi) {
+        // For each submenu group: hide the group header if ALL its child items are hidden.
+        // Works with the new sidebar structure: refDataSubmenu, reportsSubmenu, adminSubmenu.
+        ['refDataSubmenu', 'reportsSubmenu', 'adminSubmenu'].forEach(function(menuId) {
+            const submenu = document.getElementById(menuId);
+            if (!submenu) return;
+            const allItems   = submenu.querySelectorAll('li');
+            const visibleItems = submenu.querySelectorAll('li:not(.d-none)');
+            const toggleA  = document.querySelector('#sidebar a[href="#' + menuId + '"]');
+            if (toggleA) {
+                const toggleLi = toggleA.closest('li');
+                if (toggleLi) {
                     if (visibleItems.length === 0) {
-                        settingsToggleLi.classList.add('d-none');
+                        toggleLi.classList.add('d-none');
                     } else {
-                        settingsToggleLi.classList.remove('d-none');
+                        toggleLi.classList.remove('d-none');
                     }
                 }
             }
-        }
+        });
 
         // Redirect on direct URL load if visible=false
         const currentPath = window.location.pathname;
@@ -400,6 +404,8 @@ function setupLogout() {
         } catch(e) { /* non-fatal */ }
         localStorage.removeItem('token');
         localStorage.removeItem('user');
+        // Clear the server-side session cookie
+        document.cookie = 'rxToken=; path=/; max-age=0; SameSite=Strict';
         window.location.href = '/login';
     });
 }

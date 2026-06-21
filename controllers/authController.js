@@ -19,8 +19,12 @@ exports.login = async (req, res) => {
             return res.status(401).json({ message: 'Invalid credentials' });
         }
 
+        // Permissions come from the Role record — fall back to built-in if not yet seeded
+        const rolePerms = user.Role.permissions ||
+            (BUILT_IN_DEFAULTS[user.Role.name] ? BUILT_IN_DEFAULTS[user.Role.name]() : {});
+
         const token = jwt.sign(
-            { id: user.id, username: user.username, role: user.Role.name },
+            { id: user.id, username: user.username, role: user.Role.name, permissions: rolePerms },
             process.env.JWT_SECRET,
             { expiresIn: '8h' }
         );
@@ -34,10 +38,6 @@ exports.login = async (req, res) => {
             action:    'Login',
             ipAddress: req.ip
         });
-
-        // Permissions come from the Role record — fall back to built-in if not yet seeded
-        const rolePerms = user.Role.permissions ||
-            (BUILT_IN_DEFAULTS[user.Role.name] ? BUILT_IN_DEFAULTS[user.Role.name]() : {});
 
         res.json({
             message: 'Login successful',
