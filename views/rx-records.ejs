@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en" data-theme="light">
 <head>
     <script>!function(){var t=localStorage.getItem("rxTheme");if(t)document.documentElement.setAttribute("data-theme",t)}();</script>
@@ -402,7 +402,7 @@
             const expBtn = document.getElementById('exportRxListCsvBtn');
             if (expBtn) expBtn.classList.add('d-none');
         }
-        if (!rxPerms.canEdit) {
+        if (!rxPerms.canAdd) {
             const addBtn = document.getElementById('addRxBtn');
             if (addBtn) addBtn.classList.add('d-none');
         }

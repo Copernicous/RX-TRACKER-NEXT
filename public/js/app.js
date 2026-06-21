@@ -785,7 +785,8 @@ function getPagePerms() {
         if (!p) return fullAccess;
         // Permission entry EXISTS → any unset action defaults to FALSE (least privilege)
         return {
-            visible:   p.visible   !== undefined ? !!p.visible   : true,  // visibility still defaults true
+            visible:   p.visible   !== undefined ? !!p.visible   : true,
+            canAdd:    p.canAdd    !== undefined ? !!p.canAdd    : false,
             canEdit:   p.canEdit   !== undefined ? !!p.canEdit   : false,
             canDelete: p.canDelete !== undefined ? !!p.canDelete : false,
             canExport: p.canExport !== undefined ? !!p.canExport : false,
@@ -868,7 +869,7 @@ function renderTable() {
     var expBtn = document.getElementById('exportCsvBtn');
     if (expBtn) { if (!p.canExport) expBtn.classList.add('d-none'); else expBtn.classList.remove('d-none'); }
     var addBtn = document.getElementById('addNewBtn');
-    if (addBtn) { if (!p.canEdit) addBtn.classList.add('d-none'); else addBtn.classList.remove('d-none'); }
+    if (addBtn) { if (!p.canAdd) addBtn.classList.add('d-none'); else addBtn.classList.remove('d-none'); }
 
     // Pagination
     var pi = document.getElementById('pageInfo');
@@ -1021,6 +1022,45 @@ function openModal(id) {
 
     var modal = new bootstrap.Modal(document.getElementById('crudModal'));
     modal.show();
+
+    // Show the save button only if the user has the right permission for this operation:
+    // Adding a new record → requires canAdd
+    // Editing an existing record → requires canEdit
+    var saveCrudBtn = document.getElementById('saveCrudBtn');
+    if (saveCrudBtn) {
+        try {
+            var _u = JSON.parse(localStorage.getItem('user'));
+            var _perms = _u && (_u.permissions || {});
+            var _sidebarMap = {
+                '/patients':          'patients',
+                '/rx-records':        'rx_records',
+                '/pharmacies':        'pharmacies',
+                '/patient-transport': 'patient_transport',
+                '/pharmacy-transport':'pharmacy_transport',
+                '/clinics':           'clinics',
+                '/workflow-actions':  'workflow_actions',
+                '/medication-catalog':'medication_catalog',
+                '/users':             'users'
+            };
+            var _rawKey = Object.keys(_sidebarMap).find(function(k) { return window.location.pathname.startsWith(k); });
+            var _modKey = _rawKey ? _sidebarMap[_rawKey] : null;
+            var _mp = _modKey && _perms ? _perms[_modKey] : null;
+            if (_mp) {
+                var _canAdd  = _mp.canAdd  !== undefined ? !!_mp.canAdd  : false;
+                var _canEdit = _mp.canEdit !== undefined ? !!_mp.canEdit : false;
+                // id===null → adding; id is set → editing
+                if (id === null) {
+                    saveCrudBtn.style.display = _canAdd ? '' : 'none';
+                } else {
+                    saveCrudBtn.style.display = _canEdit ? '' : 'none';
+                }
+            } else {
+                saveCrudBtn.style.display = ''; // no restriction info — show by default
+            }
+        } catch(e) {
+            saveCrudBtn.style.display = '';
+        }
+    }
 
     document.getElementById('saveCrudBtn').onclick = function() { saveRecord(); };
 }
@@ -1526,12 +1566,13 @@ function applyReadOnlyRestrictions() {
     var perm = rawP
         ? {
             visible:   rawP.visible   !== undefined ? !!rawP.visible   : true,
+            canAdd:    rawP.canAdd    !== undefined ? !!rawP.canAdd    : false,
             canEdit:   rawP.canEdit   !== undefined ? !!rawP.canEdit   : false,
             canDelete: rawP.canDelete !== undefined ? !!rawP.canDelete : false,
             canExport: rawP.canExport !== undefined ? !!rawP.canExport : false,
             canUndo:   rawP.canUndo   !== undefined ? !!rawP.canUndo   : false
           }
-        : { visible: true, canEdit: true, canDelete: true, canExport: true, canUndo: true };
+        : { visible: true, canAdd: true, canEdit: true, canDelete: true, canExport: true, canUndo: true };
 
     // ---- hide EXPORT buttons ----
     if (!perm.canExport) {
@@ -1543,14 +1584,23 @@ function applyReadOnlyRestrictions() {
         });
     }
 
-    // ---- hide EDIT / ADD buttons ----
-    if (!perm.canEdit) {
-        ['addNewBtn','addPatientBtn','addRxBtn','savePatientBtn','saveRxBtn','saveCrudBtn','addMedBtn']
+    // ---- hide ADD buttons (requires canAdd) ----
+    if (!perm.canAdd) {
+        ['addNewBtn','addPatientBtn','addRxBtn','addMedBtn']
             .forEach(function(id) {
                 var el = document.getElementById(id);
                 if (el) el.classList.add('d-none');
             });
-        // edit-record buttons generated into tables
+    }
+
+    // ---- hide EDIT / SAVE buttons (requires canEdit) ----
+    if (!perm.canEdit) {
+        ['savePatientBtn','saveRxBtn','saveCrudBtn']
+            .forEach(function(id) {
+                var el = document.getElementById(id);
+                if (el) el.classList.add('d-none');
+            });
+        // Edit buttons generated into table rows
         document.querySelectorAll(
             'button[onclick*="editRecord"],button[onclick*="openPatientModal"],button[onclick*="completeStep"]'
         ).forEach(function(el) { el.classList.add('d-none'); });

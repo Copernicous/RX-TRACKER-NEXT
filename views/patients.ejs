@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en" data-theme="light">
 <head>
     <script>!function(){var t=localStorage.getItem("rxTheme");if(t)document.documentElement.setAttribute("data-theme",t)}();</script>
@@ -592,7 +592,7 @@
         // Apply permissions to top-level buttons
         const patPerms = getPagePerms();
         if (!patPerms.canExport) { const b = document.getElementById('exportPatientsCsvBtn'); if(b) b.classList.add('d-none'); }
-        if (!patPerms.canEdit)   { const b = document.getElementById('addPatientBtn');       if(b) b.classList.add('d-none'); }
+        if (!patPerms.canAdd)   { const b = document.getElementById('addPatientBtn');       if(b) b.classList.add('d-none'); }
     });
 
 
@@ -809,6 +809,17 @@
         document.getElementById('pClinicId').value = patient ? (patient.clinicId !== null && patient.clinicId !== undefined ? String(patient.clinicId) : '') : '';
         document.getElementById('pPharmacyId').value = patient ? (patient.pharmacyId !== null && patient.pharmacyId !== undefined ? String(patient.pharmacyId) : '') : '';
         new bootstrap.Modal(document.getElementById('patientModal')).show();
+        // Show/hide save button based on add vs edit permission
+        const _saveBtn = document.getElementById('savePatientBtn');
+        if (_saveBtn) {
+            try {
+                const _pu = JSON.parse(localStorage.getItem('user') || '{}');
+                const _pp = (_pu.permissions || {}).patients || {};
+                const _canAddPat  = _pp.canAdd  !== undefined ? !!_pp.canAdd  : true;
+                const _canEditPat = _pp.canEdit !== undefined ? !!_pp.canEdit : true;
+                _saveBtn.style.display = (id === null ? _canAddPat : _canEditPat) ? '' : 'none';
+            } catch(e) { _saveBtn.style.display = ''; }
+        }
         // Acquire soft lock if editing an existing patient
         if (id) acquireModalLock(id);
     }
