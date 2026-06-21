@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <script>!function(){var t=localStorage.getItem("rxTheme");if(t)document.documentElement.setAttribute("data-theme",t)}();</script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Backup Management - Patient RX System</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        .backup-card { border-left: 4px solid var(--primary); }
+        .status-success { color: #198754; }
+        .status-failed  { color: #dc3545; }
+        .status-running { color: #fd7e14; }
+        .schedule-preset { cursor:pointer; transition: all .15s; }
+        .schedule-preset:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,.1); }
+        .backup-row { animation: fadeIn .3s ease; }
+        @keyframes fadeIn { from{opacity:0;transform:translateY(4px)} to{opacity:1;transform:none} }
+    </style>
+</head>
+<body>
+<div class="wrapper">
+    <nav id="sidebar">
+        <div class="sidebar-header"><i class="fas fa-pills me-2"></i>Patient RX</div>
+        <ul class="list-unstyled components">
+            <li><a href="/dashboard"><i class="fas fa-tachometer-alt me-2"></i>Dashboard</a></li>
+            <li><a href="/patients"><i class="fas fa-user-injured me-2"></i>Patients</a></li>
+            <li><a href="/rx-records"><i class="fas fa-prescription me-2"></i>RX Records</a></li>
+            <li>
+                <a href="#settingsSubmenu" data-bs-toggle="collapse" aria-expanded="true" class="dropdown-toggle"><i class="fas fa-cogs me-2"></i>Settings</a>
+                <ul class="collapse show list-unstyled ps-3" id="settingsSubmenu">
+                    <li><a href="/pharmacies"><i class="fas fa-clinic-medical me-2"></i>Pharmacies</a></li>
+                    <li><a href="/patient-transport"><i class="fas fa-ambulance me-2"></i>Patient Transport</a></li>
+                    <li><a href="/pharmacy-transport"><i class="fas fa-truck me-2"></i>Pharmacy Transport</a></li>
+                    <li><a href="/workflow-actions"><i class="fas fa-tasks me-2"></i>Workflow Actions</a></li>
+                    <li><a href="/medication-catalog"><i class="fas fa-clipboard-list me-2"></i>RX Actions</a></li>
+                    <li><a href="/clinics"><i class="fas fa-hospital me-2"></i>Clinics</a></li>
+                    <li><a href="/users"><i class="fas fa-users-cog me-2"></i>User Management</a></li>
+                    <li><a href="/system-settings"><i class="fas fa-sliders-h me-2"></i>System Settings</a></li>
+                    <li class="active"><a href="/backups"><i class="fas fa-database me-2"></i>Backups</a></li>
+                </ul>
+            </li>
+            <li>
+                <a href="#reportsSubmenu" data-bs-toggle="collapse" aria-expanded="false" class="dropdown-toggle"><i class="fas fa-chart-bar me-2"></i>Reports</a>
+                <ul class="collapse list-unstyled ps-3" id="reportsSubmenu">
+                    <li><a href="/reports"><i class="fas fa-chart-pie me-2"></i>Analytics &amp; Export</a></li>
+                    <li><a href="/audit-log"><i class="fas fa-history me-2"></i>Audit Log</a></li>
+                </ul>
+            </li>
+            <li><a href="/import"><i class="fas fa-file-import me-2"></i>Data Import</a></li>
+        </ul>
+    </nav>
+
+    <div id="content">
+        <nav class="navbar navbar-expand-lg px-4 mb-4">
+            <button type="button" id="sidebarCollapse" class="btn btn-primary btn-sm"><i class="fas fa-bars"></i></button>
+            <span class="ms-3 fw-bold fs-5">Backup Management</span>
+            <div class="ms-auto d-flex align-items-center gap-3">
+                <button id="themeToggle" class="btn btn-outline-secondary btn-sm"><i class="fas fa-moon"></i></button>
+                <span id="userGreeting" class="text-muted small"></span>
+                <button id="logoutBtn" class="btn btn-danger btn-sm"><i class="fas fa-sign-out-alt me-1"></i>Logout</button>
+            </div>
+        </nav>
+
+        <div class="container-fluid px-4" id="mainContent">
+            <!-- Access Denied -->
+            <div id="accessDeniedPanel" class="d-none">
+                <div class="glass-card p-5 text-center my-5">
+                    <i class="fas fa-shield-alt text-danger mb-4" style="font-size:4rem"></i>
+                    <h3 class="mb-3">Access Denied</h3>
+                    <p class="text-muted mb-4">Only Administrators can manage backups.</p>
+                    <a href="/dashboard" class="btn btn-primary"><i class="fas fa-arrow-left me-2"></i>Back to Dashboard</a>
+                </div>
+            </div>
+
+            <!-- Main Panel -->
+            <div id="backupPanel" class="d-none">
+                <div class="row g-4 mb-4">
+                    <!-- Status Card -->
+                    <div class="col-lg-4">
+                        <div class="glass-card p-4 h-100">
+                            <h6 class="fw-bold mb-3"><i class="fas fa-info-circle me-2 text-primary"></i>Backup Status</h6>
+                            <div id="statusContent">
+                                <div class="text-center text-muted py-3"><i class="fas fa-spinner fa-spin"></i></div>
+                            </div>
+                            <hr>
+                            <button class="btn btn-primary w-100" id="runBackupBtn" onclick="runBackup()">
+                                <span id="runSpinner" class="spinner-border spinner-border-sm me-2 d-none"></span>
+                                <i class="fas fa-play me-2" id="runIcon"></i>Run Backup Now
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Schedule Card -->
+                    <div class="col-lg-8">
+                        <div class="glass-card p-4 h-100">
+                            <h6 class="fw-bold mb-3"><i class="fas fa-clock me-2 text-primary"></i>Schedule Configuration</h6>
+                            <p class="text-muted small mb-3">Use a cron expression to schedule automatic backups. Set to <code>off</code> to disable.</p>
+
+                            <div class="row g-2 mb-3">
+                                <div class="col-sm-4">
+                                    <div class="card p-2 text-center schedule-preset" onclick="setSchedule('0 2 * * *')">
+                                        <div class="fw-bold small">Daily</div>
+                                        <div class="text-muted" style="font-size:.75rem">Every day at 2:00 AM</div>
+                                        <code style="font-size:.7rem">0 2 * * *</code>
+                                    </div>
+                                </div>
+                                <div class="col-sm-4">
+                                    <div class="card p-2 text-center schedule-preset" onclick="setSchedule('0 2 * * 0')">
+                                        <div class="fw-bold small">Weekly</div>
+                                        <div class="text-muted" style="font-size:.75rem">Sundays at 2:00 AM</div>
+                                        <code style="font-size:.7rem">0 2 * * 0</code>
+                                    </div>
+                                </div>
+                                <div class="col-sm-4">
+                                    <div class="card p-2 text-center schedule-preset" onclick="setSchedule('0 2 1 * *')">
+                                        <div class="fw-bold small">Monthly</div>
+                                        <div class="text-muted" style="font-size:.75rem">1st of each month at 2:00 AM</div>
+                                        <code style="font-size:.7rem">0 2 1 * *</code>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="fas fa-code"></i></span>
+                                <input type="text" class="form-control font-monospace" id="cronInput" placeholder="e.g. 0 2 * * * or off">
+                                <button class="btn btn-outline-primary" onclick="saveSchedule()"><i class="fas fa-save me-1"></i>Save</button>
+                            </div>
+                            <div class="form-text mt-1" id="cronHelp">Format: minute hour day month weekday</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Backup History -->
+                <div class="glass-card p-4">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6 class="fw-bold mb-0"><i class="fas fa-history me-2 text-primary"></i>Database Backup History</h6>
+                        <button class="btn btn-sm btn-outline-secondary" onclick="loadStatus()"><i class="fas fa-sync-alt me-1"></i>Refresh</button>
+                    </div>
+                    <div id="historyContent">
+                        <div class="text-center text-muted py-3"><i class="fas fa-spinner fa-spin"></i></div>
+                    </div>
+                </div>
+
+                <!-- ══════════════════ FULL SITE BACKUP ══════════════════ -->
+                <div class="glass-card p-4 mt-4" style="border-left:4px solid #8b5cf6;">
+                    <div class="d-flex align-items-center gap-3 mb-4">
+                        <div style="width:48px;height:48px;border-radius:14px;background:linear-gradient(135deg,#8b5cf6,#6d28d9);
+                                    display:flex;align-items:center;justify-content:center;font-size:1.3rem;color:#fff;flex-shrink:0;">
+                            <i class="fas fa-file-archive"></i>
+                        </div>
+                        <div>
+                            <h6 class="fw-bold mb-0">Full Site Backup <span class="badge ms-2" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9);font-size:.65rem">ZIP</span></h6>
+                            <p class="text-muted small mb-0">Creates a complete ZIP of the application code <strong>+ a fresh database dump</strong> saved to <code id="siteBackupDirLabel">C:\RX-SiteBackups\</code> — outside the project folder. Use this to move the system to another computer.</p>
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mb-4">
+                        <!-- Status card -->
+                        <div class="col-lg-4">
+                            <div class="p-3 rounded-3 h-100" style="background:var(--bg-subtle,#f8fafc);border:1px solid var(--border-color,#e5e7eb);">
+                                <div class="d-flex flex-column gap-2 mb-3" id="siteStatusContent">
+                                    <div class="text-center text-muted py-2"><i class="fas fa-spinner fa-spin"></i></div>
+                                </div>
+                                <button class="btn btn-sm w-100 fw-semibold" id="runSiteBackupBtn"
+                                    style="background:linear-gradient(135deg,#8b5cf6,#6d28d9);color:#fff;border:none;"
+                                    onclick="runSiteBackup()">
+                                    <span id="siteSpinner" class="spinner-border spinner-border-sm me-2 d-none"></span>
+                                    <i class="fas fa-file-archive me-2" id="siteIcon"></i>Create Full Site Backup Now
+                                </button>
+                                <p class="text-muted text-center mt-2 mb-0" style="font-size:.72rem;">
+                                    <i class="fas fa-clock me-1"></i>Also runs automatically every <strong>Sunday at 3:00 AM</strong>
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- Schedule card -->
+                        <div class="col-lg-8">
+                            <div class="p-3 rounded-3 h-100" style="background:var(--bg-subtle,#f8fafc);border:1px solid var(--border-color,#e5e7eb);">
+                                <h6 class="fw-semibold small text-uppercase mb-3" style="color:#8b5cf6;letter-spacing:.06em">
+                                    <i class="fas fa-calendar-alt me-1"></i>Weekly Schedule
+                                </h6>
+                                <div class="row g-2 mb-3">
+                                    <div class="col-4">
+                                        <div class="card p-2 text-center schedule-preset" onclick="setSiteSchedule('0 3 * * 0')">
+                                            <div class="fw-bold small">Weekly</div>
+                                            <div class="text-muted" style="font-size:.73rem">Sundays 3:00 AM</div>
+                                            <code style="font-size:.68rem">0 3 * * 0</code>
+                                        </div>
+                                    </div>
+                                    <div class="col-4">
+                                        <div class="card p-2 text-center schedule-preset" onclick="setSiteSchedule('0 3 1 * *')">
+                                            <div class="fw-bold small">Monthly</div>
+                                            <div class="text-muted" style="font-size:.73rem">1st of month 3AM</div>
+                                            <code style="font-size:.68rem">0 3 1 * *</code>
+                                        </div>
+                                    </div>
+                                    <div class="col-4">
+                                        <div class="card p-2 text-center schedule-preset" onclick="setSiteSchedule('off')">
+                                            <div class="fw-bold small text-danger">Disable</div>
+                                            <div class="text-muted" style="font-size:.73rem">No auto backup</div>
+                                            <code style="font-size:.68rem">off</code>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="fas fa-code"></i></span>
+                                    <input type="text" class="form-control font-monospace" id="siteCronInput" placeholder="e.g. 0 3 * * 0 or off">
+                                    <button class="btn btn-outline-secondary" onclick="saveSiteSchedule()"><i class="fas fa-save me-1"></i>Save</button>
+                                </div>
+                                <div class="alert mt-3 mb-0 small" style="background:rgba(139,92,246,.07);border:1px solid rgba(139,92,246,.2);border-radius:10px;color:var(--text-muted,#64748b);">
+                                    <i class="fas fa-info-circle me-1" style="color:#8b5cf6"></i>
+                                    <strong>What is inside the ZIP?</strong> All application code + a fresh database dump as <code>db_backup.dump</code>. 
+                                    <strong>Excludes:</strong> <code>node_modules/</code>, <code>.git/</code>, <code>logs/</code> (regeneratable). 
+                                    Last <strong>5 ZIPs</strong> are kept automatically — older ones are deleted.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Site backup history -->
+                    <h6 class="fw-semibold small text-uppercase mb-2" style="color:#8b5cf6;letter-spacing:.06em">
+                        <i class="fas fa-history me-1"></i>Site Backup History
+                    </h6>
+                    <div id="siteHistoryContent">
+                        <div class="text-center text-muted py-3"><i class="fas fa-spinner fa-spin"></i></div>
+                    </div>
+                </div>
+
+                <!-- ══════════════════ RESTORE INSTRUCTIONS ══════════════════ -->
+                <div class="glass-card p-4 mt-4" id="restoreGuidePanel" style="border-left:4px solid #22c55e;">
+                    <div class="d-flex align-items-center gap-3 mb-4">
+                        <div style="width:48px;height:48px;border-radius:14px;background:linear-gradient(135deg,#16a34a,#22c55e);
+                                    display:flex;align-items:center;justify-content:center;font-size:1.3rem;color:#fff;flex-shrink:0;">
+                            <i class="fas fa-server"></i>
+                        </div>
+                        <div>
+                            <h5 class="fw-bold mb-0">How to Restore / Move to Another Server</h5>
+                            <p class="text-muted small mb-0">Complete step-by-step guide — dependencies, database setup, and restore process.</p>
+                        </div>
+                        <button class="btn btn-sm btn-outline-secondary ms-auto" onclick="toggleRestoreGuide()" id="restoreGuideToggleBtn">
+                            <i class="fas fa-chevron-down me-1" id="restoreGuideChev"></i>Show Guide
+                        </button>
+                    </div>
+
+                    <div id="restoreGuideBody" style="display:none;">
+
+                        <!-- Question 1: Do I need to create tables? -->
+                        <div class="alert mb-4" style="background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.25);border-radius:12px;">
+                            <h6 class="fw-bold" style="color:#16a34a;"><i class="fas fa-question-circle me-2"></i>Do I need to create the database tables manually on the new server?</h6>
+                            <p class="mb-2"><strong>Short answer: No — if you restore from a backup dump, the tables are included automatically.</strong></p>
+                            <p class="mb-2">The <code>.dump</code> file (created by pg_dump) contains <em>everything</em>: the table structure (schema), all your data (patients, RX records, users, settings), and all relationships. When you run <code>pg_restore</code>, PostgreSQL recreates it all from scratch.</p>
+                            <p class="mb-2"><strong>The two scenarios:</strong></p>
+                            <ul class="mb-0">
+                                <li><strong>Restoring from backup</strong> → Run <code>pg_restore</code>. Tables + data are created automatically. <span class="text-success">No migrations needed.</span></li>
+                                <li><strong>Fresh install (no backup)</strong> → Run <code>setup.bat</code> (included in the project). It runs migrations to create empty tables and seeds a default admin account.</li>
+                            </ul>
+                        </div>
+
+                        <!-- Step tabs -->
+                        <ul class="nav nav-pills mb-4 gap-2" id="restoreTabs">
+                            <li class="nav-item">
+                                <a class="nav-link active" href="#" onclick="showRestoreTab('fromBackup'); return false;" id="tab-fromBackup">
+                                    <i class="fas fa-file-archive me-1"></i>Restore from ZIP Backup
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="#" onclick="showRestoreTab('freshInstall'); return false;" id="tab-freshInstall">
+                                    <i class="fas fa-star me-1"></i>Fresh Install (No Backup)
+                                </a>
+                            </li>
+                        </ul>
+
+                        <!-- FROM BACKUP TAB -->
+                        <div id="restorePanel-fromBackup">
+                            <!-- PART 1: Dependencies -->
+                            <h6 class="fw-bold text-uppercase mb-3" style="color:#16a34a;letter-spacing:.06em;">
+                                <i class="fas fa-download me-2"></i>Part 1 — Install Dependencies on the New Computer
+                            </h6>
+                            <div class="table-responsive mb-4">
+                                <table class="table table-bordered align-middle small">
+                                    <thead class="table-dark">
+                                        <tr><th style="width:180px">Software</th><th>Why needed</th><th>Version</th><th style="width:180px">Download Link</th></tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td><i class="fas fa-server me-2" style="color:#22c55e"></i><strong>Node.js</strong></td>
+                                            <td>Runs the application server. Required for <code>npm install</code> and <code>npm start</code>.</td>
+                                            <td><span class="badge bg-success">v20 LTS or newer</span></td>
+                                            <td><a href="https://nodejs.org/en/download" target="_blank" class="btn btn-sm btn-outline-success w-100"><i class="fas fa-external-link-alt me-1"></i>nodejs.org</a></td>
+                                        </tr>
+                                        <tr>
+                                            <td><i class="fas fa-database me-2" style="color:#3b82f6"></i><strong>PostgreSQL</strong></td>
+                                            <td>The database engine. Stores all patient and RX data. Includes pg_dump and pg_restore tools.</td>
+                                            <td><span class="badge bg-primary">v14 or newer</span></td>
+                                            <td><a href="https://www.postgresql.org/download/windows/" target="_blank" class="btn btn-sm btn-outline-primary w-100"><i class="fas fa-external-link-alt me-1"></i>postgresql.org</a></td>
+                                        </tr>
+                                        <tr class="table-light">
+                                            <td colspan="4" class="text-muted" style="font-size:.78rem;">
+                                                <i class="fas fa-info-circle me-1"></i>
+                                                <strong>That is all you need to install.</strong> Everything else (Express, Sequelize, bcrypt, etc.) is installed automatically when you run <code>npm install</code> from the project folder.
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <!-- PART 2: Steps -->
+                            <h6 class="fw-bold text-uppercase mb-3" style="color:#16a34a;letter-spacing:.06em;">
+                                <i class="fas fa-list-ol me-2"></i>Part 2 — Step-by-Step Restore Process
+                            </h6>
+                            <div class="d-flex flex-column gap-3">
+
+                                <!-- Step 1 -->
+                                <div class="p-3 rounded-3" style="background:var(--bg-subtle,#f8fafc);border-left:3px solid #22c55e;">
+                                    <div class="d-flex align-items-center gap-2 mb-2">
+                                        <span class="badge rounded-circle" style="background:#22c55e;min-width:24px;height:24px;line-height:24px;text-align:center;">1</span>
+                                        <strong>Copy the Site Backup ZIP to the new computer</strong>
+                                    </div>
+                                    <p class="text-muted small mb-2">Use a USB drive, network share, or cloud storage. The file is named <code>RX_SiteBackup_YYYY-MM-DD.zip</code> and is located in <code>C:\RX-SiteBackups\</code> on this computer.</p>
+                                    <p class="text-muted small mb-0">Create a folder on the new computer, e.g. <code>C:\PatientRX\</code> and extract the ZIP there.</p>
+                                </div>
+
+                                <!-- Step 2 -->
+                                <div class="p-3 rounded-3" style="background:var(--bg-subtle,#f8fafc);border-left:3px solid #22c55e;">
+                                    <div class="d-flex align-items-center gap-2 mb-2">
+                                        <span class="badge rounded-circle" style="background:#22c55e;min-width:24px;height:24px;line-height:24px;text-align:center;">2</span>
+                                        <strong>Configure the .env file</strong>
+                                    </div>
+                                    <p class="text-muted small mb-2">In the extracted folder, find <code>.env.example</code>. Copy it and rename the copy to <code>.env</code>. Open it in Notepad and change:</p>
+                                    <pre class="rounded p-2 mb-0 small" style="background:#1e293b;color:#e2e8f0;"><code>DB_PASS=<span style="color:#4ade80">your_postgresql_password_here</span>   &lt;-- CHANGE THIS
+JWT_SECRET=<span style="color:#4ade80">any_long_random_phrase_here</span>    &lt;-- CHANGE THIS
+DB_HOST=127.0.0.1                                 &lt;-- keep as-is
+DB_NAME=patient_rx_dev                            &lt;-- keep as-is
+TZ=America/New_York                               &lt;-- your timezone</code></pre>
+                                </div>
+
+                                <!-- Step 3 -->
+                                <div class="p-3 rounded-3" style="background:var(--bg-subtle,#f8fafc);border-left:3px solid #22c55e;">
+                                    <div class="d-flex align-items-center gap-2 mb-2">
+                                        <span class="badge rounded-circle" style="background:#22c55e;min-width:24px;height:24px;line-height:24px;text-align:center;">3</span>
+                                        <strong>Run setup.bat with restore mode — ONE COMMAND does everything</strong>
+                                    </div>
+                                    <p class="text-muted small mb-2">Open <strong>Command Prompt</strong> as Administrator (<kbd>Win</kbd> → type <code>cmd</code> → right-click → "Run as administrator"). Navigate to the project folder and run:</p>
+                                    <pre class="rounded p-2 mb-2 small" style="background:#1e293b;color:#e2e8f0;"><code>cd C:\PatientRX
+setup.bat restore db_backup.dump</code></pre>
+                                    <p class="text-muted small mb-0">This script: ① checks PostgreSQL ② creates the database ③ restores all your data from the dump ④ runs <code>npm install</code> automatically. Done.</p>
+                                </div>
+
+                                <!-- Step 4 -->
+                                <div class="p-3 rounded-3" style="background:var(--bg-subtle,#f8fafc);border-left:3px solid #22c55e;">
+                                    <div class="d-flex align-items-center gap-2 mb-2">
+                                        <span class="badge rounded-circle" style="background:#22c55e;min-width:24px;height:24px;line-height:24px;text-align:center;">4</span>
+                                        <strong>Start the server and verify</strong>
+                                    </div>
+                                    <pre class="rounded p-2 mb-2 small" style="background:#1e293b;color:#e2e8f0;"><code>cd C:\PatientRX
+npm start</code></pre>
+                                    <p class="text-muted small mb-1">You should see: <code style="color:#22c55e">Server is running on port 3000</code></p>
+                                    <p class="text-muted small mb-0">Open your browser and go to <strong>http://localhost:3000</strong>. Log in with your existing admin account (restored from backup). All patients, RX records, settings, and users will be there.</p>
+                                </div>
+
+                                <!-- Step 5 optional -->
+                                <div class="p-3 rounded-3" style="background:rgba(34,197,94,.05);border-left:3px solid #86efac;">
+                                    <div class="d-flex align-items-center gap-2 mb-2">
+                                        <span class="badge rounded-circle" style="background:#86efac;color:#166534;min-width:24px;height:24px;line-height:24px;text-align:center;">5</span>
+                                        <strong>Optional: Auto-start on boot with PM2</strong>
+                                    </div>
+                                    <pre class="rounded p-2 mb-1 small" style="background:#1e293b;color:#e2e8f0;"><code>npm install -g pm2 pm2-windows-startup
+cd C:\PatientRX
+pm2 start pm2.config.js
+pm2-startup install
+pm2 save</code></pre>
+                                    <p class="text-muted small mb-0">After this, the server starts automatically every time Windows boots, even if you close the terminal.</p>
+                                </div>
+
+                            </div><!-- /steps -->
+                        </div><!-- /#restorePanel-fromBackup -->
+
+                        <!-- FRESH INSTALL TAB -->
+                        <div id="restorePanel-freshInstall" style="display:none;">
+                            <div class="alert" style="background:rgba(59,130,246,.07);border:1px solid rgba(59,130,246,.2);border-radius:12px;" >
+                                <i class="fas fa-info-circle me-1 text-primary"></i>
+                                Use this path if you do NOT have a backup dump and want to start with an empty database with a default admin account.
+                            </div>
+                            <div class="d-flex flex-column gap-3">
+                                <div class="p-3 rounded-3" style="background:var(--bg-subtle,#f8fafc);border-left:3px solid #3b82f6;">
+                                    <div class="d-flex align-items-center gap-2 mb-2">
+                                        <span class="badge rounded-circle" style="background:#3b82f6;min-width:24px;height:24px;line-height:24px;text-align:center;">1</span>
+                                        <strong>Install Node.js + PostgreSQL</strong> (see download links in the Restore tab)
+                                    </div>
+                                </div>
+                                <div class="p-3 rounded-3" style="background:var(--bg-subtle,#f8fafc);border-left:3px solid #3b82f6;">
+                                    <div class="d-flex align-items-center gap-2 mb-2">
+                                        <span class="badge rounded-circle" style="background:#3b82f6;min-width:24px;height:24px;line-height:24px;text-align:center;">2</span>
+                                        <strong>Copy the project to the new computer, configure .env</strong>
+                                    </div>
+                                    <p class="text-muted small mb-0">Copy the project folder (or extract the code ZIP without the db_backup.dump). Configure .env with your new PostgreSQL password.</p>
+                                </div>
+                                <div class="p-3 rounded-3" style="background:var(--bg-subtle,#f8fafc);border-left:3px solid #3b82f6;">
+                                    <div class="d-flex align-items-center gap-2 mb-2">
+                                        <span class="badge rounded-circle" style="background:#3b82f6;min-width:24px;height:24px;line-height:24px;text-align:center;">3</span>
+                                        <strong>Run setup.bat (no arguments) — creates all tables automatically</strong>
+                                    </div>
+                                    <pre class="rounded p-2 mb-2 small" style="background:#1e293b;color:#e2e8f0;"><code>cd C:\PatientRX
+setup.bat</code></pre>
+                                    <p class="text-muted small mb-0">This runs <code>npm install</code>, creates the database, runs all <strong>16 migrations</strong> (creates every table), and seeds the default admin. <strong>No manual SQL needed.</strong></p>
+                                </div>
+                                <div class="p-3 rounded-3" style="background:var(--bg-subtle,#f8fafc);border-left:3px solid #3b82f6;">
+                                    <div class="d-flex align-items-center gap-2 mb-2">
+                                        <span class="badge rounded-circle" style="background:#3b82f6;min-width:24px;height:24px;line-height:24px;text-align:center;">4</span>
+                                        <strong>Start the server — default login: admin / admin123</strong>
+                                    </div>
+                                    <pre class="rounded p-2 mb-1 small" style="background:#1e293b;color:#e2e8f0;"><code>npm start</code></pre>
+                                    <p class="text-muted small mb-0"><strong>Change the admin password immediately after first login</strong> — go to User Management → edit the admin user.</p>
+                                </div>
+                            </div>
+                        </div><!-- /#restorePanel-freshInstall -->
+
+                    </div><!-- /#restoreGuideBody -->
+                </div><!-- /restoreGuidePanel -->
+
+            </div><!-- /backupPanel -->
+
+        </div>
+    </div>
+</div>
+
+<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index:1100"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="/js/app.js"></script>
+<script src="/js/help.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', async () => {
+        initApp();
+        const user = JSON.parse(localStorage.getItem('user') || '{}');
+        if (user.role !== 'Administrator') {
+            document.getElementById('accessDeniedPanel').classList.remove('d-none');
+        } else {
+            document.getElementById('backupPanel').classList.remove('d-none');
+            await loadStatus();
+            await loadSiteStatus();
+        }
+    });
+
+    async function loadStatus() {
+        const res = await fetchWithAuth('/api/backups/status');
+        if (!res || !res.ok) { showToast('Failed to load backup status', 'danger'); return; }
+        const data = await res.json();
+
+        // Status card
+        document.getElementById('statusContent').innerHTML =
+            '<div class="d-flex flex-column gap-2">' +
+                '<div class="d-flex justify-content-between"><span class="text-muted small">Schedule</span>' +
+                    '<code class="small">' + (data.schedule === 'off' ? '<span class="text-danger">Disabled</span>' : data.schedule) + '</code>' +
+                '</div>' +
+                '<div class="d-flex justify-content-between"><span class="text-muted small">Backup Directory</span>' +
+                    '<small class="text-truncate ms-2" style="max-width:180px" title="' + data.backupDir + '">' + data.backupDir.split(/[\\/]/).pop() + '</small>' +
+                '</div>' +
+                '<div class="d-flex justify-content-between"><span class="text-muted small">Max Retained</span>' +
+                    '<strong>' + data.maxBackups + ' backups</strong>' +
+                '</div>' +
+                '<div class="d-flex justify-content-between"><span class="text-muted small">Total Records</span>' +
+                    '<strong>' + data.recentBackups.length + '</strong>' +
+                '</div>' +
+            '</div>';
+
+        // Set cron input
+        document.getElementById('cronInput').value = data.schedule || '';
+
+        // History table
+        renderHistory(data.recentBackups);
+    }
+
+    function renderHistory(backups) {
+        const el = document.getElementById('historyContent');
+        if (!backups.length) {
+            el.innerHTML = '<p class="text-center text-muted py-4">No backups recorded yet.</p>';
+            return;
+        }
+        var rows = backups.map(function(b) {
+            var icon   = b.status === 'success' ? 'check-circle' : 'times-circle';
+            var cls    = b.status === 'success' ? 'status-success' : 'status-failed';
+            var size   = b.size ? (b.size / 1024).toFixed(1) + ' KB' : '\u2014';
+            var dt     = b.timestamp ? new Date(b.timestamp).toLocaleString() : '\u2014';
+            var dlBtn  = b.status === 'success' && b.filename
+                ? '<a class="btn btn-sm btn-outline-primary" href="/api/backups/download/' + b.filename + '"><i class="fas fa-download"></i></a>'
+                : '';
+            return '<tr class="backup-row">' +
+                '<td><i class="fas fa-' + icon + ' ' + cls + ' me-2"></i><strong class="' + cls + '">' + b.status + '</strong></td>' +
+                '<td><small>' + dt + '</small></td>' +
+                '<td><small class="text-muted">' + (b.triggeredBy || '\u2014') + '</small></td>' +
+                '<td><small>' + size + '</small></td>' +
+                '<td>' + (b.error ? '<span class="badge bg-danger" title="' + b.error + '">error</span>' : '') + '</td>' +
+                '<td>' + dlBtn + '</td>' +
+                '</tr>';
+        }).join('');
+        el.innerHTML =
+            '<div class="table-responsive">' +
+            '<table class="table table-sm align-middle">' +
+            '<thead><tr><th>Status</th><th>Timestamp</th><th>Triggered By</th><th>Size</th><th>Error</th><th>Download</th></tr></thead>' +
+            '<tbody>' + rows + '</tbody>' +
+            '</table></div>';
+    }
+
+    async function runBackup() {
+        const btn     = document.getElementById('runBackupBtn');
+        const spinner = document.getElementById('runSpinner');
+        const icon    = document.getElementById('runIcon');
+        btn.disabled  = true;
+        spinner.classList.remove('d-none');
+        icon.classList.add('d-none');
+
+        showToast('Running backup\u2026 this may take a moment.', 'info');
+        const res = await fetchWithAuth('/api/backups/run', { method: 'POST' });
+        btn.disabled = false;
+        spinner.classList.add('d-none');
+        icon.classList.remove('d-none');
+
+        if (!res || !res.ok) { showToast('Backup request failed', 'danger'); return; }
+        const result = await res.json();
+
+        if (result.status === 'success') {
+            showToast('Backup completed successfully! (' + (result.size/1024).toFixed(1) + ' KB)', 'success');
+        } else {
+            showToast('Backup failed: ' + (result.error || 'unknown error'), 'danger');
+        }
+        await loadStatus();
+    }
+
+    function setSchedule(expr) {
+        document.getElementById('cronInput').value = expr;
+    }
+
+    async function saveSchedule() {
+        const schedule = document.getElementById('cronInput').value.trim();
+        const res = await fetchWithAuth('/api/backups/schedule', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ schedule })
+        });
+        if (!res || !res.ok) { showToast('Failed to update schedule', 'danger'); return; }
+        showToast('Schedule updated: ' + (schedule === 'off' ? 'Disabled' : schedule), 'success');
+        await loadStatus();
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // FULL SITE BACKUP JS
+    // ═══════════════════════════════════════════════════════════════
+    async function loadSiteStatus() {
+        const res = await fetchWithAuth('/api/backups/site/status');
+        if (!res || !res.ok) return;
+        const data = await res.json();
+
+        // Update dir label
+        const dirEl = document.getElementById('siteBackupDirLabel');
+        if (dirEl) dirEl.textContent = data.backupDir || 'C:\\RX-SiteBackups\\';
+
+        // Status summary
+        const sc = document.getElementById('siteStatusContent');
+        if (sc) {
+            sc.innerHTML =
+                '<div class="d-flex justify-content-between"><span class="text-muted small">Schedule</span>' +
+                '<code class="small">' + (data.schedule === 'off' ? '<span class="text-danger">Disabled</span>' : data.schedule) + '</code></div>' +
+                '<div class="d-flex justify-content-between"><span class="text-muted small">Save Location</span>' +
+                '<small class="text-truncate ms-2" style="max-width:160px" title="' + (data.backupDir||'') + '">' + (data.backupDir||'').split(/[\\/]/).pop() + '</small></div>' +
+                '<div class="d-flex justify-content-between"><span class="text-muted small">ZIPs Kept</span>' +
+                '<strong>' + data.maxBackups + ' max</strong></div>' +
+                '<div class="d-flex justify-content-between"><span class="text-muted small">Backups Made</span>' +
+                '<strong>' + (data.recentBackups ? data.recentBackups.length : 0) + '</strong></div>';
+        }
+
+        // Set cron input
+        const ci = document.getElementById('siteCronInput');
+        if (ci) ci.value = data.schedule || '0 3 * * 0';
+
+        // History
+        renderSiteHistory(data.recentBackups || []);
+    }
+
+    function renderSiteHistory(backups) {
+        const el = document.getElementById('siteHistoryContent');
+        if (!el) return;
+        if (!backups.length) {
+            el.innerHTML = '<p class="text-center text-muted py-3 small">No site backups yet. Click "Create Full Site Backup Now" to generate the first one.</p>';
+            return;
+        }
+        const rows = backups.map(function(b) {
+            const icon  = b.status === 'success' ? 'check-circle' : 'times-circle';
+            const cls   = b.status === 'success' ? 'status-success' : 'status-failed';
+            const size  = b.size ? (b.size > 1048576 ? (b.size/1048576).toFixed(1) + ' MB' : (b.size/1024).toFixed(1) + ' KB') : '\u2014';
+            const dt    = b.timestamp ? new Date(b.timestamp).toLocaleString() : '\u2014';
+            const dl    = (b.status === 'success' && b.filename)
+                ? '<a class="btn btn-sm btn-outline-primary" href="/api/backups/site/download/' + b.filename + '" title="Download ZIP"><i class="fas fa-download me-1"></i>ZIP</a>'
+                : '';
+            return '<tr class="backup-row">' +
+                '<td><i class="fas fa-' + icon + ' ' + cls + ' me-2"></i><strong class="' + cls + '">' + b.status + '</strong></td>' +
+                '<td><small>' + dt + '</small></td>' +
+                '<td><small class="text-muted">' + (b.triggeredBy || '\u2014') + '</small></td>' +
+                '<td><small><strong>' + size + '</strong></small></td>' +
+                '<td>' + (b.error ? '<span class="badge bg-danger" title="' + b.error + '">error</span>' : '') + '</td>' +
+                '<td>' + dl + '</td>' +
+                '</tr>';
+        }).join('');
+        el.innerHTML =
+            '<div class="table-responsive">' +
+            '<table class="table table-sm align-middle">' +
+            '<thead><tr><th>Status</th><th>Timestamp</th><th>Triggered By</th><th>Size</th><th>Error</th><th>Download</th></tr></thead>' +
+            '<tbody>' + rows + '</tbody>' +
+            '</table></div>';
+    }
+
+    async function runSiteBackup() {
+        const btn     = document.getElementById('runSiteBackupBtn');
+        const spinner = document.getElementById('siteSpinner');
+        const icon    = document.getElementById('siteIcon');
+        btn.disabled  = true;
+        spinner.classList.remove('d-none');
+        icon.classList.add('d-none');
+        showToast('Creating full site backup\u2026 this may take 30\u201360 seconds.', 'info');
+
+        const res = await fetchWithAuth('/api/backups/site/run', { method: 'POST' });
+        btn.disabled = false;
+        spinner.classList.add('d-none');
+        icon.classList.remove('d-none');
+
+        if (!res || !res.ok) { showToast('Site backup request failed', 'danger'); return; }
+        const result = await res.json();
+        if (result.status === 'success') {
+            const sz = result.size > 1048576 ? (result.size/1048576).toFixed(1) + ' MB' : (result.size/1024).toFixed(1) + ' KB';
+            showToast('\u2705 Site backup created! (' + sz + ') — saved to C:\\RX-SiteBackups\\', 'success');
+        } else {
+            showToast('Site backup failed: ' + (result.error || 'unknown error'), 'danger');
+        }
+        await loadSiteStatus();
+    }
+
+    function setSiteSchedule(expr) {
+        const ci = document.getElementById('siteCronInput');
+        if (ci) ci.value = expr;
+    }
+
+    async function saveSiteSchedule() {
+        const schedule = (document.getElementById('siteCronInput').value || '').trim();
+        const res = await fetchWithAuth('/api/backups/site/schedule', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ schedule })
+        });
+        if (!res || !res.ok) { showToast('Failed to update site backup schedule', 'danger'); return; }
+        showToast('Site backup schedule: ' + (schedule === 'off' ? 'Disabled' : schedule), 'success');
+        await loadSiteStatus();
+    }
+
+    // ── Restore Guide Toggle ──────────────────────────────────────────
+    function toggleRestoreGuide() {
+        const body  = document.getElementById('restoreGuideBody');
+        const chev  = document.getElementById('restoreGuideChev');
+        const btn   = document.getElementById('restoreGuideToggleBtn');
+        const open  = body.style.display === 'none' || body.style.display === '';
+        body.style.display = open ? 'block' : 'none';
+        chev.style.transform = open ? 'rotate(180deg)' : 'rotate(0deg)';
+        btn.innerHTML = '<i class="fas fa-chevron-' + (open ? 'up' : 'down') + ' me-1" id="restoreGuideChev" style="transform:' + (open ? 'rotate(180deg)' : 'none') + '"></i>' + (open ? 'Hide Guide' : 'Show Guide');
+    }
+
+    function showRestoreTab(tabId) {
+        var tabs = ['fromBackup', 'freshInstall'];
+        tabs.forEach(function(t) {
+            var panel = document.getElementById('restorePanel-' + t);
+            var link  = document.getElementById('tab-' + t);
+            if (panel) panel.style.display = (t === tabId) ? 'block' : 'none';
+            if (link) {
+                link.classList.toggle('active', t === tabId);
+            }
+        });
+    }
+
+</script>
+</body>
+</html>

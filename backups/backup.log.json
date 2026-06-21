@@ -1,0 +1,29 @@
+[
+  {
+    "id": 1781986128419,
+    "filename": "backup_2026-06-20T20-08-47.dump",
+    "timestamp": "2026-06-20T20:08:48.419Z",
+    "triggeredBy": "Manual (admin)",
+    "status": "success",
+    "size": 60070,
+    "error": null
+  },
+  {
+    "id": 1781935201052,
+    "filename": "backup_2026-06-20T06-00-00.dump",
+    "timestamp": "2026-06-20T06:00:01.052Z",
+    "triggeredBy": "Scheduled",
+    "status": "success",
+    "size": 45378,
+    "error": null
+  },
+  {
+    "id": 1781935201051,
+    "filename": "backup_2026-06-20T06-00-00.dump",
+    "timestamp": "2026-06-20T06:00:01.051Z",
+    "triggeredBy": "Scheduled",
+    "status": "success",
+    "size": 45378,
+    "error": null
+  }
+]

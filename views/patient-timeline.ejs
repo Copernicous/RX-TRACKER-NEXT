@@ -1,0 +1,656 @@
+﻿<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <script>!function(){var t=localStorage.getItem("rxTheme");if(t)document.documentElement.setAttribute("data-theme",t)}();</script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Patient Timeline - Patient RX System</title>
+    <meta name="description" content="Complete RX record timeline for a patient showing all prescriptions and workflow progress">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        /* ── Timeline-specific styles ── */
+        .tl-hero {
+            background: linear-gradient(135deg, #1a3a5c 0%, #2d6a9f 60%, #4a90e2 100%);
+            color: #fff;
+            border-radius: 18px;
+            padding: 2rem 2.5rem;
+            margin-bottom: 1.5rem;
+            position: relative;
+            overflow: hidden;
+        }
+        .tl-hero::before {
+            content: '';
+            position: absolute;
+            top: -40px; right: -40px;
+            width: 220px; height: 220px;
+            border-radius: 50%;
+            background: rgba(255,255,255,.06);
+        }
+        .tl-hero::after {
+            content: '';
+            position: absolute;
+            bottom: -60px; right: 80px;
+            width: 160px; height: 160px;
+            border-radius: 50%;
+            background: rgba(255,255,255,.04);
+        }
+        .tl-avatar {
+            width: 72px; height: 72px;
+            border-radius: 50%;
+            background: rgba(255,255,255,.15);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 2rem;
+            border: 3px solid rgba(255,255,255,.3);
+            flex-shrink: 0;
+        }
+        .tl-stat-pill {
+            background: rgba(255,255,255,.12);
+            border: 1px solid rgba(255,255,255,.2);
+            border-radius: 12px;
+            padding: .6rem 1.2rem;
+            text-align: center;
+            backdrop-filter: blur(4px);
+            min-width: 100px;
+        }
+        .tl-stat-pill .num { font-size: 1.7rem; font-weight: 700; line-height: 1; }
+        .tl-stat-pill .lbl { font-size: .72rem; opacity: .8; margin-top: 2px; }
+
+        /* ── Vertical timeline ── */
+        .timeline-wrap {
+            position: relative;
+            padding-left: 40px;
+        }
+        .timeline-wrap::before {
+            content: '';
+            position: absolute;
+            left: 17px; top: 0; bottom: 0;
+            width: 3px;
+            background: linear-gradient(to bottom, #4a90e2, rgba(74,144,226,.1));
+            border-radius: 3px;
+        }
+        .tl-entry {
+            position: relative;
+            margin-bottom: 1.5rem;
+        }
+        .tl-dot {
+            position: absolute;
+            left: -31px;
+            top: 18px;
+            width: 20px; height: 20px;
+            border-radius: 50%;
+            border: 3px solid #fff;
+            box-shadow: 0 0 0 3px #4a90e2;
+            background: #4a90e2;
+            z-index: 1;
+            display: flex; align-items: center; justify-content: center;
+            font-size: .55rem; color: #fff;
+            transition: transform .2s;
+        }
+        .tl-dot.complete  { background: #28a745; box-shadow: 0 0 0 3px #28a745; }
+        .tl-dot.partial   { background: #fd7e14; box-shadow: 0 0 0 3px #fd7e14; }
+        .tl-dot.not-start { background: #6c757d; box-shadow: 0 0 0 3px #6c757d; }
+        .tl-entry:hover .tl-dot { transform: scale(1.25); }
+
+        .tl-card {
+            border-radius: 14px;
+            border: 1px solid var(--border-color, #dee2e6);
+            background: var(--card-bg, #fff);
+            box-shadow: 0 2px 12px rgba(0,0,0,.05);
+            transition: box-shadow .2s, transform .15s;
+            overflow: hidden;
+        }
+        .tl-card:hover { box-shadow: 0 6px 24px rgba(74,144,226,.15); transform: translateY(-1px); }
+
+        .tl-card-header {
+            padding: 1rem 1.25rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+            border-bottom: 1px solid transparent;
+            transition: border-color .2s;
+            gap: .75rem;
+        }
+        .tl-card-header.open { border-bottom-color: var(--border-color, #dee2e6); }
+
+        .tl-date-badge {
+            background: linear-gradient(135deg, #4a90e2, #1a3a5c);
+            color: #fff;
+            border-radius: 10px;
+            padding: .4rem .9rem;
+            font-size: .78rem;
+            font-weight: 600;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        .tl-progress-mini {
+            display: flex; gap: 4px; align-items: center; flex-wrap: wrap;
+        }
+        .tl-step-dot {
+            width: 10px; height: 10px;
+            border-radius: 50%;
+            background: #dee2e6;
+            transition: background .2s, transform .15s;
+            cursor: pointer;
+            position: relative;
+        }
+        .tl-step-dot.done { background: #28a745; }
+        .tl-step-dot.done:hover { transform: scale(1.5); }
+        .tl-step-dot[title]:hover::after {
+            content: attr(title);
+            position: absolute;
+            bottom: 14px; left: 50%;
+            transform: translateX(-50%);
+            background: #333; color: #fff;
+            font-size: .65rem; padding: 2px 6px;
+            border-radius: 4px; white-space: nowrap;
+            pointer-events: none; z-index: 10;
+        }
+
+        /* ── Workflow step list in expanded card ── */
+        .wf-step {
+            display: flex;
+            align-items: flex-start;
+            gap: 14px;
+            padding: .55rem 0;
+            border-bottom: 1px solid var(--border-color, #f0f0f0);
+        }
+        .wf-step:last-child { border-bottom: none; }
+        .wf-step-icon {
+            width: 30px; height: 30px;
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: .7rem;
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+        .wf-step-icon.done    { background: rgba(40,167,69,.12); color: #28a745; border: 2px solid rgba(40,167,69,.3); }
+        .wf-step-icon.pending { background: rgba(108,117,125,.08); color: #6c757d; border: 2px solid rgba(108,117,125,.2); }
+
+        /* ── Medication chips ── */
+        .med-chip {
+            display: inline-flex; align-items: center; gap: 5px;
+            background: rgba(74,144,226,.08);
+            border: 1px solid rgba(74,144,226,.2);
+            border-radius: 20px;
+            padding: 2px 10px;
+            font-size: .75rem;
+            color: #4a90e2;
+            font-weight: 500;
+        }
+
+        /* ── Empty state ── */
+        .tl-empty {
+            text-align: center;
+            padding: 4rem 2rem;
+            color: var(--text-muted, #6c757d);
+        }
+        .tl-empty i { font-size: 3.5rem; opacity: .25; margin-bottom: 1rem; display: block; }
+
+        /* Collapse animation */
+        .tl-body { display: none; }
+        .tl-body.open { display: block; }
+
+        [data-theme="dark"] .tl-card  { background: #1e2533; border-color: #2e3a4e; }
+        [data-theme="dark"] .tl-card-header.open { border-bottom-color: #2e3a4e; }
+        [data-theme="dark"] .wf-step  { border-bottom-color: #2e3a4e; }
+    </style>
+</head>
+<body>
+<div class="wrapper">
+    <!-- Sidebar -->
+    <nav id="sidebar">
+        <div class="sidebar-header"><i class="fas fa-pills me-2"></i>Patient RX</div>
+        <ul class="list-unstyled components">
+            <li><a href="/dashboard"><i class="fas fa-tachometer-alt me-2"></i>Dashboard</a></li>
+            <li class="active"><a href="/patients"><i class="fas fa-user-injured me-2"></i>Patients</a></li>
+            <li><a href="/rx-records"><i class="fas fa-prescription me-2"></i>RX Records</a></li>
+            <li>
+                <a href="#settingsSubmenu" data-bs-toggle="collapse" aria-expanded="false" class="dropdown-toggle"><i class="fas fa-cogs me-2"></i>Settings</a>
+                <ul class="collapse list-unstyled ps-3" id="settingsSubmenu">
+                    <li><a href="/pharmacies"><i class="fas fa-clinic-medical me-2"></i>Pharmacies</a></li>
+                    <li><a href="/patient-transport"><i class="fas fa-ambulance me-2"></i>Patient Transport</a></li>
+                    <li><a href="/pharmacy-transport"><i class="fas fa-truck me-2"></i>Pharmacy Transport</a></li>
+                    <li><a href="/workflow-actions"><i class="fas fa-tasks me-2"></i>Workflow Actions</a></li>
+                    <li><a href="/medication-catalog"><i class="fas fa-clipboard-list me-2"></i>RX Actions</a></li>
+                    <li><a href="/clinics"><i class="fas fa-hospital me-2"></i>Clinics</a></li>
+                    <li><a href="/users"><i class="fas fa-users-cog me-2"></i>User Management</a></li>
+                    <li><a href="/system-settings"><i class="fas fa-sliders-h me-2"></i>System Settings</a></li>
+                    <li><a href="/backups"><i class="fas fa-database me-2"></i>Backups</a></li>
+                </ul>
+            </li>
+            <li>
+                <a href="#reportsSubmenu" data-bs-toggle="collapse" aria-expanded="false" class="dropdown-toggle"><i class="fas fa-chart-bar me-2"></i>Reports</a>
+                <ul class="collapse list-unstyled ps-3" id="reportsSubmenu">
+                    <li><a href="/reports"><i class="fas fa-chart-pie me-2"></i>Analytics &amp; Export</a></li>
+                    <li><a href="/audit-log"><i class="fas fa-history me-2"></i>Audit Log</a></li>
+                </ul>
+            </li>
+            <li><a href="/import"><i class="fas fa-file-import me-2"></i>Data Import</a></li>
+        </ul>
+    </nav>
+
+    <div id="content">
+        <!-- Navbar -->
+        <nav class="navbar navbar-expand-lg px-4 mb-4">
+            <button type="button" id="sidebarCollapse" class="btn btn-primary btn-sm"><i class="fas fa-bars"></i></button>
+            <span class="ms-3 fw-bold"><i class="fas fa-history me-2 text-primary"></i>Patient Timeline</span>
+            <div class="ms-auto d-flex align-items-center gap-3">
+                <a id="backToPatients" href="/patients" class="btn btn-outline-secondary btn-sm"><i class="fas fa-arrow-left me-1"></i>Back to Patients</a>
+                <button id="themeToggle" class="btn btn-outline-secondary btn-sm"><i class="fas fa-moon"></i></button>
+                <span id="userGreeting" class="text-muted small"></span>
+                <button id="logoutBtn" class="btn btn-danger btn-sm"><i class="fas fa-sign-out-alt me-1"></i>Logout</button>
+            </div>
+        </nav>
+
+        <div class="container-fluid px-4">
+
+
+            <!-- ── Soft-lock viewer banner (hidden until another user is viewing) ── -->
+            <div id="viewerBanner" class="d-none mb-3" style="
+                background: linear-gradient(135deg,rgba(234,179,8,.10) 0%,rgba(234,179,8,.05) 100%);
+                border: 1px solid rgba(234,179,8,.35);
+                border-radius: 14px;
+                padding: .75rem 1.25rem;
+                display: flex; align-items: center; gap: .75rem;
+                animation: fadeIn .3s ease;">
+                <span style="font-size:1.3rem; flex-shrink:0;">👁️</span>
+                <div class="flex-grow-1">
+                    <span class="fw-semibold small" id="viewerNames"></span>
+                    <span class="text-muted small ms-1" id="viewerSubtext"></span>
+                </div>
+                <span id="viewerCount" class="badge" style="background:rgba(234,179,8,.2);color:#92400e;border:1px solid rgba(234,179,8,.3);"></span>
+            </div>
+
+            <!-- Loading State -->
+            <div id="tlLoading" class="text-center py-5">
+                <i class="fas fa-spinner fa-spin fa-2x text-primary mb-3 d-block"></i>
+                <span class="text-muted">Loading patient timeline...</span>
+            </div>
+
+            <!-- Hero card (filled by JS) -->
+            <div id="tlHero" style="display:none">
+                <div class="tl-hero">
+                    <div class="d-flex align-items-center gap-4 flex-wrap">
+                        <div class="tl-avatar"><i class="fas fa-user"></i></div>
+                        <div class="flex-grow-1">
+                            <h2 class="mb-0 fw-bold" id="tlPatientName">—</h2>
+                            <div class="d-flex gap-3 mt-1 flex-wrap" style="opacity:.85;font-size:.88rem">
+                                <span><i class="fas fa-id-badge me-1"></i><span id="tlPatientCode">—</span></span>
+                                <span><i class="fas fa-birthday-cake me-1"></i><span id="tlPatientDob">—</span></span>
+                                <span><i class="fas fa-phone me-1"></i><span id="tlPatientPhone">—</span></span>
+                                <span id="tlClinicWrap" style="display:none"><i class="fas fa-hospital me-1"></i><span id="tlClinic">—</span></span>
+                            </div>
+                            <div class="d-flex gap-2 mt-2 flex-wrap" id="tlTransportWrap"></div>
+                        </div>
+                        <div class="d-flex gap-3 flex-wrap" id="tlStatPills">
+                            <!-- Stat pills added by JS -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Timeline container -->
+            <div id="tlContainer" style="display:none">
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <h5 class="mb-0 fw-bold"><i class="fas fa-history me-2 text-primary"></i>RX Record History</h5>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-sm btn-outline-secondary" id="expandAllBtn"><i class="fas fa-expand-alt me-1"></i>Expand All</button>
+                        <button class="btn btn-sm btn-outline-secondary" id="collapseAllBtn"><i class="fas fa-compress-alt me-1"></i>Collapse All</button>
+                        <a id="viewRxBtn" class="btn btn-sm btn-primary" href="#"><i class="fas fa-prescription me-1"></i>View in RX Records</a>
+                    </div>
+                </div>
+                <div class="timeline-wrap" id="tlList"></div>
+            </div>
+
+            <!-- Empty state -->
+            <div id="tlEmpty" style="display:none">
+                <div class="glass-card p-4 tl-empty">
+                    <i class="fas fa-prescription-bottle-alt"></i>
+                    <h5>No RX Records Found</h5>
+                    <p class="text-muted">This patient has no RX records yet.</p>
+                    <a href="/rx-records" class="btn btn-primary btn-sm mt-2"><i class="fas fa-plus me-1"></i>Add First RX Record</a>
+                </div>
+            </div>
+
+        </div><!-- /container -->
+    </div><!-- /content -->
+</div>
+
+<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index:1100"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="/js/app.js"></script>
+<script src="/js/help.js"></script>
+<script>
+'use strict';
+
+// Grab patient ID from URL: /patients/123/timeline
+const _ptId = (function() {
+    const m = location.pathname.match(/\/patients\/(\d+)\/timeline/);
+    return m ? m[1] : null;
+})();
+
+document.addEventListener('DOMContentLoaded', async () => {
+    initApp();
+
+    if (!_ptId) {
+        document.getElementById('tlLoading').innerHTML = '<div class="alert alert-danger">Invalid patient ID.</div>';
+        return;
+    }
+
+    document.getElementById('viewRxBtn').href = '/rx-records?patient=' + _ptId;
+    document.getElementById('backToPatients').href = '/patients';
+
+    try {
+        const res = await fetchWithAuth('/api/patients/' + _ptId + '/timeline');
+        if (!res || !res.ok) throw new Error('Failed to load');
+        const data = await res.json();
+        renderTimeline(data);
+    } catch(e) {
+        document.getElementById('tlLoading').innerHTML =
+            '<div class="alert alert-danger"><i class="fas fa-exclamation-triangle me-2"></i>Could not load patient timeline. ' + e.message + '</div>';
+    }
+});
+
+function renderTimeline({ patient, rxRecords, workflowActions }) {
+    document.getElementById('tlLoading').style.display = 'none';
+
+    // ── Hero card ──────────────────────────────────────────────────────────
+    document.getElementById('tlPatientName').textContent =
+        (patient.firstName || '') + ' ' + (patient.lastName || '');
+    document.getElementById('tlPatientCode').textContent  = patient.patientCode || '—';
+    document.getElementById('tlPatientDob').textContent   = patient.dob ? formatDate(patient.dob) : '—';
+    document.getElementById('tlPatientPhone').textContent = patient.phone || '—';
+
+    if (patient.Clinic) {
+        document.getElementById('tlClinicWrap').style.display = '';
+        document.getElementById('tlClinic').textContent = patient.Clinic.name;
+    }
+
+    const twrap = document.getElementById('tlTransportWrap');
+    if (patient.PatientTransportCompany) {
+        twrap.innerHTML += `<span class="badge rounded-pill" style="background:rgba(255,255,255,.15);font-size:.73rem"><i class="fas fa-ambulance me-1"></i>${patient.PatientTransportCompany.companyName || patient.PatientTransportCompany.contactPerson}</span>`;
+    }
+    if (patient.PharmacyTransportCompany) {
+        twrap.innerHTML += `<span class="badge rounded-pill" style="background:rgba(255,255,255,.15);font-size:.73rem"><i class="fas fa-truck me-1"></i>${patient.PharmacyTransportCompany.companyName || patient.PharmacyTransportCompany.contactPerson}</span>`;
+    }
+
+    // Stats
+    const total     = rxRecords.length;
+    const completed = rxRecords.filter(r => r.completedSteps.length === workflowActions.length && workflowActions.length > 0).length;
+    const inProg    = rxRecords.filter(r => r.completedSteps.length > 0 && r.completedSteps.length < workflowActions.length).length;
+    const notStart  = rxRecords.filter(r => r.completedSteps.length === 0).length;
+
+    document.getElementById('tlStatPills').innerHTML = `
+        <div class="tl-stat-pill"><div class="num">${total}</div><div class="lbl">Total RX</div></div>
+        <div class="tl-stat-pill"><div class="num" style="color:#a8d5b5">${completed}</div><div class="lbl">Complete</div></div>
+        <div class="tl-stat-pill"><div class="num" style="color:#ffc878">${inProg}</div><div class="lbl">In Progress</div></div>
+        <div class="tl-stat-pill"><div class="num" style="color:#b0b8c8">${notStart}</div><div class="lbl">Not Started</div></div>
+    `;
+    document.getElementById('tlHero').style.display = '';
+
+    if (!rxRecords.length) {
+        document.getElementById('tlEmpty').style.display = '';
+        return;
+    }
+
+    // ── Timeline entries ───────────────────────────────────────────────────
+    const list = document.getElementById('tlList');
+    list.innerHTML = '';
+
+    rxRecords.forEach((rx, idx) => {
+        const completedCount = rx.completedSteps.length;
+        const totalSteps     = workflowActions.length;
+        const isComplete     = totalSteps > 0 && completedCount === totalSteps;
+        const isPartial      = completedCount > 0 && !isComplete;
+        const dotClass       = isComplete ? 'complete' : isPartial ? 'partial' : 'not-start';
+        const dotIcon        = isComplete ? '<i class="fas fa-check"></i>' : isPartial ? '<i class="fas fa-spinner"></i>' : '<i class="fas fa-clock"></i>';
+
+        // Build workflow tracking lookup
+        const trackingMap = {};
+        (rx.RXWorkflowTrackings || []).forEach(t => { trackingMap[t.workflowActionId] = t; });
+
+        // Mini step dots
+        const miniDots = workflowActions.map(a => {
+            const t = trackingMap[a.id];
+            const doneClass = t ? 'done' : '';
+            const tip = t
+                ? `${a.name} — ✓ ${formatDate(t.completionDate)} ${t.User ? 'by ' + t.User.firstName + ' ' + t.User.lastName : ''}`
+                : `${a.name} — Pending`;
+            return `<div class="tl-step-dot ${doneClass}" title="${tip}"></div>`;
+        }).join('');
+
+        // Pharmacy
+        const pharmacy = rx.Pharmacy ? rx.Pharmacy.name : '—';
+        // Transport
+        const ptrans   = rx.PatientTransportCompany ? (rx.PatientTransportCompany.companyName || rx.PatientTransportCompany.contactPerson) : null;
+        const rxtrans  = rx.PharmacyTransportCompany ? (rx.PharmacyTransportCompany.companyName || rx.PharmacyTransportCompany.contactPerson) : null;
+
+        // Status badge
+        const pct = totalSteps > 0 ? Math.round((completedCount / totalSteps) * 100) : 0;
+        const statusBadge = isComplete
+            ? `<span class="badge bg-success"><i class="fas fa-check me-1"></i>Complete</span>`
+            : completedCount > 0
+                ? `<span class="badge" style="background:#fd7e14"><i class="fas fa-spinner me-1"></i>${pct}%</span>`
+                : `<span class="badge bg-secondary"><i class="fas fa-clock me-1"></i>Not Started</span>`;
+
+        // Medications
+        const meds = (rx.Medications || []);
+        const medChips = meds.length
+            ? meds.map(m => `<span class="med-chip"><i class="fas fa-pills"></i>${m.name || 'Medication'}</span>`).join(' ')
+            : '<span class="text-muted small">No medications recorded</span>';
+
+        // Workflow step rows
+        const wfRows = workflowActions.map((a, si) => {
+            const t = trackingMap[a.id];
+            const done = !!t;
+            return `
+                <div class="wf-step">
+                    <div class="wf-step-icon ${done ? 'done' : 'pending'}">
+                        ${done ? '<i class="fas fa-check"></i>' : '<i class="fas fa-circle" style="font-size:.35rem"></i>'}
+                    </div>
+                    <div class="flex-grow-1">
+                        <div class="d-flex justify-content-between align-items-start gap-2">
+                            <span class="small fw-semibold" style="${done ? '' : 'color:var(--text-muted,#6c757d)'}">${si+1}. ${a.name}</span>
+                            ${done
+                                ? `<span class="text-success small" style="white-space:nowrap"><i class="fas fa-calendar-check me-1"></i>${formatDate(t.completionDate)}</span>`
+                                : `<span class="text-muted small">Pending</span>`
+                            }
+                        </div>
+                        ${done && t.User ? `<div class="text-muted" style="font-size:.72rem"><i class="fas fa-user me-1"></i>Completed by ${t.User.firstName} ${t.User.lastName}</div>` : ''}
+                    </div>
+                </div>`;
+        }).join('');
+
+        const entryId = 'tlEntry_' + rx.id;
+        const bodyId  = 'tlBody_'  + rx.id;
+
+        const html = `
+        <div class="tl-entry" id="${entryId}">
+            <div class="tl-dot ${dotClass}">${dotIcon}</div>
+            <div class="tl-card">
+                <div class="tl-card-header" onclick="toggleTlCard('${bodyId}', this)">
+                    <div class="d-flex align-items-center gap-3 flex-grow-1 flex-wrap">
+                        <div class="tl-date-badge">
+                            <i class="fas fa-calendar-alt me-1"></i>${rx.serviceDate ? formatDate(rx.serviceDate) : 'No service date'}
+                        </div>
+                        <div>
+                            <div class="fw-semibold small" style="font-size:.85rem">
+                                RX #${rx.id} &nbsp;·&nbsp; <i class="fas fa-clinic-medical me-1 text-primary"></i>${pharmacy}
+                            </div>
+                            <div class="d-flex gap-1 mt-1">
+                                ${miniDots}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="d-flex align-items-center gap-2 flex-shrink-0">
+                        ${statusBadge}
+                        <span class="text-muted small">${completedCount}/${totalSteps} steps</span>
+                        <i class="fas fa-chevron-down text-muted tl-chevron" style="transition:transform .2s;font-size:.8rem"></i>
+                    </div>
+                </div>
+                <div class="tl-body" id="${bodyId}">
+                    <div class="row g-0">
+                        <!-- Left: Details -->
+                        <div class="col-md-5 p-3" style="border-right:1px solid var(--border-color,#dee2e6)">
+                            <div class="fw-bold small text-muted text-uppercase mb-2" style="letter-spacing:.05em"><i class="fas fa-info-circle me-1"></i>Record Details</div>
+                            <table class="w-100" style="font-size:.82rem">
+                                <tr><td class="text-muted pe-3 py-1" style="white-space:nowrap">Arrival Date</td><td class="fw-semibold">${rx.arrivalDate ? formatDate(rx.arrivalDate) : '—'}</td></tr>
+                                <tr><td class="text-muted pe-3 py-1">Service Date</td><td class="fw-semibold">${rx.serviceDate ? formatDate(rx.serviceDate) : '—'}</td></tr>
+                                <tr><td class="text-muted pe-3 py-1">Pharmacy</td><td class="fw-semibold">${pharmacy}</td></tr>
+                                ${ptrans ? `<tr><td class="text-muted pe-3 py-1">Patient Transport</td><td class="fw-semibold">${ptrans}</td></tr>` : ''}
+                                ${rxtrans ? `<tr><td class="text-muted pe-3 py-1">RX Transport</td><td class="fw-semibold">${rxtrans}</td></tr>` : ''}
+                            </table>
+                            <div class="mt-3">
+                                <div class="fw-bold small text-muted text-uppercase mb-2" style="letter-spacing:.05em"><i class="fas fa-pills me-1"></i>Medications</div>
+                                <div class="d-flex flex-wrap gap-1">${medChips}</div>
+                            </div>
+                            <div class="mt-3 d-flex gap-2">
+                                <a href="/rx-records?rx=${rx.id}" class="btn btn-outline-primary btn-sm" style="font-size:.75rem"><i class="fas fa-external-link-alt me-1"></i>Open in RX Records</a>
+                            </div>
+                        </div>
+                        <!-- Right: Workflow steps -->
+                        <div class="col-md-7 p-3">
+                            <div class="fw-bold small text-muted text-uppercase mb-2" style="letter-spacing:.05em"><i class="fas fa-tasks me-1"></i>Workflow Progress</div>
+                            <!-- Progress bar -->
+                            <div class="mb-3">
+                                <div class="d-flex justify-content-between small mb-1">
+                                    <span class="text-muted">${completedCount} of ${totalSteps} steps complete</span>
+                                    <span class="fw-semibold">${pct}%</span>
+                                </div>
+                                <div class="progress" style="height:6px;border-radius:4px">
+                                    <div class="progress-bar ${isComplete ? 'bg-success' : 'bg-primary'}" style="width:${pct}%;transition:width .6s"></div>
+                                </div>
+                            </div>
+                            <!-- Step rows -->
+                            <div>${wfRows}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>`;
+        list.insertAdjacentHTML('beforeend', html);
+    });
+
+    document.getElementById('tlContainer').style.display = '';
+
+    // Expand / Collapse All
+    document.getElementById('expandAllBtn').addEventListener('click', () => {
+        document.querySelectorAll('.tl-body').forEach(b => {
+            b.classList.add('open');
+            const h = b.previousElementSibling;
+            if (h) { h.classList.add('open'); const ch = h.querySelector('.tl-chevron'); if(ch) ch.style.transform='rotate(180deg)'; }
+        });
+    });
+    document.getElementById('collapseAllBtn').addEventListener('click', () => {
+        document.querySelectorAll('.tl-body').forEach(b => {
+            b.classList.remove('open');
+            const h = b.previousElementSibling;
+            if (h) { h.classList.remove('open'); const ch = h.querySelector('.tl-chevron'); if(ch) ch.style.transform=''; }
+        });
+    });
+}
+
+function toggleTlCard(bodyId, headerEl) {
+    const body   = document.getElementById(bodyId);
+    const chevron = headerEl.querySelector('.tl-chevron');
+    const open   = body.classList.toggle('open');
+    headerEl.classList.toggle('open', open);
+    if (chevron) chevron.style.transform = open ? 'rotate(180deg)' : '';
+}
+
+function formatDate(d) {
+    if (!d) return '—';
+    try {
+        const dt = new Date(d.includes('T') ? d : d + 'T00:00:00');
+        return dt.toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' });
+    } catch(e) { return d; }
+}
+
+// ── Soft-lock: viewer awareness ────────────────────────────────────────────────
+(function() {
+    let _heartbeatTimer = null;
+    const HEARTBEAT_MS  = 60 * 1000;   // renew lock every 60s
+
+    async function acquireLock() {
+        if (!_ptId) return;
+        try {
+            const res = await fetchWithAuth('/api/patient-locks/' + _ptId + '/acquire', { method: 'POST' });
+            if (res && res.ok) {
+                const { others } = await res.json();
+                updateViewerBanner(others);
+            }
+        } catch(e) { /* silent */ }
+    }
+
+    async function heartbeat() {
+        if (!_ptId) return;
+        try {
+            const res = await fetchWithAuth('/api/patient-locks/' + _ptId + '/heartbeat', { method: 'POST' });
+            if (res && res.ok) {
+                const { others } = await res.json();
+                updateViewerBanner(others);
+            }
+        } catch(e) { /* silent */ }
+    }
+
+    async function releaseLock() {
+        if (!_ptId) return;
+        try {
+            // Use sendBeacon for reliability on tab close
+            navigator.sendBeacon('/api/patient-locks/' + _ptId + '/release');
+        } catch(e) { /* silent */ }
+    }
+
+    function updateViewerBanner(others) {
+        const banner  = document.getElementById('viewerBanner');
+        const names   = document.getElementById('viewerNames');
+        const subtext = document.getElementById('viewerSubtext');
+        const count   = document.getElementById('viewerCount');
+        if (!banner || !others) return;
+
+        if (!others.length) {
+            banner.classList.add('d-none');
+            return;
+        }
+
+        banner.classList.remove('d-none');
+        if (others.length === 1) {
+            const v = others[0];
+            const ago = v.minutesAgo <= 0 ? 'just now' : v.minutesAgo + ' min ago';
+            names.textContent   = v.name + ' is also viewing this patient';
+            subtext.textContent = '(opened ' + ago + ')';
+            count.textContent   = '1 viewer';
+        } else {
+            const nameList = others.slice(0, 2).map(v => v.name).join(', ');
+            const extra    = others.length > 2 ? ' and ' + (others.length - 2) + ' more' : '';
+            names.textContent   = nameList + extra + ' are also viewing';
+            subtext.textContent = '';
+            count.textContent   = others.length + ' viewers';
+        }
+    }
+
+    // Start lock lifecycle when DOM is ready
+    document.addEventListener('DOMContentLoaded', () => {
+        acquireLock();
+        _heartbeatTimer = setInterval(heartbeat, HEARTBEAT_MS);
+    });
+
+    // Release on tab/browser close
+    window.addEventListener('beforeunload', () => {
+        if (_heartbeatTimer) clearInterval(_heartbeatTimer);
+        releaseLock();
+    });
+
+    // Release when navigating away within the SPA
+    window.addEventListener('pagehide', releaseLock);
+})();
+
+</script>
+</body>
+</html>

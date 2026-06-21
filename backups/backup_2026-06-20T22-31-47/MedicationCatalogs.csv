@@ -1,0 +1,11 @@
+id,name,description,isActive,createdAt,updatedAt,sortOrder
+26,Received,Package / item was received successfully,true,"""2026-06-20T17:18:30.032Z""","""2026-06-20T19:29:18.605Z""",1
+27,Not Received,Package / item was not received,true,"""2026-06-20T17:18:30.036Z""","""2026-06-20T17:18:30.036Z""",999
+28,Missing,Package / item is missing,true,"""2026-06-20T17:18:30.039Z""","""2026-06-20T17:18:30.039Z""",999
+29,Pending,Awaiting action or confirmation,true,"""2026-06-20T17:18:30.045Z""","""2026-06-20T17:18:30.045Z""",999
+30,Partial,Only part of the package was received,true,"""2026-06-20T17:18:30.050Z""","""2026-06-20T17:18:30.050Z""",999
+31,Returned,Package / item was returned,true,"""2026-06-20T17:18:30.054Z""","""2026-06-20T19:29:41.714Z""",4
+32,Delivered,Delivered to patient or pharmacy,true,"""2026-06-20T17:18:30.058Z""","""2026-06-20T19:29:36.384Z""",3
+33,On Hold,"Temporarily held, awaiting instructions",true,"""2026-06-20T17:18:30.062Z""","""2026-06-20T17:18:30.062Z""",999
+34,Cancelled,Action was cancelled,true,"""2026-06-20T17:18:30.067Z""","""2026-06-20T19:29:30.380Z""",2
+35,In Transit,Currently in transit,true,"""2026-06-20T17:18:30.070Z""","""2026-06-20T17:18:30.070Z""",999

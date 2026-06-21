@@ -1,0 +1,1555 @@
+﻿<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <script>!function(){var t=localStorage.getItem("rxTheme");if(t)document.documentElement.setAttribute("data-theme",t)}();</script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System Settings - Patient RX System</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        .setting-card { border-left: 4px solid var(--primary-color, #6366f1); transition: box-shadow .2s; }
+        .setting-card:hover { box-shadow: 0 4px 20px rgba(99,102,241,.12); }
+        .setting-icon { width:44px; height:44px; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:1.2rem; }
+        .tz-badge { display:inline-block; background:rgba(99,102,241,.12); color:#6366f1; border-radius:20px; padding:2px 12px; font-size:.78rem; font-weight:600; }
+        .save-indicator { display:none; align-items:center; gap:6px; color:#22c55e; font-size:.85rem; font-weight:600; }
+        .save-indicator.visible { display:flex; }
+        .clock-live { font-family:'Inter',monospace; font-size:1.4rem; font-weight:700; letter-spacing:.04em; color:var(--primary-color,#6366f1); }
+        .restart-notice { background:rgba(245,166,35,.08); border:1px solid rgba(245,166,35,.3); border-radius:10px; padding:10px 16px; font-size:.82rem; }
+
+        /* API Key styles */
+        .apikey-reveal {
+            font-family: 'Courier New', monospace;
+            font-size: .85rem;
+            background: #0d1117;
+            color: #58a6ff;
+            border-radius: 8px;
+            padding: 12px 16px;
+            letter-spacing: .04em;
+            word-break: break-all;
+        }
+        .key-prefix {
+            font-family: 'Courier New', monospace;
+            font-size: .82rem;
+            background: rgba(99,102,241,.08);
+            color: #6366f1;
+            border-radius: 6px;
+            padding: 2px 8px;
+        }
+        .key-row { transition: background .15s; }
+        .key-row:hover { background: rgba(99,102,241,.04); }
+        .status-dot { width:8px; height:8px; border-radius:50%; display:inline-block; margin-right:5px; }
+        .status-dot.active   { background:#22c55e; box-shadow: 0 0 6px rgba(34,197,94,.5); }
+        .status-dot.inactive { background:#ef4444; }
+        .expiry-warning { color: #f59e0b; font-size: .75rem; }
+        .new-key-banner {
+            border: 1.5px solid #22c55e;
+            border-radius: 12px;
+            background: rgba(34,197,94,.05);
+            padding: 16px;
+            animation: fadeIn .4s ease;
+        }
+        @keyframes fadeIn { from{opacity:0;transform:translateY(-6px)} to{opacity:1;transform:translateY(0)} }
+        .copy-btn { cursor: pointer; transition: color .15s; }
+        .copy-btn:hover { color: #22c55e !important; }
+        .api-usage-box {
+            font-family: 'Courier New', monospace;
+            font-size: .78rem;
+            background: #0d1117;
+            color: #8b949e;
+            border-radius: 8px;
+            padding: 10px 14px;
+        }
+        .api-usage-box .hl { color: #58a6ff; }
+        .api-usage-box .val { color: #a5d6ff; }
+
+        .api-filter {
+            font-size:.72rem; padding:3px 10px; border-radius:20px;
+            border:1px solid rgba(99,102,241,.3); background:transparent;
+            color:#6366f1; transition:all .15s; cursor:pointer;
+        }
+        .api-filter.active, .api-filter:hover {
+            background:rgba(99,102,241,.15); border-color:#6366f1; font-weight:600;
+        }
+        .endpoint-row {
+            border-left:3px solid transparent; border-radius:6px;
+            padding:7px 12px; margin-bottom:3px; transition:background .12s;
+        }
+        .endpoint-row:hover { background:rgba(99,102,241,.04); }
+        .endpoint-row.get    { border-left-color:#22c55e; }
+        .endpoint-row.post   { border-left-color:#6366f1; }
+        .endpoint-row.put    { border-left-color:#f59e0b; }
+        .endpoint-row.patch  { border-left-color:#06b6d4; }
+        .endpoint-row.delete { border-left-color:#ef4444; }
+        .method-badge {
+            font-size:.65rem; font-weight:700; padding:2px 7px; border-radius:4px;
+            font-family:monospace; min-width:48px; display:inline-block; text-align:center;
+        }
+        .method-badge.get    { background:rgba(34,197,94,.15);  color:#16a34a; }
+        .method-badge.post   { background:rgba(99,102,241,.15); color:#4f46e5; }
+        .method-badge.put    { background:rgba(245,158,11,.15); color:#b45309; }
+        .method-badge.patch  { background:rgba(6,182,212,.15);  color:#0e7490; }
+        .method-badge.delete { background:rgba(239,68,68,.15);  color:#dc2626; }
+        .endpoint-path { font-family:'Courier New',monospace; font-size:.8rem; font-weight:600; }
+        .perm-badge { font-size:.68rem; padding:1px 6px; border-radius:3px; background:rgba(107,114,128,.1); color:#6b7280; }
+        .perm-badge.admin { background:rgba(239,68,68,.1); color:#ef4444; }
+        .section-divider { font-size:.7rem; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:#9ca3af; padding:10px 0 4px; }
+    </style>
+</head>
+<body>
+<div class="wrapper">
+    <nav id="sidebar">
+        <div class="sidebar-header"><i class="fas fa-pills me-2"></i>Patient RX</div>
+        <ul class="list-unstyled components">
+            <li><a href="/dashboard"><i class="fas fa-tachometer-alt me-2"></i>Dashboard</a></li>
+            <li><a href="/patients"><i class="fas fa-user-injured me-2"></i>Patients</a></li>
+            <li><a href="/rx-records"><i class="fas fa-prescription me-2"></i>RX Records</a></li>
+            <li>
+                <a href="#settingsSubmenu" data-bs-toggle="collapse" aria-expanded="true" class="dropdown-toggle"><i class="fas fa-cogs me-2"></i>Settings</a>
+                <ul class="collapse show list-unstyled ps-3" id="settingsSubmenu">
+                    <li><a href="/pharmacies"><i class="fas fa-clinic-medical me-2"></i>Pharmacies</a></li>
+                    <li><a href="/patient-transport"><i class="fas fa-ambulance me-2"></i>Patient Transport</a></li>
+                    <li><a href="/pharmacy-transport"><i class="fas fa-truck me-2"></i>Pharmacy Transport</a></li>
+                    <li><a href="/workflow-actions"><i class="fas fa-tasks me-2"></i>Workflow Actions</a></li>
+                    <li><a href="/medication-catalog"><i class="fas fa-clipboard-list me-2"></i>RX Actions</a></li>
+                    <li><a href="/clinics"><i class="fas fa-hospital me-2"></i>Clinics</a></li>
+                    <li><a href="/users"><i class="fas fa-users-cog me-2"></i>User Management</a></li>
+                    <li><a href="/system-settings"><i class="fas fa-sliders-h me-2"></i>System Settings</a></li>
+                    <li><a href="/backups"><i class="fas fa-database me-2"></i>Backups</a></li>
+                </ul>
+            </li>
+            <li>
+                <a href="#reportsSubmenu" data-bs-toggle="collapse" aria-expanded="false" class="dropdown-toggle"><i class="fas fa-chart-bar me-2"></i>Reports</a>
+                <ul class="collapse list-unstyled ps-3" id="reportsSubmenu">
+                    <li><a href="/reports"><i class="fas fa-chart-pie me-2"></i>Analytics &amp; Export</a></li>
+                    <li><a href="/audit-log"><i class="fas fa-history me-2"></i>Audit Log</a></li>
+                </ul>
+            </li>
+            <li><a href="/import"><i class="fas fa-file-import me-2"></i>Data Import</a></li>
+        </ul>
+    </nav>
+
+    <div id="content">
+        <nav class="navbar navbar-expand-lg px-4 mb-4">
+            <button type="button" id="sidebarCollapse" class="btn btn-primary btn-sm"><i class="fas fa-bars"></i></button>
+            <span class="ms-3 fw-bold fs-5"><i class="fas fa-sliders-h me-2 text-primary"></i>System Settings</span>
+            <div class="ms-auto d-flex align-items-center gap-3">
+                <button id="themeToggle" class="btn btn-outline-secondary btn-sm"><i class="fas fa-moon"></i></button>
+                <span id="userGreeting" class="text-muted small"></span>
+                <button id="logoutBtn" class="btn btn-danger btn-sm"><i class="fas fa-sign-out-alt me-1"></i>Logout</button>
+            </div>
+        </nav>
+
+        <div class="container-fluid px-4">
+
+            <!-- Page Header -->
+            <div class="glass-card p-4 mb-4" style="background:linear-gradient(135deg,rgba(99,102,241,.08) 0%,rgba(139,92,246,.05) 100%);border-left:4px solid #6366f1;">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="setting-icon" style="background:rgba(99,102,241,.15);color:#6366f1;font-size:1.5rem;width:56px;height:56px;border-radius:16px;">
+                        <i class="fas fa-sliders-h"></i>
+                    </div>
+                    <div>
+                        <h4 class="mb-0 fw-bold">System Settings</h4>
+                        <p class="text-muted small mb-0">Configure system-wide preferences. Changes take effect immediately.</p>
+                    </div>
+                    <div class="ms-auto text-end">
+                        <div class="text-muted small mb-1"><i class="fas fa-clock me-1"></i>Server Current Time</div>
+                        <div class="clock-live" id="liveClock">—</div>
+                        <div class="text-muted" style="font-size:.72rem" id="liveTimezone">Loading...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Admin guard -->
+            <div id="adminGuard" class="d-none">
+                <div class="glass-card p-5 text-center">
+                    <i class="fas fa-lock fa-3x text-muted mb-3"></i>
+                    <h5 class="fw-bold">Administrator Access Required</h5>
+                    <p class="text-muted">Only Administrators can manage system settings.</p>
+                </div>
+            </div>
+
+            <div id="settingsContent">
+
+                <!-- ── Tab navigation ──────────────────────────────────────── -->
+                <ul class="nav nav-pills mb-4 gap-2" id="settingsTabs">
+                    <li class="nav-item">
+                        <button class="nav-link active" data-tab="general"><i class="fas fa-cog me-2"></i>General</button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link" data-tab="apikeys"><i class="fas fa-key me-2"></i>API Keys</button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link" data-tab="email"><i class="fas fa-envelope me-2"></i>Email Setup</button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link" data-tab="manual"><i class="fas fa-book me-2"></i>Manual</button>
+                    </li>
+                </ul>
+
+                <!-- ══════════════════ GENERAL TAB ══════════════════ -->
+                <div id="tab-general">
+
+                    <!-- Timezone Card -->
+                    <div class="glass-card p-4 mb-4 setting-card">
+                        <div class="d-flex align-items-start gap-3">
+                            <div class="setting-icon" style="background:rgba(99,102,241,.12);color:#6366f1;">
+                                <i class="fas fa-globe"></i>
+                            </div>
+                            <div class="flex-grow-1">
+                                <div class="d-flex align-items-center gap-2 mb-1">
+                                    <h6 class="mb-0 fw-bold">Application Timezone</h6>
+                                    <span class="tz-badge" id="currentTzBadge">Loading...</span>
+                                </div>
+                                <p class="text-muted small mb-3">All dates and times recorded by the system — workflow steps, audit logs, and patient records — will use this timezone.</p>
+
+                                <div class="p-3 mb-3 rounded-3" style="background:rgba(99,102,241,.05);border:1px dashed rgba(99,102,241,.2);">
+                                    <div class="row g-3 align-items-center">
+                                        <div class="col-auto">
+                                            <div class="text-muted small">Current server time in selected zone:</div>
+                                            <div class="fw-bold fs-5" id="previewClock">—</div>
+                                        </div>
+                                        <div class="col-auto">
+                                            <div class="text-muted small">UTC offset:</div>
+                                            <div class="fw-bold" id="previewOffset">—</div>
+                                        </div>
+                                        <div class="col-auto">
+                                            <div class="text-muted small">Current UTC time:</div>
+                                            <div class="fw-bold" id="previewUtc">—</div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="row g-2 align-items-end">
+                                    <div class="col-md-5">
+                                        <label class="form-label fw-semibold small">Select Timezone</label>
+                                        <select class="form-select form-select-sm" id="tzSelect" style="max-width:340px;"><option value="">Loading...</option></select>
+                                    </div>
+                                    <div class="col-auto">
+                                        <button class="btn btn-primary btn-sm" id="saveTzBtn"><i class="fas fa-save me-1"></i>Save Timezone</button>
+                                    </div>
+                                    <div class="col-auto">
+                                        <div class="save-indicator" id="tzSaveOk"><i class="fas fa-check-circle"></i> Saved!</div>
+                                    </div>
+                                </div>
+
+                                <div class="restart-notice mt-3">
+                                    <i class="fas fa-info-circle me-2" style="color:#f5a623"></i>
+                                    <strong>Note for Windows servers:</strong> After saving a new timezone, <strong>restart the server once</strong> to fully apply it. On Linux/macOS it takes effect immediately.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- App Name Card -->
+                    <div class="glass-card p-4 mb-4 setting-card" style="border-left-color:#22c55e;">
+                        <div class="d-flex align-items-start gap-3">
+                            <div class="setting-icon" style="background:rgba(34,197,94,.12);color:#22c55e;">
+                                <i class="fas fa-tag"></i>
+                            </div>
+                            <div class="flex-grow-1">
+                                <h6 class="mb-1 fw-bold">Application Name</h6>
+                                <p class="text-muted small mb-3">Displayed in the browser tab. Default: "Patient RX System".</p>
+                                <div class="row g-2 align-items-end">
+                                    <div class="col-md-5">
+                                        <input type="text" class="form-control form-control-sm" id="appNameInput" placeholder="Patient RX System" style="max-width:300px;">
+                                    </div>
+                                    <div class="col-auto">
+                                        <button class="btn btn-success btn-sm" id="saveNameBtn"><i class="fas fa-save me-1"></i>Save Name</button>
+                                    </div>
+                                    <div class="col-auto">
+                                        <div class="save-indicator" id="nameSaveOk"><i class="fas fa-check-circle"></i> Saved!</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Settings Summary -->
+                    <div class="glass-card p-4 mb-4">
+                        <h6 class="fw-bold mb-3"><i class="fas fa-list-alt me-2 text-muted"></i>All Current Settings</h6>
+                        <table class="table table-sm table-hover align-middle">
+                            <thead><tr><th>Setting Key</th><th>Current Value</th></tr></thead>
+                            <tbody id="allSettingsBody">
+                                <tr><td colspan="2" class="text-muted text-center py-3">Loading...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div><!-- /tab-general -->
+
+                <!-- ══════════════════ API KEYS TAB ══════════════════ -->
+                <div id="tab-apikeys" class="d-none">
+
+                    <!-- Header card -->
+                    <div class="glass-card p-4 mb-4" style="background:linear-gradient(135deg,rgba(245,158,11,.06) 0%,rgba(234,179,8,.03) 100%);border-left:4px solid #f59e0b;">
+                        <div class="d-flex align-items-start gap-3">
+                            <div class="setting-icon" style="background:rgba(245,158,11,.12);color:#f59e0b;width:52px;height:52px;border-radius:14px;font-size:1.3rem;">
+                                <i class="fas fa-key"></i>
+                            </div>
+                            <div class="flex-grow-1">
+                                <h6 class="mb-1 fw-bold">API Key Management</h6>
+                                <p class="text-muted small mb-0">
+                                    API keys allow external systems, scripts, or integrations to access this system's REST API without a user login session.
+                                    Each key is shown <strong>only once</strong> at creation — store it securely immediately.
+                                </p>
+                            </div>
+                            <div class="ms-auto">
+                                <button class="btn btn-warning btn-sm fw-semibold" id="showGenerateFormBtn" style="color:#fff;">
+                                    <i class="fas fa-plus-circle me-1"></i>Generate New Key
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- How to use + Full API Reference -->
+                    <div class="glass-card p-4 mb-4">
+                        <div class="d-flex align-items-center justify-content-between mb-3">
+                            <h6 class="fw-bold mb-0"><i class="fas fa-code me-2 text-muted"></i>How to Use API Keys</h6>
+                            <button class="btn btn-sm btn-outline-secondary" id="toggleApiRefBtn">
+                                <i class="fas fa-book me-1"></i>Show API Reference
+                            </button>
+                        </div>
+                        <p class="text-muted small mb-2">Include the key in the <code>X-API-Key</code> HTTP header on any API request. All endpoints are prefixed with <code>/api</code>.</p>
+
+                        <!-- Authentication examples -->
+                        <div class="row g-2 mb-3">
+                            <div class="col-md-6">
+                                <div class="api-usage-box">
+                                    <span style="color:#8b949e"># HTTP Header</span><br>
+                                    <span class="hl">GET</span> <span class="val">http://localhost:3000/api/patients</span><br>
+                                    <span class="hl">X-API-Key:</span> <span class="val">rxk_your_key_here</span>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="api-usage-box">
+                                    <span style="color:#8b949e"># curl example</span><br>
+                                    curl <span class="val">\</span><br>
+                                    &nbsp;&nbsp;-H <span class="val">"X-API-Key: rxk_your_key"</span> <span class="val">\</span><br>
+                                    &nbsp;&nbsp;http://localhost:3000/api/patients
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Response codes -->
+                        <div class="d-flex gap-2 flex-wrap mb-2">
+                            <span class="badge" style="background:rgba(34,197,94,.15);color:#22c55e;font-size:.75rem;">200 OK — success</span>
+                            <span class="badge" style="background:rgba(99,102,241,.15);color:#6366f1;font-size:.75rem;">201 Created — new record</span>
+                            <span class="badge" style="background:rgba(234,179,8,.15);color:#ca8a04;font-size:.75rem;">400 Bad Request — validation error</span>
+                            <span class="badge" style="background:rgba(239,68,68,.15);color:#ef4444;font-size:.75rem;">401 Unauthorized — invalid/missing key</span>
+                            <span class="badge" style="background:rgba(239,68,68,.15);color:#ef4444;font-size:.75rem;">403 Forbidden — key disabled / expired</span>
+                            <span class="badge" style="background:rgba(156,163,175,.15);color:#6b7280;font-size:.75rem;">204 No Content — delete success</span>
+                        </div>
+
+                        <!-- Full API Reference (collapsed by default) -->
+                        <div id="apiRefPanel" class="d-none mt-3">
+                            <hr class="my-3">
+                            <div class="d-flex align-items-center gap-2 mb-3 flex-wrap">
+                                <h6 class="fw-bold mb-0"><i class="fas fa-book-open me-2" style="color:#6366f1"></i>Complete API Reference</h6>
+                                <span class="text-muted small">Base URL: <code>http://localhost:3000/api</code></span>
+                                <span class="tz-badge ms-1" id="apiRoutesTotal" style="font-size:.7rem">Loading...</span>
+                                <button class="btn btn-xs btn-outline-secondary ms-auto" id="refreshApiRoutesBtn" style="font-size:.7rem;padding:2px 8px;">
+                                    <i class="fas fa-sync me-1"></i>Refresh
+                                </button>
+                            </div>
+
+                            <!-- Filter pills -->
+                            <div class="d-flex gap-2 flex-wrap mb-3" id="apiFilterPills">
+                                <button class="btn btn-xs api-filter active" data-filter="all">All</button>
+                                <button class="btn btn-xs api-filter" data-filter="patients">Patients</button>
+                                <button class="btn btn-xs api-filter" data-filter="rx">RX Records</button>
+                                <button class="btn btn-xs api-filter" data-filter="dashboard">Dashboard</button>
+                                <button class="btn btn-xs api-filter" data-filter="reports">Reports</button>
+                                <button class="btn btn-xs api-filter" data-filter="settings">Settings</button>
+                                <button class="btn btn-xs api-filter" data-filter="admin">Admin Only</button>
+                            </div>
+
+                            <div id="apiEndpointsList"></div>
+                        </div>
+                    </div>
+
+                    <!-- Generate form (hidden by default) -->
+                    <div class="glass-card p-4 mb-4 d-none" id="generateFormCard" style="border:1.5px dashed rgba(245,158,11,.4);">
+                        <h6 class="fw-bold mb-3"><i class="fas fa-plus me-2 text-warning"></i>Generate New API Key</h6>
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold small">Key Name / Label <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control form-control-sm" id="keyName" placeholder="e.g. Integration System, Mobile App">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold small">Description (optional)</label>
+                                <input type="text" class="form-control form-control-sm" id="keyDescription" placeholder="What will this key be used for?">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label fw-semibold small">Expires In</label>
+                                <select class="form-select form-select-sm" id="keyExpiry">
+                                    <option value="never">Never expires</option>
+                                    <option value="30d">30 days</option>
+                                    <option value="90d">90 days</option>
+                                    <option value="180d">180 days</option>
+                                    <option value="1y">1 year</option>
+                                </select>
+                            </div>
+                            <div class="col-12 d-flex gap-2">
+                                <button class="btn btn-warning btn-sm fw-semibold" id="generateKeyBtn" style="color:#fff;">
+                                    <i class="fas fa-key me-1"></i>Generate Key
+                                </button>
+                                <button class="btn btn-outline-secondary btn-sm" id="cancelGenerateBtn">Cancel</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- New key reveal banner (hidden until generation) -->
+                    <div class="new-key-banner mb-4 d-none" id="newKeyBanner">
+                        <div class="d-flex align-items-center gap-2 mb-2">
+                            <i class="fas fa-check-circle text-success"></i>
+                            <strong>API Key Generated Successfully!</strong>
+                            <span class="badge bg-danger ms-auto">Copy now — will not be shown again</span>
+                        </div>
+                        <div class="apikey-reveal mb-2" id="newKeyValue">rxk_...</div>
+                        <div class="d-flex align-items-center gap-2">
+                            <button class="btn btn-sm btn-outline-success copy-btn" id="copyKeyBtn">
+                                <i class="fas fa-copy me-1"></i>Copy Key
+                            </button>
+                            <span class="text-muted small">Store this key securely. It cannot be retrieved again.</span>
+                        </div>
+                    </div>
+
+                    <!-- API Keys list -->
+                    <div class="glass-card p-4 mb-4">
+                        <div class="d-flex align-items-center justify-content-between mb-3">
+                            <h6 class="fw-bold mb-0"><i class="fas fa-list me-2 text-muted"></i>All API Keys</h6>
+                            <button class="btn btn-outline-secondary btn-sm" id="refreshKeysBtn"><i class="fas fa-sync me-1"></i>Refresh</button>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle mb-0" id="apiKeysTable">
+                                <thead>
+                                    <tr>
+                                        <th>Name / Label</th>
+                                        <th>Key Prefix</th>
+                                        <th>Status</th>
+                                        <th>Created By</th>
+                                        <th>Created</th>
+                                        <th>Last Used</th>
+                                        <th>Expires</th>
+                                        <th class="text-end">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="apiKeysBody">
+                                    <tr><td colspan="8" class="text-center text-muted py-4">Loading...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div><!-- /tab-apikeys -->
+
+
+                <!-- ══════════════════ EMAIL TAB ══════════════════ -->
+                <div id="tab-email" class="d-none">
+
+                    <!-- Status header card -->
+                    <div class="glass-card p-4 mb-4" style="background:linear-gradient(135deg,rgba(99,102,241,.06) 0%,rgba(139,92,246,.03) 100%);border-left:4px solid #6366f1;">
+                        <div class="d-flex align-items-start gap-3">
+                            <div class="setting-icon" style="background:rgba(99,102,241,.12);color:#6366f1;width:52px;height:52px;border-radius:14px;font-size:1.3rem;">
+                                <i class="fas fa-envelope"></i>
+                            </div>
+                            <div class="flex-grow-1">
+                                <h6 class="mb-1 fw-bold">Email / SMTP Configuration</h6>
+                                <p class="text-muted small mb-0">
+                                    Configure outgoing email so the system can send reports directly from the Reports page.
+                                    Settings are stored in the database — no need to edit <code>.env</code> files.
+                                </p>
+                            </div>
+                            <div class="ms-auto text-end">
+                                <div class="text-muted small mb-1">Status</div>
+                                <div id="emailStatusBadge" class="badge bg-secondary">Loading...</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Provider quick-fill buttons -->
+                    <div class="glass-card p-4 mb-4">
+                        <h6 class="fw-bold mb-2"><i class="fas fa-bolt me-2 text-warning"></i>Quick Setup — Choose Your Email Provider</h6>
+                        <p class="text-muted small mb-3">Click a provider to auto-fill the server settings. You still need to enter your email address and password.</p>
+                        <div class="d-flex gap-2 flex-wrap" id="providerBtns">
+                            <button class="btn btn-sm btn-outline-secondary provider-btn" data-host="smtp.gmail.com" data-port="587" data-name="Gmail">
+                                <i class="fab fa-google me-1"></i>Gmail
+                            </button>
+                            <button class="btn btn-sm btn-outline-secondary provider-btn" data-host="smtp-mail.outlook.com" data-port="587" data-name="Outlook / Hotmail">
+                                <i class="fab fa-microsoft me-1"></i>Outlook / Hotmail
+                            </button>
+                            <button class="btn btn-sm btn-outline-secondary provider-btn" data-host="smtp.office365.com" data-port="587" data-name="Office 365">
+                                <i class="fas fa-building me-1"></i>Office 365
+                            </button>
+                            <button class="btn btn-sm btn-outline-secondary provider-btn" data-host="smtp.yahoo.com" data-port="465" data-name="Yahoo Mail">
+                                <i class="fab fa-yahoo me-1"></i>Yahoo Mail
+                            </button>
+                            <button class="btn btn-sm btn-outline-secondary provider-btn" data-host="email-smtp.us-east-1.amazonaws.com" data-port="587" data-name="Amazon SES">
+                                <i class="fab fa-aws me-1"></i>Amazon SES
+                            </button>
+                            <button class="btn btn-sm btn-outline-secondary provider-btn" data-host="smtp.sendgrid.net" data-port="587" data-name="SendGrid">
+                                <i class="fas fa-paper-plane me-1"></i>SendGrid
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Config form -->
+                    <div class="glass-card p-4 mb-4 setting-card" style="border-left-color:#6366f1;">
+                        <h6 class="fw-bold mb-3"><i class="fas fa-server me-2 text-muted"></i>SMTP Server Settings</h6>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold small">SMTP Host</label>
+                                <input type="text" class="form-control form-control-sm" id="smtpHost" placeholder="smtp.gmail.com">
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label fw-semibold small">Port</label>
+                                <input type="number" class="form-control form-control-sm" id="smtpPort" placeholder="587" min="1" max="65535">
+                                <div class="form-text">587 = TLS, 465 = SSL</div>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold small">Sender Display Name</label>
+                                <input type="text" class="form-control form-control-sm" id="smtpFromName" placeholder="Patient RX System">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold small">Email Address (Username)</label>
+                                <input type="email" class="form-control form-control-sm" id="smtpUser" placeholder="youremail@gmail.com">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold small">
+                                    Password / App Password
+                                    <span class="text-muted" style="font-weight:400;font-size:.72rem" id="smtpPassHint">&nbsp;</span>
+                                </label>
+                                <div class="input-group input-group-sm">
+                                    <input type="password" class="form-control form-control-sm" id="smtpPass" placeholder="Leave blank to keep current password">
+                                    <button class="btn btn-outline-secondary" type="button" id="togglePassBtn" title="Show/hide password">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                </div>
+                                <div class="form-text">Leave blank to keep the currently saved password.</div>
+                            </div>
+                        </div>
+
+                        <!-- Gmail App Password guide -->
+                        <div id="gmailGuide" class="mt-3 p-3 rounded-3 d-none" style="background:rgba(234,179,8,.06);border:1px solid rgba(234,179,8,.25);">
+                            <div class="fw-semibold small mb-2"><i class="fab fa-google me-1 text-warning"></i>Gmail requires an App Password (not your regular password)</div>
+                            <ol class="text-muted small mb-0 ps-3">
+                                <li>Go to <a href="https://myaccount.google.com/security" target="_blank" rel="noopener">myaccount.google.com/security</a></li>
+                                <li>Enable <strong>2-Step Verification</strong> if not already on</li>
+                                <li>Search <strong>"App Passwords"</strong> in the search bar</li>
+                                <li>Create one for <strong>Mail</strong> — copy the 16-character code</li>
+                                <li>Paste that code in the Password field above (spaces are OK)</li>
+                            </ol>
+                        </div>
+
+                        <div class="d-flex align-items-center gap-2 mt-3 flex-wrap">
+                            <button class="btn btn-primary btn-sm" id="saveSmtpBtn">
+                                <i class="fas fa-save me-1"></i>Save Settings
+                            </button>
+                            <button class="btn btn-outline-secondary btn-sm" id="testSmtpSettingsBtn">
+                                <i class="fas fa-plug me-1"></i>Test Connection
+                            </button>
+                            <div class="save-indicator" id="smtpSaveOk">
+                                <i class="fas fa-check-circle"></i> Saved!
+                            </div>
+                        </div>
+
+                        <!-- Test result inline -->
+                        <div id="smtpTestInlineResult" class="alert d-none mt-3 mb-0" role="alert"></div>
+                    </div>
+
+                    <!-- Send a test email -->
+                    <div class="glass-card p-4 mb-4 setting-card" style="border-left-color:#22c55e;">
+                        <div class="d-flex align-items-start gap-3">
+                            <div class="setting-icon" style="background:rgba(34,197,94,.12);color:#22c55e;">
+                                <i class="fas fa-vial"></i>
+                            </div>
+                            <div class="flex-grow-1">
+                                <h6 class="mb-1 fw-bold">Send a Test Email</h6>
+                                <p class="text-muted small mb-2">Verify everything works end-to-end by sending a test message to any address.</p>
+                                <div class="row g-2 align-items-end">
+                                    <div class="col-md-5">
+                                        <input type="email" class="form-control form-control-sm" id="testEmailTo" placeholder="test@example.com">
+                                    </div>
+                                    <div class="col-auto">
+                                        <button class="btn btn-success btn-sm" id="sendTestEmailBtn">
+                                            <i class="fas fa-paper-plane me-1"></i>Send Test
+                                        </button>
+                                    </div>
+                                </div>
+                                <div id="testEmailResult" class="alert d-none mt-2 mb-0 py-2 small" role="alert"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div><!-- /tab-email -->
+
+
+                <!-- ══════════════════ MANUAL TAB ══════════════════ -->
+                <div id="tab-manual" class="d-none">
+
+                    <div class="glass-card p-4 mb-4" style="background:linear-gradient(135deg,rgba(74,144,226,.06) 0%,rgba(26,58,92,.03) 100%);border-left:4px solid #4a90e2;">
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="setting-icon" style="background:rgba(74,144,226,.12);color:#4a90e2;width:52px;height:52px;border-radius:14px;font-size:1.3rem;">
+                                <i class="fas fa-book-open"></i>
+                            </div>
+                            <div>
+                                <h5 class="mb-1 fw-bold">Patient RX System — User Manual</h5>
+                                <p class="text-muted small mb-0">Complete reference guide for all features. Click any question to expand the answer. Use the search in the <strong>? Help</strong> button (top-right navbar) for quick lookup.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Quick Nav -->
+                    <div class="glass-card p-3 mb-4">
+                        <div class="d-flex flex-wrap gap-2" id="manualNavPills">
+                            <a class="btn btn-sm btn-outline-primary" href="#man-dashboard">📊 Dashboard</a>
+                            <a class="btn btn-sm btn-outline-primary" href="#man-patients">👥 Patients</a>
+                            <a class="btn btn-sm btn-outline-primary" href="#man-rx">💊 RX Records</a>
+                            <a class="btn btn-sm btn-outline-primary" href="#man-workflow">✅ Workflow</a>
+                            <a class="btn btn-sm btn-outline-primary" href="#man-reports">📈 Reports</a>
+                            <a class="btn btn-sm btn-outline-primary" href="#man-audit">📋 Audit Log</a>
+                            <a class="btn btn-sm btn-outline-primary" href="#man-users">👤 Users</a>
+                            <a class="btn btn-sm btn-outline-primary" href="#man-settings">⚙️ Settings</a>
+                            <a class="btn btn-sm btn-outline-primary" href="#man-email">📧 Email</a>
+                            <a class="btn btn-sm btn-outline-primary" href="#man-apikeys">🔑 API Keys</a>
+                            <a class="btn btn-sm btn-outline-primary" href="#man-multiuser">👁️ Multi-User</a>
+                            <a class="btn btn-sm btn-outline-primary" href="#man-import">📥 Import</a>
+                        </div>
+                    </div>
+
+                    <div id="manualContent">
+
+                        <!-- DASHBOARD -->
+                        <div class="glass-card p-4 mb-3" id="man-dashboard">
+                            <h6 class="fw-bold mb-3" style="color:#4a90e2"><i class="fas fa-tachometer-alt me-2"></i>Dashboard</h6>
+                            <p class="text-muted small">The Dashboard is your real-time overview. Every number is clickable.</p>
+                            <div class="accordion" id="accDashboard">
+                                <div class="accordion-item border-0 mb-1" style="background:var(--bg-subtle,#f8fafc);border-radius:8px;overflow:hidden">
+                                    <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#d1">What are the stat cards at the top?</button>
+                                    <div id="d1" class="accordion-collapse collapse" data-bs-parent="#accDashboard">
+                                        <div class="accordion-body small text-muted">The four cards — <strong>Active Patients</strong>, <strong>Pending RX</strong>, <strong>Total RX</strong>, and <strong>Total Patients</strong> — update live. Clicking any card number opens a filtered modal showing exactly those records. Use the date range filter to scope to any period.</div>
+                                    </div>
+                                </div>
+                                <div class="accordion-item border-0 mb-1" style="background:var(--bg-subtle,#f8fafc);border-radius:8px;overflow:hidden">
+                                    <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#d2">What is a Pending RX?</button>
+                                    <div id="d2" class="accordion-collapse collapse" data-bs-parent="#accDashboard">
+                                        <div class="accordion-body small text-muted">An RX is "pending" when its workflow is not 100% complete — at least one step is still unchecked. Once all workflow steps are marked complete, it leaves the pending count.</div>
+                                    </div>
+                                </div>
+                                <div class="accordion-item border-0 mb-1" style="background:var(--bg-subtle,#f8fafc);border-radius:8px;overflow:hidden">
+                                    <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#d3">RX Pipeline chart</button>
+                                    <div id="d3" class="accordion-collapse collapse" data-bs-parent="#accDashboard">
+                                        <div class="accordion-body small text-muted">Shows how many RX records are stuck at each workflow step. The longest bar is your bottleneck. Hover any bar for the exact count.</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- PATIENTS -->
+                        <div class="glass-card p-4 mb-3" id="man-patients">
+                            <h6 class="fw-bold mb-3" style="color:#6366f1"><i class="fas fa-user-injured me-2"></i>Patients</h6>
+                            <p class="text-muted small">The core of the system. Every patient has a record, clinical notes, and a full RX history timeline.</p>
+                            <div class="accordion" id="accPatients">
+                                <div class="accordion-item border-0 mb-1" style="background:var(--bg-subtle,#f8fafc);border-radius:8px;overflow:hidden">
+                                    <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#p1">Adding a new patient</button>
+                                    <div id="p1" class="accordion-collapse collapse">
+                                        <div class="accordion-body small text-muted">Click <strong>"+ Add Patient"</strong>. Fill in First Name, Last Name, Date of Birth, Phone. Optionally add Patient Code, Clinic, and Transport companies. The system checks for duplicates by name + date of birth before saving.</div>
+                                    </div>
+                                </div>
+                                <div class="accordion-item border-0 mb-1" style="background:var(--bg-subtle,#f8fafc);border-radius:8px;overflow:hidden">
+                                    <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#p2">Editing a patient — and the Audit Log</button>
+                                    <div id="p2" class="accordion-collapse collapse">
+                                        <div class="accordion-body small text-muted">Click the <strong>pencil ✏️</strong> icon. Every saved change is automatically recorded in the Audit Log with the old and new values.</div>
+                                    </div>
+                                </div>
+                                <div class="accordion-item border-0 mb-1" style="background:var(--bg-subtle,#f8fafc);border-radius:8px;overflow:hidden">
+                                    <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#p3">⭐ Clicking the bold action in the Audit Log</button>
+                                    <div id="p3" class="accordion-collapse collapse">
+                                        <div class="accordion-body small text-muted">In the Audit Log, each row shows an action like <strong>"UPDATE"</strong> in bold. <strong>Click that word</strong> — a panel expands showing the exact before and after values for every field that changed. Old values appear with a red strikethrough. New values appear highlighted in green. Works for patients, RX records, users, settings, API keys, and workflow completions.</div>
+                                    </div>
+                                </div>
+                                <div class="accordion-item border-0 mb-1" style="background:var(--bg-subtle,#f8fafc);border-radius:8px;overflow:hidden">
+                                    <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#p4">Patient Timeline — full RX history</button>
+                                    <div id="p4" class="accordion-collapse collapse">
+                                        <div class="accordion-body small text-muted">Click the <strong>clock/timeline icon 🕐</strong> to open the patient's full RX history. Shows every RX record as a vertical timeline with progress bars, workflow steps, medications, and who completed each step.</div>
+                                    </div>
+                                </div>
+                                <div class="accordion-item border-0 mb-1" style="background:var(--bg-subtle,#f8fafc);border-radius:8px;overflow:hidden">
+                                    <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#p5">Soft delete and restore</button>
+                                    <div id="p5" class="accordion-collapse collapse">
+                                        <div class="accordion-body small text-muted">Patients are never permanently deleted. Deleting hides them from the main list but admins can restore them. This protects against accidental data loss.</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- RX RECORDS -->
+                        <div class="glass-card p-4 mb-3" id="man-rx">
+                            <h6 class="fw-bold mb-3" style="color:#22c55e"><i class="fas fa-prescription me-2"></i>RX Records</h6>
+                            <p class="text-muted small">Each RX record is a prescription delivery tracked through workflow steps.</p>
+                            <div class="accordion" id="accRx">
+                                <div class="accordion-item border-0 mb-1" style="background:var(--bg-subtle,#f8fafc);border-radius:8px;overflow:hidden">
+                                    <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#rx1">Creating an RX record</button>
+                                    <div id="rx1" class="accordion-collapse collapse">
+                                        <div class="accordion-body small text-muted">Click <strong>"+ Add RX Record"</strong>. Select the patient, pharmacy, arrival date, service date, transport companies, and optionally medications. The RX starts with 0/N steps complete.</div>
+                                    </div>
+                                </div>
+                                <div class="accordion-item border-0 mb-1" style="background:var(--bg-subtle,#f8fafc);border-radius:8px;overflow:hidden">
+                                    <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#rx2">Workflow step dots — what they mean</button>
+                                    <div id="rx2" class="accordion-collapse collapse">
+                                        <div class="accordion-body small text-muted"><strong>Green dot = completed step. Grey dot = pending.</strong> Hover any dot to see the step name, who completed it, and the date/time. Click a step in the expanded view to mark it complete.</div>
+                                    </div>
+                                </div>
+                                <div class="accordion-item border-0 mb-1" style="background:var(--bg-subtle,#f8fafc);border-radius:8px;overflow:hidden">
+                                    <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#rx3">Undo last workflow step</button>
+                                    <div id="rx3" class="accordion-collapse collapse">
+                                        <div class="accordion-body small text-muted">Each RX has an <strong>"Undo"</strong> button that reverts the most recently completed step. Only the last step can be undone at a time. Useful when a step was marked complete by mistake.</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- WORKFLOW -->
+                        <div class="glass-card p-4 mb-3" id="man-workflow">
+                            <h6 class="fw-bold mb-3" style="color:#f59e0b"><i class="fas fa-tasks me-2"></i>Workflow Actions (Steps)</h6>
+                            <p class="text-muted small">The configurable steps that every RX must go through. Go to Settings → Workflow Actions to manage them.</p>
+                            <div class="accordion" id="accWF">
+                                <div class="accordion-item border-0 mb-1" style="background:var(--bg-subtle,#f8fafc);border-radius:8px;overflow:hidden">
+                                    <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#wf1">What are Workflow Actions?</button>
+                                    <div id="wf1" class="accordion-collapse collapse">
+                                        <div class="accordion-body small text-muted">Named steps of your delivery process. Examples: "Prescription Received", "Medication Packaged", "Dispatched", "Delivered", "Patient Confirmed". Every RX is tracked against this list.</div>
+                                    </div>
+                                </div>
+                                <div class="accordion-item border-0 mb-1" style="background:var(--bg-subtle,#f8fafc);border-radius:8px;overflow:hidden">
+                                    <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#wf2">Adding / editing steps</button>
+                                    <div id="wf2" class="accordion-collapse collapse">
+                                        <div class="accordion-body small text-muted">Go to <strong>Settings → Workflow Actions</strong>. Click "+ Add Step". Give it a name and description. Steps apply immediately to all new RX records. Existing records keep their current progress.</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- REPORTS -->
+                        <div class="glass-card p-4 mb-3" id="man-reports">
+                            <h6 class="fw-bold mb-3" style="color:#06b6d4"><i class="fas fa-chart-bar me-2"></i>Reports & Analytics</h6>
+                            <p class="text-muted small">Export, print, and email reports from the Reports page.</p>
+                            <div class="accordion" id="accReports">
+                                <div class="accordion-item border-0 mb-1" style="background:var(--bg-subtle,#f8fafc);border-radius:8px;overflow:hidden">
+                                    <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#rep1">Report tabs</button>
+                                    <div id="rep1" class="accordion-collapse collapse">
+                                        <div class="accordion-body small text-muted">Four views: <strong>Summary</strong> (KPI overview), <strong>Patients</strong> (full list), <strong>RX Records</strong> (all prescriptions), <strong>Workflow Actions</strong> (step completion per RX).</div>
+                                    </div>
+                                </div>
+                                <div class="accordion-item border-0 mb-1" style="background:var(--bg-subtle,#f8fafc);border-radius:8px;overflow:hidden">
+                                    <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#rep2">📧 Email Report button</button>
+                                    <div id="rep2" class="accordion-collapse collapse">
+                                        <div class="accordion-body small text-muted">Click <strong>"📧 Email Report"</strong> in the report tab bar. Choose the report type, enter recipient email(s) (comma-separated), optional subject, and date range. Click <strong>"Test Connection"</strong> first to verify SMTP works, then <strong>"Send Report"</strong>. SMTP must be configured in System Settings → Email Setup first.</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- AUDIT LOG -->
+                        <div class="glass-card p-4 mb-3" id="man-audit">
+                            <h6 class="fw-bold mb-3" style="color:#8b5cf6"><i class="fas fa-history me-2"></i>Audit Log</h6>
+                            <p class="text-muted small">Records every action taken by every user. Nothing is hidden. Administrators only.</p>
+                            <div class="accordion" id="accAudit">
+                                <div class="accordion-item border-0 mb-1" style="background:var(--bg-subtle,#f8fafc);border-radius:8px;overflow:hidden">
+                                    <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#au1">⭐ Clicking the bold action word (most important)</button>
+                                    <div id="au1" class="accordion-collapse collapse">
+                                        <div class="accordion-body small text-muted"><strong>Click the bold action word</strong> (e.g. "UPDATE", "CREATE", "DELETE") in any audit log row. A panel expands showing the complete before/after diff. Old values have red strikethrough. New values are green. Fields that did not change are grey. Works for ALL record types.</div>
+                                    </div>
+                                </div>
+                                <div class="accordion-item border-0 mb-1" style="background:var(--bg-subtle,#f8fafc);border-radius:8px;overflow:hidden">
+                                    <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#au2">Filters</button>
+                                    <div id="au2" class="accordion-collapse collapse">
+                                        <div class="accordion-body small text-muted">Filter by date range, user, module (Patients / RX / Users / Settings etc.), and action type. Combine multiple filters. Click "Clear" to reset.</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- USERS -->
+                        <div class="glass-card p-4 mb-3" id="man-users">
+                            <h6 class="fw-bold mb-3" style="color:#ef4444"><i class="fas fa-users-cog me-2"></i>User Management</h6>
+                            <p class="text-muted small">Manage staff accounts. Administrator access only.</p>
+                            <div class="accordion" id="accUsers">
+                                <div class="accordion-item border-0 mb-1" style="background:var(--bg-subtle,#f8fafc);border-radius:8px;overflow:hidden">
+                                    <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#u1">Roles and permissions</button>
+                                    <div id="u1" class="accordion-collapse collapse">
+                                        <div class="accordion-body small text-muted"><strong>Administrator</strong> — full access including user management and system settings. <strong>Manager</strong> — all patient/RX data and reports, no user/settings management. <strong>Staff</strong> — add/edit patients and RX records, complete workflow steps. <strong>Viewer</strong> — read-only access, no editing.</div>
+                                    </div>
+                                </div>
+                                <div class="accordion-item border-0 mb-1" style="background:var(--bg-subtle,#f8fafc);border-radius:8px;overflow:hidden">
+                                    <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#u2">Changing a password</button>
+                                    <div id="u2" class="accordion-collapse collapse">
+                                        <div class="accordion-body small text-muted">Edit the user, enter a new password. Leave blank to keep the current password. Passwords are stored as bcrypt hashes — they cannot be read by anyone, including admins.</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- SETTINGS GENERAL -->
+                        <div class="glass-card p-4 mb-3" id="man-settings">
+                            <h6 class="fw-bold mb-3" style="color:#64748b"><i class="fas fa-cog me-2"></i>System Settings — General</h6>
+                            <div class="accordion" id="accSetGen">
+                                <div class="accordion-item border-0 mb-1" style="background:var(--bg-subtle,#f8fafc);border-radius:8px;overflow:hidden">
+                                    <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#sg1">Timezone setting</button>
+                                    <div id="sg1" class="accordion-collapse collapse">
+                                        <div class="accordion-body small text-muted">Sets the timezone for ALL timestamps — audit logs, RX dates, workflow completions. Applies immediately without server restart. Stored in the database so it persists across restarts. If the server runs in UTC but you're in Eastern time, set "America/New_York" here.</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- EMAIL SETUP -->
+                        <div class="glass-card p-4 mb-3" id="man-email">
+                            <h6 class="fw-bold mb-3" style="color:#6366f1"><i class="fas fa-envelope me-2"></i>System Settings — Email Setup</h6>
+                            <div class="accordion" id="accEmail">
+                                <div class="accordion-item border-0 mb-1" style="background:var(--bg-subtle,#f8fafc);border-radius:8px;overflow:hidden">
+                                    <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#em1">Gmail — App Password required</button>
+                                    <div id="em1" class="accordion-collapse collapse">
+                                        <div class="accordion-body small text-muted">Gmail requires a special <strong>App Password</strong> (not your regular password). 1) Go to <a href="https://myaccount.google.com/security" target="_blank">myaccount.google.com/security</a>. 2) Enable 2-Step Verification. 3) Search "App Passwords". 4) Create one for "Mail". 5) Paste the 16-character code in the Password field. Use the Quick Setup button to auto-fill Gmail server settings.</div>
+                                    </div>
+                                </div>
+                                <div class="accordion-item border-0 mb-1" style="background:var(--bg-subtle,#f8fafc);border-radius:8px;overflow:hidden">
+                                    <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#em2">Test Connection and Send Test Email</button>
+                                    <div id="em2" class="accordion-collapse collapse">
+                                        <div class="accordion-body small text-muted">Always click <strong>"Test Connection"</strong> after saving to verify SMTP credentials work. Then use <strong>"Send Test Email"</strong> to verify end-to-end delivery to any address.</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- API KEYS -->
+                        <div class="glass-card p-4 mb-3" id="man-apikeys">
+                            <h6 class="fw-bold mb-3" style="color:#f59e0b"><i class="fas fa-key me-2"></i>System Settings — API Keys</h6>
+                            <div class="accordion" id="accApi">
+                                <div class="accordion-item border-0 mb-1" style="background:var(--bg-subtle,#f8fafc);border-radius:8px;overflow:hidden">
+                                    <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#ak1">What is an API key?</button>
+                                    <div id="ak1" class="accordion-collapse collapse">
+                                        <div class="accordion-body small text-muted">A secret token for external scripts. Include it in the HTTP header: <code>X-API-Key: rxk_yourkey</code>. Allows automation, scheduled reports, and integrations without a browser login.</div>
+                                    </div>
+                                </div>
+                                <div class="accordion-item border-0 mb-1" style="background:var(--bg-subtle,#f8fafc);border-radius:8px;overflow:hidden">
+                                    <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#ak2">The full key is shown ONCE</button>
+                                    <div id="ak2" class="accordion-collapse collapse">
+                                        <div class="accordion-body small text-muted">When you generate a key, <strong>copy it immediately</strong>. The system stores only a SHA-256 hash — the full key cannot be shown again. If lost, delete the key and generate a new one.</div>
+                                    </div>
+                                </div>
+                                <div class="accordion-item border-0 mb-1" style="background:var(--bg-subtle,#f8fafc);border-radius:8px;overflow:hidden">
+                                    <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#ak3">Show API Reference button</button>
+                                    <div id="ak3" class="accordion-collapse collapse">
+                                        <div class="accordion-body small text-muted">Click <strong>"Show API Reference"</strong> to see all 97 available API endpoints, grouped by category. Each row has a <strong>"Copy URL"</strong> button. The reference loads live from the server — if new routes are added, they appear automatically after clicking "Refresh".</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- MULTI-USER -->
+                        <div class="glass-card p-4 mb-3" id="man-multiuser">
+                            <h6 class="fw-bold mb-3" style="color:#22c55e"><i class="fas fa-users me-2"></i>Multi-User / Concurrent Access</h6>
+                            <div class="accordion" id="accMulti">
+                                <div class="accordion-item border-0 mb-1" style="background:var(--bg-subtle,#f8fafc);border-radius:8px;overflow:hidden">
+                                    <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#mu1">👁️ The yellow viewer banner</button>
+                                    <div id="mu1" class="accordion-collapse collapse">
+                                        <div class="accordion-body small text-muted">If a colleague has the same patient open, a <strong>yellow banner</strong> appears: "👁️ Maria is also viewing this patient." This is informational only — it does not block editing. The banner updates every 60 seconds.</div>
+                                    </div>
+                                </div>
+                                <div class="accordion-item border-0 mb-1" style="background:var(--bg-subtle,#f8fafc);border-radius:8px;overflow:hidden">
+                                    <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#mu2">TTL — what is the 5-minute expiry?</button>
+                                    <div id="mu2" class="accordion-collapse collapse">
+                                        <div class="accordion-body small text-muted">TTL = "Time To Live." When a user opens a patient, a 5-minute lock is created. The page sends a <strong>heartbeat every 60 seconds</strong> to renew it. If the user closes the tab or goes idle, the lock expires after 5 minutes and the banner disappears automatically. This prevents phantom "someone is viewing" notices when a user just forgot to close a tab.</div>
+                                    </div>
+                                </div>
+                                <div class="accordion-item border-0 mb-1" style="background:var(--bg-subtle,#f8fafc);border-radius:8px;overflow:hidden">
+                                    <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#mu3">Two users saving the same patient</button>
+                                    <div id="mu3" class="accordion-collapse collapse">
+                                        <div class="accordion-body small text-muted">"Last save wins" — whoever saves last overwrites the previous save for any overlapping fields. The yellow banner warns you this might happen. The Audit Log records both saves so you can always see what each user changed and restore values if needed.</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- IMPORT -->
+                        <div class="glass-card p-4 mb-3" id="man-import">
+                            <h6 class="fw-bold mb-3" style="color:#0ea5e9"><i class="fas fa-file-import me-2"></i>Data Import</h6>
+                            <div class="accordion" id="accImport">
+                                <div class="accordion-item border-0 mb-1" style="background:var(--bg-subtle,#f8fafc);border-radius:8px;overflow:hidden">
+                                    <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#im1">How to import patients from CSV</button>
+                                    <div id="im1" class="accordion-collapse collapse">
+                                        <div class="accordion-body small text-muted">1) Click "Download Template" to get the correct column headers. 2) Fill in the template — dates must be YYYY-MM-DD format. 3) Upload the CSV. 4) Review the results table showing which rows succeeded and which failed (with reasons). Duplicates (same name + DOB) are skipped with a warning.</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div><!-- /manualContent -->
+
+                </div><!-- /tab-manual -->
+
+            </div><!-- /settingsContent -->
+        </div>
+    </div>
+</div>
+
+<!-- Delete Key Confirm Modal -->
+<div class="modal fade" id="deleteKeyModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header border-0">
+                <h5 class="modal-title"><i class="fas fa-exclamation-triangle text-danger me-2"></i>Revoke API Key</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to permanently revoke the key <strong id="deleteKeyName"></strong>?</p>
+                <div class="alert alert-danger py-2 small mb-0">
+                    <i class="fas fa-ban me-1"></i>This action is <strong>irreversible</strong>. Any system using this key will immediately lose access.
+                </div>
+            </div>
+            <div class="modal-footer border-0">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteKeyBtn"><i class="fas fa-trash me-1"></i>Revoke Key</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="/js/app.js"></script>
+<script src="/js/help.js"></script>
+<script>
+// ────────────────────────────────────────────────────────────────────────────
+// GENERAL TAB — Timezone & App Name
+// ────────────────────────────────────────────────────────────────────────────
+const TZ_GROUPS = {
+    'Eastern US':    ['America/New_York','America/Detroit'],
+    'Central US':    ['America/Chicago','America/Winnipeg'],
+    'Mountain US':   ['America/Denver','America/Phoenix'],
+    'Pacific US':    ['America/Los_Angeles','America/Vancouver'],
+    'Other US':      ['America/Anchorage','Pacific/Honolulu'],
+    'Caribbean':     ['America/Puerto_Rico','America/Santo_Domingo','America/Barbados','America/Jamaica','Atlantic/Bermuda'],
+    'UTC':           ['UTC'],
+    'Europe':        ['Europe/London','Europe/Madrid','Europe/Paris','Europe/Berlin','Europe/Lisbon','Europe/Rome'],
+    'Latin America': ['America/Bogota','America/Lima','America/Caracas','America/La_Paz','America/Sao_Paulo','America/Argentina/Buenos_Aires','America/Santiago']
+};
+
+let currentSettings = {};
+let clockInterval   = null;
+
+function updateClocks(tz) {
+    tz = tz || currentSettings.app_timezone || 'UTC';
+    const now = new Date();
+    const fmt = new Intl.DateTimeFormat('en-US', { timeZone:tz, year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:true }).format(now);
+    const off = now.toLocaleString('en-US', { timeZone:tz, timeZoneName:'short' }).split(' ').pop();
+    document.getElementById('liveClock').textContent    = fmt;
+    document.getElementById('liveTimezone').textContent = tz + ' (' + off + ')';
+    document.getElementById('previewClock').textContent = fmt;
+    document.getElementById('previewOffset').textContent = off;
+    document.getElementById('previewUtc').textContent   = now.toISOString().replace('T',' ').slice(0,19) + ' UTC';
+}
+
+function populateTzSelect(currentTz) {
+    const sel = document.getElementById('tzSelect');
+    sel.innerHTML = '';
+    for (const [group, zones] of Object.entries(TZ_GROUPS)) {
+        const og = document.createElement('optgroup');
+        og.label = group;
+        for (const tz of zones) {
+            const opt = document.createElement('option');
+            opt.value = tz;
+            opt.textContent = tz.replace(/America\//,'').replace(/_/g,' ');
+            if (tz === currentTz) opt.selected = true;
+            og.appendChild(opt);
+        }
+        sel.appendChild(og);
+    }
+    sel.addEventListener('change', () => updateClocks(sel.value));
+}
+
+function renderSettingsTable(s) {
+    const tbody = document.getElementById('allSettingsBody');
+    const entries = Object.entries(s);
+    if (!entries.length) { tbody.innerHTML = '<tr><td colspan="2" class="text-muted text-center">No settings found</td></tr>'; return; }
+    tbody.innerHTML = entries.map(([k,v]) => `<tr><td><code>${k}</code></td><td><span class="tz-badge">${v||'—'}</span></td></tr>`).join('');
+}
+
+async function loadSettings() {
+    const res = await fetchWithAuth('/api/settings');
+    if (!res || !res.ok) return;
+    currentSettings = await res.json();
+    const tz = currentSettings.app_timezone || 'America/New_York';
+    document.getElementById('currentTzBadge').textContent = tz;
+    document.getElementById('appNameInput').value = currentSettings.app_name || '';
+    populateTzSelect(tz);
+    renderSettingsTable(currentSettings);
+    updateClocks(tz);
+}
+
+function showSaved(id) {
+    const el = document.getElementById(id);
+    el.classList.add('visible');
+    setTimeout(() => el.classList.remove('visible'), 2500);
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// API KEYS TAB
+// ────────────────────────────────────────────────────────────────────────────
+let deleteKeyId   = null;
+let deleteModal   = null;
+
+function formatRelative(dateStr) {
+    if (!dateStr) return '<span class="text-muted">—</span>';
+    const d   = new Date(dateStr);
+    const now = new Date();
+    const diff = now - d;
+    if (diff < 60000)    return 'just now';
+    if (diff < 3600000)  return Math.floor(diff/60000)  + 'm ago';
+    if (diff < 86400000) return Math.floor(diff/3600000) + 'h ago';
+    return d.toLocaleDateString();
+}
+
+function formatExpiry(dateStr) {
+    if (!dateStr) return '<span class="text-muted small">Never</span>';
+    const d   = new Date(dateStr);
+    const now = new Date();
+    if (d < now) return '<span class="badge bg-danger">Expired</span>';
+    const days = Math.ceil((d - now) / 86400000);
+    if (days <= 14) return `<span class="expiry-warning"><i class="fas fa-exclamation-triangle me-1"></i>${days}d left</span>`;
+    return `<span class="text-muted small">${d.toLocaleDateString()}</span>`;
+}
+
+async function loadApiKeys() {
+    const tbody = document.getElementById('apiKeysBody');
+    tbody.innerHTML = '<tr><td colspan="8" class="text-center py-3"><i class="fas fa-spinner fa-spin me-2"></i>Loading...</td></tr>';
+    const res = await fetchWithAuth('/api/api-keys');
+    if (!res || !res.ok) { tbody.innerHTML = '<tr><td colspan="8" class="text-center text-danger">Failed to load keys</td></tr>'; return; }
+    const keys = await res.json();
+    if (!keys.length) {
+        tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4"><i class="fas fa-key fa-2x mb-2 d-block opacity-25"></i>No API keys yet — generate one to get started.</td></tr>';
+        return;
+    }
+    tbody.innerHTML = keys.map(k => {
+        const creator = k.CreatedBy ? (k.CreatedBy.firstName + ' ' + k.CreatedBy.lastName) : 'System';
+        const statusDot = k.isActive
+            ? '<span class="status-dot active"></span><span class="text-success small fw-semibold">Active</span>'
+            : '<span class="status-dot inactive"></span><span class="text-danger small fw-semibold">Disabled</span>';
+        const toggleIcon   = k.isActive ? 'fa-toggle-on text-success' : 'fa-toggle-off text-muted';
+        const toggleTitle  = k.isActive ? 'Disable key' : 'Enable key';
+        return `
+        <tr class="key-row" data-id="${k.id}">
+            <td>
+                <div class="fw-semibold">${k.name}</div>
+                ${k.description ? `<div class="text-muted small">${k.description}</div>` : ''}
+            </td>
+            <td><span class="key-prefix">${k.keyPrefix}…</span></td>
+            <td>${statusDot}</td>
+            <td><span class="text-muted small">${creator}</span></td>
+            <td><span class="text-muted small">${formatRelative(k.createdAt)}</span></td>
+            <td><span class="text-muted small">${formatRelative(k.lastUsedAt)}</span></td>
+            <td>${formatExpiry(k.expiresAt)}</td>
+            <td class="text-end">
+                <button class="btn btn-sm btn-outline-secondary me-1 toggle-key-btn" data-id="${k.id}" title="${toggleTitle}">
+                    <i class="fas ${toggleIcon}"></i>
+                </button>
+                <button class="btn btn-sm btn-outline-danger delete-key-btn" data-id="${k.id}" data-name="${k.name}">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </td>
+        </tr>`;
+    }).join('');
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// TAB SWITCHING
+// ────────────────────────────────────────────────────────────────────────────
+function switchTab(tab) {
+    document.querySelectorAll('#settingsTabs .nav-link').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('[id^="tab-"]').forEach(t => t.classList.add('d-none'));
+    document.getElementById('tab-' + tab).classList.remove('d-none');
+    document.querySelector(`[data-tab="${tab}"]`).classList.add('active');
+    if (tab === 'apikeys') loadApiKeys();
+    if (tab === 'email') loadEmailSettings();
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// DOMContentLoaded
+// ────────────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', async () => {
+    initApp();
+
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    if (user.role !== 'Administrator') {
+        document.getElementById('settingsContent').classList.add('d-none');
+        document.getElementById('adminGuard').classList.remove('d-none');
+        return;
+    }
+
+    await loadSettings();
+    deleteModal = new bootstrap.Modal(document.getElementById('deleteKeyModal'));
+
+    clockInterval = setInterval(() => {
+        const tz = document.getElementById('tzSelect')?.value || currentSettings.app_timezone || 'UTC';
+        updateClocks(tz);
+    }, 1000);
+
+    // ── Tab switching ──────────────────────────────────────────────────────
+    document.querySelectorAll('#settingsTabs .nav-link').forEach(btn => {
+        btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+
+    // Auto-open tab from URL param: ?tab=manual, ?tab=email, etc.
+    const _urlTab = new URLSearchParams(location.search).get('tab');
+    if (_urlTab && document.getElementById('tab-' + _urlTab)) {
+        switchTab(_urlTab);
+    }
+    });
+
+    // ── Save Timezone ──────────────────────────────────────────────────────
+    document.getElementById('saveTzBtn').addEventListener('click', async () => {
+        const tz  = document.getElementById('tzSelect').value;
+        if (!tz) return;
+        const btn = document.getElementById('saveTzBtn');
+        btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Saving...';
+        try {
+            const res = await fetchWithAuth('/api/settings', { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ app_timezone:tz }) });
+            if (res && res.ok) {
+                const data = await res.json();
+                currentSettings = data.settings;
+                document.getElementById('currentTzBadge').textContent = tz;
+                renderSettingsTable(currentSettings);
+                showSaved('tzSaveOk');
+                showToast('Timezone updated to ' + tz, 'success');
+            } else {
+                const err = await res.json();
+                showToast(err.error || 'Failed to save timezone', 'danger');
+            }
+        } catch(e) { showToast('Network error', 'danger'); }
+        finally { btn.disabled = false; btn.innerHTML = '<i class="fas fa-save me-1"></i>Save Timezone'; }
+    });
+
+    // ── Save App Name ──────────────────────────────────────────────────────
+    document.getElementById('saveNameBtn').addEventListener('click', async () => {
+        const name = document.getElementById('appNameInput').value.trim();
+        if (!name) { showToast('App name cannot be empty', 'warning'); return; }
+        const btn = document.getElementById('saveNameBtn');
+        btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Saving...';
+        try {
+            const res = await fetchWithAuth('/api/settings', { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ app_name:name }) });
+            if (res && res.ok) {
+                const data = await res.json();
+                currentSettings = data.settings;
+                renderSettingsTable(currentSettings);
+                showSaved('nameSaveOk');
+                showToast('App name updated!', 'success');
+            } else { showToast('Failed to save name', 'danger'); }
+        } catch(e) { showToast('Network error', 'danger'); }
+        finally { btn.disabled = false; btn.innerHTML = '<i class="fas fa-save me-1"></i>Save Name'; }
+    });
+
+    // ── Show/Hide generate form ────────────────────────────────────────────
+    document.getElementById('showGenerateFormBtn').addEventListener('click', () => {
+        document.getElementById('generateFormCard').classList.remove('d-none');
+        document.getElementById('showGenerateFormBtn').classList.add('d-none');
+        document.getElementById('newKeyBanner').classList.add('d-none');
+        document.getElementById('keyName').focus();
+    });
+    document.getElementById('cancelGenerateBtn').addEventListener('click', () => {
+        document.getElementById('generateFormCard').classList.add('d-none');
+        document.getElementById('showGenerateFormBtn').classList.remove('d-none');
+    });
+
+    // ── Generate API Key ───────────────────────────────────────────────────
+    document.getElementById('generateKeyBtn').addEventListener('click', async () => {
+        const name = document.getElementById('keyName').value.trim();
+        const desc = document.getElementById('keyDescription').value.trim();
+        const exp  = document.getElementById('keyExpiry').value;
+        if (!name) { showToast('Please enter a name for the API key', 'warning'); document.getElementById('keyName').focus(); return; }
+
+        const btn = document.getElementById('generateKeyBtn');
+        btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Generating...';
+
+        try {
+            const res = await fetchWithAuth('/api/api-keys', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, description: desc || undefined, expiresIn: exp })
+            });
+            if (res && res.ok) {
+                const data = await res.json();
+                // Show the key ONCE
+                document.getElementById('newKeyValue').textContent = data.fullKey;
+                document.getElementById('newKeyBanner').classList.remove('d-none');
+                document.getElementById('generateFormCard').classList.add('d-none');
+                document.getElementById('showGenerateFormBtn').classList.remove('d-none');
+                // Clear the form
+                document.getElementById('keyName').value = '';
+                document.getElementById('keyDescription').value = '';
+                document.getElementById('keyExpiry').value = 'never';
+                // Refresh the list
+                await loadApiKeys();
+                showToast('API key generated — copy it now!', 'success');
+            } else {
+                const err = await res.json();
+                showToast(err.error || 'Failed to generate key', 'danger');
+            }
+        } catch(e) { showToast('Network error', 'danger'); }
+        finally { btn.disabled = false; btn.innerHTML = '<i class="fas fa-key me-1"></i>Generate Key'; }
+    });
+
+    // ── Copy key to clipboard ──────────────────────────────────────────────
+    document.getElementById('copyKeyBtn').addEventListener('click', () => {
+        const key = document.getElementById('newKeyValue').textContent;
+        navigator.clipboard.writeText(key).then(() => {
+            const btn = document.getElementById('copyKeyBtn');
+            btn.innerHTML = '<i class="fas fa-check me-1"></i>Copied!';
+            btn.classList.replace('btn-outline-success','btn-success');
+            setTimeout(() => { btn.innerHTML = '<i class="fas fa-copy me-1"></i>Copy Key'; btn.classList.replace('btn-success','btn-outline-success'); }, 2000);
+        }).catch(() => showToast('Could not copy — please copy manually', 'warning'));
+    });
+
+    // ── Refresh keys list ──────────────────────────────────────────────────
+    document.getElementById('refreshKeysBtn').addEventListener('click', loadApiKeys);
+
+    // ── Toggle & Delete (event delegation) ────────────────────────────────
+    document.getElementById('apiKeysBody').addEventListener('click', async (e) => {
+        const toggleBtn = e.target.closest('.toggle-key-btn');
+        const deleteBtn = e.target.closest('.delete-key-btn');
+
+        if (toggleBtn) {
+            const id = toggleBtn.dataset.id;
+            toggleBtn.disabled = true;
+            try {
+                const res = await fetchWithAuth(`/api/api-keys/${id}/toggle`, { method:'PATCH' });
+                if (res && res.ok) { await loadApiKeys(); }
+                else { showToast('Failed to toggle key', 'danger'); }
+            } finally { toggleBtn.disabled = false; }
+        }
+
+        if (deleteBtn) {
+            deleteKeyId = deleteBtn.dataset.id;
+            document.getElementById('deleteKeyName').textContent = '"' + deleteBtn.dataset.name + '"';
+            deleteModal.show();
+        }
+    });
+
+    // ── Confirm delete ─────────────────────────────────────────────────────
+    document.getElementById('confirmDeleteKeyBtn').addEventListener('click', async () => {
+        if (!deleteKeyId) return;
+        const btn = document.getElementById('confirmDeleteKeyBtn');
+        btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Revoking...';
+        try {
+            const res = await fetchWithAuth(`/api/api-keys/${deleteKeyId}`, { method:'DELETE' });
+            if (res && (res.ok || res.status === 204)) {
+                deleteModal.hide();
+                await loadApiKeys();
+                showToast('API key revoked permanently', 'success');
+            } else { showToast('Failed to revoke key', 'danger'); }
+        } finally { btn.disabled = false; btn.innerHTML = '<i class="fas fa-trash me-1"></i>Revoke Key'; deleteKeyId = null; }
+    });
+});
+
+
+
+// ────────────────────────────────────────────────────────────────────────────
+// EMAIL SETTINGS TAB
+// ────────────────────────────────────────────────────────────────────────────
+let _emailLoaded = false;
+
+async function loadEmailSettings() {
+    if (_emailLoaded) return;
+    _emailLoaded = true;
+    try {
+        const res = await fetchWithAuth('/api/settings/email-status');
+        if (!res || !res.ok) return;
+        const d = await res.json();
+
+        document.getElementById('smtpHost').value     = d.smtp_host      || '';
+        document.getElementById('smtpPort').value     = d.smtp_port      || '587';
+        document.getElementById('smtpUser').value     = d.smtp_user      || '';
+        document.getElementById('smtpFromName').value = d.smtp_from_name || 'Patient RX System';
+
+        const hint = document.getElementById('smtpPassHint');
+        if (d.smtp_pass_set) {
+            hint.textContent = '(password already saved — leave blank to keep)';
+            hint.style.color = '#22c55e';
+        } else {
+            hint.textContent = '(not set)';
+            hint.style.color = '#f59e0b';
+        }
+
+        const badge = document.getElementById('emailStatusBadge');
+        if (d.configured) {
+            badge.className = 'badge bg-success';
+            badge.innerHTML = '<i class="fas fa-check me-1"></i>Configured';
+        } else {
+            badge.className = 'badge bg-warning text-dark';
+            badge.innerHTML = '<i class="fas fa-exclamation-triangle me-1"></i>Not Configured';
+        }
+
+        // Show Gmail guide if Gmail is the host
+        if (d.smtp_host && d.smtp_host.includes('gmail')) {
+            document.getElementById('gmailGuide').classList.remove('d-none');
+        }
+    } catch(e) { console.error('loadEmailSettings:', e); }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+
+    // Provider quick-fill buttons
+    document.getElementById('providerBtns')?.addEventListener('click', (e) => {
+        const btn = e.target.closest('.provider-btn');
+        if (!btn) return;
+        document.getElementById('smtpHost').value = btn.dataset.host;
+        document.getElementById('smtpPort').value = btn.dataset.port;
+        const guide = document.getElementById('gmailGuide');
+        if (btn.dataset.host.includes('gmail')) guide.classList.remove('d-none');
+        else guide.classList.add('d-none');
+        // Highlight the selected provider button
+        document.querySelectorAll('.provider-btn').forEach(b => b.classList.remove('btn-primary', 'text-white'));
+        btn.classList.add('btn-primary', 'text-white');
+    });
+
+    // Show/hide password
+    document.getElementById('togglePassBtn')?.addEventListener('click', () => {
+        const input = document.getElementById('smtpPass');
+        const icon  = document.querySelector('#togglePassBtn i');
+        if (input.type === 'password') { input.type = 'text';     icon.className = 'fas fa-eye-slash'; }
+        else                           { input.type = 'password'; icon.className = 'fas fa-eye'; }
+    });
+
+    // Save SMTP settings
+    document.getElementById('saveSmtpBtn')?.addEventListener('click', async () => {
+        const btn = document.getElementById('saveSmtpBtn');
+        btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Saving...';
+        try {
+            const payload = {
+                smtp_host:      document.getElementById('smtpHost').value.trim(),
+                smtp_port:      document.getElementById('smtpPort').value.trim(),
+                smtp_user:      document.getElementById('smtpUser').value.trim(),
+                smtp_from_name: document.getElementById('smtpFromName').value.trim()
+            };
+            const pass = document.getElementById('smtpPass').value;
+            if (pass) payload.smtp_pass = pass;
+
+            const res = await fetchWithAuth('/api/settings', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (res && res.ok) {
+                showSaved('smtpSaveOk');
+                showToast('Email settings saved!', 'success');
+                document.getElementById('smtpPass').value = '';
+                const hint = document.getElementById('smtpPassHint');
+                if (pass) { hint.textContent = '(password saved)'; hint.style.color = '#22c55e'; }
+                // Update status badge
+                const badge = document.getElementById('emailStatusBadge');
+                if (payload.smtp_user && (pass || pass === undefined)) {
+                    badge.className = 'badge bg-success';
+                    badge.innerHTML = '<i class="fas fa-check me-1"></i>Configured';
+                }
+                _emailLoaded = false; // allow refresh next time tab opens
+            } else {
+                const err = await res.json();
+                showToast(err.error || 'Failed to save settings', 'danger');
+            }
+        } catch(e) { showToast('Network error: ' + e.message, 'danger'); }
+        finally { btn.disabled = false; btn.innerHTML = '<i class="fas fa-save me-1"></i>Save Settings'; }
+    });
+
+    // Test connection (SMTP ping only)
+    document.getElementById('testSmtpSettingsBtn')?.addEventListener('click', async () => {
+        const btn  = document.getElementById('testSmtpSettingsBtn');
+        const alert = document.getElementById('smtpTestInlineResult');
+        btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Testing...';
+        alert.className = 'alert d-none mt-3 mb-0';
+        try {
+            const res = await fetchWithAuth('/api/email-report/test', { method: 'POST' });
+            const data = await res.json();
+            if (res.ok && data.ok) {
+                alert.className = 'alert alert-success mt-3 mb-0';
+                alert.innerHTML = '<i class="fas fa-check-circle me-2"></i><strong>Connection successful!</strong> SMTP is working correctly with <strong>' + (data.user || 'your account') + '</strong>.';
+            } else {
+                throw new Error(data.error || 'Unknown error');
+            }
+        } catch(e) {
+            alert.className = 'alert alert-danger mt-3 mb-0';
+            alert.innerHTML = '<i class="fas fa-times-circle me-2"></i><strong>Connection failed:</strong> ' + e.message + '<br><small class="text-muted mt-1 d-block">Check your email address, password, and port. For Gmail use an App Password.</small>';
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-plug me-1"></i>Test Connection';
+            alert.classList.remove('d-none');
+        }
+    });
+
+    // Send a test email to verify end-to-end
+    document.getElementById('sendTestEmailBtn')?.addEventListener('click', async () => {
+        const to = document.getElementById('testEmailTo').value.trim();
+        if (!to) { document.getElementById('testEmailTo').focus(); return; }
+        const btn  = document.getElementById('sendTestEmailBtn');
+        const alert = document.getElementById('testEmailResult');
+        btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Sending...';
+        alert.className = 'alert d-none mt-2 mb-0 py-2 small';
+        try {
+            const res = await fetchWithAuth('/api/email-report', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    to,
+                    reportType: 'summary',
+                    subject: 'Patient RX System — Test Email'
+                })
+            });
+            const data = await res.json();
+            if (res.ok && data.ok) {
+                alert.className = 'alert alert-success mt-2 mb-0 py-2 small';
+                alert.innerHTML = '<i class="fas fa-check me-1"></i>Test email sent to <strong>' + to + '</strong>! Check your inbox.';
+            } else {
+                throw new Error(data.error || (data.hint ? data.error + ' — ' + data.hint : 'Unknown error'));
+            }
+        } catch(e) {
+            alert.className = 'alert alert-danger mt-2 mb-0 py-2 small';
+            alert.innerHTML = '<i class="fas fa-times me-1"></i>' + e.message;
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-paper-plane me-1"></i>Send Test';
+            alert.classList.remove('d-none');
+        }
+    });
+});
+// ────────────────────────────────────────────────────────────────────────────
+// API REFERENCE — dynamic, loaded live from /api/settings/api-routes
+// ────────────────────────────────────────────────────────────────────────────
+
+let _apiRoutesCache = null;   // cached response to avoid repeat fetches
+
+// ── Render a single endpoint row ─────────────────────────────────────────────
+function renderEndpointRow(ep) {
+    const m = ep.method.toLowerCase();
+    const pathHtml = ep.path.replace(/:([a-zA-Z]+)/g, '<span style="color:#f59e0b">:$1</span>');
+    const queryHtml = ep.query ? `<span style="color:#8b949e">${ep.query}</span>` : '';
+    const bodyHtml  = ep.body  ? `<span class="text-muted small ms-2" style="font-size:.7rem">Body: <code style="color:#22c55e">${ep.body}</code></span>` : '';
+    const permHtml  = `<span class="perm-badge ${ep.admin ? 'admin' : ''}">${ep.admin ? '🔒 ' + ep.perm : ep.perm}</span>`;
+    const newBadge  = ep.inManifest === false ? '<span class="badge bg-info ms-1" style="font-size:.65rem">NEW</span>' : '';
+    return `
+        <div class="endpoint-row ${m}">
+            <div class="d-flex align-items-start gap-2">
+                <span class="method-badge ${m}">${ep.method}</span>
+                <div class="flex-grow-1">
+                    <span class="endpoint-path">${ep.path}${pathHtml !== ep.path ? '' : ''}${queryHtml}</span>
+                    ${newBadge}
+                    ${bodyHtml}
+                    <div class="text-muted small mt-1">${ep.desc} &nbsp; ${permHtml}</div>
+                </div>
+                <button class="btn btn-xs btn-outline-secondary ms-auto copy-endpoint-btn"
+                    style="font-size:.7rem;padding:2px 8px;flex-shrink:0;"
+                    data-ep="${ep.method} ${window.location.origin}${ep.path}${ep.query || ''}">Copy URL</button>
+            </div>
+        </div>`;
+}
+
+// ── Render sections (filtered) ────────────────────────────────────────────────
+function renderApiReference(filter, sections) {
+    const container = document.getElementById('apiEndpointsList');
+    if (!container) return;
+    const toRender = filter === 'all' ? sections : sections.filter(s => s.id === filter);
+    if (!toRender.length) {
+        container.innerHTML = '<p class="text-muted small">No endpoints in this category.</p>';
+        return;
+    }
+    container.innerHTML = toRender.map(sec => `
+        <div class="mb-3">
+            <div class="section-divider">
+                <span style="color:${sec.color};font-size:.85rem;">●</span>
+                &nbsp;${sec.label}
+                <span class="ms-2 text-muted" style="font-size:.65rem;font-weight:400">
+                    (${sec.endpoints.length} endpoint${sec.endpoints.length !== 1 ? 's' : ''})
+                </span>
+            </div>
+            ${sec.endpoints.map(renderEndpointRow).join('')}
+        </div>
+    `).join('');
+
+    container.querySelectorAll('.copy-endpoint-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            navigator.clipboard.writeText(btn.dataset.ep).then(() => {
+                const orig = btn.textContent;
+                btn.textContent = 'Copied!';
+                setTimeout(() => { btn.textContent = orig; }, 1500);
+            });
+        });
+    });
+}
+
+// ── Rebuild filter pills dynamically from loaded sections ─────────────────────
+function rebuildFilterPills(sections) {
+    const pillsDiv = document.getElementById('apiFilterPills');
+    if (!pillsDiv) return;
+    const pills = [
+        `<button class="btn btn-xs api-filter active" data-filter="all">All (${sections.reduce((sum,s)=>sum+s.endpoints.length,0)})</button>`,
+        ...sections.map(s => `<button class="btn btn-xs api-filter" data-filter="${s.id}">${s.label} (${s.endpoints.length})</button>`)
+    ];
+    pillsDiv.innerHTML = pills.join('');
+    pillsDiv.querySelectorAll('.api-filter').forEach(pill => {
+        pill.addEventListener('click', () => {
+            pillsDiv.querySelectorAll('.api-filter').forEach(p => p.classList.remove('active'));
+            pill.classList.add('active');
+            renderApiReference(pill.dataset.filter, _apiRoutesCache);
+        });
+    });
+}
+
+// ── Load and render the API reference ────────────────────────────────────────
+async function loadApiReference() {
+    const container = document.getElementById('apiEndpointsList');
+    if (!container) return;
+
+    if (_apiRoutesCache) {
+        renderApiReference('all', _apiRoutesCache);
+        return;
+    }
+
+    container.innerHTML = '<div class="text-center text-muted py-3"><i class="fas fa-spinner fa-spin me-2"></i>Loading API reference...</div>';
+
+    try {
+        const res = await fetchWithAuth('/api/settings/api-routes');
+        if (!res || !res.ok) throw new Error('Failed to fetch routes');
+        const data = await res.json();
+        _apiRoutesCache = data.sections;
+
+        // Update total count badge in the toggle button
+        const totalEl = document.getElementById('apiRoutesTotal');
+        if (totalEl) totalEl.textContent = data.totalRoutes + ' endpoints';
+
+        rebuildFilterPills(data.sections);
+        renderApiReference('all', data.sections);
+    } catch (e) {
+        container.innerHTML = `<div class="alert alert-danger py-2 small"><i class="fas fa-times me-1"></i>Could not load API routes: ${e.message}</div>`;
+    }
+}
+
+// ── Toggle button: load live routes on first open ─────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+    const toggleBtn = document.getElementById('toggleApiRefBtn');
+    if (toggleBtn) {
+        toggleBtn.addEventListener('click', () => {
+            const panel = document.getElementById('apiRefPanel');
+            const isHidden = panel.classList.toggle('d-none');
+            toggleBtn.innerHTML = isHidden
+                ? '<i class="fas fa-book me-1"></i>Show API Reference'
+                : '<i class="fas fa-times me-1"></i>Hide Reference';
+            if (!isHidden) loadApiReference();   // fetch live routes on first expand
+        });
+    }
+
+    // Refresh button inside the reference panel
+    document.getElementById('refreshApiRoutesBtn')?.addEventListener('click', () => {
+        _apiRoutesCache = null;   // bust cache
+        loadApiReference();
+    });
+});
+
+</script>
+</body>
+</html>

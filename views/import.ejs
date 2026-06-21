@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <script>!function(){var t=localStorage.getItem("rxTheme");if(t)document.documentElement.setAttribute("data-theme",t)}();</script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Import - Patient RX System</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        .import-zone {
+            border: 2px dashed var(--border);
+            border-radius: var(--radius);
+            padding: 2.5rem 1.5rem;
+            text-align: center;
+            background: var(--surface-2);
+            transition: all var(--transition);
+            cursor: pointer;
+        }
+        .import-zone:hover {
+            border-color: var(--primary);
+            background: rgba(74, 144, 226, 0.05);
+        }
+        .import-zone i {
+            font-size: 2.5rem;
+            color: var(--primary);
+            margin-bottom: 1rem;
+        }
+        .results-box {
+            display: none;
+            margin-top: 1.5rem;
+            border-radius: var(--radius);
+            padding: 1.25rem;
+        }
+        .errors-list {
+            max-height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 0.825rem;
+            background: rgba(0,0,0,0.05);
+            padding: 0.75rem;
+            border-radius: var(--radius-sm);
+        }
+        [data-theme="dark"] .errors-list {
+            background: rgba(255,255,255,0.05);
+        }
+        .preview-table-wrap { max-height: 360px; overflow-y: auto; border-radius: var(--radius-sm); }
+        .table-danger td  { background: rgba(220,53,69,0.08) !important; }
+        .table-success td { background: rgba(25,135,84,0.06) !important; }
+        .preview-error-list { max-height: 180px; overflow-y: auto; font-size: 0.82rem; }
+    </style>
+</head>
+<body>
+<div class="wrapper">
+    <nav id="sidebar">
+        <div class="sidebar-header"><i class="fas fa-pills me-2"></i>Patient RX</div>
+        <ul class="list-unstyled components">
+            <li><a href="/dashboard"><i class="fas fa-tachometer-alt me-2"></i>Dashboard</a></li>
+            <li><a href="/patients"><i class="fas fa-user-injured me-2"></i>Patients</a></li>
+            <li><a href="/rx-records"><i class="fas fa-prescription me-2"></i>RX Records</a></li>
+            <li>
+                <a href="#settingsSubmenu" data-bs-toggle="collapse" aria-expanded="false" class="dropdown-toggle"><i class="fas fa-cogs me-2"></i>Settings</a>
+                <ul class="collapse list-unstyled ps-3" id="settingsSubmenu">
+                    <li><a href="/pharmacies"><i class="fas fa-clinic-medical me-2"></i>Pharmacies</a></li>
+                    <li><a href="/patient-transport"><i class="fas fa-ambulance me-2"></i>Patient Transport</a></li>
+                    <li><a href="/pharmacy-transport"><i class="fas fa-truck me-2"></i>Pharmacy Transport</a></li>
+                    <li><a href="/workflow-actions"><i class="fas fa-tasks me-2"></i>Workflow Actions</a></li>
+                    <li><a href="/medication-catalog"><i class="fas fa-clipboard-list me-2"></i>RX Actions</a></li>
+                    <li><a href="/clinics"><i class="fas fa-hospital me-2"></i>Clinics</a></li>
+                    <li><a href="/users"><i class="fas fa-users-cog me-2"></i>User Management</a></li>
+                    <li><a href="/system-settings"><i class="fas fa-sliders-h me-2"></i>System Settings</a></li>
+                    <li><a href="/backups"><i class="fas fa-database me-2"></i>Backups</a></li>
+                </ul>
+            </li>
+            <li>
+                <a href="#reportsSubmenu" data-bs-toggle="collapse" aria-expanded="false" class="dropdown-toggle"><i class="fas fa-chart-bar me-2"></i>Reports</a>
+                <ul class="collapse list-unstyled ps-3" id="reportsSubmenu">
+                    <li><a href="/reports"><i class="fas fa-chart-pie me-2"></i>Analytics &amp; Export</a></li>
+                    <li><a href="/audit-log"><i class="fas fa-history me-2"></i>Audit Log</a></li>
+                </ul>
+            </li>
+            <li class="active"><a href="/import"><i class="fas fa-file-import me-2"></i>Data Import</a></li>
+        </ul>
+    </nav>
+
+    <div id="content">
+        <nav class="navbar navbar-expand-lg px-4 mb-4">
+            <button type="button" id="sidebarCollapse" class="btn btn-primary btn-sm"><i class="fas fa-bars"></i></button>
+            <span class="ms-3 fw-bold fs-5">Data Import Center</span>
+            <div class="ms-auto d-flex align-items-center gap-3">
+                <button id="themeToggle" class="btn btn-outline-secondary btn-sm"><i class="fas fa-moon"></i></button>
+                <span id="userGreeting" class="text-muted small"></span>
+                <button id="logoutBtn" class="btn btn-danger btn-sm"><i class="fas fa-sign-out-alt me-1"></i>Logout</button>
+            </div>
+        </nav>
+
+        <div class="container-fluid px-4">
+            <!-- Access Denied -->
+            <div id="accessDeniedPanel" class="d-none">
+                <div class="glass-card p-5 text-center my-5">
+                    <i class="fas fa-shield-alt text-danger mb-4" style="font-size:4rem"></i>
+                    <h3 class="mb-3">Access Denied</h3>
+                    <p class="text-muted mb-4">Only Administrators and Supervisors have permissions to import datasets.</p>
+                    <a href="/dashboard" class="btn btn-primary"><i class="fas fa-arrow-left me-2"></i>Back to Dashboard</a>
+                </div>
+            </div>
+
+            <!-- Main Import Panel -->
+            <div id="importPanel" class="d-none">
+                <div class="glass-card p-4">
+                    <h5 class="mb-4"><i class="fas fa-file-import me-2 text-primary"></i>Import Datasets</h5>
+
+                    <ul class="nav nav-tabs mb-4" id="importTabs" role="tablist">
+                        <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" type="button" onclick="selectDataset('patients')">Patients</button></li>
+                        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" type="button" onclick="selectDataset('pharmacies')">Pharmacies</button></li>
+                        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" type="button" onclick="selectDataset('patient-transport')">Patient Transport</button></li>
+                        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" type="button" onclick="selectDataset('pharmacy-transport')">Pharmacy Transport</button></li>
+                        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" type="button" onclick="selectDataset('workflow-actions')">Workflow Actions</button></li>
+                        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" type="button" onclick="selectDataset('clinics')">Clinics</button></li>
+                        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" type="button" onclick="selectDataset('users')">Users</button></li>
+                    </ul>
+
+                    <div class="row">
+                        <!-- Left: specs -->
+                        <div class="col-lg-5 mb-4 mb-lg-0">
+                            <div class="card border-0 h-100" style="background:var(--surface-2)">
+                                <div class="card-body p-4">
+                                    <h6 class="fw-bold mb-3" id="datasetNameTitle">Patients Import</h6>
+                                    <p class="text-muted small mb-4" id="datasetDescription"></p>
+                                    <h6 class="small fw-bold text-uppercase text-muted mb-2">CSV Column Specifications:</h6>
+                                    <div class="table-responsive">
+                                        <table class="table table-sm table-borderless align-middle mb-4" style="font-size:0.8rem">
+                                            <thead><tr class="border-bottom"><th>Column Name</th><th>Required</th><th>Format / Details</th></tr></thead>
+                                            <tbody id="csvFieldsBody"></tbody>
+                                        </table>
+                                    </div>
+                                    <button class="btn btn-outline-primary w-100" id="downloadTemplateBtn">
+                                        <i class="fas fa-download me-2"></i>Download CSV Template
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Right: upload + results -->
+                        <div class="col-lg-7">
+                            <div class="d-flex flex-column h-100 justify-content-between">
+                                <form id="importForm">
+                                    <div class="import-zone mb-3" id="dropZone" onclick="document.getElementById('csvFile').click()">
+                                        <i class="fas fa-cloud-upload-alt"></i>
+                                        <h5 class="fw-bold mb-1">Select a CSV File</h5>
+                                        <p class="text-muted small mb-0">Drag and drop or click to browse files</p>
+                                        <p id="fileNameDisplay" class="mt-2 fw-semibold text-primary small d-none"></p>
+                                        <input type="file" id="csvFile" name="file" accept=".csv" class="d-none" onchange="fileSelected(this)">
+                                    </div>
+                                    <button type="submit" class="btn btn-primary w-100 py-2 fw-semibold" id="uploadBtn" disabled>
+                                        <span id="uploadSpinner" class="spinner-border spinner-border-sm me-2 d-none"></span>
+                                        <i class="fas fa-search me-2" id="uploadIcon"></i>Preview &amp; Validate
+                                    </button>
+                                </form>
+
+                                <!-- Results Console -->
+                                <div class="results-box alert mt-3" id="resultsBox" style="display:none">
+                                    <h6 class="alert-heading fw-bold mb-2" id="resultsHeading">Import Completed</h6>
+                                    <p class="small mb-2" id="resultsSummary"></p>
+                                    <div id="errorsSection" class="d-none">
+                                        <h6 class="small fw-bold text-danger mb-2">Import Logs &amp; Warnings:</h6>
+                                        <div class="errors-list" id="errorsList"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Preview Section -->
+                    <div id="previewSection" class="d-none mt-4">
+                        <hr>
+                        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                            <h6 class="mb-0"><i class="fas fa-table me-2 text-primary"></i>Validation Preview
+                                <span id="previewBadge" class="badge bg-secondary ms-2"></span>
+                            </h6>
+                            <small class="text-muted" id="previewCount"></small>
+                        </div>
+
+                        <div id="previewErrors" class="alert alert-danger py-2 mb-3 d-none">
+                            <strong><i class="fas fa-exclamation-triangle me-1"></i>Row Errors:</strong>
+                            <div class="preview-error-list mt-2" id="previewErrorList"></div>
+                        </div>
+
+                        <div class="preview-table-wrap mb-3">
+                            <table class="table table-sm table-bordered align-middle" style="font-size:0.8rem;min-width:600px">
+                                <thead class="table-light sticky-top" id="previewHead"></thead>
+                                <tbody id="previewBody"></tbody>
+                            </table>
+                        </div>
+
+                        <div class="d-flex gap-2 justify-content-end">
+                            <button class="btn btn-outline-secondary" id="cancelPreviewBtn">
+                                <i class="fas fa-times me-1"></i>Cancel
+                            </button>
+                            <button class="btn btn-success px-4" id="confirmImportBtn">
+                                <i class="fas fa-check me-1"></i>Confirm Import
+                            </button>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index:1100"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="/js/app.js"></script>
+<script src="/js/help.js"></script>
+<script>
+    let currentDataset = 'patients';
+    let parsedRows  = [];
+    let validRows   = [];
+    let invalidRows = [];
+
+    const DATASET_SPECS = {
+        'patients': {
+            title: 'Patients Import',
+            desc: 'Import patients with validation. Duplicate patient names matching identical birth dates will be skipped. Transport company columns can use either active company names or database IDs. Patient ID (patientCode) is optional — one will be auto-generated if left blank.',
+            fields: [
+                { name: 'patientCode', req: false, format: 'e.g. PAT-00001 (Auto-generated if blank)' },
+                { name: 'firstName',   req: true,  format: 'Plain Text' },
+                { name: 'lastName',    req: true,  format: 'Plain Text' },
+                { name: 'dob',         req: true,  format: 'MM/DD/YYYY (e.g. 05/15/1985)' },
+                { name: 'phone',       req: false, format: '123-456-7890' },
+                { name: 'address',     req: false, format: 'Street, City' },
+                { name: 'clinic',      req: false, format: 'Clinic Name or ID' },
+                { name: 'serviceDate', req: false, format: 'MM/DD/YYYY (e.g. 01/01/2026)' },
+                { name: 'patientTransportCompany',  req: false, format: 'Contact, Company Name, or ID' },
+                { name: 'pharmacyTransportCompany', req: false, format: 'Contact, Company Name, or ID' },
+                { name: 'notes',    req: false, format: 'Plain Text' },
+                { name: 'isActive', req: false, format: 'true/false (Default: true)' }
+            ],
+            dateFields: ['dob','serviceDate'],
+            requiredFields: ['firstName','lastName','dob']
+        },
+        'pharmacies': {
+            title: 'Pharmacies Import',
+            desc: 'Import pharmacy details. Duplicate pharmacy names will be skipped.',
+            fields: [
+                { name: 'name',          req: true,  format: 'Plain Text' },
+                { name: 'address',       req: false, format: 'Street, City' },
+                { name: 'phone',         req: false, format: 'Phone Number' },
+                { name: 'contactPerson', req: false, format: 'Contact Name' },
+                { name: 'notes',         req: false, format: 'Plain Text' },
+                { name: 'isActive',      req: false, format: 'true/false (Default: true)' }
+            ],
+            dateFields: [],
+            requiredFields: ['name']
+        },
+        'clinics': {
+            title: 'Clinics Import',
+            desc: 'Import clinic details. Duplicate clinic names will be skipped.',
+            fields: [
+                { name: 'name',          req: true,  format: 'Plain Text' },
+                { name: 'address',       req: false, format: 'Street, City' },
+                { name: 'phone',         req: false, format: 'Phone Number' },
+                { name: 'contactPerson', req: false, format: 'Contact Name' },
+                { name: 'notes',         req: false, format: 'Plain Text' },
+                { name: 'isActive',      req: false, format: 'true/false (Default: true)' }
+            ],
+            dateFields: [],
+            requiredFields: ['name']
+        },
+        'patient-transport': {
+            title: 'Patient Transport Companies Import',
+            desc: 'Import companies that deliver patients. Duplicate contact persons will be skipped if company name is missing.',
+            fields: [
+                { name: 'companyName',   req: false, format: 'Plain Text' },
+                { name: 'phone',         req: false, format: 'Phone Number' },
+                { name: 'contactPerson', req: true,  format: 'Contact Name' },
+                { name: 'notes',         req: false, format: 'Plain Text' },
+                { name: 'isActive',      req: false, format: 'true/false (Default: true)' }
+            ],
+            dateFields: [],
+            requiredFields: ['contactPerson']
+        },
+        'pharmacy-transport': {
+            title: 'Pharmacy Transport Companies Import',
+            desc: 'Import companies that deliver from pharmacies. Duplicate company names will be skipped.',
+            fields: [
+                { name: 'companyName',   req: true,  format: 'Plain Text' },
+                { name: 'phone',         req: false, format: 'Phone Number' },
+                { name: 'contactPerson', req: false, format: 'Contact Name (optional)' },
+                { name: 'notes',         req: false, format: 'Plain Text' },
+                { name: 'isActive',      req: false, format: 'true/false (Default: true)' }
+            ],
+            dateFields: [],
+            requiredFields: ['companyName']
+        },
+        'workflow-actions': {
+            title: 'Workflow Actions Import',
+            desc: 'Import state stages for rx tracking. Both action names and sequence numbers must be globally unique.',
+            fields: [
+                { name: 'name',           req: true,  format: 'Plain Text' },
+                { name: 'description',    req: false, format: 'Plain Text' },
+                { name: 'sequenceNumber', req: true,  format: 'Integer (Unique)' },
+                { name: 'isActive',       req: false, format: 'true/false (Default: true)' }
+            ],
+            dateFields: [],
+            requiredFields: ['name','sequenceNumber']
+        },
+        'users': {
+            title: 'Users Import',
+            desc: 'Import system operator profiles. Username and email must be unique. Passwords will be automatically encrypted.',
+            fields: [
+                { name: 'firstName', req: true,  format: 'Plain Text' },
+                { name: 'lastName',  req: true,  format: 'Plain Text' },
+                { name: 'username',  req: true,  format: 'Unique string' },
+                { name: 'email',     req: true,  format: 'name@domain.com' },
+                { name: 'password',  req: true,  format: 'Secure password text' },
+                { name: 'role',      req: true,  format: 'Administrator | Supervisor | Operator | Read Only  (or ID: 1 / 2 / 3 / 4)' },
+                { name: 'notes',     req: false, format: 'Optional description or note about this user' },
+                { name: 'isActive',  req: false, format: 'true/false (Default: true)' }
+            ],
+            dateFields: [],
+            requiredFields: ['firstName','lastName','username','email','password','role']
+        }
+    };
+
+    document.addEventListener('DOMContentLoaded', () => {
+        initApp();
+
+        const user = JSON.parse(localStorage.getItem('user') || '{}');
+        const allowedRoles = ['Administrator', 'Supervisor'];
+        if (!user.role || !allowedRoles.includes(user.role)) {
+            document.getElementById('accessDeniedPanel').classList.remove('d-none');
+        } else {
+            document.getElementById('importPanel').classList.remove('d-none');
+            selectDataset('patients');
+        }
+
+        const dropZone = document.getElementById('dropZone');
+        dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.style.borderColor = 'var(--primary)'; });
+        dropZone.addEventListener('dragleave', () => { dropZone.style.borderColor = 'var(--border)'; });
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.style.borderColor = 'var(--border)';
+            if (e.dataTransfer.files.length) {
+                const input = document.getElementById('csvFile');
+                input.files = e.dataTransfer.files;
+                fileSelected(input);
+            }
+        });
+
+        document.getElementById('importForm').addEventListener('submit', executeImport);
+        document.getElementById('downloadTemplateBtn').addEventListener('click', downloadTemplate);
+        document.getElementById('confirmImportBtn').addEventListener('click', confirmImport);
+        document.getElementById('cancelPreviewBtn').addEventListener('click', () => {
+            document.getElementById('previewSection').classList.add('d-none');
+            document.getElementById('uploadBtn').disabled = false;
+        });
+    });
+
+    function selectDataset(dataset) {
+        currentDataset = dataset;
+        const spec = DATASET_SPECS[dataset];
+        document.getElementById('datasetNameTitle').textContent = spec.title;
+        document.getElementById('datasetDescription').textContent = spec.desc;
+        const tbody = document.getElementById('csvFieldsBody');
+        tbody.innerHTML = spec.fields.map(f =>
+            '<tr><td><code>' + f.name + '</code></td>' +
+            '<td><span class="badge ' + (f.req ? 'bg-danger' : 'bg-secondary') + '">' + (f.req ? 'Yes' : 'No') + '</span></td>' +
+            '<td class="text-muted">' + f.format + '</td></tr>'
+        ).join('');
+        document.getElementById('csvFile').value = '';
+        document.getElementById('fileNameDisplay').classList.add('d-none');
+        document.getElementById('uploadBtn').disabled = true;
+        document.getElementById('resultsBox').style.display = 'none';
+        document.getElementById('previewSection').classList.add('d-none');
+        parsedRows = []; validRows = []; invalidRows = [];
+    }
+
+    function fileSelected(input) {
+        const file = input.files[0];
+        const display = document.getElementById('fileNameDisplay');
+        const uploadBtn = document.getElementById('uploadBtn');
+        if (file) {
+            display.textContent = 'Selected: ' + file.name + ' (' + (file.size / 1024).toFixed(1) + ' KB)';
+            display.classList.remove('d-none');
+            uploadBtn.disabled = false;
+        } else {
+            display.classList.add('d-none');
+            uploadBtn.disabled = true;
+        }
+        document.getElementById('previewSection').classList.add('d-none');
+        document.getElementById('resultsBox').style.display = 'none';
+    }
+
+    // ---- CSV Parser ----
+    function parseCSV(text) {
+        const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n').filter(l => l.trim());
+        if (lines.length < 2) return { headers: [], rows: [] };
+        const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+        const rows = lines.slice(1).map((line, i) => {
+            const values = line.match(/(".*?"|[^,]+|(?<=,)(?=,)|(?<=,)$|^(?=,))/g) || line.split(',');
+            const obj = { _rowNum: i + 2 };
+            headers.forEach((h, idx) => { obj[h] = (values[idx] || '').trim().replace(/^"|"$/g, ''); });
+            return obj;
+        });
+        return { headers, rows };
+    }
+
+    // ---- Client-side Validator ----
+    function validateRows(rows) {
+        const spec     = DATASET_SPECS[currentDataset];
+        const required = spec.requiredFields || [];
+        const dateFlds = spec.dateFields || [];
+        // Accept MM/DD/YYYY or YYYY-MM-DD
+        const dateRe   = /^(\d{1,2}\/\d{1,2}\/\d{4}|\d{4}-\d{2}-\d{2})$/;
+        const emailRe  = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+        return rows.map(row => {
+            const errors = [];
+            required.forEach(f => { if (!row[f] || !row[f].trim()) errors.push('"' + f + '" is required'); });
+            dateFlds.forEach(f => { if (row[f] && !dateRe.test(row[f].trim())) errors.push('"' + f + '" must be MM/DD/YYYY'); });
+            if (currentDataset === 'users' && row.email && !emailRe.test(row.email)) errors.push('"email" format invalid');
+            if (currentDataset === 'workflow-actions' && row.sequenceNumber && isNaN(parseInt(row.sequenceNumber))) errors.push('"sequenceNumber" must be an integer');
+            return { ...row, _errors: errors };
+        });
+    }
+
+    // ---- Execute Import: preview first ----
+    async function executeImport(e) {
+        e.preventDefault();
+        const fileInput = document.getElementById('csvFile');
+        const file = fileInput.files[0];
+        if (!file) return;
+
+        const uploadBtn = document.getElementById('uploadBtn');
+        uploadBtn.disabled = true;
+
+        const text = await file.text();
+        const { headers, rows } = parseCSV(text);
+
+        if (!rows.length) {
+            showToast('CSV file appears empty or has no data rows.', 'warning');
+            uploadBtn.disabled = false;
+            return;
+        }
+
+        const validated = validateRows(rows);
+        validRows   = validated.filter(r => !r._errors.length);
+        invalidRows = validated.filter(r =>  r._errors.length);
+        parsedRows  = validated;
+
+        renderPreview(headers, validated);
+    }
+
+    function renderPreview(headers, rows) {
+        const section    = document.getElementById('previewSection');
+        const badge      = document.getElementById('previewBadge');
+        const countEl    = document.getElementById('previewCount');
+        const tHead      = document.getElementById('previewHead');
+        const tBody      = document.getElementById('previewBody');
+        const errSect    = document.getElementById('previewErrors');
+        const errList    = document.getElementById('previewErrorList');
+        const confirmBtn = document.getElementById('confirmImportBtn');
+
+        const total   = rows.length;
+        const errCnt  = invalidRows.length;
+        const goodCnt = validRows.length;
+
+        badge.textContent   = errCnt > 0 ? errCnt + ' row(s) with errors' : 'All rows valid';
+        badge.className     = 'badge ' + (errCnt > 0 ? 'bg-warning text-dark' : 'bg-success');
+        countEl.textContent = total + ' rows found — ' + goodCnt + ' valid, ' + errCnt + ' with errors';
+
+        tHead.innerHTML = '<tr>' + headers.map(h => '<th class="text-nowrap">' + h + '</th>').join('') + '<th>Status</th></tr>';
+
+        tBody.innerHTML = rows.slice(0, 200).map(row => {
+            const hasErr   = row._errors.length > 0;
+            const rowClass = hasErr ? 'table-danger' : 'table-success';
+            const cells    = headers.map(h => '<td>' + (row[h] || '<span class="text-muted">—</span>') + '</td>').join('');
+            const status   = hasErr
+                ? '<td><span class="badge bg-danger" title="' + row._errors.join('; ') + '">⚠ ' + row._errors.length + ' error(s)</span></td>'
+                : '<td><span class="badge bg-success">✓ Valid</span></td>';
+            return '<tr class="' + rowClass + '">' + cells + status + '</tr>';
+        }).join('');
+
+        if (rows.length > 200) {
+            tBody.innerHTML += '<tr><td colspan="' + (headers.length + 1) + '" class="text-center text-muted py-2">...and ' + (rows.length - 200) + ' more rows (not shown)</td></tr>';
+        }
+
+        if (errCnt > 0) {
+            errSect.classList.remove('d-none');
+            errList.innerHTML = invalidRows.map(row =>
+                '<div class="py-1 border-bottom"><strong class="text-danger">Row ' + row._rowNum + ':</strong> ' + row._errors.join(', ') + '</div>'
+            ).join('');
+        } else {
+            errSect.classList.add('d-none');
+        }
+
+        confirmBtn.disabled    = goodCnt === 0;
+        confirmBtn.textContent = goodCnt === 0 ? 'No valid rows to import' : 'Confirm Import (' + goodCnt + ' rows)';
+
+        section.classList.remove('d-none');
+        section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    // ---- Confirm: send to server ----
+    async function confirmImport() {
+        const confirmBtn = document.getElementById('confirmImportBtn');
+        const cancelBtn  = document.getElementById('cancelPreviewBtn');
+        confirmBtn.disabled = true;
+        cancelBtn.disabled  = true;
+        confirmBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Importing...';
+
+        try {
+            const token    = localStorage.getItem('token');
+            const fileInput = document.getElementById('csvFile');
+            const formData  = new FormData();
+            formData.append('file', fileInput.files[0]);
+
+            const res = await fetch('/api/import/' + currentDataset, {
+                method: 'POST',
+                headers: { 'Authorization': 'Bearer ' + token },
+                body: formData
+            });
+
+            if (res.status === 401 || res.status === 403) { window.location.href = '/login'; return; }
+            const data = await res.json();
+            if (res.ok) {
+                document.getElementById('previewSection').classList.add('d-none');
+                displayResults(data);
+            } else {
+                showToast(data.error || 'Import failed', 'danger');
+            }
+        } catch (err) {
+            showToast('Network error during upload', 'danger');
+        } finally {
+            confirmBtn.disabled = false;
+            cancelBtn.disabled  = false;
+            confirmBtn.innerHTML = 'Confirm Import (' + validRows.length + ' rows)';
+        }
+    }
+
+    function downloadTemplate() {
+        const token = localStorage.getItem('token');
+        const url   = '/api/import/template/' + currentDataset;
+        fetch(url, { headers: { 'Authorization': 'Bearer ' + token } })
+        .then(r => { if (r.status === 401 || r.status === 403) { window.location.href = '/login'; return; } return r.blob(); })
+        .then(blob => {
+            if (!blob) return;
+            const url2 = window.URL.createObjectURL(blob);
+            const a = Object.assign(document.createElement('a'), { href: url2, download: 'template_' + currentDataset + '.csv' });
+            document.body.appendChild(a); a.click(); document.body.removeChild(a);
+            window.URL.revokeObjectURL(url2);
+        })
+        .catch(() => showToast('Error downloading template', 'danger'));
+    }
+
+    function displayResults(data) {
+        const box = document.getElementById('resultsBox');
+        box.style.display = 'block';
+        box.className = 'results-box alert ' + (data.errorCount > 0 ? 'alert-warning' : 'alert-success');
+        document.getElementById('resultsHeading').textContent = data.errorCount > 0 ? 'Import Processed with Warnings' : 'Import Successful!';
+        document.getElementById('resultsSummary').textContent = 'Successfully imported ' + data.successCount + ' rows. Skipped/Invalid rows: ' + data.errorCount + '.';
+        const errSection = document.getElementById('errorsSection');
+        const errList    = document.getElementById('errorsList');
+        if (data.errorCount > 0) {
+            errSection.classList.remove('d-none');
+            errList.innerHTML = data.errors.map(e =>
+                '<div class="text-danger py-1 border-bottom border-light-subtle"><strong>Line ' + e.row + ':</strong> ' + e.error + '</div>'
+            ).join('');
+        } else {
+            errSection.classList.add('d-none');
+        }
+        showToast('Import finished! ' + data.successCount + ' added, ' + data.errorCount + ' skipped.', data.errorCount > 0 ? 'warning' : 'success');
+    }
+</script>
+</body>
+</html>

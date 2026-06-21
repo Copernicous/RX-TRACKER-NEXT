@@ -1,0 +1,259 @@
+const db = require('../models');
+const { Op } = require('sequelize');
+
+exports.getAll = async (req, res) => {
+    try {
+        const whereClause = {};
+        if (req.query.includeDeleted !== 'true') {
+            // LOGIC-03 FIX: Also include rows where isDeleted IS NULL (legacy records before the column existed)
+            whereClause[Op.or] = [{ isDeleted: false }, { isDeleted: null }];
+        }
+        const data = await db.Patient.findAll({
+            where: whereClause,
+            include: [
+                db.PatientTransportCompany,
+                db.PharmacyTransportCompany,
+                db.Clinic,
+                db.Pharmacy,
+                // Include PatientNotes with only id so the client can show a note count badge
+                // NOTE: alias must differ from the 'notes' text field (case conflict in some JSON parsers)
+                { model: db.PatientNote, as: 'PatientNotes', attributes: ['id'] }
+            ]
+        });
+        res.json(data);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+};
+
+exports.getOne = async (req, res) => {
+    try {
+        const data = await db.Patient.findByPk(req.params.id, {
+            include: [db.PatientTransportCompany, db.PharmacyTransportCompany, db.Clinic, db.RXRecord]
+        });
+        if (!data) return res.status(404).json({ message: 'Not found' });
+        res.json(data);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+};
+
+exports.create = async (req, res) => {
+    try {
+        let { patientCode, ...otherData } = req.body;
+
+        // Auto-generate patientCode if not provided
+        if (!patientCode || !patientCode.trim()) {
+            // H1 FIX: Use a retry loop to handle concurrent creates gracefully.
+            // Try up to 10 candidate codes based on the current max id.
+            const lastPatient = await db.Patient.findOne({ order: [['id', 'DESC']] });
+            let baseId = lastPatient ? lastPatient.id : 0;
+            let generated = null;
+            for (let attempt = 0; attempt < 10; attempt++) {
+                const candidate = 'PAT-' + String(baseId + 1 + attempt).padStart(5, '0');
+                const exists = await db.Patient.findOne({ where: { patientCode: candidate } });
+                if (!exists) { generated = candidate; break; }
+            }
+            if (!generated) {
+                return res.status(500).json({ error: 'Could not generate a unique Patient ID. Please provide one manually.' });
+            }
+            patientCode = generated;
+        } else {
+            patientCode = patientCode.trim();
+        }
+
+        // Validate uniqueness of provided patientCode
+        const existingCode = await db.Patient.findOne({ where: { patientCode } });
+        if (existingCode) {
+            return res.status(400).json({ error: `Patient ID "${patientCode}" is already assigned to another patient.` });
+        }
+
+        const data = await db.Patient.create({ ...otherData, patientCode });
+        res.status(201).json(data);
+    } catch (err) {
+        // H1 FIX: Catch DB-level unique constraint violation (race condition fallback)
+        if (err.name === 'SequelizeUniqueConstraintError') {
+            return res.status(400).json({ error: 'Patient ID conflict — another record was just created with the same code. Please retry.' });
+        }
+        res.status(400).json({ error: err.message });
+    }
+};
+
+exports.update = async (req, res) => {
+    try {
+        const patient = await db.Patient.findByPk(req.params.id);
+        if (!patient) return res.status(404).json({ message: 'Not found' });
+
+        // Validate uniqueness of updated patientCode if provided and changed
+        if (req.body.patientCode && req.body.patientCode.trim() !== patient.patientCode) {
+            const newCode = req.body.patientCode.trim();
+            const existingCode = await db.Patient.findOne({
+                where: {
+                    patientCode: newCode,
+                    id: { [Op.ne]: req.params.id }
+                }
+            });
+            if (existingCode) {
+                return res.status(400).json({ error: `Patient ID "${newCode}" is already assigned to another patient.` });
+            }
+            req.body.patientCode = newCode;
+        }
+
+        // Check if service date is being updated
+        if (req.body.serviceDate && req.body.serviceDate !== patient.serviceDate) {
+            if (patient.serviceDate) {
+                const prevDate = new Date(patient.serviceDate);
+                const newDate = new Date(req.body.serviceDate);
+                const currentDate = new Date();
+                
+                const daysDifference = (currentDate.getTime() - prevDate.getTime()) / (1000 * 3600 * 24);
+                
+                if (daysDifference < 90) {
+                    return res.status(400).json({ 
+                        error: `A new Service Date can only be assigned every 90 days. Only ${Math.floor(daysDifference)} days have passed.` 
+                    });
+                }
+            }
+        }
+
+        // Use instance-level set()+save() instead of class-level update() to reliably
+        // persist all fields including foreign key columns (pharmacyId, clinicId, etc.)
+        const allowedFields = [
+            'firstName', 'lastName', 'dob', 'address', 'phone',
+            'serviceDate', 'notes', 'isActive', 'patientCode',
+            'patientTransportCompanyId', 'pharmacyTransportCompanyId',
+            'clinicId', 'pharmacyId', 'isDeleted'
+        ];
+        allowedFields.forEach(field => {
+            if (req.body.hasOwnProperty(field)) {
+                // Convert empty string FK values to null
+                const val = req.body[field];
+                patient[field] = (val === '' || val === undefined) ? null : val;
+            }
+        });
+        await patient.save();
+
+        // Cascade: if isActive was explicitly changed, sync RX records accordingly
+        if (req.body.hasOwnProperty('isActive')) {
+            const active = req.body.isActive === true || req.body.isActive === 'true';
+            if (!active) {
+                // Patient deactivated → soft-delete all active RX records
+                const count = await db.RXRecord.update(
+                    { isDeleted: true, deletedAt: new Date() },
+                    { where: { patientId: req.params.id, isDeleted: false } }
+                );
+                console.log(`[Patient Deactivate] Patient #${req.params.id} — ${count[0]} RX record(s) hidden.`);
+            } else {
+                // Patient re-activated → restore all soft-deleted RX records
+                const count = await db.RXRecord.update(
+                    { isDeleted: false, deletedAt: null },
+                    { where: { patientId: req.params.id, isDeleted: true } }
+                );
+                console.log(`[Patient Activate] Patient #${req.params.id} — ${count[0]} RX record(s) restored.`);
+            }
+        }
+
+        const updatedPatient = await db.Patient.findByPk(req.params.id, {
+            include: [db.PatientTransportCompany, db.PharmacyTransportCompany, db.Clinic, db.Pharmacy]
+        });
+        res.json(updatedPatient);
+    } catch (err) { res.status(400).json({ error: err.message }); }
+};
+
+exports.delete = async (req, res) => {
+    try {
+        const patient = await db.Patient.findByPk(req.params.id);
+        if (!patient) return res.status(404).json({ message: 'Not found' });
+
+        // Soft-delete the patient
+        await patient.update({ isDeleted: true });
+
+        // Cascade: soft-delete all RX records belonging to this patient
+        const cascadeCount = await db.RXRecord.update(
+            { isDeleted: true, deletedAt: new Date() },
+            { where: { patientId: req.params.id, isDeleted: false } }
+        );
+        console.log(`[Patient Delete] Patient #${req.params.id} — ${cascadeCount[0]} RX record(s) soft-deleted.`);
+
+        res.status(204).send();
+    } catch (err) { res.status(500).json({ error: err.message }); }
+};
+
+exports.restore = async (req, res) => {
+    try {
+        const patient = await db.Patient.findByPk(req.params.id);
+        if (!patient) return res.status(404).json({ message: 'Not found' });
+
+        // Restore the patient
+        await patient.update({ isDeleted: false });
+
+        // Cascade: restore all RX records that were deleted along with this patient
+        const cascadeCount = await db.RXRecord.update(
+            { isDeleted: false, deletedAt: null },
+            { where: { patientId: req.params.id, isDeleted: true } }
+        );
+        console.log(`[Patient Restore] Patient #${req.params.id} — ${cascadeCount[0]} RX record(s) restored.`);
+
+        res.status(200).json({ message: 'Restored successfully' });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+};
+
+// Check for duplicate patients by firstName + lastName + dob
+exports.checkDuplicate = async (req, res) => {
+    try {
+        const { firstName, lastName, dob } = req.query;
+        if (!firstName || !lastName || !dob) {
+            return res.json({ duplicates: [] });
+        }
+        const duplicates = await db.Patient.findAll({
+            where: {
+                firstName: { [Op.like]: firstName.trim() },
+                lastName:  { [Op.like]: lastName.trim() },
+                dob:       dob.trim(),
+                // M1 FIX: Match getAll logic — include legacy rows where isDeleted IS NULL
+                [Op.or]: [{ isDeleted: false }, { isDeleted: null }]
+            },
+            attributes: ['id', 'patientCode', 'firstName', 'lastName', 'dob', 'phone']
+        });
+        res.json({ duplicates });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+};
+
+// GET /api/patients/:id/timeline
+exports.getTimeline = async (req, res) => {
+    try {
+        const patient = await db.Patient.findByPk(req.params.id, {
+            include: [db.PatientTransportCompany, db.PharmacyTransportCompany, db.Clinic]
+        });
+        if (!patient) return res.status(404).json({ message: 'Patient not found' });
+
+        const rxRecords = await db.RXRecord.findAll({
+            // LOGIC-02 FIX: Exclude soft-deleted RX records from the timeline
+            where: { patientId: req.params.id, isDeleted: false },
+            include: [
+                { model: db.Pharmacy },
+                { model: db.PatientTransportCompany },
+                { model: db.PharmacyTransportCompany },
+                { model: db.Medication },
+                {
+                    model: db.RXWorkflowTracking,
+                    include: [
+                        { model: db.WorkflowAction },
+                        { model: db.User, attributes: ['firstName', 'lastName', 'username'] }
+                    ]
+                }
+            ],
+            order: [['serviceDate', 'DESC'], ['id', 'DESC']]
+        });
+
+        const allWorkflowActions = await db.WorkflowAction.findAll({
+            order: [['sequenceNumber', 'ASC']]
+        });
+
+        res.json({
+            patient: patient.toJSON(),
+            rxRecords: rxRecords.map(rx => {
+                const plain = rx.toJSON();
+                plain.completedSteps = (plain.RXWorkflowTrackings || []).map(t => t.workflowActionId);
+                return plain;
+            }),
+            workflowActions: allWorkflowActions.map(a => a.toJSON())
+        });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+};

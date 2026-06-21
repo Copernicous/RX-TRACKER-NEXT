@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <script>!function(){var t=localStorage.getItem("rxTheme");if(t)document.documentElement.setAttribute("data-theme",t)}();</script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Roles Management - Patient RX System</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<div class="wrapper">
+    <!-- Sidebar -->
+    <nav id="sidebar">
+        <div class="sidebar-header"><i class="fas fa-pills me-2"></i>Patient RX</div>
+        <ul class="list-unstyled components">
+            <li><a href="/dashboard"><i class="fas fa-tachometer-alt me-2"></i>Dashboard</a></li>
+            <li><a href="/patients"><i class="fas fa-user-injured me-2"></i>Patients</a></li>
+            <li><a href="/rx-records"><i class="fas fa-prescription me-2"></i>RX Records</a></li>
+            <li>
+                <a href="#settingsSubmenu" data-bs-toggle="collapse" aria-expanded="true" class="dropdown-toggle">
+                    <i class="fas fa-cogs me-2"></i>Settings
+                </a>
+                <ul class="collapse show list-unstyled ps-3" id="settingsSubmenu">
+                    <li><a href="/pharmacies"><i class="fas fa-clinic-medical me-2"></i>Pharmacies</a></li>
+                    <li><a href="/patient-transport"><i class="fas fa-ambulance me-2"></i>Patient Transport</a></li>
+                    <li><a href="/pharmacy-transport"><i class="fas fa-truck me-2"></i>Pharmacy Transport</a></li>
+                    <li><a href="/workflow-actions"><i class="fas fa-tasks me-2"></i>Workflow Actions</a></li>
+                    <li><a href="/medication-catalog"><i class="fas fa-clipboard-list me-2"></i>RX Actions</a></li>
+                    <li><a href="/clinics"><i class="fas fa-hospital me-2"></i>Clinics</a></li>
+                    <li><a href="/roles" class="active"><i class="fas fa-shield-alt me-2"></i>Roles</a></li>
+                    <li><a href="/users"><i class="fas fa-users-cog me-2"></i>User Management</a></li>
+                    <li><a href="/system-settings"><i class="fas fa-sliders-h me-2"></i>System Settings</a></li>
+                    <li><a href="/backups"><i class="fas fa-database me-2"></i>Backups</a></li>
+                </ul>
+            </li>
+            <li>
+                <a href="#reportsSubmenu" data-bs-toggle="collapse" aria-expanded="false" class="dropdown-toggle">
+                    <i class="fas fa-chart-bar me-2"></i>Reports
+                </a>
+                <ul class="collapse list-unstyled ps-3" id="reportsSubmenu">
+                    <li><a href="/reports"><i class="fas fa-chart-pie me-2"></i>Analytics &amp; Export</a></li>
+                    <li><a href="/audit-log"><i class="fas fa-history me-2"></i>Audit Log</a></li>
+                </ul>
+            </li>
+            <li><a href="/import"><i class="fas fa-file-import me-2"></i>Data Import</a></li>
+        </ul>
+    </nav>
+
+    <!-- Page Content -->
+    <div id="content">
+        <nav class="navbar navbar-expand-lg px-4 mb-4">
+            <button type="button" id="sidebarCollapse" class="btn btn-primary btn-sm"><i class="fas fa-bars"></i></button>
+            <span class="ms-3 fw-bold fs-5"><i class="fas fa-shield-alt me-2 text-warning"></i>Roles Management</span>
+            <div class="ms-auto d-flex align-items-center gap-3">
+                <button id="themeToggle" class="btn btn-outline-secondary btn-sm"><i class="fas fa-moon"></i></button>
+                <span id="userGreeting" class="text-muted small"></span>
+                <button id="logoutBtn" class="btn btn-danger btn-sm"><i class="fas fa-sign-out-alt me-1"></i>Logout</button>
+            </div>
+        </nav>
+
+        <div class="container-fluid px-4">
+
+            <!-- Roles List Card -->
+            <div class="glass-card p-4 mb-4">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <div>
+                        <h5 class="mb-1">All Roles</h5>
+                        <p class="text-muted small mb-0">Manage roles and their permissions. Assign users to roles via <a href="/users">User Management</a>.</p>
+                    </div>
+                    <button class="btn btn-success btn-sm" onclick="openRoleModal(null)">
+                        <i class="fas fa-plus me-1"></i>Create New Role
+                    </button>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle" id="rolesTable">
+                        <thead>
+                            <tr>
+                                <th>Role Name</th>
+                                <th>Description</th>
+                                <th class="text-center">Users</th>
+                                <th class="text-center">Type</th>
+                                <th class="text-center">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="rolesTableBody">
+                            <tr><td colspan="5" class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin me-2"></i>Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Permissions Reference Card -->
+            <div class="glass-card p-4">
+                <h5 class="mb-3"><i class="fas fa-table me-2 text-info"></i>Role Permissions Overview</h5>
+                <p class="text-muted small mb-3">Quick reference showing what each role can do by default. Edit any role above to customise.</p>
+                <div id="permMatrixContainer">
+                    <p class="text-center text-muted py-3"><i class="fas fa-spinner fa-spin me-2"></i>Loading matrix...</p>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<!-- Role Edit/Create Modal -->
+<div class="modal fade" id="roleModal" tabindex="-1">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="roleModalTitle"><i class="fas fa-shield-alt me-2 text-warning"></i>Create Role</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Role Info -->
+                <div class="row g-3 mb-4">
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">Role Name <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="roleNameInput" placeholder="e.g. Pharmacist, Billing Clerk">
+                        <div class="form-text text-danger d-none" id="roleNameError"></div>
+                    </div>
+                    <div class="col-md-8">
+                        <label class="form-label fw-semibold">Description</label>
+                        <input type="text" class="form-control" id="roleDescInput" placeholder="Brief description of this role's responsibilities">
+                    </div>
+                </div>
+
+                <!-- Copy from role -->
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Start from a template</label>
+                    <div class="d-flex gap-2 flex-wrap" id="roleTemplateButtons"></div>
+                    <div class="form-text">Click a role to copy its permissions as your starting point, then adjust below.</div>
+                </div>
+
+                <hr>
+
+                <!-- Permission Matrix Editor -->
+                <label class="form-label fw-bold"><i class="fas fa-key me-2"></i>Permissions</label>
+                <p class="text-muted small">Configure exactly what this role can see and do in each section of the system.</p>
+
+                <div class="table-responsive">
+                    <table class="table table-bordered table-sm align-middle" id="permEditorTable" style="font-size:.85rem">
+                        <thead class="table-dark">
+                            <tr>
+                                <th style="min-width:180px">Section</th>
+                                <th class="text-center" style="width:70px" title="Can see this section in the menu">Visible</th>
+                                <th class="text-center" style="width:70px" title="Can CREATE new records (POST)">Add New</th>
+                                <th class="text-center" style="width:70px" title="Can EDIT existing records (PUT)">Edit</th>
+                                <th class="text-center" style="width:70px" title="Can delete records">Delete</th>
+                                <th class="text-center" style="width:70px" title="Can export data to CSV">Export</th>
+                                <th class="text-center" style="width:70px" title="Can undo workflow steps (RX Records only)">Undo</th>
+                            </tr>
+                        </thead>
+                        <tbody id="permEditorBody"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="saveRoleBtn" onclick="saveRole()">
+                    <span id="saveRoleSpinner" class="spinner-border spinner-border-sm me-1 d-none"></span>
+                    <i class="fas fa-save me-1"></i>Save Role
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirm Modal -->
+<div class="modal fade" id="deleteRoleModal" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title">Delete Role</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="deleteRoleBody">Are you sure?</div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger btn-sm" id="confirmDeleteRoleBtn">Delete</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index:1100"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="/js/app.js"></script>
+<script src="/js/help.js"></script>
+<script>
+// ── Module definitions ────────────────────────────────────────────────────────
+const MODULE_DEFS = [
+    { key: 'dashboard',          label: 'Dashboard',             group: 'Core',      hasUndo: false, visibleLocked: true },
+    { key: 'patients',           label: 'Patients',              group: 'Core',      hasUndo: false },
+    { key: 'rx_records',         label: 'RX Records',            group: 'Core',      hasUndo: true  },
+    { key: 'reports',            label: 'Reports',               group: 'Core',      hasUndo: false },
+    { key: 'patient_notes',      label: 'Patient Notes',         group: 'Core',      hasUndo: false, notesOnly: true },
+    { key: 'audit_log',          label: 'Audit Log',             group: 'Admin',     hasUndo: false, visibleOnly: true },
+    { key: 'import',             label: 'Data Import',           group: 'Admin',     hasUndo: false },
+    { key: 'pharmacies',         label: 'Pharmacies',            group: 'Settings',  hasUndo: false },
+    { key: 'patient_transport',  label: 'Patient Transport',     group: 'Settings',  hasUndo: false },
+    { key: 'pharmacy_transport', label: 'Pharmacy Transport',    group: 'Settings',  hasUndo: false },
+    { key: 'workflow_actions',   label: 'Workflow Actions',      group: 'Settings',  hasUndo: false },
+    { key: 'clinics',            label: 'Clinics',               group: 'Settings',  hasUndo: false },
+    { key: 'medication_catalog', label: 'RX Actions Catalog',    group: 'Settings',  hasUndo: false },
+    { key: 'users',              label: 'User Management',       group: 'Admin-Only', hasUndo: false },
+    { key: 'backups',            label: 'Backups',               group: 'Admin-Only', hasUndo: false, visibleOnly: true },
+    { key: 'system_settings',    label: 'System Settings',       group: 'Admin-Only', hasUndo: false, visibleOnly: true }
+];
+
+const GROUP_COLORS = { Core: '#0d6efd', Admin: '#fd7e14', Settings: '#6c757d', 'Admin-Only': '#dc3545' };
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let allRoles    = [];
+let editingId   = null;  // null = new role
+let deletingId  = null;
+let roleDefaults = {};
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', async () => {
+    initApp();
+    await Promise.all([loadRoles(), loadDefaults()]);
+});
+
+async function loadRoles() {
+    const res = await fetchWithAuth('/api/roles');
+    if (!res || !res.ok) { showToast('Failed to load roles.', 'danger'); return; }
+    allRoles = await res.json();
+    renderRolesTable();
+}
+
+async function loadDefaults() {
+    const res = await fetchWithAuth('/api/roles/permission-defaults', { silent: true });
+    if (res && res.ok) roleDefaults = await res.json();
+    renderMatrix();
+}
+
+// ── Roles Table ───────────────────────────────────────────────────────────────
+function renderRolesTable() {
+    const tbody = document.getElementById('rolesTableBody');
+    if (!allRoles.length) {
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4">No roles found.</td></tr>';
+        return;
+    }
+    const roleColors = { Administrator: '#f59e0b', Supervisor: '#60a5fa', Operator: '#34d399', 'Read Only': '#9ca3af' };
+    tbody.innerHTML = allRoles.map(r => {
+        const color  = roleColors[r.name] || '#a78bfa';
+        const badge  = r.isSystem
+            ? '<span class="badge bg-secondary ms-1" style="font-size:.6rem">Built-in</span>'
+            : '<span class="badge bg-success ms-1"  style="font-size:.6rem">Custom</span>';
+        const delBtn = r.isSystem
+            ? '<button class="btn btn-sm btn-outline-secondary" disabled title="Built-in roles cannot be deleted"><i class="fas fa-lock"></i></button>'
+            : `<button class="btn btn-sm btn-outline-danger" onclick="promptDelete(${r.id},'${r.name.replace(/'/g,"\\'")}')" title="Delete role"><i class="fas fa-trash-alt"></i></button>`;
+        return `<tr>
+            <td>
+                <span class="fw-semibold" style="color:${color}">
+                    <i class="fas fa-shield-alt me-2" style="opacity:.7"></i>${r.name}
+                </span>${badge}
+            </td>
+            <td class="text-muted small">${r.description || '<em class="opacity-50">No description</em>'}</td>
+            <td class="text-center">
+                <a href="/users" class="badge bg-primary text-decoration-none">${r.userCount} user${r.userCount !== 1 ? 's' : ''}</a>
+            </td>
+            <td class="text-center">${r.isSystem
+                ? '<span class="badge bg-secondary">System</span>'
+                : '<span class="badge bg-success">Custom</span>'}</td>
+            <td class="text-center">
+                <div class="d-flex justify-content-center gap-1">
+                    <button class="btn btn-sm btn-outline-primary" onclick="openRoleModal(${r.id})" title="Edit role"><i class="fas fa-edit"></i></button>
+                    <button class="btn btn-sm btn-outline-info" onclick="duplicateRole(${r.id},'${r.name.replace(/'/g,"\\'")}')" title="Duplicate role"><i class="fas fa-copy"></i></button>
+                    ${delBtn}
+                </div>
+            </td>
+        </tr>`;
+    }).join('');
+}
+
+// ── Permission Matrix (read-only overview) ────────────────────────────────────
+function renderMatrix() {
+    const container = document.getElementById('permMatrixContainer');
+    if (!Object.keys(roleDefaults).length) {
+        container.innerHTML = '<p class="text-muted text-center small">Matrix will appear after roles are loaded.</p>';
+        return;
+    }
+    const roles = allRoles.length ? allRoles : Object.keys(roleDefaults).map(name => ({ name }));
+
+    function badge(val, icon, color) {
+        return val
+            ? `<span class="badge bg-${color} me-1" style="font-size:.6rem"><i class="fas fa-${icon}"></i></span>`
+            : `<span class="badge bg-secondary opacity-25 me-1" style="font-size:.6rem"><i class="fas fa-${icon}"></i></span>`;
+    }
+    function cellHTML(perm) {
+        if (!perm || perm.visible === false) {
+            return '<td class="text-center" style="background:rgba(220,53,69,.07)"><span class="badge bg-danger" style="font-size:.62rem"><i class="fas fa-eye-slash me-1"></i>Hidden</span></td>';
+        }
+        // canAdd fallback: if old data without canAdd, treat canEdit as canAdd
+        const hasAdd = perm.canAdd !== undefined ? perm.canAdd : perm.canEdit;
+        return '<td class="text-center" style="background:rgba(25,135,84,.05)">' +
+            badge(hasAdd,       'plus-circle','success') +
+            badge(perm.canEdit, 'edit',       'primary') +
+            badge(perm.canDelete,'trash',     'danger')  +
+            badge(perm.canExport,'file-csv',  'info')    +
+            (perm.canUndo ? badge(true,'undo','warning') : '') +
+            '</td>';
+    }
+
+    let lastGroup = '';
+    const rows = MODULE_DEFS.map(m => {
+        let groupRow = '';
+        if (m.group !== lastGroup) {
+            lastGroup = m.group;
+            groupRow = `<tr style="background:rgba(255,255,255,.02)">
+                <td colspan="${roles.length + 1}" class="fw-bold py-1 px-3" style="font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:${GROUP_COLORS[m.group]||'#aaa'}">${m.group}</td>
+            </tr>`;
+        }
+        const cells = roles.map(r => {
+            const perms = (r.permissions || roleDefaults[r.name]) || {};
+            return cellHTML(perms[m.key]);
+        }).join('');
+        return groupRow + `<tr><td class="ps-3 fw-semibold" style="white-space:nowrap;font-size:.82rem">${m.label}</td>${cells}</tr>`;
+    }).join('');
+
+    const roleColors = { Administrator: '#f59e0b', Supervisor: '#60a5fa', Operator: '#34d399', 'Read Only': '#9ca3af' };
+    const roleIcons  = { Administrator: 'fa-shield-alt', Supervisor: 'fa-user-tie', Operator: 'fa-user-cog', 'Read Only': 'fa-user-lock' };
+
+    container.innerHTML = `
+        <div class="table-responsive">
+        <table class="table table-bordered table-sm align-middle mb-0" style="font-size:.8rem">
+        <thead class="table-dark"><tr>
+            <th style="min-width:160px">Module</th>
+            ${roles.map(r => {
+                const c = roleColors[r.name] || '#a78bfa';
+                const ic = roleIcons[r.name]  || 'fa-user-shield';
+                return `<th class="text-center" style="width:110px;color:${c}"><i class="fas ${ic} me-1"></i>${r.name}</th>`;
+            }).join('')}
+        </tr></thead>
+        <tbody>${rows}</tbody>
+        </table></div>
+        <div class="d-flex flex-wrap gap-3 mt-3 small text-muted">
+            <span>${badge(true,'plus-circle','success')} Add New</span>
+            <span>${badge(true,'edit','primary')} Edit Existing</span>
+            <span>${badge(true,'trash','danger')} Delete</span>
+            <span>${badge(true,'file-csv','info')} Export</span>
+            <span>${badge(true,'undo','warning')} Undo</span>
+            <span><span class="badge bg-danger" style="font-size:.62rem"><i class="fas fa-eye-slash"></i></span> Hidden</span>
+            <span><span class="badge bg-secondary opacity-25" style="font-size:.62rem"><i class="fas fa-plus-circle"></i></span> Off</span>
+        </div>`;
+}
+
+// ── Role Modal (create / edit) ────────────────────────────────────────────────
+async function openRoleModal(id) {
+    editingId = id;
+    const isNew = (id === null);
+    document.getElementById('roleModalTitle').innerHTML =
+        `<i class="fas fa-shield-alt me-2 text-warning"></i>${isNew ? 'Create New Role' : 'Edit Role'}`;
+    document.getElementById('roleNameError').classList.add('d-none');
+
+    let currentPerms = {};
+    let roleName = '';
+    let roleDesc = '';
+    let isSystem = false;
+
+    if (!isNew) {
+        const res = await fetchWithAuth('/api/roles/' + id);
+        if (!res || !res.ok) { showToast('Failed to load role.', 'danger'); return; }
+        const role = await res.json();
+        roleName    = role.name;
+        roleDesc    = role.description || '';
+        currentPerms = role.permissions || roleDefaults[role.name] || {};
+        isSystem    = role.isSystem;
+    } else {
+        // Default new role to Read Only baseline
+        currentPerms = JSON.parse(JSON.stringify(roleDefaults['Read Only'] || {}));
+    }
+
+    const nameInput = document.getElementById('roleNameInput');
+    nameInput.value = roleName;
+    nameInput.disabled = isSystem; // can't rename system roles
+    document.getElementById('roleDescInput').value = roleDesc;
+
+    // Template buttons
+    const templateDiv = document.getElementById('roleTemplateButtons');
+    const templateColors = { Administrator: 'warning', Supervisor: 'primary', Operator: 'success', 'Read Only': 'secondary' };
+    templateDiv.innerHTML = Object.keys(roleDefaults).map(rn =>
+        `<button class="btn btn-sm btn-outline-${templateColors[rn]||'info'}" onclick="applyTemplate('${rn}')" type="button">
+            <i class="fas fa-magic me-1"></i>${rn}
+        </button>`
+    ).join('');
+
+    buildPermEditor(currentPerms);
+
+    new bootstrap.Modal(document.getElementById('roleModal')).show();
+}
+
+function applyTemplate(roleName) {
+    const defaults = roleDefaults[roleName];
+    if (defaults) buildPermEditor(JSON.parse(JSON.stringify(defaults)));
+    showToast(`Loaded ${roleName} defaults. Adjust below.`, 'info');
+}
+
+function buildPermEditor(perms) {
+    const tbody = document.getElementById('permEditorBody');
+    let lastGroup = '';
+    tbody.innerHTML = MODULE_DEFS.map(m => {
+    const p = perms[m.key] || { visible: false, canAdd: false, canEdit: false, canDelete: false, canExport: false, canUndo: false };
+    // Backward compat: if canAdd not stored, treat as canEdit
+    if (p.canAdd === undefined) p.canAdd = p.canEdit;
+        let groupRow = '';
+        if (m.group !== lastGroup) {
+            lastGroup = m.group;
+            groupRow = `<tr style="background:rgba(255,255,255,.02)">
+                <td colspan="7" class="fw-bold py-1 px-2" style="font-size:.7rem;text-transform:uppercase;color:${GROUP_COLORS[m.group]||'#aaa'}">${m.group}</td>
+            </tr>`;
+        }
+
+        const dash = '<span class="text-muted">—</span>';
+
+        if (m.visibleLocked) {
+            // Dashboard — always visible, no write actions
+            return groupRow + `<tr data-module="${m.key}">
+                <td class="ps-3 fw-semibold">${m.label} <span class="badge bg-secondary ms-1" style="font-size:.6rem">Always On</span></td>
+                <td class="text-center"><input type="checkbox" class="form-check-input perm-visible" checked disabled></td>
+                <td class="text-center">${dash}</td><td class="text-center">${dash}</td>
+                <td class="text-center">${dash}</td><td class="text-center">${dash}</td><td class="text-center">${dash}</td>
+            </tr>`;
+        }
+        if (m.visibleOnly) {
+            return groupRow + `<tr data-module="${m.key}">
+                <td class="ps-3 fw-semibold">${m.label} <span class="badge bg-info ms-1" style="font-size:.6rem">View only</span></td>
+                <td class="text-center"><input type="checkbox" class="form-check-input perm-visible" ${p.visible ? 'checked' : ''}></td>
+                <td class="text-center">${dash}</td><td class="text-center">${dash}</td>
+                <td class="text-center">${dash}</td><td class="text-center">${dash}</td><td class="text-center">${dash}</td>
+            </tr>`;
+        }
+        if (m.notesOnly) {
+            // Patient notes: canAdd = can add notes, canDelete = can delete notes, no canEdit
+            return groupRow + `<tr data-module="${m.key}" style="background:rgba(255,193,7,.04)">
+                <td class="ps-3 fw-semibold">${m.label} <span class="badge bg-warning text-dark ms-1" style="font-size:.6rem">Per-patient</span></td>
+                <td class="text-center"><span class="text-muted" title="Always visible">—</span></td>
+                <td class="text-center" title="Can add new notes"><input type="checkbox" class="form-check-input perm-canadd" ${p.canAdd ? 'checked' : ''}></td>
+                <td class="text-center" title="Cannot edit existing notes (notes are immutable)"><span class="text-muted">—</span></td>
+                <td class="text-center" title="Can delete notes"><input type="checkbox" class="form-check-input perm-candelete" ${p.canDelete ? 'checked' : ''}></td>
+                <td class="text-center">${dash}</td><td class="text-center">${dash}</td>
+            </tr>`;
+        }
+
+        const undoCell = m.hasUndo
+            ? `<input type="checkbox" class="form-check-input perm-canundo" ${p.canUndo ? 'checked' : ''}>`
+            : dash;
+
+        return groupRow + `<tr data-module="${m.key}">
+            <td class="ps-3 fw-semibold">${m.label}</td>
+            <td class="text-center"><input type="checkbox" class="form-check-input perm-visible"  ${p.visible   ? 'checked' : ''}></td>
+            <td class="text-center"><input type="checkbox" class="form-check-input perm-canadd"   ${p.canAdd   ? 'checked' : ''}></td>
+            <td class="text-center"><input type="checkbox" class="form-check-input perm-canedit"  ${p.canEdit  ? 'checked' : ''}></td>
+            <td class="text-center"><input type="checkbox" class="form-check-input perm-candelete"${p.canDelete? 'checked' : ''}></td>
+            <td class="text-center"><input type="checkbox" class="form-check-input perm-canexport"${p.canExport? 'checked' : ''}></td>
+            <td class="text-center">${undoCell}</td>
+        </tr>`;
+    }).join('');
+}
+
+function readPermEditor() {
+    const perms = {};
+    document.querySelectorAll('#permEditorBody tr[data-module]').forEach(row => {
+        const key = row.getAttribute('data-module');
+        const cb  = sel => { const el = row.querySelector(sel); return el ? el.checked : false; };
+        perms[key] = {
+            visible:   cb('.perm-visible'),
+            canAdd:    cb('.perm-canadd'),
+            canEdit:   cb('.perm-canedit'),
+            canDelete: cb('.perm-candelete'),
+            canExport: cb('.perm-canexport'),
+            canUndo:   cb('.perm-canundo')
+        };
+    });
+    // Dashboard always visible
+    if (perms.dashboard) { perms.dashboard.visible = true; perms.dashboard.canAdd = false; perms.dashboard.canEdit = false; }
+    // Patient notes: no canEdit (notes are immutable once written)
+    if (perms.patient_notes) perms.patient_notes.canEdit = false;
+    return perms;
+}
+
+async function saveRole() {
+    const name = document.getElementById('roleNameInput').value.trim();
+    const errDiv = document.getElementById('roleNameError');
+
+    if (!name && editingId === null) {
+        errDiv.textContent = 'Role name is required.';
+        errDiv.classList.remove('d-none');
+        return;
+    }
+    errDiv.classList.add('d-none');
+
+    const permissions = readPermEditor();
+    const description = document.getElementById('roleDescInput').value.trim();
+    const body = { permissions, description };
+    if (name) body.name = name;
+
+    const btn = document.getElementById('saveRoleBtn');
+    const spinner = document.getElementById('saveRoleSpinner');
+    btn.disabled = true;
+    spinner.classList.remove('d-none');
+
+    try {
+        const url    = editingId ? `/api/roles/${editingId}` : '/api/roles';
+        const method = editingId ? 'PUT' : 'POST';
+        const res = await fetchWithAuth(url, { method, body: JSON.stringify(body) });
+        const data = res ? await res.json() : null;
+        if (res && res.ok) {
+            showToast(data.message || 'Role saved.', 'success');
+            bootstrap.Modal.getInstance(document.getElementById('roleModal')).hide();
+            await loadRoles();
+            await loadDefaults();
+        } else {
+            showToast(data?.error || 'Failed to save role.', 'danger');
+        }
+    } catch(e) { showToast('Network error.', 'danger'); }
+    finally {
+        btn.disabled = false;
+        spinner.classList.add('d-none');
+    }
+}
+
+async function duplicateRole(id, name) {
+    const newName = prompt(`Enter a name for the copy of "${name}":`, name + ' (Copy)');
+    if (!newName || !newName.trim()) return;
+    const res = await fetchWithAuth(`/api/roles/${id}/duplicate`, {
+        method: 'POST',
+        body: JSON.stringify({ name: newName.trim() })
+    });
+    const data = res ? await res.json() : null;
+    if (res && res.ok) {
+        showToast(data.message || 'Role duplicated.', 'success');
+        await loadRoles();
+        await loadDefaults();
+    } else {
+        showToast(data?.error || 'Failed to duplicate role.', 'danger');
+    }
+}
+
+function promptDelete(id, name) {
+    deletingId = id;
+    document.getElementById('deleteRoleBody').innerHTML =
+        `Delete role <strong>${name}</strong>? This cannot be undone. Users with this role must be reassigned first.`;
+    new bootstrap.Modal(document.getElementById('deleteRoleModal')).show();
+}
+
+document.getElementById('confirmDeleteRoleBtn').onclick = async () => {
+    const res = await fetchWithAuth(`/api/roles/${deletingId}`, { method: 'DELETE' });
+    const data = res ? await res.json() : null;
+    bootstrap.Modal.getInstance(document.getElementById('deleteRoleModal')).hide();
+    if (res && res.ok) {
+        showToast(data.message || 'Role deleted.', 'success');
+        await loadRoles();
+        await loadDefaults();
+    } else {
+        showToast(data?.error || 'Delete failed.', 'danger');
+    }
+};
+</script>
+</body>
+</html>

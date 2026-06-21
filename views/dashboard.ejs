@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <script>!function(){var t=localStorage.getItem("rxTheme");if(t)document.documentElement.setAttribute("data-theme",t)}();</script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Patient RX System</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        .stat-card-clickable {
+            cursor: pointer;
+            transition: transform 0.15s, box-shadow 0.15s;
+        }
+        .stat-card-clickable:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.13);
+        }
+        .stat-card-clickable:hover .card-icon {
+            opacity: 0.85;
+        }
+    </style>
+</head>
+<body>
+<div class="wrapper">
+    <!-- Sidebar -->
+    <nav id="sidebar">
+        <div class="sidebar-header">
+            <i class="fas fa-pills me-2"></i>Patient RX
+        </div>
+        <ul class="list-unstyled components">
+            <li class="active"><a href="/dashboard"><i class="fas fa-tachometer-alt me-2"></i>Dashboard</a></li>
+            <li><a href="/patients"><i class="fas fa-user-injured me-2"></i>Patients</a></li>
+            <li><a href="/rx-records"><i class="fas fa-prescription me-2"></i>RX Records</a></li>
+            <li>
+                <a href="#settingsSubmenu" data-bs-toggle="collapse" aria-expanded="false" class="dropdown-toggle">
+                    <i class="fas fa-cogs me-2"></i>Settings
+                </a>
+                <ul class="collapse list-unstyled ps-3" id="settingsSubmenu">
+                    <li><a href="/pharmacies"><i class="fas fa-clinic-medical me-2"></i>Pharmacies</a></li>
+                    <li><a href="/patient-transport"><i class="fas fa-ambulance me-2"></i>Patient Transport</a></li>
+                    <li><a href="/pharmacy-transport"><i class="fas fa-truck me-2"></i>Pharmacy Transport</a></li>
+                    <li><a href="/workflow-actions"><i class="fas fa-tasks me-2"></i>Workflow Actions</a></li>
+                    <li><a href="/medication-catalog"><i class="fas fa-clipboard-list me-2"></i>RX Actions</a></li>
+                    <li><a href="/clinics"><i class="fas fa-hospital me-2"></i>Clinics</a></li>
+                    <li><a href="/users"><i class="fas fa-users-cog me-2"></i>User Management</a></li>
+                    <li><a href="/system-settings"><i class="fas fa-sliders-h me-2"></i>System Settings</a></li>
+                    <li><a href="/backups"><i class="fas fa-database me-2"></i>Backups</a></li>
+                </ul>
+            </li>
+            <li>
+                <a href="#reportsSubmenu" data-bs-toggle="collapse" aria-expanded="false" class="dropdown-toggle"><i class="fas fa-chart-bar me-2"></i>Reports</a>
+                <ul class="collapse list-unstyled ps-3" id="reportsSubmenu">
+                    <li><a href="/reports"><i class="fas fa-chart-pie me-2"></i>Analytics &amp; Export</a></li>
+                    <li><a href="/audit-log"><i class="fas fa-history me-2"></i>Audit Log</a></li>
+                </ul>
+            </li>
+            <li><a href="/import"><i class="fas fa-file-import me-2"></i>Data Import</a></li>
+        </ul>
+    </nav>
+
+    <!-- Page Content -->
+    <div id="content">
+        <nav class="navbar navbar-expand-lg px-4 mb-2">
+            <button type="button" id="sidebarCollapse" class="btn btn-primary btn-sm">
+                <i class="fas fa-bars"></i>
+            </button>
+            <span class="ms-3 fw-bold fs-5">Dashboard</span>
+            <div class="ms-auto d-flex align-items-center gap-3">
+                <button id="exportDashboardBtn" class="btn btn-outline-success btn-sm" title="Export full dashboard summary as CSV">
+                    <i class="fas fa-file-csv me-1"></i>Export Report
+                </button>
+                <button id="themeToggle" class="btn btn-outline-secondary btn-sm"><i class="fas fa-moon"></i></button>
+                <span id="userGreeting" class="text-muted small"></span>
+                <button id="logoutBtn" class="btn btn-danger btn-sm"><i class="fas fa-sign-out-alt me-1"></i>Logout</button>
+            </div>
+        </nav>
+
+        <!-- Date Range Bar -->
+        <div class="px-4 mb-4">
+            <div class="glass-card p-2 px-3 d-flex align-items-center gap-2 flex-wrap">
+                <i class="fas fa-calendar-alt text-primary me-1" style="font-size:.85rem"></i>
+                <span class="small fw-bold text-muted me-1" style="white-space:nowrap">Date Range:</span>
+                <div class="d-flex gap-1 flex-wrap">
+                    <button class="btn btn-sm dash-preset active" data-preset="all" style="font-size:.75rem;padding:3px 10px;border-radius:20px">All Time</button>
+                    <button class="btn btn-sm dash-preset" data-preset="today" style="font-size:.75rem;padding:3px 10px;border-radius:20px">Today</button>
+                    <button class="btn btn-sm dash-preset" data-preset="week" style="font-size:.75rem;padding:3px 10px;border-radius:20px">This Week</button>
+                    <button class="btn btn-sm dash-preset" data-preset="month" style="font-size:.75rem;padding:3px 10px;border-radius:20px">This Month</button>
+                    <button class="btn btn-sm dash-preset" data-preset="30d" style="font-size:.75rem;padding:3px 10px;border-radius:20px">Last 30 Days</button>
+                    <button class="btn btn-sm dash-preset" data-preset="year" style="font-size:.75rem;padding:3px 10px;border-radius:20px">This Year</button>
+                </div>
+                <div class="d-flex align-items-center gap-1 ms-2">
+                    <span class="small text-muted">Custom:</span>
+                    <input type="date" id="dashFrom" class="form-control form-control-sm" style="width:140px;font-size:.78rem">
+                    <span class="small text-muted">–</span>
+                    <input type="date" id="dashTo" class="form-control form-control-sm" style="width:140px;font-size:.78rem">
+                </div>
+                <span id="dashRangeLabel" class="ms-auto badge rounded-pill" style="background:rgba(74,144,226,.12);color:#4a90e2;font-size:.72rem;white-space:nowrap">Showing all time</span>
+            </div>
+        </div>
+
+        <div class="container-fluid px-4">
+            <!-- Stat Cards -->
+            <div class="row g-3 mb-4 row-cols-5">
+                <div class="col">
+                    <div class="glass-card p-3 d-flex align-items-center stat-card-clickable" onclick="openDrilldown('active-patients')" title="Click to view list">
+                        <div class="me-2 card-icon" style="font-size:2rem;color:#4a90e2"><i class="fas fa-user-check"></i></div>
+                        <div>
+                            <div class="text-muted small">Active Patients</div>
+                            <div class="fs-2 fw-bold" id="activePatientsCount">—</div>
+                            <small class="text-primary"><i class="fas fa-external-link-alt me-1"></i>View list</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col">
+                    <div class="glass-card p-3 d-flex align-items-center stat-card-clickable" onclick="openDrilldown('inactive-patients')" title="Click to view list">
+                        <div class="me-2 card-icon" style="font-size:2rem;color:#e24a4a"><i class="fas fa-user-times"></i></div>
+                        <div>
+                            <div class="text-muted small">Inactive Patients</div>
+                            <div class="fs-2 fw-bold" id="inactivePatientsCount">—</div>
+                            <small class="text-danger"><i class="fas fa-external-link-alt me-1"></i>View list</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col">
+                    <div class="glass-card p-3 d-flex align-items-center stat-card-clickable" onclick="openDrilldown('total-rx')" title="Click to view list">
+                        <div class="me-2 card-icon" style="font-size:2rem;color:#50e3c2"><i class="fas fa-prescription-bottle-alt"></i></div>
+                        <div>
+                            <div class="text-muted small">Total RX Records</div>
+                            <div class="fs-2 fw-bold" id="activeRxCount">—</div>
+                            <small class="text-success"><i class="fas fa-external-link-alt me-1"></i>View list</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col">
+                    <div class="glass-card p-3 d-flex align-items-center stat-card-clickable" onclick="openDrilldown('patients-no-rx')" title="Click to view list">
+                        <div class="me-2 card-icon" style="font-size:2rem;color:#9b59b6"><i class="fas fa-user-slash"></i></div>
+                        <div>
+                            <div class="text-muted small">Total No-RX Records</div>
+                            <div class="fs-2 fw-bold" id="patientsWithNoRxCount">—</div>
+                            <small style="color:#9b59b6"><i class="fas fa-external-link-alt me-1"></i>View list</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col">
+                    <div class="glass-card p-3 d-flex align-items-center stat-card-clickable" onclick="openDrilldown('pending-rx')" title="Click to view list">
+                        <div class="me-2 card-icon" style="font-size:2rem;color:#f5a623"><i class="fas fa-truck-loading"></i></div>
+                        <div>
+                            <div class="text-muted small">Pending Deliveries</div>
+                            <div class="fs-2 fw-bold" id="pendingDeliveriesCount">—</div>
+                            <small class="text-warning"><i class="fas fa-external-link-alt me-1"></i>View list</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts Row -->
+            <div class="row g-4 mb-4" id="chartsRow">
+                <div class="col-md-7">
+                    <div class="glass-card p-4 h-100">
+                        <h6 class="mb-3 fw-semibold"><i class="fas fa-chart-bar me-2 text-primary"></i>New Patients — Last 6 Months</h6>
+                        <div style="position:relative;height:220px"><canvas id="patientsBarChart"></canvas></div>
+                    </div>
+                </div>
+                <div class="col-md-5">
+                    <div class="glass-card p-4 h-100">
+                        <h6 class="mb-3 fw-semibold"><i class="fas fa-chart-pie me-2 text-success"></i>RX Records Status</h6>
+                        <div style="position:relative;height:220px;display:flex;align-items:center;justify-content:center"><canvas id="rxDonutChart"></canvas></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- RX Pipeline Widget -->
+            <div class="row g-4 mb-4" id="rxPipelineRow">
+                <div class="col-12">
+                    <div class="glass-card p-4">
+                        <div class="d-flex justify-content-between align-items-center mb-4">
+                            <h5 class="mb-0"><i class="fas fa-project-diagram me-2" style="color:#4a90e2"></i>RX Workflow Pipeline</h5>
+                            <div class="d-flex align-items-center gap-3">
+                                <span class="badge bg-secondary" id="rxPipelineLastUpdated" style="font-weight:400;font-size:.72rem"></span>
+                                <button class="btn btn-outline-secondary btn-sm" onclick="loadRxPipeline()" title="Refresh"><i class="fas fa-sync-alt"></i></button>
+                                <a href="/rx-records" class="btn btn-outline-primary btn-sm"><i class="fas fa-external-link-alt me-1"></i>View RX Records</a>
+                            </div>
+                        </div>
+                        <div class="row g-3 mb-4" id="rxPipelineSummary">
+                            <div class="col-md-4">
+                                <div style="background:rgba(108,117,125,.08);border-radius:12px;padding:16px 20px;display:flex;align-items:center;gap:14px">
+                                    <div style="width:44px;height:44px;border-radius:50%;background:rgba(108,117,125,.15);display:flex;align-items:center;justify-content:center;flex-shrink:0"><i class="fas fa-hourglass-start" style="color:#6c757d;font-size:1.1rem"></i></div>
+                                    <div><div class="text-muted" style="font-size:.75rem;text-transform:uppercase;letter-spacing:.05em">Not Started</div><div class="fw-bold fs-3" id="rxPipelineNotStarted">—</div></div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div style="background:rgba(253,126,20,.08);border-radius:12px;padding:16px 20px;display:flex;align-items:center;gap:14px">
+                                    <div style="width:44px;height:44px;border-radius:50%;background:rgba(253,126,20,.15);display:flex;align-items:center;justify-content:center;flex-shrink:0"><i class="fas fa-spinner" style="color:#fd7e14;font-size:1.1rem"></i></div>
+                                    <div><div class="text-muted" style="font-size:.75rem;text-transform:uppercase;letter-spacing:.05em">In Progress</div><div class="fw-bold fs-3" id="rxPipelineInProgress">—</div></div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div style="background:rgba(25,135,84,.08);border-radius:12px;padding:16px 20px;display:flex;align-items:center;gap:14px">
+                                    <div style="width:44px;height:44px;border-radius:50%;background:rgba(25,135,84,.15);display:flex;align-items:center;justify-content:center;flex-shrink:0"><i class="fas fa-check-circle" style="color:#198754;font-size:1.1rem"></i></div>
+                                    <div><div class="text-muted" style="font-size:.75rem;text-transform:uppercase;letter-spacing:.05em">Completed</div><div class="fw-bold fs-3" id="rxPipelineCompleted">—</div></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between mb-1">
+                                <small class="text-muted fw-semibold">Overall Completion</small>
+                                <small class="text-muted" id="rxPipelinePercent">—</small>
+                            </div>
+                            <div style="height:10px;border-radius:6px;background:rgba(0,0,0,.07);overflow:hidden">
+                                <div id="rxPipelineProgressBar" style="height:100%;border-radius:6px;background:linear-gradient(90deg,#4a90e2,#198754);transition:width .6s ease;width:0%"></div>
+                            </div>
+                        </div>
+                        <div id="rxPipelineSteps" class="mt-3">
+                            <div class="text-muted text-center py-3"><i class="fas fa-spinner fa-spin me-2"></i>Loading...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Activity -->
+            <div class="row g-4" id="recentActivityCard">
+                <div class="col-12">
+                    <div class="glass-card p-4">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h5 class="mb-0"><i class="fas fa-history me-2"></i>Recent Activity</h5>
+                            <div class="d-flex gap-2">
+                                <a href="/audit-log" class="btn btn-sm btn-outline-secondary"><i class="fas fa-external-link-alt me-1"></i>Full Log</a>
+                                <button class="btn btn-sm btn-outline-success" id="exportActivityBtn"><i class="fas fa-file-csv me-1"></i>Export CSV</button>
+                            </div>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0">
+                                <thead><tr><th>User</th><th>Module</th><th>Action</th><th>Date</th><th>IP Address</th></tr></thead>
+                                <tbody id="recentActivityBody"><tr><td colspan="5" class="text-center text-muted">Loading...</td></tr></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Drill-Down Modal -->
+<div class="modal fade" id="drilldownModal" tabindex="-1">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="drilldownTitle">Report</h5>
+                <div class="ms-auto d-flex gap-2 me-3">
+                    <a class="btn btn-outline-primary btn-sm" id="drilldownFullPageBtn" href="#" target="_blank"><i class="fas fa-external-link-alt me-1"></i>Open Full Page</a>
+                    <button class="btn btn-outline-success btn-sm" id="drilldownCsvBtn"><i class="fas fa-file-csv me-1"></i>Export CSV</button>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="drilldownBody"><p class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin me-2"></i>Loading...</p></div>
+        </div>
+    </div>
+</div>
+
+<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index:1100"></div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="/js/app.js"></script>
+<script src="/js/help.js"></script>
+<script>
+    var drilldownModal = null, drilldownCurrentData = [], drilldownType = '';
+    var _dashFrom = '', _dashTo = '';
+
+    function getPresetRange(preset) {
+        const now = new Date(), fmt = d => d.toISOString().slice(0,10), today = fmt(now);
+        if (preset === 'all')   return { from: '', to: '' };
+        if (preset === 'today') return { from: today, to: today };
+        if (preset === 'week')  { const s = new Date(now); s.setDate(now.getDate() - now.getDay()); return { from: fmt(s), to: today }; }
+        if (preset === 'month') return { from: fmt(new Date(now.getFullYear(), now.getMonth(), 1)), to: today };
+        if (preset === '30d')   { const s = new Date(now); s.setDate(now.getDate() - 30); return { from: fmt(s), to: today }; }
+        if (preset === 'year')  return { from: fmt(new Date(now.getFullYear(), 0, 1)), to: today };
+        return { from: '', to: '' };
+    }
+
+    function setPreset(preset) {
+        const { from, to } = getPresetRange(preset);
+        _dashFrom = from; _dashTo = to;
+        document.getElementById('dashFrom').value = from;
+        document.getElementById('dashTo').value   = to;
+        document.querySelectorAll('.dash-preset').forEach(b => {
+            const a = b.dataset.preset === preset;
+            b.style.background  = a ? 'rgba(74,144,226,.18)' : '';
+            b.style.borderColor = a ? '#4a90e2' : '';
+            b.style.color       = a ? '#4a90e2' : '';
+            b.style.fontWeight  = a ? '600' : '';
+        });
+        const labels = { all:'Showing all time', today:'Showing today', week:'Showing this week', month:'Showing this month', '30d':'Showing last 30 days', year:'Showing this year' };
+        const lbl = document.getElementById('dashRangeLabel');
+        if (lbl) lbl.textContent = labels[preset] || 'Custom range';
+        refreshDashboard();
+    }
+
+    function buildDateQuery() {
+        const parts = [];
+        if (_dashFrom) parts.push('from=' + _dashFrom);
+        if (_dashTo)   parts.push('to='   + _dashTo);
+        return parts.length ? '?' + parts.join('&') : '';
+    }
+
+    async function refreshDashboard() {
+        const q = buildDateQuery();
+        try {
+            const res = await fetchWithAuth('/api/dashboard/stats' + q);
+            if (!res) return;
+            const data = await res.json();
+            document.getElementById('activePatientsCount').textContent    = data.activePatients         ?? 0;
+            document.getElementById('inactivePatientsCount').textContent  = data.inactivePatients       ?? 0;
+            document.getElementById('activeRxCount').textContent          = data.activeRxCount          ?? 0;
+            document.getElementById('patientsWithNoRxCount').textContent  = data.patientsWithNoRx       ?? 0;
+            document.getElementById('pendingDeliveriesCount').textContent = data.pendingDeliveriesCount ?? 0;
+            if (window._auditLogAllowed) {
+                const tbody = document.getElementById('recentActivityBody');
+                if (tbody) {
+                    tbody.innerHTML = data.recentActivity && data.recentActivity.length > 0
+                        ? data.recentActivity.map(a => `<tr><td>${a.User ? a.User.firstName+' '+a.User.lastName : 'System'}</td><td>${a.module}</td><td><span class="badge bg-secondary">${a.action}</span></td><td>${a.date||'—'}</td><td>${a.ipAddress||'—'}</td></tr>`).join('')
+                        : '<tr><td colspan="5" class="text-center text-muted">No recent activity</td></tr>';
+                }
+            }
+        } catch(e) { console.warn('Stats refresh error:', e); }
+        loadRxPipeline();
+    }
+
+    document.addEventListener('DOMContentLoaded', async () => {
+        initApp();
+        drilldownModal = new bootstrap.Modal(document.getElementById('drilldownModal'));
+        document.querySelectorAll('.dash-preset').forEach(btn => btn.addEventListener('click', () => setPreset(btn.dataset.preset)));
+        ['dashFrom','dashTo'].forEach(id => {
+            document.getElementById(id).addEventListener('change', () => {
+                _dashFrom = document.getElementById('dashFrom').value;
+                _dashTo   = document.getElementById('dashTo').value;
+                document.querySelectorAll('.dash-preset').forEach(b => { b.style.background=b.style.borderColor=b.style.color=b.style.fontWeight=''; });
+                const lbl = document.getElementById('dashRangeLabel');
+                if (lbl) lbl.textContent = (_dashFrom || _dashTo) ? 'Custom range' : 'Showing all time';
+                refreshDashboard();
+            });
+        });
+        const all = document.querySelector('.dash-preset[data-preset="all"]');
+        if (all) { all.style.background='rgba(74,144,226,.18)'; all.style.borderColor='#4a90e2'; all.style.color='#4a90e2'; all.style.fontWeight='600'; }
+
+        window._auditLogAllowed = (function() {
+            try {
+                const u = JSON.parse(localStorage.getItem('user'));
+                if (!u) return false;
+                const perms = u.permissions || getRoleDefaultPermissions(u.role);
+                const p = perms['audit_log'];
+                return p && p.visible === true;
+            } catch(e) { return false; }
+        })();
+        if (!window._auditLogAllowed) {
+            const card = document.getElementById('recentActivityCard');
+            if (card) card.classList.add('d-none');
+        }
+
+        document.getElementById('drilldownCsvBtn').addEventListener('click', exportDrilldownCsv);
+        document.getElementById('exportDashboardBtn').addEventListener('click', exportDashboardReport);
+        document.getElementById('exportActivityBtn').addEventListener('click', exportRecentActivity);
+
+        await refreshDashboard();
+
+        try {
+            const chartRes = await fetchWithAuth('/api/dashboard/charts');
+            if (chartRes && chartRes.ok) renderCharts(await chartRes.json());
+        } catch(e) { console.warn('Charts failed:', e); }
+    });
+
+    async function loadRxPipeline() {
+        const stepsEl = document.getElementById('rxPipelineSteps'), luEl = document.getElementById('rxPipelineLastUpdated');
+        if (!stepsEl) return;
+        stepsEl.innerHTML = '<div class="text-muted text-center py-3"><i class="fas fa-spinner fa-spin me-2"></i>Loading...</div>';
+        try {
+            const res = await fetchWithAuth('/api/dashboard/rx-pipeline');
+            if (!res || !res.ok) throw new Error('Failed');
+            const d = await res.json();
+            document.getElementById('rxPipelineNotStarted').textContent = d.notStarted ?? 0;
+            document.getElementById('rxPipelineInProgress').textContent = d.inProgress ?? 0;
+            document.getElementById('rxPipelineCompleted').textContent  = d.completed  ?? 0;
+            const pct = d.total > 0 ? Math.round((d.completed / d.total) * 100) : 0;
+            document.getElementById('rxPipelinePercent').textContent = pct + '% complete';
+            document.getElementById('rxPipelineProgressBar').style.width = pct + '%';
+            if (luEl) luEl.textContent = 'Updated ' + new Date().toLocaleTimeString();
+            const COLORS = ['#4a90e2','#7b61ff','#fd7e14','#20c997','#e24a9a','#50e3c2','#f5a623'];
+            if (!d.stepBreakdown || !d.stepBreakdown.length) {
+                stepsEl.innerHTML = '<p class="text-muted text-center small py-2">No workflow steps configured yet.</p>';
+                return;
+            }
+            stepsEl.innerHTML = `
+                <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#888;margin-bottom:10px">
+                    Workflow Step Breakdown — RX records waiting at each step
+                </div>
+                <div style="display:flex;flex-direction:column;gap:8px">
+                    ${d.stepBreakdown.map((step, i) => {
+                        const color = COLORS[i % COLORS.length];
+                        const barPct = d.inProgress > 0 ? Math.round((step.count / d.inProgress) * 100) : 0;
+                        return `<div style="display:flex;align-items:center;gap:12px">
+                            <div style="flex-shrink:0;width:22px;height:22px;border-radius:50%;background:${color}22;display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;color:${color}">${i+1}</div>
+                            <div style="flex-shrink:0;width:160px;font-size:.82rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${step.name}">${step.name}</div>
+                            <div style="flex:1;height:8px;border-radius:4px;background:rgba(0,0,0,.07);overflow:hidden">
+                                <div style="height:100%;border-radius:4px;background:${color};width:${barPct}%;transition:width .5s ease"></div>
+                            </div>
+                            <div style="flex-shrink:0;width:32px;text-align:right;font-size:.82rem;font-weight:600;color:${color}">${step.count}</div>
+                        </div>`;
+                    }).join('')}
+                </div>
+                ${d.completed > 0 ? `
+                <div style="display:flex;align-items:center;gap:12px;margin-top:8px;padding-top:8px;border-top:1px solid rgba(0,0,0,.07)">
+                    <div style="flex-shrink:0;width:22px;height:22px;border-radius:50%;background:#19875422;display:flex;align-items:center;justify-content:center"><i class="fas fa-check" style="font-size:.6rem;color:#198754"></i></div>
+                    <div style="flex-shrink:0;width:160px;font-size:.82rem;font-weight:600;color:#198754">Completed</div>
+                    <div style="flex:1;height:8px;border-radius:4px;background:rgba(0,0,0,.07);overflow:hidden">
+                        <div style="height:100%;border-radius:4px;background:#198754;width:${d.total>0?Math.round(d.completed/d.total*100):0}%;transition:width .5s ease"></div>
+                    </div>
+                    <div style="flex-shrink:0;width:32px;text-align:right;font-size:.82rem;font-weight:600;color:#198754">${d.completed}</div>
+                </div>` : ''}`;
+        } catch(e) {
+            stepsEl.innerHTML = '<p class="text-danger text-center small py-2"><i class="fas fa-exclamation-triangle me-1"></i>Could not load pipeline data.</p>';
+        }
+    }
+
+    function renderCharts(data) {
+        const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+        const tc = isDark ? '#c9d1d9' : '#444', gc = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)';
+        Chart.defaults.color = tc;
+        new Chart(document.getElementById('patientsBarChart').getContext('2d'), {
+            type: 'bar',
+            data: { labels: data.patientsPerMonth.labels, datasets: [{ label: 'New Patients', data: data.patientsPerMonth.data, backgroundColor: 'rgba(74,144,226,0.75)', borderColor: 'rgba(74,144,226,1)', borderWidth: 1, borderRadius: 6 }] },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { grid: { color: gc }, ticks: { color: tc } }, y: { grid: { color: gc }, ticks: { color: tc, stepSize: 1, precision: 0 }, beginAtZero: true } } }
+        });
+        const total = data.rxStatus.data.reduce((a,b) => a+b, 0);
+        new Chart(document.getElementById('rxDonutChart').getContext('2d'), {
+            type: 'doughnut',
+            data: { labels: data.rxStatus.labels, datasets: [{ data: total > 0 ? data.rxStatus.data : [1], backgroundColor: total > 0 ? ['rgba(80,227,194,0.85)','rgba(245,166,35,0.85)'] : ['rgba(150,150,150,0.3)'], borderWidth: 2, borderColor: isDark ? '#1a1f2e' : '#fff' }] },
+            options: { responsive: true, maintainAspectRatio: false, cutout: '68%', plugins: { legend: { position: 'bottom', labels: { color: tc, padding: 14, font: { size: 13 } } }, tooltip: { callbacks: { label: ctx => total > 0 ? ` ${ctx.label}: ${ctx.raw} (${Math.round(ctx.raw/total*100)}%)` : ' No RX records yet' } } } }
+        });
+    }
+
+    async function openDrilldown(type) {
+        drilldownType = type; drilldownCurrentData = [];
+        const titles = {
+            'active-patients':   'Active Patients',
+            'inactive-patients': 'Inactive Patients',
+            'total-rx':          'All RX Records',
+            'pending-rx':        'Pending RX Records (Incomplete Workflow)',
+            'patients-no-rx':    'Active Patients with No RX Records'
+        };
+        const pageLinks = {
+            'active-patients':   '/patients?status=active',
+            'inactive-patients': '/patients?status=inactive',
+            'total-rx':          '/rx-records',
+            'pending-rx':        '/rx-records?pending=true',
+            'patients-no-rx':    '/patients?status=norx'
+        };
+        document.getElementById('drilldownTitle').textContent = titles[type] || 'Report';
+        document.getElementById('drilldownBody').innerHTML = '<p class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin me-2"></i>Loading...</p>';
+        const fp = document.getElementById('drilldownFullPageBtn');
+        if (fp) fp.href = pageLinks[type] || '#';
+        drilldownModal.show();
+        try {
+            const res = await fetchWithAuth('/api/dashboard/' + type);
+            if (!res) return;
+            const data = await res.json();
+            drilldownCurrentData = data;
+            document.getElementById('drilldownTitle').textContent = (titles[type] || 'Report') + ' (' + data.length + ')';
+            renderDrilldownTable(type, data);
+        } catch(e) {
+            document.getElementById('drilldownBody').innerHTML = '<p class="text-danger text-center py-4">Error loading data.</p>';
+        }
+    }
+
+    function renderDrilldownTable(type, data) {
+        const body = document.getElementById('drilldownBody');
+        if (!data || !data.length) { body.innerHTML = '<p class="text-center text-muted py-4">No records found.</p>'; return; }
+        const isPatient = ['active-patients','inactive-patients','patients-no-rx'].includes(type);
+        if (isPatient) {
+            body.innerHTML = `
+                <div class="table-responsive">
+                    <table class="table table-hover table-sm align-middle">
+                        <thead><tr>
+                            <th>Patient ID</th><th>Name</th><th>DOB</th><th>Phone</th>
+                            <th>Service Date</th><th>Clinic</th><th>Patient Transport</th><th>Pharmacy Transport</th>
+                        </tr></thead>
+                        <tbody>${data.map(p => `<tr>
+                            <td><code>${p.patientCode || p.id}</code></td>
+                            <td><strong>${p.firstName} ${p.lastName}</strong></td>
+                            <td>${p.dob||'—'}</td><td>${p.phone||'—'}</td><td>${p.serviceDate||'—'}</td>
+                            <td>${p.Clinic ? p.Clinic.name : '—'}</td>
+                            <td>${p.PatientTransportCompany ? (p.PatientTransportCompany.contactPerson||p.PatientTransportCompany.companyName||'—') : '—'}</td>
+                            <td>${p.PharmacyTransportCompany ? (p.PharmacyTransportCompany.contactPerson||p.PharmacyTransportCompany.companyName||'—') : '—'}</td>
+                        </tr>`).join('')}</tbody>
+                    </table>
+                </div>
+                <small class="text-muted">${data.length} records</small>`;
+        } else {
+            body.innerHTML = `
+                <div class="table-responsive">
+                    <table class="table table-hover table-sm align-middle">
+                        <thead><tr>
+                            <th>RX #</th><th>Patient</th><th>Patient ID</th>
+                            <th>Pharmacy</th><th>Arrival Date</th><th>Service Date</th><th>Workflow Progress</th>
+                        </tr></thead>
+                        <tbody>${data.map(rx => {
+                            const steps = (rx.RXWorkflowTrackings || []).length;
+                            return `<tr>
+                                <td><strong>#${rx.id}</strong></td>
+                                <td>${rx.Patient ? rx.Patient.firstName+' '+rx.Patient.lastName : '—'}</td>
+                                <td><code>${rx.Patient ? (rx.Patient.patientCode||rx.patientId) : rx.patientId}</code></td>
+                                <td>${rx.Pharmacy ? rx.Pharmacy.name : '—'}</td>
+                                <td>${rx.arrivalDate||'—'}</td><td>${rx.serviceDate||'—'}</td>
+                                <td><div class="progress" style="height:8px;min-width:60px"><div class="progress-bar bg-primary" style="width:${steps>0?Math.round(steps/Math.max(steps,1)*100):0}%"></div></div><small>${steps} step(s) completed</small></td>
+                            </tr>`;
+                        }).join('')}</tbody>
+                    </table>
+                </div>
+                <small class="text-muted">${data.length} records</small>`;
+        }
+    }
+
+    function exportDrilldownCsv() {
+        if (!drilldownCurrentData || !drilldownCurrentData.length) { showToast('No data to export.', 'warning'); return; }
+        const isPatient = ['active-patients','inactive-patients','patients-no-rx'].includes(drilldownType);
+        const headers = isPatient
+            ? ['Patient ID','First Name','Last Name','DOB','Phone','Service Date','Clinic','Patient Transport','Pharmacy Transport','Status']
+            : ['RX #','Patient ID','Patient Name','Pharmacy','Arrival Date','Service Date','Steps Completed'];
+        const rows = isPatient
+            ? drilldownCurrentData.map(p => [p.patientCode||p.id, p.firstName, p.lastName, p.dob||'', p.phone||'', p.serviceDate||'', p.Clinic?p.Clinic.name:'', p.PatientTransportCompany?(p.PatientTransportCompany.contactPerson||p.PatientTransportCompany.companyName||''):'', p.PharmacyTransportCompany?(p.PharmacyTransportCompany.contactPerson||p.PharmacyTransportCompany.companyName||''):'', p.isActive?'Active':'Inactive'])
+            : drilldownCurrentData.map(rx => [rx.id, rx.Patient?(rx.Patient.patientCode||rx.patientId):rx.patientId, rx.Patient?rx.Patient.firstName+' '+rx.Patient.lastName:'', rx.Pharmacy?rx.Pharmacy.name:'', rx.arrivalDate||'', rx.serviceDate||'', (rx.RXWorkflowTrackings||[]).length]);
+        const t = { 'active-patients':'active_patients','inactive-patients':'inactive_patients','total-rx':'all_rx_records','pending-rx':'pending_rx','patients-no-rx':'patients_no_rx' };
+        exportToCsv((t[drilldownType]||'report')+'_'+new Date().toISOString().slice(0,10)+'.csv', headers, rows);
+    }
+
+    async function exportDashboardReport() {
+        const btn = document.getElementById('exportDashboardBtn');
+        btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Exporting...';
+        try {
+            const [active, inactive, totalRx, pending, noRx] = await Promise.all([
+                fetchWithAuth('/api/dashboard/active-patients').then(r=>r.json()),
+                fetchWithAuth('/api/dashboard/inactive-patients').then(r=>r.json()),
+                fetchWithAuth('/api/dashboard/total-rx').then(r=>r.json()),
+                fetchWithAuth('/api/dashboard/pending-rx').then(r=>r.json()),
+                fetchWithAuth('/api/dashboard/patients-no-rx').then(r=>r.json())
+            ]);
+            const headers = ['Section','Patient/RX ID','Name','Status','DOB / Arrival Date','Service Date','Clinic / Pharmacy'];
+            const rows = [];
+            active.forEach(p   => rows.push(['Active Patients',    p.patientCode||p.id, p.firstName+' '+p.lastName, 'Active',   p.dob||'', p.serviceDate||'', p.Clinic?p.Clinic.name:'']));
+            inactive.forEach(p => rows.push(['Inactive Patients',  p.patientCode||p.id, p.firstName+' '+p.lastName, 'Inactive', p.dob||'', p.serviceDate||'', p.Clinic?p.Clinic.name:'']));
+            noRx.forEach(p     => rows.push(['No RX Records',      p.patientCode||p.id, p.firstName+' '+p.lastName, 'Active',   p.dob||'', p.serviceDate||'', p.Clinic?p.Clinic.name:'']));
+            totalRx.forEach(rx => rows.push(['RX Records',         '#'+rx.id, rx.Patient?rx.Patient.firstName+' '+rx.Patient.lastName:'', 'RX', rx.arrivalDate||'', rx.serviceDate||'', rx.Pharmacy?rx.Pharmacy.name:'']));
+            pending.forEach(rx => rows.push(['Pending Deliveries', '#'+rx.id, rx.Patient?rx.Patient.firstName+' '+rx.Patient.lastName:'', 'Pending', rx.arrivalDate||'', rx.serviceDate||'', rx.Pharmacy?rx.Pharmacy.name:'']));
+            exportToCsv('dashboard_report_'+new Date().toISOString().slice(0,10)+'.csv', headers, rows);
+            showToast('Dashboard report exported!', 'success');
+        } catch(e) { showToast('Export failed', 'danger'); }
+        finally { btn.disabled = false; btn.innerHTML = '<i class="fas fa-file-csv me-1"></i>Export Report'; }
+    }
+
+    function exportRecentActivity() {
+        const rows = [];
+        document.querySelectorAll('#recentActivityBody tr').forEach(tr => {
+            const c = tr.querySelectorAll('td');
+            if (c.length >= 4) rows.push([c[0].textContent.trim(), c[1].textContent.trim(), c[2].textContent.trim(), c[3].textContent.trim(), c[4]?c[4].textContent.trim():'']);
+        });
+        if (!rows.length) { showToast('No activity to export', 'warning'); return; }
+        exportToCsv('recent_activity_'+new Date().toISOString().slice(0,10)+'.csv', ['User','Module','Action','Date','IP Address'], rows);
+        showToast('Recent activity exported!', 'success');
+    }
+</script>
+</body>
+</html>

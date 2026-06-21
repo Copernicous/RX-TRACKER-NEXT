@@ -1,0 +1,1456 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <script>!function(){var t=localStorage.getItem("rxTheme");if(t)document.documentElement.setAttribute("data-theme",t)}();</script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RX Records - Patient RX System</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        .patient-dropdown {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0; right: 0;
+            z-index: 1055;
+            max-height: 220px;
+            overflow-y: auto;
+            background: var(--card-bg, #fff);
+            border: 1px solid var(--border-color, #dee2e6);
+            border-radius: 0.375rem;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+        }
+        .patient-dropdown.open { display: block; }
+        .patient-dropdown-item {
+            padding: 8px 14px;
+            cursor: pointer;
+            border-bottom: 1px solid var(--border-color, #f0f0f0);
+            transition: background 0.15s;
+        }
+        .patient-dropdown-item:last-child { border-bottom: none; }
+        .patient-dropdown-item:hover,
+        .patient-dropdown-item.highlighted { background: rgba(99,102,241,0.12); }
+        .patient-dropdown-item .pat-name  { font-weight: 600; font-size: 0.9rem; }
+        .patient-dropdown-item .pat-id    { font-size: 0.78rem; color: var(--text-muted, #6c757d); }
+        .patient-dropdown-empty { padding: 10px 14px; color: var(--text-muted, #6c757d); font-size: 0.85rem; }
+        #patientSearchInput.is-selected { border-color: #6366f1; }
+    </style>
+</head>
+<body>
+<div class="wrapper">
+    <nav id="sidebar">
+        <div class="sidebar-header"><i class="fas fa-pills me-2"></i>Patient RX</div>
+        <ul class="list-unstyled components">
+            <li><a href="/dashboard"><i class="fas fa-tachometer-alt me-2"></i>Dashboard</a></li>
+            <li><a href="/patients"><i class="fas fa-user-injured me-2"></i>Patients</a></li>
+            <li class="active"><a href="/rx-records"><i class="fas fa-prescription me-2"></i>RX Records</a></li>
+            <li>
+                <a href="#settingsSubmenu" data-bs-toggle="collapse" aria-expanded="false" class="dropdown-toggle"><i class="fas fa-cogs me-2"></i>Settings</a>
+                <ul class="collapse list-unstyled ps-3" id="settingsSubmenu">
+                    <li><a href="/pharmacies"><i class="fas fa-clinic-medical me-2"></i>Pharmacies</a></li>
+                    <li><a href="/patient-transport"><i class="fas fa-ambulance me-2"></i>Patient Transport</a></li>
+                    <li><a href="/pharmacy-transport"><i class="fas fa-truck me-2"></i>Pharmacy Transport</a></li>
+                    <li><a href="/workflow-actions"><i class="fas fa-tasks me-2"></i>Workflow Actions</a></li>
+                    <li><a href="/medication-catalog"><i class="fas fa-clipboard-list me-2"></i>RX Actions</a></li>
+                    <li><a href="/clinics"><i class="fas fa-hospital me-2"></i>Clinics</a></li>
+                    <li><a href="/users"><i class="fas fa-users-cog me-2"></i>User Management</a></li>
+                    <li><a href="/system-settings"><i class="fas fa-sliders-h me-2"></i>System Settings</a></li>
+                    <li><a href="/backups"><i class="fas fa-database me-2"></i>Backups</a></li>
+                </ul>
+            </li>
+            <li>
+                <a href="#reportsSubmenu" data-bs-toggle="collapse" aria-expanded="false" class="dropdown-toggle"><i class="fas fa-chart-bar me-2"></i>Reports</a>
+                <ul class="collapse list-unstyled ps-3" id="reportsSubmenu">
+                    <li><a href="/reports"><i class="fas fa-chart-pie me-2"></i>Analytics &amp; Export</a></li>
+                    <li><a href="/audit-log"><i class="fas fa-history me-2"></i>Audit Log</a></li>
+                </ul>
+            </li>
+            <li><a href="/import"><i class="fas fa-file-import me-2"></i>Data Import</a></li>
+        </ul>
+    </nav>
+
+    <div id="content">
+        <nav class="navbar navbar-expand-lg px-4 mb-4">
+            <button type="button" id="sidebarCollapse" class="btn btn-primary btn-sm"><i class="fas fa-bars"></i></button>
+            <span class="ms-3 fw-bold fs-5">RX Records</span>
+            <div class="ms-auto d-flex align-items-center gap-3">
+                <button id="themeToggle" class="btn btn-outline-secondary btn-sm"><i class="fas fa-moon"></i></button>
+                <span id="userGreeting" class="text-muted small"></span>
+                <button id="logoutBtn" class="btn btn-danger btn-sm"><i class="fas fa-sign-out-alt me-1"></i>Logout</button>
+            </div>
+        </nav>
+
+        <div class="container-fluid px-4">
+            <div class="glass-card p-3 mb-3">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <span class="fw-bold small text-muted text-uppercase" style="letter-spacing:.05em"><i class="fas fa-filter me-1"></i>Search &amp; Filter</span>
+                    <div class="d-flex align-items-center gap-2">
+                        <button class="btn btn-link btn-sm text-muted p-0" onclick="toggleRxPanel()" style="font-size:.78rem;text-decoration:none">
+                            <i class="fas fa-sliders-h me-1"></i>Advanced <i class="fas fa-chevron-down ms-1" id="rxAdvChevron"></i>
+                        </button>
+                    </div>
+                </div>
+                <!-- Basic row -->
+                <div class="row g-2 align-items-end">
+                    <div class="col-md-3">
+                        <label class="form-label small fw-bold"><i class="fas fa-user me-1"></i>Patient Name</label>
+                        <input type="text" class="form-control form-control-sm" id="rxFilterPatient" placeholder="First or last name...">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label small fw-bold">RX #</label>
+                        <input type="text" class="form-control form-control-sm" id="rxFilterId" placeholder="RX number">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label small fw-bold"><i class="fas fa-clinic-medical me-1"></i>Pharmacy</label>
+                        <input type="text" class="form-control form-control-sm" id="rxFilterPharmacy" placeholder="Pharmacy name">
+                    </div>
+                    <div class="col-md-2 d-flex gap-1 align-items-end">
+                        <button class="btn btn-primary btn-sm flex-fill" id="rxFilterBtn"><i class="fas fa-search"></i></button>
+                        <button class="btn btn-outline-secondary btn-sm" id="rxClearBtn"><i class="fas fa-times"></i></button>
+                    </div>
+                </div>
+                <!-- Advanced row -->
+                <div id="rxAdvPanel" style="display:none;border-top:1px solid var(--border-color,#dee2e6);margin-top:10px;padding-top:10px">
+                    <div class="row g-2 align-items-end">
+                        <div class="col-md-2">
+                            <label class="form-label small fw-bold"><i class="fas fa-id-badge me-1"></i>Patient ID</label>
+                            <input type="text" class="form-control form-control-sm" id="rxFilterPatientCode" placeholder="e.g. PAT-00001">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small fw-bold"><i class="fas fa-calendar me-1"></i>Arrival From</label>
+                            <input type="date" class="form-control form-control-sm" id="rxFilterDateFrom">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small fw-bold"><i class="fas fa-calendar me-1"></i>Arrival To</label>
+                            <input type="date" class="form-control form-control-sm" id="rxFilterDateTo">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small fw-bold"><i class="fas fa-calendar-check me-1"></i>Service From</label>
+                            <input type="date" class="form-control form-control-sm" id="rxFilterSvcFrom">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small fw-bold"><i class="fas fa-calendar-check me-1"></i>Service To</label>
+                            <input type="date" class="form-control form-control-sm" id="rxFilterSvcTo">
+                        </div>
+                        <div class="col-md-3 d-flex align-items-end">
+                            <div class="form-check form-switch mt-1">
+                                <input class="form-check-input" type="checkbox" id="rxShowDeleted">
+                                <label class="form-check-label small" for="rxShowDeleted">Show Hidden Records</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+
+            <div class="glass-card p-4">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h5 class="mb-0">RX Records</h5>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-outline-success btn-sm" id="exportRxListCsvBtn"><i class="fas fa-file-csv me-1"></i>Export CSV</button>
+                        <button class="btn btn-success btn-sm" id="addRxBtn"><i class="fas fa-plus me-1"></i>New RX</button>
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead>
+                            <tr>
+                                <th style="cursor:pointer" onclick="sortRx('id')">RX # <i class="fas fa-sort text-muted" style="opacity:0.3" id="srIcon_id"></i></th>
+                                <th style="cursor:pointer" onclick="sortRx('Patient.firstName')">Patient <i class="fas fa-sort text-muted" style="opacity:0.3" id="srIcon_Patient.firstName"></i></th>
+                                <th style="cursor:pointer" onclick="sortRx('arrivalDate')">Arrival Date <i class="fas fa-sort text-muted" style="opacity:0.3" id="srIcon_arrivalDate"></i></th>
+                                <th style="cursor:pointer" onclick="sortRx('serviceDate')">Service Date <i class="fas fa-sort text-muted" style="opacity:0.3" id="srIcon_serviceDate"></i></th>
+                                <th style="cursor:pointer" onclick="sortRx('Pharmacy.name')">Pharmacy <i class="fas fa-sort text-muted" style="opacity:0.3" id="srIcon_Pharmacy.name"></i></th>
+                                <th>Workflow Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="rxBody">
+                            <tr><td colspan="7" class="text-center text-muted py-4">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="d-flex justify-content-between align-items-center mt-3">
+                    <small class="text-muted" id="rxPageInfo"></small>
+                    <nav><ul class="pagination pagination-sm mb-0" id="rxPagination"></ul></nav>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- RX Create Modal -->
+<div class="modal fade" id="rxModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="rxModalTitle">New RX Record</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+
+                <!-- Patient selector -->
+                <div class="row g-3 mb-2">
+                    <div class="col-12">
+                        <label class="form-label fw-bold">Patient <span class="text-danger">*</span></label>
+                        <div class="patient-search-wrapper position-relative" id="patientSearchWrapper">
+                            <input type="text" class="form-control" id="patientSearchInput"
+                                   placeholder="Search by name, last name or ID..."
+                                   autocomplete="off">
+                            <input type="hidden" id="rxPatientId">
+                            <div class="patient-dropdown" id="patientDropdown"></div>
+                        </div>
+                        <small class="text-muted" id="patientSelectedInfo"></small>
+                    </div>
+                </div>
+
+                <!-- Auto-filled info panel — shows once a patient is selected -->
+                <div id="rxPatientInfoPanel" class="rounded border bg-light p-3 mb-3" style="display:none">
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                        <i class="fas fa-user-check text-success"></i>
+                        <span class="fw-semibold small text-success">Fields below are auto-filled from the patient record</span>
+                    </div>
+                    <div class="row g-2">
+                        <div class="col-md-6">
+                            <label class="form-label small mb-1 text-muted">Default Pharmacy</label>
+                            <input type="text" class="form-control form-control-sm bg-white" id="rxPharmacyDisplay" readonly tabindex="-1">
+                            <input type="hidden" id="rxPharmacyId">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small mb-1 text-muted">Arrival Date</label>
+                            <input type="text" class="form-control form-control-sm bg-white" id="rxArrivalDisplay" readonly tabindex="-1">
+                            <input type="hidden" id="rxArrivalDate">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small mb-1 text-muted">Service Date</label>
+                            <input type="text" class="form-control form-control-sm bg-white" id="rxServiceDisplay" readonly tabindex="-1">
+                            <input type="hidden" id="rxServiceDate">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small mb-1 text-muted">Patient Transport</label>
+                            <input type="text" class="form-control form-control-sm bg-white" id="rxPatientTransportDisplay" readonly tabindex="-1">
+                            <input type="hidden" id="rxPatientTransport">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small mb-1 text-muted">Pharmacy Transport</label>
+                            <input type="text" class="form-control form-control-sm bg-white" id="rxPharmacyTransportDisplay" readonly tabindex="-1">
+                            <input type="hidden" id="rxPharmacyTransport">
+                        </div>
+                    </div>
+                    <div class="mt-2">
+                        <small class="text-muted"><i class="fas fa-info-circle me-1"></i>To change these values, edit the patient record first.</small>
+                    </div>
+                </div>
+
+                <hr>
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h6 class="mb-0"><i class="fas fa-clipboard-list me-2"></i>RX Actions</h6>
+                    <button type="button" class="btn btn-outline-primary btn-sm" id="addMedBtn"><i class="fas fa-plus me-1"></i>Add Action</button>
+                </div>
+                <div id="medicationsContainer"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="saveRxBtn">
+                    <span id="saveRxSpinner" class="spinner-border spinner-border-sm me-1 d-none"></span>Save RX
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Workflow Modal -->
+<div class="modal fade" id="workflowModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">RX Workflow Tracking</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="workflowBody">
+                <p class="text-muted text-center">Loading...</p>
+            </div>
+            <!-- Return to Warehouse footer (shown only when editable and steps exist) -->
+            <div class="modal-footer" id="workflowFooter" style="display:none;">
+                <div class="w-100">
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                        <i class="fas fa-warehouse text-warning"></i>
+                        <input type="text" id="warehouseNoteInput" class="form-control form-control-sm flex-grow-1" placeholder="Reason / note (optional)" style="max-width:280px;">
+                        <button class="btn btn-warning btn-sm fw-semibold" id="returnToWarehouseBtn" onclick="returnToWarehouse()">
+                            <i class="fas fa-warehouse me-1"></i>Return to Warehouse
+                        </button>
+                        <span class="text-muted small">Clears all workflow steps &amp; marks as returned</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- RX History Modal -->
+<div class="modal fade" id="rxHistoryModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header" style="background:linear-gradient(135deg,#1a2234,#243050);color:#fff">
+                <h5 class="modal-title"><i class="fas fa-history me-2"></i>RX Record History</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="rxHistoryBody">
+                <p class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin me-2"></i>Loading history...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- RX Print Preview Modal -->
+<div class="modal fade" id="rxPrintModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-print me-2"></i>RX Record &mdash; Print Preview</h5>
+                <div class="btn-group btn-group-sm ms-auto me-3" role="group" id="rxPrintLayoutToggle">
+                    <input type="radio" class="btn-check" name="rxPrintLayout" id="rxLayoutCard" value="card" checked autocomplete="off">
+                    <label class="btn btn-outline-primary" for="rxLayoutCard"><i class="fas fa-id-card me-1"></i>Card</label>
+                    <input type="radio" class="btn-check" name="rxPrintLayout" id="rxLayoutClassic" value="classic" autocomplete="off">
+                    <label class="btn btn-outline-primary" for="rxLayoutClassic"><i class="fas fa-file-alt me-1"></i>Classic</label>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-0" id="rxPrintBody" style="background:#f0f2f5">
+                <p class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin me-2"></i>Loading...</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button class="btn btn-primary" onclick="doPrintRx()"><i class="fas fa-print me-2"></i>Print / Save PDF</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- RX Detail View Modal -->
+<div class="modal fade" id="rxDetailModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header" style="background:linear-gradient(135deg,#1a2234,#2c3e6b);color:#fff">
+                <h5 class="modal-title"><i class="fas fa-file-medical me-2"></i>RX Record Details</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="rxDetailBody">
+                <p class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin me-2"></i>Loading...</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button class="btn btn-outline-primary" id="rxDetailPrintBtn"><i class="fas fa-print me-2"></i>Print</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index:1100"></div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="/js/app.js"></script>
+<script src="/js/help.js"></script>
+<script>
+    var allRx = [], filteredRx = [], allWorkflowActions = [];
+    // ── Filter panel toggle ───────────────────────────────────────────────
+    var _rxAdvOpen = false;
+    function toggleRxPanel() {
+        _rxAdvOpen = !_rxAdvOpen;
+        const el = document.getElementById('rxAdvPanel');
+        const ch = document.getElementById('rxAdvChevron');
+        if (el) el.style.display = _rxAdvOpen ? '' : 'none';
+        if (ch) ch.className   = _rxAdvOpen ? 'fas fa-chevron-up ms-1' : 'fas fa-chevron-down ms-1';
+    }
+    var rxPage = 1, rxPageSize = 15;
+    var currentRxId = null;
+    var rSortCol = 'id';
+    var rSortDir = 'desc';
+    var medCount = 0;
+    var workflowModalInstance = null;
+    var allPatientsList = []; // for searchable patient picker
+
+    document.addEventListener('DOMContentLoaded', async () => {
+        initApp();
+        setupSidebar();
+        
+        workflowModalInstance = new bootstrap.Modal(document.getElementById('workflowModal'));
+        document.getElementById('addRxBtn').addEventListener('click', () => openRxModal());
+        document.getElementById('addMedBtn').addEventListener('click', addMedicationRow);
+        document.getElementById('saveRxBtn').addEventListener('click', saveRx);
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const patientId   = urlParams.get('patient');
+        const patientName = urlParams.get('name');
+
+        // Pre-fill patient name filter immediately so the user sees it on load
+        if (patientName) {
+            document.getElementById('rxFilterPatient').value = decodeURIComponent(patientName).trim();
+        } else if (patientId) {
+            // Fallback: ID-based pre-filter (no name in URL)
+            window._rxPrefilterPatientId = patientId;
+        }
+
+        // Filter bar listeners — all trigger applyRxFilter
+        ['rxFilterPatient','rxFilterId','rxFilterPharmacy','rxFilterPatientCode',
+         'rxFilterDateFrom','rxFilterDateTo','rxFilterSvcFrom','rxFilterSvcTo'].forEach(id => {
+            const el = document.getElementById(id); if (el) el.addEventListener('input', () => { rxPage = 1; applyRxFilter(); });
+            if (el) el.addEventListener('change', () => { rxPage = 1; applyRxFilter(); });
+        });
+        document.getElementById('rxFilterBtn').addEventListener('click', () => { rxPage = 1; applyRxFilter(); });
+        document.getElementById('rxClearBtn').addEventListener('click', () => {
+            ['rxFilterPatient','rxFilterId','rxFilterPharmacy','rxFilterPatientCode',
+             'rxFilterDateFrom','rxFilterDateTo','rxFilterSvcFrom','rxFilterSvcTo'].forEach(id => {
+                const el = document.getElementById(id); if(el) el.value = '';
+            });
+            document.getElementById('rxShowDeleted').checked = false;
+            window._rxPrefilterPatientId = null;
+            rxPage = 1; loadRxRecords();
+        });
+        document.getElementById('rxShowDeleted').addEventListener('change', () => { rxPage = 1; loadRxRecords(); });
+
+        document.getElementById('exportRxListCsvBtn').addEventListener('click', () => {
+            if (!filteredRx.length) { showToast('No data to export.', 'warning'); return; }
+            const headers = ['RX #', 'Patient ID', 'Patient Name', 'Pharmacy', 'Arrival Date', 'Service Date', 'Steps Completed'];
+            const rows = filteredRx.map(rx => [
+                rx.id,
+                rx.Patient ? (rx.Patient.patientCode || rx.patientId) : rx.patientId,
+                rx.Patient ? rx.Patient.firstName + ' ' + rx.Patient.lastName : '',
+                rx.Pharmacy ? rx.Pharmacy.name : '',
+                rx.arrivalDate || '', rx.serviceDate || '',
+                (rx.RXWorkflowTrackings || []).length
+            ]);
+            exportToCsv('rx_records_' + new Date().toISOString().slice(0,10) + '.csv', headers, rows);
+        });
+
+        // Apply export permission
+        const rxPerms = getPagePerms();
+        if (!rxPerms.canExport) {
+            const expBtn = document.getElementById('exportRxListCsvBtn');
+            if (expBtn) expBtn.classList.add('d-none');
+        }
+        if (!rxPerms.canEdit) {
+            const addBtn = document.getElementById('addRxBtn');
+            if (addBtn) addBtn.classList.add('d-none');
+        }
+
+        await loadRxDropdowns();
+        await loadRxRecords();
+
+        // Apply filter immediately after data loads — shows patient's records right away
+        if (patientName || patientId) {
+            rxPage = 1;
+            applyRxFilter();
+        }
+    });
+
+    // Cached option arrays for re-filling selects after patient switch
+    let allPharmaciesList = [];
+    let allPtList = [];
+    let allPhtList = [];
+    let allMedCatalog = []; // RX action catalog
+
+    async function loadRxDropdowns() {
+        try {
+            const [pRes, phRes, ptRes, rxRes, waRes, catRes] = await Promise.all([
+                fetchWithAuth('/api/patients'),
+                fetchWithAuth('/api/pharmacies',         { silent: true }),
+                fetchWithAuth('/api/patient-transport',  { silent: true }),
+                fetchWithAuth('/api/pharmacy-transport', { silent: true }),
+                fetchWithAuth('/api/workflow-actions',   { silent: true }),
+                fetchWithAuth('/api/medication-catalog?activeOnly=true')
+            ]);
+            // Guard: only parse JSON if response is OK (not 403 Access Denied)
+            if (pRes   && pRes.ok)  { allPatientsList    = await pRes.json(); }
+            if (phRes  && phRes.ok) { allPharmaciesList  = await phRes.json(); }
+            if (ptRes  && ptRes.ok) { allPtList          = await ptRes.json(); }
+            if (rxRes  && rxRes.ok) { allPhtList         = await rxRes.json(); }
+            if (waRes  && waRes.ok) { allWorkflowActions = await waRes.json(); }
+            if (catRes && catRes.ok) {
+                allMedCatalog = await catRes.json();
+                // Build or rebuild the datalist for RX action autocomplete
+                let dl = document.getElementById('medCatalogList');
+                if (!dl) { dl = document.createElement('datalist'); dl.id = 'medCatalogList'; document.body.appendChild(dl); }
+                dl.innerHTML = allMedCatalog.map(m => `<option value="${m.name}"></option>`).join('');
+            }
+            initPatientSearch();
+        } catch(e) { console.error(e); }
+    }
+
+    // Reset all display fields and hide the info panel (called on modal open)
+    function resetRxForm() {
+        const panel = document.getElementById('rxPatientInfoPanel');
+        if (panel) panel.style.display = 'none';
+        ['rxPharmacyDisplay','rxArrivalDisplay','rxServiceDisplay',
+         'rxPatientTransportDisplay','rxPharmacyTransportDisplay'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.value = '';
+        });
+        ['rxPharmacyId','rxArrivalDate','rxServiceDate',
+         'rxPatientTransport','rxPharmacyTransport'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.value = '';
+        });
+        // Set arrival hidden input to today's date
+        const arrEl = document.getElementById('rxArrivalDate');
+        if (arrEl) arrEl.value = new Date().toISOString().slice(0, 10);
+        const arrDisp = document.getElementById('rxArrivalDisplay');
+        if (arrDisp) arrDisp.value = new Date().toLocaleDateString();
+    }
+
+    async function loadRxRecords() {
+        const showDeleted = document.getElementById('rxShowDeleted') && document.getElementById('rxShowDeleted').checked;
+        const url = '/api/rx-records' + (showDeleted ? '?includeDeleted=true' : '');
+        const res = await fetchWithAuth(url);
+        if (!res) return;
+        const data = await res.json();
+        allRx = Array.isArray(data) ? data : [];
+        filteredRx = allRx.slice();
+        applyRxFilter();
+    }
+
+    function applyRxFilter() {
+        const pat   = document.getElementById('rxFilterPatient').value.toLowerCase().trim();
+        const rxId  = document.getElementById('rxFilterId').value.trim();
+        const ph    = document.getElementById('rxFilterPharmacy').value.toLowerCase().trim();
+        const from  = document.getElementById('rxFilterDateFrom').value;
+        const to    = document.getElementById('rxFilterDateTo').value;
+        const pc    = (document.getElementById('rxFilterPatientCode')?.value || '').toLowerCase().trim();
+        const sfrom = document.getElementById('rxFilterSvcFrom')?.value || '';
+        const sto   = document.getElementById('rxFilterSvcTo')?.value || '';
+        const preId = window._rxPrefilterPatientId;
+
+        filteredRx = allRx.filter(r => {
+            // Patient name filter
+            if (pat) {
+                const fullName = r.Patient ? (r.Patient.firstName + ' ' + r.Patient.lastName).toLowerCase() : '';
+                const code     = r.Patient ? (r.Patient.patientCode || '').toLowerCase() : '';
+                if (!fullName.includes(pat) && !code.includes(pat)) return false;
+            }
+            // Patient Code exact/partial filter (Advanced)
+            if (pc) {
+                const code = r.Patient ? (r.Patient.patientCode || '').toLowerCase() : '';
+                if (!code.includes(pc)) return false;
+            }
+            // Pre-filter by patient ID (from URL ?patient=)
+            if (preId && !pat && !pc) {
+                if (!r.Patient || String(r.Patient.id) !== String(preId)) return false;
+            }
+            // RX number filter
+            if (rxId && String(r.id) !== rxId) return false;
+            // Pharmacy name filter
+            if (ph) {
+                const phName = r.Pharmacy ? r.Pharmacy.name.toLowerCase() : '';
+                if (!phName.includes(ph)) return false;
+            }
+            // Arrival date range
+            if (from && r.arrivalDate && r.arrivalDate < from) return false;
+            if (to   && r.arrivalDate && r.arrivalDate > to)   return false;
+            // Service date range
+            if (sfrom && r.serviceDate && r.serviceDate < sfrom) return false;
+            if (sto   && r.serviceDate && r.serviceDate > sto)   return false;
+            return true;
+        });
+        renderRxSorted();
+    }
+
+    function renderRx() {
+        applyRxFilter();
+    }
+
+    function renderRxSorted() {
+        filteredRx.sort((a, b) => {
+            let valA = a[rSortCol];
+            let valB = b[rSortCol];
+            
+            if (rSortCol === 'Patient.firstName') {
+                valA = a.Patient ? (a.Patient.firstName + ' ' + a.Patient.lastName) : '';
+                valB = b.Patient ? (b.Patient.firstName + ' ' + b.Patient.lastName) : '';
+            } else if (rSortCol === 'Pharmacy.name') {
+                valA = a.Pharmacy ? a.Pharmacy.name : '';
+                valB = b.Pharmacy ? b.Pharmacy.name : '';
+            }
+            
+            if (typeof valA === 'string' && typeof valB === 'string') {
+                return rSortDir === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+            } else {
+                if (valA < valB) return rSortDir === 'asc' ? -1 : 1;
+                if (valA > valB) return rSortDir === 'asc' ? 1 : -1;
+                return 0;
+            }
+        });
+
+        updateRxSortIcons();
+
+        const start = (rxPage - 1) * rxPageSize;
+        const page = filteredRx.slice(start, start + rxPageSize);
+        const tbody = document.getElementById('rxBody');
+        if (page.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">No RX records found.</td></tr>';
+        } else {
+            tbody.innerHTML = page.map(rx => {
+                const isDeleted   = !!rx.isDeleted;
+                const patInactive = rx.Patient && rx.Patient.isActive === false;
+                const patDeleted  = rx.Patient && rx.Patient.isDeleted === true;
+                const patientName = rx.Patient ? rx.Patient.firstName + ' ' + rx.Patient.lastName : 'ID:' + rx.patientId;
+                const pharmacyName = rx.Pharmacy ? rx.Pharmacy.name : 'ID:' + rx.pharmacyId;
+                const completedSteps = rx.RXWorkflowTrackings ? rx.RXWorkflowTrackings.length : 0;
+                const totalSteps = allWorkflowActions.length;
+                const pct = totalSteps > 0 ? Math.round((completedSteps / totalSteps) * 100) : 0;
+                const rxP = getPagePerms();
+
+                // Patient status badge
+                let patBadge = '';
+                if (patDeleted)       patBadge = '<span class="badge bg-danger ms-1" title="Patient deleted"><i class="fas fa-user-slash"></i></span>';
+                else if (patInactive) patBadge = '<span class="badge bg-warning text-dark ms-1" title="Patient inactive"><i class="fas fa-user-times"></i></span>';
+                
+                // Warehouse badge
+                let whBadge = rx.returnedToWarehouse ? '<span class="badge bg-warning text-dark ms-1" title="Returned to Warehouse"><i class="fas fa-warehouse"></i></span>' : '';
+
+                const rowClass = isDeleted ? 'table-secondary text-muted' : (patInactive ? 'table-warning' : '');
+
+                return `<tr class="${rowClass}">
+                    <td><strong>#${rx.id}</strong>${isDeleted ? ' <span class="badge bg-secondary">Hidden</span>' : ''}${whBadge}</td>
+                    <td>${patientName}${patBadge}</td>
+                    <td>${rx.arrivalDate || '\u2014'}</td>
+                    <td>${rx.serviceDate || '\u2014'}</td>
+                    <td>${pharmacyName}</td>
+                    <td>
+                        <div class="d-flex align-items-center gap-2">
+                            <div class="progress flex-grow-1" style="height:8px">
+                                <div class="progress-bar bg-success" style="width:${pct}%"></div>
+                            </div>
+                            <small>${completedSteps}/${totalSteps}</small>
+                        </div>
+                    </td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-dark me-1" onclick="viewRxDetail(${rx.id})" title="View Record Details"><i class="fas fa-eye"></i></button>
+                        ${isDeleted
+                            ? (rxP.canDelete ? `<button class="btn btn-sm btn-outline-success" onclick="restoreRx(${rx.id})" title="Restore"><i class="fas fa-undo me-1"></i>Restore</button>` : '<span class="text-muted small">Hidden</span>')
+                            : `
+                                ${rxP.canEdit   ? `<button class="btn btn-sm btn-outline-info me-1" onclick="openWorkflow(${rx.id})" title="Workflow"><i class="fas fa-tasks"></i></button>` : ''}
+                                <button class="btn btn-sm btn-outline-secondary me-1" onclick="openRxHistory(${rx.id})" title="View History"><i class="fas fa-history"></i></button>
+                                <button class="btn btn-sm btn-outline-primary me-1" onclick="printRxRecord(${rx.id})" title="Print / Export"><i class="fas fa-print"></i></button>
+                                ${rxP.canDelete ? `<button class="btn btn-sm btn-outline-danger" onclick="deleteRx(${rx.id})" title="Hide Record"><i class="fas fa-eye-slash"></i></button>` : ''}
+                                ${!rxP.canEdit && !rxP.canDelete ? `<button class="btn btn-sm btn-outline-info" onclick="openWorkflow(${rx.id})" title="View Workflow"><i class="fas fa-tasks"></i></button>` : ''}
+                            `
+                        }
+                    </td>
+                </tr>`;
+            }).join('');
+        }
+        document.getElementById('rxPageInfo').textContent = 'Showing ' + Math.min(start+1, filteredRx.length) + '–' + Math.min(start+rxPageSize, filteredRx.length) + ' of ' + filteredRx.length;
+        const pages = Math.ceil(filteredRx.length / rxPageSize);
+        let ph = `<li class="page-item${rxPage===1?' disabled':''}"><a class="page-link" href="#" onclick="goRxPage(${rxPage-1});return false;">&laquo;</a></li>`;
+        for (let i=1;i<=pages;i++) ph += `<li class="page-item${i===rxPage?' active':''}"><a class="page-link" href="#" onclick="goRxPage(${i});return false;">${i}</a></li>`;
+        ph += `<li class="page-item${rxPage===pages||pages===0?' disabled':''}"><a class="page-link" href="#" onclick="goRxPage(${rxPage+1});return false;">&raquo;</a></li>`;
+        document.getElementById('rxPagination').innerHTML = ph;
+    }
+
+    function sortRx(col) {
+        if (rSortCol === col) {
+            rSortDir = rSortDir === 'asc' ? 'desc' : 'asc';
+        } else {
+            rSortCol = col;
+            rSortDir = 'asc';
+        }
+        rxPage = 1;
+        renderRx();
+    }
+
+    function updateRxSortIcons() {
+        ['id', 'Patient.firstName', 'arrivalDate', 'serviceDate', 'Pharmacy.name'].forEach(c => {
+            const icon = document.getElementById('srIcon_' + c);
+            if (icon) {
+                icon.className = c === rSortCol 
+                    ? (rSortDir === 'asc' ? 'fas fa-sort-up ms-1' : 'fas fa-sort-down ms-1') 
+                    : 'fas fa-sort text-muted ms-1';
+                icon.style.opacity = c === rSortCol ? '1' : '0.3';
+            }
+        });
+    }
+
+    function goRxPage(p) { const pages = Math.ceil(filteredRx.length/rxPageSize); if(p<1||p>pages)return; rxPage=p; renderRx(); }
+
+    function openRxModal() {
+        medCount = 0;
+        document.getElementById('medicationsContainer').innerHTML = '';
+        // Reset display panel and hidden inputs
+        resetRxForm();
+        // Reset patient search picker
+        const searchInput = document.getElementById('patientSearchInput');
+        const hiddenInput = document.getElementById('rxPatientId');
+        const dropdown   = document.getElementById('patientDropdown');
+        const info       = document.getElementById('patientSelectedInfo');
+        if (searchInput) { searchInput.value = ''; searchInput.classList.remove('is-selected'); }
+        if (hiddenInput) hiddenInput.value = '';
+        if (dropdown)    dropdown.classList.remove('open');
+        if (info)        info.textContent = '';
+        addMedicationRow();
+        new bootstrap.Modal(document.getElementById('rxModal')).show();
+    }
+
+    // ---- Patient search picker ----
+    function initPatientSearch() {
+        const searchInput = document.getElementById('patientSearchInput');
+        const hiddenInput = document.getElementById('rxPatientId');
+        const dropdown    = document.getElementById('patientDropdown');
+        const info        = document.getElementById('patientSelectedInfo');
+        if (!searchInput || !dropdown) return;
+
+        let hiIdx = -1;
+
+        function renderDropdown(query) {
+            const q = query.trim().toLowerCase();
+            const matches = q.length === 0 ? allPatientsList.slice(0, 50) : allPatientsList.filter(p => {
+                const name  = (p.firstName + ' ' + p.lastName).toLowerCase();
+                const code  = (p.patientCode || '').toLowerCase();
+                const idStr = String(p.id);
+                return name.includes(q) || code.includes(q) || idStr.includes(q);
+            });
+
+            if (matches.length === 0) {
+                dropdown.innerHTML = '<div class="patient-dropdown-empty">No patients found.</div>';
+            } else {
+                dropdown.innerHTML = matches.map((p, i) => {
+                    const display = (p.firstName + ' ' + p.lastName);
+                    const sub     = [(p.patientCode ? 'ID: ' + p.patientCode : ''), 'Rec#' + p.id].filter(Boolean).join(' · ');
+                    const svcDate  = p.serviceDate || '';
+                    const ptId     = p.patientTransportCompanyId  || '';
+                    const phtId    = p.pharmacyTransportCompanyId || '';
+                    const pharmId  = p.pharmacyId || '';
+                    const pharmName = p.Pharmacy ? p.Pharmacy.name : '';
+                    return `<div class="patient-dropdown-item" data-id="${p.id}" data-name="${display}" data-idx="${i}"
+                        data-service-date="${svcDate}" data-pt-id="${ptId}" data-pht-id="${phtId}" data-pharmacy-id="${pharmId}">
+                        <div class="pat-name">${display}</div>
+                        <div class="pat-id">${sub}${svcDate ? ' · Svc: ' + svcDate : ''}${pharmName ? ' · 💊 ' + pharmName : ''}</div>
+                    </div>`;
+                }).join('');
+                dropdown.querySelectorAll('.patient-dropdown-item').forEach(item => {
+                    item.addEventListener('mousedown', (e) => {
+                        e.preventDefault();
+                        selectPatient(item.dataset.id, item.dataset.name,
+                            item.dataset.serviceDate, item.dataset.ptId, item.dataset.phtId, item.dataset.pharmacyId);
+                    });
+                });
+            }
+            hiIdx = -1;
+            dropdown.classList.add('open');
+        }
+
+        function selectPatient(id, name, serviceDate, ptId, phtId, pharmId) {
+            hiddenInput.value = id;
+            searchInput.value = name;
+            searchInput.classList.add('is-selected');
+            dropdown.classList.remove('open');
+
+            // Resolve display labels from cached lists
+            const pharObj = allPharmaciesList.find(p => String(p.id) === String(pharmId));
+            const ptObj   = allPtList.find(p  => String(p.id) === String(ptId));
+            const phtObj  = allPhtList.find(p  => String(p.id) === String(phtId));
+
+            const today      = new Date().toISOString().slice(0,10);
+            const todayDisp  = new Date().toLocaleDateString();
+
+            // Fill hidden values for form submit
+            const setHidden = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ''; };
+            setHidden('rxPharmacyId',        pharmId || '');
+            setHidden('rxArrivalDate',        today);
+            setHidden('rxServiceDate',        serviceDate || '');
+            setHidden('rxPatientTransport',   ptId || '');
+            setHidden('rxPharmacyTransport',  phtId || '');
+
+            // Fill display text inputs
+            const setDisp = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || '—'; };
+            setDisp('rxPharmacyDisplay',         pharObj ? pharObj.name : (pharmId ? 'Pharmacy #' + pharmId : '—'));
+            setDisp('rxArrivalDisplay',           todayDisp);
+            setDisp('rxServiceDisplay',           serviceDate || '—');
+            setDisp('rxPatientTransportDisplay',  ptObj  ? (ptObj.contactPerson  || ptObj.companyName)  : (ptId  ? '#' + ptId  : '—'));
+            setDisp('rxPharmacyTransportDisplay', phtObj ? (phtObj.companyName || phtObj.contactPerson) : (phtId ? '#' + phtId : '—'));
+
+            // Show the info panel
+            const panel = document.getElementById('rxPatientInfoPanel');
+            if (panel) panel.style.display = '';
+
+            info.innerHTML = '&#10003; <strong>' + name + '</strong> selected — info loaded below';
+        }
+
+        searchInput.addEventListener('focus', () => { renderDropdown(searchInput.value); });
+        searchInput.addEventListener('input', () => {
+            hiddenInput.value = '';
+            searchInput.classList.remove('is-selected');
+            info.textContent = '';
+            renderDropdown(searchInput.value);
+        });
+
+        // Keyboard navigation
+        searchInput.addEventListener('keydown', (e) => {
+            const items = dropdown.querySelectorAll('.patient-dropdown-item');
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                hiIdx = Math.min(hiIdx + 1, items.length - 1);
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                hiIdx = Math.max(hiIdx - 1, 0);
+            } else if (e.key === 'Enter' && hiIdx >= 0) {
+                e.preventDefault();
+                const item = items[hiIdx];
+                if (item) selectPatient(item.dataset.id, item.dataset.name,
+                    item.dataset.serviceDate, item.dataset.ptId, item.dataset.phtId, item.dataset.pharmacyId);
+                return;
+            } else if (e.key === 'Escape') {
+                dropdown.classList.remove('open');
+                return;
+            }
+            items.forEach((it, i) => it.classList.toggle('highlighted', i === hiIdx));
+            if (items[hiIdx]) items[hiIdx].scrollIntoView({ block: 'nearest' });
+        });
+
+
+        // Close on outside click
+        document.addEventListener('click', (e) => {
+            if (!document.getElementById('patientSearchWrapper').contains(e.target)) {
+                dropdown.classList.remove('open');
+            }
+        });
+    }
+
+    function addMedicationRow() {
+        medCount++;
+        const rowId = 'med_' + medCount;
+        const n = medCount;
+        const div = document.createElement('div');
+        div.className = 'row g-2 align-items-end mb-2 med-row';
+        div.id = rowId;
+        div.innerHTML = `
+            <div class="col-md-5">
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text"><i class="fas fa-clipboard-list"></i></span>
+                    <input type="text" class="form-control" placeholder="Select or type action..." name="medName_${n}"
+                           list="medCatalogList" autocomplete="off"
+                           oninput="checkMedCatalog(this)">
+                </div>
+                <small class="text-warning med-warn" style="display:none;font-size:.7rem">
+                    <i class="fas fa-exclamation-triangle me-1"></i>Not in actions list
+                </small>
+            </div>
+            <div class="col-md-2">
+                <input type="number" class="form-control form-control-sm" placeholder="#" name="medQty_${n}" min="1" value="1">
+            </div>
+            <div class="col-md-4">
+                <input type="text" class="form-control form-control-sm" placeholder="Notes (optional)" name="medNotes_${n}">
+            </div>
+            <div class="col-md-1">
+                <button type="button" class="btn btn-outline-danger btn-sm w-100"
+                        onclick="document.getElementById('${rowId}').remove()" title="Remove">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        `;
+        document.getElementById('medicationsContainer').appendChild(div);
+    }
+
+    // Show a soft warning when the typed medication isn't in the catalog (still saveable)
+    function checkMedCatalog(input) {
+        const val = input.value.trim().toLowerCase();
+        const warn = input.closest('.med-row') && input.closest('.med-row').querySelector('.med-warn');
+        if (!warn) return;
+        const inCatalog = val === '' || allMedCatalog.some(m => m.name.toLowerCase() === val);
+        warn.style.display = inCatalog ? 'none' : '';
+    }
+
+    async function saveRx() {
+        const btn = document.getElementById('saveRxBtn');
+        const spinner = document.getElementById('saveRxSpinner');
+        btn.disabled = true; spinner.classList.remove('d-none');
+        const medications = [];
+        for (let i = 1; i <= medCount; i++) {
+            const nameEl = document.querySelector(`[name="medName_${i}"]`);
+            if (nameEl && nameEl.value.trim()) {
+                medications.push({
+                    name: nameEl.value.trim(),
+                    quantity: parseInt(document.querySelector(`[name="medQty_${i}"]`)?.value) || 1,
+                    notes: document.querySelector(`[name="medNotes_${i}"]`)?.value.trim() || ''
+                });
+            }
+        }
+        const body = {
+            patientId: document.getElementById('rxPatientId').value || null,
+            pharmacyId: document.getElementById('rxPharmacyId').value || null,
+            arrivalDate: document.getElementById('rxArrivalDate').value,
+            serviceDate: document.getElementById('rxServiceDate').value,
+            patientTransportCompanyId: document.getElementById('rxPatientTransport').value || null,
+            pharmacyTransportCompanyId: document.getElementById('rxPharmacyTransport').value || null,
+            medications
+        };
+
+        if (!body.patientId) {
+            showToast('Please select a patient from the search results.', 'warning');
+            btn.disabled = false; spinner.classList.add('d-none');
+            document.getElementById('patientSearchInput').focus();
+            return;
+        }
+        if (!body.pharmacyId) {
+            showToast('No Default Pharmacy found. Please set a Default Pharmacy on the patient record first.', 'warning');
+            btn.disabled = false; spinner.classList.add('d-none');
+            return;
+        }
+
+        try {
+            const res = await fetchWithAuth('/api/rx-records', { method: 'POST', body: JSON.stringify(body) });
+            if (!res) return;
+            if (res.ok) {
+                bootstrap.Modal.getInstance(document.getElementById('rxModal')).hide();
+                showToast('RX Record created!', 'success');
+                await loadRxRecords();
+            } else {
+                const err = await res.json();
+                showToast(err.error || err.message || 'Save failed.', 'danger');
+            }
+        } catch(e) { showToast('Network error.', 'danger'); }
+        finally { btn.disabled = false; spinner.classList.add('d-none'); }
+    }
+
+    // ── View RX Record Details ────────────────────────────────────────────────
+    async function viewRxDetail(id) {
+        const body = document.getElementById('rxDetailBody');
+        body.innerHTML = '<p class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin me-2"></i>Loading record...</p>';
+
+        // Wire the Print button
+        const printBtn = document.getElementById('rxDetailPrintBtn');
+        if (printBtn) printBtn.onclick = () => { printRxRecord(id); };
+
+        new bootstrap.Modal(document.getElementById('rxDetailModal')).show();
+
+        try {
+            const res = await fetchWithAuth('/api/rx-records/' + id);
+            if (!res || !res.ok) { body.innerHTML = '<p class="text-danger text-center py-4">Failed to load record.</p>'; return; }
+            const rx = await res.json();
+
+            const patient    = rx.Patient  || {};
+            const pharmacy   = rx.Pharmacy || {};
+            const meds       = rx.Medications || [];
+            const trackings  = rx.RXWorkflowTrackings || [];
+            const totalSteps = allWorkflowActions.length;
+            const doneCount  = trackings.length;
+            const pct        = totalSteps > 0 ? Math.round((doneCount / totalSteps) * 100) : 0;
+
+            const statusColor = pct >= 100 ? '#198754' : pct > 0 ? '#fd7e14' : '#6c757d';
+            const statusLabel = pct >= 100 ? 'Completed' : pct > 0 ? 'In Progress' : 'Not Started';
+
+            // Build transport labels
+            const ptComp  = rx.PatientTransportCompany  ? (rx.PatientTransportCompany.contactPerson  || rx.PatientTransportCompany.companyName  || '—') : '—';
+            const phtComp = rx.PharmacyTransportCompany ? (rx.PharmacyTransportCompany.companyName || rx.PharmacyTransportCompany.contactPerson || '—') : '—';
+
+            // Info rows
+            const infoRows = [
+                ['Patient',            (patient.firstName || '') + ' ' + (patient.lastName || '')],
+                ['Patient ID',         patient.patientCode || '—'],
+                ['Default Pharmacy',   pharmacy.name || '—'],
+                ['Arrival Date',       rx.arrivalDate || '—'],
+                ['Service Date',       rx.serviceDate || '—'],
+                ['Patient Transport',  ptComp],
+                ['Pharmacy Transport', phtComp],
+                ['Created',            rx.createdAt ? new Date(rx.createdAt).toLocaleString() : '—'],
+            ];
+
+            const infoHtml = infoRows.map(([label, val]) => `
+                <div class="col-md-6 mb-2">
+                    <div class="small text-muted text-uppercase fw-bold" style="font-size:.68rem;letter-spacing:.06em">${label}</div>
+                    <div class="fw-semibold">${val}</div>
+                </div>`).join('');
+
+            // Actions table
+            const medHtml = meds.length === 0
+                ? '<p class="text-muted small mb-0"><i class="fas fa-info-circle me-1"></i>No actions recorded.</p>'
+                : `<table class="table table-sm table-bordered mb-0">
+                    <thead class="table-dark"><tr>
+                        <th>Action</th><th style="width:60px">#</th><th>Notes</th>
+                    </tr></thead>
+                    <tbody>
+                        ${meds.map(m => `<tr>
+                            <td class="fw-semibold">${m.name || '—'}</td>
+                            <td class="text-center">${m.quantity || 1}</td>
+                            <td class="text-muted small">${m.notes || ''}</td>
+                        </tr>`).join('')}
+                    </tbody>
+                </table>`;
+
+            // Workflow checklist
+            const wfHtml = allWorkflowActions.length === 0
+                ? '<p class="text-muted small">No workflow steps defined.</p>'
+                : allWorkflowActions.map(wa => {
+                    const done = trackings.some(t => t.workflowActionId === wa.id);
+                    return `<div class="d-flex align-items-center gap-2 py-1" style="border-bottom:1px solid #f0f0f0">
+                        <i class="fas ${done ? 'fa-check-circle text-success' : 'fa-circle text-secondary'}" style="font-size:.95rem;width:18px;flex-shrink:0"></i>
+                        <span class="${done ? 'text-success fw-semibold' : 'text-muted'}" style="font-size:.87rem">${wa.name}</span>
+                        ${done ? '<span class="badge bg-success ms-auto" style="font-size:.65rem">Done</span>' : ''}
+                    </div>`;
+                }).join('');
+
+            body.innerHTML = `
+                <!-- Header strip -->
+                <div class="d-flex justify-content-between align-items-start mb-3 p-3 rounded"
+                     style="background:linear-gradient(135deg,#1a2234,#2c3e6b);color:#fff">
+                    <div>
+                        <div class="fw-bold fs-5">RX Record <span style="font-family:monospace">#${rx.id}</span></div>
+                        <div class="small opacity-75">${(patient.firstName || '') + ' ' + (patient.lastName || '')} &nbsp;·&nbsp; ${pharmacy.name || 'No pharmacy'}</div>
+                    </div>
+                    <span class="badge rounded-pill px-3 py-2" style="background:${statusColor};font-size:.82rem">
+                        ${statusLabel} &nbsp; ${pct}%
+                    </span>
+                </div>
+
+                <!-- Info grid -->
+                <div class="row g-0 mb-3">
+                    ${infoHtml}
+                </div>
+
+                <!-- Progress bar -->
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between small text-muted mb-1">
+                        <span>Workflow Progress</span><span>${doneCount} / ${totalSteps} steps</span>
+                    </div>
+                    <div class="progress" style="height:10px;border-radius:5px">
+                        <div class="progress-bar" style="width:${pct}%;background:linear-gradient(90deg,#4a90e2,${statusColor})"></div>
+                    </div>
+                </div>
+
+                <!-- RX Actions -->
+                <div class="mb-3">
+                    <div class="fw-bold mb-2"><i class="fas fa-clipboard-list me-2 text-primary"></i>RX Actions
+                        <span class="badge bg-primary ms-1">${meds.length}</span>
+                    </div>
+                    ${medHtml}
+                </div>
+
+                <!-- Workflow checklist -->
+                <div>
+                    <div class="fw-bold mb-2"><i class="fas fa-tasks me-2 text-info"></i>Workflow Checklist</div>
+                    ${wfHtml}
+                </div>`;
+
+        } catch(e) { body.innerHTML = '<p class="text-danger text-center py-4">Error loading record.</p>'; }
+    }
+
+    async function openWorkflow(rxId) {
+        currentRxId = rxId;
+        document.getElementById('workflowBody').innerHTML = '<p class="text-muted text-center py-3">Loading...</p>';
+        workflowModalInstance.show();
+        try {
+            const res = await fetchWithAuth('/api/rx-records/' + rxId);
+            if (!res) return;
+            const rx = await res.json();
+            const completedIds = (rx.RXWorkflowTrackings || []).map(t => t.workflowActionId);
+            const completedMap = {};
+            (rx.RXWorkflowTrackings || []).forEach(t => { completedMap[t.workflowActionId] = t; });
+            
+            let userRole = '';
+            let rxPerms = { canEdit: false, canDelete: false, canUndo: false }; // safe defaults
+            try {
+                const u = JSON.parse(localStorage.getItem('user'));
+                if (u && u.role) userRole = u.role;
+                // Administrators always have full access unless explicitly restricted
+                if (userRole === 'Administrator') {
+                    rxPerms = { canEdit: true, canDelete: true, canUndo: true };
+                } else {
+                    rxPerms = getPagePerms();
+                }
+            } catch(e) {}
+            
+            // canUndo is purely from permissions — no separate isAdmin bypass
+            const canUndo = !!rxPerms.canUndo;
+            const canComplete = !!rxPerms.canEdit;
+            const lastCompletedActionId = completedIds.length > 0 ? rx.RXWorkflowTrackings[rx.RXWorkflowTrackings.length - 1].workflowActionId : null;
+
+            // Store current rxId for Return to Warehouse button
+            window._workflowRxId = rxId;
+
+            // Show/hide Return to Warehouse footer
+            const footer = document.getElementById('workflowFooter');
+            const warehouseBtn = document.getElementById('returnToWarehouseBtn');
+            const alreadyReturned = !!rx.returnedToWarehouse;
+            if (canComplete && footer) {
+                footer.style.display = '';
+                if (alreadyReturned) {
+                    warehouseBtn.innerHTML = '<i class="fas fa-warehouse me-1"></i>Already Returned — Re-send to Warehouse';
+                    warehouseBtn.className = 'btn btn-sm btn-outline-warning fw-semibold';
+                } else {
+                    warehouseBtn.innerHTML = '<i class="fas fa-warehouse me-1"></i>Return to Warehouse';
+                    warehouseBtn.className = 'btn btn-sm btn-warning fw-semibold';
+                }
+            } else if (footer) {
+                footer.style.display = 'none';
+            }
+
+            // Warehouse banner if already returned
+            let warehouseBanner = '';
+            if (alreadyReturned) {
+                const retDate = rx.warehouseReturnDate ? new Date(rx.warehouseReturnDate).toLocaleString() : '';
+                const retNote = rx.warehouseReturnNote ? ` — ${rx.warehouseReturnNote}` : '';
+                warehouseBanner = `<div class="alert alert-warning py-2 mb-3"><i class="fas fa-warehouse me-2"></i><strong>Returned to Warehouse</strong> on ${retDate}${retNote}</div>`;
+            }
+
+            const html = warehouseBanner + '<div class="list-group">' + allWorkflowActions.map((action, idx) => {
+                const done = completedIds.includes(action.id);
+                const tracking = completedMap[action.id];
+                const prevDone = idx === 0 || completedIds.includes(allWorkflowActions[idx-1].id);
+                const stepCanComplete = !done && prevDone && canComplete;
+                return `<div class="list-group-item d-flex align-items-center gap-3 ${done ? 'list-group-item-success' : ''}">
+                    <span class="badge ${done ? 'bg-success' : 'bg-secondary'} rounded-pill">${action.sequenceNumber}</span>
+                    <div class="flex-grow-1">
+                        <div class="fw-bold">${action.name}</div>
+                        <small class="text-muted">${action.description || ''}</small>
+                        ${done && tracking ? `<br><small class="text-success"><i class="fas fa-check me-1"></i>Completed: ${new Date(tracking.completionDate).toLocaleString()}</small>` : ''}
+                    </div>
+                    <div class="d-flex gap-2">
+                        ${done ? (canUndo && action.id === lastCompletedActionId && !alreadyReturned ? `<button class="btn btn-sm btn-outline-danger" onclick="undoStep(${rxId})">Undo</button><i class="fas fa-check-circle text-success fs-5"></i>` : '<i class="fas fa-check-circle text-success fs-5"></i>') : 
+                          stepCanComplete ? `<button class="btn btn-sm btn-primary" onclick="completeStep(${rxId}, ${action.id})">Complete</button>` :
+                          '<i class="fas fa-lock text-muted"></i>'}
+                    </div>
+                </div>`;
+            }).join('') + '</div>';
+            document.getElementById('workflowBody').innerHTML = html;
+        } catch(e) { document.getElementById('workflowBody').innerHTML = '<p class="text-danger text-center">Error loading workflow.</p>'; }
+    }
+
+    async function completeStep(rxId, actionId) {
+        const res = await fetchWithAuth('/api/rx-records/workflow', { method: 'POST', body: JSON.stringify({ rxId, actionId }) });
+        if (!res) return;
+        if (res.ok) { showToast('Step completed!', 'success'); await openWorkflow(rxId); await loadRxRecords(); }
+        else { const err = await res.json(); showToast(err.error || 'Failed', 'danger'); }
+    }
+
+    async function undoStep(rxId) {
+        if (!confirm('Are you sure you want to undo the last workflow step?')) return;
+        const res = await fetchWithAuth('/api/rx-records/undo-workflow', { method: 'POST', body: JSON.stringify({ rxId }) });
+        if (!res) return;
+        if (res.ok) { showToast('Workflow step undone.', 'success'); await openWorkflow(rxId); await loadRxRecords(); }
+        else { const err = await res.json(); showToast(err.error || 'Undo failed', 'danger'); }
+    }
+
+    async function returnToWarehouse() {
+        const rxId = window._workflowRxId;
+        if (!rxId) return;
+        const note = (document.getElementById('warehouseNoteInput').value || '').trim();
+        const msg = 'Return this RX to the warehouse?\n\nThe workflow will reset to Step 1 (Warehouse) — all steps after Step 1 will be cleared.\n\nThe RX will be marked as returned to warehouse.';
+        if (!confirm(msg)) return;
+        const btn = document.getElementById('returnToWarehouseBtn');
+        btn.disabled = true;
+        const orig = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Processing...';
+        try {
+            const res = await fetchWithAuth('/api/rx-records/return-to-warehouse', {
+                method: 'POST',
+                body: JSON.stringify({ rxId, note })
+            });
+            if (!res) return;
+            if (res.ok) {
+                showToast('RX returned to warehouse. Workflow reset to Step 1.', 'warning');
+                document.getElementById('warehouseNoteInput').value = '';
+                await openWorkflow(rxId);
+                await loadRxRecords();
+            } else {
+                const err = await res.json();
+                showToast(err.error || 'Return failed', 'danger');
+            }
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = orig;
+        }
+    }
+
+    async function deleteRx(id) {
+        if (!confirm('Hide this RX record? You can restore it later from "Show Hidden Records".')) return;
+        const res = await fetchWithAuth('/api/rx-records/' + id, { method: 'DELETE' });
+        if (res && res.ok) { showToast('RX Record hidden.', 'success'); await loadRxRecords(); }
+        else showToast('Failed to hide record.', 'danger');
+    }
+
+    async function restoreRx(id) {
+        const res = await fetchWithAuth('/api/rx-records/' + id + '/restore', { method: 'PUT' });
+        if (res && res.ok) { showToast('RX Record restored.', 'success'); await loadRxRecords(); }
+        else showToast('Restore failed.', 'danger');
+    }
+
+    // ---- RX History ----
+    async function openRxHistory(rxId) {
+        const body = document.getElementById('rxHistoryBody');
+        body.innerHTML = '<p class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin me-2"></i>Loading history...</p>';
+        const modal = new bootstrap.Modal(document.getElementById('rxHistoryModal'));
+        modal.show();
+
+        const res = await fetchWithAuth('/api/rx-records/' + rxId + '/history');
+        if (!res || !res.ok) {
+            body.innerHTML = '<p class="text-center text-danger py-4">Failed to load history.</p>';
+            return;
+        }
+        const history = await res.json();
+
+        if (!history.length) {
+            body.innerHTML = '<p class="text-center text-muted py-4">No history recorded yet for this RX record.</p>';
+            return;
+        }
+
+        var typeColors = { Create:'success', Update:'primary', Workflow:'info', Delete:'danger', Restore:'warning' };
+        var typeIcons  = { Create:'plus-circle', Update:'edit', Workflow:'tasks', Delete:'eye-slash', Restore:'undo' };
+
+        var html = '<p class="text-muted small mb-3"><i class="fas fa-info-circle me-1"></i>' +
+                   history.length + ' history entr' + (history.length === 1 ? 'y' : 'ies') + ' \u2014 most recent first</p>' +
+                   '<div class="timeline">';
+
+        history.forEach(function(h, i) {
+            var dt    = new Date(h.createdAt);
+            var date  = dt.toLocaleDateString();
+            var time  = dt.toLocaleTimeString();
+            var user  = h.ChangedBy
+                ? (h.ChangedBy.username || (h.ChangedBy.firstName + ' ' + h.ChangedBy.lastName))
+                : 'System';
+            var color = typeColors[h.changeType] || 'secondary';
+            var icon  = typeIcons[h.changeType]  || 'circle';
+
+            var changedHtml = '';
+            if (h.changedFields) {
+                var fields = JSON.parse(h.changedFields);
+                if (fields.length) {
+                    changedHtml = '<table class="table table-sm table-bordered mt-2" style="font-size:0.8rem">' +
+                        '<thead><tr><th>Field</th><th>Before</th><th>After</th></tr></thead><tbody>' +
+                        fields.map(function(f) {
+                            return '<tr><td class="fw-bold">' + f.field + '</td>' +
+                                   '<td class="text-danger">'  + (f.from || '\u2014') + '</td>' +
+                                   '<td class="text-success">' + (f.to   || '\u2014') + '</td></tr>';
+                        }).join('') +
+                        '</tbody></table>';
+                }
+            }
+
+            var connector = (i < history.length - 1)
+                ? '<div class="mx-auto" style="width:2px;background:var(--border-color,#dee2e6);min-height:20px"></div>'
+                : '';
+
+            html += '<div class="d-flex gap-3 mb-3">' +
+                      '<div class="flex-shrink-0 text-center" style="width:48px">' +
+                        '<div class="rounded-circle bg-' + color + ' text-white d-flex align-items-center justify-content-center mx-auto mb-1" style="width:36px;height:36px">' +
+                          '<i class="fas fa-' + icon + '" style="font-size:0.85rem"></i>' +
+                        '</div>' + connector +
+                      '</div>' +
+                      '<div class="flex-grow-1 pb-2" style="border-bottom:1px solid var(--border-color,#dee2e6)">' +
+                        '<div class="d-flex justify-content-between align-items-start flex-wrap gap-1">' +
+                          '<div>' +
+                            '<span class="badge bg-' + color + ' me-1">' + h.changeType + '</span>' +
+                            '<strong class="small">' + user + '</strong>' +
+                            (h.note ? '<span class="text-muted small ms-2">\u2014 ' + h.note + '</span>' : '') +
+                          '</div>' +
+                          '<small class="text-muted">' + date + ' ' + time + '</small>' +
+                        '</div>' +
+                        changedHtml +
+                      '</div>' +
+                    '</div>';
+        });
+
+        html += '</div>';
+        body.innerHTML = html;
+    }
+
+    // ── RX Print / PDF ──────────────────────────────────────────────────────────
+    var _rxPrintData  = null;
+    var _rxPrintLayout = 'card';
+
+    document.querySelectorAll('input[name="rxPrintLayout"]').forEach(function(r) {
+        r.addEventListener('change', function() {
+            _rxPrintLayout = this.value;
+            if (_rxPrintData) switchRxPrintLayout();
+        });
+    });
+
+    function switchRxPrintLayout() {
+        var body    = document.getElementById('rxPrintBody');
+        var card    = document.getElementById('rxPrintContentCard');
+        var classic = document.getElementById('rxPrintContentClassic');
+        if (!card || !classic) return;
+        if (_rxPrintLayout === 'card') {
+            card.style.display    = '';
+            classic.style.display = 'none';
+            body.style.background = '#f0f2f5';
+        } else {
+            card.style.display    = 'none';
+            classic.style.display = '';
+            body.style.background = '#fff';
+        }
+    }
+
+    async function printRxRecord(id) {
+        const body = document.getElementById('rxPrintBody');
+        body.innerHTML = '<p class="text-center text-muted py-5"><i class="fas fa-spinner fa-spin me-2"></i>Loading record...</p>';
+        _rxPrintLayout = 'card';
+        const cardRadio = document.getElementById('rxLayoutCard');
+        if (cardRadio) cardRadio.checked = true;
+        const modal = new bootstrap.Modal(document.getElementById('rxPrintModal'));
+        modal.show();
+
+        const rx = allRx.find(r => r.id === id);
+        if (!rx) { body.innerHTML = '<p class="text-danger text-center py-4">Record not found.</p>'; return; }
+        _rxPrintData = { rx };
+
+        const patient      = rx.Patient || {};
+        const pharmacy     = rx.Pharmacy || {};
+        const trackings    = rx.RXWorkflowTrackings || [];
+        const totalSteps   = allWorkflowActions.length;
+        const doneCount    = trackings.length;
+        const pct          = totalSteps > 0 ? Math.round((doneCount / totalSteps) * 100) : 0;
+        const printDate    = new Date().toLocaleString();
+
+        const STEP_COLORS = ['#4a90e2','#7b61ff','#fd7e14','#20c997','#e24a9a','#50e3c2','#f5a623'];
+
+        // Build workflow checklist for card
+        const stepsCardHtml = allWorkflowActions.map((wa, i) => {
+            const done   = trackings.some(t => t.workflowActionId === wa.id);
+            const color  = done ? '#198754' : STEP_COLORS[i % STEP_COLORS.length];
+            const icon   = done ? 'fa-check-circle' : 'fa-circle';
+            const label  = done ? 'color:#198754;font-weight:600' : 'color:#888';
+            return `<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid #f0f0f0">
+                <i class="fas ${icon}" style="color:${color};font-size:1rem;flex-shrink:0"></i>
+                <span style="${label};font-size:.87rem">${wa.name}</span>
+                ${done ? '<span style="margin-left:auto;font-size:.7rem;color:#198754;background:#19875415;padding:2px 8px;border-radius:10px">Done</span>' : ''}
+            </div>`;
+        }).join('');
+
+        // Build workflow steps for classic
+        const stepsClassicHtml = allWorkflowActions.map((wa, i) => {
+            const done = trackings.some(t => t.workflowActionId === wa.id);
+            return `<tr>
+                <td style="padding:5px 8px;border-bottom:1px solid #dee2e6">${i+1}. ${wa.name}</td>
+                <td style="padding:5px 8px;border-bottom:1px solid #dee2e6;text-align:center">${done ? '✓' : '—'}</td>
+            </tr>`;
+        }).join('');
+
+        const statusColor = pct >= 100 ? '#198754' : pct >= 50 ? '#fd7e14' : '#6c757d';
+        const statusLabel = pct >= 100 ? 'Completed' : pct > 0 ? 'In Progress' : 'Not Started';
+
+        // ── CARD ────────────────────────────────────────────────────────────────────────
+        const cardHTML = `
+        <div id="rxPrintContentCard" style="font-family:'Inter',Arial,sans-serif;background:#fff;margin:20px;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.12)">
+
+          <!-- Header -->
+          <div style="background:linear-gradient(135deg,#1a2234,#2c3e6b);color:#fff;padding:20px 28px;display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <div style="font-size:1.4rem;font-weight:700">RX Record <span style="font-family:monospace">#${rx.id}</span></div>
+              <div style="font-size:.85rem;opacity:.75;margin-top:3px">Patient RX System &nbsp;·&nbsp; Generated: ${printDate}</div>
+            </div>
+            <div style="text-align:right">
+              <div style="font-size:1rem;font-weight:600;opacity:.85">${patient.firstName || ''} ${patient.lastName || ''}</div>
+              <div style="margin-top:6px">
+                <span style="background:${statusColor};color:#fff;padding:3px 12px;border-radius:20px;font-size:.78rem;font-weight:600">● ${statusLabel}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Info grid -->
+          <div style="padding:20px 28px;display:grid;grid-template-columns:1fr 1fr;gap:12px 32px;border-bottom:1px solid #e9ecef">
+            ${ [['Patient',      (patient.firstName||'') + ' ' + (patient.lastName||'')],
+                ['Patient Code', patient.patientCode||'—'],
+                ['Pharmacy',     pharmacy.name||'—'],
+                ['Arrival Date', rx.arrivalDate||'—'],
+                ['Service Date', rx.serviceDate||'—'],
+                ['Workflow',     doneCount + '/' + totalSteps + ' steps (' + pct + '%)']
+               ].map(([label, val]) =>
+              `<div><div style="font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#888;margin-bottom:3px">${label}</div>
+               <div style="font-size:.9rem;color:#1a2234">${val}</div></div>`
+            ).join('') }
+          </div>
+
+          <!-- Progress bar -->
+          <div style="padding:16px 28px;border-bottom:1px solid #e9ecef">
+            <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+              <span style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#888">Overall Progress</span>
+              <span style="font-size:.72rem;font-weight:700;color:${statusColor}">${pct}%</span>
+            </div>
+            <div style="height:8px;border-radius:4px;background:#e9ecef;overflow:hidden">
+              <div style="height:100%;border-radius:4px;background:linear-gradient(90deg,#4a90e2,${statusColor});width:${pct}%"></div>
+            </div>
+          </div>
+
+          <!-- Workflow checklist -->
+          <div style="padding:16px 28px">
+            <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#888;margin-bottom:10px">Workflow Checklist</div>
+            ${stepsCardHtml}
+          </div>
+
+          <!-- Notes -->
+          ${rx.notes ? `<div style="margin:0 28px 20px;padding:12px 16px;background:#fffbea;border-left:4px solid #f5a623;border-radius:4px;font-size:.85rem;color:#7a5800"><strong>📝 Notes:</strong><br>${rx.notes.replace(/\n/g,'<br>')}</div>` : ''}
+        </div>`;
+
+        // ── CLASSIC ───────────────────────────────────────────────────────────────────────
+        const classicHTML = `
+        <div id="rxPrintContentClassic" style="display:none;font-family:Inter,Arial,sans-serif;color:#1a2234;padding:28px">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #1a2234;padding-bottom:12px;margin-bottom:20px">
+            <div>
+              <h4 style="margin:0;color:#1a2234">RX Record</h4>
+              <div style="font-size:.8rem;color:#888;margin-top:4px">Printed: ${printDate}</div>
+            </div>
+            <div style="text-align:right">
+              <div style="font-size:1.1rem;font-weight:700">#${rx.id}
+                <span style="background:${statusColor};color:#fff;padding:3px 10px;border-radius:12px;font-size:.75rem;margin-left:8px">${statusLabel}</span>
+              </div>
+            </div>
+          </div>
+          <table style="width:100%;border-collapse:collapse;margin-bottom:20px;font-size:.875rem">
+            <tr>
+              <td style="width:50%;padding:5px 0"><strong>Patient:</strong> ${(patient.firstName||'') + ' ' + (patient.lastName||'')}</td>
+              <td style="width:50%;padding:5px 0"><strong>Patient Code:</strong> ${patient.patientCode||'—'}</td>
+            </tr><tr>
+              <td style="padding:5px 0"><strong>Pharmacy:</strong> ${pharmacy.name||'—'}</td>
+              <td style="padding:5px 0"><strong>Arrival Date:</strong> ${rx.arrivalDate||'—'}</td>
+            </tr><tr>
+              <td style="padding:5px 0"><strong>Service Date:</strong> ${rx.serviceDate||'—'}</td>
+              <td style="padding:5px 0"><strong>Progress:</strong> ${doneCount}/${totalSteps} steps (${pct}%)</td>
+            </tr>
+          </table>
+          ${rx.notes ? `<div style="background:#f8f9fa;border-left:3px solid #4a90e2;padding:10px 14px;border-radius:4px;margin-bottom:20px;font-size:.85rem"><strong>Notes:</strong><br>${rx.notes.replace(/\n/g,'<br>')}</div>` : ''}
+          <h6 style="border-bottom:1px solid #dee2e6;padding-bottom:6px;margin-bottom:10px">Workflow Steps</h6>
+          <table style="width:100%;border-collapse:collapse;font-size:.85rem">
+            <thead><tr style="background:#1a2234;color:#fff">
+              <th style="padding:7px 10px">Step</th>
+              <th style="padding:7px 10px;text-align:center">Completed</th>
+            </tr></thead>
+            <tbody>${stepsClassicHtml}</tbody>
+          </table>
+        </div>`;
+
+        body.innerHTML = cardHTML + classicHTML;
+        body.style.background = '#f0f2f5';
+    }
+
+    function doPrintRx() {
+        if (!_rxPrintData) return;
+        const contentId = _rxPrintLayout === 'card' ? 'rxPrintContentCard' : 'rxPrintContentClassic';
+        const content   = document.getElementById(contentId);
+        if (!content) return;
+        const rx  = _rxPrintData.rx;
+        const win = window.open('', '_blank', 'width=900,height=750');
+        const css = _rxPrintLayout === 'card'
+            ? `@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+               *{box-sizing:border-box;margin:0;padding:0}
+               body{font-family:'Inter',Arial,sans-serif;background:#f0f2f5;padding:32px}
+               #rxPrintContentCard{background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 16px rgba(0,0,0,.1)}
+               @media print{@page{margin:15mm;size:A4}body{background:#fff;padding:0}#rxPrintContentCard{box-shadow:none;border-radius:0}
+               div[style*="background:linear-gradient"]{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}}`
+            : `@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+               body{font-family:Inter,Arial,sans-serif;color:#1a2234;padding:32px;max-width:860px;margin:0 auto}
+               table{width:100%;border-collapse:collapse}
+               thead tr{background:#1a2234!important;color:#fff!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+               th,td{padding:7px 10px;text-align:left;border-bottom:1px solid #dee2e6}
+               @media print{@page{margin:20mm}body{padding:0}}`;
+        win.document.write(`<!DOCTYPE html><html><head>
+            <title>RX Record #${rx.id}</title>
+            <style>${css}</style></head>
+            <body>${content.outerHTML}
+            <script>window.onload=function(){window.print();}<\/script>
+            </body></html>`);
+        win.document.close();
+        win.focus();
+    }
+</script>
+</body>
+</html>

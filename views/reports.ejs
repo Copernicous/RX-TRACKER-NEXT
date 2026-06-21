@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <script>!function(){var t=localStorage.getItem("rxTheme");if(t)document.documentElement.setAttribute("data-theme",t)}();</script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reports - Patient RX System</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        /* Autocomplete dropdown */
+        .ac-wrap { position: relative; }
+        .ac-list {
+            position: absolute; top: 100%; left: 0; right: 0; z-index: 1060;
+            background: var(--card-bg, #fff);
+            border: 1px solid var(--border-color, #dee2e6);
+            border-radius: 6px; max-height: 200px; overflow-y: auto;
+            box-shadow: 0 4px 16px rgba(0,0,0,.15); display: none;
+        }
+        .ac-list.open { display: block; }
+        .ac-item {
+            padding: 6px 12px; cursor: pointer; font-size: .85rem;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .ac-item:hover { background: rgba(74,144,226,.12); color: #4a90e2; }
+    </style>
+</head>
+<body>
+<div class="wrapper">
+
+    <!-- Sidebar -->
+    <nav id="sidebar">
+        <div class="sidebar-header"><i class="fas fa-pills me-2"></i>Patient RX</div>
+        <ul class="list-unstyled components">
+            <li><a href="/dashboard"><i class="fas fa-tachometer-alt me-2"></i>Dashboard</a></li>
+            <li><a href="/patients"><i class="fas fa-user-injured me-2"></i>Patients</a></li>
+            <li><a href="/rx-records"><i class="fas fa-prescription me-2"></i>RX Records</a></li>
+            <li>
+                <a href="#settingsSubmenu" data-bs-toggle="collapse" aria-expanded="false" class="dropdown-toggle">
+                    <i class="fas fa-cogs me-2"></i>Settings
+                </a>
+                <ul class="collapse list-unstyled ps-3" id="settingsSubmenu">
+                    <li><a href="/pharmacies"><i class="fas fa-clinic-medical me-2"></i>Pharmacies</a></li>
+                    <li><a href="/patient-transport"><i class="fas fa-ambulance me-2"></i>Patient Transport</a></li>
+                    <li><a href="/pharmacy-transport"><i class="fas fa-truck me-2"></i>Pharmacy Transport</a></li>
+                    <li><a href="/workflow-actions"><i class="fas fa-tasks me-2"></i>Workflow Actions</a></li>
+                    <li><a href="/medication-catalog"><i class="fas fa-clipboard-list me-2"></i>RX Actions</a></li>
+                    <li><a href="/clinics"><i class="fas fa-hospital me-2"></i>Clinics</a></li>
+                    <li><a href="/users"><i class="fas fa-users-cog me-2"></i>User Management</a></li>
+                    <li><a href="/system-settings"><i class="fas fa-sliders-h me-2"></i>System Settings</a></li>
+                    <li><a href="/backups"><i class="fas fa-database me-2"></i>Backups</a></li>
+                </ul>
+            </li>
+            <li>
+                <a href="#reportsSubmenu" data-bs-toggle="collapse" aria-expanded="true" class="dropdown-toggle">
+                    <i class="fas fa-chart-bar me-2"></i>Reports
+                </a>
+                <ul class="collapse show list-unstyled ps-3" id="reportsSubmenu">
+                    <li><a href="/reports" class="active"><i class="fas fa-chart-pie me-2"></i>Analytics &amp; Export</a></li>
+                    <li><a href="/audit-log"><i class="fas fa-history me-2"></i>Audit Log</a></li>
+                </ul>
+            </li>
+            <li><a href="/import"><i class="fas fa-file-import me-2"></i>Data Import</a></li>
+        </ul>
+    </nav>
+
+    <!-- Page Content -->
+    <div id="content">
+        <nav class="navbar navbar-expand-lg px-4 mb-4">
+            <button type="button" id="sidebarCollapse" class="btn btn-primary btn-sm"><i class="fas fa-bars"></i></button>
+            <span class="ms-3 fw-bold fs-5">Reports</span>
+            <div class="ms-auto d-flex align-items-center gap-3">
+                <button id="themeToggle" class="btn btn-outline-secondary btn-sm"><i class="fas fa-moon"></i></button>
+                <span id="userGreeting" class="text-muted small"></span>
+                <button id="logoutBtn" class="btn btn-danger btn-sm"><i class="fas fa-sign-out-alt me-1"></i>Logout</button>
+            </div>
+        </nav>
+
+        <div class="container-fluid px-4">
+            <!-- Tabs -->
+            <ul class="nav nav-tabs mb-4" id="reportTabs">
+                <li class="nav-item">
+                    <a class="nav-link active" data-bs-toggle="tab" href="#patientReport"><i class="fas fa-users me-1"></i>Patient Report</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" data-bs-toggle="tab" href="#rxActionReport"><i class="fas fa-tasks me-1"></i>RX Action Report</a>
+                </li>
+                <li class="nav-item ms-auto d-flex align-items-center gap-2">
+                    <button class="btn btn-sm btn-outline-primary" id="emailReportBtn" title="Email this report">
+                        <i class="fas fa-envelope me-1"></i>Email Report
+                    </button>
+                    <a class="btn btn-sm btn-outline-secondary" href="/audit-log"><i class="fas fa-history me-1"></i>Audit Log</a>
+                </li>
+            </ul>
+
+            <div class="tab-content">
+
+                <!-- ═══════════════ PATIENT REPORT TAB ═══════════════ -->
+                <div class="tab-pane fade show active" id="patientReport">
+                    <div class="glass-card p-4">
+                        <!-- Filter header -->
+                        <div class="d-flex align-items-center justify-content-between mb-2">
+                            <span class="fw-bold small text-muted text-uppercase" style="letter-spacing:.05em">
+                                <i class="fas fa-filter me-1"></i>Patient Filters
+                            </span>
+                            <div class="d-flex align-items-center gap-2">
+                                <span id="prBadge" class="badge rounded-pill bg-primary" style="display:none;font-size:.7rem">0 filters</span>
+                                <button class="btn btn-link btn-sm text-muted p-0" onclick="togglePanel('prAdv','prChevron','prAdvOpen')" style="font-size:.78rem;text-decoration:none">
+                                    <i class="fas fa-sliders-h me-1"></i>Advanced <i class="fas fa-chevron-down ms-1" id="prChevron"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Basic filters row -->
+                        <div class="row g-2 mb-2 align-items-end">
+                            <div class="col-md-2">
+                                <label class="form-label small fw-bold mb-1">Patient ID</label>
+                                <input type="text" class="form-control form-control-sm" id="prfPatientCode" placeholder="e.g. PAT-001" autocomplete="off">
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label small fw-bold mb-1">First Name</label>
+                                <div class="ac-wrap">
+                                    <input type="text" class="form-control form-control-sm" id="prfFirstName" placeholder="First name..." autocomplete="off">
+                                    <div class="ac-list" id="ac-prfFirstName"></div>
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label small fw-bold mb-1">Last Name</label>
+                                <div class="ac-wrap">
+                                    <input type="text" class="form-control form-control-sm" id="prfLastName" placeholder="Last name..." autocomplete="off">
+                                    <div class="ac-list" id="ac-prfLastName"></div>
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label small fw-bold mb-1">Status</label>
+                                <select class="form-select form-select-sm" id="patientStatusFilter">
+                                    <option value="">All</option>
+                                    <option value="true">Active</option>
+                                    <option value="false">Inactive</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2 d-flex gap-2 align-items-end">
+                                <button class="btn btn-primary btn-sm flex-grow-1" onclick="renderPatientReport()"><i class="fas fa-search me-1"></i>Search</button>
+                                <button class="btn btn-outline-secondary btn-sm" onclick="clearPatientFilters()" title="Clear"><i class="fas fa-times"></i></button>
+                            </div>
+                            <div class="col-md-2 d-flex align-items-end gap-2">
+                                <button class="btn btn-outline-success btn-sm flex-grow-1" id="exportPatientCsv"><i class="fas fa-file-csv me-1"></i>Export CSV</button>
+                                <button class="btn btn-outline-secondary btn-sm" title="Print" onclick="printReport('Patient Report','patientReportTable')"><i class="fas fa-print"></i></button>
+                            </div>
+                        </div>
+
+                        <!-- Advanced filters -->
+                        <div id="prAdv" style="display:none;border-top:1px solid var(--border-color,#dee2e6);padding-top:10px;margin-top:2px">
+                            <div class="row g-2 align-items-end">
+                                <div class="col-md-2">
+                                    <label class="form-label small fw-bold mb-1">Phone</label>
+                                    <input type="text" class="form-control form-control-sm" id="prfPhone" placeholder="Phone..." autocomplete="off">
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small fw-bold mb-1">Transport</label>
+                                    <div class="ac-wrap">
+                                        <input type="text" class="form-control form-control-sm" id="prfTransport" placeholder="Transport..." autocomplete="off">
+                                        <div class="ac-list" id="ac-prfTransport"></div>
+                                    </div>
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small fw-bold mb-1">Clinic</label>
+                                    <div class="ac-wrap">
+                                        <input type="text" class="form-control form-control-sm" id="prfClinic" placeholder="Clinic name..." autocomplete="off">
+                                        <div class="ac-list" id="ac-prfClinic"></div>
+                                    </div>
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small fw-bold mb-1"><i class="fas fa-calendar me-1"></i>Service From</label>
+                                    <input type="date" class="form-control form-control-sm" id="patientDateFrom">
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small fw-bold mb-1"><i class="fas fa-calendar me-1"></i>Service To</label>
+                                    <input type="date" class="form-control form-control-sm" id="patientDateTo">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Patient table -->
+                        <div class="table-responsive mt-3">
+                            <table class="table table-hover align-middle" id="patientReportTable">
+                                <thead>
+                                    <tr>
+                                        <th style="cursor:pointer" onclick="sortPatientReport('patientCode')">Patient ID <i class="fas fa-sort text-muted" style="opacity:.3" id="prIcon_patientCode"></i></th>
+                                        <th style="cursor:pointer" onclick="sortPatientReport('firstName')">First Name <i class="fas fa-sort text-muted" style="opacity:.3" id="prIcon_firstName"></i></th>
+                                        <th style="cursor:pointer" onclick="sortPatientReport('lastName')">Last Name <i class="fas fa-sort text-muted" style="opacity:.3" id="prIcon_lastName"></i></th>
+                                        <th style="cursor:pointer" onclick="sortPatientReport('dob')">DOB <i class="fas fa-sort text-muted" style="opacity:.3" id="prIcon_dob"></i></th>
+                                        <th style="cursor:pointer" onclick="sortPatientReport('phone')">Phone <i class="fas fa-sort text-muted" style="opacity:.3" id="prIcon_phone"></i></th>
+                                        <th style="cursor:pointer" onclick="sortPatientReport('address')">Address <i class="fas fa-sort text-muted" style="opacity:.3" id="prIcon_address"></i></th>
+                                        <th style="cursor:pointer" onclick="sortPatientReport('serviceDate')">Service Date <i class="fas fa-sort text-muted" style="opacity:.3" id="prIcon_serviceDate"></i></th>
+                                        <th style="cursor:pointer" onclick="sortPatientReport('isActive')">Status <i class="fas fa-sort text-muted" style="opacity:.3" id="prIcon_isActive"></i></th>
+                                        <th style="cursor:pointer" onclick="sortPatientReport('Clinic.name')">Clinic <i class="fas fa-sort text-muted" style="opacity:.3" id="prIcon_Clinic.name"></i></th>
+                                        <th style="cursor:pointer" onclick="sortPatientReport('PatientTransportCompany.companyName')">Patient Transport <i class="fas fa-sort text-muted" style="opacity:.3" id="prIcon_PatientTransportCompany.companyName"></i></th>
+                                        <th style="cursor:pointer" onclick="sortPatientReport('PharmacyTransportCompany.companyName')">Pharmacy Transport <i class="fas fa-sort text-muted" style="opacity:.3" id="prIcon_PharmacyTransportCompany.companyName"></i></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="patientReportBody">
+                                    <tr><td colspan="11" class="text-center text-muted py-4">Loading...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <small class="text-muted" id="patientReportCount"></small>
+                    </div>
+                </div>
+
+                <!-- ═══════════════ RX ACTION REPORT TAB ═══════════════ -->
+                <div class="tab-pane fade" id="rxActionReport">
+                    <div class="glass-card p-4">
+                        <!-- Filter header -->
+                        <div class="d-flex align-items-center justify-content-between mb-2">
+                            <span class="fw-bold small text-muted text-uppercase" style="letter-spacing:.05em">
+                                <i class="fas fa-filter me-1"></i>RX Filters
+                            </span>
+                            <div class="d-flex align-items-center gap-2">
+                                <span id="rrBadge" class="badge rounded-pill bg-primary" style="display:none;font-size:.7rem">0 filters</span>
+                                <button class="btn btn-link btn-sm text-muted p-0" onclick="togglePanel('rrAdv','rrChevron','rrAdvOpen')" style="font-size:.78rem;text-decoration:none">
+                                    <i class="fas fa-sliders-h me-1"></i>Advanced <i class="fas fa-chevron-down ms-1" id="rrChevron"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Basic RX filters -->
+                        <div class="row g-2 mb-2 align-items-end">
+                            <div class="col-md-2">
+                                <label class="form-label small fw-bold mb-1">RX #</label>
+                                <input type="text" class="form-control form-control-sm" id="rrfRxId" placeholder="RX number..." autocomplete="off">
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label small fw-bold mb-1">Patient First Name</label>
+                                <div class="ac-wrap">
+                                    <input type="text" class="form-control form-control-sm" id="rrfFirstName" placeholder="First name..." autocomplete="off">
+                                    <div class="ac-list" id="ac-rrfFirstName"></div>
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label small fw-bold mb-1">Patient Last Name</label>
+                                <div class="ac-wrap">
+                                    <input type="text" class="form-control form-control-sm" id="rrfLastName" placeholder="Last name..." autocomplete="off">
+                                    <div class="ac-list" id="ac-rrfLastName"></div>
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label small fw-bold mb-1">Progress</label>
+                                <select class="form-select form-select-sm" id="rrfProgress">
+                                    <option value="">All</option>
+                                    <option value="complete">Complete</option>
+                                    <option value="pending">Pending</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2 d-flex gap-2 align-items-end">
+                                <button class="btn btn-primary btn-sm flex-grow-1" onclick="renderRxActionReport()"><i class="fas fa-search me-1"></i>Search</button>
+                                <button class="btn btn-outline-secondary btn-sm" onclick="clearRxFilters()" title="Clear"><i class="fas fa-times"></i></button>
+                            </div>
+                            <div class="col-md-2 d-flex align-items-end gap-2">
+                                <button class="btn btn-outline-success btn-sm flex-grow-1" id="exportRxCsv"><i class="fas fa-file-csv me-1"></i>Export CSV</button>
+                                <button class="btn btn-outline-secondary btn-sm" title="Print" onclick="printReport('RX Records Report','rxReportTable')"><i class="fas fa-print"></i></button>
+                            </div>
+                        </div>
+
+                        <!-- Advanced RX filters -->
+                        <div id="rrAdv" style="display:none;border-top:1px solid var(--border-color,#dee2e6);padding-top:10px;margin-top:2px">
+                            <div class="row g-2 align-items-end">
+                                <div class="col-md-2">
+                                    <label class="form-label small fw-bold mb-1">Patient ID</label>
+                                    <input type="text" class="form-control form-control-sm" id="rrfPatientCode" placeholder="e.g. PAT-001" autocomplete="off">
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small fw-bold mb-1">Pharmacy</label>
+                                    <div class="ac-wrap">
+                                        <input type="text" class="form-control form-control-sm" id="rrfPharmacy" placeholder="Pharmacy name..." autocomplete="off">
+                                        <div class="ac-list" id="ac-rrfPharmacy"></div>
+                                    </div>
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small fw-bold mb-1"><i class="fas fa-calendar me-1"></i>Service From</label>
+                                    <input type="date" class="form-control form-control-sm" id="rxDateFrom">
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small fw-bold mb-1"><i class="fas fa-calendar me-1"></i>Service To</label>
+                                    <input type="date" class="form-control form-control-sm" id="rxDateTo">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- RX table -->
+                        <div class="table-responsive mt-3">
+                            <table class="table table-hover align-middle" id="rxReportTable">
+                                <thead>
+                                    <tr>
+                                        <th style="cursor:pointer" onclick="sortRxReport('id')">RX # <i class="fas fa-sort text-muted" style="opacity:.3" id="rrIcon_id"></i></th>
+                                        <th style="cursor:pointer" onclick="sortRxReport('Patient.firstName')">Patient <i class="fas fa-sort text-muted" style="opacity:.3" id="rrIcon_Patient.firstName"></i></th>
+                                        <th style="cursor:pointer" onclick="sortRxReport('Patient.patientCode')">Patient ID <i class="fas fa-sort text-muted" style="opacity:.3" id="rrIcon_Patient.patientCode"></i></th>
+                                        <th style="cursor:pointer" onclick="sortRxReport('Pharmacy.name')">Pharmacy <i class="fas fa-sort text-muted" style="opacity:.3" id="rrIcon_Pharmacy.name"></i></th>
+                                        <th style="cursor:pointer" onclick="sortRxReport('serviceDate')">Service Date <i class="fas fa-sort text-muted" style="opacity:.3" id="rrIcon_serviceDate"></i></th>
+                                        <th>Completed Steps</th>
+                                        <th>Next Pending</th>
+                                        <th>Progress</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="rxActionBody">
+                                    <tr><td colspan="8" class="text-center text-muted py-4">Loading...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <small class="text-muted" id="rxReportCount"></small>
+                    </div>
+                </div>
+
+            </div><!-- /tab-content -->
+        </div><!-- /container-fluid -->
+    </div><!-- /content -->
+</div><!-- /wrapper -->
+
+<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index:1100"></div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="/js/app.js"></script>
+<script src="/js/help.js"></script>
+<script>
+    var allPatientReport = [];
+    var allRxReport = [];
+    var allWorkflowActions = [];
+    var prSortCol = 'id', prSortDir = 'desc';
+    var rrSortCol = 'id', rrSortDir = 'desc';
+    var _panelStates = {};
+
+    function togglePanel(panelId, chevronId, stateKey) {
+        _panelStates[stateKey] = !_panelStates[stateKey];
+        const el = document.getElementById(panelId);
+        const ch = document.getElementById(chevronId);
+        if (el) el.style.display = _panelStates[stateKey] ? '' : 'none';
+        if (ch) ch.className = _panelStates[stateKey] ? 'fas fa-chevron-up ms-1' : 'fas fa-chevron-down ms-1';
+    }
+
+    document.addEventListener('DOMContentLoaded', async () => {
+        initApp();
+        await loadReportData();
+        setupReportExports();
+
+        ['exportPatientCsv','exportRxCsv'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el && typeof window.userPerms !== 'undefined' && !window.userPerms.canExport) el.style.display = 'none';
+        });
+    });
+
+    // ─── Load Data ───────────────────────────────────────────────────────────────
+    async function loadReportData() {
+        try {
+            const tok = localStorage.getItem('token');
+            const hdr = { 'Authorization': 'Bearer ' + tok };
+            const [patRes, rxRes, wfRes] = await Promise.all([
+                fetch('/api/reports/patients',  { headers: hdr }).then(r => r.json()),
+                fetch('/api/reports/rx-actions',{ headers: hdr }).then(r => r.json()),
+                fetch('/api/workflow-actions',  { headers: hdr }).then(r => r.json())
+            ]);
+            allPatientReport   = Array.isArray(patRes) ? patRes : [];
+            allRxReport        = Array.isArray(rxRes)  ? rxRes  : [];
+            allWorkflowActions = Array.isArray(wfRes)  ? wfRes  : [];
+            renderPatientReport();
+            renderRxActionReport();
+            buildAutocompletes();
+        } catch(e) {
+            console.error('Report load error:', e);
+        }
+    }
+
+    // ─── Autocomplete Engine ─────────────────────────────────────────────────────
+    function buildAutocompletes() {
+        const uniq = arr => [...new Set(arr.filter(Boolean))].sort((a,b) => a.toString().localeCompare(b.toString()));
+
+        const defs = [
+            { id: 'prfFirstName',  opts: uniq(allPatientReport.map(p => p.firstName)) },
+            { id: 'prfLastName',   opts: uniq(allPatientReport.map(p => p.lastName)) },
+            { id: 'prfClinic',     opts: uniq(allPatientReport.map(p => p.Clinic && p.Clinic.name)) },
+            { id: 'prfTransport',  opts: uniq([
+                ...allPatientReport.map(p => p.PatientTransportCompany  && p.PatientTransportCompany.companyName),
+                ...allPatientReport.map(p => p.PharmacyTransportCompany && p.PharmacyTransportCompany.companyName)
+            ])},
+            { id: 'rrfFirstName',  opts: uniq(allRxReport.map(r => r.Patient && r.Patient.firstName)) },
+            { id: 'rrfLastName',   opts: uniq(allRxReport.map(r => r.Patient && r.Patient.lastName)) },
+            { id: 'rrfPharmacy',   opts: uniq(allRxReport.map(r => r.Pharmacy && r.Pharmacy.name)) }
+        ];
+
+        defs.forEach(({ id, opts }) => {
+            const input  = document.getElementById(id);
+            const listEl = document.getElementById('ac-' + id);
+            if (!input || !listEl || !opts.length) return;
+
+            function show(val) {
+                const q = (val || '').toLowerCase().trim();
+                const matches = q ? opts.filter(o => o.toLowerCase().includes(q)) : opts;
+                if (!matches.length) { listEl.classList.remove('open'); return; }
+                listEl.innerHTML = matches.slice(0, 40).map(o =>
+                    `<div class="ac-item">${escHtml(o)}</div>`
+                ).join('');
+                listEl.querySelectorAll('.ac-item').forEach(item => {
+                    item.addEventListener('mousedown', e => {
+                        e.preventDefault();
+                        input.value = item.textContent;
+                        listEl.classList.remove('open');
+                        input.dispatchEvent(new Event('input', { bubbles: true }));
+                    });
+                });
+                listEl.classList.add('open');
+            }
+
+            input.addEventListener('focus', () => show(input.value));
+            input.addEventListener('input', () => show(input.value));
+            input.addEventListener('blur',  () => setTimeout(() => listEl.classList.remove('open'), 160));
+        });
+    }
+
+    function escHtml(s) {
+        return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    // ─── Patient Report ───────────────────────────────────────────────────────────
+    function getVal(id) { const el = document.getElementById(id); return el ? el.value.toLowerCase().trim() : ''; }
+
+    function renderPatientReport() {
+        const filter    = document.getElementById('patientStatusFilter').value;
+        const dFrom     = document.getElementById('patientDateFrom').value;
+        const dTo       = document.getElementById('patientDateTo').value;
+        const qCode     = getVal('prfPatientCode');
+        const qFirst    = getVal('prfFirstName');
+        const qLast     = getVal('prfLastName');
+        const qPhone    = getVal('prfPhone');
+        const qTransport= getVal('prfTransport');
+        const qClinic   = getVal('prfClinic');
+
+        let data = allPatientReport.filter(p => {
+            if (filter !== '' && String(p.isActive) !== filter) return false;
+            if (qCode  && !(p.patientCode||'').toLowerCase().includes(qCode))   return false;
+            if (qFirst && !(p.firstName||'').toLowerCase().includes(qFirst))     return false;
+            if (qLast  && !(p.lastName||'').toLowerCase().includes(qLast))       return false;
+            if (qPhone && !(p.phone||'').toLowerCase().includes(qPhone))         return false;
+            if (qClinic && !((p.Clinic&&p.Clinic.name)||'').toLowerCase().includes(qClinic)) return false;
+            if (qTransport) {
+                const pt  = ((p.PatientTransportCompany&&p.PatientTransportCompany.companyName)||'').toLowerCase();
+                const pxt = ((p.PharmacyTransportCompany&&p.PharmacyTransportCompany.companyName)||'').toLowerCase();
+                if (!pt.includes(qTransport) && !pxt.includes(qTransport)) return false;
+            }
+            const svc = p.serviceDate || '';
+            if (dFrom && svc && svc < dFrom) return false;
+            if (dTo   && svc && svc > dTo)   return false;
+            return true;
+        });
+
+        data.sort((a,b) => {
+            let va = getNestedVal(a, prSortCol), vb = getNestedVal(b, prSortCol);
+            if (va == null) va = ''; if (vb == null) vb = '';
+            if (typeof va === 'string') va = va.toLowerCase();
+            if (typeof vb === 'string') vb = vb.toLowerCase();
+            return prSortDir === 'asc' ? (va > vb ? 1 : -1) : (va < vb ? 1 : -1);
+        });
+
+        const tbody   = document.getElementById('patientReportBody');
+        const countEl = document.getElementById('patientReportCount');
+        if (!tbody) return;
+        if (!data.length) {
+            tbody.innerHTML = '<tr><td colspan="11" class="text-center text-muted py-4">No records found</td></tr>';
+            if (countEl) countEl.textContent = '0 records';
+            return;
+        }
+        tbody.innerHTML = data.map(p => {
+            const statusBadge = p.isActive
+                ? '<span class="badge bg-success">Active</span>'
+                : '<span class="badge bg-secondary">Inactive</span>';
+            const dob = p.dob ? new Date(p.dob+'T12:00:00').toLocaleDateString() : '-';
+            const svc = p.serviceDate ? new Date(p.serviceDate+'T12:00:00').toLocaleDateString() : '-';
+            return `<tr>
+                <td><span class="badge bg-primary">${p.patientCode||''}</span></td>
+                <td>${p.firstName||''}</td>
+                <td>${p.lastName||''}</td>
+                <td>${dob}</td>
+                <td>${p.phone||'-'}</td>
+                <td>${p.address||'-'}</td>
+                <td>${svc}</td>
+                <td>${statusBadge}</td>
+                <td>${p.Clinic&&p.Clinic.name||'-'}</td>
+                <td>${p.PatientTransportCompany&&p.PatientTransportCompany.companyName||'-'}</td>
+                <td>${p.PharmacyTransportCompany&&p.PharmacyTransportCompany.companyName||'-'}</td>
+            </tr>`;
+        }).join('');
+        if (countEl) countEl.textContent = data.length + ' record' + (data.length !== 1 ? 's' : '');
+    }
+
+    function getNestedVal(obj, path) {
+        return path.split('.').reduce((o,k) => o && o[k] !== undefined ? o[k] : null, obj);
+    }
+
+    function sortPatientReport(col) {
+        if (prSortCol === col) prSortDir = prSortDir === 'asc' ? 'desc' : 'asc';
+        else { prSortCol = col; prSortDir = 'asc'; }
+        document.querySelectorAll('[id^="prIcon_"]').forEach(el => { el.className = 'fas fa-sort text-muted'; el.style.opacity = '0.3'; });
+        const icon = document.getElementById('prIcon_' + col);
+        if (icon) { icon.className = 'fas fa-sort-' + (prSortDir === 'asc' ? 'up' : 'down') + ' text-primary'; icon.style.opacity = '1'; }
+        renderPatientReport();
+    }
+
+    function clearPatientFilters() {
+        ['prfPatientCode','prfFirstName','prfLastName','prfPhone','prfTransport','prfClinic','patientDateFrom','patientDateTo']
+            .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+        document.getElementById('patientStatusFilter').value = '';
+        renderPatientReport();
+    }
+
+    // ─── RX Action Report ─────────────────────────────────────────────────────────
+    function renderRxActionReport() {
+        const qRxId  = getVal('rrfRxId');
+        const qFirst = getVal('rrfFirstName');
+        const qLast  = getVal('rrfLastName');
+        const qCode  = getVal('rrfPatientCode');
+        const qPharm = getVal('rrfPharmacy');
+        const qProg  = document.getElementById('rrfProgress').value;
+        const dFrom  = document.getElementById('rxDateFrom').value;
+        const dTo    = document.getElementById('rxDateTo').value;
+
+        let data = allRxReport.filter(r => {
+            if (qRxId  && !String(r.id).includes(qRxId)) return false;
+            if (qFirst && !(r.Patient&&r.Patient.firstName||'').toLowerCase().includes(qFirst)) return false;
+            if (qLast  && !(r.Patient&&r.Patient.lastName||'').toLowerCase().includes(qLast))   return false;
+            if (qCode  && !(r.Patient&&r.Patient.patientCode||'').toLowerCase().includes(qCode)) return false;
+            if (qPharm && !(r.Pharmacy&&r.Pharmacy.name||'').toLowerCase().includes(qPharm))    return false;
+            const svc = r.serviceDate || '';
+            if (dFrom && svc && svc < dFrom) return false;
+            if (dTo   && svc && svc > dTo)   return false;
+            return true;
+        });
+
+        data.sort((a,b) => {
+            let va = getNestedVal(a, rrSortCol), vb = getNestedVal(b, rrSortCol);
+            if (va == null) va = ''; if (vb == null) vb = '';
+            if (typeof va === 'string') va = va.toLowerCase();
+            if (typeof vb === 'string') vb = vb.toLowerCase();
+            return rrSortDir === 'asc' ? (va > vb ? 1 : -1) : (va < vb ? 1 : -1);
+        });
+
+        if (qProg) {
+            data = data.filter(r => {
+                const steps = r.completedSteps || [];
+                const total = allWorkflowActions.length;
+                if (qProg === 'complete') return steps.length >= total && total > 0;
+                if (qProg === 'pending')  return steps.length < total;
+                return true;
+            });
+        }
+
+        const tbody = document.getElementById('rxActionBody');
+        const countEl = document.getElementById('rxReportCount');
+        if (!tbody) return;
+        if (!data.length) {
+            tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">No records found</td></tr>';
+            if (countEl) countEl.textContent = '0 records';
+            return;
+        }
+        tbody.innerHTML = data.map(r => {
+            const steps   = r.completedSteps || [];
+            const wfTotal = allWorkflowActions.length;
+            const done    = steps.length;
+            const pct     = wfTotal ? Math.round((done / wfTotal) * 100) : 0;
+            const nextStep= allWorkflowActions.find(w => !steps.includes(w.id));
+            const svc     = r.serviceDate ? new Date(r.serviceDate+'T12:00:00').toLocaleDateString() : '-';
+            const ptName  = r.Patient ? r.Patient.firstName + ' ' + r.Patient.lastName : '-';
+            const ptCode  = r.Patient ? r.Patient.patientCode : '-';
+            const phName  = r.Pharmacy ? r.Pharmacy.name : '-';
+            const progBadge = pct >= 100
+                ? '<span class="badge bg-success">Complete</span>'
+                : `<span class="badge bg-warning text-dark">${pct}%</span>`;
+            return `<tr>
+                <td><span class="badge bg-primary">RX-${r.id}</span></td>
+                <td>${ptName}</td>
+                <td><span class="badge bg-info text-dark">${ptCode}</span></td>
+                <td>${phName}</td>
+                <td>${svc}</td>
+                <td>${done > 0 ? steps.map(id => { const a = allWorkflowActions.find(w=>w.id===id); return a ? '<span class="badge bg-success me-1">'+a.name+'</span>' : ''; }).join('') : '-'}</td>
+                <td>${nextStep ? '<span class="badge bg-warning text-dark">'+nextStep.name+'</span>' : '<span class="badge bg-success">All done</span>'}</td>
+                <td>${progBadge}</td>
+            </tr>`;
+        }).join('');
+        if (countEl) countEl.textContent = data.length + ' record' + (data.length !== 1 ? 's' : '');
+    }
+
+    function sortRxReport(col) {
+        if (rrSortCol === col) rrSortDir = rrSortDir === 'asc' ? 'desc' : 'asc';
+        else { rrSortCol = col; rrSortDir = 'asc'; }
+        document.querySelectorAll('[id^="rrIcon_"]').forEach(el => { el.className = 'fas fa-sort text-muted'; el.style.opacity = '0.3'; });
+        const icon = document.getElementById('rrIcon_' + col);
+        if (icon) { icon.className = 'fas fa-sort-' + (rrSortDir === 'asc' ? 'up' : 'down') + ' text-primary'; icon.style.opacity = '1'; }
+        renderRxActionReport();
+    }
+
+    function clearRxFilters() {
+        ['rrfRxId','rrfFirstName','rrfLastName','rrfPatientCode','rrfPharmacy','rxDateFrom','rxDateTo']
+            .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+        document.getElementById('rrfProgress').value = '';
+        renderRxActionReport();
+    }
+
+    // ─── Export CSV ───────────────────────────────────────────────────────────────
+    function setupReportExports() {
+        document.getElementById('exportPatientCsv').addEventListener('click', () => {
+            const filter     = document.getElementById('patientStatusFilter').value;
+            const dFrom      = document.getElementById('patientDateFrom').value;
+            const dTo        = document.getElementById('patientDateTo').value;
+            const qCode      = getVal('prfPatientCode');
+            const qFirst     = getVal('prfFirstName');
+            const qLast      = getVal('prfLastName');
+            const qPhone     = getVal('prfPhone');
+            const qTransport = getVal('prfTransport');
+            const qClinic    = getVal('prfClinic');
+
+            let data = allPatientReport.filter(p => {
+                if (filter !== '' && String(p.isActive) !== filter) return false;
+                if (qCode  && !(p.patientCode||'').toLowerCase().includes(qCode))   return false;
+                if (qFirst && !(p.firstName||'').toLowerCase().includes(qFirst))     return false;
+                if (qLast  && !(p.lastName||'').toLowerCase().includes(qLast))       return false;
+                if (qPhone && !(p.phone||'').toLowerCase().includes(qPhone))         return false;
+                if (qClinic && !((p.Clinic&&p.Clinic.name)||'').toLowerCase().includes(qClinic)) return false;
+                if (qTransport) {
+                    const pt  = ((p.PatientTransportCompany&&p.PatientTransportCompany.companyName)||'').toLowerCase();
+                    const pxt = ((p.PharmacyTransportCompany&&p.PharmacyTransportCompany.companyName)||'').toLowerCase();
+                    if (!pt.includes(qTransport) && !pxt.includes(qTransport)) return false;
+                }
+                const svc = p.serviceDate || '';
+                if (dFrom && svc && svc < dFrom) return false;
+                if (dTo   && svc && svc > dTo)   return false;
+                return true;
+            });
+
+            if (!data.length) { showToast('No data to export', 'warning'); return; }
+            const headers = ['Patient ID','First Name','Last Name','DOB','Phone','Address','Service Date','Status','Clinic','Patient Transport','Pharmacy Transport'];
+            const rows = data.map(p => [
+                p.patientCode||'', p.firstName||'', p.lastName||'',
+                p.dob||'', p.phone||'', p.address||'', p.serviceDate||'',
+                p.isActive ? 'Active' : 'Inactive',
+                (p.Clinic&&p.Clinic.name)||'',
+                (p.PatientTransportCompany&&p.PatientTransportCompany.companyName)||'',
+                (p.PharmacyTransportCompany&&p.PharmacyTransportCompany.companyName)||''
+            ]);
+            downloadCsv('patient_report.csv', headers, rows);
+            showToast('Patient report exported!', 'success');
+        });
+
+        document.getElementById('exportRxCsv').addEventListener('click', () => {
+            if (!allRxReport.length) { showToast('No data to export', 'warning'); return; }
+            const headers = ['RX #','Patient','Patient ID','Pharmacy','Service Date','Done Steps','Progress %'];
+            const rows = allRxReport.map(r => {
+                const steps = r.completedSteps || [];
+                const pct   = allWorkflowActions.length ? Math.round(steps.length / allWorkflowActions.length * 100) : 0;
+                return [
+                    'RX-' + r.id,
+                    r.Patient ? r.Patient.firstName + ' ' + r.Patient.lastName : '',
+                    r.Patient ? r.Patient.patientCode : '',
+                    r.Pharmacy ? r.Pharmacy.name : '',
+                    r.serviceDate||'',
+                    steps.length,
+                    pct + '%'
+                ];
+            });
+            downloadCsv('rx_report.csv', headers, rows);
+            showToast('RX report exported!', 'success');
+        });
+    }
+
+    function downloadCsv(filename, headers, rows) {
+        const csv = [headers, ...rows].map(r => r.map(v => '"' + String(v||'').replace(/"/g,'""') + '"').join(',')).join('\n');
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url  = URL.createObjectURL(blob);
+        const a    = Object.assign(document.createElement('a'), { href: url, download: filename });
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
+
+    function printReport(title, tableId) {
+        const tbl = document.getElementById(tableId);
+        if (!tbl) return;
+        const win = window.open('', '_blank');
+        win.document.write(`<!DOCTYPE html><html><head><title>${title}</title>
+            <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+            </head><body class="p-4"><h4>${title}</h4>${tbl.outerHTML}</body></html>`);
+        win.document.close();
+        win.print();
+    }
+</script>
+</body>
+</html>
