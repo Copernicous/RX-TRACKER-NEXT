@@ -601,11 +601,12 @@
                         ${isDeleted
                             ? (rxP.canDelete ? `<button class="btn btn-sm btn-outline-success" onclick="restoreRx(${rx.id})" title="Restore"><i class="fas fa-undo me-1"></i>Restore</button>` : '<span class="text-muted small">Hidden</span>')
                             : `
-                                ${rxP.canEdit   ? `<button class="btn btn-sm btn-outline-info me-1" onclick="openWorkflow(${rx.id})" title="Workflow"><i class="fas fa-tasks"></i></button>` : ''}
+                                ${(rxP.canEdit || rxP.canAdd || rxP.canUndo || rxP.canWarehouse)
+                                    ? `<button class="btn btn-sm btn-outline-info me-1" onclick="openWorkflow(${rx.id})" title="Workflow"><i class="fas fa-tasks"></i></button>`
+                                    : `<button class="btn btn-sm btn-outline-secondary me-1" onclick="openWorkflow(${rx.id})" title="View Workflow"><i class="fas fa-tasks"></i></button>`}
                                 <button class="btn btn-sm btn-outline-secondary me-1" onclick="openRxHistory(${rx.id})" title="View History"><i class="fas fa-history"></i></button>
                                 <button class="btn btn-sm btn-outline-primary me-1" onclick="printRxRecord(${rx.id})" title="Print / Export"><i class="fas fa-print"></i></button>
                                 ${rxP.canDelete ? `<button class="btn btn-sm btn-outline-danger" onclick="deleteRx(${rx.id})" title="Hide Record"><i class="fas fa-eye-slash"></i></button>` : ''}
-                                ${!rxP.canEdit && !rxP.canDelete ? `<button class="btn btn-sm btn-outline-info" onclick="openWorkflow(${rx.id})" title="View Workflow"><i class="fas fa-tasks"></i></button>` : ''}
                             `
                         }
                     </td>

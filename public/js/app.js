@@ -758,7 +758,7 @@ async function refreshTable() {
 // =============================================
 function getPagePerms() {
     // Full access: returned only when NO stored permission object exists for the module
-    var fullAccess = { visible: true, canEdit: true, canDelete: true, canExport: true, canUndo: true };
+    var fullAccess = { visible: true, canAdd: true, canEdit: true, canDelete: true, canExport: true, canUndo: true, canWarehouse: true };
     try {
         var user = JSON.parse(localStorage.getItem('user'));
         if (!user) return fullAccess;
@@ -785,12 +785,13 @@ function getPagePerms() {
         if (!p) return fullAccess;
         // Permission entry EXISTS → any unset action defaults to FALSE (least privilege)
         return {
-            visible:   p.visible   !== undefined ? !!p.visible   : true,
-            canAdd:    p.canAdd    !== undefined ? !!p.canAdd    : !!p.canEdit, // fallback: if canAdd unset, inherit canEdit
-            canEdit:   p.canEdit   !== undefined ? !!p.canEdit   : false,
-            canDelete: p.canDelete !== undefined ? !!p.canDelete : false,
-            canExport: p.canExport !== undefined ? !!p.canExport : false,
-            canUndo:   p.canUndo   !== undefined ? !!p.canUndo   : false
+            visible:      p.visible      !== undefined ? !!p.visible      : true,
+            canAdd:       p.canAdd       !== undefined ? !!p.canAdd       : !!p.canEdit, // fallback: if canAdd unset, inherit canEdit
+            canEdit:      p.canEdit      !== undefined ? !!p.canEdit      : false,
+            canDelete:    p.canDelete    !== undefined ? !!p.canDelete    : false,
+            canExport:    p.canExport    !== undefined ? !!p.canExport    : false,
+            canUndo:      p.canUndo      !== undefined ? !!p.canUndo      : false,
+            canWarehouse: p.canWarehouse !== undefined ? !!p.canWarehouse : !!p.canEdit  // fallback for old data
         };
     } catch (e) { return fullAccess; }
 }
@@ -1620,9 +1621,10 @@ function applyReadOnlyRestrictions() {
         if (saveRx && !perm.canAdd) saveRx.classList.add('d-none');
 
         // --- Edit buttons in table rows (always requires canEdit) ---
+        // Note: completeStep is NOT here — it's controlled by canAdd in openWorkflow()
         if (!perm.canEdit) {
             document.querySelectorAll(
-                'button[onclick*="editRecord"],button[onclick*="openPatientModal"],button[onclick*="completeStep"]'
+                'button[onclick*="editRecord"],button[onclick*="openPatientModal"]'
             ).forEach(function(el) { el.classList.add('d-none'); });
         }
     })();
