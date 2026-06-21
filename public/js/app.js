@@ -1593,18 +1593,39 @@ function applyReadOnlyRestrictions() {
             });
     }
 
-    // ---- hide EDIT / SAVE buttons (requires canEdit) ----
-    if (!perm.canEdit) {
-        ['savePatientBtn','saveRxBtn','saveCrudBtn']
-            .forEach(function(id) {
-                var el = document.getElementById(id);
-                if (el) el.classList.add('d-none');
-            });
-        // Edit buttons generated into table rows
-        document.querySelectorAll(
-            'button[onclick*="editRecord"],button[onclick*="openPatientModal"],button[onclick*="completeStep"]'
-        ).forEach(function(el) { el.classList.add('d-none'); });
-    }
+    // ---- hide EDIT / SAVE buttons (requires canEdit when editing, canAdd when adding) ----
+    // We check the modal title to determine if the modal is open in Add or Edit mode,
+    // so the MutationObserver does not override the correct Save button state.
+    (function() {
+        // --- Generic CRUD modal (pharmacies, transport, workflow, etc.) ---
+        var crudTitle  = document.getElementById('crudModalLabel');
+        var saveCrud   = document.getElementById('saveCrudBtn');
+        if (saveCrud) {
+            var crudIsAdd = !crudTitle || crudTitle.textContent.trim().toLowerCase().startsWith('add');
+            var showCrud  = crudIsAdd ? perm.canAdd : perm.canEdit;
+            if (!showCrud) saveCrud.classList.add('d-none');
+        }
+
+        // --- Patient modal ---
+        var patTitle  = document.getElementById('patientModalTitle');
+        var savePat   = document.getElementById('savePatientBtn');
+        if (savePat) {
+            var patIsAdd = !patTitle || patTitle.textContent.trim().toLowerCase().startsWith('add');
+            var showPat  = patIsAdd ? perm.canAdd : perm.canEdit;
+            if (!showPat) savePat.classList.add('d-none');
+        }
+
+        // --- RX modal (always Add — there is no edit-RX flow) ---
+        var saveRx = document.getElementById('saveRxBtn');
+        if (saveRx && !perm.canAdd) saveRx.classList.add('d-none');
+
+        // --- Edit buttons in table rows (always requires canEdit) ---
+        if (!perm.canEdit) {
+            document.querySelectorAll(
+                'button[onclick*="editRecord"],button[onclick*="openPatientModal"],button[onclick*="completeStep"]'
+            ).forEach(function(el) { el.classList.add('d-none'); });
+        }
+    })();
 
     // ---- hide DELETE buttons ----
     if (!perm.canDelete) {

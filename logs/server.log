@@ -2760,3 +2760,48 @@ Server is running on port 3000.
 [0mGET /js/help.js [36m304[0m 2.593 ms - -[0m
 [0mGET /api/medication-catalog [32m200[0m 3.786 ms - 1697[0m
 [0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 8.398 ms - 3137[0m
+◇ injected env (4) from .env // tip: ◈ encrypted .env [www.dotenvx.com]
+◇ injected env (0) from .env // tip: ⌘ enable debugging { debug: true }
+[Backup] Scheduler started with expression: 0 2 * * *
+[SiteBackup] Weekly scheduler started: 0 3 * * 0
+Database verified: Users.permissions column ready.
+Database verified: RXRecords warehouse columns ready.
+Database verified: AuditLogs.previousValue column ready.
+Database verified: Users.notes column ready.
+Database verified: MedicationCatalogs.sortOrder column ready.
+Database verified: Roles custom columns ready.
+Database verified: Built-in role permissions seeded.
+[Settings] Loaded. Timezone: America/New_York | SMTP: (not set)
+Server is running on port 3000.
+[0mGET / [33m404[0m 12.142 ms - 139[0m
+[0mGET /api/audit-logs?limit=20&page=1 [33m403[0m 69.482 ms - 56[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 57.235 ms - 7137[0m
+[0mGET /roles [36m304[0m 11.954 ms - -[0m
+[0mGET /css/style.css [36m304[0m 1.874 ms - -[0m
+[0mGET /js/app.js [36m304[0m 2.015 ms - -[0m
+[0mGET /js/help.js [36m304[0m 1.842 ms - -[0m
+[0mGET /api/roles/permission-defaults [36m304[0m 4.302 ms - -[0m
+[0mGET /api/roles [36m304[0m 87.304 ms - -[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 93.707 ms - 7137[0m
+[0mGET /favicon.ico [32m204[0m 0.280 ms - -[0m
+[0mGET /dashboard [36m304[0m 6.934 ms - -[0m
+[0mGET /css/style.css [36m304[0m 1.935 ms - -[0m
+[0mGET /js/app.js [36m304[0m 0.432 ms - -[0m
+[0mGET /js/help.js [36m304[0m 0.679 ms - -[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 10.942 ms - 7137[0m
+[0mGET /api/dashboard/stats [32m200[0m 26.829 ms - 4052[0m
+[0mGET /favicon.ico [32m204[0m 0.056 ms - -[0m
+[0mGET /api/dashboard/rx-pipeline [36m304[0m 12.113 ms - -[0m
+[0mGET /api/dashboard/charts [36m304[0m 24.098 ms - -[0m
+[0mGET /patients [32m200[0m 6.914 ms - 91081[0m
+[0mGET /css/style.css [36m304[0m 0.430 ms - -[0m
+[0mGET /js/app.js [36m304[0m 0.720 ms - -[0m
+[0mGET /js/help.js [36m304[0m 0.730 ms - -[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 9.847 ms - 7137[0m
+[0mGET /api/patient-transport [36m304[0m 10.056 ms - -[0m
+[0mGET /api/pharmacy-transport [36m304[0m 10.411 ms - -[0m
+[0mGET /api/clinics [36m304[0m 10.408 ms - -[0m
+[0mGET /api/pharmacies [36m304[0m 7.548 ms - -[0m
+[0mGET /favicon.ico [32m204[0m 0.038 ms - -[0m
+[0mGET /api/patients [36m304[0m 13.172 ms - -[0m
+[0mGET /api/audit-logs?limit=20&page=1 [33m403[0m 5.413 ms - 56[0m
