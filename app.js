@@ -1,4 +1,12 @@
 require('dotenv').config();
+
+// ── Crash prevention — keep server alive on unhandled async errors ────────────
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('[CRASH PREVENTED] Unhandled Promise Rejection:', reason);
+});
+process.on('uncaughtException', (err) => {
+    console.error('[CRASH PREVENTED] Uncaught Exception:', err.message, err.stack);
+});
 const express     = require('express');
 const cors        = require('cors');
 const morgan      = require('morgan');
