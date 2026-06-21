@@ -441,7 +441,7 @@ var allPatients = [];
 
         const pages = Math.ceil(filteredPatients.length / pageSize);
         var pagHtml = '<li class="page-item' + (currentPage===1?' disabled':'') + '"><a class="page-link" href="#" onclick="goPPage(' + (currentPage-1) + ');return false;">&laquo;</a></li>';
-        for(var pi=1;pi<=pages;pi++) pagHtml += '<li class="page-item' + (pi===currentPage?' active':'') + '"><a class="page-link" href="#" onclick="goPPage(' + pi + ');return false;">' + pi + '</a></li>';
+        for(var pageNum=1; pageNum<=pages; pageNum++) pagHtml += '<li class="page-item' + (pageNum===currentPage?' active':'') + '"><a class="page-link" href="#" onclick="goPPage(' + pageNum + ');return false;">' + pageNum + '</a></li>';
         pagHtml += '<li class="page-item' + ((currentPage===pages||pages===0)?' disabled':'') + '"><a class="page-link" href="#" onclick="goPPage(' + (currentPage+1) + ');return false;">&raquo;</a></li>';
         document.getElementById('patientPagination').innerHTML = pagHtml;
     }

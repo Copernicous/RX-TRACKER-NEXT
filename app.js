@@ -33,13 +33,22 @@ const settingsService = require('./services/settingsService');
 
 const app = express();
 
-// ── Trust proxy (for correct IP behind nginx/Cloudflare/Heroku) ──────────────
-app.set('trust proxy', 1);
+// ── Trust proxy (for correct IP behind nginx/Cloudflare/Heroku/FortiGate) ───
+app.set('trust proxy', true);
+
+function isSecureRequest(req) {
+    if (req.secure) return true;
+    const forwardedProto = (req.headers['x-forwarded-proto'] || req.headers['x-forwarded-protocol'] || '').toLowerCase();
+    if (forwardedProto.includes('https')) return true;
+    if ((req.headers['front-end-https'] || '').toLowerCase() === 'on') return true;
+    if (req.headers['x-arr-ssl']) return true;
+    return false;
+}
 
 // ── HTTPS redirect (enable with FORCE_HTTPS=true in .env) ────────────────────
 if (process.env.FORCE_HTTPS === 'true') {
     app.use((req, res, next) => {
-        if (req.secure || req.headers['x-forwarded-proto'] === 'https') return next();
+        if (isSecureRequest(req)) return next();
         return res.redirect(301, 'https://' + req.headers.host + req.url);
     });
 }
@@ -53,7 +62,8 @@ app.use(helmet({
             scriptSrc:      ["'self'", "'unsafe-inline'"],   // CDN removed — all JS served locally
             scriptSrcAttr:  ["'unsafe-inline'"],             // Required: app uses inline onclick handlers
             styleSrc:       ["'self'", "'unsafe-inline'"],   // CDN removed — all CSS served locally
-            fontSrc:        ["'self'"],                      // CDN removed — Inter + FA webfonts local
+            fontSrc:        ["'self'", 'data:'],              // allow inline/base64-encoded fonts
+            workerSrc:      ["'self'", 'blob:'],              // allow blob workers
             imgSrc:         ["'self'", 'data:', 'blob:'],
             connectSrc:     ["'self'", 'https://api.ipify.org', 'https://dns.google'],
             frameSrc:       ["'none'"],
@@ -65,6 +75,7 @@ app.use(helmet({
             ...(process.env.FORCE_HTTPS === 'true' ? { upgradeInsecureRequests: [] } : {})
         }
     },
+    crossOriginOpenerPolicy: false,
     hsts: process.env.FORCE_HTTPS === 'true'
         ? { maxAge: 31536000, includeSubDomains: true, preload: true }
         : false,
@@ -81,13 +92,11 @@ const loginLimiter = rateLimit({
     skipSuccessfulRequests: true        // only count failures toward the limit
 });
 
-// Trust FortiGate SSL VPN as a reverse proxy — allows Express to correctly read
-// X-Forwarded-For (real client IP) and X-Forwarded-Proto (https) headers
-app.set('trust proxy', 1);
+// Trust FortiGate SSL VPN and reverse proxy chain — allows Express to correctly read
+// X-Forwarded-For (real client IP) and X-Forwarded-Proto (https) headers.
 
 // Middleware
-// SEC-04 FIX: Restrict CORS to the app's own origin, not wildcard
-const corsOrigin = process.env.APP_ORIGIN || 'http://localhost:3000';
+const corsOrigin = process.env.APP_ORIGIN || true;
 app.use(cors({ origin: corsOrigin, credentials: true }));
 // CONFIG-01 FIX: Use appropriate Morgan log format per environment
 app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
@@ -108,8 +117,19 @@ app.set('view cache', false);
 // Expose APP_BUILD to all EJS templates
 app.use(function(req, res, next) { res.locals.appBuild = APP_BUILD; next(); });
 
-// Suppress favicon 404
-app.get('/favicon.ico', (req, res) => res.status(204).end());
+// Serve a small favicon explicitly to prevent proxy/browser favicon errors.
+app.get('/favicon.ico', (req, res) => {
+    const favicon = Buffer.from(
+        'AAABAAEAEBAAAAAAIABoBAAAFgAAACgAAAAQAAAAIAAAAAEABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' +
+        'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' +
+        'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' +
+        'AAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+        'base64'
+    );
+    res.set('Content-Type', 'image/x-icon');
+    res.set('Cache-Control', 'public, max-age=86400');
+    res.send(favicon);
+});
 
 
 // Force UTF-8 charset on all HTML responses — required for FortiGate SSL web access

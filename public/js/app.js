@@ -399,14 +399,16 @@ function setupLogout() {
             if (token) {
                 await fetch('/api/auth/logout', {
                     method: 'POST',
+                    credentials: 'include',
                     headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' }
                 });
             }
         } catch(e) { /* non-fatal */ }
         localStorage.removeItem('token');
         localStorage.removeItem('user');
-        // Clear the server-side session cookie
-        document.cookie = 'rxToken=; path=/; max-age=0; SameSite=Strict';
+        // Clear the server-side session cookie using the same attributes as it was set with.
+        const secure = window.location.protocol === 'https:' ? '; Secure' : '';
+        document.cookie = 'rxToken=; path=/; max-age=0; SameSite=None' + secure;
         window.location.href = '/login';
     });
 }
@@ -508,7 +510,7 @@ async function fetchWithAuth(url, options = {}) {
         'Authorization': 'Bearer ' + token
     }, fetchOptions.headers || {});
 
-    const res = await fetch(url, Object.assign({}, fetchOptions, { headers }));
+    const res = await fetch(url, Object.assign({}, fetchOptions, { headers, credentials: fetchOptions.credentials || 'include' }));
 
     // 401 = token expired / invalid → logout
     if (res.status === 401) {

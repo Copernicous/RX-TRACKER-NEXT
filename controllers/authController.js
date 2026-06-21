@@ -108,12 +108,23 @@ async function issueFullToken(user, req, res) {
         ipAddress: req.ip
     }).catch(() => {});
 
-    // Set rxToken cookie so it passes through FortiGate SSL portal (which strips Authorization header)
-    res.cookie('rxToken', token, {
+    // Set rxToken cookie so it passes through FortiGate SSL portal (which may strip Authorization headers) and can still be used across a proxy boundary.
+    const cookieOptions = {
         httpOnly: false,   // must be false so client-side logout can clear it
-        sameSite: 'lax',
-        maxAge:   8 * 60 * 60 * 1000  // 8 hours, matches JWT expiry
-    });
+        path: '/',
+        maxAge: 8 * 60 * 60 * 1000  // 8 hours, matches JWT expiry
+    };
+    const forwardedProto = (req.headers['x-forwarded-proto'] || req.headers['x-forwarded-protocol'] || '').toLowerCase();
+    const isSecureRequest = req.secure || forwardedProto.includes('https') || (req.headers['front-end-https'] || '').toLowerCase() === 'on' || !!req.headers['x-arr-ssl'];
+    if (isSecureRequest) {
+        cookieOptions.sameSite = 'none';
+        cookieOptions.secure = true;
+    } else {
+        cookieOptions.sameSite = 'lax';
+        cookieOptions.secure = process.env.FORCE_HTTPS === 'true';
+    }
+
+    res.cookie('rxToken', token, cookieOptions);
 
     res.json({
         message: 'Login successful',

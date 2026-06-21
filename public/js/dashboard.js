@@ -31,7 +31,7 @@ function getPresetRange(preset) {
     if (preset === 'all')   return { from: '', to: '' };
     if (preset === 'today') return { from: today, to: today };
     if (preset === 'week')  { const s = new Date(now); s.setDate(now.getDate() - now.getDay()); return { from: fmt(s), to: today }; }
-    if (preset === 'month') return { from: fmt(new Date(now.getFullYear(), now.getMonth(), 1)), to: today };\
+    if (preset === 'month') return { from: fmt(new Date(now.getFullYear(), now.getMonth(), 1)), to: today };
     if (preset === '30d')   { const s = new Date(now); s.setDate(now.getDate() - 30); return { from: fmt(s), to: today }; }
     if (preset === 'year')  return { from: fmt(new Date(now.getFullYear(), 0, 1)), to: today };
     return { from: '', to: '' };

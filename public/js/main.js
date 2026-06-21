@@ -1,3 +1,20 @@
+// Ensure same-origin fetch requests send cookies, so FortiGate proxy users can authenticate with rxToken cookie fallback.
+(function() {
+    if (window.fetch) {
+        const originalFetch = window.fetch.bind(window);
+        window.fetch = function(resource, init) {
+            init = init || {};
+            const sameOrigin = typeof resource === 'string'
+                ? resource.startsWith('/') || resource.startsWith(window.location.origin)
+                : resource instanceof Request && resource.url.startsWith(window.location.origin);
+            if (sameOrigin && !init.credentials) {
+                init.credentials = 'include';
+            }
+            return originalFetch(resource, init);
+        };
+    }
+})();
+
 document.addEventListener('DOMContentLoaded', () => {
     // Sidebar Toggle
     const sidebarCollapse = document.getElementById('sidebarCollapse');
@@ -39,6 +56,7 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
                 const res = await fetch('/api/auth/login', {
                     method: 'POST',
+                    credentials: 'include',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ username, password })
                 });
@@ -65,7 +83,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const user = JSON.parse(localStorage.getItem('user'));
             const userGreeting = document.getElementById('userGreeting');
             if (userGreeting && user) {
-                userGreeting.innerText = \`Hello, \${user.firstName}\`;
+                userGreeting.innerText = `Hello, ${user.firstName}`;
             }
         }
     }
@@ -141,17 +159,17 @@ async function loadCrudData(moduleName, apiEndpoint) {
         // This is a simplification for the foundational phase.
         if (data.length > 0) {
             const headers = Object.keys(data[0]).filter(k => k !== 'passwordHash');
-            document.getElementById('tableHeaders').innerHTML = headers.map(h => \`<th>\${h}</th>\`).join('') + '<th>Actions</th>';
+            document.getElementById('tableHeaders').innerHTML = headers.map(h => `<th>${h}</th>`).join('') + '<th>Actions</th>';
             
             document.getElementById('tableBody').innerHTML = data.map(row => {
                 let rowHtml = '<tr>';
                 headers.forEach(h => {
-                    rowHtml += \`<td>\${typeof row[h] === 'object' && row[h] !== null ? row[h].name || row[h].companyName || 'Obj' : row[h]}</td>\`;
+                    rowHtml += `<td>${typeof row[h] === 'object' && row[h] !== null ? row[h].name || row[h].companyName || 'Obj' : row[h]}</td>`;
                 });
-                rowHtml += \`<td>
-                    <button class="btn btn-sm btn-info" onclick="editRecord('\${row.id}')"><i class="fas fa-edit"></i></button>
-                    <button class="btn btn-sm btn-danger" onclick="deleteRecord('\${row.id}', '\${apiEndpoint}')"><i class="fas fa-trash"></i></button>
-                </td></tr>\`;
+                rowHtml += `<td>
+                    <button class="btn btn-sm btn-info" onclick="editRecord('${row.id}')"><i class="fas fa-edit"></i></button>
+                    <button class="btn btn-sm btn-danger" onclick="deleteRecord('${row.id}', '${apiEndpoint}')"><i class="fas fa-trash"></i></button>
+                </td></tr>`;
                 return rowHtml;
             }).join('');
         } else {

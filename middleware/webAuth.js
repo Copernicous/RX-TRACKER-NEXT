@@ -46,7 +46,7 @@ module.exports = (req, res, next) => {
         res.locals.isAdmin     = decoded.role === 'Administrator';
     } catch (e) {
         // Expired or tampered token — clear it gracefully
-        res.clearCookie('rxToken');
+        res.clearCookie('rxToken', { path: '/', sameSite: 'none', secure: true });
     }
     next();
 };

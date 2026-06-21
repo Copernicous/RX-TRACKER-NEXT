@@ -220,6 +220,7 @@
             try {
                 const res = await fetch('/api/auth/login', {
                     method: 'POST',
+                    credentials: 'include',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ username, password })
                 });
@@ -272,6 +273,7 @@
             try {
                 const res  = await fetch('/api/auth/login/2fa', {
                     method: 'POST',
+                    credentials: 'include',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ tempToken: window._2faTempToken, code: rawCode })
                 });
@@ -300,12 +302,19 @@
             document.getElementById('loginForm').classList.remove('d-none');
         }
 
+        function setRxTokenCookie(token, maxAge) {
+            const sameSite = window.location.protocol === 'https:' ? 'None' : 'Lax';
+            const secure = window.location.protocol === 'https:' ? '; Secure' : '';
+            document.cookie = 'rxToken=' + encodeURIComponent(token) +
+                '; path=/; max-age=' + maxAge +
+                '; SameSite=' + sameSite + secure;
+        }
+
         function loginSuccess(data) {
             localStorage.setItem('token', data.token);
             localStorage.setItem('user', JSON.stringify(data.user));
             const maxAge = 86400;
-            document.cookie = 'rxToken=' + encodeURIComponent(data.token) +
-                '; path=/; max-age=' + maxAge + '; SameSite=Strict';
+            setRxTokenCookie(data.token, maxAge);
             window.location.href = '/dashboard';
         }
 
