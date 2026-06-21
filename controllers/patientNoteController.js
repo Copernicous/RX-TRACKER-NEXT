@@ -67,14 +67,12 @@ exports.deleteNote = async (req, res) => {
         });
         if (!note) return res.status(404).json({ error: 'Note not found.' });
 
-        const user = req.user;
-        const np   = getNotesPerm(user);
-        const isAuthor = note.userId === user?.id;
+        const np = getNotesPerm(req.user);
 
-        // Allow: canDelete permission OR author deleting their own note
-        if (!np.canDelete && !isAuthor) {
+        // Strictly enforce canDelete — no author bypass
+        if (!np.canDelete) {
             return res.status(403).json({
-                error: 'You do not have permission to delete this note. Only users with delete permission or the note author can remove notes.'
+                error: 'You do not have permission to delete notes.'
             });
         }
 

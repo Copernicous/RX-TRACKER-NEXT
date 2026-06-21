@@ -969,9 +969,8 @@
             const author = n.Author ? (n.Author.firstName + ' ' + n.Author.lastName) : 'System';
             const dt = new Date(n.createdAt);
             const dateStr = dt.toLocaleDateString() + ' ' + dt.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
-            const isOwn = n.Author && n.Author.id === currentUser.id;
-            // Can delete if: has delete permission OR is the author of this note
-            const canDel = np.canDelete || isOwn;
+            // Strictly enforce canDelete — no author bypass
+            const canDel = np.canDelete;
 
             let delBtn = '';
             if (canDel) {
@@ -984,12 +983,11 @@
                 </span>`;
             }
 
-            const ownBadge = isOwn ? '<span class="badge bg-info text-dark ms-1" style="font-size:.6rem">you</span>' : '';
             return `<div class="card mb-2 border-0" id="note-${n.id}" style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1) !important;border-radius:8px">
                 <div class="card-body py-2 px-3">
                     <div class="d-flex justify-content-between align-items-start gap-2">
                         <div style="min-width:0">
-                            <span class="badge bg-secondary me-1">${author}</span>${ownBadge}<small class="text-muted">${dateStr}</small>
+                            <span class="badge bg-secondary me-1">${author}</span><small class="text-muted">${dateStr}</small>
                         </div>
                         <div class="flex-shrink-0">${delBtn}</div>
                     </div>
