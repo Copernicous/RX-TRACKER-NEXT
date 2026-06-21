@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en" data-theme="light">
 <head>
     <meta charset="UTF-8">
@@ -403,6 +403,7 @@ setup.bat</code></pre>
 <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index:1100"></div>
 
 <script src="/assets/bootstrap.bundle.min.js"></script>
+<a id="xa-base" href="/login" style="display:none"></a>
 <script src="/js/base.js"></script>
 <script src="/js/app.js"></script>
 <script src="/js/help.js"></script>
@@ -420,7 +421,7 @@ setup.bat</code></pre>
     });
 
     async function loadStatus() {
-        const res = await fetchWithAuth('/api/backups/status');
+        const res = await fetchWithAuth(window.rxUrl('/api/backups/status'));
         if (!res || !res.ok) { showToast('Failed to load backup status', 'danger'); return; }
         const data = await res.json();
 
@@ -488,7 +489,7 @@ setup.bat</code></pre>
         icon.classList.add('d-none');
 
         showToast('Running backup\u2026 this may take a moment.', 'info');
-        const res = await fetchWithAuth('/api/backups/run', { method: 'POST' });
+        const res = await fetchWithAuth(window.rxUrl('/api/backups/run'), { method: 'POST' });
         btn.disabled = false;
         spinner.classList.add('d-none');
         icon.classList.remove('d-none');
@@ -510,7 +511,7 @@ setup.bat</code></pre>
 
     async function saveSchedule() {
         const schedule = document.getElementById('cronInput').value.trim();
-        const res = await fetchWithAuth('/api/backups/schedule', {
+        const res = await fetchWithAuth(window.rxUrl('/api/backups/schedule'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ schedule })
@@ -524,7 +525,7 @@ setup.bat</code></pre>
     // FULL SITE BACKUP JS
     // ═══════════════════════════════════════════════════════════════
     async function loadSiteStatus() {
-        const res = await fetchWithAuth('/api/backups/site/status');
+        const res = await fetchWithAuth(window.rxUrl('/api/backups/site/status'));
         if (!res || !res.ok) return;
         const data = await res.json();
 
@@ -595,7 +596,7 @@ setup.bat</code></pre>
         icon.classList.add('d-none');
         showToast('Creating full site backup\u2026 this may take 30\u201360 seconds.', 'info');
 
-        const res = await fetchWithAuth('/api/backups/site/run', { method: 'POST' });
+        const res = await fetchWithAuth(window.rxUrl('/api/backups/site/run'), { method: 'POST' });
         btn.disabled = false;
         spinner.classList.add('d-none');
         icon.classList.remove('d-none');
@@ -618,7 +619,7 @@ setup.bat</code></pre>
 
     async function saveSiteSchedule() {
         const schedule = (document.getElementById('siteCronInput').value || '').trim();
-        const res = await fetchWithAuth('/api/backups/site/schedule', {
+        const res = await fetchWithAuth(window.rxUrl('/api/backups/site/schedule'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ schedule })

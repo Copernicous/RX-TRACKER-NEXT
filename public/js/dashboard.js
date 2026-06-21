@@ -76,15 +76,21 @@ async function refreshDashboard() {
         if (window._auditLogAllowed) {
             const tbody = document.getElementById('recentActivityBody');
             if (tbody) {
-                tbody.innerHTML = data.recentActivity && data.recentActivity.length > 0
-                    ? data.recentActivity.map(function(a) {
-                        return '<tr><td>' + (a.User ? a.User.firstName+' '+a.User.lastName : 'System') + '</td>' +
+                var _acts = (data.recentActivity && data.recentActivity.length > 0) ? data.recentActivity : [];
+                var _actHtml = '';
+                if (_acts.length > 0) {
+                    for (var _acti = 0; _acti < _acts.length; _acti++) {
+                        var a = _acts[_acti];
+                        _actHtml += '<tr><td>' + (a.User ? a.User.firstName+' '+a.User.lastName : 'System') + '</td>' +
                                '<td>' + (a.module||'') + '</td>' +
                                '<td><span class="badge bg-secondary">' + (a.action||'') + '</span></td>' +
                                '<td>' + (a.date||'&mdash;') + '</td>' +
                                '<td>' + (a.ipAddress||'&mdash;') + '</td></tr>';
-                      }).join('')
-                    : '<tr><td colspan="5" class="text-center text-muted">No recent activity</td></tr>';
+                    }
+                } else {
+                    _actHtml = '<tr><td colspan="5" class="text-center text-muted">No recent activity</td></tr>';
+                }
+                tbody.innerHTML = _actHtml;
             }
         }
     } catch(e) { console.warn('Stats refresh error:', e); }
@@ -156,10 +162,10 @@ async function loadRxPipeline() {
         }
         var stepsHtml = '<div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#888;margin-bottom:10px">Workflow Step Breakdown &mdash; RX records waiting at each step</div>' +
             '<div style="display:flex;flex-direction:column;gap:8px">' +
-            d.stepBreakdown.map(function(step, i) {
+            (function(){ var _sd=''; d.stepBreakdown.forEach(function(step, i) {
                 var color = COLORS[i % COLORS.length];
                 var barPct = d.inProgress > 0 ? Math.round((step.count / d.inProgress) * 100) : 0;
-                return '<div style="display:flex;align-items:center;gap:12px">' +
+                _sd += '<div style="display:flex;align-items:center;gap:12px">' +
                     '<div style="flex-shrink:0;width:22px;height:22px;border-radius:50%;background:' + color + '22;display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;color:' + color + '">' + (i+1) + '</div>' +
                     '<div style="flex-shrink:0;width:160px;font-size:.82rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="' + (step.name||'') + '">' + (step.name||'') + '</div>' +
                     '<div style="flex:1;height:8px;border-radius:4px;background:rgba(0,0,0,.07);overflow:hidden">' +
@@ -167,7 +173,7 @@ async function loadRxPipeline() {
                     '</div>' +
                     '<div style="flex-shrink:0;width:32px;text-align:right;font-size:.82rem;font-weight:600;color:' + color + '">' + step.count + '</div>' +
                 '</div>';
-            }).join('') +
+            }); return _sd; })() +
             '</div>';
         if (d.completed > 0) {
             var completedPct = d.total > 0 ? Math.round(d.completed / d.total * 100) : 0;
@@ -254,7 +260,7 @@ function renderDrilldownTable(type, data) {
                     '<th>Patient ID</th><th>Name</th><th>DOB</th><th>Phone</th>' +
                     '<th>Service Date</th><th>Clinic</th><th>Patient Transport</th><th>Pharmacy Transport</th>' +
                 '</tr></thead>' +
-                '<tbody>' + data.map(function(p) {
+                '<tbody>' + (function(){ var _dp=''; data.forEach(function(p) {
                     return '<tr>' +
                         '<td><code>' + (p.patientCode || p.id) + '</code></td>' +
                         '<td><strong>' + (p.firstName||'') + ' ' + (p.lastName||'') + '</strong></td>' +
@@ -265,7 +271,7 @@ function renderDrilldownTable(type, data) {
                         '<td>' + (p.PatientTransportCompany ? (p.PatientTransportCompany.contactPerson||p.PatientTransportCompany.companyName||'&mdash;') : '&mdash;') + '</td>' +
                         '<td>' + (p.PharmacyTransportCompany ? (p.PharmacyTransportCompany.contactPerson||p.PharmacyTransportCompany.companyName||'&mdash;') : '&mdash;') + '</td>' +
                     '</tr>';
-                }).join('') + '</tbody>' +
+                }); return _dp; })() + '</tbody>' +
             '</table>' +
             '</div>' +
             '<small class="text-muted">' + data.length + ' records</small>';
@@ -276,10 +282,10 @@ function renderDrilldownTable(type, data) {
                     '<th>RX #</th><th>Patient</th><th>Patient ID</th>' +
                     '<th>Pharmacy</th><th>Arrival Date</th><th>Service Date</th><th>Workflow Progress</th>' +
                 '</tr></thead>' +
-                '<tbody>' + data.map(function(rx) {
+                '<tbody>' + (function(){ var _drx=''; data.forEach(function(rx) {
                     var steps = (rx.RXWorkflowTrackings || []).length;
                     var pct = steps > 0 ? Math.round(steps / Math.max(steps, 1) * 100) : 0;
-                    return '<tr>' +
+                    _drx += '<tr>' +
                         '<td><strong>#' + rx.id + '</strong></td>' +
                         '<td>' + (rx.Patient ? rx.Patient.firstName+' '+rx.Patient.lastName : '&mdash;') + '</td>' +
                         '<td><code>' + (rx.Patient ? (rx.Patient.patientCode||rx.patientId) : rx.patientId) + '</code></td>' +
@@ -288,7 +294,7 @@ function renderDrilldownTable(type, data) {
                         '<td>' + (rx.serviceDate||'&mdash;') + '</td>' +
                         '<td><div class="progress" style="height:8px;min-width:60px"><div class="progress-bar bg-primary" style="width:' + pct + '%"></div></div><small>' + steps + ' step(s) completed</small></td>' +
                     '</tr>';
-                }).join('') + '</tbody>' +
+                }); return _drx; })() + '</tbody>' +
             '</table>' +
             '</div>' +
             '<small class="text-muted">' + data.length + ' records</small>';

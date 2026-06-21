@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en" data-theme="light">
 <head>
     <meta charset="UTF-8">
@@ -295,6 +295,7 @@
 <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index:1100"></div>
 
 <script src="/assets/bootstrap.bundle.min.js"></script>
+<a id="xa-base" href="/login" style="display:none"></a>
 <script src="/js/base.js"></script>
 <script src="/js/app.js"></script>
 <script src="/js/help.js"></script>
@@ -319,7 +320,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('backToPatients').href = '/patients';
 
     try {
-        const res = await fetchWithAuth('/api/patients/' + _ptId + '/timeline');
+        const res = await fetchWithAuth(window.rxUrl('/api/patients/') + _ptId + '/timeline');
         if (!res || !res.ok) throw new Error('Failed to load');
         const data = await res.json();
         renderTimeline(data);
@@ -446,7 +447,7 @@ function renderTimeline({ patient, rxRecords, workflowActions }) {
         <div class="tl-entry" id="${entryId}">
             <div class="tl-dot ${dotClass}">${dotIcon}</div>
             <div class="tl-card">
-                <div class="tl-card-header" onclick="toggleTlCard('${bodyId}', this)">
+                <div class="tl-card-header" data-tl-toggle="${bodyId}">
                     <div class="d-flex align-items-center gap-3 flex-grow-1 flex-wrap">
                         <div class="tl-date-badge">
                             <i class="fas fa-calendar-alt me-1"></i>${rx.serviceDate ? formatDate(rx.serviceDate) : 'No service date'}
@@ -552,7 +553,7 @@ function formatDate(d) {
     async function acquireLock() {
         if (!_ptId) return;
         try {
-            const res = await fetchWithAuth('/api/patient-locks/' + _ptId + '/acquire', { method: 'POST' });
+            const res = await fetchWithAuth(window.rxUrl('/api/patient-locks/') + _ptId + '/acquire', { method: 'POST' });
             if (res && res.ok) {
                 const { others } = await res.json();
                 updateViewerBanner(others);
@@ -563,7 +564,7 @@ function formatDate(d) {
     async function heartbeat() {
         if (!_ptId) return;
         try {
-            const res = await fetchWithAuth('/api/patient-locks/' + _ptId + '/heartbeat', { method: 'POST' });
+            const res = await fetchWithAuth(window.rxUrl('/api/patient-locks/') + _ptId + '/heartbeat', { method: 'POST' });
             if (res && res.ok) {
                 const { others } = await res.json();
                 updateViewerBanner(others);
@@ -622,6 +623,13 @@ function formatDate(d) {
     // Release when navigating away within the SPA
     window.addEventListener('pagehide', releaseLock);
 })();
+
+
+    // Event delegation for patient-timeline
+    document.addEventListener('click', function(e) {
+        var el = e.target.closest('[data-tl-toggle]');
+        if (el) toggleTlCard(el.dataset.tlToggle, el);
+    });
 
 </script>
 </body>

@@ -159,19 +159,22 @@ async function loadCrudData(moduleName, apiEndpoint) {
         // This is a simplification for the foundational phase.
         if (data.length > 0) {
             const headers = Object.keys(data[0]).filter(k => k !== 'passwordHash');
-            document.getElementById('tableHeaders').innerHTML = headers.map(h => `<th>${h}</th>`).join('') + '<th>Actions</th>';
+            var _hHtml = ''; for (var _hi = 0; _hi < headers.length; _hi++) { _hHtml += '<th>' + headers[_hi] + '</th>'; }
+            document.getElementById('tableHeaders').innerHTML = _hHtml + '<th>Actions</th>';
             
-            document.getElementById('tableBody').innerHTML = data.map(row => {
-                let rowHtml = '<tr>';
-                headers.forEach(h => {
-                    rowHtml += `<td>${typeof row[h] === 'object' && row[h] !== null ? row[h].name || row[h].companyName || 'Obj' : row[h]}</td>`;
+            var _tHtml = ''; for (var _tri = 0; _tri < data.length; _tri++) {
+                var row = data[_tri];
+                var rowHtml = '<tr>';
+                headers.forEach(function(h) {
+                    rowHtml += '<td>' + (typeof row[h] === 'object' && row[h] !== null ? row[h].name || row[h].companyName || 'Obj' : row[h]) + '</td>';
                 });
-                rowHtml += `<td>
-                    <button class="btn btn-sm btn-info" onclick="editRecord('${row.id}')"><i class="fas fa-edit"></i></button>
-                    <button class="btn btn-sm btn-danger" onclick="deleteRecord('${row.id}', '${apiEndpoint}')"><i class="fas fa-trash"></i></button>
-                </td></tr>`;
-                return rowHtml;
-            }).join('');
+                rowHtml += '<td>' +
+                    '<button class="btn btn-sm btn-info" data-edit-id="' + row.id + '"><i class="fas fa-edit"></i></button> ' +
+                    '<button class="btn btn-sm btn-danger" data-del-id="' + row.id + '" data-del-ep="' + apiEndpoint + '"><i class="fas fa-trash"></i></button>' +
+                    '</td></tr>';
+                _tHtml += rowHtml;
+            }
+            document.getElementById('tableBody').innerHTML = _tHtml;
         } else {
             document.getElementById('tableBody').innerHTML = '<tr><td colspan="100%" class="text-center">No records found.</td></tr>';
         }

@@ -175,7 +175,7 @@ var allPatients = [];
             document.getElementById('exportModalCount').textContent =
                 'Exporting ' + filteredPatients.length + ' record' + (filteredPatients.length !== 1 ? 's' : '') + ' matching current filters';
             const list = document.getElementById('exportColList');
-            list.innerHTML = EXPORT_COLS.map(function(c) {
+            var _ecHtml=''; for(var _eci=0;_eci<EXPORT_COLS.length;_eci++){var c=EXPORT_COLS[_eci]; _ecHtml+=(function(){
                 return '<div class="col-6">' +
                     '<label class="d-flex align-items-center gap-2 p-2 rounded" style="border:1px solid var(--border-color,#dee2e6);cursor:pointer" id="ecWrap_' + c.key + '">' +
                         '<input type="checkbox" class="form-check-input mt-0" id="ec_' + c.key + '" ' + (_exportColState[c.key] ? 'checked' : '') +
@@ -183,7 +183,7 @@ var allPatients = [];
                         '<span class="small">' + c.label + '</span>' +
                     '</label>' +
                 '</div>';
-            }).join('');
+            })(); } list.innerHTML = _ecHtml;
             EXPORT_COLS.forEach(c => updateEcStyle(c.key));
             new bootstrap.Modal(document.getElementById('exportColumnsModal')).show();
         }
@@ -777,7 +777,7 @@ var allPatients = [];
                 (np2.canAdd ? 'No notes yet. Add the first one above.' : 'No notes yet.') + '</p>';
             return;
         }
-        container.innerHTML = notes.map(n => {
+        var _notesHtml=''; for(var _ni=0;_ni<notes.length;_ni++){var n=notes[_ni]; _notesHtml+=(function(){
             const author = n.Author ? (n.Author.firstName + ' ' + n.Author.lastName) : 'System';
             const dt = new Date(n.createdAt);
             const dateStr = dt.toLocaleDateString() + ' ' + dt.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
@@ -800,7 +800,7 @@ var allPatients = [];
                     '<p class="mb-0 mt-2" style="white-space:pre-wrap;font-size:.9rem">' + n.note.replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</p>' +
                 '</div>' +
             '</div>';
-        }).join('');
+        })(); } container.innerHTML = _notesHtml;
 
         // Activate Bootstrap tooltips on lock icons
         container.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => {
@@ -944,24 +944,29 @@ var allPatients = [];
 
             const actions = (rx.Medications || []);
             const actionsHtml = actions.length
-                ? actions.map(a => '<span style="display:inline-block;background:#e8f0fe;color:#1a2234;border-radius:4px;padding:1px 7px;font-size:.75rem;margin:1px 3px 1px 0">' + a.name + (a.quantity > 1 ? ' \u00d7'+a.quantity : '') + (a.notes ? ' \u2014 '+a.notes : '') + '</span>').join('')
+                ? (function(){var _ax=''; actions.forEach(function(a){_ax+='<span style="display:inline-block;background:#e8f0fe;color:#1a2234;border-radius:4px;padding:1px 7px;font-size:.75rem;margin:1px 3px 1px 0">' + a.name + (a.quantity > 1 ? ' \u00d7'+a.quantity : '') + (a.notes ? ' \u2014 '+a.notes : '') + '</span>';}); return _ax;})()
                 : '<span style="color:#888;font-size:.78rem">None recorded</span>';
 
-            const wfHtml = allWA.length === 0
-                ? '<tr><td colspan="3" style="color:#888;padding:4px 0;font-size:.78rem">No workflow steps defined.</td></tr>'
-                : allWA.map(function(wa, idx) {
-                    const t = trackMap[wa.id];
-                    const done = !!t;
-                    const dateStr = t && t.completionDate ? fmtDt(t.completionDate) : '';
-                    const byStr = t && t.User ? ' \u2014 ' + t.User.firstName + ' ' + t.User.lastName : '';
-                    return '<tr>' +
+            var wfHtml;
+            if (allWA.length === 0) {
+                wfHtml = '<tr><td colspan="3" style="color:#888;padding:4px 0;font-size:.78rem">No workflow steps defined.</td></tr>';
+            } else {
+                wfHtml = '';
+                for (var _wfi = 0; _wfi < allWA.length; _wfi++) {
+                    var wa = allWA[_wfi]; var idx = _wfi;
+                    var t = trackMap[wa.id];
+                    var done = !!t;
+                    var dateStr = t && t.completionDate ? fmtDt(t.completionDate) : '';
+                    var byStr = t && t.User ? ' \u2014 ' + t.User.firstName + ' ' + t.User.lastName : '';
+                    wfHtml += '<tr>' +
                         '<td style="padding:3px 6px;width:20px;text-align:center">' +
                           '<span style="display:inline-block;width:16px;height:16px;border-radius:50%;background:' + (done?'#198754':'#dee2e6') + ';color:#fff;font-size:.62rem;line-height:16px;text-align:center">' + (done?'\u2713':'') + '</span>' +
                         '</td>' +
                         '<td style="padding:3px 6px;font-size:.8rem;color:' + (done?'#1a2234':'#888') + ';font-weight:' + (done?'600':'400') + '">' + (idx+1) + '. ' + wa.name + '</td>' +
                         '<td style="padding:3px 6px;font-size:.75rem;color:' + (done?'#1a2234':'#aaa') + ';white-space:nowrap">' + (done ? dateStr + byStr : 'Pending') + '</td>' +
                     '</tr>';
-                }).join('');
+                }
+            }
 
             if (style === 'card') {
                 return '<div style="margin-bottom:20px;border:1px solid #e9ecef;border-radius:8px;overflow:hidden;font-size:.82rem">' +
@@ -1021,13 +1026,12 @@ var allPatients = [];
             '</div>' +
           '</div>' +
           '<div style="padding:24px 28px;display:grid;grid-template-columns:1fr 1fr;gap:14px 32px;border-bottom:1px solid #e9ecef">' +
-            [['📅 Date of Birth',p.dob||'\u2014'],['📞 Phone',p.phone||'\u2014'],['📅 Service Date',p.serviceDate||'\u2014'],['🏥 Clinic',clinic],['🏠 Address',p.address||'\u2014'],['🚐 Patient Transport',ptComp],['💊 Pharmacy Transport',phComp]]
-            .map(function(r){ return '<div><div style="font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#888;margin-bottom:3px">'+r[0]+'</div><div style="font-size:.9rem;color:#1a2234">'+r[1]+'</div></div>'; }).join('') +
+(function(){ var _fd=''; var _farr=[['📅 Date of Birth',p.dob||'\u2014'],['📞 Phone',p.phone||'\u2014'],['📅 Service Date',p.serviceDate||'\u2014'],['🏥 Clinic',clinic],['🏠 Address',p.address||'\u2014'],['🚐 Patient Transport',ptComp],['💊 Pharmacy Transport',phComp]]; for(var _fi=0;_fi<_farr.length;_fi++){ var r=_farr[_fi]; _fd+='<div><div style="font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#888;margin-bottom:3px">'+r[0]+'</div><div style="font-size:.88rem">'+r[1]+'</div></div>'; } return _fd;})() +
           '</div>' +
           (p.notes ? '<div style="margin:16px 28px;padding:12px 16px;background:#fffbea;border-left:4px solid #f5a623;border-radius:4px;font-size:.85rem;color:#7a5800"><strong>📝 Notes:</strong><br>' + p.notes.replace(/\n/g,'<br>') + '</div>' : '') +
           '<div style="padding:0 28px 28px">' +
             '<div style="font-size:.8rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#888;margin:20px 0 12px">RX Records (' + patientRx.length + ')</div>' +
-            (patientRx.length ? patientRx.map(function(rx){ return buildRxBlock(rx,'card'); }).join('') : '<p style="color:#888;font-size:.85rem">No RX records found.</p>') +
+            (patientRx.length ? (function(){var _rx=''; patientRx.forEach(function(rx){_rx+=buildRxBlock(rx,'card');}); return _rx;})() : '<p style="color:#888;font-size:.85rem">No RX records found.</p>') +
           '</div>' +
         '</div>';
 
@@ -1051,7 +1055,7 @@ var allPatients = [];
             '<thead><tr style="background:#1a2234;color:#fff">' +
               '<th style="padding:7px 8px">RX #</th><th style="padding:7px 8px">Arrival</th><th style="padding:7px 8px">Service</th><th style="padding:7px 8px">Pharmacy</th><th style="padding:7px 8px">Status</th>' +
             '</tr></thead>' +
-            '<tbody>' + (patientRx.length ? patientRx.map(function(rx){ return buildRxBlock(rx,'classic'); }).join('') : '<tr><td colspan="5" style="text-align:center;color:#888">No RX records found.</td></tr>') + '</tbody>' +
+            '<tbody>' + (patientRx.length ? (function(){var _rxc=''; patientRx.forEach(function(rx){_rxc+=buildRxBlock(rx,'classic');}); return _rxc;})() : '<tr><td colspan="5" style="text-align:center;color:#888">No RX records found.</td></tr>') + '</tbody>' +
             '</table>'
           : '<p style="color:#888">No RX records found.</p>') +
         '</div>';
@@ -1170,16 +1174,17 @@ var allPatients = [];
             srchPharmacyTransport: 'Pharmacy Transport', srchServiceFrom: 'From',
             srchServiceTo: 'To'
         };
-        chipsEl.innerHTML = [...basicIds, ...advancedIds, 'srchStatus','srchClinic']
-            .filter(id => { const el = document.getElementById(id); return el && el.value; })
-            .map(id => {
+        var _chipIds = [...basicIds, ...advancedIds, 'srchStatus','srchClinic']
+            .filter(id => { const el = document.getElementById(id); return el && el.value; });
+        var _chHtml = '';
+        for(var _chi=0;_chi<_chipIds.length;_chi++){var id=_chipIds[_chi]; _chHtml+=(function(){
                 const el  = document.getElementById(id);
                 const val = el.tagName === 'SELECT' ? el.options[el.selectedIndex].text : el.value;
                 return '<span class="badge" style="background:rgba(74,144,226,.12);color:#4a90e2;font-size:.72rem;font-weight:500;border:1px solid rgba(74,144,226,.25);border-radius:20px;padding:3px 10px">' +
                     (CHIP_LABELS[id]||id) + ': ' + val +
                     '<i class="fas fa-times ms-1" style="cursor:pointer" onclick="clearOneFilter(\'' + id + '\')"></i>' +
                 '</span>';
-            }).join('');
+            })(); } chipsEl.innerHTML = _chHtml;
     }
 
     function clearOneFilter(id) {

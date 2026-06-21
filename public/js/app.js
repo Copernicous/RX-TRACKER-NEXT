@@ -186,7 +186,7 @@ function setupGlobalSearch() {
         dropdown.innerHTML = '<p class="text-center text-muted small py-3 mb-0"><i class="fas fa-spinner fa-spin me-1"></i>Searching\u2026</p>';
         dropdown.style.display = 'block';
         try {
-            var _uSearch = '/api/search?q=' + encodeURIComponent(q);
+            var _uSearch = window.rxUrl('/api/search') + '?q=' + encodeURIComponent(q);
             const res = await fetchWithAuth(_uSearch);
             if (!res || !res.ok) { dropdown.innerHTML = '<p class="text-danger small text-center py-2 mb-0">Search error</p>'; return; }
             const data = await res.json();
@@ -294,7 +294,7 @@ function setupGlobalSearch() {
 function checkAuth() {
     const token = localStorage.getItem('token');
     if (!token) {
-        window.location.href = '/login';
+        window.rxNav('/login');
         return;
     }
     try {
@@ -379,7 +379,7 @@ function checkAuth() {
         if (currentPermKey) {
             const perm = permissions[currentPermKey] || { visible: true, readOnly: false };
             if (!perm.visible) {
-                window.location.href = '/dashboard';
+                window.rxNav('/dashboard');
                 return;
             }
         }
@@ -397,7 +397,7 @@ function setupLogout() {
         try {
             const token = localStorage.getItem('token');
             if (token) {
-                await fetch('/api/auth/logout', {
+                await fetch(window.rxUrl('/api/auth/logout'), {
                     method: 'POST',
                     credentials: 'include',
                     headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' }
@@ -409,7 +409,7 @@ function setupLogout() {
         // Clear the server-side session cookie using the same attributes as it was set with.
         const secure = window.location.protocol === 'https:' ? '; Secure' : '';
         document.cookie = 'rxToken=; path=/; max-age=0; SameSite=None' + secure;
-        window.location.href = '/login';
+        window.rxNav('/login');
     });
 }
 
@@ -451,14 +451,14 @@ function setupSessionTimeout() {
     async function performLogout() {
         try {
             const token = localStorage.getItem('token');
-            if (token) await fetch('/api/auth/logout', {
+            if (token) await fetch(window.rxUrl('/api/auth/logout'), {
                 method: 'POST',
                 headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' }
             });
         } catch(e) {}
         localStorage.removeItem('token');
         localStorage.removeItem('user');
-        window.location.href = '/login?reason=timeout';
+        window.rxNav('/login?reason=timeout');
     }
 
     function showWarning() {
@@ -516,7 +516,7 @@ async function fetchWithAuth(url, options = {}) {
     if (res.status === 401) {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
-        window.location.href = '/login';
+        window.rxNav('/login');
         return null;
     }
     // 403 = authenticated but forbidden
@@ -814,16 +814,19 @@ function renderTable() {
     var thead = document.getElementById('tableHeaders');
     if (thead) {
         var actionHeader = (p.canEdit || p.canDelete) ? '<th>Actions</th>' : '';
-        thead.innerHTML = '<tr>' + hdrs.map(function(h, i) {
-            var colKey = cols[i];
+        var _thHtml = '';
+        for (var _thi = 0; _thi < hdrs.length; _thi++) {
+            var h = hdrs[_thi];
+            var colKey = cols[_thi];
             var icon = '';
             if (crudState.sortCol === colKey) {
                 icon = crudState.sortDir === 'asc' ? ' <i class="fas fa-sort-up"></i>' : ' <i class="fas fa-sort-down"></i>';
             } else {
                 icon = ' <i class="fas fa-sort text-muted" style="opacity:0.3"></i>';
             }
-            return '<th style="cursor:pointer" onclick="crudSortTable(\'' + colKey + '\')">' + h + icon + '</th>';
-        }).join('') + actionHeader + '</tr>';
+            _thHtml += '<th style="cursor:pointer" onclick="crudSortTable(\'' + colKey + '\')">' + h + icon + '</th>';
+        }
+        thead.innerHTML = '<tr>' + _thHtml + actionHeader + '</tr>';
     }
 
     // Body
@@ -833,10 +836,10 @@ function renderTable() {
     if (pageData.length === 0) {
         tbody.innerHTML = '<tr><td colspan="' + (cols.length + (p.canEdit || p.canDelete ? 1 : 0)) + '" class="text-center text-muted py-4">No records found.</td></tr>';
     } else {
-        tbody.innerHTML = pageData.map(function(row) {
+        var _rowsHtml=''; for(var _ri2=0;_ri2<pageData.length;_ri2++){var row=pageData[_ri2]; _rowsHtml+=(function(){
             var isInactive = isSoftDelete && row.isActive === false;
             var rowClass = isInactive ? ' class="table-secondary text-muted"' : '';
-            var cells = cols.map(function(col) {
+            var _cells=''; for(var _ci=0;_ci<cols.length;_ci++){var col=cols[_ci]; _cells+=(function(){
                 var val = row[col];
                 if (col === 'isActive' && isSoftDelete && isInactive) {
                     return '<td><span class="badge bg-secondary">Disabled</span></td>';
@@ -850,7 +853,7 @@ function renderTable() {
                     return '<td title="' + strVal.replace(/"/g, '&quot;') + '">' + strVal.substring(0, 60) + '\u2026</td>';
                 }
                 return '<td>' + strVal + '</td>';
-            }).join('');
+            })(); } var cells=_cells;
             var actionCell = '';
             if (p.canEdit || p.canDelete) {
                 if (isSoftDelete && isInactive) {
@@ -866,7 +869,7 @@ function renderTable() {
                 }
             }
             return '<tr' + rowClass + '>' + cells + actionCell + '</tr>';
-        }).join('');
+        })(); } tbody.innerHTML=_rowsHtml;
     }
 
     // Hide / show export & add buttons based on permissions
@@ -970,7 +973,7 @@ function openModal(id) {
     if (!config) {
         form.innerHTML = '<p class="text-muted">No form configuration available for this module.</p>';
     } else {
-        var fieldsHtml = config.fields.map(function(f) {
+        var _flds=config.fields; var fieldsHtml=''; for(var _fi=0;_fi<_flds.length;_fi++){var f=_flds[_fi]; fieldsHtml+=(function(){
             var val = existingData ? (existingData[f.key] !== undefined ? existingData[f.key] : '') : (f.default !== undefined ? f.default : '');
             if (f.type === 'checkbox') {
                 return '<div class="mb-3 form-check">' +
@@ -985,10 +988,10 @@ function openModal(id) {
                     '</div>';
             }
             if (f.type === 'select') {
-                var optionsHtml = (f.options || []).map(function(opt) {
+                var _opts=f.options||[]; var optionsHtml=''; for(var _oi=0;_oi<_opts.length;_oi++){var opt=_opts[_oi]; optionsHtml+=(function(){
                     var selected = String(val) === String(opt.value) ? ' selected' : '';
                     return '<option value="' + opt.value + '"' + selected + '>' + opt.label + '</option>';
-                }).join('');
+                })(); }
                 return '<div class="mb-3">' +
                     '<label for="field_' + f.key + '" class="form-label">' + f.label + (f.required ? ' <span class="text-danger">*</span>' : '') + '</label>' +
                     '<select class="form-select" id="field_' + f.key + '" name="' + f.key + '"' + (f.required ? ' required' : '') + '>' +
@@ -1007,7 +1010,7 @@ function openModal(id) {
                 '<label for="field_' + f.key + '" class="form-label">' + f.label + (f.required ? ' <span class="text-danger">*</span>' : '') + '</label>' +
                 '<input type="' + f.type + '" class="form-control" id="field_' + f.key + '" name="' + f.key + '" value="' + (val !== null && val !== undefined ? val : '') + '"' + (f.required ? ' required' : '') + '>' +
                 '</div>';
-        }).join('');
+        })(); }
 
         if (crudState.module === 'users') {
             // Permissions are now role-based — no per-user granular override needed.
@@ -1170,14 +1173,14 @@ function showDuplicateWarning(duplicates, newPatient) {
         const existing = document.getElementById('dupWarnModal');
         if (existing) existing.remove();
 
-        const rows = duplicates.map(function(d) {
+        var _dups=duplicates; var _dupHtml=''; for(var _di=0;_di<_dups.length;_di++){var d=_dups[_di]; _dupHtml+=(function(){
             return '<tr>' +
                 '<td><code>' + (d.patientCode || '') + '</code></td>' +
                 '<td>' + (d.firstName || '') + ' ' + (d.lastName || '') + '</td>' +
                 '<td>' + (d.dob || '-') + '</td>' +
                 '<td>' + (d.phone || '-') + '</td>' +
             '</tr>';
-        }).join('');
+        })(); } var rows=_dupHtml;
 
         const div = document.createElement('div');
         div.innerHTML = '<div class="modal fade" id="dupWarnModal" tabindex="-1" data-bs-backdrop="static">' +
@@ -1401,18 +1404,18 @@ async function renderRolePermissionsMatrix(containerId) {
     }
 
     var lastGroup = '';
-    var rows = moduleLabels.map(function(m) {
+    var _mls=moduleLabels; var rows=''; for(var _mli=0;_mli<_mls.length;_mli++){var m=_mls[_mli]; rows+=(function(){
         var groupRow = '';
         if (m.group !== lastGroup) {
             lastGroup = m.group;
             var groupColors = { 'Core': '#0d6efd', 'Admin': '#fd7e14', 'Settings': '#6c757d', 'Admin-Only': '#dc3545' };
             groupRow = '<tr style="background:rgba(255,255,255,.03)"><td colspan="' + (roles.length + 1) + '" class="fw-bold py-1 px-3" style="font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;color:' + (groupColors[m.group] || '#aaa') + '">' + m.group + '</td></tr>';
         }
-        var cells = roles.map(function(r) {
+        var _rcells=''; for(var _rci=0;_rci<roles.length;_rci++){var r=roles[_rci]; _rcells+=(function(){
             return cellHTML(matrix[r] && matrix[r][m.key]);
-        }).join('');
+        })(); } var cells=_rcells;
         return groupRow + '<tr><td class="ps-3 fw-semibold" style="font-size:.85rem;white-space:nowrap">' + m.label + '</td>' + cells + '</tr>';
-    }).join('');
+    })(); }
 
     var legend = '<div class="d-flex flex-wrap gap-3 mt-3 small text-muted">' +
         '<span>' + badge(true,'edit','primary') + ' Can Edit / Add</span>' +
@@ -1427,11 +1430,11 @@ async function renderRolePermissionsMatrix(containerId) {
         '<table class="table table-bordered table-sm align-middle mb-0" style="font-size:.82rem">' +
         '<thead class="table-dark"><tr>' +
         '<th style="min-width:160px">Module / Section</th>' +
-        roles.map(function(r) {
+        (function(){var _rh=''; roles.forEach(function(r){
             var icons = { 'Administrator': 'fa-shield-alt', 'Supervisor': 'fa-user-tie', 'Operator': 'fa-user-cog', 'Read Only': 'fa-user-lock' };
             var colors = { 'Administrator': '#f59e0b', 'Supervisor': '#60a5fa', 'Operator': '#34d399', 'Read Only': '#9ca3af' };
-            return '<th class="text-center" style="width:115px;color:' + colors[r] + '"><i class="fas ' + icons[r] + ' me-1"></i>' + r + '</th>';
-        }).join('') +
+            _rh+='<th class="text-center" style="width:115px;color:' + colors[r] + '"><i class="fas ' + icons[r] + ' me-1"></i>' + r + '</th>';
+        }); return _rh;})() +
         '</tr></thead><tbody>' + rows + '</tbody></table></div>' + legend;
 }
 
@@ -1798,7 +1801,7 @@ async function fetchNotifications() {
     try {
         var token = localStorage.getItem('token');
         if (!token) return;
-        var res = await fetch('/api/audit-logs?limit=20&page=1', {
+        var res = await fetch(window.rxUrl('/api/audit-logs?limit=20&page=1'), {
             headers: { 'Authorization': 'Bearer ' + token }
         });
         if (!res.ok) return;
@@ -1830,7 +1833,7 @@ function renderNotifications() {
         list.innerHTML = '<p style="text-align:center;color:#888;padding:24px 0;font-size:.85rem"><i class="fas fa-check-circle me-2 text-success"></i>No recent activity</p>';
         return;
     }
-    list.innerHTML = _notifData.map(function(n) {
+    var _nfHtml=''; for(var _nfi=0;_nfi<_notifData.length;_nfi++){var n=_notifData[_nfi]; _nfHtml+=(function(){
         var meta    = NOTIF_ICONS[n.action] || { icon: 'fa-info-circle', color: '#6c757d' };
         var user    = n.User ? (n.User.firstName + ' ' + n.User.lastName) : 'System';
         var timeStr = timeAgo(new Date(n.createdAt));
@@ -1853,7 +1856,7 @@ function renderNotifications() {
             '</div>' +
             '<div style="font-size:.7rem;color:#aaa;flex-shrink:0;margin-left:8px;margin-top:2px">' + timeStr + '</div>' +
         '</div>';
-    }).join('');
+    })(); } list.innerHTML=_nfHtml;
 }
 
 function timeAgo(date) {

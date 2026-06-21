@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en" data-theme="light">
 <head>
     <meta charset="UTF-8">
@@ -427,12 +427,12 @@
     async function loadRxDropdowns() {
         try {
             const [pRes, phRes, ptRes, rxRes, waRes, catRes] = await Promise.all([
-                fetchWithAuth('/api/patients'),
-                fetchWithAuth('/api/pharmacies',         { silent: true }),
-                fetchWithAuth('/api/patient-transport',  { silent: true }),
-                fetchWithAuth('/api/pharmacy-transport', { silent: true }),
-                fetchWithAuth('/api/workflow-actions',   { silent: true }),
-                fetchWithAuth('/api/medication-catalog?activeOnly=true')
+                fetchWithAuth(window.rxUrl('/api/patients')),
+                fetchWithAuth(window.rxUrl('/api/pharmacies'),         { silent: true }),
+                fetchWithAuth(window.rxUrl('/api/patient-transport'),  { silent: true }),
+                fetchWithAuth(window.rxUrl('/api/pharmacy-transport'), { silent: true }),
+                fetchWithAuth(window.rxUrl('/api/workflow-actions'),   { silent: true }),
+                fetchWithAuth(window.rxUrl('/api/medication-catalog?activeOnly=true'))
             ]);
             // Guard: only parse JSON if response is OK (not 403 Access Denied)
             if (pRes   && pRes.ok)  { allPatientsList    = await pRes.json(); }
@@ -836,7 +836,7 @@
             </div>
             <div class="col-md-1">
                 <button type="button" class="btn btn-outline-danger btn-sm w-100"
-                        onclick="document.getElementById('${rowId}').remove()" title="Remove">
+                        data-remove-row="${rowId}" title="Remove">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
@@ -891,7 +891,7 @@
         }
 
         try {
-            const res = await fetchWithAuth('/api/rx-records', { method: 'POST', body: JSON.stringify(body) });
+            const res = await fetchWithAuth(window.rxUrl('/api/rx-records'), { method: 'POST', body: JSON.stringify(body) });
             if (!res) return;
             if (res.ok) {
                 bootstrap.Modal.getInstance(document.getElementById('rxModal')).hide();
@@ -917,7 +917,7 @@
         new bootstrap.Modal(document.getElementById('rxDetailModal')).show();
 
         try {
-            const res = await fetchWithAuth('/api/rx-records/' + id);
+            const res = await fetchWithAuth(window.rxUrl('/api/rx-records/') + id);
             if (!res || !res.ok) { body.innerHTML = '<p class="text-danger text-center py-4">Failed to load record.</p>'; return; }
             const rx = await res.json();
 
@@ -1032,7 +1032,7 @@
         document.getElementById('workflowBody').innerHTML = '<p class="text-muted text-center py-3">Loading...</p>';
         workflowModalInstance.show();
         try {
-            const res = await fetchWithAuth('/api/rx-records/' + rxId);
+            const res = await fetchWithAuth(window.rxUrl('/api/rx-records/') + rxId);
             if (!res) return;
             const rx = await res.json();
             const completedIds = (rx.RXWorkflowTrackings || []).map(t => t.workflowActionId);
@@ -1128,7 +1128,7 @@
     }
 
     async function completeStep(rxId, actionId) {
-        const res = await fetchWithAuth('/api/rx-records/workflow', { method: 'POST', body: JSON.stringify({ rxId, actionId }) });
+        const res = await fetchWithAuth(window.rxUrl('/api/rx-records/workflow'), { method: 'POST', body: JSON.stringify({ rxId, actionId }) });
         if (!res) return;
         if (res.ok) { showToast('Step completed!', 'success'); await openWorkflow(rxId); await loadRxRecords(); }
         else { const err = await res.json(); showToast(err.error || 'Failed', 'danger'); }
@@ -1136,7 +1136,7 @@
 
     async function undoStep(rxId) {
         if (!confirm('Are you sure you want to undo the last workflow step?')) return;
-        const res = await fetchWithAuth('/api/rx-records/undo-workflow', { method: 'POST', body: JSON.stringify({ rxId }) });
+        const res = await fetchWithAuth(window.rxUrl('/api/rx-records/undo-workflow'), { method: 'POST', body: JSON.stringify({ rxId }) });
         if (!res) return;
         if (res.ok) { showToast('Workflow step undone.', 'success'); await openWorkflow(rxId); await loadRxRecords(); }
         else { const err = await res.json(); showToast(err.error || 'Undo failed', 'danger'); }
@@ -1153,7 +1153,7 @@
         const orig = btn.innerHTML;
         btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Processing...';
         try {
-            const res = await fetchWithAuth('/api/rx-records/return-to-warehouse', {
+            const res = await fetchWithAuth(window.rxUrl('/api/rx-records/return-to-warehouse'), {
                 method: 'POST',
                 body: JSON.stringify({ rxId, note })
             });
@@ -1175,13 +1175,13 @@
 
     async function deleteRx(id) {
         if (!confirm('Hide this RX record? You can restore it later from "Show Hidden Records".')) return;
-        const res = await fetchWithAuth('/api/rx-records/' + id, { method: 'DELETE' });
+        const res = await fetchWithAuth(window.rxUrl('/api/rx-records/') + id, { method: 'DELETE' });
         if (res && res.ok) { showToast('RX Record hidden.', 'success'); await loadRxRecords(); }
         else showToast('Failed to hide record.', 'danger');
     }
 
     async function restoreRx(id) {
-        const res = await fetchWithAuth('/api/rx-records/' + id + '/restore', { method: 'PUT' });
+        const res = await fetchWithAuth(window.rxUrl('/api/rx-records/') + id + '/restore', { method: 'PUT' });
         if (res && res.ok) { showToast('RX Record restored.', 'success'); await loadRxRecords(); }
         else showToast('Restore failed.', 'danger');
     }
@@ -1193,7 +1193,7 @@
         const modal = new bootstrap.Modal(document.getElementById('rxHistoryModal'));
         modal.show();
 
-        const res = await fetchWithAuth('/api/rx-records/' + rxId + '/history');
+        const res = await fetchWithAuth(window.rxUrl('/api/rx-records/') + rxId + '/history');
         if (!res || !res.ok) {
             body.innerHTML = '<p class="text-center text-danger py-4">Failed to load history.</p>';
             return;
@@ -1461,10 +1461,17 @@
             <style>${css}</style></head>
             <body>${content.outerHTML}
             <script>window.onload=function(){window.print();}<\/script>
-            </body></html>`);
+</body></html>`);
         win.document.close();
         win.focus();
     }
+
+    // Remove row button delegation
+    document.addEventListener('click', function(e) {
+        var el = e.target.closest('[data-remove-row]');
+        if (el) { var row = document.getElementById(el.dataset.removeRow); if (row) row.remove(); }
+    });
+
 </script>
 </body>
 </html>

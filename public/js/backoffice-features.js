@@ -1,3 +1,6 @@
+/* FortiGate compat: use var instead of literal '' */
+var _EMPTY_JOIN = '';
+
 // ══════════════════════════════════════════════════════════════════════════
 // SYSTEM SETTINGS JS
 // ══════════════════════════════════════════════════════════════════════════
@@ -77,11 +80,11 @@ async function loadBackups() {
                         </div>
                     </div>
                     <div style="display:flex;gap:0.4rem;flex-wrap:wrap">
-                        ${(bk.tables||[]).filter(t=>t.rows>0).map(t=>`<a href="/api/admin/backups/${bk.name}/${t.table}.csv" class="btn-bo btn-bo-outline" style="padding:0.25rem 0.5rem;font-size:0.68rem" download><i class="fas fa-download me-1"></i>${t.table}</a>`).join('')}
+                        ${(bk.tables||[]).filter(t=>t.rows>0).map(t=>`<a href="/api/admin/backups/${bk.name}/${t.table}.csv" class="btn-bo btn-bo-outline" style="padding:0.25rem 0.5rem;font-size:0.68rem" download><i class="fas fa-download me-1"></i>${t.table}</a>`).join(_EMPTY_JOIN)}
                         <button class="btn-bo btn-bo-danger" style="padding:0.3rem 0.65rem;font-size:0.72rem" onclick="deleteBackup('${bk.name}',this)"><i class="fas fa-trash-alt"></i></button>
                     </div>
                 </div>
-            </div>`).join('');
+            </div>`).join(_EMPTY_JOIN);
     } catch(e) { document.getElementById('backupList').innerHTML = `<p style="color:#fca5a5;padding:2rem">${e.message}</p>`; }
 }
 
@@ -141,15 +144,15 @@ async function loadHealth() {
                     <div style="width:36px;height:36px;border-radius:8px;background:${c.color}22;display:flex;align-items:center;justify-content:center"><i class="fas ${c.icon}" style="color:${c.color}"></i></div>
                     <span style="font-weight:700;font-size:0.85rem">${c.label}</span>
                 </div>
-                ${c.lines.map(l=>`<div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:0.25rem">${l}</div>`).join('')}
-            </div>`).join('');
+                ${c.lines.map(l=>`<div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:0.25rem">${l}</div>`).join(_EMPTY_JOIN)}
+            </div>`).join(_EMPTY_JOIN);
 
         const maxSz = Math.max(...data.tableStats.map(t=>parseInt(t.sizeBytes||0,10)),1);
         document.getElementById('healthTables').innerHTML = `
             <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden">
             <table style="width:100%;border-collapse:collapse;font-size:0.78rem">
                 <thead><tr style="background:var(--surface-2);border-bottom:1px solid var(--border)">
-                    ${['Table','Rows (~)','Size','Usage'].map(h=>`<th style="padding:0.5rem 1rem;text-align:left;color:var(--text-muted);font-size:0.68rem;text-transform:uppercase">${h}</th>`).join('')}
+                    ${['Table','Rows (~)','Size','Usage'].map(h=>`<th style="padding:0.5rem 1rem;text-align:left;color:var(--text-muted);font-size:0.68rem;text-transform:uppercase">${h}</th>`).join(_EMPTY_JOIN)}
                 </tr></thead>
                 <tbody>${data.tableStats.map(t=>{
                     const pct=Math.round((parseInt(t.sizeBytes||0,10)/maxSz)*100);
@@ -158,7 +161,7 @@ async function loadHealth() {
                         <td style="padding:0.45rem 1rem;text-align:right;color:var(--text-muted)">${parseInt(t.rowEstimate||0).toLocaleString()}</td>
                         <td style="padding:0.45rem 1rem;text-align:right;color:#a5b4fc;white-space:nowrap">${t.totalSize||'\u2014'}</td>
                         <td style="padding:0.45rem 1rem;min-width:120px"><div style="background:rgba(99,102,241,0.15);border-radius:4px;height:6px;overflow:hidden"><div style="background:#6366f1;height:100%;width:${pct}%;border-radius:4px"></div></div></td>
-                    </tr>`;}).join('')}</tbody>
+                    </tr>`;}).join(_EMPTY_JOIN)}</tbody>
             </table></div>`;
     } catch(e) { document.getElementById('healthTables').innerHTML=`<p style="color:#fca5a5;padding:2rem">${e.message}</p>`; }
 }
@@ -188,7 +191,7 @@ async function loadLocks() {
             <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden">
             <table style="width:100%;border-collapse:collapse;font-size:0.78rem">
                 <thead><tr style="background:var(--surface-2);border-bottom:1px solid var(--border)">
-                    ${['Status','Patient','Locked By','Locked At','Expires','Action'].map(h=>`<th style="padding:0.5rem 1rem;text-align:left;color:var(--text-muted);font-size:0.68rem;text-transform:uppercase">${h}</th>`).join('')}
+                    ${['Status','Patient','Locked By','Locked At','Expires','Action'].map(h=>`<th style="padding:0.5rem 1rem;text-align:left;color:var(--text-muted);font-size:0.68rem;text-transform:uppercase">${h}</th>`).join(_EMPTY_JOIN)}
                 </tr></thead>
                 <tbody>${data.locks.map(l=>{
                     const c=l.isActive?'#10b981':'#64748b';
@@ -200,7 +203,7 @@ async function loadLocks() {
                         <td style="padding:0.45rem 1rem;color:var(--text-muted);font-size:0.72rem;white-space:nowrap">${new Date(l.lockedAt).toLocaleString()}</td>
                         <td style="padding:0.45rem 1rem;color:var(--text-muted);font-size:0.72rem;white-space:nowrap">${new Date(l.expiresAt).toLocaleString()} ${sl}</td>
                         <td style="padding:0.45rem 1rem"><button class="btn-bo btn-bo-danger" style="padding:0.25rem 0.6rem;font-size:0.7rem" onclick="releaseLock(${l.id},this)"><i class="fas fa-times me-1"></i>Release</button></td>
-                    </tr>`;}).join('')}</tbody>
+                    </tr>`;}).join(_EMPTY_JOIN)}</tbody>
             </table></div>`;
     } catch(e) { document.getElementById('locksList').innerHTML=`<p style="color:#fca5a5;padding:2rem">${e.message}</p>`; }
 }
@@ -243,7 +246,7 @@ async function loadUsers() {
             <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden">
             <table style="width:100%;border-collapse:collapse;font-size:0.78rem">
                 <thead><tr style="background:var(--surface-2);border-bottom:1px solid var(--border)">
-                    ${['User','Role','Status','Activity','Actions'].map(h=>`<th style="padding:0.5rem 1rem;text-align:left;color:var(--text-muted);font-size:0.68rem;text-transform:uppercase">${h}</th>`).join('')}
+                    ${['User','Role','Status','Activity','Actions'].map(h=>`<th style="padding:0.5rem 1rem;text-align:left;color:var(--text-muted);font-size:0.68rem;text-transform:uppercase">${h}</th>`).join(_EMPTY_JOIN)}
                 </tr></thead>
                 <tbody>${data.users.map(u=>{
                     const rc=ROLE_COLORS[u.roleId]||'#64748b', ac=u.isActive?'#10b981':'#ef4444';
@@ -251,7 +254,7 @@ async function loadUsers() {
                         <td style="padding:0.55rem 1rem"><div style="font-weight:600">${u.firstName||''} ${u.lastName||''}</div><div style="font-size:0.7rem;color:var(--text-muted)">@${u.username} &bull; ${u.email||'\u2014'}</div></td>
                         <td style="padding:0.55rem 1rem">
                             <select style="background:${rc}22;color:${rc};border:1px solid ${rc}44;border-radius:4px;padding:0.2rem 0.4rem;font-size:0.7rem;font-weight:700;cursor:pointer" onchange="updateUserRole(${u.id},this.value,this)">
-                                ${[1,2,3,4].map(r=>`<option value="${r}" ${r==u.roleId?'selected':''}>${ROLE_NAMES[r]}</option>`).join('')}
+                                ${[1,2,3,4].map(r=>`<option value="${r}" ${r==u.roleId?'selected':''}>${ROLE_NAMES[r]}</option>`).join(_EMPTY_JOIN)}
                             </select>
                         </td>
                         <td style="padding:0.55rem 1rem"><span style="font-size:0.65rem;font-weight:700;border-radius:4px;padding:0.15rem 0.45rem;background:${ac}22;color:${ac};border:1px solid ${ac}44">${u.isActive?'Active':'Disabled'}</span></td>
@@ -266,7 +269,7 @@ async function loadUsers() {
                                 </button>
                             </div>
                         </td>
-                    </tr>`;}).join('')}</tbody>
+                    </tr>`;}).join(_EMPTY_JOIN)}</tbody>
             </table></div>
             <div id="pwdModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;align-items:center;justify-content:center">
                 <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1.5rem;width:340px;max-width:95vw">
@@ -383,7 +386,7 @@ async function loadErrorLogs(page) {
                     <i class="fas ${c.icon}" style="color:${c.color};font-size:0.75rem"></i>
                 </div>
                 <div><div style="font-weight:700;font-size:1rem;line-height:1">${parseInt(c.val).toLocaleString()}</div><div style="font-size:0.65rem;color:var(--text-muted)">${c.label}</div></div>
-            </div>`).join('');
+            </div>`).join(_EMPTY_JOIN);
 
         if (!data.rows.length) {
             document.getElementById('errlogTable').innerHTML = '<p style="text-align:center;padding:4rem;color:var(--text-muted)"><i class="fas fa-bug" style="display:block;font-size:2rem;opacity:.3;margin-bottom:1rem"></i>No error logs match your filters.</p>';
@@ -431,7 +434,7 @@ async function loadErrorLogs(page) {
                         </td>
                     </tr>
                     ${r.stack ? `<tr id="edetail-${r.id}" style="display:none;background:rgba(0,0,0,0.3)"><td colspan="9" style="padding:0.5rem 1rem"><pre style="font-size:0.65rem;color:#fca5a5;white-space:pre-wrap;word-break:break-all;max-height:200px;overflow:auto;margin:0">${String(r.stack||'').replace(/</g,'&lt;')}</pre></td></tr>` : ''}`;
-                }).join('')}</tbody>
+                }).join(_EMPTY_JOIN)}</tbody>
             </table></div>`;
 
         // Pagination
@@ -552,7 +555,7 @@ async function doPurge() {
 }
 
 // --------------------------------------------------------------------------
-// ANALYTICS � DAILY SNAPSHOTS
+// ANALYTICS � DAILY SNAPSHOTS
 // --------------------------------------------------------------------------
 let analyticsLoaded = false;
 let anlCharts       = {};   // stores Chart instances so we can destroy/redraw
@@ -626,7 +629,7 @@ async function loadAnalytics() {
                     </div>
                     <div style="font-size:1.25rem;font-weight:700;line-height:1">${k.val}${k.delta}</div>
                     ${prev ? '<div style="font-size:0.6rem;color:var(--text-muted)">vs yesterday</div>' : ''}
-                </div>`).join('')
+                </div>`).join(_EMPTY_JOIN)
             : '<p style="color:var(--text-muted);padding:1rem">No snapshot data yet. Click <strong>Capture Now</strong> to record today\'s metrics.</p>';
 
         if (!rows.length) {
@@ -707,7 +710,7 @@ async function loadAnalytics() {
             <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:auto">
             <table style="width:100%;border-collapse:collapse;font-size:0.72rem;white-space:nowrap">
                 <thead><tr style="background:var(--surface-2);border-bottom:1px solid var(--border)">
-                    ${COLS.map(([,h])=>`<th style="padding:.4rem .75rem;color:var(--text-muted);font-size:.63rem;text-transform:uppercase;text-align:right;font-weight:600">${h}</th>`).join('')}
+                    ${COLS.map(([,h])=>`<th style="padding:.4rem .75rem;color:var(--text-muted);font-size:.63rem;text-transform:uppercase;text-align:right;font-weight:600">${h}</th>`).join(_EMPTY_JOIN)}
                     <th style="padding:.4rem .75rem;color:var(--text-muted);font-size:.63rem;text-transform:uppercase"></th>
                 </tr></thead>
                 <tbody>${allRows.map(r => `
@@ -716,13 +719,13 @@ async function loadAnalytics() {
                             const v = r[k];
                             const isDate = k==='snapshotDate';
                             const isRate = k==='workflowCompletionRate';
-                            const disp   = isRate ? (parseFloat(v)||0).toFixed(1)+'%' : (v ?? '�');
+                            const disp   = isRate ? (parseFloat(v)||0).toFixed(1)+'%' : (v ?? '�');
                             return `<td style="padding:.35rem .75rem;text-align:${isDate?'left':'right'};${isDate?'font-weight:600':'color:var(--text-muted)'}">${disp}</td>`;
-                        }).join('')}
+                        }).join(_EMPTY_JOIN)}
                         <td style="padding:.35rem .625rem;text-align:center">
                             <button class="btn-bo btn-bo-danger" style="padding:.15rem .4rem;font-size:.62rem" onclick="deleteSnapshot('${r.snapshotDate}')"><i class="fas fa-trash"></i></button>
                         </td>
-                    </tr>`).join('')}
+                    </tr>`).join(_EMPTY_JOIN)}
                 </tbody>
             </table></div>
             <div style="font-size:0.68rem;color:var(--text-muted);margin-top:.5rem;text-align:right">${rows.length} snapshot(s) in range</div>`;
@@ -786,7 +789,7 @@ function exportAnalyticsCSV() {
     if (from) p.push('from='+encodeURIComponent(from));
     if (to)   p.push('to='+encodeURIComponent(to));
     if (p.length) url += '?' + p.join('&');
-    // Open in same tab � browser will trigger download due to Content-Disposition header
+    // Open in same tab � browser will trigger download due to Content-Disposition header
     // We need auth, so fetch and create blob
     apiFetch(url).then(async r => {
         if (!r.ok) { const d=await r.json(); toast('Export failed: '+(d.error||r.status),'danger'); return; }
