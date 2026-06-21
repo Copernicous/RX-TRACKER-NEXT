@@ -42,13 +42,16 @@ app.use(helmet({
         directives: {
             defaultSrc:     ["'self'"],
             scriptSrc:      ["'self'", "'unsafe-inline'", 'cdn.jsdelivr.net', 'cdnjs.cloudflare.com'],
+            // REQUIRED: app uses inline onclick="..." handlers throughout — allow them
+            scriptSrcAttr:  ["'unsafe-inline'"],
             styleSrc:       ["'self'", "'unsafe-inline'", 'cdn.jsdelivr.net', 'cdnjs.cloudflare.com', 'fonts.googleapis.com'],
             fontSrc:        ["'self'", 'fonts.gstatic.com', 'cdnjs.cloudflare.com'],
             imgSrc:         ["'self'", 'data:', 'blob:'],
             connectSrc:     ["'self'"],
             frameSrc:       ["'none'"],
             objectSrc:      ["'none'"],
-            upgradeInsecureRequests: process.env.FORCE_HTTPS === 'true' ? [] : null
+            // Only add upgradeInsecureRequests when HTTPS is forced (Helmet rejects false/null)
+            ...(process.env.FORCE_HTTPS === 'true' ? { upgradeInsecureRequests: [] } : {})
         }
     },
     hsts: process.env.FORCE_HTTPS === 'true'
