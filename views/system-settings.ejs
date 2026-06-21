@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en" data-theme="light">
 <head>
     <script>!function(){var t=localStorage.getItem("rxTheme");if(t)document.documentElement.setAttribute("data-theme",t)}();</script>
@@ -158,6 +158,9 @@
                     </li>
                     <li class="nav-item">
                         <button class="nav-link" data-tab="manual"><i class="fas fa-book me-2"></i>Manual</button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link" data-tab="https"><i class="fas fa-lock me-2"></i>HTTPS / SSL</button>
                     </li>
                 </ul>
 
@@ -861,6 +864,278 @@
 
                 </div><!-- /tab-manual -->
 
+                <!-- ════════════════════ HTTPS / SSL WIZARD TAB ════════════════════ -->
+                <div id="tab-https" class="d-none">
+
+                    <div class="glass-card p-4 mb-4" style="background:linear-gradient(135deg,rgba(34,197,94,.08) 0%,rgba(16,185,129,.04) 100%);border-left:4px solid #22c55e;">
+                        <div class="d-flex align-items-start gap-3">
+                            <div class="setting-icon" style="background:rgba(34,197,94,.15);color:#22c55e;width:56px;height:56px;border-radius:16px;font-size:1.4rem;">
+                                <i class="fas fa-lock"></i>
+                            </div>
+                            <div class="flex-grow-1">
+                                <h4 class="mb-1 fw-bold">HTTPS / SSL Setup Wizard</h4>
+                                <p class="text-muted small mb-0">Follow each step in order. This will get <strong>rx.camperos.net</strong> running on HTTPS with a <strong>free auto-renewing Let's Encrypt certificate</strong> using Caddy &mdash; a single-file web server for Windows.</p>
+                            </div>
+                            <div class="ms-auto text-end">
+                                <div id="httpsLiveStatus" class="badge bg-secondary fs-6 px-3 py-2"><i class="fas fa-circle-notch fa-spin me-1"></i>Checking...</div>
+                                <div class="text-muted small mt-1">rx.camperos.net</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- How it works -->
+                    <div class="glass-card p-4 mb-4">
+                        <h6 class="fw-bold mb-3"><i class="fas fa-info-circle me-2 text-info"></i>How This Works</h6>
+                        <div class="row g-3 text-center">
+                            <div class="col-md-3">
+                                <div class="p-3 rounded-3" style="background:rgba(99,102,241,.08);">
+                                    <div style="font-size:2rem;">&#127760;</div>
+                                    <div class="fw-bold small mt-1">Internet</div>
+                                    <div class="text-muted" style="font-size:.75rem;">Visitors on HTTPS :443</div>
+                                </div>
+                            </div>
+                            <div class="col-md-1 d-flex align-items-center justify-content-center"><i class="fas fa-arrow-right text-muted"></i></div>
+                            <div class="col-md-3">
+                                <div class="p-3 rounded-3" style="background:rgba(34,197,94,.08);">
+                                    <div style="font-size:2rem;">&#9889;</div>
+                                    <div class="fw-bold small mt-1">Caddy (Windows)</div>
+                                    <div class="text-muted" style="font-size:.75rem;">Handles SSL automatically</div>
+                                </div>
+                            </div>
+                            <div class="col-md-1 d-flex align-items-center justify-content-center"><i class="fas fa-arrow-right text-muted"></i></div>
+                            <div class="col-md-3">
+                                <div class="p-3 rounded-3" style="background:rgba(245,158,11,.08);">
+                                    <div style="font-size:2rem;">&#128421;</div>
+                                    <div class="fw-bold small mt-1">This App (HTTP :3000)</div>
+                                    <div class="text-muted" style="font-size:.75rem;">Internal only, never public</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Step styles -->
+                    <style>
+                        .step-num{width:38px;height:38px;border-radius:50%;background:#6366f1;color:#fff;font-weight:700;font-size:1.1rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+                        .cmd-block{background:#0d1117;border-radius:10px;padding:14px 16px;position:relative;border:1px solid rgba(255,255,255,.08);}
+                        .cmd-label{font-size:.72rem;color:#8b949e;font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px;}
+                        .cmd-body{font-family:'Courier New',monospace;font-size:.82rem;color:#58a6ff;white-space:pre-wrap;word-break:break-all;padding-right:80px;}
+                        .cmd-copy-btn{position:absolute;top:12px;right:12px;background:rgba(99,102,241,.2);color:#a5b4fc;border:1px solid rgba(99,102,241,.3);border-radius:6px;padding:3px 10px;font-size:.75rem;cursor:pointer;transition:all .15s;}
+                        .cmd-copy-btn:hover{background:rgba(99,102,241,.4);color:#fff;}
+                        .ssl-step{transition:box-shadow .2s;}
+                        .ssl-step:hover{box-shadow:0 4px 20px rgba(34,197,94,.1);}
+                    </style>
+
+                    <!-- STEP 1: DNS -->
+                    <div class="glass-card p-4 mb-3 ssl-step">
+                        <div class="d-flex align-items-start gap-3">
+                            <div class="step-num">1</div>
+                            <div class="flex-grow-1">
+                                <div class="d-flex align-items-center gap-2 mb-2">
+                                    <h6 class="fw-bold mb-0">Point your DNS to this server</h6>
+                                    <span class="badge bg-warning text-dark">Required first</span>
+                                </div>
+                                <p class="text-muted small mb-3">Log in to your domain registrar (where you manage <strong>camperos.net</strong>) and create this DNS record:</p>
+                                <div class="table-responsive mb-3">
+                                    <table class="table table-sm table-bordered mb-0" style="font-size:.85rem;">
+                                        <thead class="table-dark"><tr><th>Type</th><th>Host / Name</th><th>Value / Points To</th><th>TTL</th></tr></thead>
+                                        <tbody><tr>
+                                            <td><span class="badge" style="background:#6366f1">A</span></td>
+                                            <td><code>rx</code></td>
+                                            <td><span id="myPublicIp"><i class="fas fa-spinner fa-spin"></i> detecting...</span>
+                                                <button class="btn btn-sm btn-outline-secondary ms-2" style="font-size:.7rem;padding:1px 7px" onclick="copyToClipboard(document.getElementById('myPublicIpRaw').textContent,this)"><i class="fas fa-copy"></i> Copy</button>
+                                                <span id="myPublicIpRaw" class="d-none"></span>
+                                            </td>
+                                            <td>Auto / 300</td>
+                                        </tr></tbody>
+                                    </table>
+                                </div>
+                                <div class="alert alert-warning py-2 small mb-3"><i class="fas fa-clock me-1"></i><strong>Wait 5&ndash;30 minutes</strong> after adding the DNS record before continuing. DNS changes need time to propagate worldwide.</div>
+                                <button class="btn btn-outline-info btn-sm" onclick="checkDNS()"><i class="fas fa-search me-1"></i>Check DNS Propagation</button>
+                                <div id="dnsCheckResult" class="mt-2"></div>
+                            </div>
+                            <div><input type="checkbox" class="form-check-input step-check" id="check1" style="width:1.3rem;height:1.3rem;cursor:pointer"></div>
+                        </div>
+                    </div>
+
+                    <!-- STEP 2: Open Ports -->
+                    <div class="glass-card p-4 mb-3 ssl-step">
+                        <div class="d-flex align-items-start gap-3">
+                            <div class="step-num">2</div>
+                            <div class="flex-grow-1">
+                                <h6 class="fw-bold mb-2">Open Ports 80 and 443 in Windows Firewall</h6>
+                                <p class="text-muted small mb-3">Open <strong>PowerShell as Administrator</strong> (right-click Start &rarr; Windows PowerShell (Admin)) and paste each command:</p>
+                                <div class="cmd-block mb-2">
+                                    <div class="cmd-label">Command 1 &mdash; Allow HTTP port 80 (needed for cert verification)</div>
+                                    <div class="cmd-body"><code id="cmd-fw1">New-NetFirewallRule -DisplayName "Caddy HTTP" -Direction Inbound -Protocol TCP -LocalPort 80 -Action Allow</code></div>
+                                    <button class="cmd-copy-btn" onclick="copyCmd('cmd-fw1',this)"><i class="fas fa-copy me-1"></i>Copy</button>
+                                </div>
+                                <div class="cmd-block">
+                                    <div class="cmd-label">Command 2 &mdash; Allow HTTPS port 443</div>
+                                    <div class="cmd-body"><code id="cmd-fw2">New-NetFirewallRule -DisplayName "Caddy HTTPS" -Direction Inbound -Protocol TCP -LocalPort 443 -Action Allow</code></div>
+                                    <button class="cmd-copy-btn" onclick="copyCmd('cmd-fw2',this)"><i class="fas fa-copy me-1"></i>Copy</button>
+                                </div>
+                                <div class="alert alert-info py-2 small mt-2 mb-0"><i class="fas fa-router me-1"></i>If behind a router: also forward ports 80 and 443 from your router to this PC's local IP.</div>
+                            </div>
+                            <div><input type="checkbox" class="form-check-input step-check" id="check2" style="width:1.3rem;height:1.3rem;cursor:pointer"></div>
+                        </div>
+                    </div>
+
+                    <!-- STEP 3: Download Caddy -->
+                    <div class="glass-card p-4 mb-3 ssl-step">
+                        <div class="d-flex align-items-start gap-3">
+                            <div class="step-num">3</div>
+                            <div class="flex-grow-1">
+                                <h6 class="fw-bold mb-2">Download Caddy for Windows</h6>
+                                <p class="text-muted small mb-3">Caddy is a single <code>.exe</code> file &mdash; no installation needed. It handles SSL certificates automatically.</p>
+                                <a href="https://caddyserver.com/api/download?os=windows&arch=amd64" target="_blank" rel="noopener" class="btn btn-success btn-sm me-2">
+                                    <i class="fas fa-download me-1"></i>Download caddy.exe (Windows 64-bit)
+                                </a>
+                                <span class="text-muted small">Save to: <code>E:\Documents\Daniely RX\caddy\caddy.exe</code></span>
+                                <div class="cmd-block mt-3">
+                                    <div class="cmd-label">Or download via PowerShell (Admin)</div>
+                                    <div class="cmd-body"><code id="cmd-dl">New-Item -ItemType Directory -Force "E:\Documents\Daniely RX\caddy"; Invoke-WebRequest "https://caddyserver.com/api/download?os=windows&arch=amd64" -OutFile "E:\Documents\Daniely RX\caddy\caddy.exe"</code></div>
+                                    <button class="cmd-copy-btn" onclick="copyCmd('cmd-dl',this)"><i class="fas fa-copy me-1"></i>Copy</button>
+                                </div>
+                            </div>
+                            <div><input type="checkbox" class="form-check-input step-check" id="check3" style="width:1.3rem;height:1.3rem;cursor:pointer"></div>
+                        </div>
+                    </div>
+
+                    <!-- STEP 4: Caddyfile -->
+                    <div class="glass-card p-4 mb-3 ssl-step">
+                        <div class="d-flex align-items-start gap-3">
+                            <div class="step-num">4</div>
+                            <div class="flex-grow-1">
+                                <h6 class="fw-bold mb-2">Create the Caddyfile</h6>
+                                <p class="text-muted small mb-2">Paste this command in PowerShell (Admin) to create the config file automatically:</p>
+                                <div class="cmd-block mb-3">
+                                    <div class="cmd-label">PowerShell &mdash; creates E:\Documents\Daniely RX\caddy\Caddyfile</div>
+                                    <div class="cmd-body"><code id="cmd-caddyfile">Set-Content -Path "E:\Documents\Daniely RX\caddy\Caddyfile" -Encoding UTF8 -Value @"
+rx.camperos.net {
+    reverse_proxy localhost:3000
+    encode gzip zstd
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "SAMEORIGIN"
+        Referrer-Policy "strict-origin-when-cross-origin"
+    }
+    log {
+        output file "E:\\Documents\\Daniely RX\\caddy\\access.log"
+        format console
+    }
+}
+"@</code></div>
+                                    <button class="cmd-copy-btn" onclick="copyCmd('cmd-caddyfile',this)"><i class="fas fa-copy me-1"></i>Copy</button>
+                                </div>
+                            </div>
+                            <div><input type="checkbox" class="form-check-input step-check" id="check4" style="width:1.3rem;height:1.3rem;cursor:pointer"></div>
+                        </div>
+                    </div>
+
+                    <!-- STEP 5: Run Caddy -->
+                    <div class="glass-card p-4 mb-3 ssl-step">
+                        <div class="d-flex align-items-start gap-3">
+                            <div class="step-num">5</div>
+                            <div class="flex-grow-1">
+                                <h6 class="fw-bold mb-2">Run Caddy (test it works)</h6>
+                                <p class="text-muted small mb-3">Open <strong>Command Prompt as Administrator</strong>, paste this to start Caddy:</p>
+                                <div class="cmd-block mb-2">
+                                    <div class="cmd-label">Command Prompt (Admin)</div>
+                                    <div class="cmd-body"><code id="cmd-run">cd "E:\Documents\Daniely RX\caddy" && caddy.exe run</code></div>
+                                    <button class="cmd-copy-btn" onclick="copyCmd('cmd-run',this)"><i class="fas fa-copy me-1"></i>Copy</button>
+                                </div>
+                                <div class="alert alert-info py-2 small mb-2"><i class="fas fa-certificate me-1"></i>Caddy will print <strong>"certificate obtained successfully"</strong>. This takes 10&ndash;30 seconds the first time. After that, HTTPS is live at <strong>https://rx.camperos.net</strong>.</div>
+                                <div class="alert alert-warning py-2 small mb-0"><i class="fas fa-exclamation-triangle me-1"></i><strong>Keep this window open.</strong> Proceed to Step 6 to install it as a permanent service.</div>
+                            </div>
+                            <div><input type="checkbox" class="form-check-input step-check" id="check5" style="width:1.3rem;height:1.3rem;cursor:pointer"></div>
+                        </div>
+                    </div>
+
+                    <!-- STEP 6: Windows Service -->
+                    <div class="glass-card p-4 mb-3 ssl-step">
+                        <div class="d-flex align-items-start gap-3">
+                            <div class="step-num">6</div>
+                            <div class="flex-grow-1">
+                                <h6 class="fw-bold mb-2">Install Caddy as a Windows Service <span class="badge bg-success ms-1">Recommended</span></h6>
+                                <p class="text-muted small mb-3">Makes Caddy start automatically on boot. Run in <strong>Command Prompt (Admin)</strong> from the caddy folder:</p>
+                                <div class="cmd-block mb-2">
+                                    <div class="cmd-label">Step 6a &mdash; Install as service</div>
+                                    <div class="cmd-body"><code id="cmd-svc">cd "E:\Documents\Daniely RX\caddy" && caddy.exe windows-service install</code></div>
+                                    <button class="cmd-copy-btn" onclick="copyCmd('cmd-svc',this)"><i class="fas fa-copy me-1"></i>Copy</button>
+                                </div>
+                                <div class="cmd-block mb-2">
+                                    <div class="cmd-label">Step 6b &mdash; Start the service (PowerShell Admin)</div>
+                                    <div class="cmd-body"><code id="cmd-startsvc">Start-Service CaddyServer</code></div>
+                                    <button class="cmd-copy-btn" onclick="copyCmd('cmd-startsvc',this)"><i class="fas fa-copy me-1"></i>Copy</button>
+                                </div>
+                                <div class="cmd-block">
+                                    <div class="cmd-label">Step 6c &mdash; Verify it is running</div>
+                                    <div class="cmd-body"><code id="cmd-chksvc">Get-Service CaddyServer</code></div>
+                                    <button class="cmd-copy-btn" onclick="copyCmd('cmd-chksvc',this)"><i class="fas fa-copy me-1"></i>Copy</button>
+                                </div>
+                            </div>
+                            <div><input type="checkbox" class="form-check-input step-check" id="check6" style="width:1.3rem;height:1.3rem;cursor:pointer"></div>
+                        </div>
+                    </div>
+
+                    <!-- STEP 7: Activate in .env -->
+                    <div class="glass-card p-4 mb-3 ssl-step">
+                        <div class="d-flex align-items-start gap-3">
+                            <div class="step-num">7</div>
+                            <div class="flex-grow-1">
+                                <h6 class="fw-bold mb-2">Activate HTTPS mode in the app</h6>
+                                <p class="text-muted small mb-2">Once Caddy is running and HTTPS is confirmed, open <code>E:\Documents\Daniely RX\.env</code> in Notepad and add/update:</p>
+                                <div class="cmd-block mb-3">
+                                    <div class="cmd-label">.env lines to add</div>
+                                    <div class="cmd-body"><code id="cmd-env">FORCE_HTTPS=true
+APP_ORIGIN=https://rx.camperos.net
+APP_NAME=Daniely RX</code></div>
+                                    <button class="cmd-copy-btn" onclick="copyCmd('cmd-env',this)"><i class="fas fa-copy me-1"></i>Copy</button>
+                                </div>
+                                <div class="alert alert-warning py-2 small mb-0"><i class="fas fa-redo me-1"></i>After saving <code>.env</code>, <strong>restart node app.js</strong> to apply the changes.</div>
+                            </div>
+                            <div><input type="checkbox" class="form-check-input step-check" id="check7" style="width:1.3rem;height:1.3rem;cursor:pointer"></div>
+                        </div>
+                    </div>
+
+                    <!-- STEP 8: Test -->
+                    <div class="glass-card p-4 mb-4 ssl-step">
+                        <div class="d-flex align-items-start gap-3">
+                            <div class="step-num" style="background:#22c55e">&#10003;</div>
+                            <div class="flex-grow-1">
+                                <h6 class="fw-bold mb-2">Verify HTTPS is working</h6>
+                                <div class="d-flex gap-2 flex-wrap mb-3">
+                                    <button class="btn btn-success btn-sm" onclick="testHttps()">
+                                        <span id="httpsTestSpinner" class="spinner-border spinner-border-sm me-1 d-none"></span>
+                                        <i class="fas fa-lock me-1"></i>Test https://rx.camperos.net
+                                    </button>
+                                    <a href="https://rx.camperos.net" target="_blank" rel="noopener" class="btn btn-outline-success btn-sm">
+                                        <i class="fas fa-external-link-alt me-1"></i>Open in New Tab
+                                    </a>
+                                    <a href="https://www.ssllabs.com/ssltest/analyze.html?d=rx.camperos.net" target="_blank" rel="noopener" class="btn btn-outline-info btn-sm">
+                                        <i class="fas fa-shield-alt me-1"></i>SSL Labs Grade Check
+                                    </a>
+                                </div>
+                                <div id="httpsTestResult"></div>
+                            </div>
+                            <div><input type="checkbox" class="form-check-input step-check" id="check8" style="width:1.3rem;height:1.3rem;cursor:pointer"></div>
+                        </div>
+                    </div>
+
+                    <!-- Progress -->
+                    <div class="glass-card p-3 mb-4" style="background:rgba(34,197,94,.05);border:1px solid rgba(34,197,94,.2);">
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="fw-bold small">Setup Progress:</div>
+                            <div class="progress flex-grow-1" style="height:10px;">
+                                <div id="sslProgressBar" class="progress-bar bg-success" role="progressbar" style="width:0%"></div>
+                            </div>
+                            <div id="sslProgressText" class="fw-bold small text-success">0 / 8 steps</div>
+                        </div>
+                    </div>
+
+                </div><!-- /tab-https -->
+
             </div><!-- /settingsContent -->
         </div>
     </div>
@@ -1519,6 +1794,148 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('refreshApiRoutesBtn')?.addEventListener('click', () => {
         _apiRoutesCache = null;   // bust cache
         loadApiReference();
+    });
+});
+
+// ────────────────────────────────────────────────────────────────────────────
+// HTTPS / SSL WIZARD
+// ────────────────────────────────────────────────────────────────────────────
+
+// Detect public IP and show in Step 1
+async function detectPublicIp() {
+    try {
+        const r = await fetch('https://api.ipify.org?format=json');
+        const d = await r.json();
+        const el = document.getElementById('myPublicIp');
+        const raw = document.getElementById('myPublicIpRaw');
+        if (el && d.ip) {
+            el.innerHTML = `<strong style="color:#22c55e">${d.ip}</strong>`;
+            if (raw) raw.textContent = d.ip;
+        }
+    } catch(e) {
+        const el = document.getElementById('myPublicIp');
+        if (el) el.innerHTML = '<span class="text-warning">Could not detect — check whatismyip.com</span>';
+    }
+}
+
+// Check DNS propagation via Google Public DNS API
+async function checkDNS() {
+    const resultEl = document.getElementById('dnsCheckResult');
+    if (!resultEl) return;
+    resultEl.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Checking DNS for rx.camperos.net...';
+    try {
+        const r = await fetch('https://dns.google/resolve?name=rx.camperos.net&type=A');
+        const d = await r.json();
+        if (d.Answer && d.Answer.length > 0) {
+            const ips = d.Answer.map(a => a.data).join(', ');
+            resultEl.innerHTML = `<div class="alert alert-success py-2 small mt-1 mb-0"><i class="fas fa-check-circle me-1"></i><strong>DNS is live!</strong> rx.camperos.net resolves to: <strong>${ips}</strong>. You can proceed to Step 2.</div>`;
+        } else {
+            resultEl.innerHTML = '<div class="alert alert-warning py-2 small mt-1 mb-0"><i class="fas fa-clock me-1"></i>DNS not propagated yet. The record is not visible from Google\'s DNS. Wait a few more minutes and try again.</div>';
+        }
+    } catch(e) {
+        resultEl.innerHTML = '<div class="alert alert-danger py-2 small mt-1 mb-0"><i class="fas fa-times me-1"></i>DNS check failed — check your internet connection.</div>';
+    }
+}
+
+// Copy a command block's text to clipboard
+function copyCmd(elementId, btn) {
+    const el = document.getElementById(elementId);
+    if (!el) return;
+    const text = el.innerText || el.textContent;
+    navigator.clipboard.writeText(text).then(() => {
+        const orig = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-check me-1"></i>Copied!';
+        btn.style.background = 'rgba(34,197,94,.3)';
+        btn.style.color = '#4ade80';
+        setTimeout(() => {
+            btn.innerHTML = orig;
+            btn.style.background = '';
+            btn.style.color = '';
+        }, 2000);
+    }).catch(() => {
+        showToast('Could not copy — please copy manually', 'warning');
+    });
+}
+
+// Generic copy to clipboard (for IP button)
+function copyToClipboard(text, btn) {
+    if (!text || !text.trim()) return;
+    navigator.clipboard.writeText(text.trim()).then(() => {
+        const orig = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-check"></i> Copied!';
+        setTimeout(() => { btn.innerHTML = orig; }, 1800);
+    });
+}
+
+// Test if HTTPS is reachable on rx.camperos.net
+async function testHttps() {
+    const resultEl = document.getElementById('httpsTestResult');
+    const spinner  = document.getElementById('httpsTestSpinner');
+    if (spinner) spinner.classList.remove('d-none');
+    if (resultEl) resultEl.innerHTML = '';
+    try {
+        const r = await fetch('https://rx.camperos.net/api/health', { mode: 'no-cors', cache: 'no-store' });
+        // no-cors won't throw on success
+        if (resultEl) resultEl.innerHTML = '<div class="alert alert-success py-2 small mb-0"><i class="fas fa-lock me-1"></i><strong>HTTPS is working!</strong> https://rx.camperos.net is reachable. Check your browser for the padlock icon.</div>';
+    } catch(e) {
+        if (resultEl) resultEl.innerHTML = '<div class="alert alert-warning py-2 small mb-0"><i class="fas fa-exclamation-triangle me-1"></i><strong>Not reachable yet.</strong> Make sure Caddy is running and DNS has propagated. Try opening <a href="https://rx.camperos.net" target="_blank">https://rx.camperos.net</a> in a new tab.</div>';
+    }
+    if (spinner) spinner.classList.add('d-none');
+}
+
+// Check live HTTPS status badge in the header
+async function checkHttpsStatus() {
+    const badge = document.getElementById('httpsLiveStatus');
+    if (!badge) return;
+    try {
+        const r = await fetch('https://rx.camperos.net/', { mode: 'no-cors', cache: 'no-store' });
+        badge.className = 'badge bg-success fs-6 px-3 py-2';
+        badge.innerHTML = '<i class="fas fa-lock me-1"></i>HTTPS Active';
+    } catch(e) {
+        badge.className = 'badge bg-secondary fs-6 px-3 py-2';
+        badge.innerHTML = '<i class="fas fa-lock-open me-1"></i>Not yet active';
+    }
+}
+
+// Step progress tracker (persists in localStorage)
+function initSslProgress() {
+    const STORAGE_KEY = 'ssl_wizard_progress';
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+    const checks = document.querySelectorAll('.step-check');
+
+    checks.forEach(cb => {
+        // Restore saved state
+        if (saved[cb.id]) cb.checked = true;
+        cb.addEventListener('change', () => {
+            saved[cb.id] = cb.checked;
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(saved));
+            updateSslProgress();
+        });
+    });
+    updateSslProgress();
+}
+
+function updateSslProgress() {
+    const checks   = document.querySelectorAll('.step-check');
+    const total    = checks.length;
+    const done     = Array.from(checks).filter(c => c.checked).length;
+    const pct      = total > 0 ? Math.round((done / total) * 100) : 0;
+    const bar      = document.getElementById('sslProgressBar');
+    const text     = document.getElementById('sslProgressText');
+    if (bar)  bar.style.width = pct + '%';
+    if (text) text.textContent = done + ' / ' + total + ' steps' + (done === total ? ' ✓ Complete!' : '');
+}
+
+// Initialize HTTPS wizard when tab is opened
+const _origSwitchTab = typeof switchTab === 'function' ? switchTab : null;
+document.addEventListener('DOMContentLoaded', () => {
+    // Patch tab switch to init wizard when HTTPS tab opens
+    document.querySelectorAll('[data-tab="https"]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            detectPublicIp();
+            checkHttpsStatus();
+            initSslProgress();
+        });
     });
 });
 

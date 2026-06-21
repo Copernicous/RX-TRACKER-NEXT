@@ -47,7 +47,7 @@ app.use(helmet({
             styleSrc:       ["'self'", "'unsafe-inline'", 'cdn.jsdelivr.net', 'cdnjs.cloudflare.com', 'fonts.googleapis.com'],
             fontSrc:        ["'self'", 'fonts.gstatic.com', 'cdnjs.cloudflare.com'],
             imgSrc:         ["'self'", 'data:', 'blob:'],
-            connectSrc:     ["'self'"],
+            connectSrc:     ["'self'", 'https://api.ipify.org', 'https://dns.google'],
             frameSrc:       ["'none'"],
             objectSrc:      ["'none'"],
             baseUri:        ["'self'"],
