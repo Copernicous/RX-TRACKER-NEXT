@@ -1,15 +1,17 @@
 /**
  * fix-entities.js
- * Replaces non-ASCII special characters with HTML entities in all EJS views.
- * Safe for FortiGate SSL web access which mangles UTF-8 multi-byte sequences.
- * Run once: node scripts/fix-entities.js
+ * Replaces non-ASCII special characters with HTML entities in EJS views,
+ * but ONLY in HTML content — skips <script>...</script> blocks so JS
+ * template literals and property accessors are not broken.
+ *
+ * Run: node scripts/fix-entities.js
  */
 const fs   = require('fs');
 const path = require('path');
 
 const VIEWS = path.join(__dirname, '..', 'views');
 
-// Map: Unicode character → HTML entity (pure ASCII replacement)
+// Characters to replace in HTML content only
 const REPLACEMENTS = [
     ['\u2014', '&mdash;'],    // — em dash
     ['\u2013', '&ndash;'],    // – en dash
@@ -33,28 +35,39 @@ const REPLACEMENTS = [
     ['\u00A0', '&nbsp;'],     // non-breaking space
 ];
 
+/**
+ * Split content into alternating [html, script, html, script, ...] segments.
+ * Apply entity replacement only to HTML segments, leave script segments alone.
+ */
+function replaceEntitiesSkippingScripts(content) {
+    // Split on <script...> and </script> boundaries
+    const parts = content.split(/(<script[\s\S]*?<\/script>)/gi);
+    return parts.map((part, i) => {
+        // Odd-indexed parts are <script> blocks — leave them untouched
+        if (i % 2 === 1) return part;
+        // Even-indexed parts are HTML — apply replacements
+        let html = part;
+        for (const [char, entity] of REPLACEMENTS) {
+            html = html.split(char).join(entity);
+        }
+        return html;
+    }).join('');
+}
+
 let totalChanged = 0;
 
 fs.readdirSync(VIEWS)
     .filter(f => f.endsWith('.ejs'))
     .forEach(filename => {
         const filePath = path.join(VIEWS, filename);
-        let content = fs.readFileSync(filePath, 'utf8');
-        const original = content;
+        const original = fs.readFileSync(filePath, 'utf8');
+        const updated  = replaceEntitiesSkippingScripts(original);
 
-        for (const [char, entity] of REPLACEMENTS) {
-            // Replace all occurrences
-            content = content.split(char).join(entity);
-        }
-
-        if (content !== original) {
-            fs.writeFileSync(filePath, content, 'utf8');
-            // Count changes
-            let changes = 0;
-            for (const [char] of REPLACEMENTS) {
-                changes += (original.split(char).length - 1);
-            }
-            console.log(`✓  ${filename}  (${changes} replacements)`);
+        if (updated !== original) {
+            fs.writeFileSync(filePath, updated, 'utf8');
+            let count = 0;
+            for (const [char] of REPLACEMENTS) count += (original.split(char).length - 1);
+            console.log(`✓  ${filename}  (${count} chars → entities)`);
             totalChanged++;
         } else {
             console.log(`-  ${filename}  (no changes)`);

@@ -364,7 +364,7 @@
                 const tbody = document.getElementById('recentActivityBody');
                 if (tbody) {
                     tbody.innerHTML = data.recentActivity && data.recentActivity.length > 0
-                        ? data.recentActivity.map(a => `<tr><td>${a.User ? a.User.firstName+' '+a.User.lastName : 'System'}</td><td>${a.module}</td><td><span class="badge bg-secondary">${a.action}</span></td><td>${a.date||'&mdash;'}</td><td>${a.ipAddress||'&mdash;'}</td></tr>`).join('')
+                        ? data.recentActivity.map(a => `<tr><td>${a.User ? a.User.firstName+' '+a.User.lastName : 'System'}</td><td>${a.module}</td><td><span class="badge bg-secondary">${a.action}</span></td><td>${a.date||'—'}</td><td>${a.ipAddress||'—'}</td></tr>`).join('')
                         : '<tr><td colspan="5" class="text-center text-muted">No recent activity</td></tr>';
                 }
             }
@@ -437,7 +437,7 @@
             }
             stepsEl.innerHTML = `
                 <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#888;margin-bottom:10px">
-                    Workflow Step Breakdown &mdash; RX records waiting at each step
+                    Workflow Step Breakdown — RX records waiting at each step
                 </div>
                 <div style="display:flex;flex-direction:column;gap:8px">
                     ${d.stepBreakdown.map((step, i) => {
@@ -532,10 +532,10 @@
                         <tbody>${data.map(p => `<tr>
                             <td><code>${p.patientCode || p.id}</code></td>
                             <td><strong>${p.firstName} ${p.lastName}</strong></td>
-                            <td>${p.dob||'&mdash;'}</td><td>${p.phone||'&mdash;'}</td><td>${p.serviceDate||'&mdash;'}</td>
-                            <td>${p.Clinic ? p.Clinic.name : '&mdash;'}</td>
-                            <td>${p.PatientTransportCompany ? (p.PatientTransportCompany.contactPerson||p.PatientTransportCompany.companyName||'&mdash;') : '&mdash;'}</td>
-                            <td>${p.PharmacyTransportCompany ? (p.PharmacyTransportCompany.contactPerson||p.PharmacyTransportCompany.companyName||'&mdash;') : '&mdash;'}</td>
+                            <td>${p.dob||'—'}</td><td>${p.phone||'—'}</td><td>${p.serviceDate||'—'}</td>
+                            <td>${p.Clinic ? p.Clinic.name : '—'}</td>
+                            <td>${p.PatientTransportCompany ? (p.PatientTransportCompany.contactPerson||p.PatientTransportCompany.companyName||'—') : '—'}</td>
+                            <td>${p.PharmacyTransportCompany ? (p.PharmacyTransportCompany.contactPerson||p.PharmacyTransportCompany.companyName||'—') : '—'}</td>
                         </tr>`).join('')}</tbody>
                     </table>
                 </div>
@@ -552,10 +552,10 @@
                             const steps = (rx.RXWorkflowTrackings || []).length;
                             return `<tr>
                                 <td><strong>#${rx.id}</strong></td>
-                                <td>${rx.Patient ? rx.Patient.firstName+' '+rx.Patient.lastName : '&mdash;'}</td>
+                                <td>${rx.Patient ? rx.Patient.firstName+' '+rx.Patient.lastName : '—'}</td>
                                 <td><code>${rx.Patient ? (rx.Patient.patientCode||rx.patientId) : rx.patientId}</code></td>
-                                <td>${rx.Pharmacy ? rx.Pharmacy.name : '&mdash;'}</td>
-                                <td>${rx.arrivalDate||'&mdash;'}</td><td>${rx.serviceDate||'&mdash;'}</td>
+                                <td>${rx.Pharmacy ? rx.Pharmacy.name : '—'}</td>
+                                <td>${rx.arrivalDate||'—'}</td><td>${rx.serviceDate||'—'}</td>
                                 <td><div class="progress" style="height:8px;min-width:60px"><div class="progress-bar bg-primary" style="width:${steps>0?Math.round(steps/Math.max(steps,1)*100):0}%"></div></div><small>${steps} step(s) completed</small></td>
                             </tr>`;
                         }).join('')}</tbody>
@@ -660,7 +660,7 @@
     async function start2FASetup() {
         const btn = document.getElementById('startSetupBtn');
         btn.disabled = true;
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Generating QR code&hellip;';
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Generating QR code…';
         try {
             const res  = await fetchWithAuth('/api/auth/2fa/setup');
             if (!res || !res.ok) { showToast('Failed to generate 2FA setup.', 'danger'); return; }

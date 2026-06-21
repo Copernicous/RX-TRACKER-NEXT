@@ -603,7 +603,7 @@ setup.bat</code></pre>
         const result = await res.json();
         if (result.status === 'success') {
             const sz = result.size > 1048576 ? (result.size/1048576).toFixed(1) + ' MB' : (result.size/1024).toFixed(1) + ' KB';
-            showToast('\u2705 Site backup created! (' + sz + ') &mdash; saved to C:\\RX-SiteBackups\\', 'success');
+            showToast('\u2705 Site backup created! (' + sz + ') — saved to C:\\RX-SiteBackups\\', 'success');
         } else {
             showToast('Site backup failed: ' + (result.error || 'unknown error'), 'danger');
         }

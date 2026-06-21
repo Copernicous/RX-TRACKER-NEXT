@@ -2,7 +2,8 @@
    Patient RX System - Premium Admin CSS
    ============================================ */
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+/* Inter font — self-hosted, no external requests required (FortiGate compatible) */
+@import url('/assets/inter.css');
 
 /* ---------- CSS Variables ---------- */
 :root {

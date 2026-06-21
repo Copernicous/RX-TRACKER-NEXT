@@ -386,10 +386,10 @@ function buildPermEditor(perms) {
             </tr>`;
         }
 
-        const dash = '<span class="text-muted">&mdash;</span>';
+        const dash = '<span class="text-muted">—</span>';
 
         if (m.visibleLocked) {
-            // Dashboard &mdash; always visible, no write actions
+            // Dashboard — always visible, no write actions
             return groupRow + `<tr data-module="${m.key}">
                 <td class="ps-3 fw-semibold">${m.label} <span class="badge bg-secondary ms-1" style="font-size:.6rem">Always On</span></td>
                 <td class="text-center"><input type="checkbox" class="form-check-input perm-visible" checked disabled></td>
@@ -411,9 +411,9 @@ function buildPermEditor(perms) {
             // Patient notes: canAdd = can add notes, canDelete = can delete notes, no canEdit
             return groupRow + `<tr data-module="${m.key}" style="background:rgba(255,193,7,.04)">
                 <td class="ps-3 fw-semibold">${m.label} <span class="badge bg-warning text-dark ms-1" style="font-size:.6rem">Per-patient</span></td>
-                <td class="text-center"><span class="text-muted" title="Always visible">&mdash;</span></td>
+                <td class="text-center"><span class="text-muted" title="Always visible">—</span></td>
                 <td class="text-center" title="Can add new notes"><input type="checkbox" class="form-check-input perm-canadd" ${p.canAdd ? 'checked' : ''}></td>
-                <td class="text-center" title="Cannot edit existing notes (notes are immutable)"><span class="text-muted">&mdash;</span></td>
+                <td class="text-center" title="Cannot edit existing notes (notes are immutable)"><span class="text-muted">—</span></td>
                 <td class="text-center" title="Can delete notes"><input type="checkbox" class="form-check-input perm-candelete" ${p.canDelete ? 'checked' : ''}></td>
                 <td class="text-center">${dash}</td><td class="text-center">${dash}</td><td class="text-center">${dash}</td><td class="text-center">${dash}</td>
             </tr>`;
@@ -426,7 +426,7 @@ function buildPermEditor(perms) {
                <td class="text-center" title="Can return to warehouse"><input type="checkbox" class="form-check-input perm-canwarehouse"  ${p.canWarehouse  ? 'checked' : ''}></td>`
             : `<td class="text-center">${dash}</td><td class="text-center">${dash}</td><td class="text-center">${dash}</td>`;
 
-        // For rx_records with hasWorkflow, canAdd is shown in workflow column &mdash; hide from standard Add column
+        // For rx_records with hasWorkflow, canAdd is shown in workflow column — hide from standard Add column
         const addCell = m.hasWorkflow
             ? `<td class="text-center">${dash}</td>`
             : `<td class="text-center"><input type="checkbox" class="form-check-input perm-canadd"   ${p.canAdd   ? 'checked' : ''}></td>`;
@@ -465,7 +465,7 @@ function readPermEditor() {
     // Patient notes: no canEdit (notes are immutable once written)
     if (perms.patient_notes) perms.patient_notes.canEdit = false;
     // RX Records: canAdd is shown as 'Complete' column in the workflow section
-    // (already read from .perm-canadd &mdash; no extra action needed)
+    // (already read from .perm-canadd — no extra action needed)
     return perms;
 }
 

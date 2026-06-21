@@ -1224,7 +1224,7 @@ APP_NAME=Daniely RX</code></div>
 <script src="/js/help.js"></script>
 <script>
 // ────────────────────────────────────────────────────────────────────────────
-// GENERAL TAB &mdash; Timezone & App Name
+// GENERAL TAB — Timezone & App Name
 // ────────────────────────────────────────────────────────────────────────────
 const TZ_GROUPS = {
     'Eastern US':    ['America/New_York','America/Detroit'],
@@ -1275,7 +1275,7 @@ function renderSettingsTable(s) {
     const tbody = document.getElementById('allSettingsBody');
     const entries = Object.entries(s);
     if (!entries.length) { tbody.innerHTML = '<tr><td colspan="2" class="text-muted text-center">No settings found</td></tr>'; return; }
-    tbody.innerHTML = entries.map(([k,v]) => `<tr><td><code>${k}</code></td><td><span class="tz-badge">${v||'&mdash;'}</span></td></tr>`).join('');
+    tbody.innerHTML = entries.map(([k,v]) => `<tr><td><code>${k}</code></td><td><span class="tz-badge">${v||'—'}</span></td></tr>`).join('');
 }
 
 async function loadSettings() {
@@ -1339,7 +1339,7 @@ let deleteKeyId   = null;
 let deleteModal   = null;
 
 function formatRelative(dateStr) {
-    if (!dateStr) return '<span class="text-muted">&mdash;</span>';
+    if (!dateStr) return '<span class="text-muted">—</span>';
     const d   = new Date(dateStr);
     const now = new Date();
     const diff = now - d;
@@ -1366,7 +1366,7 @@ async function loadApiKeys() {
     if (!res || !res.ok) { tbody.innerHTML = '<tr><td colspan="8" class="text-center text-danger">Failed to load keys</td></tr>'; return; }
     const keys = await res.json();
     if (!keys.length) {
-        tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4"><i class="fas fa-key fa-2x mb-2 d-block opacity-25"></i>No API keys yet &mdash; generate one to get started.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4"><i class="fas fa-key fa-2x mb-2 d-block opacity-25"></i>No API keys yet — generate one to get started.</td></tr>';
         return;
     }
     tbody.innerHTML = keys.map(k => {
@@ -1382,7 +1382,7 @@ async function loadApiKeys() {
                 <div class="fw-semibold">${k.name}</div>
                 ${k.description ? `<div class="text-muted small">${k.description}</div>` : ''}
             </td>
-            <td><span class="key-prefix">${k.keyPrefix}&hellip;</span></td>
+            <td><span class="key-prefix">${k.keyPrefix}…</span></td>
             <td>${statusDot}</td>
             <td><span class="text-muted small">${creator}</span></td>
             <td><span class="text-muted small">${formatRelative(k.createdAt)}</span></td>
@@ -1549,7 +1549,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 document.getElementById('keyExpiry').value = 'never';
                 // Refresh the list
                 await loadApiKeys();
-                showToast('API key generated &mdash; copy it now!', 'success');
+                showToast('API key generated — copy it now!', 'success');
             } else {
                 const err = await res.json();
                 showToast(err.error || 'Failed to generate key', 'danger');
@@ -1566,7 +1566,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             btn.innerHTML = '<i class="fas fa-check me-1"></i>Copied!';
             btn.classList.replace('btn-outline-success','btn-success');
             setTimeout(() => { btn.innerHTML = '<i class="fas fa-copy me-1"></i>Copy Key'; btn.classList.replace('btn-success','btn-outline-success'); }, 2000);
-        }).catch(() => showToast('Could not copy &mdash; please copy manually', 'warning'));
+        }).catch(() => showToast('Could not copy — please copy manually', 'warning'));
     });
 
     // ── Refresh keys list ──────────────────────────────────────────────────
@@ -1632,7 +1632,7 @@ async function loadEmailSettings() {
 
         const hint = document.getElementById('smtpPassHint');
         if (d.smtp_pass_set) {
-            hint.textContent = '(password already saved &mdash; leave blank to keep)';
+            hint.textContent = '(password already saved — leave blank to keep)';
             hint.style.color = '#22c55e';
         } else {
             hint.textContent = '(not set)';
@@ -1759,7 +1759,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 body: JSON.stringify({
                     to,
                     reportType: 'summary',
-                    subject: 'Patient RX System &mdash; Test Email'
+                    subject: 'Patient RX System — Test Email'
                 })
             });
             const data = await res.json();
@@ -1767,7 +1767,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 alert.className = 'alert alert-success mt-2 mb-0 py-2 small';
                 alert.innerHTML = '<i class="fas fa-check me-1"></i>Test email sent to <strong>' + to + '</strong>! Check your inbox.';
             } else {
-                throw new Error(data.error || (data.hint ? data.error + ' &mdash; ' + data.hint : 'Unknown error'));
+                throw new Error(data.error || (data.hint ? data.error + ' — ' + data.hint : 'Unknown error'));
             }
         } catch(e) {
             alert.className = 'alert alert-danger mt-2 mb-0 py-2 small';
@@ -1780,7 +1780,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 // ────────────────────────────────────────────────────────────────────────────
-// API REFERENCE &mdash; dynamic, loaded live from /api/settings/api-routes
+// API REFERENCE — dynamic, loaded live from /api/settings/api-routes
 // ────────────────────────────────────────────────────────────────────────────
 
 let _apiRoutesCache = null;   // cached response to avoid repeat fetches
@@ -1928,7 +1928,7 @@ async function detectPublicIp() {
         }
     } catch(e) {
         const el = document.getElementById('myPublicIp');
-        if (el) el.innerHTML = '<span class="text-warning">Could not detect &mdash; check whatismyip.com</span>';
+        if (el) el.innerHTML = '<span class="text-warning">Could not detect — check whatismyip.com</span>';
     }
 }
 
@@ -1947,7 +1947,7 @@ async function checkDNS() {
             resultEl.innerHTML = '<div class="alert alert-warning py-2 small mt-1 mb-0"><i class="fas fa-clock me-1"></i>DNS not propagated yet. The record is not visible from Google\'s DNS. Wait a few more minutes and try again.</div>';
         }
     } catch(e) {
-        resultEl.innerHTML = '<div class="alert alert-danger py-2 small mt-1 mb-0"><i class="fas fa-times me-1"></i>DNS check failed &mdash; check your internet connection.</div>';
+        resultEl.innerHTML = '<div class="alert alert-danger py-2 small mt-1 mb-0"><i class="fas fa-times me-1"></i>DNS check failed — check your internet connection.</div>';
     }
 }
 
@@ -1967,7 +1967,7 @@ function copyCmd(elementId, btn) {
             btn.style.color = '';
         }, 2000);
     }).catch(() => {
-        showToast('Could not copy &mdash; please copy manually', 'warning');
+        showToast('Could not copy — please copy manually', 'warning');
     });
 }
 
@@ -2037,7 +2037,7 @@ function updateSslProgress() {
     const bar      = document.getElementById('sslProgressBar');
     const text     = document.getElementById('sslProgressText');
     if (bar)  bar.style.width = pct + '%';
-    if (text) text.textContent = done + ' / ' + total + ' steps' + (done === total ? ' &#10003; Complete!' : '');
+    if (text) text.textContent = done + ' / ' + total + ' steps' + (done === total ? ' ✓ Complete!' : '');
 }
 
 // Initialize HTTPS wizard when tab is opened

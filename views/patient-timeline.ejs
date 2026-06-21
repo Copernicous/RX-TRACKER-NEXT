@@ -334,9 +334,9 @@ function renderTimeline({ patient, rxRecords, workflowActions }) {
     // ── Hero card ──────────────────────────────────────────────────────────
     document.getElementById('tlPatientName').textContent =
         (patient.firstName || '') + ' ' + (patient.lastName || '');
-    document.getElementById('tlPatientCode').textContent  = patient.patientCode || '&mdash;';
-    document.getElementById('tlPatientDob').textContent   = patient.dob ? formatDate(patient.dob) : '&mdash;';
-    document.getElementById('tlPatientPhone').textContent = patient.phone || '&mdash;';
+    document.getElementById('tlPatientCode').textContent  = patient.patientCode || '—';
+    document.getElementById('tlPatientDob').textContent   = patient.dob ? formatDate(patient.dob) : '—';
+    document.getElementById('tlPatientPhone').textContent = patient.phone || '—';
 
     if (patient.Clinic) {
         document.getElementById('tlClinicWrap').style.display = '';
@@ -391,13 +391,13 @@ function renderTimeline({ patient, rxRecords, workflowActions }) {
             const t = trackingMap[a.id];
             const doneClass = t ? 'done' : '';
             const tip = t
-                ? `${a.name} &mdash; &#10003; ${formatDate(t.completionDate)} ${t.User ? 'by ' + t.User.firstName + ' ' + t.User.lastName : ''}`
-                : `${a.name} &mdash; Pending`;
+                ? `${a.name} — ✓ ${formatDate(t.completionDate)} ${t.User ? 'by ' + t.User.firstName + ' ' + t.User.lastName : ''}`
+                : `${a.name} — Pending`;
             return `<div class="tl-step-dot ${doneClass}" title="${tip}"></div>`;
         }).join('');
 
         // Pharmacy
-        const pharmacy = rx.Pharmacy ? rx.Pharmacy.name : '&mdash;';
+        const pharmacy = rx.Pharmacy ? rx.Pharmacy.name : '—';
         // Transport
         const ptrans   = rx.PatientTransportCompany ? (rx.PatientTransportCompany.companyName || rx.PatientTransportCompany.contactPerson) : null;
         const rxtrans  = rx.PharmacyTransportCompany ? (rx.PharmacyTransportCompany.companyName || rx.PharmacyTransportCompany.contactPerson) : null;
@@ -452,7 +452,7 @@ function renderTimeline({ patient, rxRecords, workflowActions }) {
                         </div>
                         <div>
                             <div class="fw-semibold small" style="font-size:.85rem">
-                                RX #${rx.id} &nbsp;&middot;&nbsp; <i class="fas fa-clinic-medical me-1 text-primary"></i>${pharmacy}
+                                RX #${rx.id} &nbsp;·&nbsp; <i class="fas fa-clinic-medical me-1 text-primary"></i>${pharmacy}
                             </div>
                             <div class="d-flex gap-1 mt-1">
                                 ${miniDots}
@@ -471,8 +471,8 @@ function renderTimeline({ patient, rxRecords, workflowActions }) {
                         <div class="col-md-5 p-3" style="border-right:1px solid var(--border-color,#dee2e6)">
                             <div class="fw-bold small text-muted text-uppercase mb-2" style="letter-spacing:.05em"><i class="fas fa-info-circle me-1"></i>Record Details</div>
                             <table class="w-100" style="font-size:.82rem">
-                                <tr><td class="text-muted pe-3 py-1" style="white-space:nowrap">Arrival Date</td><td class="fw-semibold">${rx.arrivalDate ? formatDate(rx.arrivalDate) : '&mdash;'}</td></tr>
-                                <tr><td class="text-muted pe-3 py-1">Service Date</td><td class="fw-semibold">${rx.serviceDate ? formatDate(rx.serviceDate) : '&mdash;'}</td></tr>
+                                <tr><td class="text-muted pe-3 py-1" style="white-space:nowrap">Arrival Date</td><td class="fw-semibold">${rx.arrivalDate ? formatDate(rx.arrivalDate) : '—'}</td></tr>
+                                <tr><td class="text-muted pe-3 py-1">Service Date</td><td class="fw-semibold">${rx.serviceDate ? formatDate(rx.serviceDate) : '—'}</td></tr>
                                 <tr><td class="text-muted pe-3 py-1">Pharmacy</td><td class="fw-semibold">${pharmacy}</td></tr>
                                 ${ptrans ? `<tr><td class="text-muted pe-3 py-1">Patient Transport</td><td class="fw-semibold">${ptrans}</td></tr>` : ''}
                                 ${rxtrans ? `<tr><td class="text-muted pe-3 py-1">RX Transport</td><td class="fw-semibold">${rxtrans}</td></tr>` : ''}
@@ -536,7 +536,7 @@ function toggleTlCard(bodyId, headerEl) {
 }
 
 function formatDate(d) {
-    if (!d) return '&mdash;';
+    if (!d) return '—';
     try {
         const dt = new Date(d.includes('T') ? d : d + 'T00:00:00');
         return dt.toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' });

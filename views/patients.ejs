@@ -427,7 +427,7 @@
                     throw new Error('API error');
                 }
             } catch(e) {
-                showToast('Could not load No-RX filter &mdash; showing all patients', 'warning');
+                showToast('Could not load No-RX filter — showing all patients', 'warning');
                 await loadPatients();
             }
         } else {
@@ -630,7 +630,7 @@
                 const clSel = document.getElementById('pClinicId');
                 const srchSel = document.getElementById('srchClinic');
                 cl.forEach(c => {
-                    const label = c.name + (c.address ? ' &ndash; ' + c.address : '');
+                    const label = c.name + (c.address ? ' – ' + c.address : '');
                     clSel.innerHTML   += `<option value="${c.id}">${label}</option>`;
                     srchSel.innerHTML += `<option value="${c.id}">${c.name}</option>`;
                 });
@@ -639,7 +639,7 @@
                 const ph = await phRes.json();
                 const phSel = document.getElementById('pPharmacyId');
                 ph.forEach(p => {
-                    phSel.innerHTML += `<option value="${p.id}">${p.name}${p.address ? ' &ndash; ' + p.address : ''}</option>`;
+                    phSel.innerHTML += `<option value="${p.id}">${p.name}${p.address ? ' – ' + p.address : ''}</option>`;
                 });
             }
         } catch(e) {}
@@ -776,7 +776,7 @@
 
         }
         const pi = document.getElementById('patientPageInfo');
-        pi.textContent = 'Showing ' + (Math.min(start+1, filteredPatients.length)) + '&ndash;' + Math.min(start+pageSize, filteredPatients.length) + ' of ' + filteredPatients.length;
+        pi.textContent = 'Showing ' + (Math.min(start+1, filteredPatients.length)) + '–' + Math.min(start+pageSize, filteredPatients.length) + ' of ' + filteredPatients.length;
 
         const pages = Math.ceil(filteredPatients.length / pageSize);
         let pagHtml = `<li class="page-item${currentPage===1?' disabled':''}"><a class="page-link" href="#" onclick="goPPage(${currentPage-1});return false;">&laquo;</a></li>`;
@@ -970,7 +970,7 @@
             const author = n.Author ? (n.Author.firstName + ' ' + n.Author.lastName) : 'System';
             const dt = new Date(n.createdAt);
             const dateStr = dt.toLocaleDateString() + ' ' + dt.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
-            // Strictly enforce canDelete &mdash; no author bypass
+            // Strictly enforce canDelete — no author bypass
             const canDel = np.canDelete;
 
             let delBtn = '';
@@ -1109,9 +1109,9 @@
         _printPatientData = { patient: p, rxRecords: patientRx };
 
         const isActive  = p.isActive;
-        const clinic    = p.Clinic ? p.Clinic.name : '&mdash;';
-        const ptComp    = p.PatientTransportCompany  ? (p.PatientTransportCompany.companyName  || p.PatientTransportCompany.contactPerson  || '&mdash;') : '&mdash;';
-        const phComp    = p.PharmacyTransportCompany ? (p.PharmacyTransportCompany.companyName || p.PharmacyTransportCompany.contactPerson || '&mdash;') : '&mdash;';
+        const clinic    = p.Clinic ? p.Clinic.name : '—';
+        const ptComp    = p.PatientTransportCompany  ? (p.PatientTransportCompany.companyName  || p.PatientTransportCompany.contactPerson  || '—') : '—';
+        const phComp    = p.PharmacyTransportCompany ? (p.PharmacyTransportCompany.companyName || p.PharmacyTransportCompany.contactPerson || '—') : '—';
         const printDate = new Date().toLocaleString();
 
         function fmtDt(d) {
@@ -1160,9 +1160,9 @@
                     '<span style="background:' + statusColor + ';padding:2px 10px;border-radius:20px;font-size:.72rem;font-weight:600">' + statusLabel + '</span>' +
                   '</div>' +
                   '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;padding:10px 14px;border-bottom:1px solid #f0f0f0;background:#fafafa">' +
-                    '<div><div style="font-size:.65rem;color:#888;text-transform:uppercase;font-weight:700">Arrival Date</div><div style="font-weight:600">' + (rx.arrivalDate||'&mdash;') + '</div></div>' +
-                    '<div><div style="font-size:.65rem;color:#888;text-transform:uppercase;font-weight:700">Service Date</div><div style="font-weight:600">' + (rx.serviceDate||'&mdash;') + '</div></div>' +
-                    '<div><div style="font-size:.65rem;color:#888;text-transform:uppercase;font-weight:700">Pharmacy</div><div style="font-weight:600">' + (rx.Pharmacy ? rx.Pharmacy.name : '&mdash;') + '</div></div>' +
+                    '<div><div style="font-size:.65rem;color:#888;text-transform:uppercase;font-weight:700">Arrival Date</div><div style="font-weight:600">' + (rx.arrivalDate||'—') + '</div></div>' +
+                    '<div><div style="font-size:.65rem;color:#888;text-transform:uppercase;font-weight:700">Service Date</div><div style="font-weight:600">' + (rx.serviceDate||'—') + '</div></div>' +
+                    '<div><div style="font-size:.65rem;color:#888;text-transform:uppercase;font-weight:700">Pharmacy</div><div style="font-weight:600">' + (rx.Pharmacy ? rx.Pharmacy.name : '—') + '</div></div>' +
                     (ptrans  ? '<div><div style="font-size:.65rem;color:#888;text-transform:uppercase;font-weight:700">Patient Transport</div><div style="font-weight:600">' + ptrans  + '</div></div>' : '') +
                     (phtrans ? '<div><div style="font-size:.65rem;color:#888;text-transform:uppercase;font-weight:700">Pharmacy Transport</div><div style="font-weight:600">' + phtrans + '</div></div>' : '') +
                   '</div>' +
@@ -1180,9 +1180,9 @@
                     '<table style="width:100%;border-collapse:collapse;font-size:.82rem">' +
                       '<tr>' +
                         '<td style="padding:6px 8px;font-weight:700">#' + rx.id + '</td>' +
-                        '<td style="padding:6px 8px">' + (rx.arrivalDate||'&mdash;') + '</td>' +
-                        '<td style="padding:6px 8px">' + (rx.serviceDate||'&mdash;') + '</td>' +
-                        '<td style="padding:6px 8px">' + (rx.Pharmacy ? rx.Pharmacy.name : '&mdash;') + '</td>' +
+                        '<td style="padding:6px 8px">' + (rx.arrivalDate||'—') + '</td>' +
+                        '<td style="padding:6px 8px">' + (rx.serviceDate||'—') + '</td>' +
+                        '<td style="padding:6px 8px">' + (rx.Pharmacy ? rx.Pharmacy.name : '—') + '</td>' +
                         '<td style="padding:6px 8px"><span style="background:' + statusColor + ';color:#fff;padding:1px 8px;border-radius:10px;font-size:.72rem">' + statusLabel + '</span></td>' +
                       '</tr>' +
                       (actions.length ? '<tr><td colspan="5" style="padding:3px 8px 3px 24px;background:#f8f9fa;font-size:.78rem"><strong>Actions:</strong> ' + actionsHtml + '</td></tr>' : '') +
@@ -1206,12 +1206,12 @@
               '<div style="font-size:.85rem;opacity:.75;margin-top:3px">Patient RX System &nbsp;&middot;&nbsp; Generated: ' + printDate + '</div>' +
             '</div>' +
             '<div style="text-align:right">' +
-              '<div style="font-size:1.2rem;font-weight:700;font-family:monospace">' + (p.patientCode||'&mdash;') + '</div>' +
+              '<div style="font-size:1.2rem;font-weight:700;font-family:monospace">' + (p.patientCode||'—') + '</div>' +
               '<div style="margin-top:6px"><span style="background:' + (isActive?'#198754':'#6c757d') + ';color:#fff;padding:3px 12px;border-radius:20px;font-size:.78rem;font-weight:600">' + (isActive?'● Active':'○ Inactive') + '</span></div>' +
             '</div>' +
           '</div>' +
           '<div style="padding:24px 28px;display:grid;grid-template-columns:1fr 1fr;gap:14px 32px;border-bottom:1px solid #e9ecef">' +
-            [['📅 Date of Birth',p.dob||'&mdash;'],['📞 Phone',p.phone||'&mdash;'],['📅 Service Date',p.serviceDate||'&mdash;'],['🏥 Clinic',clinic],['🏠 Address',p.address||'&mdash;'],['🚐 Patient Transport',ptComp],['💊 Pharmacy Transport',phComp]]
+            [['📅 Date of Birth',p.dob||'—'],['📞 Phone',p.phone||'—'],['📅 Service Date',p.serviceDate||'—'],['🏥 Clinic',clinic],['🏠 Address',p.address||'—'],['🚐 Patient Transport',ptComp],['💊 Pharmacy Transport',phComp]]
             .map(function(r){ return '<div><div style="font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#888;margin-bottom:3px">'+r[0]+'</div><div style="font-size:.9rem;color:#1a2234">'+r[1]+'</div></div>'; }).join('') +
           '</div>' +
           (p.notes ? '<div style="margin:16px 28px;padding:12px 16px;background:#fffbea;border-left:4px solid #f5a623;border-radius:4px;font-size:.85rem;color:#7a5800"><strong>📝 Notes:</strong><br>' + p.notes.replace(/\n/g,'<br>') + '</div>' : '') +
@@ -1226,12 +1226,12 @@
         '<div id="printContentClassic" style="display:none;font-family:Inter,Arial,sans-serif;color:#1a2234;padding:28px">' +
           '<div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #1a2234;padding-bottom:12px;margin-bottom:20px">' +
             '<div><h4 style="margin:0;color:#1a2234">Patient Record</h4><div style="font-size:.8rem;color:#888;margin-top:4px">Printed: ' + printDate + '</div></div>' +
-            '<div style="text-align:right"><div style="font-size:1.1rem;font-weight:700">' + p.firstName + ' ' + p.lastName + ' ' + statusBadge + '</div><div style="color:#888;font-size:.85rem"><code>' + (p.patientCode||'&mdash;') + '</code></div></div>' +
+            '<div style="text-align:right"><div style="font-size:1.1rem;font-weight:700">' + p.firstName + ' ' + p.lastName + ' ' + statusBadge + '</div><div style="color:#888;font-size:.85rem"><code>' + (p.patientCode||'—') + '</code></div></div>' +
           '</div>' +
           '<table style="width:100%;border-collapse:collapse;margin-bottom:24px;font-size:.875rem">' +
-            '<tr><td style="width:50%;padding:6px 0"><strong>Date of Birth:</strong> '+(p.dob||'&mdash;')+'</td><td style="padding:6px 0"><strong>Phone:</strong> '+(p.phone||'&mdash;')+'</td></tr>' +
-            '<tr><td style="padding:6px 0"><strong>Service Date:</strong> '+(p.serviceDate||'&mdash;')+'</td><td style="padding:6px 0"><strong>Clinic:</strong> '+clinic+'</td></tr>' +
-            '<tr><td style="padding:6px 0"><strong>Address:</strong> '+(p.address||'&mdash;')+'</td><td style="padding:6px 0"><strong>Patient Transport:</strong> '+ptComp+'</td></tr>' +
+            '<tr><td style="width:50%;padding:6px 0"><strong>Date of Birth:</strong> '+(p.dob||'—')+'</td><td style="padding:6px 0"><strong>Phone:</strong> '+(p.phone||'—')+'</td></tr>' +
+            '<tr><td style="padding:6px 0"><strong>Service Date:</strong> '+(p.serviceDate||'—')+'</td><td style="padding:6px 0"><strong>Clinic:</strong> '+clinic+'</td></tr>' +
+            '<tr><td style="padding:6px 0"><strong>Address:</strong> '+(p.address||'—')+'</td><td style="padding:6px 0"><strong>Patient Transport:</strong> '+ptComp+'</td></tr>' +
             '<tr><td style="padding:6px 0"><strong>Pharmacy Transport:</strong> '+phComp+'</td><td></td></tr>' +
           '</table>' +
           (p.notes ? '<div style="background:#f8f9fa;border-left:3px solid #4a90e2;padding:10px 14px;border-radius:4px;margin-bottom:24px;font-size:.85rem"><strong>Notes:</strong><br>' + p.notes.replace(/\n/g,'<br>') + '</div>' : '') +

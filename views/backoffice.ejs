@@ -854,7 +854,7 @@ let selected     = new Set();
 // ── Viewer state ──────────────────────────────────────────────────────────
 let viewerRows    = [];   // raw rows from API
 let viewerCols    = [];   // all column keys
-let viewerVis     = {};   // col key &rarr; visible boolean
+let viewerVis     = {};   // col key → visible boolean
 let viewerFilter  = '';   // search string
 let viewerFiltRows = [];  // filtered subset
 let viewerPage    = 1;
@@ -871,7 +871,7 @@ let viewerMeta    = null; // current table meta
         document.getElementById('deniedWrap').style.display = 'block';
     } else {
         document.getElementById('mainWrap').style.display = 'block';
-        document.getElementById('userBadge').textContent = (USER.firstName || '') + ' &mdash; Administrator';
+        document.getElementById('userBadge').textContent = (USER.firstName || '') + ' — Administrator';
         loadStats();
     }
 })();
@@ -991,7 +991,7 @@ async function openViewer(tableKey) {
 
         viewerRows  = data.rows;
         viewerCols  = data.columns;
-        // Init visibility &mdash; all visible by default
+        // Init visibility — all visible by default
         viewerVis = {};
         viewerCols.forEach(c => { viewerVis[c] = true; });
 
@@ -1070,7 +1070,7 @@ function renderViewerTable() {
     const end      = ps ? Math.min(start + ps, total) : total;
     const pageRows = viewerFiltRows.slice(start, end);
 
-    document.getElementById('viewerInfo').textContent = `Showing ${start+1}&ndash;${end} of ${total.toLocaleString()} ${viewerFilter ? '(filtered)' : ''}`;
+    document.getElementById('viewerInfo').textContent = `Showing ${start+1}–${end} of ${total.toLocaleString()} ${viewerFilter ? '(filtered)' : ''}`;
 
     if (!pageRows.length) {
         document.getElementById('viewerTableWrap').innerHTML = `<p class="no-rows"><i class="fas fa-search me-2"></i>No records${viewerFilter ? ' match your search' : ''}.</p>`;
@@ -1101,11 +1101,11 @@ function renderViewerTable() {
         </td>`;
         const tds = visCols.map(c => {
             const val = row[c];
-            if (val === null || val === undefined) return `<td class="null-cell">&mdash;</td>`;
-            if (val === true  || val === 'true')   return `<td class="bool-true">&#10003; true</td>`;
+            if (val === null || val === undefined) return `<td class="null-cell">—</td>`;
+            if (val === true  || val === 'true')   return `<td class="bool-true">✓ true</td>`;
             if (val === false || val === 'false')   return `<td class="bool-false">✗ false</td>`;
             const str = String(val);
-            const display = str.length > 80 ? str.slice(0, 80) + '&hellip;' : str;
+            const display = str.length > 80 ? str.slice(0, 80) + '…' : str;
             return `<td title="${str.replace(/"/g,'&quot;')}">${display}</td>`;
         }).join('');
         return `<tr class="${isSel ? 'sel-row' : ''}">${checkTd}${tds}</tr>`;
@@ -1241,7 +1241,7 @@ async function executeRowDelete() {
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Delete failed');
         const cascadeInfo = Object.entries(data.results.cascaded || {}).map(([t,n]) => `${n} ${t}`).join(', ');
-        toast(`&#10003; Deleted ${data.results.deleted} row(s)${cascadeInfo ? ' + cascaded: ' + cascadeInfo : ''}`, 'success');
+        toast(`✓ Deleted ${data.results.deleted} row(s)${cascadeInfo ? ' + cascaded: ' + cascadeInfo : ''}`, 'success');
         closeImpactModal();
         viewerSelectedIds.clear();
         await openViewer(viewerMeta.key);
@@ -1253,7 +1253,7 @@ async function executeRowDelete() {
     }
 }
 function renderPagination(page, pages, total) {
-    document.getElementById('pagInfo').textContent = `Page ${page} of ${pages} &mdash; ${total.toLocaleString()} rows`;
+    document.getElementById('pagInfo').textContent = `Page ${page} of ${pages} — ${total.toLocaleString()} rows`;
     const ctrl = document.getElementById('pagControls');
     if (pages <= 1) { ctrl.innerHTML = ''; return; }
 
@@ -1262,9 +1262,9 @@ function renderPagination(page, pages, total) {
 
     const range = 2;
     let lo = Math.max(1, page - range), hi = Math.min(pages, page + range);
-    if (lo > 1) html += `<button class="pag-btn" onclick="goPage(1)">1</button>${lo > 2 ? '<span style="color:var(--text-muted);padding:0 4px">&hellip;</span>' : ''}`;
+    if (lo > 1) html += `<button class="pag-btn" onclick="goPage(1)">1</button>${lo > 2 ? '<span style="color:var(--text-muted);padding:0 4px">…</span>' : ''}`;
     for (let i = lo; i <= hi; i++) html += `<button class="pag-btn ${i===page?'active':''}" onclick="goPage(${i})">${i}</button>`;
-    if (hi < pages) html += `${hi < pages-1 ? '<span style="color:var(--text-muted);padding:0 4px">&hellip;</span>' : ''}<button class="pag-btn" onclick="goPage(${pages})">${pages}</button>`;
+    if (hi < pages) html += `${hi < pages-1 ? '<span style="color:var(--text-muted);padding:0 4px">…</span>' : ''}<button class="pag-btn" onclick="goPage(${pages})">${pages}</button>`;
 
     html += `<button class="pag-btn" onclick="goPage(${page+1})" ${page===pages?'disabled':''}>›</button>`;
     html += `<button class="pag-btn" onclick="goPage(${pages})" ${page===pages?'disabled':''}>»</button>`;
@@ -1287,7 +1287,7 @@ async function exportTable(tableKey) {
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Load failed');
         exportRowsAsCSV(tableKey, meta?.label || tableKey, data.rows, data.columns);
-        toast(`&#10003; Exported ${data.total.toLocaleString()} records from ${meta?.label || tableKey}`, 'success');
+        toast(`✓ Exported ${data.total.toLocaleString()} records from ${meta?.label || tableKey}`, 'success');
     } catch(e) { toast('Export failed: ' + e.message, 'danger'); }
 }
 
@@ -1354,7 +1354,7 @@ async function executePurge() {
         if (!res.ok) throw new Error(data.error || 'Purge failed');
         closeConfirm();
         const totalDel = Object.values(data.results).reduce((a,b)=>a+b, 0);
-        toast(`&#10003; Purged ${Object.keys(data.results).length} table(s) &mdash; ${totalDel.toLocaleString()} records deleted`, 'success');
+        toast(`✓ Purged ${Object.keys(data.results).length} table(s) — ${totalDel.toLocaleString()} records deleted`, 'success');
         selected.clear();
         await loadStats();
     } catch(e) { toast('Error: ' + e.message, 'danger'); }
@@ -1572,7 +1572,7 @@ function renderOrphans() {
         <div style="background:${d.clean ? 'rgba(16,185,129,0.08)' : 'rgba(251,191,36,0.08)'};border:1px solid ${d.clean ? 'rgba(16,185,129,0.2)' : 'rgba(251,191,36,0.2)'};border-radius:8px;padding:0.75rem 1rem;display:flex;align-items:center;gap:0.75rem">
             <i class="fas ${statusIcon}" style="color:${statusColor};font-size:1.2rem"></i>
             <div>
-                <div style="font-weight:700;color:${statusColor}">${d.clean ? '✔ Database is clean' : '&#9888; ' + d.totalOrphans.toLocaleString() + ' orphaned record(s) found'}</div>
+                <div style="font-weight:700;color:${statusColor}">${d.clean ? '✔ Database is clean' : '⚠ ' + d.totalOrphans.toLocaleString() + ' orphaned record(s) found'}</div>
                 <div style="font-size:0.75rem;color:var(--text-muted)">${d.results.length} FK relationships checked</div>
             </div>
         </div>`;
@@ -1586,7 +1586,7 @@ function renderOrphans() {
                         <span style="font-family:monospace;font-size:0.82rem;color:${r.clean ? 'var(--text)' : '#fbbf24'}">
                             ${r.childTable}.<span style="color:#a5b4fc">${r.childCol}</span>
                         </span>
-                        <span style="color:var(--text-muted);margin:0 0.4rem">&rarr;</span>
+                        <span style="color:var(--text-muted);margin:0 0.4rem">→</span>
                         <span style="font-family:monospace;font-size:0.82rem;color:var(--text-muted)">${r.parentTable}.${r.parentCol}</span>
                     </div>
                 </div>
@@ -1614,7 +1614,7 @@ async function cleanOrphans(childTable, childCol, parentTable, parentCol, btn) {
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Clean failed');
-        toast(`&#10003; Cleaned ${data.deleted} orphaned rows from ${childTable}`, 'success');
+        toast(`✓ Cleaned ${data.deleted} orphaned rows from ${childTable}`, 'success');
         await loadOrphans(); // re-scan
     } catch(e) { toast('Clean failed: ' + e.message, 'danger'); btn.disabled = false; btn.innerHTML = '<i class="fas fa-broom me-1"></i>Clean Up'; }
 }
@@ -1656,7 +1656,7 @@ function renderDupes() {
         document.getElementById('dupesList').innerHTML = '';
         return;
     }
-    document.getElementById('dupesStatus').innerHTML = `<div style="background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.2);border-radius:8px;padding:0.75rem 1rem;color:#fbbf24;font-weight:600">&#9888; ${total} duplicate group(s) found by ${label}</div>`;
+    document.getElementById('dupesStatus').innerHTML = `<div style="background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.2);border-radius:8px;padding:0.75rem 1rem;color:#fbbf24;font-weight:600">⚠ ${total} duplicate group(s) found by ${label}</div>`;
 
     document.getElementById('dupesList').innerHTML = groups.map(g => {
         const recs = typeof g.records === 'string' ? JSON.parse(g.records) : g.records;
@@ -1668,7 +1668,7 @@ function renderDupes() {
                         <div style="font-weight:600;font-size:0.85rem">${p.firstName} ${p.lastName}</div>
                         <div style="font-size:0.72rem;color:var(--text-muted)">
                             DOB: ${p.dob || '\u2014'} &bull; Phone: ${p.phone || '\u2014'} &bull;
-                            Added: ${p.createdAt ? new Date(p.createdAt).toLocaleDateString() : '&mdash;'}
+                            Added: ${p.createdAt ? new Date(p.createdAt).toLocaleDateString() : '—'}
                             ${p.isActive === false ? '<span style="color:#fca5a5;margin-left:0.3rem">(inactive)</span>' : ''}
                         </div>
                     </div>
@@ -1698,7 +1698,7 @@ async function deleteDupPatient(id, btn) {
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Delete failed');
-        toast(`&#10003; Patient ${id} deleted`, 'success');
+        toast(`✓ Patient ${id} deleted`, 'success');
         await loadDupes();
         loadStats();
     } catch(e) { toast('Delete failed: ' + e.message, 'danger'); btn.disabled = false; btn.innerHTML = '<i class="fas fa-trash-alt me-1"></i>Delete'; }
@@ -1781,10 +1781,10 @@ async function loadAuditLogs(page) {
                     <td style="padding:0.45rem 0.875rem;color:var(--text-muted);white-space:nowrap">${new Date(r.createdAt).toLocaleString()}</td>
                     <td style="padding:0.45rem 0.875rem;white-space:nowrap">${r.firstName ? r.firstName + ' ' + r.lastName : (r.userId ? 'User #' + r.userId : '<span style="color:var(--text-muted)">System</span>')}</td>
                     <td style="padding:0.45rem 0.875rem;white-space:nowrap">
-                        <span style="font-size:0.65rem;font-weight:700;border-radius:4px;padding:0.15rem 0.45rem;background:${actionColor(r.action)}22;color:${actionColor(r.action)};border:1px solid ${actionColor(r.action)}44">${r.action || '&mdash;'}</span>
+                        <span style="font-size:0.65rem;font-weight:700;border-radius:4px;padding:0.15rem 0.45rem;background:${actionColor(r.action)}22;color:${actionColor(r.action)};border:1px solid ${actionColor(r.action)}44">${r.action || '—'}</span>
                     </td>
-                    <td style="padding:0.45rem 0.875rem;color:#a5b4fc">${r.entity || '&mdash;'}${r.entityId ? ' <span style="color:var(--text-muted);font-size:0.7rem">#' + r.entityId + '</span>' : ''}</td>
-                    <td style="padding:0.45rem 0.875rem;color:var(--text-muted);max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${String(r.details||'').replace(/"/g,'&quot;')}">${r.details || '&mdash;'}</td>
+                    <td style="padding:0.45rem 0.875rem;color:#a5b4fc">${r.entity || '—'}${r.entityId ? ' <span style="color:var(--text-muted);font-size:0.7rem">#' + r.entityId + '</span>' : ''}</td>
+                    <td style="padding:0.45rem 0.875rem;color:var(--text-muted);max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${String(r.details||'').replace(/"/g,'&quot;')}">${r.details || '—'}</td>
                 </tr>`).join('')}
                 </tbody>
             </table></div>`;
@@ -1794,9 +1794,9 @@ async function loadAuditLogs(page) {
         if (data.pages > 1) {
             if (page > 1) pag += `<button class="pag-btn" onclick="loadAuditLogs(${page-1})">&#8249;</button>`;
             const lo = Math.max(1, page-2), hi = Math.min(data.pages, page+2);
-            if (lo > 1) pag += `<button class="pag-btn" onclick="loadAuditLogs(1)">1</button>${lo>2 ? '<span style="padding:0 4px;color:var(--text-muted)">&hellip;</span>' : ''}`;
+            if (lo > 1) pag += `<button class="pag-btn" onclick="loadAuditLogs(1)">1</button>${lo>2 ? '<span style="padding:0 4px;color:var(--text-muted)">…</span>' : ''}`;
             for (let i=lo; i<=hi; i++) pag += `<button class="pag-btn ${i===page?'active':''}" onclick="loadAuditLogs(${i})">${i}</button>`;
-            if (hi < data.pages) pag += `${hi<data.pages-1 ? '<span style="padding:0 4px;color:var(--text-muted)">&hellip;</span>' : ''}<button class="pag-btn" onclick="loadAuditLogs(${data.pages})">${data.pages}</button>`;
+            if (hi < data.pages) pag += `${hi<data.pages-1 ? '<span style="padding:0 4px;color:var(--text-muted)">…</span>' : ''}<button class="pag-btn" onclick="loadAuditLogs(${data.pages})">${data.pages}</button>`;
             if (page < data.pages) pag += `<button class="pag-btn" onclick="loadAuditLogs(${page+1})">&#8250;</button>`;
         }
         document.getElementById('auditPagination').innerHTML = pag;
