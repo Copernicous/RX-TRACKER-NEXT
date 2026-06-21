@@ -157,6 +157,7 @@ router.post('/auth/logout', auth, async (req, res) => {
             ipAddress: req.ip
         });
     } catch (e) { /* non-fatal */ }
+    res.clearCookie('rxToken');  // clear FortiGate-compatible cookie auth
     res.status(200).json({ message: 'Logged out.' });
 });
 
