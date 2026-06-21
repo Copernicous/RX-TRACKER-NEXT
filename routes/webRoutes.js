@@ -1,6 +1,9 @@
 const express = require('express');
 const router = express.Router();
 
+// Root → redirect to login
+router.get('/', (req, res) => res.redirect('/login'));
+
 router.get('/login', (req, res) => {
     res.render('login', { title: 'Login - Patient RX System' });
 });
