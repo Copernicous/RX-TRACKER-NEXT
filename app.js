@@ -109,6 +109,21 @@ app.use((req, res, next) => {
     next();
 });
 
+// Force no-caching for JS files — prevents FortiGate SSL proxy from serving
+// stale/corrupted cached versions of JavaScript files after updates.
+app.use('/js', function(req, res, next) {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    next();
+});
+app.use('/css', function(req, res, next) {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    next();
+});
+
 // Static folder
 app.use(express.static(path.join(__dirname, 'public')));
 
