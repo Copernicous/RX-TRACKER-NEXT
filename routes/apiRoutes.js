@@ -114,7 +114,7 @@ generateCRUDRoutes('/medication-catalog', medicationCatalogController, 'Medicati
 router.put('/medication-catalog/:id/restore', rbac.requirePermission('medication_catalog', 'edit'), auditLogger('Medication Catalog'), medicationCatalogController.restore);
 
 // RX Workflow must be registered BEFORE the generic rx-records CRUD to avoid :id matching "workflow"
-router.post('/rx-records/return-to-warehouse', rbac.requirePermission('rx_records', 'edit'), auditLogger('RX Workflow'), rxController.returnToWarehouse);
+router.post('/rx-records/return-to-warehouse', rbac.requirePermission('rx_records', 'warehouse'), auditLogger('RX Workflow'), rxController.returnToWarehouse);
 router.post('/rx-records/undo-workflow',        rbac.requirePermission('rx_records', 'undo'), auditLogger('RX Workflow'), rxController.undoWorkflow);
 router.post('/rx-records/workflow',             rbac.requirePermission('rx_records', 'add'),  auditLogger('RX Workflow'), rxController.updateWorkflow);
 router.put('/rx-records/:id/restore',           rbac.requirePermission('rx_records', 'edit'), auditLogger('RX Records'), rxController.restore);

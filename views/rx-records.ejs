@@ -1019,31 +1019,39 @@
             (rx.RXWorkflowTrackings || []).forEach(t => { completedMap[t.workflowActionId] = t; });
             
             let userRole = '';
-            let rxPerms = { canEdit: false, canDelete: false, canUndo: false }; // safe defaults
+            let rxPerms = { canAdd: false, canEdit: false, canDelete: false, canUndo: false, canWarehouse: false }; // safe defaults
             try {
                 const u = JSON.parse(localStorage.getItem('user'));
                 if (u && u.role) userRole = u.role;
-                // Administrators always have full access unless explicitly restricted
+                // Administrators always have full access
                 if (userRole === 'Administrator') {
-                    rxPerms = { canEdit: true, canDelete: true, canUndo: true };
+                    rxPerms = { canAdd: true, canEdit: true, canDelete: true, canUndo: true, canWarehouse: true };
                 } else {
-                    rxPerms = getPagePerms();
+                    const gp = getPagePerms();
+                    rxPerms = {
+                        canAdd:       !!gp.canAdd,
+                        canEdit:      !!gp.canEdit,
+                        canDelete:    !!gp.canDelete,
+                        canUndo:      !!gp.canUndo,
+                        canWarehouse: gp.canWarehouse !== undefined ? !!gp.canWarehouse : !!gp.canEdit // fallback
+                    };
                 }
             } catch(e) {}
             
-            // canUndo is purely from permissions — no separate isAdmin bypass
-            const canUndo = !!rxPerms.canUndo;
-            const canComplete = !!rxPerms.canEdit;
+            // Workflow action permissions — each independently controlled
+            const canComplete  = !!rxPerms.canAdd;       // complete step = POST /workflow (canAdd)
+            const canUndo      = !!rxPerms.canUndo;      // undo step     = POST /undo-workflow (canUndo)
+            const canWarehouse = !!rxPerms.canWarehouse; // return to warehouse (canWarehouse)
             const lastCompletedActionId = completedIds.length > 0 ? rx.RXWorkflowTrackings[rx.RXWorkflowTrackings.length - 1].workflowActionId : null;
 
             // Store current rxId for Return to Warehouse button
             window._workflowRxId = rxId;
 
-            // Show/hide Return to Warehouse footer
+            // Show/hide Return to Warehouse footer — only when canWarehouse=true
             const footer = document.getElementById('workflowFooter');
             const warehouseBtn = document.getElementById('returnToWarehouseBtn');
             const alreadyReturned = !!rx.returnedToWarehouse;
-            if (canComplete && footer) {
+            if (canWarehouse && footer) {
                 footer.style.display = '';
                 if (alreadyReturned) {
                     warehouseBtn.innerHTML = '<i class="fas fa-warehouse me-1"></i>Already Returned — Re-send to Warehouse';

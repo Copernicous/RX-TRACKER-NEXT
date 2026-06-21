@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en" data-theme="light">
 <head>
     <script>!function(){var t=localStorage.getItem("rxTheme");if(t)document.documentElement.setAttribute("data-theme",t)}();</script>
@@ -116,7 +116,9 @@
                                 <th class="text-center" style="width:70px" title="Can EDIT existing records (PUT)">Edit</th>
                                 <th class="text-center" style="width:70px" title="Can delete records">Delete</th>
                                 <th class="text-center" style="width:70px" title="Can export data to CSV">Export</th>
-                                <th class="text-center" style="width:70px" title="Can undo workflow steps (RX Records only)">Undo</th>
+                                <th class="text-center" style="width:80px" title="Can complete RX workflow steps (RX Records only)">Complete</th>
+                                <th class="text-center" style="width:70px" title="Can undo the last workflow step (RX Records only)">Undo</th>
+                                <th class="text-center" style="width:90px" title="Can return RX to warehouse (RX Records only)">Warehouse</th>
                             </tr>
                         </thead>
                         <tbody id="permEditorBody"></tbody>
@@ -161,7 +163,7 @@
 const MODULE_DEFS = [
     { key: 'dashboard',          label: 'Dashboard',             group: 'Core',      hasUndo: false, visibleLocked: true },
     { key: 'patients',           label: 'Patients',              group: 'Core',      hasUndo: false },
-    { key: 'rx_records',         label: 'RX Records',            group: 'Core',      hasUndo: true  },
+    { key: 'rx_records',         label: 'RX Records',            group: 'Core',      hasWorkflow: true  },
     { key: 'reports',            label: 'Reports',               group: 'Core',      hasUndo: false },
     { key: 'patient_notes',      label: 'Patient Notes',         group: 'Core',      hasUndo: false, notesOnly: true },
     { key: 'audit_log',          label: 'Audit Log',             group: 'Admin',     hasUndo: false, visibleOnly: true },
@@ -371,9 +373,10 @@ function buildPermEditor(perms) {
     const tbody = document.getElementById('permEditorBody');
     let lastGroup = '';
     tbody.innerHTML = MODULE_DEFS.map(m => {
-    const p = perms[m.key] || { visible: false, canAdd: false, canEdit: false, canDelete: false, canExport: false, canUndo: false };
+    const p = perms[m.key] || { visible: false, canAdd: false, canEdit: false, canDelete: false, canExport: false, canUndo: false, canWarehouse: false };
     // Backward compat: if canAdd not stored, treat as canEdit
     if (p.canAdd === undefined) p.canAdd = p.canEdit;
+    if (p.canWarehouse === undefined) p.canWarehouse = p.canEdit; // fallback for old data
         let groupRow = '';
         if (m.group !== lastGroup) {
             lastGroup = m.group;
@@ -390,6 +393,7 @@ function buildPermEditor(perms) {
                 <td class="ps-3 fw-semibold">${m.label} <span class="badge bg-secondary ms-1" style="font-size:.6rem">Always On</span></td>
                 <td class="text-center"><input type="checkbox" class="form-check-input perm-visible" checked disabled></td>
                 <td class="text-center">${dash}</td><td class="text-center">${dash}</td>
+                <td class="text-center">${dash}</td><td class="text-center">${dash}</td>
                 <td class="text-center">${dash}</td><td class="text-center">${dash}</td><td class="text-center">${dash}</td>
             </tr>`;
         }
@@ -397,6 +401,7 @@ function buildPermEditor(perms) {
             return groupRow + `<tr data-module="${m.key}">
                 <td class="ps-3 fw-semibold">${m.label} <span class="badge bg-info ms-1" style="font-size:.6rem">View only</span></td>
                 <td class="text-center"><input type="checkbox" class="form-check-input perm-visible" ${p.visible ? 'checked' : ''}></td>
+                <td class="text-center">${dash}</td><td class="text-center">${dash}</td>
                 <td class="text-center">${dash}</td><td class="text-center">${dash}</td>
                 <td class="text-center">${dash}</td><td class="text-center">${dash}</td><td class="text-center">${dash}</td>
             </tr>`;
@@ -409,22 +414,30 @@ function buildPermEditor(perms) {
                 <td class="text-center" title="Can add new notes"><input type="checkbox" class="form-check-input perm-canadd" ${p.canAdd ? 'checked' : ''}></td>
                 <td class="text-center" title="Cannot edit existing notes (notes are immutable)"><span class="text-muted">—</span></td>
                 <td class="text-center" title="Can delete notes"><input type="checkbox" class="form-check-input perm-candelete" ${p.canDelete ? 'checked' : ''}></td>
-                <td class="text-center">${dash}</td><td class="text-center">${dash}</td>
+                <td class="text-center">${dash}</td><td class="text-center">${dash}</td><td class="text-center">${dash}</td><td class="text-center">${dash}</td>
             </tr>`;
         }
 
-        const undoCell = m.hasUndo
-            ? `<input type="checkbox" class="form-check-input perm-canundo" ${p.canUndo ? 'checked' : ''}>`
-            : dash;
+        // RX Records gets 3 workflow columns: Complete (canAdd), Undo (canUndo), Warehouse (canWarehouse)
+        const workflowCells = m.hasWorkflow
+            ? `<td class="text-center" title="Can complete workflow steps"><input type="checkbox" class="form-check-input perm-canadd"       ${p.canAdd       ? 'checked' : ''}></td>
+               <td class="text-center" title="Can undo last workflow step"><input type="checkbox" class="form-check-input perm-canundo"       ${p.canUndo       ? 'checked' : ''}></td>
+               <td class="text-center" title="Can return to warehouse"><input type="checkbox" class="form-check-input perm-canwarehouse"  ${p.canWarehouse  ? 'checked' : ''}></td>`
+            : `<td class="text-center">${dash}</td><td class="text-center">${dash}</td><td class="text-center">${dash}</td>`;
+
+        // For rx_records with hasWorkflow, canAdd is shown in workflow column — hide from standard Add column
+        const addCell = m.hasWorkflow
+            ? `<td class="text-center">${dash}</td>`
+            : `<td class="text-center"><input type="checkbox" class="form-check-input perm-canadd"   ${p.canAdd   ? 'checked' : ''}></td>`;
 
         return groupRow + `<tr data-module="${m.key}">
             <td class="ps-3 fw-semibold">${m.label}</td>
             <td class="text-center"><input type="checkbox" class="form-check-input perm-visible"  ${p.visible   ? 'checked' : ''}></td>
-            <td class="text-center"><input type="checkbox" class="form-check-input perm-canadd"   ${p.canAdd   ? 'checked' : ''}></td>
+            ${addCell}
             <td class="text-center"><input type="checkbox" class="form-check-input perm-canedit"  ${p.canEdit  ? 'checked' : ''}></td>
             <td class="text-center"><input type="checkbox" class="form-check-input perm-candelete"${p.canDelete? 'checked' : ''}></td>
             <td class="text-center"><input type="checkbox" class="form-check-input perm-canexport"${p.canExport? 'checked' : ''}></td>
-            <td class="text-center">${undoCell}</td>
+            ${workflowCells}
         </tr>`;
     }).join('');
 }
@@ -434,19 +447,24 @@ function readPermEditor() {
     document.querySelectorAll('#permEditorBody tr[data-module]').forEach(row => {
         const key = row.getAttribute('data-module');
         const cb  = sel => { const el = row.querySelector(sel); return el ? el.checked : false; };
+        const def = m => MODULE_DEFS.find(d => d.key === key) || {};
+        const isWorkflow = (MODULE_DEFS.find(d => d.key === key) || {}).hasWorkflow;
         perms[key] = {
-            visible:   cb('.perm-visible'),
-            canAdd:    cb('.perm-canadd'),
-            canEdit:   cb('.perm-canedit'),
-            canDelete: cb('.perm-candelete'),
-            canExport: cb('.perm-canexport'),
-            canUndo:   cb('.perm-canundo')
+            visible:      cb('.perm-visible'),
+            canAdd:       cb('.perm-canadd'),
+            canEdit:      cb('.perm-canedit'),
+            canDelete:    cb('.perm-candelete'),
+            canExport:    cb('.perm-canexport'),
+            canUndo:      cb('.perm-canundo'),
+            canWarehouse: cb('.perm-canwarehouse')
         };
     });
     // Dashboard always visible
     if (perms.dashboard) { perms.dashboard.visible = true; perms.dashboard.canAdd = false; perms.dashboard.canEdit = false; }
     // Patient notes: no canEdit (notes are immutable once written)
     if (perms.patient_notes) perms.patient_notes.canEdit = false;
+    // RX Records: canAdd is shown as 'Complete' column in the workflow section
+    // (already read from .perm-canadd — no extra action needed)
     return perms;
 }
 

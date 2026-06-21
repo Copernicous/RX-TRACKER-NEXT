@@ -20,7 +20,7 @@ const BUILT_IN_DEFAULTS = {
         return {
             dashboard:          { visible: true,  canAdd: false, canEdit: false, canDelete: false, canExport: true,  canUndo: false },
             patients:           { ...full },
-            rx_records:         { ...full, canUndo: true },
+            rx_records:         { ...full, canUndo: true, canWarehouse: true },
             reports:            { visible: true,  canAdd: false, canEdit: false, canDelete: false, canExport: true,  canUndo: false },
             audit_log:          { visible: true,  canAdd: false, canEdit: false, canDelete: false, canExport: false, canUndo: false },
             import:             { ...full },
@@ -38,13 +38,13 @@ const BUILT_IN_DEFAULTS = {
     },
     Supervisor: () => {
         const full = { visible: true, canAdd: true, canEdit: true, canDelete: true,  canExport: true,  canUndo: false };
-        const add  = { visible: true, canAdd: true, canEdit: true, canDelete: false, canExport: true,  canUndo: false }; // add+edit, no delete
+        const add  = { visible: true, canAdd: true, canEdit: true, canDelete: false, canExport: true,  canUndo: false };
         const view = { visible: true, canAdd: false, canEdit: false, canDelete: false, canExport: true, canUndo: false };
         const hide = { visible: false, canAdd: false, canEdit: false, canDelete: false, canExport: false, canUndo: false };
         return {
             dashboard:          { visible: true,  canAdd: false, canEdit: false, canDelete: false, canExport: true,  canUndo: false },
             patients:           { ...full },
-            rx_records:         { ...full, canUndo: true },
+            rx_records:         { ...full, canUndo: true, canWarehouse: true },
             reports:            { ...view },
             audit_log:          { visible: true,  canAdd: false, canEdit: false, canDelete: false, canExport: false, canUndo: false },
             import:             { ...add },
@@ -67,7 +67,7 @@ const BUILT_IN_DEFAULTS = {
         return {
             dashboard:          { visible: true,  canAdd: false, canEdit: false, canDelete: false, canExport: true,  canUndo: false },
             patients:           { ...addOnly },
-            rx_records:         { ...addOnly },
+            rx_records:         { ...addOnly, canUndo: false, canWarehouse: false },
             reports:            { ...view },
             audit_log:          { ...hide },
             import:             { ...hide },
@@ -89,7 +89,7 @@ const BUILT_IN_DEFAULTS = {
         return {
             dashboard:          { visible: true,  canAdd: false, canEdit: false, canDelete: false, canExport: true,  canUndo: false },
             patients:           { ...view },
-            rx_records:         { ...view },
+            rx_records:         { ...view, canUndo: false, canWarehouse: false },
             reports:            { ...view },
             audit_log:          { ...hide },
             import:             { ...hide },
@@ -158,25 +158,27 @@ exports.requirePermission = (moduleKey, requiredAction) => {
 
             const rawPerm = rolePerms[moduleKey];
             const perm = rawPerm ? {
-                visible:   !!rawPerm.visible,
-                canAdd:    rawPerm.canAdd    !== undefined ? !!rawPerm.canAdd    : !!rawPerm.canEdit, // fallback for old data
-                canEdit:   !!rawPerm.canEdit,
-                canDelete: !!rawPerm.canDelete,
-                canExport: !!rawPerm.canExport,
-                canUndo:   !!rawPerm.canUndo
-            } : { visible: false, canAdd: false, canEdit: false, canDelete: false, canExport: false, canUndo: false };
+                visible:      !!rawPerm.visible,
+                canAdd:       rawPerm.canAdd       !== undefined ? !!rawPerm.canAdd       : !!rawPerm.canEdit,
+                canEdit:      !!rawPerm.canEdit,
+                canDelete:    !!rawPerm.canDelete,
+                canExport:    !!rawPerm.canExport,
+                canUndo:      !!rawPerm.canUndo,
+                canWarehouse: rawPerm.canWarehouse !== undefined ? !!rawPerm.canWarehouse : !!rawPerm.canEdit
+            } : { visible: false, canAdd: false, canEdit: false, canDelete: false, canExport: false, canUndo: false, canWarehouse: false };
 
             if (!perm.visible) {
                 return res.status(403).json({ message: `Access denied: ${moduleKey} module is hidden.` });
             }
 
-            if (requiredAction === 'read')   return next();
-            if (requiredAction === 'add'    && !perm.canAdd)    return res.status(403).json({ message: `Access denied: you cannot add records to ${moduleKey}.` });
-            if (requiredAction === 'edit'   && !perm.canEdit)   return res.status(403).json({ message: `Access denied: you cannot edit ${moduleKey}.` });
-            if (requiredAction === 'write'  && !perm.canAdd && !perm.canEdit) return res.status(403).json({ message: `Access denied: you cannot write to ${moduleKey}.` });
-            if (requiredAction === 'delete' && !perm.canDelete) return res.status(403).json({ message: `Access denied: you cannot delete from ${moduleKey}.` });
-            if (requiredAction === 'export' && !perm.canExport) return res.status(403).json({ message: `Access denied: you cannot export ${moduleKey}.` });
-            if (requiredAction === 'undo'   && !perm.canUndo)   return res.status(403).json({ message: `Access denied: you cannot undo workflow steps.` });
+            if (requiredAction === 'read')      return next();
+            if (requiredAction === 'add'       && !perm.canAdd)       return res.status(403).json({ message: `Access denied: you cannot add records to ${moduleKey}.` });
+            if (requiredAction === 'edit'      && !perm.canEdit)      return res.status(403).json({ message: `Access denied: you cannot edit ${moduleKey}.` });
+            if (requiredAction === 'write'     && !perm.canAdd && !perm.canEdit) return res.status(403).json({ message: `Access denied: you cannot write to ${moduleKey}.` });
+            if (requiredAction === 'delete'    && !perm.canDelete)    return res.status(403).json({ message: `Access denied: you cannot delete from ${moduleKey}.` });
+            if (requiredAction === 'export'    && !perm.canExport)    return res.status(403).json({ message: `Access denied: you cannot export ${moduleKey}.` });
+            if (requiredAction === 'undo'      && !perm.canUndo)      return res.status(403).json({ message: `Access denied: you cannot undo workflow steps.` });
+            if (requiredAction === 'warehouse' && !perm.canWarehouse) return res.status(403).json({ message: `Access denied: you cannot return RX records to warehouse.` });
 
             next();
         } catch (e) {
