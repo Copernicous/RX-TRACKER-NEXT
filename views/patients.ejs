@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en" data-theme="light">
 <head>
     <script>!function(){var t=localStorage.getItem("rxTheme");if(t)document.documentElement.setAttribute("data-theme",t)}();</script>
@@ -12,38 +12,10 @@
 </head>
 <body>
 <div class="wrapper">
-    <nav id="sidebar">
-        <div class="sidebar-header"><i class="fas fa-pills me-2"></i>Patient RX</div>
-        <ul class="list-unstyled components">
-            <li><a href="/dashboard"><i class="fas fa-tachometer-alt me-2"></i>Dashboard</a></li>
-            <li class="active"><a href="/patients"><i class="fas fa-user-injured me-2"></i>Patients</a></li>
-            <li><a href="/rx-records"><i class="fas fa-prescription me-2"></i>RX Records</a></li>
-            <li>
-                <a href="#settingsSubmenu" data-bs-toggle="collapse" aria-expanded="false" class="dropdown-toggle"><i class="fas fa-cogs me-2"></i>Settings</a>
-                <ul class="collapse list-unstyled ps-3" id="settingsSubmenu">
-                    <li><a href="/pharmacies"><i class="fas fa-clinic-medical me-2"></i>Pharmacies</a></li>
-                    <li><a href="/patient-transport"><i class="fas fa-ambulance me-2"></i>Patient Transport</a></li>
-                    <li><a href="/pharmacy-transport"><i class="fas fa-truck me-2"></i>Pharmacy Transport</a></li>
-                    <li><a href="/workflow-actions"><i class="fas fa-tasks me-2"></i>Workflow Actions</a></li>
-                    <li><a href="/medication-catalog"><i class="fas fa-clipboard-list me-2"></i>RX Actions</a></li>
-                    <li><a href="/clinics"><i class="fas fa-hospital me-2"></i>Clinics</a></li>
-                    <li><a href="/users"><i class="fas fa-users-cog me-2"></i>User Management</a></li>
-                    <li><a href="/system-settings"><i class="fas fa-sliders-h me-2"></i>System Settings</a></li>
-                    <li><a href="/backups"><i class="fas fa-database me-2"></i>Backups</a></li>
-                </ul>
-            </li>
-            <li>
-                <a href="#reportsSubmenu" data-bs-toggle="collapse" aria-expanded="false" class="dropdown-toggle"><i class="fas fa-chart-bar me-2"></i>Reports</a>
-                <ul class="collapse list-unstyled ps-3" id="reportsSubmenu">
-                    <li><a href="/reports"><i class="fas fa-chart-pie me-2"></i>Analytics &amp; Export</a></li>
-                    <li><a href="/audit-log"><i class="fas fa-history me-2"></i>Audit Log</a></li>
-                </ul>
-            </li>
-            <li><a href="/import"><i class="fas fa-file-import me-2"></i>Data Import</a></li>
-        </ul>
-    </nav>
+    <!-- Sidebar -->
+    <%- include('partials/sidebar') %>
 
-    <div id="content">
+<div id="content">
         <nav class="navbar navbar-expand-lg px-4 mb-4">
             <button type="button" id="sidebarCollapse" class="btn btn-primary btn-sm"><i class="fas fa-bars"></i></button>
             <span class="ms-3 fw-bold fs-5">Patients Management</span>
