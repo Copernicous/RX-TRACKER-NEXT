@@ -1,8 +1,9 @@
 ﻿<!DOCTYPE html>
 <html lang="en" data-theme="light">
 <head>
-    <script>!function(){var t=localStorage.getItem("rxTheme");if(t)document.documentElement.setAttribute("data-theme",t)}();</script>
     <meta charset="UTF-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <script>!function(){var t=localStorage.getItem("rxTheme");if(t)document.documentElement.setAttribute("data-theme",t)}();</script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Reports - Patient RX System</title>
     <link href="/assets/bootstrap.min.css" rel="stylesheet">
@@ -648,7 +649,9 @@
         const tbl = document.getElementById(tableId);
         if (!tbl) return;
         const win = window.open('', '_blank');
-        win.document.write(`<!DOCTYPE html><html><head><title>${title}</title>
+        win.document.write(`<!DOCTYPE html><html><head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><title>${title}</title>
             <link href="/assets/bootstrap.min.css" rel="stylesheet">
             </head><body class="p-4"><h4>${title}</h4>${tbl.outerHTML}</body></html>`);
         win.document.close();

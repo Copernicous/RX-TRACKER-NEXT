@@ -89,8 +89,21 @@ app.set('views', path.join(__dirname, 'views'));
 // Suppress favicon 404
 app.get('/favicon.ico', (req, res) => res.status(204).end());
 
+
+// Force UTF-8 charset on all HTML responses — required for FortiGate SSL web access
+// and any reverse proxy that rewrites HTML (prevents â€" garbled characters)
+app.use((req, res, next) => {
+    const orig = res.setHeader.bind(res);
+    res.render = ((origRender) => function(view, options, callback) {
+        res.setHeader('Content-Type', 'text/html; charset=UTF-8');
+        return origRender.call(this, view, options, callback);
+    })(res.render);
+    next();
+});
+
 // Static folder
 app.use(express.static(path.join(__dirname, 'public')));
+
 
 // Routes (to be added)
 const authRoutes         = require('./routes/authRoutes');

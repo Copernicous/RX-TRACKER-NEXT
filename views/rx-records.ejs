@@ -1,8 +1,9 @@
 ﻿<!DOCTYPE html>
 <html lang="en" data-theme="light">
 <head>
-    <script>!function(){var t=localStorage.getItem("rxTheme");if(t)document.documentElement.setAttribute("data-theme",t)}();</script>
     <meta charset="UTF-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <script>!function(){var t=localStorage.getItem("rxTheme");if(t)document.documentElement.setAttribute("data-theme",t)}();</script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>RX Records - Patient RX System</title>
     <link href="/assets/bootstrap.min.css" rel="stylesheet">
@@ -1424,6 +1425,8 @@
                th,td{padding:7px 10px;text-align:left;border-bottom:1px solid #dee2e6}
                @media print{@page{margin:20mm}body{padding:0}}`;
         win.document.write(`<!DOCTYPE html><html><head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
             <title>RX Record #${rx.id}</title>
             <style>${css}</style></head>
             <body>${content.outerHTML}

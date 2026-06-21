@@ -1,8 +1,9 @@
 ﻿<!DOCTYPE html>
 <html lang="en" data-theme="light">
 <head>
-    <script>!function(){var t=localStorage.getItem("rxTheme");if(t)document.documentElement.setAttribute("data-theme",t)}();</script>
     <meta charset="UTF-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <script>!function(){var t=localStorage.getItem("rxTheme");if(t)document.documentElement.setAttribute("data-theme",t)}();</script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Patients - Patient RX System</title>
     <link href="/assets/bootstrap.min.css" rel="stylesheet">
@@ -1260,6 +1261,8 @@
         const win = window.open('', '_blank', 'width=900,height=750');
         if (_printLayout === 'card') {
             win.document.write(`<!DOCTYPE html><html><head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
                 <title>Patient Record &mdash; ${p.firstName} ${p.lastName}</title>
                 <style>
                     @import url('/assets/inter.css');
@@ -1278,6 +1281,8 @@
                 </body></html>`);
         } else {
             win.document.write(`<!DOCTYPE html><html><head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
                 <title>Patient Record &mdash; ${p.firstName} ${p.lastName}</title>
                 <style>
                     @import url('/assets/inter.css');
