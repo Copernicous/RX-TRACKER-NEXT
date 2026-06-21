@@ -22,6 +22,8 @@
   const rptVisible   = sv('reports') || sv('audit_log');
   const adminVisible = sv('workflow_actions') || sv('medication_catalog') || sv('users') || sv('backups') || sv('system_settings') || sv('import');
 %>
+<!-- xa-base: FortiGate rewrites <a href> — used by base.js to compute proxy path prefix -->
+<a id="xa-base" href="/login" style="display:none" aria-hidden="true"></a>
 <nav id="sidebar">
     <div class="sidebar-header"><i class="fas fa-pills me-2"></i>Patient RX</div>
     <ul class="list-unstyled components">

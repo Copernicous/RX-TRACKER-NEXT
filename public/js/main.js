@@ -54,7 +54,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const password = document.getElementById('password').value;
 
             try {
-                const res = await fetch('/api/auth/login', {
+                const res = await fetch(window.rxUrl('/api/auth/login'), {
                     method: 'POST',
                     credentials: 'include',
                     headers: { 'Content-Type': 'application/json' },
@@ -64,7 +64,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (res.ok) {
                     localStorage.setItem('token', data.token);
                     localStorage.setItem('user', JSON.stringify(data.user));
-                    window.location.href = '/dashboard';
+                    window.rxNav('/dashboard');
                 } else {
                     showToast(data.message || 'Login failed', 'danger');
                 }
@@ -78,7 +78,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!loginForm) {
         const token = localStorage.getItem('token');
         if (!token) {
-            window.location.href = '/login';
+            window.rxNav('/login');
         } else {
             const user = JSON.parse(localStorage.getItem('user'));
             const userGreeting = document.getElementById('userGreeting');
@@ -94,7 +94,7 @@ document.addEventListener('DOMContentLoaded', () => {
         logoutBtn.addEventListener('click', () => {
             localStorage.removeItem('token');
             localStorage.removeItem('user');
-            window.location.href = '/login';
+            window.rxNav('/login');
         });
     }
 });
@@ -116,7 +116,7 @@ async function fetchWithAuth(url, options = {}) {
     if (res.status === 401) {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
-        window.location.href = '/login';
+        window.rxNav('/login');
         throw new Error('Unauthorized');
     }
     // 403 = authenticated but forbidden (hidden module, no permission)

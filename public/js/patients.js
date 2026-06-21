@@ -388,75 +388,205 @@ var allPatients = [];
     }
 
     function renderPatients() {
-        const start = (currentPage - 1) * pageSize;
-        const page = filteredPatients.slice(start, start + pageSize);
-        const tbody = document.getElementById('patientsBody');
+        var start = (currentPage - 1) * pageSize;
+        var page = filteredPatients.slice(start, start + pageSize);
+        var tbody = document.getElementById('patientsBody');
         if (page.length === 0) {
             tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-4">No patients found.</td></tr>';
-        } else {
-            const pp = getPagePerms();
-        tbody.innerHTML = page.map(function(p) {
-            var clinicBadge = p.Clinic
-                ? '<span class="badge bg-info text-dark"><i class="fas fa-hospital me-1"></i>' + p.Clinic.name + '</span>'
-                : '<span class="text-muted">—</span>';
-            var statusBadge = p.isDeleted
-                ? '<span class="badge bg-danger">Deleted</span>'
-                : (p.isActive ? '<span class="badge bg-success">Active</span>' : '<span class="badge bg-secondary">Inactive</span>');
-            var noteCount = (p.PatientNotes && p.PatientNotes.length) || 0;
-            var noteBadge = noteCount > 0
-                ? '<span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-warning text-dark" style="font-size:.6rem;min-width:1.1rem;padding:2px 4px;border:1.5px solid #fff">' + noteCount + '</span>'
-                : '';
-            var noteTitle = noteCount ? (noteCount + ' note' + (noteCount !== 1 ? 's' : '')) : 'Notes';
-            var actions;
-            if (p.isDeleted) {
-                actions = pp.canDelete
-                    ? '<button class="btn btn-sm btn-outline-success" onclick="restorePatient(' + p.id + ')"><i class="fas fa-undo"></i> Restore</button>'
-                    : '';
-            } else {
-                actions =
-                    '<button class="btn btn-sm btn-outline-info me-1" data-pid="' + p.id + '" data-pname="' + encodeURIComponent((p.firstName||'')+' '+(p.lastName||'')) + '" onclick="goToRxByEl(this)" title="View RX Records"><i class="fas fa-prescription-bottle-alt"></i></button> ' +
-                    '<button class="btn btn-sm me-1" data-pid="' + p.id + '" onclick="goToTimeline(parseInt(this.dataset.pid))" title="View Timeline" style="border-color:#20c9a0;color:#20c9a0" onmouseover="this.style.background=\'rgba(32,201,160,.1)\'" onmouseout="this.style.background=\'\'"><i class="fas fa-history"></i></button> ' +
-                    '<button class="btn btn-sm btn-outline-warning me-1 position-relative" data-nid="' + p.id + '" data-nfirst="' + (p.firstName||'').replace(/"/g,'&quot;') + '" data-nlast="' + (p.lastName||'').replace(/"/g,'&quot;') + '" onclick="openNotesByEl(this)" title="' + noteTitle + '" id="notes-btn-' + p.id + '">' +
-                        '<i class="fas fa-sticky-note"></i>' + noteBadge +
-                    '</button> ' +
-                    '<button class="btn btn-sm btn-outline-secondary me-1" onclick="printPatientRecord(' + p.id + ')" title="Print / PDF"><i class="fas fa-print"></i></button>' +
-                    (pp.canEdit   ? ' <button class="btn btn-sm btn-outline-primary me-1" onclick="openPatientModal(' + p.id + ')"><i class="fas fa-edit"></i></button>' : '') +
-                    (pp.canDelete ? ' <button class="btn btn-sm btn-outline-danger" onclick="promptDeletePatient(' + p.id + ')"><i class="fas fa-trash"></i></button>' : '');
-            }
-            return '<tr data-patient-id="' + p.id + '">' +
-                '<td><code>' + (p.patientCode || p.id) + '</code></td>' +
-                '<td><strong>' + (p.firstName||'') + ' ' + (p.lastName||'') + '</strong></td>' +
-                '<td>' + clinicBadge + '</td>' +
-                '<td>' + (p.dob || '—') + '</td>' +
-                '<td>' + (p.phone || '—') + '</td>' +
-                '<td>' + (p.serviceDate || '—') + '</td>' +
-                '<td>' + statusBadge + '</td>' +
-                '<td>' + actions + '</td>' +
-            '</tr>';
-        }).join('');
-
+            var pi0 = document.getElementById('patientPageInfo');
+            if (pi0) pi0.textContent = '';
+            document.getElementById('patientPagination').innerHTML = '';
+            return;
         }
-        const pi = document.getElementById('patientPageInfo');
-        pi.textContent = 'Showing ' + (Math.min(start+1, filteredPatients.length)) + '–' + Math.min(start+pageSize, filteredPatients.length) + ' of ' + filteredPatients.length;
 
-        const pages = Math.ceil(filteredPatients.length / pageSize);
-        var pagHtml = '<li class="page-item' + (currentPage===1?' disabled':'') + '"><a class="page-link" href="#" onclick="goPPage(' + (currentPage-1) + ');return false;">&laquo;</a></li>';
-        for(var pageNum=1; pageNum<=pages; pageNum++) pagHtml += '<li class="page-item' + (pageNum===currentPage?' active':'') + '"><a class="page-link" href="#" onclick="goPPage(' + pageNum + ');return false;">' + pageNum + '</a></li>';
-        pagHtml += '<li class="page-item' + ((currentPage===pages||pages===0)?' disabled':'') + '"><a class="page-link" href="#" onclick="goPPage(' + (currentPage+1) + ');return false;">&raquo;</a></li>';
-        document.getElementById('patientPagination').innerHTML = pagHtml;
+        var pp = getPagePerms();
+
+        // ---- Build rows using DOM API to avoid FortiGate rewriting inline event attrs ----
+        tbody.innerHTML = '';
+        page.forEach(function(p) {
+            var tr = document.createElement('tr');
+            tr.setAttribute('data-patient-id', p.id);
+
+            // Col: Patient Code
+            var tdCode = document.createElement('td');
+            var codeEl = document.createElement('code');
+            codeEl.textContent = p.patientCode || p.id;
+            tdCode.appendChild(codeEl);
+            tr.appendChild(tdCode);
+
+            // Col: Name
+            var tdName = document.createElement('td');
+            var strong = document.createElement('strong');
+            strong.textContent = (p.firstName || '') + ' ' + (p.lastName || '');
+            tdName.appendChild(strong);
+            tr.appendChild(tdName);
+
+            // Col: Clinic
+            var tdClinic = document.createElement('td');
+            if (p.Clinic) {
+                var clinicSpan = document.createElement('span');
+                clinicSpan.className = 'badge bg-info text-dark';
+                clinicSpan.innerHTML = '<i class="fas fa-hospital me-1"></i>';
+                clinicSpan.appendChild(document.createTextNode(p.Clinic.name));
+                tdClinic.appendChild(clinicSpan);
+            } else {
+                tdClinic.innerHTML = '<span class="text-muted">\u2014</span>';
+            }
+            tr.appendChild(tdClinic);
+
+            // Col: DOB
+            var tdDob = document.createElement('td');
+            tdDob.textContent = p.dob || '\u2014';
+            tr.appendChild(tdDob);
+
+            // Col: Phone
+            var tdPhone = document.createElement('td');
+            tdPhone.textContent = p.phone || '\u2014';
+            tr.appendChild(tdPhone);
+
+            // Col: Service Date
+            var tdSvc = document.createElement('td');
+            tdSvc.textContent = p.serviceDate || '\u2014';
+            tr.appendChild(tdSvc);
+
+            // Col: Status
+            var tdStatus = document.createElement('td');
+            var statusSpan = document.createElement('span');
+            if (p.isDeleted) {
+                statusSpan.className = 'badge bg-danger';
+                statusSpan.textContent = 'Deleted';
+            } else if (p.isActive) {
+                statusSpan.className = 'badge bg-success';
+                statusSpan.textContent = 'Active';
+            } else {
+                statusSpan.className = 'badge bg-secondary';
+                statusSpan.textContent = 'Inactive';
+            }
+            tdStatus.appendChild(statusSpan);
+            tr.appendChild(tdStatus);
+
+            // Col: Actions
+            var tdAct = document.createElement('td');
+
+            if (p.isDeleted) {
+                if (pp.canDelete) {
+                    var btnRestore = document.createElement('button');
+                    btnRestore.className = 'btn btn-sm btn-outline-success';
+                    btnRestore.innerHTML = '<i class="fas fa-undo"></i> Restore';
+                    btnRestore.dataset.pid = p.id;
+                    btnRestore.addEventListener('click', function() { restorePatient(parseInt(this.dataset.pid)); });
+                    tdAct.appendChild(btnRestore);
+                }
+            } else {
+                // RX Records button
+                var btnRx = document.createElement('button');
+                btnRx.className = 'btn btn-sm btn-outline-info me-1';
+                btnRx.title = 'View RX Records';
+                btnRx.innerHTML = '<i class="fas fa-prescription-bottle-alt"></i>';
+                btnRx.dataset.pid = p.id;
+                btnRx.dataset.pname = encodeURIComponent((p.firstName || '') + ' ' + (p.lastName || ''));
+                btnRx.addEventListener('click', function() { goToRxByEl(this); });
+                tdAct.appendChild(btnRx);
+
+                // Timeline button
+                var btnTl = document.createElement('button');
+                btnTl.className = 'btn btn-sm me-1';
+                btnTl.title = 'View Timeline';
+                btnTl.style.cssText = 'border-color:#20c9a0;color:#20c9a0';
+                btnTl.innerHTML = '<i class="fas fa-history"></i>';
+                btnTl.dataset.pid = p.id;
+                btnTl.addEventListener('mouseenter', function() { this.style.background = 'rgba(32,201,160,.1)'; });
+                btnTl.addEventListener('mouseleave', function() { this.style.background = ''; });
+                btnTl.addEventListener('click', function() { goToTimeline(parseInt(this.dataset.pid)); });
+                tdAct.appendChild(btnTl);
+
+                // Notes button
+                var noteCount = (p.PatientNotes && p.PatientNotes.length) || 0;
+                var noteTitle = noteCount ? (noteCount + ' note' + (noteCount !== 1 ? 's' : '')) : 'Notes';
+                var btnNotes = document.createElement('button');
+                btnNotes.className = 'btn btn-sm btn-outline-warning me-1 position-relative';
+                btnNotes.title = noteTitle;
+                btnNotes.id = 'notes-btn-' + p.id;
+                btnNotes.dataset.nid = p.id;
+                btnNotes.dataset.nfirst = p.firstName || '';
+                btnNotes.dataset.nlast = p.lastName || '';
+                btnNotes.innerHTML = '<i class="fas fa-sticky-note"></i>';
+                if (noteCount > 0) {
+                    var notePill = document.createElement('span');
+                    notePill.className = 'position-absolute top-0 start-100 translate-middle badge rounded-pill bg-warning text-dark';
+                    notePill.style.cssText = 'font-size:.6rem;min-width:1.1rem;padding:2px 4px;border:1.5px solid #fff';
+                    notePill.textContent = noteCount;
+                    btnNotes.appendChild(notePill);
+                }
+                btnNotes.addEventListener('click', function() { openNotesByEl(this); });
+                tdAct.appendChild(btnNotes);
+
+                // Print button
+                var btnPrint = document.createElement('button');
+                btnPrint.className = 'btn btn-sm btn-outline-secondary me-1';
+                btnPrint.title = 'Print / PDF';
+                btnPrint.innerHTML = '<i class="fas fa-print"></i>';
+                btnPrint.dataset.pid = p.id;
+                btnPrint.addEventListener('click', function() { printPatientRecord(parseInt(this.dataset.pid)); });
+                tdAct.appendChild(btnPrint);
+
+                // Edit button
+                if (pp.canEdit) {
+                    var btnEdit = document.createElement('button');
+                    btnEdit.className = 'btn btn-sm btn-outline-primary me-1';
+                    btnEdit.innerHTML = '<i class="fas fa-edit"></i>';
+                    btnEdit.dataset.pid = p.id;
+                    btnEdit.addEventListener('click', function() { openPatientModal(parseInt(this.dataset.pid)); });
+                    tdAct.appendChild(btnEdit);
+                }
+
+                // Delete button
+                if (pp.canDelete) {
+                    var btnDel = document.createElement('button');
+                    btnDel.className = 'btn btn-sm btn-outline-danger';
+                    btnDel.innerHTML = '<i class="fas fa-trash"></i>';
+                    btnDel.dataset.pid = p.id;
+                    btnDel.addEventListener('click', function() { promptDeletePatient(parseInt(this.dataset.pid)); });
+                    tdAct.appendChild(btnDel);
+                }
+            }
+
+            tr.appendChild(tdAct);
+            tbody.appendChild(tr);
+        });
+
+        var pi = document.getElementById('patientPageInfo');
+        if (pi) pi.textContent = 'Showing ' + (Math.min(start + 1, filteredPatients.length)) + '\u2013' + Math.min(start + pageSize, filteredPatients.length) + ' of ' + filteredPatients.length;
+
+        var pages = Math.ceil(filteredPatients.length / pageSize);
+        var pagHtml = '<li class="page-item' + (currentPage === 1 ? ' disabled' : '') + '"><a class="page-link" href="#" data-pg="' + (currentPage - 1) + '">&laquo;</a></li>';
+        for (var pageNum = 1; pageNum <= pages; pageNum++) {
+            pagHtml += '<li class="page-item' + (pageNum === currentPage ? ' active' : '') + '"><a class="page-link" href="#" data-pg="' + pageNum + '">' + pageNum + '</a></li>';
+        }
+        pagHtml += '<li class="page-item' + ((currentPage >= pages || pages === 0) ? ' disabled' : '') + '"><a class="page-link" href="#" data-pg="' + (currentPage + 1) + '">&raquo;</a></li>';
+        var pagEl = document.getElementById('patientPagination');
+        pagEl.innerHTML = pagHtml;
+        // Event delegation on pagination — avoids inline onclick= which FortiGate corrupts
+        pagEl.addEventListener('click', function(e) {
+            e.preventDefault();
+            var a = e.target.closest('a[data-pg]');
+            if (!a) return;
+            goPPage(parseInt(a.dataset.pg));
+        });
     }
+
 
     // ── Navigation helpers — all URL building via concatenation + data attributes
     // Avoids putting complex expressions inside template literal onclick attributes,
     // which FortiGate SSL portal mangles when rewriting URLs.
     function goToRxByEl(el) {
-        location.href = '/rx-records?patient=' + el.dataset.pid + '&name=' + el.dataset.pname;
+        window.rxNav('/rx-records?patient=' + el.dataset.pid + '&name=' + el.dataset.pname);
     }
     function goToRxRecords(id, encodedName) {
-        location.href = '/rx-records?patient=' + id + '&name=' + encodedName;
+        window.rxNav('/rx-records?patient=' + id + '&name=' + encodedName);
     }
     function goToTimeline(id) {
-        location.href = '/patients/' + id + '/timeline';
+        window.rxNav('/patients/' + id + '/timeline');
     }
     function openNotesByEl(el) {
         const id   = parseInt(el.dataset.nid);
@@ -789,9 +919,9 @@ var allPatients = [];
         _printPatientData = { patient: p, rxRecords: patientRx };
 
         const isActive  = p.isActive;
-        const clinic    = p.Clinic ? p.Clinic.name : '—';
-        const ptComp    = p.PatientTransportCompany  ? (p.PatientTransportCompany.companyName  || p.PatientTransportCompany.contactPerson  || '—') : '—';
-        const phComp    = p.PharmacyTransportCompany ? (p.PharmacyTransportCompany.companyName || p.PharmacyTransportCompany.contactPerson || '—') : '—';
+        const clinic    = p.Clinic ? p.Clinic.name : '\u2014';
+        const ptComp    = p.PatientTransportCompany  ? (p.PatientTransportCompany.companyName  || p.PatientTransportCompany.contactPerson  || '\u2014') : '\u2014';
+        const phComp    = p.PharmacyTransportCompany ? (p.PharmacyTransportCompany.companyName || p.PharmacyTransportCompany.contactPerson || '\u2014') : '\u2014';
         const printDate = new Date().toLocaleString();
 
         function fmtDt(d) {
@@ -840,9 +970,9 @@ var allPatients = [];
                     '<span style="background:' + statusColor + ';padding:2px 10px;border-radius:20px;font-size:.72rem;font-weight:600">' + statusLabel + '</span>' +
                   '</div>' +
                   '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;padding:10px 14px;border-bottom:1px solid #f0f0f0;background:#fafafa">' +
-                    '<div><div style="font-size:.65rem;color:#888;text-transform:uppercase;font-weight:700">Arrival Date</div><div style="font-weight:600">' + (rx.arrivalDate||'—') + '</div></div>' +
-                    '<div><div style="font-size:.65rem;color:#888;text-transform:uppercase;font-weight:700">Service Date</div><div style="font-weight:600">' + (rx.serviceDate||'—') + '</div></div>' +
-                    '<div><div style="font-size:.65rem;color:#888;text-transform:uppercase;font-weight:700">Pharmacy</div><div style="font-weight:600">' + (rx.Pharmacy ? rx.Pharmacy.name : '—') + '</div></div>' +
+                    '<div><div style="font-size:.65rem;color:#888;text-transform:uppercase;font-weight:700">Arrival Date</div><div style="font-weight:600">' + (rx.arrivalDate||'\u2014') + '</div></div>' +
+                    '<div><div style="font-size:.65rem;color:#888;text-transform:uppercase;font-weight:700">Service Date</div><div style="font-weight:600">' + (rx.serviceDate||'\u2014') + '</div></div>' +
+                    '<div><div style="font-size:.65rem;color:#888;text-transform:uppercase;font-weight:700">Pharmacy</div><div style="font-weight:600">' + (rx.Pharmacy ? rx.Pharmacy.name : '\u2014') + '</div></div>' +
                     (ptrans  ? '<div><div style="font-size:.65rem;color:#888;text-transform:uppercase;font-weight:700">Patient Transport</div><div style="font-weight:600">' + ptrans  + '</div></div>' : '') +
                     (phtrans ? '<div><div style="font-size:.65rem;color:#888;text-transform:uppercase;font-weight:700">Pharmacy Transport</div><div style="font-weight:600">' + phtrans + '</div></div>' : '') +
                   '</div>' +
@@ -860,9 +990,9 @@ var allPatients = [];
                     '<table style="width:100%;border-collapse:collapse;font-size:.82rem">' +
                       '<tr>' +
                         '<td style="padding:6px 8px;font-weight:700">#' + rx.id + '</td>' +
-                        '<td style="padding:6px 8px">' + (rx.arrivalDate||'—') + '</td>' +
-                        '<td style="padding:6px 8px">' + (rx.serviceDate||'—') + '</td>' +
-                        '<td style="padding:6px 8px">' + (rx.Pharmacy ? rx.Pharmacy.name : '—') + '</td>' +
+                        '<td style="padding:6px 8px">' + (rx.arrivalDate||'\u2014') + '</td>' +
+                        '<td style="padding:6px 8px">' + (rx.serviceDate||'\u2014') + '</td>' +
+                        '<td style="padding:6px 8px">' + (rx.Pharmacy ? rx.Pharmacy.name : '\u2014') + '</td>' +
                         '<td style="padding:6px 8px"><span style="background:' + statusColor + ';color:#fff;padding:1px 8px;border-radius:10px;font-size:.72rem">' + statusLabel + '</span></td>' +
                       '</tr>' +
                       (actions.length ? '<tr><td colspan="5" style="padding:3px 8px 3px 24px;background:#f8f9fa;font-size:.78rem"><strong>Actions:</strong> ' + actionsHtml + '</td></tr>' : '') +
@@ -886,12 +1016,12 @@ var allPatients = [];
               '<div style="font-size:.85rem;opacity:.75;margin-top:3px">Patient RX System &nbsp;&middot;&nbsp; Generated: ' + printDate + '</div>' +
             '</div>' +
             '<div style="text-align:right">' +
-              '<div style="font-size:1.2rem;font-weight:700;font-family:monospace">' + (p.patientCode||'—') + '</div>' +
+              '<div style="font-size:1.2rem;font-weight:700;font-family:monospace">' + (p.patientCode||'\u2014') + '</div>' +
               '<div style="margin-top:6px"><span style="background:' + (isActive?'#198754':'#6c757d') + ';color:#fff;padding:3px 12px;border-radius:20px;font-size:.78rem;font-weight:600">' + (isActive?'● Active':'○ Inactive') + '</span></div>' +
             '</div>' +
           '</div>' +
           '<div style="padding:24px 28px;display:grid;grid-template-columns:1fr 1fr;gap:14px 32px;border-bottom:1px solid #e9ecef">' +
-            [['📅 Date of Birth',p.dob||'—'],['📞 Phone',p.phone||'—'],['📅 Service Date',p.serviceDate||'—'],['🏥 Clinic',clinic],['🏠 Address',p.address||'—'],['🚐 Patient Transport',ptComp],['💊 Pharmacy Transport',phComp]]
+            [['📅 Date of Birth',p.dob||'\u2014'],['📞 Phone',p.phone||'\u2014'],['📅 Service Date',p.serviceDate||'\u2014'],['🏥 Clinic',clinic],['🏠 Address',p.address||'\u2014'],['🚐 Patient Transport',ptComp],['💊 Pharmacy Transport',phComp]]
             .map(function(r){ return '<div><div style="font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#888;margin-bottom:3px">'+r[0]+'</div><div style="font-size:.9rem;color:#1a2234">'+r[1]+'</div></div>'; }).join('') +
           '</div>' +
           (p.notes ? '<div style="margin:16px 28px;padding:12px 16px;background:#fffbea;border-left:4px solid #f5a623;border-radius:4px;font-size:.85rem;color:#7a5800"><strong>📝 Notes:</strong><br>' + p.notes.replace(/\n/g,'<br>') + '</div>' : '') +
@@ -906,12 +1036,12 @@ var allPatients = [];
         '<div id="printContentClassic" style="display:none;font-family:Inter,Arial,sans-serif;color:#1a2234;padding:28px">' +
           '<div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #1a2234;padding-bottom:12px;margin-bottom:20px">' +
             '<div><h4 style="margin:0;color:#1a2234">Patient Record</h4><div style="font-size:.8rem;color:#888;margin-top:4px">Printed: ' + printDate + '</div></div>' +
-            '<div style="text-align:right"><div style="font-size:1.1rem;font-weight:700">' + p.firstName + ' ' + p.lastName + ' ' + statusBadge + '</div><div style="color:#888;font-size:.85rem"><code>' + (p.patientCode||'—') + '</code></div></div>' +
+            '<div style="text-align:right"><div style="font-size:1.1rem;font-weight:700">' + p.firstName + ' ' + p.lastName + ' ' + statusBadge + '</div><div style="color:#888;font-size:.85rem"><code>' + (p.patientCode||'\u2014') + '</code></div></div>' +
           '</div>' +
           '<table style="width:100%;border-collapse:collapse;margin-bottom:24px;font-size:.875rem">' +
-            '<tr><td style="width:50%;padding:6px 0"><strong>Date of Birth:</strong> '+(p.dob||'—')+'</td><td style="padding:6px 0"><strong>Phone:</strong> '+(p.phone||'—')+'</td></tr>' +
-            '<tr><td style="padding:6px 0"><strong>Service Date:</strong> '+(p.serviceDate||'—')+'</td><td style="padding:6px 0"><strong>Clinic:</strong> '+clinic+'</td></tr>' +
-            '<tr><td style="padding:6px 0"><strong>Address:</strong> '+(p.address||'—')+'</td><td style="padding:6px 0"><strong>Patient Transport:</strong> '+ptComp+'</td></tr>' +
+            '<tr><td style="width:50%;padding:6px 0"><strong>Date of Birth:</strong> '+(p.dob||'\u2014')+'</td><td style="padding:6px 0"><strong>Phone:</strong> '+(p.phone||'\u2014')+'</td></tr>' +
+            '<tr><td style="padding:6px 0"><strong>Service Date:</strong> '+(p.serviceDate||'\u2014')+'</td><td style="padding:6px 0"><strong>Clinic:</strong> '+clinic+'</td></tr>' +
+            '<tr><td style="padding:6px 0"><strong>Address:</strong> '+(p.address||'\u2014')+'</td><td style="padding:6px 0"><strong>Patient Transport:</strong> '+ptComp+'</td></tr>' +
             '<tr><td style="padding:6px 0"><strong>Pharmacy Transport:</strong> '+phComp+'</td><td></td></tr>' +
           '</table>' +
           (p.notes ? '<div style="background:#f8f9fa;border-left:3px solid #4a90e2;padding:10px 14px;border-radius:4px;margin-bottom:24px;font-size:.85rem"><strong>Notes:</strong><br>' + p.notes.replace(/\n/g,'<br>') + '</div>' : '') +

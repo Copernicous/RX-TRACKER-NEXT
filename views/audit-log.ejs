@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -250,6 +250,7 @@
 <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index:1100"></div>
 
 <script src="/assets/bootstrap.bundle.min.js"></script>
+<script src="/js/base.js"></script>
 <script src="/js/app.js"></script>
 <script src="/js/help.js"></script>
 <script>
@@ -401,7 +402,7 @@ async function loadPage() {
             headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json', 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
         });
         if (!res) { showBody('<tr><td colspan="10" class="text-center text-danger py-4">Not authenticated.</td></tr>'); return; }
-        if (res.status === 401 || res.status === 403) { window.location.href = '/login'; return; }
+        if (res.status === 401 || res.status === 403) { window.rxNav('/login'); return; }
         if (!res.ok) {
             const err = await res.json().catch(() => ({}));
             showBody(`<tr><td colspan="10" class="text-center text-danger py-4"><i class="fas fa-exclamation-triangle me-2"></i>${err.message || err.error || 'Failed to load.'}</td></tr>`);

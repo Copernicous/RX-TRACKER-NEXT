@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en" data-theme="dark">
 <head>
     <meta charset="UTF-8">
@@ -1364,7 +1364,7 @@ async function executePurge() {
 // ── Helpers ───────────────────────────────────────────────────────────────
 async function apiFetch(url, opts = {}) {
     const res = await fetch(url, { ...opts, headers: { 'Authorization': 'Bearer ' + TOKEN, ...(opts.headers || {}) } });
-    if (res.status === 401) { window.location.href = '/login'; return res; }
+    if (res.status === 401) { window.rxNav('/login'); return res; }
     if (res.status === 403) { document.getElementById('mainWrap').style.display = 'none'; document.getElementById('deniedWrap').style.display = 'block'; return res; }
     return res;
 }
