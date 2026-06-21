@@ -90,9 +90,19 @@ app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
+// Cache-bust token: changes on every server restart
+// EJS templates use this so FortiGate's cached pages redirect to uncached versioned URLs
+const APP_BUILD = Date.now();
+
 // Set EJS as templating engine (we will use simple HTML views with JS, EJS just for layout if needed)
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
+
+// Disable EJS view cache even in production
+app.set('view cache', false);
+
+// Expose APP_BUILD to all EJS templates
+app.use(function(req, res, next) { res.locals.appBuild = APP_BUILD; next(); });
 
 // Suppress favicon 404
 app.get('/favicon.ico', (req, res) => res.status(204).end());

@@ -4,6 +4,20 @@
     <meta charset="UTF-8">
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
     <script>!function(){var t=localStorage.getItem("rxTheme");if(t)document.documentElement.setAttribute("data-theme",t)}();</script>
+    <script>
+    // FortiGate cache buster: if URL doesn't have current build version, redirect to versioned URL.
+    // Each server restart generates a new build ID. This script runs in its own block so it
+    // executes even if the main inline script below has a syntax error from a stale cached page.
+    (function() {
+        var bv = '<%- appBuild %>';
+        var kv = '_v=' + bv;
+        if (window.location.search.indexOf(kv) === -1) {
+            var qs = window.location.search;
+            var sep = qs ? '&' : '?';
+            window.location.replace(window.location.pathname + qs + sep + kv);
+        }
+    })();
+    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard - Patient RX System</title>
     <link href="/assets/bootstrap.min.css" rel="stylesheet">
