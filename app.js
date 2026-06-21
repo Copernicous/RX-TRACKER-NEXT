@@ -123,15 +123,18 @@ app.use((req, res, next) => {
     next();
 });
 
-// Force no-caching for ALL responses — FortiGate SSL proxy was caching rendered
-// HTML pages with old inline script code even after server-side fixes were deployed.
-// no-store on every response ensures FortiGate always fetches fresh content.
+// Prevent FortiGate SSL VPN from caching or TRANSFORMING responses.
+// RFC 7234: 'no-transform' tells proxies not to modify the response body —
+// specifically targets FortiGate's behavior of injecting REWRITE() wrappers
+// around URL strings in JavaScript, which breaks JS syntax.
+// 'no-store' prevents FortiGate from caching and serving stale HTML pages.
 app.use(function(req, res, next) {
-    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Cache-Control', 'no-store, no-cache, no-transform, must-revalidate, proxy-revalidate');
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', '0');
     next();
 });
+
 
 // Static folder
 app.use(express.static(path.join(__dirname, 'public')));
