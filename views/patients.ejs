@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en" data-theme="light">
 <head>
     <meta charset="UTF-8">
@@ -760,8 +760,8 @@
                         ${p.isDeleted
                             ? (pp.canDelete ? `<button class="btn btn-sm btn-outline-success" onclick="restorePatient(${p.id})"><i class="fas fa-undo"></i> Restore</button>` : '')
                             : `
-                                <a class="btn btn-sm btn-outline-info me-1" href="/rx-records?patient=${p.id}&name=${encodeURIComponent((p.firstName||'') + ' ' + (p.lastName||''))}" title="View RX Records for ${p.firstName} ${p.lastName}"><i class="fas fa-prescription-bottle-alt"></i></a>
-                                <a class="btn btn-sm me-1" href="/patients/${p.id}/timeline" title="View Timeline" style="border-color:#20c9a0;color:#20c9a0" onmouseover="this.style.background='rgba(32,201,160,.1)'" onmouseout="this.style.background=''"><i class="fas fa-history"></i></a>
+                                <button class="btn btn-sm btn-outline-info me-1" onclick="goToRxRecords(${p.id},'${encodeURIComponent((p.firstName||'')+' '+(p.lastName||''))}')" title="View RX Records"><i class="fas fa-prescription-bottle-alt"></i></button>
+                                <button class="btn btn-sm me-1" onclick="goToTimeline(${p.id})" title="View Timeline" style="border-color:#20c9a0;color:#20c9a0" onmouseover="this.style.background='rgba(32,201,160,.1)'" onmouseout="this.style.background=''"><i class="fas fa-history"></i></button>
                                 <button class="btn btn-sm btn-outline-warning me-1 position-relative" onclick="openNotesModal(${p.id}, '${(p.firstName||'').replace(/'/g,"\\'")} ${(p.lastName||'').replace(/'/g,"\\'")} ')" title="${(p.PatientNotes&&p.PatientNotes.length)?p.PatientNotes.length+' note'+(p.PatientNotes.length!==1?'s':''):'Notes'}" id="notes-btn-${p.id}">
                                     <i class="fas fa-sticky-note"></i>
                                     ${(p.PatientNotes && p.PatientNotes.length > 0) ? `<span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-warning text-dark" style="font-size:.6rem;min-width:1.1rem;padding:2px 4px;border:1.5px solid #fff">${p.PatientNotes.length}</span>` : ''}
@@ -783,6 +783,16 @@
         for(let i=1;i<=pages;i++) pagHtml += `<li class="page-item${i===currentPage?' active':''}"><a class="page-link" href="#" onclick="goPPage(${i});return false;">${i}</a></li>`;
         pagHtml += `<li class="page-item${currentPage===pages||pages===0?' disabled':''}"><a class="page-link" href="#" onclick="goPPage(${currentPage+1});return false;">&raquo;</a></li>`;
         document.getElementById('patientPagination').innerHTML = pagHtml;
+    }
+
+    // ── Navigation helpers (URL built via concatenation, not href in template literals)
+    // Keeps URLs out of template literal href attributes — prevents FortiGate SSL portal
+    // from mangling ${} template expressions when it rewrites URLs.
+    function goToRxRecords(id, encodedName) {
+        location.href = '/rx-records?patient=' + id + '&name=' + encodedName;
+    }
+    function goToTimeline(id) {
+        location.href = '/patients/' + id + '/timeline';
     }
 
     function goPPage(p) {
