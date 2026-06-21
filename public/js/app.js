@@ -339,7 +339,7 @@ function checkAuth() {
         Object.keys(sidebarMapping).forEach(href => {
             const permKey = sidebarMapping[href];
             const perm = permissions[permKey] || { visible: true, readOnly: false };
-            const a = document.querySelector(`#sidebar a[href="${href}"]`);
+            const a = document.querySelector('#sidebar a[href="' + href + '"]');
             if (a) {
                 const li = a.closest('li');
                 if (li) {
@@ -419,24 +419,23 @@ function setupSessionTimeout() {
     // Inject warning modal once
     if (!document.getElementById('sessionWarnModal')) {
         const modal = document.createElement('div');
-        modal.innerHTML = `
-        <div class="modal fade" id="sessionWarnModal" tabindex="-1" data-bs-backdrop="static">
-          <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content border-warning">
-              <div class="modal-header bg-warning bg-opacity-10">
-                <h5 class="modal-title text-warning"><i class="fas fa-clock me-2"></i>Session Expiring Soon</h5>
-              </div>
-              <div class="modal-body text-center py-4">
-                <p class="mb-2">You have been idle for <strong>28 minutes</strong>.</p>
-                <p class="text-muted">You will be automatically logged out in <strong id="sessionCountdown">2:00</strong>.</p>
-              </div>
-              <div class="modal-footer justify-content-center">
-                <button class="btn btn-primary" id="sessionStayBtn"><i class="fas fa-check me-1"></i>Stay Logged In</button>
-                <button class="btn btn-outline-secondary" id="sessionLogoutNowBtn">Logout Now</button>
-              </div>
-            </div>
-          </div>
-        </div>`;
+        modal.innerHTML = '<div class="modal fade" id="sessionWarnModal" tabindex="-1" data-bs-backdrop="static">' +
+          '<div class="modal-dialog modal-dialog-centered">' +
+            '<div class="modal-content border-warning">' +
+              '<div class="modal-header bg-warning bg-opacity-10">' +
+                '<h5 class="modal-title text-warning"><i class="fas fa-clock me-2"></i>Session Expiring Soon</h5>' +
+              '</div>' +
+              '<div class="modal-body text-center py-4">' +
+                '<p class="mb-2">You have been idle for <strong>28 minutes</strong>.</p>' +
+                '<p class="text-muted">You will be automatically logged out in <strong id="sessionCountdown">2:00</strong>.</p>' +
+              '</div>' +
+              '<div class="modal-footer justify-content-center">' +
+                '<button class="btn btn-primary" id="sessionStayBtn"><i class="fas fa-check me-1"></i>Stay Logged In</button>' +
+                '<button class="btn btn-outline-secondary" id="sessionLogoutNowBtn">Logout Now</button>' +
+              '</div>' +
+            '</div>' +
+          '</div>' +
+        '</div>';
         document.body.appendChild(modal.firstElementChild);
 
         document.getElementById('sessionStayBtn').addEventListener('click', () => {
@@ -1120,7 +1119,7 @@ async function saveRecord() {
     if (crudState.module === 'patients' && !crudState.editingId && body.firstName && body.lastName && body.dob) {
         try {
             const dupRes = await fetchWithAuth(
-                `/api/patients/check-duplicate?firstName=${encodeURIComponent(body.firstName)}&lastName=${encodeURIComponent(body.lastName)}&dob=${encodeURIComponent(body.dob)}`
+                '/api/patients/check-duplicate?firstName=' + encodeURIComponent(body.firstName) + '&lastName=' + encodeURIComponent(body.lastName) + '&dob=' + encodeURIComponent(body.dob)
             );
             if (dupRes && dupRes.ok) {
                 const { duplicates } = await dupRes.json();
@@ -1167,38 +1166,37 @@ function showDuplicateWarning(duplicates, newPatient) {
         const existing = document.getElementById('dupWarnModal');
         if (existing) existing.remove();
 
-        const rows = duplicates.map(d =>
-            `<tr>
-                <td><code>${d.patientCode}</code></td>
-                <td>${d.firstName} ${d.lastName}</td>
-                <td>${d.dob || '-'}</td>
-                <td>${d.phone || '-'}</td>
-            </tr>`
-        ).join('');
+        const rows = duplicates.map(function(d) {
+            return '<tr>' +
+                '<td><code>' + (d.patientCode || '') + '</code></td>' +
+                '<td>' + (d.firstName || '') + ' ' + (d.lastName || '') + '</td>' +
+                '<td>' + (d.dob || '-') + '</td>' +
+                '<td>' + (d.phone || '-') + '</td>' +
+            '</tr>';
+        }).join('');
 
         const div = document.createElement('div');
-        div.innerHTML = `
-        <div class="modal fade" id="dupWarnModal" tabindex="-1" data-bs-backdrop="static">
-          <div class="modal-dialog modal-lg modal-dialog-centered">
-            <div class="modal-content border-warning">
-              <div class="modal-header bg-warning bg-opacity-10">
-                <h5 class="modal-title text-warning"><i class="fas fa-exclamation-triangle me-2"></i>Possible Duplicate Patient</h5>
-              </div>
-              <div class="modal-body">
-                <p>A patient with the same <strong>name and date of birth</strong> already exists:</p>
-                <table class="table table-sm table-bordered mb-3">
-                  <thead class="table-light"><tr><th>Patient ID</th><th>Name</th><th>DOB</th><th>Phone</th></tr></thead>
-                  <tbody>${rows}</tbody>
-                </table>
-                <p class="mb-0 text-muted small">You are trying to create: <strong>${newPatient.firstName} ${newPatient.lastName}</strong> (DOB: ${newPatient.dob})</p>
-              </div>
-              <div class="modal-footer">
-                <button class="btn btn-outline-secondary" id="dupCancelBtn"><i class="fas fa-times me-1"></i>Cancel — Go Back</button>
-                <button class="btn btn-warning" id="dupProceedBtn"><i class="fas fa-save me-1"></i>Save Anyway</button>
-              </div>
-            </div>
-          </div>
-        </div>`;
+        div.innerHTML = '<div class="modal fade" id="dupWarnModal" tabindex="-1" data-bs-backdrop="static">' +
+          '<div class="modal-dialog modal-lg modal-dialog-centered">' +
+            '<div class="modal-content border-warning">' +
+              '<div class="modal-header bg-warning bg-opacity-10">' +
+                '<h5 class="modal-title text-warning"><i class="fas fa-exclamation-triangle me-2"></i>Possible Duplicate Patient</h5>' +
+              '</div>' +
+              '<div class="modal-body">' +
+                '<p>A patient with the same <strong>name and date of birth</strong> already exists:</p>' +
+                '<table class="table table-sm table-bordered mb-3">' +
+                  '<thead class="table-light"><tr><th>Patient ID</th><th>Name</th><th>DOB</th><th>Phone</th></tr></thead>' +
+                  '<tbody>' + rows + '</tbody>' +
+                '</table>' +
+                '<p class="mb-0 text-muted small">You are trying to create: <strong>' + newPatient.firstName + ' ' + newPatient.lastName + '</strong> (DOB: ' + (newPatient.dob || '') + ')</p>' +
+              '</div>' +
+              '<div class="modal-footer">' +
+                '<button class="btn btn-outline-secondary" id="dupCancelBtn"><i class="fas fa-times me-1"></i>Cancel &#8212; Go Back</button>' +
+                '<button class="btn btn-warning" id="dupProceedBtn"><i class="fas fa-save me-1"></i>Save Anyway</button>' +
+              '</div>' +
+            '</div>' +
+          '</div>' +
+        '</div>';
         document.body.appendChild(div.firstElementChild);
 
         const modalEl = document.getElementById('dupWarnModal');

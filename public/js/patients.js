@@ -1,4 +1,4 @@
-﻿var allPatients = [];
+var allPatients = [];
     var filteredPatients = [];
     var currentPage = 1;
     var pageSize = 15;
@@ -37,7 +37,7 @@
                         const banner = document.createElement('div');
                         banner.id = 'norxBanner';
                         banner.style.cssText = 'background:rgba(155,89,182,.09);border:1px solid rgba(155,89,182,.3);border-radius:10px;padding:.6rem 1rem;display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;font-size:.85rem';
-                        banner.innerHTML = `<span><i class="fas fa-user-slash me-2" style="color:#9b59b6"></i><strong>Filtered:</strong> Showing only active patients with no RX records (${allPatients.length} record${allPatients.length !== 1 ? 's' : ''})</span><a href="/patients" class="btn btn-sm btn-outline-secondary" style="font-size:.75rem"><i class="fas fa-times me-1"></i>Clear Filter</a>`;
+                        banner.innerHTML = '<span><i class="fas fa-user-slash me-2" style="color:#9b59b6"></i><strong>Filtered:</strong> Showing only active patients with no RX records (' + allPatients.length + ' record' + (allPatients.length !== 1 ? 's' : '') + ')</span><a href="/patients" class="btn btn-sm btn-outline-secondary" style="font-size:.75rem"><i class="fas fa-times me-1"></i>Clear Filter</a>';
                         tableCard.insertBefore(banner, tableCard.firstChild);
                     }
                     showToast('Showing Active Patients with No RX Records (' + allPatients.length + ')', 'info');
@@ -265,11 +265,36 @@
 
     async function loadPatients() {
         const showDeleted = document.getElementById('srchShowDeleted').checked;
-        const res = await fetchWithAuth('/api/patients' + (showDeleted ? '?includeDeleted=true' : ''));
-        if (!res) return;
-        const data = await res.json();
-        allPatients = Array.isArray(data) ? data : [];
-        applyPatientSearch();
+        const apiUrl = '/api/patients' + (showDeleted ? '?includeDeleted=true' : '');
+        try {
+            const res = await fetchWithAuth(apiUrl);
+            if (!res) {
+                // fetchWithAuth returned null = 401 → already redirecting to login
+                document.getElementById('patientsBody').innerHTML =
+                    '<tr><td colspan="9" class="text-center text-warning py-4"><i class="fas fa-exclamation-triangle me-2"></i>Session expired — redirecting to login…</td></tr>';
+                return;
+            }
+            if (!res.ok) {
+                const errText = await res.text().catch(() => 'no body');
+                document.getElementById('patientsBody').innerHTML =
+                    '<tr><td colspan="9" class="text-center py-4"><div class="alert alert-danger mb-0"><strong>API Error ' + res.status + '</strong><br><small>' + errText.substring(0, 200) + '</small><br><small class="text-muted">URL: ' + apiUrl + '</small></div></td></tr>';
+                return;
+            }
+            let data;
+            try {
+                data = await res.json();
+            } catch (jsonErr) {
+                const raw = await res.clone().text().catch(() => 'unreadable');
+                document.getElementById('patientsBody').innerHTML =
+                    '<tr><td colspan="9" class="text-center py-4"><div class="alert alert-danger mb-0"><strong>JSON Parse Error</strong><br><small>' + jsonErr.message + '</small><br><small class="text-muted">Raw: ' + raw.substring(0, 200) + '</small></div></td></tr>';
+                return;
+            }
+            allPatients = Array.isArray(data) ? data : [];
+            applyPatientSearch();
+        } catch (netErr) {
+            document.getElementById('patientsBody').innerHTML =
+                '<tr><td colspan="9" class="text-center py-4"><div class="alert alert-danger mb-0"><strong>Network Error</strong><br><small>' + netErr.message + '</small><br><small class="text-muted">URL attempted: ' + apiUrl + ' | Page origin: ' + window.location.origin + '</small></div></td></tr>';
+        }
     }
 
     function applyPatientSearch() {

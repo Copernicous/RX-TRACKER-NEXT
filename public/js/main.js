@@ -90,7 +90,7 @@ async function fetchWithAuth(url, options = {}) {
     delete fetchOptions.silent; // don't send to fetch()
     const headers = {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
+        'Authorization': 'Bearer ' + token,
         ...(fetchOptions.headers || {})
     };
     const res = await fetch(url, { ...fetchOptions, headers });
@@ -119,14 +119,11 @@ async function fetchWithAuth(url, options = {}) {
 // Toast notification function
 function showToast(message, type = 'success') {
     const container = document.querySelector('.toast-container');
-    const toastHtml = \`
-        <div class="toast align-items-center text-white bg-\${type} border-0 show" role="alert" aria-live="assertive" aria-atomic="true" style="margin-bottom: 10px;">
-            <div class="d-flex">
-                <div class="toast-body">\${message}</div>
-                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
-            </div>
-        </div>
-    \`;
+    var toastHtml = '<div class="toast align-items-center text-white bg-' + type + ' border-0 show" role="alert" aria-live="assertive" aria-atomic="true" style="margin-bottom: 10px;">' +
+        '<div class="d-flex">' +
+        '<div class="toast-body">' + message + '</div>' +
+        '<button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>' +
+        '</div></div>';
     container.insertAdjacentHTML('beforeend', toastHtml);
     setTimeout(() => {
         if (container.firstChild) {
