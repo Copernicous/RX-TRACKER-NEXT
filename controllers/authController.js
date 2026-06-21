@@ -1,6 +1,7 @@
 'use strict';
-const jwt    = require('jsonwebtoken');
-const db     = require('../models');
+const jwt      = require('jsonwebtoken');
+const db       = require('../models');
+const settings = require('../services/settingsService');
 const { BUILT_IN_DEFAULTS } = require('../middleware/rbac');
 
 // ── Account lockout constants ─────────────────────────────────────────────────
@@ -63,8 +64,9 @@ exports.login = async (req, res) => {
             await user.update({ failedLoginCount: 0, lockedUntil: null });
         }
 
-        // ── 2FA check — if enabled, issue a short-lived temp token instead ───
-        if (user.twoFactorEnabled) {
+        // ── 2FA check — only if user has it enabled AND global setting allows it ───
+        const globalTwoFa = settings.get('require_2fa') !== 'false';
+        if (user.twoFactorEnabled && globalTwoFa) {
             const tempToken = jwt.sign(
                 { id: user.id, purpose: '2fa_pending' },
                 process.env.JWT_SECRET,

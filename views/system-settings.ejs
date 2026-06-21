@@ -242,6 +242,61 @@
                         </div>
                     </div>
 
+                    <!-- Security / 2FA Global Toggle Card -->
+                    <div class="glass-card p-4 mb-4 setting-card" style="border-left-color:#ef4444;">
+                        <div class="d-flex align-items-start gap-3">
+                            <div class="setting-icon" style="background:rgba(239,68,68,.12);color:#ef4444;">
+                                <i class="fas fa-shield-alt"></i>
+                            </div>
+                            <div class="flex-grow-1">
+                                <div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
+                                    <h6 class="mb-0 fw-bold">Global Two-Factor Authentication (2FA)</h6>
+                                    <span id="twoFaBadge" class="badge bg-success">Enabled</span>
+                                </div>
+                                <p class="text-muted small mb-3">
+                                    Controls whether 2FA is enforced system-wide at login. When <strong>disabled</strong>, users
+                                    who have 2FA set up will skip the code step — their authenticator app setup is preserved and
+                                    will work again if you re-enable it. This does <strong>not</strong> delete anyone's 2FA configuration.
+                                </p>
+
+                                <div class="p-3 rounded-3 mb-3 d-flex align-items-center gap-4 flex-wrap"
+                                     style="background:rgba(239,68,68,.05);border:1px dashed rgba(239,68,68,.2);">
+                                    <!-- Toggle switch -->
+                                    <div class="d-flex align-items-center gap-3">
+                                        <div class="form-check form-switch mb-0" style="font-size:1.4rem;">
+                                            <input class="form-check-input" type="checkbox" id="twoFaToggle"
+                                                   style="width:3rem;height:1.5rem;cursor:pointer;">
+                                        </div>
+                                        <div>
+                                            <div class="fw-semibold small" id="twoFaToggleLabel">2FA is <strong>Enabled</strong></div>
+                                            <div class="text-muted" style="font-size:.75rem;">Users with 2FA set up will be prompted for their code</div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Status pills -->
+                                    <div class="d-flex gap-2 flex-wrap ms-auto">
+                                        <div class="d-flex align-items-center gap-1 small">
+                                            <span class="status-dot" id="twoFaDot" style="background:#22c55e;width:8px;height:8px;border-radius:50%;display:inline-block;"></span>
+                                            <span id="twoFaStatusText" class="text-muted">Active</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="d-flex align-items-center gap-2">
+                                    <button class="btn btn-danger btn-sm" id="saveTwoFaBtn">
+                                        <i class="fas fa-save me-1"></i>Save 2FA Setting
+                                    </button>
+                                    <div class="save-indicator" id="twoFaSaveOk"><i class="fas fa-check-circle"></i> Saved!</div>
+                                </div>
+                                <div class="alert alert-warning py-2 small mt-3 mb-0" id="twoFaDisabledWarning" style="display:none;">
+                                    <i class="fas fa-exclamation-triangle me-1"></i>
+                                    <strong>Warning:</strong> Disabling 2FA globally means all users will log in with password only — even those who have an authenticator app configured.
+                                    Only disable this if you are sure about the security implications.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Settings Summary -->
                     <div class="glass-card p-4 mb-4">
                         <h6 class="fw-bold mb-3"><i class="fas fa-list-alt me-2 text-muted"></i>All Current Settings</h6>
@@ -1232,12 +1287,48 @@ async function loadSettings() {
     populateTzSelect(tz);
     renderSettingsTable(currentSettings);
     updateClocks(tz);
+    // Initialize 2FA toggle from loaded settings
+    initTwoFaToggle(currentSettings.require_2fa !== 'false');
 }
 
 function showSaved(id) {
     const el = document.getElementById(id);
     el.classList.add('visible');
     setTimeout(() => el.classList.remove('visible'), 2500);
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// 2FA GLOBAL TOGGLE
+// ────────────────────────────────────────────────────────────────────────────
+function initTwoFaToggle(enabled) {
+    const toggle  = document.getElementById('twoFaToggle');
+    if (!toggle) return;
+    toggle.checked = enabled;
+    _updateTwoFaUI(enabled);
+    toggle.addEventListener('change', () => _updateTwoFaUI(toggle.checked));
+}
+
+function _updateTwoFaUI(enabled) {
+    const badge   = document.getElementById('twoFaBadge');
+    const label   = document.getElementById('twoFaToggleLabel');
+    const dot     = document.getElementById('twoFaDot');
+    const statusT = document.getElementById('twoFaStatusText');
+    const warn    = document.getElementById('twoFaDisabledWarning');
+    if (enabled) {
+        badge.className   = 'badge bg-success';
+        badge.textContent = 'Enabled';
+        label.innerHTML   = '2FA is <strong>Enabled</strong>';
+        dot.style.background = '#22c55e';
+        statusT.textContent  = 'Active';
+        if (warn) warn.style.display = 'none';
+    } else {
+        badge.className   = 'badge bg-danger';
+        badge.textContent = 'Disabled';
+        label.innerHTML   = '2FA is <strong>Disabled</strong>';
+        dot.style.background = '#ef4444';
+        statusT.textContent  = 'Bypassed';
+        if (warn) warn.style.display = '';
+    }
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -1392,6 +1483,28 @@ document.addEventListener('DOMContentLoaded', async () => {
             } else { showToast('Failed to save name', 'danger'); }
         } catch(e) { showToast('Network error', 'danger'); }
         finally { btn.disabled = false; btn.innerHTML = '<i class="fas fa-save me-1"></i>Save Name'; }
+    });
+
+    // ── Save Global 2FA Setting ────────────────────────────────────────────
+    document.getElementById('saveTwoFaBtn')?.addEventListener('click', async () => {
+        const enabled = document.getElementById('twoFaToggle').checked;
+        const btn = document.getElementById('saveTwoFaBtn');
+        btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Saving...';
+        try {
+            const res = await fetchWithAuth('/api/settings', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ require_2fa: String(enabled) })
+            });
+            if (res && res.ok) {
+                const data = await res.json();
+                currentSettings = data.settings;
+                renderSettingsTable(currentSettings);
+                showSaved('twoFaSaveOk');
+                showToast('2FA setting ' + (enabled ? 'enabled' : 'disabled') + ' globally', enabled ? 'success' : 'warning');
+            } else { showToast('Failed to save 2FA setting', 'danger'); }
+        } catch(e) { showToast('Network error', 'danger'); }
+        finally { btn.disabled = false; btn.innerHTML = '<i class="fas fa-save me-1"></i>Save 2FA Setting'; }
     });
 
     // ── Show/Hide generate form ────────────────────────────────────────────

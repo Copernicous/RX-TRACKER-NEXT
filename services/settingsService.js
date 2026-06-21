@@ -16,6 +16,8 @@ const SENSITIVE_KEYS = new Set(['smtp_pass']);
 const DEFAULTS = {
     app_timezone:  process.env.TZ          || 'America/New_York',
     app_name:      process.env.APP_NAME    || 'Patient RX System',
+    // Global 2FA enforcement toggle (true = 2FA required for users who have it set up)
+    require_2fa:   'true',
     // SMTP — seeded from .env if present, otherwise blank (user fills via UI)
     smtp_host:     process.env.SMTP_HOST   || 'smtp.gmail.com',
     smtp_port:     process.env.SMTP_PORT   || '587',
