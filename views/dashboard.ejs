@@ -304,22 +304,22 @@
     </div>
 </div>
 
-<!-- API URL store: FortiGate correctly rewrites URLs in HTML attributes -->
-<div id="x-api" class="d-none"
-    data-stats="/api/dashboard/stats"
-    data-charts="/api/dashboard/charts"
-    data-rxp="/api/dashboard/rx-pipeline"
-    data-drill="/api/dashboard/"
-    data-ap="/api/dashboard/active-patients"
-    data-ip="/api/dashboard/inactive-patients"
-    data-tr="/api/dashboard/total-rx"
-    data-pr="/api/dashboard/pending-rx"
-    data-nr="/api/dashboard/patients-no-rx"
-    data-s2fa="/api/auth/2fa/status"
-    data-u2fa="/api/auth/2fa/setup"
-    data-e2fa="/api/auth/2fa/enable"
-    data-d2fa="/api/auth/2fa/disable"
-></div>
+<!-- API URL anchors: FortiGate always rewrites href on <a> elements -->
+<div id="x-api-urls" aria-hidden="true" class="d-none">
+    <a id="xa-stats"  href="/api/dashboard/stats"></a>
+    <a id="xa-charts" href="/api/dashboard/charts"></a>
+    <a id="xa-rxp"    href="/api/dashboard/rx-pipeline"></a>
+    <a id="xa-drill"  href="/api/dashboard/"></a>
+    <a id="xa-ap"     href="/api/dashboard/active-patients"></a>
+    <a id="xa-ip"     href="/api/dashboard/inactive-patients"></a>
+    <a id="xa-tr"     href="/api/dashboard/total-rx"></a>
+    <a id="xa-pr"     href="/api/dashboard/pending-rx"></a>
+    <a id="xa-nr"     href="/api/dashboard/patients-no-rx"></a>
+    <a id="xa-s2fa"   href="/api/auth/2fa/status"></a>
+    <a id="xa-u2fa"   href="/api/auth/2fa/setup"></a>
+    <a id="xa-e2fa"   href="/api/auth/2fa/enable"></a>
+    <a id="xa-d2fa"   href="/api/auth/2fa/disable"></a>
+</div>
 
 <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index:1100"></div>
 <script src="/assets/bootstrap.bundle.min.js"></script>
@@ -327,8 +327,25 @@
 <script src="/js/app.js"></script>
 <script src="/js/help.js"></script>
 <script>
-    // Read API URLs from HTML data-* attributes (FortiGate rewrites those correctly)
-    var _api = (function() { var e = document.getElementById('x-api'); return e ? e.dataset : {}; })();
+    // Read API URLs via href anchors — FortiGate always rewrites href on <a> elements
+    var _api = (function() {
+        function _h(id) { var el = document.getElementById(id); return el ? el.href : ''; }
+        return {
+            stats:  _h('xa-stats'),
+            charts: _h('xa-charts'),
+            rxp:    _h('xa-rxp'),
+            drill:  _h('xa-drill'),
+            ap:     _h('xa-ap'),
+            ip:     _h('xa-ip'),
+            tr:     _h('xa-tr'),
+            pr:     _h('xa-pr'),
+            nr:     _h('xa-nr'),
+            s2fa:   _h('xa-s2fa'),
+            u2fa:   _h('xa-u2fa'),
+            e2fa:   _h('xa-e2fa'),
+            d2fa:   _h('xa-d2fa')
+        };
+    })();
 
     var drilldownModal = null, drilldownCurrentData = [], drilldownType = '';
     var _dashFrom = '', _dashTo = '';
