@@ -1,0 +1,1016 @@
+﻿var allPatients = [];
+    var filteredPatients = [];
+    var currentPage = 1;
+    var pageSize = 15;
+    var editingPatientId = null;
+    var deletingPatientId = null;
+    var pSortCol = 'id';
+    var pSortDir = 'desc';
+
+    document.addEventListener('DOMContentLoaded', async () => {
+        initApp();
+        await loadDropdowns();
+
+        // ── Determine URL params BEFORE loading patients ────────────────────
+        // This lets us avoid loading ALL patients when we only need a subset.
+        const urlParams      = new URLSearchParams(window.location.search);
+        const statusParam    = urlParams.get('status');
+        const highlightId    = urlParams.get('highlight');   // from global search
+        const preFilterName  = urlParams.get('name');         // from global search by name
+
+        if (statusParam === 'norx') {
+            // ── Special case: active patients with NO RX records ─────────────
+            // Call the dedicated endpoint instead of loading all patients first.
+            try {
+                document.getElementById('patientsBody').innerHTML =
+                    '<tr><td colspan="9" class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin me-2"></i>Loading No-RX patients...</td></tr>';
+                const norxRes = await fetchWithAuth('/api/dashboard/patients-no-rx');
+                if (norxRes && norxRes.ok) {
+                    const norxData = await norxRes.json();
+                    allPatients      = Array.isArray(norxData) ? norxData : [];
+                    filteredPatients = [...allPatients];
+                    currentPage      = 1;
+                    renderPatients();
+                    // Show a dismissable filter banner above the table
+                    const tableCard = document.querySelector('.glass-card.p-4');
+                    if (tableCard && !document.getElementById('norxBanner')) {
+                        const banner = document.createElement('div');
+                        banner.id = 'norxBanner';
+                        banner.style.cssText = 'background:rgba(155,89,182,.09);border:1px solid rgba(155,89,182,.3);border-radius:10px;padding:.6rem 1rem;display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;font-size:.85rem';
+                        banner.innerHTML = `<span><i class="fas fa-user-slash me-2" style="color:#9b59b6"></i><strong>Filtered:</strong> Showing only active patients with no RX records (${allPatients.length} record${allPatients.length !== 1 ? 's' : ''})</span><a href="/patients" class="btn btn-sm btn-outline-secondary" style="font-size:.75rem"><i class="fas fa-times me-1"></i>Clear Filter</a>`;
+                        tableCard.insertBefore(banner, tableCard.firstChild);
+                    }
+                    showToast('Showing Active Patients with No RX Records (' + allPatients.length + ')', 'info');
+                } else {
+                    throw new Error('API error');
+                }
+            } catch(e) {
+                showToast('Could not load No-RX filter — showing all patients', 'warning');
+                await loadPatients();
+            }
+        } else {
+            // ── Normal case: load all patients then apply any URL filter ────
+            await loadPatients();
+
+            if (highlightId) {
+                const targetId = parseInt(highlightId);
+                filteredPatients = allPatients.filter(p => p.id === targetId);
+                renderPatients();
+                setTimeout(() => {
+                    const row = document.querySelector('tr[data-patient-id="' + targetId + '"]');
+                    if (row) {
+                        row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        row.style.transition = 'background 0.3s';
+                        row.style.background = 'rgba(74,144,226,0.25)';
+                        setTimeout(() => { row.style.background = ''; }, 2000);
+                    }
+                }, 300);
+                showToast('Showing search result', 'info');
+            } else if (preFilterName) {
+                const nameParts = decodeURIComponent(preFilterName).trim().split(' ');
+                if (nameParts[0]) document.getElementById('srchFirstName').value = nameParts[0];
+                if (nameParts[1]) document.getElementById('srchLastName').value  = nameParts.slice(1).join(' ');
+                applyPatientSearch();
+            } else if (statusParam === 'active') {
+                document.getElementById('srchStatus').value = 'true';
+                applyPatientSearch();
+                showToast('Showing Active Patients only', 'info');
+            } else if (statusParam === 'inactive') {
+                document.getElementById('srchStatus').value = 'false';
+                applyPatientSearch();
+                showToast('Showing Inactive Patients only', 'info');
+            }
+        }
+
+        document.getElementById('addPatientBtn').addEventListener('click', () => openPatientModal(null));
+
+    // ── Patient modal soft-lock ───────────────────────────────────────────────
+    let _modalLockPatientId = null;
+    let _modalHeartbeatTimer = null;
+
+    async function acquireModalLock(patientId) {
+        _modalLockPatientId = patientId;
+        try {
+            const res = await fetchWithAuth('/api/patient-locks/' + patientId + '/acquire', { method: 'POST' });
+            if (res && res.ok) {
+                const { others } = await res.json();
+                updateModalViewerBanner(others);
+            }
+        } catch(e) { /* silent */ }
+        // Start heartbeat
+        if (_modalHeartbeatTimer) clearInterval(_modalHeartbeatTimer);
+        _modalHeartbeatTimer = setInterval(async () => {
+            try {
+                const r = await fetchWithAuth('/api/patient-locks/' + patientId + '/heartbeat', { method: 'POST' });
+                if (r && r.ok) { const d = await r.json(); updateModalViewerBanner(d.others); }
+            } catch(e) {}
+        }, 60000);
+    }
+
+    async function releaseModalLock() {
+        if (!_modalLockPatientId) return;
+        if (_modalHeartbeatTimer) { clearInterval(_modalHeartbeatTimer); _modalHeartbeatTimer = null; }
+        try {
+            await fetchWithAuth('/api/patient-locks/' + _modalLockPatientId + '/release', { method: 'DELETE' });
+        } catch(e) {}
+        _modalLockPatientId = null;
+        updateModalViewerBanner([]);
+    }
+
+    function updateModalViewerBanner(others) {
+        const banner = document.getElementById('modalViewerBanner');
+        const names  = document.getElementById('modalViewerNames');
+        if (!banner || !others) return;
+        if (!others.length) { banner.classList.add('d-none'); return; }
+        banner.classList.remove('d-none');
+        names.textContent = others.map(v => v.name).join(', ');
+    }
+
+    // Hook into modal lifecycle
+    const patientModal = document.getElementById('patientModal');
+    if (patientModal) {
+        patientModal.addEventListener('hidden.bs.modal', () => {
+            releaseModalLock();
+        });
+    }
+
+        document.getElementById('searchBtn').addEventListener('click', loadPatients);
+        document.getElementById('clearBtn').addEventListener('click', () => {
+            ['srchFirstName','srchLastName','srchDob','srchPhone','srchStatus','srchClinic',
+             'srchPatientCode','srchPatientTransport','srchPharmacyTransport','srchServiceFrom','srchServiceTo'
+            ].forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
+            document.getElementById('srchShowDeleted').checked = false;
+            updateFilterBadge();
+            loadPatients();
+        });
+        document.getElementById('srchShowDeleted').addEventListener('change', loadPatients);
+        document.getElementById('srchClinic').addEventListener('change', applyPatientSearch);
+
+        document.getElementById('savePatientBtn').addEventListener('click', savePatient);
+        document.getElementById('confirmDeleteBtn').addEventListener('click', deletePatient);
+        document.getElementById('deleteConfirmInput').addEventListener('input', checkDeleteConfirmation);
+
+        // ── Export with Column Selector ─────────────────────────────────────────
+        const EXPORT_COLS = [
+            { key: 'patientCode',  label: 'Patient ID',        fn: p => p.patientCode || p.id },
+            { key: 'firstName',   label: 'First Name',         fn: p => p.firstName || '' },
+            { key: 'lastName',    label: 'Last Name',          fn: p => p.lastName  || '' },
+            { key: 'dob',         label: 'Date of Birth',      fn: p => p.dob       || '' },
+            { key: 'phone',       label: 'Phone',              fn: p => p.phone     || '' },
+            { key: 'address',     label: 'Address',            fn: p => p.address   || '' },
+            { key: 'serviceDate', label: 'Service Date',       fn: p => p.serviceDate || '' },
+            { key: 'status',      label: 'Status',             fn: p => p.isDeleted ? 'Deleted' : (p.isActive ? 'Active' : 'Inactive') },
+            { key: 'clinic',      label: 'Clinic',             fn: p => p.Clinic ? p.Clinic.name : '' },
+            { key: 'patTrans',    label: 'Patient Transport',  fn: p => p.PatientTransportCompany ? (p.PatientTransportCompany.contactPerson || p.PatientTransportCompany.companyName || '') : '' },
+            { key: 'rxTrans',     label: 'Pharmacy Transport', fn: p => p.PharmacyTransportCompany ? (p.PharmacyTransportCompany.companyName || p.PharmacyTransportCompany.contactPerson || '') : '' },
+        ];
+        let _exportColState = {};
+        EXPORT_COLS.forEach(c => { _exportColState[c.key] = true; });
+
+        function openExportModal() {
+            if (!filteredPatients.length) { showToast('No records to export. Adjust filters first.', 'warning'); return; }
+            document.getElementById('exportModalCount').textContent =
+                `Exporting ${filteredPatients.length} record${filteredPatients.length !== 1 ? 's' : ''} matching current filters`;
+            const list = document.getElementById('exportColList');
+            list.innerHTML = EXPORT_COLS.map(c => `
+                <div class="col-6">
+                    <label class="d-flex align-items-center gap-2 p-2 rounded" style="border:1px solid var(--border-color,#dee2e6);cursor:pointer" id="ecWrap_${c.key}">
+                        <input type="checkbox" class="form-check-input mt-0" id="ec_${c.key}" ${_exportColState[c.key] ? 'checked' : ''}
+                            onchange="_exportColState['${c.key}']=this.checked;updateEcStyle('${c.key}')">
+                        <span class="small">${c.label}</span>
+                    </label>
+                </div>
+            `).join('');
+            EXPORT_COLS.forEach(c => updateEcStyle(c.key));
+            new bootstrap.Modal(document.getElementById('exportColumnsModal')).show();
+        }
+        function updateEcStyle(key) {
+            const wrap = document.getElementById('ecWrap_' + key);
+            if (!wrap) return;
+            wrap.style.background  = _exportColState[key] ? 'rgba(40,167,69,.08)' : '';
+            wrap.style.borderColor = _exportColState[key] ? 'rgba(40,167,69,.35)' : '';
+        }
+        function setAllExportCols(val) {
+            EXPORT_COLS.forEach(c => {
+                _exportColState[c.key] = val;
+                const el = document.getElementById('ec_' + c.key); if (el) el.checked = val;
+                updateEcStyle(c.key);
+            });
+        }
+        document.getElementById('exportPatientsCsvBtn').addEventListener('click', openExportModal);
+        document.getElementById('doExportBtn').addEventListener('click', () => {
+            const selected = EXPORT_COLS.filter(c => _exportColState[c.key]);
+            if (!selected.length) { showToast('Select at least one column.', 'warning'); return; }
+            const headers = selected.map(c => c.label);
+            const rows    = filteredPatients.map(p => selected.map(c => c.fn(p)));
+            exportToCsv('patients_' + new Date().toISOString().slice(0,10) + '.csv', headers, rows);
+            bootstrap.Modal.getInstance(document.getElementById('exportColumnsModal')).hide();
+            showToast(`Exported ${filteredPatients.length} records (${selected.length} columns).`, 'success');
+        });
+
+        // Apply permissions to top-level buttons
+        const patPerms = getPagePerms();
+        if (!patPerms.canExport) { const b = document.getElementById('exportPatientsCsvBtn'); if(b) b.classList.add('d-none'); }
+        if (!patPerms.canAdd)   { const b = document.getElementById('addPatientBtn');       if(b) b.classList.add('d-none'); }
+    });
+
+
+    async function loadDropdowns() {
+        try {
+            const [ptRes, rxRes, clRes, phRes] = await Promise.all([
+                fetchWithAuth('/api/patient-transport',  { silent: true }),
+                fetchWithAuth('/api/pharmacy-transport', { silent: true }),
+                fetchWithAuth('/api/clinics',            { silent: true }),
+                fetchWithAuth('/api/pharmacies',         { silent: true })
+            ]);
+            if (ptRes && ptRes.ok) {
+                const pt = await ptRes.json();
+                const ptSel = document.getElementById('pPatientTransport');
+                const srchPtSel = document.getElementById('srchPatientTransport');
+                pt.forEach(c => {
+                    const label = c.contactPerson || c.companyName;
+                    ptSel.innerHTML += `<option value="${c.id}">${label}</option>`;
+                    if (srchPtSel) srchPtSel.innerHTML += `<option value="${c.id}">${label}</option>`;
+                });
+            }
+            if (rxRes && rxRes.ok) {
+                const rx = await rxRes.json();
+                const rxSel = document.getElementById('pPharmacyTransport');
+                const srchRxSel = document.getElementById('srchPharmacyTransport');
+                rx.forEach(c => {
+                    const label = c.companyName || c.contactPerson;
+                    rxSel.innerHTML += `<option value="${c.id}">${label}</option>`;
+                    if (srchRxSel) srchRxSel.innerHTML += `<option value="${c.id}">${label}</option>`;
+                });
+            }
+            if (clRes && clRes.ok) {
+                const cl = await clRes.json();
+                const clSel = document.getElementById('pClinicId');
+                const srchSel = document.getElementById('srchClinic');
+                cl.forEach(c => {
+                    const label = c.name + (c.address ? ' – ' + c.address : '');
+                    clSel.innerHTML   += `<option value="${c.id}">${label}</option>`;
+                    srchSel.innerHTML += `<option value="${c.id}">${c.name}</option>`;
+                });
+            }
+            if (phRes && phRes.ok) {
+                const ph = await phRes.json();
+                const phSel = document.getElementById('pPharmacyId');
+                ph.forEach(p => {
+                    phSel.innerHTML += `<option value="${p.id}">${p.name}${p.address ? ' – ' + p.address : ''}</option>`;
+                });
+            }
+        } catch(e) {}
+    }
+
+    async function loadPatients() {
+        const showDeleted = document.getElementById('srchShowDeleted').checked;
+        const res = await fetchWithAuth('/api/patients' + (showDeleted ? '?includeDeleted=true' : ''));
+        if (!res) return;
+        const data = await res.json();
+        allPatients = Array.isArray(data) ? data : [];
+        applyPatientSearch();
+    }
+
+    function applyPatientSearch() {
+        const fn   = document.getElementById('srchFirstName').value.toLowerCase();
+        const ln   = document.getElementById('srchLastName').value.toLowerCase();
+        const dob  = document.getElementById('srchDob').value;
+        const ph   = document.getElementById('srchPhone').value.toLowerCase();
+        const st   = document.getElementById('srchStatus').value;
+        const cl   = document.getElementById('srchClinic').value;
+        // Advanced
+        const pc   = (document.getElementById('srchPatientCode')?.value || '').toLowerCase();
+        const pt   = document.getElementById('srchPatientTransport')?.value || '';
+        const rx   = document.getElementById('srchPharmacyTransport')?.value || '';
+        const sf   = document.getElementById('srchServiceFrom')?.value || '';
+        const st2  = document.getElementById('srchServiceTo')?.value || '';
+
+        filteredPatients = allPatients.filter(p => {
+            if (fn && !(p.firstName||'').toLowerCase().includes(fn)) return false;
+            if (ln && !(p.lastName||'').toLowerCase().includes(ln)) return false;
+            if (dob && p.dob !== dob) return false;
+            if (ph && !(p.phone||'').toLowerCase().includes(ph)) return false;
+            if (st !== '' && String(p.isActive) !== st) return false;
+            if (cl !== '') {
+                const patClinic = p.clinicId !== null && p.clinicId !== undefined ? String(p.clinicId) : '';
+                if (patClinic !== cl) return false;
+            }
+            // Advanced filters
+            if (pc && !(p.patientCode||'').toLowerCase().includes(pc)) return false;
+            if (pt !== '') {
+                const patPt = p.patientTransportId !== null && p.patientTransportId !== undefined ? String(p.patientTransportId) : '';
+                if (patPt !== pt) return false;
+            }
+            if (rx !== '') {
+                const patRx = p.pharmacyTransportId !== null && p.pharmacyTransportId !== undefined ? String(p.pharmacyTransportId) : '';
+                if (patRx !== rx) return false;
+            }
+            if (sf && p.serviceDate && p.serviceDate < sf) return false;
+            if (st2 && p.serviceDate && p.serviceDate > st2) return false;
+            return true;
+        });
+        updateFilterBadge();
+        
+        filteredPatients.sort((a, b) => {
+            let valA = a[pSortCol];
+            let valB = b[pSortCol];
+            if (pSortCol === 'Clinic.name') {
+                valA = a.Clinic ? a.Clinic.name : '';
+                valB = b.Clinic ? b.Clinic.name : '';
+            }
+            if (typeof valA === 'string' && typeof valB === 'string') {
+                return pSortDir === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+            } else {
+                if (valA < valB) return pSortDir === 'asc' ? -1 : 1;
+                if (valA > valB) return pSortDir === 'asc' ? 1 : -1;
+                return 0;
+            }
+        });
+        
+        updatePatientSortIcons();
+        currentPage = 1;
+        renderPatients();
+    }
+
+    function sortPatients(col) {
+        if (pSortCol === col) {
+            pSortDir = pSortDir === 'asc' ? 'desc' : 'asc';
+        } else {
+            pSortCol = col;
+            pSortDir = 'asc';
+        }
+        applyPatientSearch();
+    }
+
+    function updatePatientSortIcons() {
+        ['patientCode', 'firstName', 'Clinic.name', 'dob', 'phone', 'serviceDate', 'isActive'].forEach(c => {
+            const icon = document.getElementById('spIcon_' + c);
+            if (icon) {
+                icon.className = c === pSortCol 
+                    ? (pSortDir === 'asc' ? 'fas fa-sort-up ms-1' : 'fas fa-sort-down ms-1') 
+                    : 'fas fa-sort text-muted ms-1';
+                icon.style.opacity = c === pSortCol ? '1' : '0.3';
+            }
+        });
+    }
+
+    function renderPatients() {
+        const start = (currentPage - 1) * pageSize;
+        const page = filteredPatients.slice(start, start + pageSize);
+        const tbody = document.getElementById('patientsBody');
+        if (page.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-4">No patients found.</td></tr>';
+        } else {
+            const pp = getPagePerms();
+        tbody.innerHTML = page.map(p => `
+                <tr data-patient-id="${p.id}">
+                    <td><code>${p.patientCode || p.id}</code></td>
+                    <td><strong>${p.firstName} ${p.lastName}</strong></td>
+                    <td>${p.Clinic ? '<span class="badge bg-info text-dark"><i class="fas fa-hospital me-1"></i>' + p.Clinic.name + '</span>' : '<span class="text-muted">\u2014</span>'}</td>
+                    <td>${p.dob || '\u2014'}</td>
+                    <td>${p.phone || '\u2014'}</td>
+                    <td>${p.serviceDate || '\u2014'}</td>
+                    <td>
+                        ${p.isDeleted ? '<span class="badge bg-danger">Deleted</span>' : (p.isActive ? '<span class="badge bg-success">Active</span>' : '<span class="badge bg-secondary">Inactive</span>')}
+                    </td>
+                    <td>
+                        ${p.isDeleted
+                            ? (pp.canDelete ? `<button class="btn btn-sm btn-outline-success" onclick="restorePatient(${p.id})"><i class="fas fa-undo"></i> Restore</button>` : '')
+                            : `
+                                <button class="btn btn-sm btn-outline-info me-1" data-pid="${p.id}" data-pname="${encodeURIComponent((p.firstName||'')+' '+(p.lastName||''))}" onclick="goToRxByEl(this)" title="View RX Records"><i class="fas fa-prescription-bottle-alt"></i></button>
+                                <button class="btn btn-sm me-1" data-pid="${p.id}" onclick="goToTimeline(parseInt(this.dataset.pid))" title="View Timeline" style="border-color:#20c9a0;color:#20c9a0" onmouseover="this.style.background='rgba(32,201,160,.1)'" onmouseout="this.style.background=''"><i class="fas fa-history"></i></button>
+                                <button class="btn btn-sm btn-outline-warning me-1 position-relative" data-nid="${p.id}" data-nfirst="${(p.firstName||'').replace(/"/g,'&quot;')}" data-nlast="${(p.lastName||'').replace(/"/g,'&quot;')}" onclick="openNotesByEl(this)" title="${(p.PatientNotes&&p.PatientNotes.length)?p.PatientNotes.length+' note'+(p.PatientNotes.length!==1?'s':''):'Notes'}" id="notes-btn-${p.id}">
+                                    <i class="fas fa-sticky-note"></i>
+                                    ${(p.PatientNotes && p.PatientNotes.length > 0) ? `<span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-warning text-dark" style="font-size:.6rem;min-width:1.1rem;padding:2px 4px;border:1.5px solid #fff">${p.PatientNotes.length}</span>` : ''}
+                                </button>
+                                <button class="btn btn-sm btn-outline-secondary me-1" onclick="printPatientRecord(${p.id})" title="Print / PDF"><i class="fas fa-print"></i></button>
+                                ${pp.canEdit   ? `<button class="btn btn-sm btn-outline-primary me-1" onclick="openPatientModal(${p.id})"><i class="fas fa-edit"></i></button>` : ''}
+                                ${pp.canDelete ? `<button class="btn btn-sm btn-outline-danger" onclick="promptDeletePatient(${p.id})"><i class="fas fa-trash"></i></button>` : ''}
+                            `}
+                    </td>
+                </tr>
+            `).join('');
+
+        }
+        const pi = document.getElementById('patientPageInfo');
+        pi.textContent = 'Showing ' + (Math.min(start+1, filteredPatients.length)) + '–' + Math.min(start+pageSize, filteredPatients.length) + ' of ' + filteredPatients.length;
+
+        const pages = Math.ceil(filteredPatients.length / pageSize);
+        let pagHtml = `<li class="page-item${currentPage===1?' disabled':''}"><a class="page-link" href="#" onclick="goPPage(${currentPage-1});return false;">&laquo;</a></li>`;
+        for(let i=1;i<=pages;i++) pagHtml += `<li class="page-item${i===currentPage?' active':''}"><a class="page-link" href="#" onclick="goPPage(${i});return false;">${i}</a></li>`;
+        pagHtml += `<li class="page-item${currentPage===pages||pages===0?' disabled':''}"><a class="page-link" href="#" onclick="goPPage(${currentPage+1});return false;">&raquo;</a></li>`;
+        document.getElementById('patientPagination').innerHTML = pagHtml;
+    }
+
+    // ── Navigation helpers — all URL building via concatenation + data attributes
+    // Avoids putting complex expressions inside template literal onclick attributes,
+    // which FortiGate SSL portal mangles when rewriting URLs.
+    function goToRxByEl(el) {
+        location.href = '/rx-records?patient=' + el.dataset.pid + '&name=' + el.dataset.pname;
+    }
+    function goToRxRecords(id, encodedName) {
+        location.href = '/rx-records?patient=' + id + '&name=' + encodedName;
+    }
+    function goToTimeline(id) {
+        location.href = '/patients/' + id + '/timeline';
+    }
+    function openNotesByEl(el) {
+        const id   = parseInt(el.dataset.nid);
+        const name = (el.dataset.nfirst || '') + ' ' + (el.dataset.nlast || '');
+        openNotesModal(id, name.trim());
+    }
+
+    function goPPage(p) {
+        const pages = Math.ceil(filteredPatients.length / pageSize);
+        if(p<1||p>pages) return;
+        currentPage = p; renderPatients();
+    }
+
+    function openPatientModal(id) {
+        editingPatientId = id;
+        document.getElementById('patientModalTitle').textContent = id ? 'Edit Patient' : 'Add Patient';
+        const patient = id ? allPatients.find(p => p.id === id) : null;
+        document.getElementById('pPatientCode').value = patient ? patient.patientCode || '' : '';
+        document.getElementById('pFirstName').value = patient ? patient.firstName || '' : '';
+        document.getElementById('pLastName').value = patient ? patient.lastName || '' : '';
+        document.getElementById('pDob').value = patient ? patient.dob || '' : '';
+        document.getElementById('pPhone').value = patient ? patient.phone || '' : '';
+        document.getElementById('pServiceDate').value = patient ? patient.serviceDate || '' : '';
+        document.getElementById('pAddress').value = patient ? patient.address || '' : '';
+        document.getElementById('pNotes').value = patient ? patient.notes || '' : '';
+        document.getElementById('pIsActive').checked = patient ? patient.isActive : true;
+        document.getElementById('pIsNonCompanyPatient').checked = patient ? !!patient.isNonCompanyPatient : false;
+        document.getElementById('pPatientTransport').value = patient ? (patient.patientTransportCompanyId !== null && patient.patientTransportCompanyId !== undefined ? String(patient.patientTransportCompanyId) : '') : '';
+        document.getElementById('pPharmacyTransport').value = patient ? (patient.pharmacyTransportCompanyId !== null && patient.pharmacyTransportCompanyId !== undefined ? String(patient.pharmacyTransportCompanyId) : '') : '';
+        document.getElementById('pClinicId').value = patient ? (patient.clinicId !== null && patient.clinicId !== undefined ? String(patient.clinicId) : '') : '';
+        document.getElementById('pPharmacyId').value = patient ? (patient.pharmacyId !== null && patient.pharmacyId !== undefined ? String(patient.pharmacyId) : '') : '';
+        new bootstrap.Modal(document.getElementById('patientModal')).show();
+        // Show/hide save button based on add vs edit permission
+        const _saveBtn = document.getElementById('savePatientBtn');
+        if (_saveBtn) {
+            try {
+                const _pu = JSON.parse(localStorage.getItem('user') || '{}');
+                const _pp = (_pu.permissions || {}).patients || {};
+                const _canAddPat  = _pp.canAdd  !== undefined ? !!_pp.canAdd  : !!_pp.canEdit; // fallback
+                const _canEditPat = _pp.canEdit !== undefined ? !!_pp.canEdit : true;
+                _saveBtn.style.display = (id === null ? _canAddPat : _canEditPat) ? '' : 'none';
+            } catch(e) { _saveBtn.style.display = ''; }
+        }
+        // Acquire soft lock if editing an existing patient
+        if (id) acquireModalLock(id);
+    }
+
+    async function savePatient() {
+        const btn = document.getElementById('savePatientBtn');
+        const spinner = document.getElementById('savePatientSpinner');
+        btn.disabled = true; spinner.classList.remove('d-none');
+        const patientCodeVal = document.getElementById('pPatientCode').value.trim();
+        const body = {
+            patientCode: patientCodeVal || undefined,
+            firstName: document.getElementById('pFirstName').value.trim(),
+            lastName: document.getElementById('pLastName').value.trim(),
+            dob: document.getElementById('pDob').value,
+            phone: document.getElementById('pPhone').value.trim(),
+            serviceDate: document.getElementById('pServiceDate').value || null,
+            address: document.getElementById('pAddress').value.trim(),
+            notes: document.getElementById('pNotes').value.trim(),
+            isActive: document.getElementById('pIsActive').checked,
+            isNonCompanyPatient: document.getElementById('pIsNonCompanyPatient').checked,
+            patientTransportCompanyId: document.getElementById('pPatientTransport').value || null,
+            pharmacyTransportCompanyId: document.getElementById('pPharmacyTransport').value || null,
+            clinicId: document.getElementById('pClinicId').value || null,
+            pharmacyId: document.getElementById('pPharmacyId').value || null
+        };
+        try {
+            const url = editingPatientId ? '/api/patients/' + editingPatientId : '/api/patients';
+            const method = editingPatientId ? 'PUT' : 'POST';
+            const res = await fetchWithAuth(url, { method, body: JSON.stringify(body) });
+            if (!res) return;
+            if (res.ok) {
+                bootstrap.Modal.getInstance(document.getElementById('patientModal')).hide();
+                showToast(editingPatientId ? 'Patient updated!' : 'Patient created!', 'success');
+                await loadPatients();
+            } else {
+                const err = await res.json();
+                showToast(err.error || err.message || 'Save failed.', 'danger');
+            }
+        } catch(e) { showToast('Network error.', 'danger'); }
+        finally { btn.disabled = false; spinner.classList.add('d-none'); }
+    }
+
+    function promptDeletePatient(id) {
+        deletingPatientId = id;
+        const patient = allPatients.find(p => p.id === id);
+        const fullName = `${patient.firstName} ${patient.lastName}`;
+        document.getElementById('deleteConfirmNameText').textContent = fullName;
+        const input = document.getElementById('deleteConfirmInput');
+        input.value = '';
+        input.setAttribute('data-expected-name', fullName);
+        document.getElementById('confirmDeleteBtn').disabled = true;
+        new bootstrap.Modal(document.getElementById('deleteModal')).show();
+    }
+
+    function checkDeleteConfirmation() {
+        const input = document.getElementById('deleteConfirmInput');
+        const expected = input.getAttribute('data-expected-name');
+        const btn = document.getElementById('confirmDeleteBtn');
+        if (input.value.trim() === expected) {
+            btn.disabled = false;
+        } else {
+            btn.disabled = true;
+        }
+    }
+
+    async function deletePatient() {
+        const res = await fetchWithAuth('/api/patients/' + deletingPatientId, { method: 'DELETE' });
+        if (!res) return;
+        if (res.ok || res.status === 204) {
+            bootstrap.Modal.getInstance(document.getElementById('deleteModal')).hide();
+            showToast('Patient deleted.', 'success');
+            await loadPatients();
+        } else {
+            const err = await res.json();
+            showToast(err.error || 'Delete failed.', 'danger');
+        }
+    }
+
+    // ── Patient Notes ────────────────────────────────────────────────────────
+    var notesPatientId = null;
+    var notesModal = null;
+
+    // Helper: read patient_notes permission from current user's stored perms
+    function getNotesPerms() {
+        try {
+            const u = JSON.parse(localStorage.getItem('user') || '{}');
+            // Admins and Supervisors always have full note access
+            if (u.role === 'Administrator' || u.role === 'Supervisor') {
+                return { canAdd: true, canEdit: true, canDelete: true };
+            }
+            const np = (u.permissions || {}).patient_notes || {};
+            return {
+                canAdd:    np.canAdd    !== undefined ? !!np.canAdd    : !!np.canEdit, // fallback
+                canEdit:   np.canEdit   !== undefined ? !!np.canEdit   : false,
+                canDelete: np.canDelete !== undefined ? !!np.canDelete : false
+            };
+        } catch(e) { return { canAdd: true, canEdit: true, canDelete: false }; }
+    }
+
+    async function openNotesModal(patientId, patientName) {
+        notesPatientId = patientId;
+        document.getElementById('notesPatientName').textContent = patientName || ('Patient #' + patientId);
+        document.getElementById('newNoteText').value = '';
+        document.getElementById('notesListContainer').innerHTML = '<p class="text-center text-muted py-3"><i class="fas fa-spinner fa-spin me-1"></i> Loading...</p>';
+
+        // Apply add-note permission
+        const np = getNotesPerms();
+        const addArea = document.getElementById('noteAddArea');
+        if (addArea) addArea.style.display = np.canAdd ? '' : 'none';
+
+        if (!notesModal) {
+            notesModal = new bootstrap.Modal(document.getElementById('patientNotesModal'));
+            document.getElementById('addNoteBtn').addEventListener('click', addNote);
+            document.getElementById('newNoteText').addEventListener('keydown', function(e) {
+                if (e.ctrlKey && e.key === 'Enter') addNote();
+            });
+        }
+        notesModal.show();
+        await loadNotes();
+    }
+
+    async function loadNotes() {
+        try {
+            const res = await fetchWithAuth('/api/patients/' + notesPatientId + '/notes');
+            if (!res) return;
+            const notes = await res.json();
+            renderNotes(notes);
+        } catch(e) {
+            document.getElementById('notesListContainer').innerHTML = '<p class="text-danger text-center py-3">Error loading notes.</p>';
+        }
+    }
+
+    function renderNotes(notes) {
+        const container = document.getElementById('notesListContainer');
+        const countLabel = document.getElementById('notesCountLabel');
+        const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+        const np = getNotesPerms();
+
+        countLabel.textContent = notes.length + ' note' + (notes.length !== 1 ? 's' : '');
+        if (!notes.length) {
+            const np2 = getNotesPerms();
+            container.innerHTML = '<p class="text-center text-muted py-3"><i class="fas fa-comment-slash me-1"></i>' +
+                (np2.canAdd ? 'No notes yet. Add the first one above.' : 'No notes yet.') + '</p>';
+            return;
+        }
+        container.innerHTML = notes.map(n => {
+            const author = n.Author ? (n.Author.firstName + ' ' + n.Author.lastName) : 'System';
+            const dt = new Date(n.createdAt);
+            const dateStr = dt.toLocaleDateString() + ' ' + dt.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+            // Strictly enforce canDelete — no author bypass
+            const canDel = np.canDelete;
+
+            let delBtn = '';
+            if (canDel) {
+                delBtn = `<button class="btn btn-sm btn-outline-danger py-0 px-2" onclick="deleteNote(${n.id})" title="Delete note">
+                    <i class="fas fa-trash-alt" style="font-size:.7rem"></i>
+                </button>`;
+            } else {
+                delBtn = `<span class="text-muted" title="You don't have permission to delete notes" data-bs-toggle="tooltip">
+                    <i class="fas fa-lock" style="font-size:.75rem;opacity:.5"></i>
+                </span>`;
+            }
+
+            return `<div class="card mb-2 border-0" id="note-${n.id}" style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1) !important;border-radius:8px">
+                <div class="card-body py-2 px-3">
+                    <div class="d-flex justify-content-between align-items-start gap-2">
+                        <div style="min-width:0">
+                            <span class="badge bg-secondary me-1">${author}</span><small class="text-muted">${dateStr}</small>
+                        </div>
+                        <div class="flex-shrink-0">${delBtn}</div>
+                    </div>
+                    <p class="mb-0 mt-2" style="white-space:pre-wrap;font-size:.9rem">${n.note.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</p>
+                </div>
+            </div>`;
+        }).join('');
+
+        // Activate Bootstrap tooltips on lock icons
+        container.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => {
+            if (typeof bootstrap !== 'undefined') new bootstrap.Tooltip(el, {trigger:'hover'});
+        });
+    }
+
+    async function addNote() {
+        const np = getNotesPerms();
+        if (!np.canAdd) { showToast('You do not have permission to add notes.', 'warning'); return; }
+        const text = document.getElementById('newNoteText').value.trim();
+        if (!text) { showToast('Please enter a note.', 'warning'); return; }
+        const btn = document.getElementById('addNoteBtn');
+        btn.disabled = true;
+        try {
+            const res = await fetchWithAuth('/api/patients/' + notesPatientId + '/notes', {
+                method: 'POST', body: JSON.stringify({ note: text })
+            });
+            if (res && res.ok) {
+                document.getElementById('newNoteText').value = '';
+                showToast('Note added.', 'success');
+                await loadNotes();
+            } else if (res) {
+                const err = await res.json();
+                showToast(err.error || 'Failed to add note.', 'danger');
+            }
+        } catch(e) { showToast('Network error.', 'danger'); }
+        finally { btn.disabled = false; }
+    }
+
+    async function deleteNote(noteId) {
+        if (!confirm('Delete this note?')) return;
+        try {
+            const res = await fetchWithAuth('/api/patients/' + notesPatientId + '/notes/' + noteId, { method: 'DELETE' });
+            if (res && (res.ok || res.status === 204)) {
+                showToast('Note deleted.', 'success');
+                await loadNotes();
+            } else if (res) {
+                const err = await res.json();
+                showToast(err.error || 'Delete failed.', 'danger');
+            }
+        } catch(e) { showToast('Network error.', 'danger'); }
+    }
+    // ────────────────────────────────────────────────────────────────────────
+
+    async function restorePatient(id) {
+        if (!confirm('Are you sure you want to restore this patient?')) return;
+        try {
+            const res = await fetchWithAuth('/api/patients/' + id + '/restore', { method: 'PUT' });
+            if (res.ok) {
+                showToast('Patient restored successfully.', 'success');
+                await loadPatients();
+            } else {
+                const err = await res.json();
+                showToast(err.error || 'Restore failed.', 'danger');
+            }
+        } catch (e) {
+            showToast('Network error.', 'danger');
+        }
+    }
+
+    // ---- Print / PDF ----
+    var _printPatientData = null;
+    var _printLayout = 'card'; // 'card' or 'classic'
+
+    // Listen to toggle changes
+    document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('input[name="printLayout"]').forEach(function(radio) {
+            radio.addEventListener('change', function() {
+                _printLayout = this.value;
+                if (_printPatientData) switchPrintLayout();
+            });
+        });
+    });
+
+    function switchPrintLayout() {
+        const body = document.getElementById('patientPrintBody');
+        const card    = document.getElementById('printContentCard');
+        const classic = document.getElementById('printContentClassic');
+        if (!card || !classic) return;
+        if (_printLayout === 'card') {
+            card.style.display    = '';
+            classic.style.display = 'none';
+            body.style.background = '#f0f2f5';
+        } else {
+            card.style.display    = 'none';
+            classic.style.display = '';
+            body.style.background = '#fff';
+        }
+    }
+
+    async function printPatientRecord(id) {
+        const body = document.getElementById('patientPrintBody');
+        body.innerHTML = '<p class="text-center text-muted py-5"><i class="fas fa-spinner fa-spin me-2"></i>Loading record...</p>';
+        // Reset toggle to Card
+        _printLayout = 'card';
+        const cardRadio = document.getElementById('layoutCard');
+        if (cardRadio) cardRadio.checked = true;
+        const modal = new bootstrap.Modal(document.getElementById('patientPrintModal'));
+        modal.show();
+
+        const pRes  = await fetchWithAuth('/api/patients/' + id);
+        const rxRes = await fetchWithAuth('/api/rx-records?includeDeleted=false');
+        const waRes = await fetchWithAuth('/api/workflow-actions', { silent: true });
+        
+        if (!pRes || !pRes.ok) { body.innerHTML = '<p class="text-danger text-center py-4">Failed to load patient record.</p>'; return; }
+        const p     = await pRes.json();
+        const allRx = rxRes && rxRes.ok  ? await rxRes.json() : [];
+        const allWA = waRes && waRes.ok  ? await waRes.json() : [];
+        const patientRx = allRx.filter(r => r.patientId === id);
+        _printPatientData = { patient: p, rxRecords: patientRx };
+
+        const isActive  = p.isActive;
+        const clinic    = p.Clinic ? p.Clinic.name : '—';
+        const ptComp    = p.PatientTransportCompany  ? (p.PatientTransportCompany.companyName  || p.PatientTransportCompany.contactPerson  || '—') : '—';
+        const phComp    = p.PharmacyTransportCompany ? (p.PharmacyTransportCompany.companyName || p.PharmacyTransportCompany.contactPerson || '—') : '—';
+        const printDate = new Date().toLocaleString();
+
+        function fmtDt(d) {
+            if (!d) return '';
+            try { return new Date(d).toLocaleString('en-US', { month:'short', day:'numeric', year:'numeric', hour:'2-digit', minute:'2-digit' }); }
+            catch(e) { return d; }
+        }
+
+        function buildRxBlock(rx, style) {
+            const trackMap = {};
+            (rx.RXWorkflowTrackings || []).forEach(t => { trackMap[t.workflowActionId] = t; });
+            const completedCount = (rx.RXWorkflowTrackings || []).length;
+            const totalSteps     = allWA.length;
+            const pct            = totalSteps > 0 ? Math.round((completedCount / totalSteps) * 100) : 0;
+            const statusColor    = pct >= 100 ? '#198754' : pct > 0 ? '#fd7e14' : '#6c757d';
+            const statusLabel    = pct >= 100 ? 'Complete' : pct > 0 ? pct + '% Done' : 'Not Started';
+
+            const ptrans  = rx.PatientTransportCompany  ? (rx.PatientTransportCompany.companyName  || rx.PatientTransportCompany.contactPerson)  : null;
+            const phtrans = rx.PharmacyTransportCompany ? (rx.PharmacyTransportCompany.companyName || rx.PharmacyTransportCompany.contactPerson) : null;
+
+            const actions = (rx.Medications || []);
+            const actionsHtml = actions.length
+                ? actions.map(a => '<span style="display:inline-block;background:#e8f0fe;color:#1a2234;border-radius:4px;padding:1px 7px;font-size:.75rem;margin:1px 3px 1px 0">' + a.name + (a.quantity > 1 ? ' \u00d7'+a.quantity : '') + (a.notes ? ' \u2014 '+a.notes : '') + '</span>').join('')
+                : '<span style="color:#888;font-size:.78rem">None recorded</span>';
+
+            const wfHtml = allWA.length === 0
+                ? '<tr><td colspan="3" style="color:#888;padding:4px 0;font-size:.78rem">No workflow steps defined.</td></tr>'
+                : allWA.map(function(wa, idx) {
+                    const t = trackMap[wa.id];
+                    const done = !!t;
+                    const dateStr = t && t.completionDate ? fmtDt(t.completionDate) : '';
+                    const byStr = t && t.User ? ' \u2014 ' + t.User.firstName + ' ' + t.User.lastName : '';
+                    return '<tr>' +
+                        '<td style="padding:3px 6px;width:20px;text-align:center">' +
+                          '<span style="display:inline-block;width:16px;height:16px;border-radius:50%;background:' + (done?'#198754':'#dee2e6') + ';color:#fff;font-size:.62rem;line-height:16px;text-align:center">' + (done?'\u2713':'') + '</span>' +
+                        '</td>' +
+                        '<td style="padding:3px 6px;font-size:.8rem;color:' + (done?'#1a2234':'#888') + ';font-weight:' + (done?'600':'400') + '">' + (idx+1) + '. ' + wa.name + '</td>' +
+                        '<td style="padding:3px 6px;font-size:.75rem;color:' + (done?'#1a2234':'#aaa') + ';white-space:nowrap">' + (done ? dateStr + byStr : 'Pending') + '</td>' +
+                    '</tr>';
+                }).join('');
+
+            if (style === 'card') {
+                return '<div style="margin-bottom:20px;border:1px solid #e9ecef;border-radius:8px;overflow:hidden;font-size:.82rem">' +
+                  '<div style="background:#1a2234;color:#fff;padding:8px 14px;display:flex;justify-content:space-between;align-items:center">' +
+                    '<span style="font-weight:700;letter-spacing:.03em">RX Record #' + rx.id + '</span>' +
+                    '<span style="background:' + statusColor + ';padding:2px 10px;border-radius:20px;font-size:.72rem;font-weight:600">' + statusLabel + '</span>' +
+                  '</div>' +
+                  '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;padding:10px 14px;border-bottom:1px solid #f0f0f0;background:#fafafa">' +
+                    '<div><div style="font-size:.65rem;color:#888;text-transform:uppercase;font-weight:700">Arrival Date</div><div style="font-weight:600">' + (rx.arrivalDate||'—') + '</div></div>' +
+                    '<div><div style="font-size:.65rem;color:#888;text-transform:uppercase;font-weight:700">Service Date</div><div style="font-weight:600">' + (rx.serviceDate||'—') + '</div></div>' +
+                    '<div><div style="font-size:.65rem;color:#888;text-transform:uppercase;font-weight:700">Pharmacy</div><div style="font-weight:600">' + (rx.Pharmacy ? rx.Pharmacy.name : '—') + '</div></div>' +
+                    (ptrans  ? '<div><div style="font-size:.65rem;color:#888;text-transform:uppercase;font-weight:700">Patient Transport</div><div style="font-weight:600">' + ptrans  + '</div></div>' : '') +
+                    (phtrans ? '<div><div style="font-size:.65rem;color:#888;text-transform:uppercase;font-weight:700">Pharmacy Transport</div><div style="font-weight:600">' + phtrans + '</div></div>' : '') +
+                  '</div>' +
+                  (actions.length ? '<div style="padding:6px 14px;border-bottom:1px solid #f0f0f0;background:#f8f9fa"><span style="font-size:.65rem;color:#888;text-transform:uppercase;font-weight:700;margin-right:6px">Actions:</span>' + actionsHtml + '</div>' : '') +
+                  '<div style="padding:10px 14px">' +
+                    '<div style="font-size:.65rem;color:#888;text-transform:uppercase;font-weight:700;margin-bottom:6px">Workflow Steps (' + completedCount + '/' + totalSteps + ')</div>' +
+                    '<div style="background:#f8f9fa;border-radius:4px;overflow:hidden">' +
+                      '<table style="width:100%;border-collapse:collapse">' + wfHtml + '</table>' +
+                    '</div>' +
+                  '</div>' +
+                '</div>';
+            } else {
+                return '<tr>' +
+                  '<td colspan="5" style="padding:0;border-bottom:2px solid #dee2e6">' +
+                    '<table style="width:100%;border-collapse:collapse;font-size:.82rem">' +
+                      '<tr>' +
+                        '<td style="padding:6px 8px;font-weight:700">#' + rx.id + '</td>' +
+                        '<td style="padding:6px 8px">' + (rx.arrivalDate||'—') + '</td>' +
+                        '<td style="padding:6px 8px">' + (rx.serviceDate||'—') + '</td>' +
+                        '<td style="padding:6px 8px">' + (rx.Pharmacy ? rx.Pharmacy.name : '—') + '</td>' +
+                        '<td style="padding:6px 8px"><span style="background:' + statusColor + ';color:#fff;padding:1px 8px;border-radius:10px;font-size:.72rem">' + statusLabel + '</span></td>' +
+                      '</tr>' +
+                      (actions.length ? '<tr><td colspan="5" style="padding:3px 8px 3px 24px;background:#f8f9fa;font-size:.78rem"><strong>Actions:</strong> ' + actionsHtml + '</td></tr>' : '') +
+                      '<tr><td colspan="5" style="padding:3px 8px 8px 8px"><table style="width:100%;border-collapse:collapse">' + wfHtml + '</table></td></tr>' +
+                    '</table>' +
+                  '</td>' +
+                '</tr>';
+            }
+        }
+
+        const statusBadge = isActive
+            ? '<span style="background:#198754;color:#fff;padding:3px 10px;border-radius:12px;font-size:.75rem">Active</span>'
+            : '<span style="background:#6c757d;color:#fff;padding:3px 10px;border-radius:12px;font-size:.75rem">Inactive</span>';
+
+        // ── CARD LAYOUT ──────────────────────────────────────────────────────
+        const cardHTML =
+        '<div id="printContentCard" style="font-family:\'Inter\',Arial,sans-serif;background:#fff;margin:20px;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.12)">' +
+          '<div style="background:linear-gradient(135deg,#1a2234,#2c3e6b);color:#fff;padding:20px 28px;display:flex;justify-content:space-between;align-items:center">' +
+            '<div>' +
+              '<div style="font-size:1.4rem;font-weight:700;letter-spacing:-.01em">' + p.firstName + ' ' + p.lastName + '</div>' +
+              '<div style="font-size:.85rem;opacity:.75;margin-top:3px">Patient RX System &nbsp;&middot;&nbsp; Generated: ' + printDate + '</div>' +
+            '</div>' +
+            '<div style="text-align:right">' +
+              '<div style="font-size:1.2rem;font-weight:700;font-family:monospace">' + (p.patientCode||'—') + '</div>' +
+              '<div style="margin-top:6px"><span style="background:' + (isActive?'#198754':'#6c757d') + ';color:#fff;padding:3px 12px;border-radius:20px;font-size:.78rem;font-weight:600">' + (isActive?'● Active':'○ Inactive') + '</span></div>' +
+            '</div>' +
+          '</div>' +
+          '<div style="padding:24px 28px;display:grid;grid-template-columns:1fr 1fr;gap:14px 32px;border-bottom:1px solid #e9ecef">' +
+            [['📅 Date of Birth',p.dob||'—'],['📞 Phone',p.phone||'—'],['📅 Service Date',p.serviceDate||'—'],['🏥 Clinic',clinic],['🏠 Address',p.address||'—'],['🚐 Patient Transport',ptComp],['💊 Pharmacy Transport',phComp]]
+            .map(function(r){ return '<div><div style="font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#888;margin-bottom:3px">'+r[0]+'</div><div style="font-size:.9rem;color:#1a2234">'+r[1]+'</div></div>'; }).join('') +
+          '</div>' +
+          (p.notes ? '<div style="margin:16px 28px;padding:12px 16px;background:#fffbea;border-left:4px solid #f5a623;border-radius:4px;font-size:.85rem;color:#7a5800"><strong>📝 Notes:</strong><br>' + p.notes.replace(/\n/g,'<br>') + '</div>' : '') +
+          '<div style="padding:0 28px 28px">' +
+            '<div style="font-size:.8rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#888;margin:20px 0 12px">RX Records (' + patientRx.length + ')</div>' +
+            (patientRx.length ? patientRx.map(function(rx){ return buildRxBlock(rx,'card'); }).join('') : '<p style="color:#888;font-size:.85rem">No RX records found.</p>') +
+          '</div>' +
+        '</div>';
+
+        // ── CLASSIC LAYOUT ───────────────────────────────────────────────────
+        const classicHTML =
+        '<div id="printContentClassic" style="display:none;font-family:Inter,Arial,sans-serif;color:#1a2234;padding:28px">' +
+          '<div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #1a2234;padding-bottom:12px;margin-bottom:20px">' +
+            '<div><h4 style="margin:0;color:#1a2234">Patient Record</h4><div style="font-size:.8rem;color:#888;margin-top:4px">Printed: ' + printDate + '</div></div>' +
+            '<div style="text-align:right"><div style="font-size:1.1rem;font-weight:700">' + p.firstName + ' ' + p.lastName + ' ' + statusBadge + '</div><div style="color:#888;font-size:.85rem"><code>' + (p.patientCode||'—') + '</code></div></div>' +
+          '</div>' +
+          '<table style="width:100%;border-collapse:collapse;margin-bottom:24px;font-size:.875rem">' +
+            '<tr><td style="width:50%;padding:6px 0"><strong>Date of Birth:</strong> '+(p.dob||'—')+'</td><td style="padding:6px 0"><strong>Phone:</strong> '+(p.phone||'—')+'</td></tr>' +
+            '<tr><td style="padding:6px 0"><strong>Service Date:</strong> '+(p.serviceDate||'—')+'</td><td style="padding:6px 0"><strong>Clinic:</strong> '+clinic+'</td></tr>' +
+            '<tr><td style="padding:6px 0"><strong>Address:</strong> '+(p.address||'—')+'</td><td style="padding:6px 0"><strong>Patient Transport:</strong> '+ptComp+'</td></tr>' +
+            '<tr><td style="padding:6px 0"><strong>Pharmacy Transport:</strong> '+phComp+'</td><td></td></tr>' +
+          '</table>' +
+          (p.notes ? '<div style="background:#f8f9fa;border-left:3px solid #4a90e2;padding:10px 14px;border-radius:4px;margin-bottom:24px;font-size:.85rem"><strong>Notes:</strong><br>' + p.notes.replace(/\n/g,'<br>') + '</div>' : '') +
+          '<h6 style="border-bottom:1px solid #dee2e6;padding-bottom:6px;margin-bottom:12px">RX Records (' + patientRx.length + ')</h6>' +
+          (patientRx.length ?
+            '<table style="width:100%;border-collapse:collapse;font-size:.82rem">' +
+            '<thead><tr style="background:#1a2234;color:#fff">' +
+              '<th style="padding:7px 8px">RX #</th><th style="padding:7px 8px">Arrival</th><th style="padding:7px 8px">Service</th><th style="padding:7px 8px">Pharmacy</th><th style="padding:7px 8px">Status</th>' +
+            '</tr></thead>' +
+            '<tbody>' + (patientRx.length ? patientRx.map(function(rx){ return buildRxBlock(rx,'classic'); }).join('') : '<tr><td colspan="5" style="text-align:center;color:#888">No RX records found.</td></tr>') + '</tbody>' +
+            '</table>'
+          : '<p style="color:#888">No RX records found.</p>') +
+        '</div>';
+
+        body.innerHTML = cardHTML + classicHTML;
+        body.style.background = '#f0f2f5';
+    }
+
+    function doPrint() {
+        if (!_printPatientData) return;
+        const p = _printPatientData.patient;
+        // Get the active content element
+        const contentId = _printLayout === 'card' ? 'printContentCard' : 'printContentClassic';
+        const body = document.getElementById(contentId);
+        if (!body) return;
+
+        const win = window.open('', '_blank', 'width=900,height=750');
+        if (_printLayout === 'card') {
+            win.document.write(`<!DOCTYPE html><html><head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+                <title>Patient Record &mdash; ${p.firstName} ${p.lastName}</title>
+                <style>
+                    @import url('/assets/inter.css');
+                    * { box-sizing:border-box; margin:0; padding:0; }
+                    body { font-family:'Inter',Arial,sans-serif; background:#f0f2f5; padding:32px; }
+                    #printContentCard { background:#fff; border-radius:12px; overflow:hidden; box-shadow:0 2px 16px rgba(0,0,0,.1); }
+                    @media print {
+                        @page { margin:15mm; size:A4 portrait; }
+                        body { background:#fff; padding:0; }
+                        #printContentCard { box-shadow:none; border-radius:0; }
+                        thead tr, div[style*="background:linear-gradient"] { -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; }
+                    }
+                </style></head>
+                <body>${body.outerHTML}
+                <script>window.onload=function(){window.print();}<\/script>
+                </body></html>`);
+        } else {
+            win.document.write(`<!DOCTYPE html><html><head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+                <title>Patient Record &mdash; ${p.firstName} ${p.lastName}</title>
+                <style>
+                    @import url('/assets/inter.css');
+                    body { font-family:Inter,Arial,sans-serif; color:#1a2234; padding:32px; max-width:860px; margin:0 auto; }
+                    table { width:100%; border-collapse:collapse; }
+                    thead tr { background:#1a2234 !important; color:#fff !important; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+                    th,td { padding:7px 10px; text-align:left; border-bottom:1px solid #dee2e6; }
+                    @media print { @page { margin:20mm; } body { padding:0; } }
+                </style></head>
+                <body>${body.outerHTML}
+                <script>window.onload=function(){window.print();}<\/script>
+                </body></html>`);
+        }
+        win.document.close();
+        win.focus();
+    }
+
+    // \u2500\u2500 Advanced Filter Helpers \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+    var _advancedOpen = false;
+
+    function toggleAdvancedFilters() {
+        _advancedOpen = !_advancedOpen;
+        const row = document.getElementById('advancedFilterRow');
+        const chevron = document.getElementById('advancedChevron');
+        row.style.display = _advancedOpen ? '' : 'none';
+        chevron.className = _advancedOpen ? 'fas fa-chevron-up ms-1' : 'fas fa-chevron-down ms-1';
+    }
+
+    function liveFilter() {
+        applyPatientSearch();
+        renderPatients();
+    }
+
+    function updateFilterBadge() {
+        const advancedIds = ['srchPatientCode','srchPatientTransport','srchPharmacyTransport','srchServiceFrom','srchServiceTo'];
+        const basicIds    = ['srchFirstName','srchLastName','srchDob','srchPhone'];
+        const statusEl    = document.getElementById('srchStatus');
+        const clinicEl    = document.getElementById('srchClinic');
+
+        let count = 0;
+        [...advancedIds, ...basicIds].forEach(id => {
+            const el = document.getElementById(id);
+            if (el && el.value) count++;
+        });
+        if (statusEl && statusEl.value) count++;
+        if (clinicEl && clinicEl.value) count++;
+
+        const badge = document.getElementById('activeFilterBadge');
+        if (badge) {
+            if (count > 0) {
+                badge.textContent = count + ' filter' + (count > 1 ? 's' : '');
+                badge.style.cssText = 'font-size:.7rem';  // clear display:none!important
+                badge.removeAttribute('style');
+                badge.style.display = 'inline-block';
+                badge.style.fontSize = '.7rem';
+            } else {
+                badge.style.display = 'none';
+            }
+        }
+
+        // Auto-expand advanced panel if any advanced filter is active
+        const hasAdvanced = advancedIds.some(id => {
+            const el = document.getElementById(id);
+            return el && el.value;
+        });
+        if (hasAdvanced && !_advancedOpen) toggleAdvancedFilters();
+
+        // Render chips
+        const chipsEl = document.getElementById('activeFilterChips');
+        if (!chipsEl) return;
+        const CHIP_LABELS = {
+            srchFirstName: 'First Name', srchLastName: 'Last Name', srchDob: 'DOB',
+            srchPhone: 'Phone', srchStatus: 'Status', srchClinic: 'Clinic',
+            srchPatientCode: 'Patient ID', srchPatientTransport: 'Patient Transport',
+            srchPharmacyTransport: 'Pharmacy Transport', srchServiceFrom: 'From',
+            srchServiceTo: 'To'
+        };
+        chipsEl.innerHTML = [...basicIds, ...advancedIds, 'srchStatus','srchClinic']
+            .filter(id => { const el = document.getElementById(id); return el && el.value; })
+            .map(id => {
+                const el  = document.getElementById(id);
+                const val = el.tagName === 'SELECT' ? el.options[el.selectedIndex].text : el.value;
+                return `<span class="badge" style="background:rgba(74,144,226,.12);color:#4a90e2;font-size:.72rem;font-weight:500;border:1px solid rgba(74,144,226,.25);border-radius:20px;padding:3px 10px">
+                    ${CHIP_LABELS[id]}: ${val}
+                    <i class="fas fa-times ms-1" style="cursor:pointer" onclick="clearOneFilter('${id}')"></i>
+                </span>`;
+            }).join('');
+    }
+
+    function clearOneFilter(id) {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+        liveFilter();
+    }
+
