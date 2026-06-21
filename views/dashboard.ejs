@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en" data-theme="light">
 <head>
     <meta charset="UTF-8">
@@ -364,7 +364,13 @@
                 const tbody = document.getElementById('recentActivityBody');
                 if (tbody) {
                     tbody.innerHTML = data.recentActivity && data.recentActivity.length > 0
-                        ? data.recentActivity.map(a => `<tr><td>${a.User ? a.User.firstName+' '+a.User.lastName : 'System'}</td><td>${a.module}</td><td><span class="badge bg-secondary">${a.action}</span></td><td>${a.date||'—'}</td><td>${a.ipAddress||'—'}</td></tr>`).join('')
+                        ? data.recentActivity.map(function(a) {
+                            return '<tr><td>' + (a.User ? a.User.firstName+' '+a.User.lastName : 'System') + '</td>' +
+                                   '<td>' + (a.module||'') + '</td>' +
+                                   '<td><span class="badge bg-secondary">' + (a.action||'') + '</span></td>' +
+                                   '<td>' + (a.date||'&mdash;') + '</td>' +
+                                   '<td>' + (a.ipAddress||'&mdash;') + '</td></tr>';
+                          }).join('')
                         : '<tr><td colspan="5" class="text-center text-muted">No recent activity</td></tr>';
                 }
             }
@@ -435,33 +441,33 @@
                 stepsEl.innerHTML = '<p class="text-muted text-center small py-2">No workflow steps configured yet.</p>';
                 return;
             }
-            stepsEl.innerHTML = `
-                <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#888;margin-bottom:10px">
-                    Workflow Step Breakdown — RX records waiting at each step
-                </div>
-                <div style="display:flex;flex-direction:column;gap:8px">
-                    ${d.stepBreakdown.map((step, i) => {
-                        const color = COLORS[i % COLORS.length];
-                        const barPct = d.inProgress > 0 ? Math.round((step.count / d.inProgress) * 100) : 0;
-                        return `<div style="display:flex;align-items:center;gap:12px">
-                            <div style="flex-shrink:0;width:22px;height:22px;border-radius:50%;background:${color}22;display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;color:${color}">${i+1}</div>
-                            <div style="flex-shrink:0;width:160px;font-size:.82rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${step.name}">${step.name}</div>
-                            <div style="flex:1;height:8px;border-radius:4px;background:rgba(0,0,0,.07);overflow:hidden">
-                                <div style="height:100%;border-radius:4px;background:${color};width:${barPct}%;transition:width .5s ease"></div>
-                            </div>
-                            <div style="flex-shrink:0;width:32px;text-align:right;font-size:.82rem;font-weight:600;color:${color}">${step.count}</div>
-                        </div>`;
-                    }).join('')}
-                </div>
-                ${d.completed > 0 ? `
-                <div style="display:flex;align-items:center;gap:12px;margin-top:8px;padding-top:8px;border-top:1px solid rgba(0,0,0,.07)">
-                    <div style="flex-shrink:0;width:22px;height:22px;border-radius:50%;background:#19875422;display:flex;align-items:center;justify-content:center"><i class="fas fa-check" style="font-size:.6rem;color:#198754"></i></div>
-                    <div style="flex-shrink:0;width:160px;font-size:.82rem;font-weight:600;color:#198754">Completed</div>
-                    <div style="flex:1;height:8px;border-radius:4px;background:rgba(0,0,0,.07);overflow:hidden">
-                        <div style="height:100%;border-radius:4px;background:#198754;width:${d.total>0?Math.round(d.completed/d.total*100):0}%;transition:width .5s ease"></div>
-                    </div>
-                    <div style="flex-shrink:0;width:32px;text-align:right;font-size:.82rem;font-weight:600;color:#198754">${d.completed}</div>
-                </div>` : ''}`;
+            var stepsHtml = '<div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#888;margin-bottom:10px">Workflow Step Breakdown &mdash; RX records waiting at each step</div>' +
+                '<div style="display:flex;flex-direction:column;gap:8px">' +
+                d.stepBreakdown.map(function(step, i) {
+                    var color = COLORS[i % COLORS.length];
+                    var barPct = d.inProgress > 0 ? Math.round((step.count / d.inProgress) * 100) : 0;
+                    return '<div style="display:flex;align-items:center;gap:12px">' +
+                        '<div style="flex-shrink:0;width:22px;height:22px;border-radius:50%;background:' + color + '22;display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;color:' + color + '">' + (i+1) + '</div>' +
+                        '<div style="flex-shrink:0;width:160px;font-size:.82rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="' + (step.name||'') + '">' + (step.name||'') + '</div>' +
+                        '<div style="flex:1;height:8px;border-radius:4px;background:rgba(0,0,0,.07);overflow:hidden">' +
+                            '<div style="height:100%;border-radius:4px;background:' + color + ';width:' + barPct + '%;transition:width .5s ease"></div>' +
+                        '</div>' +
+                        '<div style="flex-shrink:0;width:32px;text-align:right;font-size:.82rem;font-weight:600;color:' + color + '">' + step.count + '</div>' +
+                    '</div>';
+                }).join('') +
+                '</div>';
+            if (d.completed > 0) {
+                var completedPct = d.total > 0 ? Math.round(d.completed / d.total * 100) : 0;
+                stepsHtml += '<div style="display:flex;align-items:center;gap:12px;margin-top:8px;padding-top:8px;border-top:1px solid rgba(0,0,0,.07)">' +
+                    '<div style="flex-shrink:0;width:22px;height:22px;border-radius:50%;background:#19875422;display:flex;align-items:center;justify-content:center"><i class="fas fa-check" style="font-size:.6rem;color:#198754"></i></div>' +
+                    '<div style="flex-shrink:0;width:160px;font-size:.82rem;font-weight:600;color:#198754">Completed</div>' +
+                    '<div style="flex:1;height:8px;border-radius:4px;background:rgba(0,0,0,.07);overflow:hidden">' +
+                        '<div style="height:100%;border-radius:4px;background:#198754;width:' + completedPct + '%;transition:width .5s ease"></div>' +
+                    '</div>' +
+                    '<div style="flex-shrink:0;width:32px;text-align:right;font-size:.82rem;font-weight:600;color:#198754">' + d.completed + '</div>' +
+                '</div>';
+            }
+            stepsEl.innerHTML = stepsHtml;
         } catch(e) {
             stepsEl.innerHTML = '<p class="text-danger text-center small py-2"><i class="fas fa-exclamation-triangle me-1"></i>Could not load pipeline data.</p>';
         }
@@ -480,7 +486,7 @@
         new Chart(document.getElementById('rxDonutChart').getContext('2d'), {
             type: 'doughnut',
             data: { labels: data.rxStatus.labels, datasets: [{ data: total > 0 ? data.rxStatus.data : [1], backgroundColor: total > 0 ? ['rgba(80,227,194,0.85)','rgba(245,166,35,0.85)'] : ['rgba(150,150,150,0.3)'], borderWidth: 2, borderColor: isDark ? '#1a1f2e' : '#fff' }] },
-            options: { responsive: true, maintainAspectRatio: false, cutout: '68%', plugins: { legend: { position: 'bottom', labels: { color: tc, padding: 14, font: { size: 13 } } }, tooltip: { callbacks: { label: ctx => total > 0 ? ` ${ctx.label}: ${ctx.raw} (${Math.round(ctx.raw/total*100)}%)` : ' No RX records yet' } } } }
+            options: { responsive: true, maintainAspectRatio: false, cutout: '68%', plugins: { legend: { position: 'bottom', labels: { color: tc, padding: 14, font: { size: 13 } } }, tooltip: { callbacks: { label: ctx => total > 0 ? ' ' + ctx.label + ': ' + ctx.raw + ' (' + Math.round(ctx.raw/total*100) + '%)' : ' No RX records yet' } } } }
         });
     }
 
@@ -522,46 +528,50 @@
         if (!data || !data.length) { body.innerHTML = '<p class="text-center text-muted py-4">No records found.</p>'; return; }
         const isPatient = ['active-patients','inactive-patients','patients-no-rx'].includes(type);
         if (isPatient) {
-            body.innerHTML = `
-                <div class="table-responsive">
-                    <table class="table table-hover table-sm align-middle">
-                        <thead><tr>
-                            <th>Patient ID</th><th>Name</th><th>DOB</th><th>Phone</th>
-                            <th>Service Date</th><th>Clinic</th><th>Patient Transport</th><th>Pharmacy Transport</th>
-                        </tr></thead>
-                        <tbody>${data.map(p => `<tr>
-                            <td><code>${p.patientCode || p.id}</code></td>
-                            <td><strong>${p.firstName} ${p.lastName}</strong></td>
-                            <td>${p.dob||'—'}</td><td>${p.phone||'—'}</td><td>${p.serviceDate||'—'}</td>
-                            <td>${p.Clinic ? p.Clinic.name : '—'}</td>
-                            <td>${p.PatientTransportCompany ? (p.PatientTransportCompany.contactPerson||p.PatientTransportCompany.companyName||'—') : '—'}</td>
-                            <td>${p.PharmacyTransportCompany ? (p.PharmacyTransportCompany.contactPerson||p.PharmacyTransportCompany.companyName||'—') : '—'}</td>
-                        </tr>`).join('')}</tbody>
-                    </table>
-                </div>
-                <small class="text-muted">${data.length} records</small>`;
+            body.innerHTML = '<div class="table-responsive">' +
+                '<table class="table table-hover table-sm align-middle">' +
+                    '<thead><tr>' +
+                        '<th>Patient ID</th><th>Name</th><th>DOB</th><th>Phone</th>' +
+                        '<th>Service Date</th><th>Clinic</th><th>Patient Transport</th><th>Pharmacy Transport</th>' +
+                    '</tr></thead>' +
+                    '<tbody>' + data.map(function(p) {
+                        return '<tr>' +
+                            '<td><code>' + (p.patientCode || p.id) + '</code></td>' +
+                            '<td><strong>' + (p.firstName||'') + ' ' + (p.lastName||'') + '</strong></td>' +
+                            '<td>' + (p.dob||'&mdash;') + '</td>' +
+                            '<td>' + (p.phone||'&mdash;') + '</td>' +
+                            '<td>' + (p.serviceDate||'&mdash;') + '</td>' +
+                            '<td>' + (p.Clinic ? p.Clinic.name : '&mdash;') + '</td>' +
+                            '<td>' + (p.PatientTransportCompany ? (p.PatientTransportCompany.contactPerson||p.PatientTransportCompany.companyName||'&mdash;') : '&mdash;') + '</td>' +
+                            '<td>' + (p.PharmacyTransportCompany ? (p.PharmacyTransportCompany.contactPerson||p.PharmacyTransportCompany.companyName||'&mdash;') : '&mdash;') + '</td>' +
+                        '</tr>';
+                    }).join('') + '</tbody>' +
+                '</table>' +
+                '</div>' +
+                '<small class="text-muted">' + data.length + ' records</small>';
         } else {
-            body.innerHTML = `
-                <div class="table-responsive">
-                    <table class="table table-hover table-sm align-middle">
-                        <thead><tr>
-                            <th>RX #</th><th>Patient</th><th>Patient ID</th>
-                            <th>Pharmacy</th><th>Arrival Date</th><th>Service Date</th><th>Workflow Progress</th>
-                        </tr></thead>
-                        <tbody>${data.map(rx => {
-                            const steps = (rx.RXWorkflowTrackings || []).length;
-                            return `<tr>
-                                <td><strong>#${rx.id}</strong></td>
-                                <td>${rx.Patient ? rx.Patient.firstName+' '+rx.Patient.lastName : '—'}</td>
-                                <td><code>${rx.Patient ? (rx.Patient.patientCode||rx.patientId) : rx.patientId}</code></td>
-                                <td>${rx.Pharmacy ? rx.Pharmacy.name : '—'}</td>
-                                <td>${rx.arrivalDate||'—'}</td><td>${rx.serviceDate||'—'}</td>
-                                <td><div class="progress" style="height:8px;min-width:60px"><div class="progress-bar bg-primary" style="width:${steps>0?Math.round(steps/Math.max(steps,1)*100):0}%"></div></div><small>${steps} step(s) completed</small></td>
-                            </tr>`;
-                        }).join('')}</tbody>
-                    </table>
-                </div>
-                <small class="text-muted">${data.length} records</small>`;
+            body.innerHTML = '<div class="table-responsive">' +
+                '<table class="table table-hover table-sm align-middle">' +
+                    '<thead><tr>' +
+                        '<th>RX #</th><th>Patient</th><th>Patient ID</th>' +
+                        '<th>Pharmacy</th><th>Arrival Date</th><th>Service Date</th><th>Workflow Progress</th>' +
+                    '</tr></thead>' +
+                    '<tbody>' + data.map(function(rx) {
+                        var steps = (rx.RXWorkflowTrackings || []).length;
+                        var pct = steps > 0 ? Math.round(steps / Math.max(steps, 1) * 100) : 0;
+                        return '<tr>' +
+                            '<td><strong>#' + rx.id + '</strong></td>' +
+                            '<td>' + (rx.Patient ? rx.Patient.firstName+' '+rx.Patient.lastName : '&mdash;') + '</td>' +
+                            '<td><code>' + (rx.Patient ? (rx.Patient.patientCode||rx.patientId) : rx.patientId) + '</code></td>' +
+                            '<td>' + (rx.Pharmacy ? rx.Pharmacy.name : '&mdash;') + '</td>' +
+                            '<td>' + (rx.arrivalDate||'&mdash;') + '</td>' +
+                            '<td>' + (rx.serviceDate||'&mdash;') + '</td>' +
+                            '<td><div class="progress" style="height:8px;min-width:60px"><div class="progress-bar bg-primary" style="width:' + pct + '%"></div></div><small>' + steps + ' step(s) completed</small></td>' +
+                        '</tr>';
+                    }).join('') + '</tbody>' +
+                '</table>' +
+                '</div>' +
+                '<small class="text-muted">' + data.length + ' records</small>';
         }
     }
 
