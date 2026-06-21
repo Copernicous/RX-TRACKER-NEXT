@@ -1,13 +1,13 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en" data-theme="light">
 <head>
     <script>!function(){var t=localStorage.getItem("rxTheme");if(t)document.documentElement.setAttribute("data-theme",t)}();</script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>RX Records - Patient RX System</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="/assets/bootstrap.min.css" rel="stylesheet">
+    <link href="/assets/inter.css" rel="stylesheet">
+    <link rel="stylesheet" href="/assets/fontawesome.all.min.css">
     <link rel="stylesheet" href="/css/style.css">
     <style>
         .patient-dropdown {
@@ -178,7 +178,7 @@
                     </div>
                 </div>
 
-                <!-- Auto-filled info panel — shows once a patient is selected -->
+                <!-- Auto-filled info panel â€” shows once a patient is selected -->
                 <div id="rxPatientInfoPanel" class="rounded border bg-light p-3 mb-3" style="display:none">
                     <div class="d-flex align-items-center gap-2 mb-2">
                         <i class="fas fa-user-check text-success"></i>
@@ -321,12 +321,12 @@
 </div>
 
 <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index:1100"></div>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="/assets/bootstrap.bundle.min.js"></script>
 <script src="/js/app.js"></script>
 <script src="/js/help.js"></script>
 <script>
     var allRx = [], filteredRx = [], allWorkflowActions = [];
-    // ── Filter panel toggle ───────────────────────────────────────────────
+    // â”€â”€ Filter panel toggle â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     var _rxAdvOpen = false;
     function toggleRxPanel() {
         _rxAdvOpen = !_rxAdvOpen;
@@ -364,7 +364,7 @@
             window._rxPrefilterPatientId = patientId;
         }
 
-        // Filter bar listeners — all trigger applyRxFilter
+        // Filter bar listeners â€” all trigger applyRxFilter
         ['rxFilterPatient','rxFilterId','rxFilterPharmacy','rxFilterPatientCode',
          'rxFilterDateFrom','rxFilterDateTo','rxFilterSvcFrom','rxFilterSvcTo'].forEach(id => {
             const el = document.getElementById(id); if (el) el.addEventListener('input', () => { rxPage = 1; applyRxFilter(); });
@@ -410,7 +410,7 @@
         await loadRxDropdowns();
         await loadRxRecords();
 
-        // Apply filter immediately after data loads — shows patient's records right away
+        // Apply filter immediately after data loads â€” shows patient's records right away
         if (patientName || patientId) {
             rxPage = 1;
             applyRxFilter();
@@ -613,7 +613,7 @@
                 </tr>`;
             }).join('');
         }
-        document.getElementById('rxPageInfo').textContent = 'Showing ' + Math.min(start+1, filteredRx.length) + '–' + Math.min(start+rxPageSize, filteredRx.length) + ' of ' + filteredRx.length;
+        document.getElementById('rxPageInfo').textContent = 'Showing ' + Math.min(start+1, filteredRx.length) + 'â€“' + Math.min(start+rxPageSize, filteredRx.length) + ' of ' + filteredRx.length;
         const pages = Math.ceil(filteredRx.length / rxPageSize);
         let ph = `<li class="page-item${rxPage===1?' disabled':''}"><a class="page-link" href="#" onclick="goRxPage(${rxPage-1});return false;">&laquo;</a></li>`;
         for (let i=1;i<=pages;i++) ph += `<li class="page-item${i===rxPage?' active':''}"><a class="page-link" href="#" onclick="goRxPage(${i});return false;">${i}</a></li>`;
@@ -688,7 +688,7 @@
             } else {
                 dropdown.innerHTML = matches.map((p, i) => {
                     const display = (p.firstName + ' ' + p.lastName);
-                    const sub     = [(p.patientCode ? 'ID: ' + p.patientCode : ''), 'Rec#' + p.id].filter(Boolean).join(' · ');
+                    const sub     = [(p.patientCode ? 'ID: ' + p.patientCode : ''), 'Rec#' + p.id].filter(Boolean).join(' Â· ');
                     const svcDate  = p.serviceDate || '';
                     const ptId     = p.patientTransportCompanyId  || '';
                     const phtId    = p.pharmacyTransportCompanyId || '';
@@ -697,7 +697,7 @@
                     return `<div class="patient-dropdown-item" data-id="${p.id}" data-name="${display}" data-idx="${i}"
                         data-service-date="${svcDate}" data-pt-id="${ptId}" data-pht-id="${phtId}" data-pharmacy-id="${pharmId}">
                         <div class="pat-name">${display}</div>
-                        <div class="pat-id">${sub}${svcDate ? ' · Svc: ' + svcDate : ''}${pharmName ? ' · 💊 ' + pharmName : ''}</div>
+                        <div class="pat-id">${sub}${svcDate ? ' Â· Svc: ' + svcDate : ''}${pharmName ? ' Â· ðŸ’Š ' + pharmName : ''}</div>
                     </div>`;
                 }).join('');
                 dropdown.querySelectorAll('.patient-dropdown-item').forEach(item => {
@@ -735,18 +735,18 @@
             setHidden('rxPharmacyTransport',  phtId || '');
 
             // Fill display text inputs
-            const setDisp = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || '—'; };
-            setDisp('rxPharmacyDisplay',         pharObj ? pharObj.name : (pharmId ? 'Pharmacy #' + pharmId : '—'));
+            const setDisp = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || 'â€”'; };
+            setDisp('rxPharmacyDisplay',         pharObj ? pharObj.name : (pharmId ? 'Pharmacy #' + pharmId : 'â€”'));
             setDisp('rxArrivalDisplay',           todayDisp);
-            setDisp('rxServiceDisplay',           serviceDate || '—');
-            setDisp('rxPatientTransportDisplay',  ptObj  ? (ptObj.contactPerson  || ptObj.companyName)  : (ptId  ? '#' + ptId  : '—'));
-            setDisp('rxPharmacyTransportDisplay', phtObj ? (phtObj.companyName || phtObj.contactPerson) : (phtId ? '#' + phtId : '—'));
+            setDisp('rxServiceDisplay',           serviceDate || 'â€”');
+            setDisp('rxPatientTransportDisplay',  ptObj  ? (ptObj.contactPerson  || ptObj.companyName)  : (ptId  ? '#' + ptId  : 'â€”'));
+            setDisp('rxPharmacyTransportDisplay', phtObj ? (phtObj.companyName || phtObj.contactPerson) : (phtId ? '#' + phtId : 'â€”'));
 
             // Show the info panel
             const panel = document.getElementById('rxPatientInfoPanel');
             if (panel) panel.style.display = '';
 
-            info.innerHTML = '&#10003; <strong>' + name + '</strong> selected — info loaded below';
+            info.innerHTML = '&#10003; <strong>' + name + '</strong> selected â€” info loaded below';
         }
 
         searchInput.addEventListener('focus', () => { renderDropdown(searchInput.value); });
@@ -885,7 +885,7 @@
         finally { btn.disabled = false; spinner.classList.add('d-none'); }
     }
 
-    // ── View RX Record Details ────────────────────────────────────────────────
+    // â”€â”€ View RX Record Details â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     async function viewRxDetail(id) {
         const body = document.getElementById('rxDetailBody');
         body.innerHTML = '<p class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin me-2"></i>Loading record...</p>';
@@ -913,19 +913,19 @@
             const statusLabel = pct >= 100 ? 'Completed' : pct > 0 ? 'In Progress' : 'Not Started';
 
             // Build transport labels
-            const ptComp  = rx.PatientTransportCompany  ? (rx.PatientTransportCompany.contactPerson  || rx.PatientTransportCompany.companyName  || '—') : '—';
-            const phtComp = rx.PharmacyTransportCompany ? (rx.PharmacyTransportCompany.companyName || rx.PharmacyTransportCompany.contactPerson || '—') : '—';
+            const ptComp  = rx.PatientTransportCompany  ? (rx.PatientTransportCompany.contactPerson  || rx.PatientTransportCompany.companyName  || 'â€”') : 'â€”';
+            const phtComp = rx.PharmacyTransportCompany ? (rx.PharmacyTransportCompany.companyName || rx.PharmacyTransportCompany.contactPerson || 'â€”') : 'â€”';
 
             // Info rows
             const infoRows = [
                 ['Patient',            (patient.firstName || '') + ' ' + (patient.lastName || '')],
-                ['Patient ID',         patient.patientCode || '—'],
-                ['Default Pharmacy',   pharmacy.name || '—'],
-                ['Arrival Date',       rx.arrivalDate || '—'],
-                ['Service Date',       rx.serviceDate || '—'],
+                ['Patient ID',         patient.patientCode || 'â€”'],
+                ['Default Pharmacy',   pharmacy.name || 'â€”'],
+                ['Arrival Date',       rx.arrivalDate || 'â€”'],
+                ['Service Date',       rx.serviceDate || 'â€”'],
                 ['Patient Transport',  ptComp],
                 ['Pharmacy Transport', phtComp],
-                ['Created',            rx.createdAt ? new Date(rx.createdAt).toLocaleString() : '—'],
+                ['Created',            rx.createdAt ? new Date(rx.createdAt).toLocaleString() : 'â€”'],
             ];
 
             const infoHtml = infoRows.map(([label, val]) => `
@@ -943,7 +943,7 @@
                     </tr></thead>
                     <tbody>
                         ${meds.map(m => `<tr>
-                            <td class="fw-semibold">${m.name || '—'}</td>
+                            <td class="fw-semibold">${m.name || 'â€”'}</td>
                             <td class="text-center">${m.quantity || 1}</td>
                             <td class="text-muted small">${m.notes || ''}</td>
                         </tr>`).join('')}
@@ -968,7 +968,7 @@
                      style="background:linear-gradient(135deg,#1a2234,#2c3e6b);color:#fff">
                     <div>
                         <div class="fw-bold fs-5">RX Record <span style="font-family:monospace">#${rx.id}</span></div>
-                        <div class="small opacity-75">${(patient.firstName || '') + ' ' + (patient.lastName || '')} &nbsp;·&nbsp; ${pharmacy.name || 'No pharmacy'}</div>
+                        <div class="small opacity-75">${(patient.firstName || '') + ' ' + (patient.lastName || '')} &nbsp;Â·&nbsp; ${pharmacy.name || 'No pharmacy'}</div>
                     </div>
                     <span class="badge rounded-pill px-3 py-2" style="background:${statusColor};font-size:.82rem">
                         ${statusLabel} &nbsp; ${pct}%
@@ -1039,7 +1039,7 @@
                 }
             } catch(e) {}
             
-            // Workflow action permissions — each independently controlled
+            // Workflow action permissions â€” each independently controlled
             const canComplete  = !!rxPerms.canAdd;       // complete step = POST /workflow (canAdd)
             const canUndo      = !!rxPerms.canUndo;      // undo step     = POST /undo-workflow (canUndo)
             const canWarehouse = !!rxPerms.canWarehouse; // return to warehouse (canWarehouse)
@@ -1048,14 +1048,14 @@
             // Store current rxId for Return to Warehouse button
             window._workflowRxId = rxId;
 
-            // Show/hide Return to Warehouse footer — only when canWarehouse=true
+            // Show/hide Return to Warehouse footer â€” only when canWarehouse=true
             const footer = document.getElementById('workflowFooter');
             const warehouseBtn = document.getElementById('returnToWarehouseBtn');
             const alreadyReturned = !!rx.returnedToWarehouse;
             if (canWarehouse && footer) {
                 footer.style.display = '';
                 if (alreadyReturned) {
-                    warehouseBtn.innerHTML = '<i class="fas fa-warehouse me-1"></i>Already Returned — Re-send to Warehouse';
+                    warehouseBtn.innerHTML = '<i class="fas fa-warehouse me-1"></i>Already Returned â€” Re-send to Warehouse';
                     warehouseBtn.className = 'btn btn-sm btn-outline-warning fw-semibold';
                 } else {
                     warehouseBtn.innerHTML = '<i class="fas fa-warehouse me-1"></i>Return to Warehouse';
@@ -1069,7 +1069,7 @@
             let warehouseBanner = '';
             if (alreadyReturned) {
                 const retDate = rx.warehouseReturnDate ? new Date(rx.warehouseReturnDate).toLocaleString() : '';
-                const retNote = rx.warehouseReturnNote ? ` — ${rx.warehouseReturnNote}` : '';
+                const retNote = rx.warehouseReturnNote ? ` â€” ${rx.warehouseReturnNote}` : '';
                 warehouseBanner = `<div class="alert alert-warning py-2 mb-3"><i class="fas fa-warehouse me-2"></i><strong>Returned to Warehouse</strong> on ${retDate}${retNote}</div>`;
             }
 
@@ -1115,7 +1115,7 @@
         const rxId = window._workflowRxId;
         if (!rxId) return;
         const note = (document.getElementById('warehouseNoteInput').value || '').trim();
-        const msg = 'Return this RX to the warehouse?\n\nThe workflow will reset to Step 1 (Warehouse) — all steps after Step 1 will be cleared.\n\nThe RX will be marked as returned to warehouse.';
+        const msg = 'Return this RX to the warehouse?\n\nThe workflow will reset to Step 1 (Warehouse) â€” all steps after Step 1 will be cleared.\n\nThe RX will be marked as returned to warehouse.';
         if (!confirm(msg)) return;
         const btn = document.getElementById('returnToWarehouseBtn');
         btn.disabled = true;
@@ -1234,7 +1234,7 @@
         body.innerHTML = html;
     }
 
-    // ── RX Print / PDF ──────────────────────────────────────────────────────────
+    // â”€â”€ RX Print / PDF â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     var _rxPrintData  = null;
     var _rxPrintLayout = 'card';
 
@@ -1302,14 +1302,14 @@
             const done = trackings.some(t => t.workflowActionId === wa.id);
             return `<tr>
                 <td style="padding:5px 8px;border-bottom:1px solid #dee2e6">${i+1}. ${wa.name}</td>
-                <td style="padding:5px 8px;border-bottom:1px solid #dee2e6;text-align:center">${done ? '✓' : '—'}</td>
+                <td style="padding:5px 8px;border-bottom:1px solid #dee2e6;text-align:center">${done ? 'âœ“' : 'â€”'}</td>
             </tr>`;
         }).join('');
 
         const statusColor = pct >= 100 ? '#198754' : pct >= 50 ? '#fd7e14' : '#6c757d';
         const statusLabel = pct >= 100 ? 'Completed' : pct > 0 ? 'In Progress' : 'Not Started';
 
-        // ── CARD ────────────────────────────────────────────────────────────────────────
+        // â”€â”€ CARD â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         const cardHTML = `
         <div id="rxPrintContentCard" style="font-family:'Inter',Arial,sans-serif;background:#fff;margin:20px;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.12)">
 
@@ -1317,12 +1317,12 @@
           <div style="background:linear-gradient(135deg,#1a2234,#2c3e6b);color:#fff;padding:20px 28px;display:flex;justify-content:space-between;align-items:center">
             <div>
               <div style="font-size:1.4rem;font-weight:700">RX Record <span style="font-family:monospace">#${rx.id}</span></div>
-              <div style="font-size:.85rem;opacity:.75;margin-top:3px">Patient RX System &nbsp;·&nbsp; Generated: ${printDate}</div>
+              <div style="font-size:.85rem;opacity:.75;margin-top:3px">Patient RX System &nbsp;Â·&nbsp; Generated: ${printDate}</div>
             </div>
             <div style="text-align:right">
               <div style="font-size:1rem;font-weight:600;opacity:.85">${patient.firstName || ''} ${patient.lastName || ''}</div>
               <div style="margin-top:6px">
-                <span style="background:${statusColor};color:#fff;padding:3px 12px;border-radius:20px;font-size:.78rem;font-weight:600">● ${statusLabel}</span>
+                <span style="background:${statusColor};color:#fff;padding:3px 12px;border-radius:20px;font-size:.78rem;font-weight:600">â— ${statusLabel}</span>
               </div>
             </div>
           </div>
@@ -1330,10 +1330,10 @@
           <!-- Info grid -->
           <div style="padding:20px 28px;display:grid;grid-template-columns:1fr 1fr;gap:12px 32px;border-bottom:1px solid #e9ecef">
             ${ [['Patient',      (patient.firstName||'') + ' ' + (patient.lastName||'')],
-                ['Patient Code', patient.patientCode||'—'],
-                ['Pharmacy',     pharmacy.name||'—'],
-                ['Arrival Date', rx.arrivalDate||'—'],
-                ['Service Date', rx.serviceDate||'—'],
+                ['Patient Code', patient.patientCode||'â€”'],
+                ['Pharmacy',     pharmacy.name||'â€”'],
+                ['Arrival Date', rx.arrivalDate||'â€”'],
+                ['Service Date', rx.serviceDate||'â€”'],
                 ['Workflow',     doneCount + '/' + totalSteps + ' steps (' + pct + '%)']
                ].map(([label, val]) =>
               `<div><div style="font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#888;margin-bottom:3px">${label}</div>
@@ -1359,10 +1359,10 @@
           </div>
 
           <!-- Notes -->
-          ${rx.notes ? `<div style="margin:0 28px 20px;padding:12px 16px;background:#fffbea;border-left:4px solid #f5a623;border-radius:4px;font-size:.85rem;color:#7a5800"><strong>📝 Notes:</strong><br>${rx.notes.replace(/\n/g,'<br>')}</div>` : ''}
+          ${rx.notes ? `<div style="margin:0 28px 20px;padding:12px 16px;background:#fffbea;border-left:4px solid #f5a623;border-radius:4px;font-size:.85rem;color:#7a5800"><strong>ðŸ“ Notes:</strong><br>${rx.notes.replace(/\n/g,'<br>')}</div>` : ''}
         </div>`;
 
-        // ── CLASSIC ───────────────────────────────────────────────────────────────────────
+        // â”€â”€ CLASSIC â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         const classicHTML = `
         <div id="rxPrintContentClassic" style="display:none;font-family:Inter,Arial,sans-serif;color:#1a2234;padding:28px">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #1a2234;padding-bottom:12px;margin-bottom:20px">
@@ -1379,12 +1379,12 @@
           <table style="width:100%;border-collapse:collapse;margin-bottom:20px;font-size:.875rem">
             <tr>
               <td style="width:50%;padding:5px 0"><strong>Patient:</strong> ${(patient.firstName||'') + ' ' + (patient.lastName||'')}</td>
-              <td style="width:50%;padding:5px 0"><strong>Patient Code:</strong> ${patient.patientCode||'—'}</td>
+              <td style="width:50%;padding:5px 0"><strong>Patient Code:</strong> ${patient.patientCode||'â€”'}</td>
             </tr><tr>
-              <td style="padding:5px 0"><strong>Pharmacy:</strong> ${pharmacy.name||'—'}</td>
-              <td style="padding:5px 0"><strong>Arrival Date:</strong> ${rx.arrivalDate||'—'}</td>
+              <td style="padding:5px 0"><strong>Pharmacy:</strong> ${pharmacy.name||'â€”'}</td>
+              <td style="padding:5px 0"><strong>Arrival Date:</strong> ${rx.arrivalDate||'â€”'}</td>
             </tr><tr>
-              <td style="padding:5px 0"><strong>Service Date:</strong> ${rx.serviceDate||'—'}</td>
+              <td style="padding:5px 0"><strong>Service Date:</strong> ${rx.serviceDate||'â€”'}</td>
               <td style="padding:5px 0"><strong>Progress:</strong> ${doneCount}/${totalSteps} steps (${pct}%)</td>
             </tr>
           </table>
@@ -1411,13 +1411,13 @@
         const rx  = _rxPrintData.rx;
         const win = window.open('', '_blank', 'width=900,height=750');
         const css = _rxPrintLayout === 'card'
-            ? `@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+            ? `@import url('/assets/inter.css');
                *{box-sizing:border-box;margin:0;padding:0}
                body{font-family:'Inter',Arial,sans-serif;background:#f0f2f5;padding:32px}
                #rxPrintContentCard{background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 16px rgba(0,0,0,.1)}
                @media print{@page{margin:15mm;size:A4}body{background:#fff;padding:0}#rxPrintContentCard{box-shadow:none;border-radius:0}
                div[style*="background:linear-gradient"]{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}}`
-            : `@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+            : `@import url('/assets/inter.css');
                body{font-family:Inter,Arial,sans-serif;color:#1a2234;padding:32px;max-width:860px;margin:0 auto}
                table{width:100%;border-collapse:collapse}
                thead tr{background:#1a2234!important;color:#fff!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}

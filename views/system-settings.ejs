@@ -1,13 +1,13 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en" data-theme="light">
 <head>
     <script>!function(){var t=localStorage.getItem("rxTheme");if(t)document.documentElement.setAttribute("data-theme",t)}();</script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>System Settings - Patient RX System</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="/assets/bootstrap.min.css" rel="stylesheet">
+    <link href="/assets/inter.css" rel="stylesheet">
+    <link rel="stylesheet" href="/assets/fontawesome.all.min.css">
     <link rel="stylesheet" href="/css/style.css">
     <style>
         .setting-card { border-left: 4px solid var(--primary-color, #6366f1); transition: box-shadow .2s; }
@@ -128,7 +128,7 @@
                     </div>
                     <div class="ms-auto text-end">
                         <div class="text-muted small mb-1"><i class="fas fa-clock me-1"></i>Server Current Time</div>
-                        <div class="clock-live" id="liveClock">—</div>
+                        <div class="clock-live" id="liveClock">â€”</div>
                         <div class="text-muted" style="font-size:.72rem" id="liveTimezone">Loading...</div>
                     </div>
                 </div>
@@ -145,7 +145,7 @@
 
             <div id="settingsContent">
 
-                <!-- ── Tab navigation ──────────────────────────────────────── -->
+                <!-- â”€â”€ Tab navigation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
                 <ul class="nav nav-pills mb-4 gap-2" id="settingsTabs">
                     <li class="nav-item">
                         <button class="nav-link active" data-tab="general"><i class="fas fa-cog me-2"></i>General</button>
@@ -164,7 +164,7 @@
                     </li>
                 </ul>
 
-                <!-- ══════════════════ GENERAL TAB ══════════════════ -->
+                <!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• GENERAL TAB â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
                 <div id="tab-general">
 
                     <!-- Timezone Card -->
@@ -178,21 +178,21 @@
                                     <h6 class="mb-0 fw-bold">Application Timezone</h6>
                                     <span class="tz-badge" id="currentTzBadge">Loading...</span>
                                 </div>
-                                <p class="text-muted small mb-3">All dates and times recorded by the system — workflow steps, audit logs, and patient records — will use this timezone.</p>
+                                <p class="text-muted small mb-3">All dates and times recorded by the system â€” workflow steps, audit logs, and patient records â€” will use this timezone.</p>
 
                                 <div class="p-3 mb-3 rounded-3" style="background:rgba(99,102,241,.05);border:1px dashed rgba(99,102,241,.2);">
                                     <div class="row g-3 align-items-center">
                                         <div class="col-auto">
                                             <div class="text-muted small">Current server time in selected zone:</div>
-                                            <div class="fw-bold fs-5" id="previewClock">—</div>
+                                            <div class="fw-bold fs-5" id="previewClock">â€”</div>
                                         </div>
                                         <div class="col-auto">
                                             <div class="text-muted small">UTC offset:</div>
-                                            <div class="fw-bold" id="previewOffset">—</div>
+                                            <div class="fw-bold" id="previewOffset">â€”</div>
                                         </div>
                                         <div class="col-auto">
                                             <div class="text-muted small">Current UTC time:</div>
-                                            <div class="fw-bold" id="previewUtc">—</div>
+                                            <div class="fw-bold" id="previewUtc">â€”</div>
                                         </div>
                                     </div>
                                 </div>
@@ -255,7 +255,7 @@
                                 </div>
                                 <p class="text-muted small mb-3">
                                     Controls whether 2FA is enforced system-wide at login. When <strong>disabled</strong>, users
-                                    who have 2FA set up will skip the code step — their authenticator app setup is preserved and
+                                    who have 2FA set up will skip the code step â€” their authenticator app setup is preserved and
                                     will work again if you re-enable it. This does <strong>not</strong> delete anyone's 2FA configuration.
                                 </p>
 
@@ -290,7 +290,7 @@
                                 </div>
                                 <div class="alert alert-warning py-2 small mt-3 mb-0" id="twoFaDisabledWarning" style="display:none;">
                                     <i class="fas fa-exclamation-triangle me-1"></i>
-                                    <strong>Warning:</strong> Disabling 2FA globally means all users will log in with password only — even those who have an authenticator app configured.
+                                    <strong>Warning:</strong> Disabling 2FA globally means all users will log in with password only â€” even those who have an authenticator app configured.
                                     Only disable this if you are sure about the security implications.
                                 </div>
                             </div>
@@ -309,7 +309,7 @@
                     </div>
                 </div><!-- /tab-general -->
 
-                <!-- ══════════════════ API KEYS TAB ══════════════════ -->
+                <!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• API KEYS TAB â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
                 <div id="tab-apikeys" class="d-none">
 
                     <!-- Header card -->
@@ -322,7 +322,7 @@
                                 <h6 class="mb-1 fw-bold">API Key Management</h6>
                                 <p class="text-muted small mb-0">
                                     API keys allow external systems, scripts, or integrations to access this system's REST API without a user login session.
-                                    Each key is shown <strong>only once</strong> at creation — store it securely immediately.
+                                    Each key is shown <strong>only once</strong> at creation â€” store it securely immediately.
                                 </p>
                             </div>
                             <div class="ms-auto">
@@ -364,12 +364,12 @@
 
                         <!-- Response codes -->
                         <div class="d-flex gap-2 flex-wrap mb-2">
-                            <span class="badge" style="background:rgba(34,197,94,.15);color:#22c55e;font-size:.75rem;">200 OK — success</span>
-                            <span class="badge" style="background:rgba(99,102,241,.15);color:#6366f1;font-size:.75rem;">201 Created — new record</span>
-                            <span class="badge" style="background:rgba(234,179,8,.15);color:#ca8a04;font-size:.75rem;">400 Bad Request — validation error</span>
-                            <span class="badge" style="background:rgba(239,68,68,.15);color:#ef4444;font-size:.75rem;">401 Unauthorized — invalid/missing key</span>
-                            <span class="badge" style="background:rgba(239,68,68,.15);color:#ef4444;font-size:.75rem;">403 Forbidden — key disabled / expired</span>
-                            <span class="badge" style="background:rgba(156,163,175,.15);color:#6b7280;font-size:.75rem;">204 No Content — delete success</span>
+                            <span class="badge" style="background:rgba(34,197,94,.15);color:#22c55e;font-size:.75rem;">200 OK â€” success</span>
+                            <span class="badge" style="background:rgba(99,102,241,.15);color:#6366f1;font-size:.75rem;">201 Created â€” new record</span>
+                            <span class="badge" style="background:rgba(234,179,8,.15);color:#ca8a04;font-size:.75rem;">400 Bad Request â€” validation error</span>
+                            <span class="badge" style="background:rgba(239,68,68,.15);color:#ef4444;font-size:.75rem;">401 Unauthorized â€” invalid/missing key</span>
+                            <span class="badge" style="background:rgba(239,68,68,.15);color:#ef4444;font-size:.75rem;">403 Forbidden â€” key disabled / expired</span>
+                            <span class="badge" style="background:rgba(156,163,175,.15);color:#6b7280;font-size:.75rem;">204 No Content â€” delete success</span>
                         </div>
 
                         <!-- Full API Reference (collapsed by default) -->
@@ -435,7 +435,7 @@
                         <div class="d-flex align-items-center gap-2 mb-2">
                             <i class="fas fa-check-circle text-success"></i>
                             <strong>API Key Generated Successfully!</strong>
-                            <span class="badge bg-danger ms-auto">Copy now — will not be shown again</span>
+                            <span class="badge bg-danger ms-auto">Copy now â€” will not be shown again</span>
                         </div>
                         <div class="apikey-reveal mb-2" id="newKeyValue">rxk_...</div>
                         <div class="d-flex align-items-center gap-2">
@@ -475,7 +475,7 @@
                 </div><!-- /tab-apikeys -->
 
 
-                <!-- ══════════════════ EMAIL TAB ══════════════════ -->
+                <!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• EMAIL TAB â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
                 <div id="tab-email" class="d-none">
 
                     <!-- Status header card -->
@@ -488,7 +488,7 @@
                                 <h6 class="mb-1 fw-bold">Email / SMTP Configuration</h6>
                                 <p class="text-muted small mb-0">
                                     Configure outgoing email so the system can send reports directly from the Reports page.
-                                    Settings are stored in the database — no need to edit <code>.env</code> files.
+                                    Settings are stored in the database â€” no need to edit <code>.env</code> files.
                                 </p>
                             </div>
                             <div class="ms-auto text-end">
@@ -500,7 +500,7 @@
 
                     <!-- Provider quick-fill buttons -->
                     <div class="glass-card p-4 mb-4">
-                        <h6 class="fw-bold mb-2"><i class="fas fa-bolt me-2 text-warning"></i>Quick Setup — Choose Your Email Provider</h6>
+                        <h6 class="fw-bold mb-2"><i class="fas fa-bolt me-2 text-warning"></i>Quick Setup â€” Choose Your Email Provider</h6>
                         <p class="text-muted small mb-3">Click a provider to auto-fill the server settings. You still need to enter your email address and password.</p>
                         <div class="d-flex gap-2 flex-wrap" id="providerBtns">
                             <button class="btn btn-sm btn-outline-secondary provider-btn" data-host="smtp.gmail.com" data-port="587" data-name="Gmail">
@@ -567,7 +567,7 @@
                                 <li>Go to <a href="https://myaccount.google.com/security" target="_blank" rel="noopener">myaccount.google.com/security</a></li>
                                 <li>Enable <strong>2-Step Verification</strong> if not already on</li>
                                 <li>Search <strong>"App Passwords"</strong> in the search bar</li>
-                                <li>Create one for <strong>Mail</strong> — copy the 16-character code</li>
+                                <li>Create one for <strong>Mail</strong> â€” copy the 16-character code</li>
                                 <li>Paste that code in the Password field above (spaces are OK)</li>
                             </ol>
                         </div>
@@ -615,7 +615,7 @@
                 </div><!-- /tab-email -->
 
 
-                <!-- ══════════════════ MANUAL TAB ══════════════════ -->
+                <!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• MANUAL TAB â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
                 <div id="tab-manual" class="d-none">
 
                     <div class="glass-card p-4 mb-4" style="background:linear-gradient(135deg,rgba(74,144,226,.06) 0%,rgba(26,58,92,.03) 100%);border-left:4px solid #4a90e2;">
@@ -624,7 +624,7 @@
                                 <i class="fas fa-book-open"></i>
                             </div>
                             <div>
-                                <h5 class="mb-1 fw-bold">Patient RX System — User Manual</h5>
+                                <h5 class="mb-1 fw-bold">Patient RX System â€” User Manual</h5>
                                 <p class="text-muted small mb-0">Complete reference guide for all features. Click any question to expand the answer. Use the search in the <strong>? Help</strong> button (top-right navbar) for quick lookup.</p>
                             </div>
                         </div>
@@ -633,18 +633,18 @@
                     <!-- Quick Nav -->
                     <div class="glass-card p-3 mb-4">
                         <div class="d-flex flex-wrap gap-2" id="manualNavPills">
-                            <a class="btn btn-sm btn-outline-primary" href="#man-dashboard">📊 Dashboard</a>
-                            <a class="btn btn-sm btn-outline-primary" href="#man-patients">👥 Patients</a>
-                            <a class="btn btn-sm btn-outline-primary" href="#man-rx">💊 RX Records</a>
-                            <a class="btn btn-sm btn-outline-primary" href="#man-workflow">✅ Workflow</a>
-                            <a class="btn btn-sm btn-outline-primary" href="#man-reports">📈 Reports</a>
-                            <a class="btn btn-sm btn-outline-primary" href="#man-audit">📋 Audit Log</a>
-                            <a class="btn btn-sm btn-outline-primary" href="#man-users">👤 Users</a>
-                            <a class="btn btn-sm btn-outline-primary" href="#man-settings">⚙️ Settings</a>
-                            <a class="btn btn-sm btn-outline-primary" href="#man-email">📧 Email</a>
-                            <a class="btn btn-sm btn-outline-primary" href="#man-apikeys">🔑 API Keys</a>
-                            <a class="btn btn-sm btn-outline-primary" href="#man-multiuser">👁️ Multi-User</a>
-                            <a class="btn btn-sm btn-outline-primary" href="#man-import">📥 Import</a>
+                            <a class="btn btn-sm btn-outline-primary" href="#man-dashboard">ðŸ“Š Dashboard</a>
+                            <a class="btn btn-sm btn-outline-primary" href="#man-patients">ðŸ‘¥ Patients</a>
+                            <a class="btn btn-sm btn-outline-primary" href="#man-rx">ðŸ’Š RX Records</a>
+                            <a class="btn btn-sm btn-outline-primary" href="#man-workflow">âœ… Workflow</a>
+                            <a class="btn btn-sm btn-outline-primary" href="#man-reports">ðŸ“ˆ Reports</a>
+                            <a class="btn btn-sm btn-outline-primary" href="#man-audit">ðŸ“‹ Audit Log</a>
+                            <a class="btn btn-sm btn-outline-primary" href="#man-users">ðŸ‘¤ Users</a>
+                            <a class="btn btn-sm btn-outline-primary" href="#man-settings">âš™ï¸ Settings</a>
+                            <a class="btn btn-sm btn-outline-primary" href="#man-email">ðŸ“§ Email</a>
+                            <a class="btn btn-sm btn-outline-primary" href="#man-apikeys">ðŸ”‘ API Keys</a>
+                            <a class="btn btn-sm btn-outline-primary" href="#man-multiuser">ðŸ‘ï¸ Multi-User</a>
+                            <a class="btn btn-sm btn-outline-primary" href="#man-import">ðŸ“¥ Import</a>
                         </div>
                     </div>
 
@@ -658,13 +658,13 @@
                                 <div class="accordion-item border-0 mb-1" style="background:var(--bg-subtle,#f8fafc);border-radius:8px;overflow:hidden">
                                     <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#d1">What are the stat cards at the top?</button>
                                     <div id="d1" class="accordion-collapse collapse" data-bs-parent="#accDashboard">
-                                        <div class="accordion-body small text-muted">The four cards — <strong>Active Patients</strong>, <strong>Pending RX</strong>, <strong>Total RX</strong>, and <strong>Total Patients</strong> — update live. Clicking any card number opens a filtered modal showing exactly those records. Use the date range filter to scope to any period.</div>
+                                        <div class="accordion-body small text-muted">The four cards â€” <strong>Active Patients</strong>, <strong>Pending RX</strong>, <strong>Total RX</strong>, and <strong>Total Patients</strong> â€” update live. Clicking any card number opens a filtered modal showing exactly those records. Use the date range filter to scope to any period.</div>
                                     </div>
                                 </div>
                                 <div class="accordion-item border-0 mb-1" style="background:var(--bg-subtle,#f8fafc);border-radius:8px;overflow:hidden">
                                     <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#d2">What is a Pending RX?</button>
                                     <div id="d2" class="accordion-collapse collapse" data-bs-parent="#accDashboard">
-                                        <div class="accordion-body small text-muted">An RX is "pending" when its workflow is not 100% complete — at least one step is still unchecked. Once all workflow steps are marked complete, it leaves the pending count.</div>
+                                        <div class="accordion-body small text-muted">An RX is "pending" when its workflow is not 100% complete â€” at least one step is still unchecked. Once all workflow steps are marked complete, it leaves the pending count.</div>
                                     </div>
                                 </div>
                                 <div class="accordion-item border-0 mb-1" style="background:var(--bg-subtle,#f8fafc);border-radius:8px;overflow:hidden">
@@ -688,21 +688,21 @@
                                     </div>
                                 </div>
                                 <div class="accordion-item border-0 mb-1" style="background:var(--bg-subtle,#f8fafc);border-radius:8px;overflow:hidden">
-                                    <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#p2">Editing a patient — and the Audit Log</button>
+                                    <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#p2">Editing a patient â€” and the Audit Log</button>
                                     <div id="p2" class="accordion-collapse collapse">
-                                        <div class="accordion-body small text-muted">Click the <strong>pencil ✏️</strong> icon. Every saved change is automatically recorded in the Audit Log with the old and new values.</div>
+                                        <div class="accordion-body small text-muted">Click the <strong>pencil âœï¸</strong> icon. Every saved change is automatically recorded in the Audit Log with the old and new values.</div>
                                     </div>
                                 </div>
                                 <div class="accordion-item border-0 mb-1" style="background:var(--bg-subtle,#f8fafc);border-radius:8px;overflow:hidden">
-                                    <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#p3">⭐ Clicking the bold action in the Audit Log</button>
+                                    <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#p3">â­ Clicking the bold action in the Audit Log</button>
                                     <div id="p3" class="accordion-collapse collapse">
-                                        <div class="accordion-body small text-muted">In the Audit Log, each row shows an action like <strong>"UPDATE"</strong> in bold. <strong>Click that word</strong> — a panel expands showing the exact before and after values for every field that changed. Old values appear with a red strikethrough. New values appear highlighted in green. Works for patients, RX records, users, settings, API keys, and workflow completions.</div>
+                                        <div class="accordion-body small text-muted">In the Audit Log, each row shows an action like <strong>"UPDATE"</strong> in bold. <strong>Click that word</strong> â€” a panel expands showing the exact before and after values for every field that changed. Old values appear with a red strikethrough. New values appear highlighted in green. Works for patients, RX records, users, settings, API keys, and workflow completions.</div>
                                     </div>
                                 </div>
                                 <div class="accordion-item border-0 mb-1" style="background:var(--bg-subtle,#f8fafc);border-radius:8px;overflow:hidden">
-                                    <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#p4">Patient Timeline — full RX history</button>
+                                    <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#p4">Patient Timeline â€” full RX history</button>
                                     <div id="p4" class="accordion-collapse collapse">
-                                        <div class="accordion-body small text-muted">Click the <strong>clock/timeline icon 🕐</strong> to open the patient's full RX history. Shows every RX record as a vertical timeline with progress bars, workflow steps, medications, and who completed each step.</div>
+                                        <div class="accordion-body small text-muted">Click the <strong>clock/timeline icon ðŸ•</strong> to open the patient's full RX history. Shows every RX record as a vertical timeline with progress bars, workflow steps, medications, and who completed each step.</div>
                                     </div>
                                 </div>
                                 <div class="accordion-item border-0 mb-1" style="background:var(--bg-subtle,#f8fafc);border-radius:8px;overflow:hidden">
@@ -726,7 +726,7 @@
                                     </div>
                                 </div>
                                 <div class="accordion-item border-0 mb-1" style="background:var(--bg-subtle,#f8fafc);border-radius:8px;overflow:hidden">
-                                    <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#rx2">Workflow step dots — what they mean</button>
+                                    <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#rx2">Workflow step dots â€” what they mean</button>
                                     <div id="rx2" class="accordion-collapse collapse">
                                         <div class="accordion-body small text-muted"><strong>Green dot = completed step. Grey dot = pending.</strong> Hover any dot to see the step name, who completed it, and the date/time. Click a step in the expanded view to mark it complete.</div>
                                     </div>
@@ -743,7 +743,7 @@
                         <!-- WORKFLOW -->
                         <div class="glass-card p-4 mb-3" id="man-workflow">
                             <h6 class="fw-bold mb-3" style="color:#f59e0b"><i class="fas fa-tasks me-2"></i>Workflow Actions (Steps)</h6>
-                            <p class="text-muted small">The configurable steps that every RX must go through. Go to Settings → Workflow Actions to manage them.</p>
+                            <p class="text-muted small">The configurable steps that every RX must go through. Go to Settings â†’ Workflow Actions to manage them.</p>
                             <div class="accordion" id="accWF">
                                 <div class="accordion-item border-0 mb-1" style="background:var(--bg-subtle,#f8fafc);border-radius:8px;overflow:hidden">
                                     <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#wf1">What are Workflow Actions?</button>
@@ -754,7 +754,7 @@
                                 <div class="accordion-item border-0 mb-1" style="background:var(--bg-subtle,#f8fafc);border-radius:8px;overflow:hidden">
                                     <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#wf2">Adding / editing steps</button>
                                     <div id="wf2" class="accordion-collapse collapse">
-                                        <div class="accordion-body small text-muted">Go to <strong>Settings → Workflow Actions</strong>. Click "+ Add Step". Give it a name and description. Steps apply immediately to all new RX records. Existing records keep their current progress.</div>
+                                        <div class="accordion-body small text-muted">Go to <strong>Settings â†’ Workflow Actions</strong>. Click "+ Add Step". Give it a name and description. Steps apply immediately to all new RX records. Existing records keep their current progress.</div>
                                     </div>
                                 </div>
                             </div>
@@ -772,9 +772,9 @@
                                     </div>
                                 </div>
                                 <div class="accordion-item border-0 mb-1" style="background:var(--bg-subtle,#f8fafc);border-radius:8px;overflow:hidden">
-                                    <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#rep2">📧 Email Report button</button>
+                                    <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#rep2">ðŸ“§ Email Report button</button>
                                     <div id="rep2" class="accordion-collapse collapse">
-                                        <div class="accordion-body small text-muted">Click <strong>"📧 Email Report"</strong> in the report tab bar. Choose the report type, enter recipient email(s) (comma-separated), optional subject, and date range. Click <strong>"Test Connection"</strong> first to verify SMTP works, then <strong>"Send Report"</strong>. SMTP must be configured in System Settings → Email Setup first.</div>
+                                        <div class="accordion-body small text-muted">Click <strong>"ðŸ“§ Email Report"</strong> in the report tab bar. Choose the report type, enter recipient email(s) (comma-separated), optional subject, and date range. Click <strong>"Test Connection"</strong> first to verify SMTP works, then <strong>"Send Report"</strong>. SMTP must be configured in System Settings â†’ Email Setup first.</div>
                                     </div>
                                 </div>
                             </div>
@@ -786,7 +786,7 @@
                             <p class="text-muted small">Records every action taken by every user. Nothing is hidden. Administrators only.</p>
                             <div class="accordion" id="accAudit">
                                 <div class="accordion-item border-0 mb-1" style="background:var(--bg-subtle,#f8fafc);border-radius:8px;overflow:hidden">
-                                    <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#au1">⭐ Clicking the bold action word (most important)</button>
+                                    <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#au1">â­ Clicking the bold action word (most important)</button>
                                     <div id="au1" class="accordion-collapse collapse">
                                         <div class="accordion-body small text-muted"><strong>Click the bold action word</strong> (e.g. "UPDATE", "CREATE", "DELETE") in any audit log row. A panel expands showing the complete before/after diff. Old values have red strikethrough. New values are green. Fields that did not change are grey. Works for ALL record types.</div>
                                     </div>
@@ -808,13 +808,13 @@
                                 <div class="accordion-item border-0 mb-1" style="background:var(--bg-subtle,#f8fafc);border-radius:8px;overflow:hidden">
                                     <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#u1">Roles and permissions</button>
                                     <div id="u1" class="accordion-collapse collapse">
-                                        <div class="accordion-body small text-muted"><strong>Administrator</strong> — full access including user management and system settings. <strong>Manager</strong> — all patient/RX data and reports, no user/settings management. <strong>Staff</strong> — add/edit patients and RX records, complete workflow steps. <strong>Viewer</strong> — read-only access, no editing.</div>
+                                        <div class="accordion-body small text-muted"><strong>Administrator</strong> â€” full access including user management and system settings. <strong>Manager</strong> â€” all patient/RX data and reports, no user/settings management. <strong>Staff</strong> â€” add/edit patients and RX records, complete workflow steps. <strong>Viewer</strong> â€” read-only access, no editing.</div>
                                     </div>
                                 </div>
                                 <div class="accordion-item border-0 mb-1" style="background:var(--bg-subtle,#f8fafc);border-radius:8px;overflow:hidden">
                                     <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#u2">Changing a password</button>
                                     <div id="u2" class="accordion-collapse collapse">
-                                        <div class="accordion-body small text-muted">Edit the user, enter a new password. Leave blank to keep the current password. Passwords are stored as bcrypt hashes — they cannot be read by anyone, including admins.</div>
+                                        <div class="accordion-body small text-muted">Edit the user, enter a new password. Leave blank to keep the current password. Passwords are stored as bcrypt hashes â€” they cannot be read by anyone, including admins.</div>
                                     </div>
                                 </div>
                             </div>
@@ -822,12 +822,12 @@
 
                         <!-- SETTINGS GENERAL -->
                         <div class="glass-card p-4 mb-3" id="man-settings">
-                            <h6 class="fw-bold mb-3" style="color:#64748b"><i class="fas fa-cog me-2"></i>System Settings — General</h6>
+                            <h6 class="fw-bold mb-3" style="color:#64748b"><i class="fas fa-cog me-2"></i>System Settings â€” General</h6>
                             <div class="accordion" id="accSetGen">
                                 <div class="accordion-item border-0 mb-1" style="background:var(--bg-subtle,#f8fafc);border-radius:8px;overflow:hidden">
                                     <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#sg1">Timezone setting</button>
                                     <div id="sg1" class="accordion-collapse collapse">
-                                        <div class="accordion-body small text-muted">Sets the timezone for ALL timestamps — audit logs, RX dates, workflow completions. Applies immediately without server restart. Stored in the database so it persists across restarts. If the server runs in UTC but you're in Eastern time, set "America/New_York" here.</div>
+                                        <div class="accordion-body small text-muted">Sets the timezone for ALL timestamps â€” audit logs, RX dates, workflow completions. Applies immediately without server restart. Stored in the database so it persists across restarts. If the server runs in UTC but you're in Eastern time, set "America/New_York" here.</div>
                                     </div>
                                 </div>
                             </div>
@@ -835,10 +835,10 @@
 
                         <!-- EMAIL SETUP -->
                         <div class="glass-card p-4 mb-3" id="man-email">
-                            <h6 class="fw-bold mb-3" style="color:#6366f1"><i class="fas fa-envelope me-2"></i>System Settings — Email Setup</h6>
+                            <h6 class="fw-bold mb-3" style="color:#6366f1"><i class="fas fa-envelope me-2"></i>System Settings â€” Email Setup</h6>
                             <div class="accordion" id="accEmail">
                                 <div class="accordion-item border-0 mb-1" style="background:var(--bg-subtle,#f8fafc);border-radius:8px;overflow:hidden">
-                                    <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#em1">Gmail — App Password required</button>
+                                    <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#em1">Gmail â€” App Password required</button>
                                     <div id="em1" class="accordion-collapse collapse">
                                         <div class="accordion-body small text-muted">Gmail requires a special <strong>App Password</strong> (not your regular password). 1) Go to <a href="https://myaccount.google.com/security" target="_blank">myaccount.google.com/security</a>. 2) Enable 2-Step Verification. 3) Search "App Passwords". 4) Create one for "Mail". 5) Paste the 16-character code in the Password field. Use the Quick Setup button to auto-fill Gmail server settings.</div>
                                     </div>
@@ -854,7 +854,7 @@
 
                         <!-- API KEYS -->
                         <div class="glass-card p-4 mb-3" id="man-apikeys">
-                            <h6 class="fw-bold mb-3" style="color:#f59e0b"><i class="fas fa-key me-2"></i>System Settings — API Keys</h6>
+                            <h6 class="fw-bold mb-3" style="color:#f59e0b"><i class="fas fa-key me-2"></i>System Settings â€” API Keys</h6>
                             <div class="accordion" id="accApi">
                                 <div class="accordion-item border-0 mb-1" style="background:var(--bg-subtle,#f8fafc);border-radius:8px;overflow:hidden">
                                     <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#ak1">What is an API key?</button>
@@ -865,13 +865,13 @@
                                 <div class="accordion-item border-0 mb-1" style="background:var(--bg-subtle,#f8fafc);border-radius:8px;overflow:hidden">
                                     <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#ak2">The full key is shown ONCE</button>
                                     <div id="ak2" class="accordion-collapse collapse">
-                                        <div class="accordion-body small text-muted">When you generate a key, <strong>copy it immediately</strong>. The system stores only a SHA-256 hash — the full key cannot be shown again. If lost, delete the key and generate a new one.</div>
+                                        <div class="accordion-body small text-muted">When you generate a key, <strong>copy it immediately</strong>. The system stores only a SHA-256 hash â€” the full key cannot be shown again. If lost, delete the key and generate a new one.</div>
                                     </div>
                                 </div>
                                 <div class="accordion-item border-0 mb-1" style="background:var(--bg-subtle,#f8fafc);border-radius:8px;overflow:hidden">
                                     <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#ak3">Show API Reference button</button>
                                     <div id="ak3" class="accordion-collapse collapse">
-                                        <div class="accordion-body small text-muted">Click <strong>"Show API Reference"</strong> to see all 97 available API endpoints, grouped by category. Each row has a <strong>"Copy URL"</strong> button. The reference loads live from the server — if new routes are added, they appear automatically after clicking "Refresh".</div>
+                                        <div class="accordion-body small text-muted">Click <strong>"Show API Reference"</strong> to see all 97 available API endpoints, grouped by category. Each row has a <strong>"Copy URL"</strong> button. The reference loads live from the server â€” if new routes are added, they appear automatically after clicking "Refresh".</div>
                                     </div>
                                 </div>
                             </div>
@@ -882,13 +882,13 @@
                             <h6 class="fw-bold mb-3" style="color:#22c55e"><i class="fas fa-users me-2"></i>Multi-User / Concurrent Access</h6>
                             <div class="accordion" id="accMulti">
                                 <div class="accordion-item border-0 mb-1" style="background:var(--bg-subtle,#f8fafc);border-radius:8px;overflow:hidden">
-                                    <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#mu1">👁️ The yellow viewer banner</button>
+                                    <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#mu1">ðŸ‘ï¸ The yellow viewer banner</button>
                                     <div id="mu1" class="accordion-collapse collapse">
-                                        <div class="accordion-body small text-muted">If a colleague has the same patient open, a <strong>yellow banner</strong> appears: "👁️ Maria is also viewing this patient." This is informational only — it does not block editing. The banner updates every 60 seconds.</div>
+                                        <div class="accordion-body small text-muted">If a colleague has the same patient open, a <strong>yellow banner</strong> appears: "ðŸ‘ï¸ Maria is also viewing this patient." This is informational only â€” it does not block editing. The banner updates every 60 seconds.</div>
                                     </div>
                                 </div>
                                 <div class="accordion-item border-0 mb-1" style="background:var(--bg-subtle,#f8fafc);border-radius:8px;overflow:hidden">
-                                    <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#mu2">TTL — what is the 5-minute expiry?</button>
+                                    <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#mu2">TTL â€” what is the 5-minute expiry?</button>
                                     <div id="mu2" class="accordion-collapse collapse">
                                         <div class="accordion-body small text-muted">TTL = "Time To Live." When a user opens a patient, a 5-minute lock is created. The page sends a <strong>heartbeat every 60 seconds</strong> to renew it. If the user closes the tab or goes idle, the lock expires after 5 minutes and the banner disappears automatically. This prevents phantom "someone is viewing" notices when a user just forgot to close a tab.</div>
                                     </div>
@@ -896,7 +896,7 @@
                                 <div class="accordion-item border-0 mb-1" style="background:var(--bg-subtle,#f8fafc);border-radius:8px;overflow:hidden">
                                     <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#mu3">Two users saving the same patient</button>
                                     <div id="mu3" class="accordion-collapse collapse">
-                                        <div class="accordion-body small text-muted">"Last save wins" — whoever saves last overwrites the previous save for any overlapping fields. The yellow banner warns you this might happen. The Audit Log records both saves so you can always see what each user changed and restore values if needed.</div>
+                                        <div class="accordion-body small text-muted">"Last save wins" â€” whoever saves last overwrites the previous save for any overlapping fields. The yellow banner warns you this might happen. The Audit Log records both saves so you can always see what each user changed and restore values if needed.</div>
                                     </div>
                                 </div>
                             </div>
@@ -909,7 +909,7 @@
                                 <div class="accordion-item border-0 mb-1" style="background:var(--bg-subtle,#f8fafc);border-radius:8px;overflow:hidden">
                                     <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#im1">How to import patients from CSV</button>
                                     <div id="im1" class="accordion-collapse collapse">
-                                        <div class="accordion-body small text-muted">1) Click "Download Template" to get the correct column headers. 2) Fill in the template — dates must be YYYY-MM-DD format. 3) Upload the CSV. 4) Review the results table showing which rows succeeded and which failed (with reasons). Duplicates (same name + DOB) are skipped with a warning.</div>
+                                        <div class="accordion-body small text-muted">1) Click "Download Template" to get the correct column headers. 2) Fill in the template â€” dates must be YYYY-MM-DD format. 3) Upload the CSV. 4) Review the results table showing which rows succeeded and which failed (with reasons). Duplicates (same name + DOB) are skipped with a warning.</div>
                                     </div>
                                 </div>
                             </div>
@@ -919,7 +919,7 @@
 
                 </div><!-- /tab-manual -->
 
-                <!-- ════════════════════ HTTPS / SSL WIZARD TAB ════════════════════ -->
+                <!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• HTTPS / SSL WIZARD TAB â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
                 <div id="tab-https" class="d-none">
 
                     <div class="glass-card p-4 mb-4" style="background:linear-gradient(135deg,rgba(34,197,94,.08) 0%,rgba(16,185,129,.04) 100%);border-left:4px solid #22c55e;">
@@ -1218,13 +1218,13 @@ APP_NAME=Daniely RX</code></div>
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="/assets/bootstrap.bundle.min.js"></script>
 <script src="/js/app.js"></script>
 <script src="/js/help.js"></script>
 <script>
-// ────────────────────────────────────────────────────────────────────────────
-// GENERAL TAB — Timezone & App Name
-// ────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// GENERAL TAB â€” Timezone & App Name
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const TZ_GROUPS = {
     'Eastern US':    ['America/New_York','America/Detroit'],
     'Central US':    ['America/Chicago','America/Winnipeg'],
@@ -1274,7 +1274,7 @@ function renderSettingsTable(s) {
     const tbody = document.getElementById('allSettingsBody');
     const entries = Object.entries(s);
     if (!entries.length) { tbody.innerHTML = '<tr><td colspan="2" class="text-muted text-center">No settings found</td></tr>'; return; }
-    tbody.innerHTML = entries.map(([k,v]) => `<tr><td><code>${k}</code></td><td><span class="tz-badge">${v||'—'}</span></td></tr>`).join('');
+    tbody.innerHTML = entries.map(([k,v]) => `<tr><td><code>${k}</code></td><td><span class="tz-badge">${v||'â€”'}</span></td></tr>`).join('');
 }
 
 async function loadSettings() {
@@ -1297,9 +1297,9 @@ function showSaved(id) {
     setTimeout(() => el.classList.remove('visible'), 2500);
 }
 
-// ────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // 2FA GLOBAL TOGGLE
-// ────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function initTwoFaToggle(enabled) {
     const toggle  = document.getElementById('twoFaToggle');
     if (!toggle) return;
@@ -1331,14 +1331,14 @@ function _updateTwoFaUI(enabled) {
     }
 }
 
-// ────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // API KEYS TAB
-// ────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 let deleteKeyId   = null;
 let deleteModal   = null;
 
 function formatRelative(dateStr) {
-    if (!dateStr) return '<span class="text-muted">—</span>';
+    if (!dateStr) return '<span class="text-muted">â€”</span>';
     const d   = new Date(dateStr);
     const now = new Date();
     const diff = now - d;
@@ -1365,7 +1365,7 @@ async function loadApiKeys() {
     if (!res || !res.ok) { tbody.innerHTML = '<tr><td colspan="8" class="text-center text-danger">Failed to load keys</td></tr>'; return; }
     const keys = await res.json();
     if (!keys.length) {
-        tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4"><i class="fas fa-key fa-2x mb-2 d-block opacity-25"></i>No API keys yet — generate one to get started.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4"><i class="fas fa-key fa-2x mb-2 d-block opacity-25"></i>No API keys yet â€” generate one to get started.</td></tr>';
         return;
     }
     tbody.innerHTML = keys.map(k => {
@@ -1381,7 +1381,7 @@ async function loadApiKeys() {
                 <div class="fw-semibold">${k.name}</div>
                 ${k.description ? `<div class="text-muted small">${k.description}</div>` : ''}
             </td>
-            <td><span class="key-prefix">${k.keyPrefix}…</span></td>
+            <td><span class="key-prefix">${k.keyPrefix}â€¦</span></td>
             <td>${statusDot}</td>
             <td><span class="text-muted small">${creator}</span></td>
             <td><span class="text-muted small">${formatRelative(k.createdAt)}</span></td>
@@ -1399,9 +1399,9 @@ async function loadApiKeys() {
     }).join('');
 }
 
-// ────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // TAB SWITCHING
-// ────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function switchTab(tab) {
     document.querySelectorAll('#settingsTabs .nav-link').forEach(b => b.classList.remove('active'));
     document.querySelectorAll('[id^="tab-"]').forEach(t => t.classList.add('d-none'));
@@ -1411,9 +1411,9 @@ function switchTab(tab) {
     if (tab === 'email') loadEmailSettings();
 }
 
-// ────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // DOMContentLoaded
-// ────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 document.addEventListener('DOMContentLoaded', async () => {
     initApp();
 
@@ -1432,7 +1432,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         updateClocks(tz);
     }, 1000);
 
-    // ── Tab switching ──────────────────────────────────────────────────────
+    // â”€â”€ Tab switching â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     document.querySelectorAll('#settingsTabs .nav-link').forEach(btn => {
         btn.addEventListener('click', () => switchTab(btn.dataset.tab));
 
@@ -1443,7 +1443,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     });
 
-    // ── Save Timezone ──────────────────────────────────────────────────────
+    // â”€â”€ Save Timezone â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     document.getElementById('saveTzBtn').addEventListener('click', async () => {
         const tz  = document.getElementById('tzSelect').value;
         if (!tz) return;
@@ -1466,7 +1466,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         finally { btn.disabled = false; btn.innerHTML = '<i class="fas fa-save me-1"></i>Save Timezone'; }
     });
 
-    // ── Save App Name ──────────────────────────────────────────────────────
+    // â”€â”€ Save App Name â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     document.getElementById('saveNameBtn').addEventListener('click', async () => {
         const name = document.getElementById('appNameInput').value.trim();
         if (!name) { showToast('App name cannot be empty', 'warning'); return; }
@@ -1485,7 +1485,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         finally { btn.disabled = false; btn.innerHTML = '<i class="fas fa-save me-1"></i>Save Name'; }
     });
 
-    // ── Save Global 2FA Setting ────────────────────────────────────────────
+    // â”€â”€ Save Global 2FA Setting â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     document.getElementById('saveTwoFaBtn')?.addEventListener('click', async () => {
         const enabled = document.getElementById('twoFaToggle').checked;
         const btn = document.getElementById('saveTwoFaBtn');
@@ -1507,7 +1507,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         finally { btn.disabled = false; btn.innerHTML = '<i class="fas fa-save me-1"></i>Save 2FA Setting'; }
     });
 
-    // ── Show/Hide generate form ────────────────────────────────────────────
+    // â”€â”€ Show/Hide generate form â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     document.getElementById('showGenerateFormBtn').addEventListener('click', () => {
         document.getElementById('generateFormCard').classList.remove('d-none');
         document.getElementById('showGenerateFormBtn').classList.add('d-none');
@@ -1519,7 +1519,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.getElementById('showGenerateFormBtn').classList.remove('d-none');
     });
 
-    // ── Generate API Key ───────────────────────────────────────────────────
+    // â”€â”€ Generate API Key â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     document.getElementById('generateKeyBtn').addEventListener('click', async () => {
         const name = document.getElementById('keyName').value.trim();
         const desc = document.getElementById('keyDescription').value.trim();
@@ -1548,7 +1548,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 document.getElementById('keyExpiry').value = 'never';
                 // Refresh the list
                 await loadApiKeys();
-                showToast('API key generated — copy it now!', 'success');
+                showToast('API key generated â€” copy it now!', 'success');
             } else {
                 const err = await res.json();
                 showToast(err.error || 'Failed to generate key', 'danger');
@@ -1557,7 +1557,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         finally { btn.disabled = false; btn.innerHTML = '<i class="fas fa-key me-1"></i>Generate Key'; }
     });
 
-    // ── Copy key to clipboard ──────────────────────────────────────────────
+    // â”€â”€ Copy key to clipboard â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     document.getElementById('copyKeyBtn').addEventListener('click', () => {
         const key = document.getElementById('newKeyValue').textContent;
         navigator.clipboard.writeText(key).then(() => {
@@ -1565,13 +1565,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             btn.innerHTML = '<i class="fas fa-check me-1"></i>Copied!';
             btn.classList.replace('btn-outline-success','btn-success');
             setTimeout(() => { btn.innerHTML = '<i class="fas fa-copy me-1"></i>Copy Key'; btn.classList.replace('btn-success','btn-outline-success'); }, 2000);
-        }).catch(() => showToast('Could not copy — please copy manually', 'warning'));
+        }).catch(() => showToast('Could not copy â€” please copy manually', 'warning'));
     });
 
-    // ── Refresh keys list ──────────────────────────────────────────────────
+    // â”€â”€ Refresh keys list â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     document.getElementById('refreshKeysBtn').addEventListener('click', loadApiKeys);
 
-    // ── Toggle & Delete (event delegation) ────────────────────────────────
+    // â”€â”€ Toggle & Delete (event delegation) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     document.getElementById('apiKeysBody').addEventListener('click', async (e) => {
         const toggleBtn = e.target.closest('.toggle-key-btn');
         const deleteBtn = e.target.closest('.delete-key-btn');
@@ -1593,7 +1593,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
-    // ── Confirm delete ─────────────────────────────────────────────────────
+    // â”€â”€ Confirm delete â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     document.getElementById('confirmDeleteKeyBtn').addEventListener('click', async () => {
         if (!deleteKeyId) return;
         const btn = document.getElementById('confirmDeleteKeyBtn');
@@ -1611,9 +1611,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 
 
-// ────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // EMAIL SETTINGS TAB
-// ────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 let _emailLoaded = false;
 
 async function loadEmailSettings() {
@@ -1631,7 +1631,7 @@ async function loadEmailSettings() {
 
         const hint = document.getElementById('smtpPassHint');
         if (d.smtp_pass_set) {
-            hint.textContent = '(password already saved — leave blank to keep)';
+            hint.textContent = '(password already saved â€” leave blank to keep)';
             hint.style.color = '#22c55e';
         } else {
             hint.textContent = '(not set)';
@@ -1758,7 +1758,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 body: JSON.stringify({
                     to,
                     reportType: 'summary',
-                    subject: 'Patient RX System — Test Email'
+                    subject: 'Patient RX System â€” Test Email'
                 })
             });
             const data = await res.json();
@@ -1766,7 +1766,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 alert.className = 'alert alert-success mt-2 mb-0 py-2 small';
                 alert.innerHTML = '<i class="fas fa-check me-1"></i>Test email sent to <strong>' + to + '</strong>! Check your inbox.';
             } else {
-                throw new Error(data.error || (data.hint ? data.error + ' — ' + data.hint : 'Unknown error'));
+                throw new Error(data.error || (data.hint ? data.error + ' â€” ' + data.hint : 'Unknown error'));
             }
         } catch(e) {
             alert.className = 'alert alert-danger mt-2 mb-0 py-2 small';
@@ -1778,19 +1778,19 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 });
-// ────────────────────────────────────────────────────────────────────────────
-// API REFERENCE — dynamic, loaded live from /api/settings/api-routes
-// ────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// API REFERENCE â€” dynamic, loaded live from /api/settings/api-routes
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 let _apiRoutesCache = null;   // cached response to avoid repeat fetches
 
-// ── Render a single endpoint row ─────────────────────────────────────────────
+// â”€â”€ Render a single endpoint row â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function renderEndpointRow(ep) {
     const m = ep.method.toLowerCase();
     const pathHtml = ep.path.replace(/:([a-zA-Z]+)/g, '<span style="color:#f59e0b">:$1</span>');
     const queryHtml = ep.query ? `<span style="color:#8b949e">${ep.query}</span>` : '';
     const bodyHtml  = ep.body  ? `<span class="text-muted small ms-2" style="font-size:.7rem">Body: <code style="color:#22c55e">${ep.body}</code></span>` : '';
-    const permHtml  = `<span class="perm-badge ${ep.admin ? 'admin' : ''}">${ep.admin ? '🔒 ' + ep.perm : ep.perm}</span>`;
+    const permHtml  = `<span class="perm-badge ${ep.admin ? 'admin' : ''}">${ep.admin ? 'ðŸ”’ ' + ep.perm : ep.perm}</span>`;
     const newBadge  = ep.inManifest === false ? '<span class="badge bg-info ms-1" style="font-size:.65rem">NEW</span>' : '';
     return `
         <div class="endpoint-row ${m}">
@@ -1809,7 +1809,7 @@ function renderEndpointRow(ep) {
         </div>`;
 }
 
-// ── Render sections (filtered) ────────────────────────────────────────────────
+// â”€â”€ Render sections (filtered) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function renderApiReference(filter, sections) {
     const container = document.getElementById('apiEndpointsList');
     if (!container) return;
@@ -1821,7 +1821,7 @@ function renderApiReference(filter, sections) {
     container.innerHTML = toRender.map(sec => `
         <div class="mb-3">
             <div class="section-divider">
-                <span style="color:${sec.color};font-size:.85rem;">●</span>
+                <span style="color:${sec.color};font-size:.85rem;">â—</span>
                 &nbsp;${sec.label}
                 <span class="ms-2 text-muted" style="font-size:.65rem;font-weight:400">
                     (${sec.endpoints.length} endpoint${sec.endpoints.length !== 1 ? 's' : ''})
@@ -1842,7 +1842,7 @@ function renderApiReference(filter, sections) {
     });
 }
 
-// ── Rebuild filter pills dynamically from loaded sections ─────────────────────
+// â”€â”€ Rebuild filter pills dynamically from loaded sections â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function rebuildFilterPills(sections) {
     const pillsDiv = document.getElementById('apiFilterPills');
     if (!pillsDiv) return;
@@ -1860,7 +1860,7 @@ function rebuildFilterPills(sections) {
     });
 }
 
-// ── Load and render the API reference ────────────────────────────────────────
+// â”€â”€ Load and render the API reference â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 async function loadApiReference() {
     const container = document.getElementById('apiEndpointsList');
     if (!container) return;
@@ -1889,7 +1889,7 @@ async function loadApiReference() {
     }
 }
 
-// ── Toggle button: load live routes on first open ─────────────────────────────
+// â”€â”€ Toggle button: load live routes on first open â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 document.addEventListener('DOMContentLoaded', () => {
     const toggleBtn = document.getElementById('toggleApiRefBtn');
     if (toggleBtn) {
@@ -1910,9 +1910,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
-// ────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // HTTPS / SSL WIZARD
-// ────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 // Detect public IP and show in Step 1
 async function detectPublicIp() {
@@ -1927,7 +1927,7 @@ async function detectPublicIp() {
         }
     } catch(e) {
         const el = document.getElementById('myPublicIp');
-        if (el) el.innerHTML = '<span class="text-warning">Could not detect — check whatismyip.com</span>';
+        if (el) el.innerHTML = '<span class="text-warning">Could not detect â€” check whatismyip.com</span>';
     }
 }
 
@@ -1946,7 +1946,7 @@ async function checkDNS() {
             resultEl.innerHTML = '<div class="alert alert-warning py-2 small mt-1 mb-0"><i class="fas fa-clock me-1"></i>DNS not propagated yet. The record is not visible from Google\'s DNS. Wait a few more minutes and try again.</div>';
         }
     } catch(e) {
-        resultEl.innerHTML = '<div class="alert alert-danger py-2 small mt-1 mb-0"><i class="fas fa-times me-1"></i>DNS check failed — check your internet connection.</div>';
+        resultEl.innerHTML = '<div class="alert alert-danger py-2 small mt-1 mb-0"><i class="fas fa-times me-1"></i>DNS check failed â€” check your internet connection.</div>';
     }
 }
 
@@ -1966,7 +1966,7 @@ function copyCmd(elementId, btn) {
             btn.style.color = '';
         }, 2000);
     }).catch(() => {
-        showToast('Could not copy — please copy manually', 'warning');
+        showToast('Could not copy â€” please copy manually', 'warning');
     });
 }
 
@@ -2036,7 +2036,7 @@ function updateSslProgress() {
     const bar      = document.getElementById('sslProgressBar');
     const text     = document.getElementById('sslProgressText');
     if (bar)  bar.style.width = pct + '%';
-    if (text) text.textContent = done + ' / ' + total + ' steps' + (done === total ? ' ✓ Complete!' : '');
+    if (text) text.textContent = done + ' / ' + total + ' steps' + (done === total ? ' âœ“ Complete!' : '');
 }
 
 // Initialize HTTPS wizard when tab is opened

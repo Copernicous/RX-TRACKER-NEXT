@@ -1,13 +1,13 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en" data-theme="light">
 <head>
     <script>!function(){var t=localStorage.getItem("rxTheme");if(t)document.documentElement.setAttribute("data-theme",t)}();</script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Patients - Patient RX System</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="/assets/bootstrap.min.css" rel="stylesheet">
+    <link href="/assets/inter.css" rel="stylesheet">
+    <link rel="stylesheet" href="/assets/fontawesome.all.min.css">
     <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
@@ -194,13 +194,13 @@
                             <input type="text" class="form-control" id="pAddress">
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label"><i class="fas fa-ambulance me-1 text-info"></i>Patient Transport — Contact Person</label>
+                            <label class="form-label"><i class="fas fa-ambulance me-1 text-info"></i>Patient Transport â€” Contact Person</label>
                             <select class="form-select" id="pPatientTransport">
                                 <option value="">-- Select --</option>
                             </select>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label"><i class="fas fa-truck me-1 text-info"></i>Pharmacy Transport — Contact Person</label>
+                            <label class="form-label"><i class="fas fa-truck me-1 text-info"></i>Pharmacy Transport â€” Contact Person</label>
                             <select class="form-select" id="pPharmacyTransport">
                                 <option value="">-- Select --</option>
                             </select>
@@ -243,7 +243,7 @@
             <div id="modalViewerBanner" class="d-none px-3 pb-2">
                 <div style="background:rgba(234,179,8,.08);border:1px solid rgba(234,179,8,.3);border-radius:10px;padding:.6rem 1rem;display:flex;align-items:center;gap:.75rem">
                     <span style="font-size:1.1rem">&#128065;</span>
-                    <div class="small"><span class="fw-semibold" id="modalViewerNames"></span><span class="text-muted ms-1">is also viewing this patient — edits may conflict</span></div>
+                    <div class="small"><span class="fw-semibold" id="modalViewerNames"></span><span class="text-muted ms-1">is also viewing this patient â€” edits may conflict</span></div>
                 </div>
             </div>
             <div class="modal-footer">
@@ -261,7 +261,7 @@
     <div class="modal-dialog modal-lg modal-dialog-scrollable">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title"><i class="fas fa-sticky-note me-2 text-warning"></i>Patient Notes — <span id="notesPatientName"></span></h5>
+                <h5 class="modal-title"><i class="fas fa-sticky-note me-2 text-warning"></i>Patient Notes â€” <span id="notesPatientName"></span></h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
@@ -347,7 +347,7 @@
         <div class="modal-content" style="border-radius:16px;overflow:hidden">
             <div class="modal-header" style="background:linear-gradient(135deg,#1a3a5c,#2d6a9f);color:#fff;border:none">
                 <div>
-                    <h5 class="modal-title mb-0"><i class="fas fa-file-export me-2"></i>Export Patients — Select Columns</h5>
+                    <h5 class="modal-title mb-0"><i class="fas fa-file-export me-2"></i>Export Patients â€” Select Columns</h5>
                     <small style="opacity:.75" id="exportModalCount">Exporting 0 records matching current filters</small>
                 </div>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
@@ -375,7 +375,7 @@
 
 <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index:1100"></div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="/assets/bootstrap.bundle.min.js"></script>
 <script src="/js/app.js"></script>
 <script src="/js/help.js"></script>
 <script>
@@ -392,7 +392,7 @@
         initApp();
         await loadDropdowns();
 
-        // ── Determine URL params BEFORE loading patients ────────────────────
+        // â”€â”€ Determine URL params BEFORE loading patients â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         // This lets us avoid loading ALL patients when we only need a subset.
         const urlParams      = new URLSearchParams(window.location.search);
         const statusParam    = urlParams.get('status');
@@ -400,7 +400,7 @@
         const preFilterName  = urlParams.get('name');         // from global search by name
 
         if (statusParam === 'norx') {
-            // ── Special case: active patients with NO RX records ─────────────
+            // â”€â”€ Special case: active patients with NO RX records â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             // Call the dedicated endpoint instead of loading all patients first.
             try {
                 document.getElementById('patientsBody').innerHTML =
@@ -426,11 +426,11 @@
                     throw new Error('API error');
                 }
             } catch(e) {
-                showToast('Could not load No-RX filter — showing all patients', 'warning');
+                showToast('Could not load No-RX filter â€” showing all patients', 'warning');
                 await loadPatients();
             }
         } else {
-            // ── Normal case: load all patients then apply any URL filter ────
+            // â”€â”€ Normal case: load all patients then apply any URL filter â”€â”€â”€â”€
             await loadPatients();
 
             if (highlightId) {
@@ -465,7 +465,7 @@
 
         document.getElementById('addPatientBtn').addEventListener('click', () => openPatientModal(null));
 
-    // ── Patient modal soft-lock ───────────────────────────────────────────────
+    // â”€â”€ Patient modal soft-lock â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     let _modalLockPatientId = null;
     let _modalHeartbeatTimer = null;
 
@@ -531,7 +531,7 @@
         document.getElementById('confirmDeleteBtn').addEventListener('click', deletePatient);
         document.getElementById('deleteConfirmInput').addEventListener('input', checkDeleteConfirmation);
 
-        // ── Export with Column Selector ─────────────────────────────────────────
+        // â”€â”€ Export with Column Selector â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         const EXPORT_COLS = [
             { key: 'patientCode',  label: 'Patient ID',        fn: p => p.patientCode || p.id },
             { key: 'firstName',   label: 'First Name',         fn: p => p.firstName || '' },
@@ -629,7 +629,7 @@
                 const clSel = document.getElementById('pClinicId');
                 const srchSel = document.getElementById('srchClinic');
                 cl.forEach(c => {
-                    const label = c.name + (c.address ? ' – ' + c.address : '');
+                    const label = c.name + (c.address ? ' â€“ ' + c.address : '');
                     clSel.innerHTML   += `<option value="${c.id}">${label}</option>`;
                     srchSel.innerHTML += `<option value="${c.id}">${c.name}</option>`;
                 });
@@ -638,7 +638,7 @@
                 const ph = await phRes.json();
                 const phSel = document.getElementById('pPharmacyId');
                 ph.forEach(p => {
-                    phSel.innerHTML += `<option value="${p.id}">${p.name}${p.address ? ' – ' + p.address : ''}</option>`;
+                    phSel.innerHTML += `<option value="${p.id}">${p.name}${p.address ? ' â€“ ' + p.address : ''}</option>`;
                 });
             }
         } catch(e) {}
@@ -775,7 +775,7 @@
 
         }
         const pi = document.getElementById('patientPageInfo');
-        pi.textContent = 'Showing ' + (Math.min(start+1, filteredPatients.length)) + '–' + Math.min(start+pageSize, filteredPatients.length) + ' of ' + filteredPatients.length;
+        pi.textContent = 'Showing ' + (Math.min(start+1, filteredPatients.length)) + 'â€“' + Math.min(start+pageSize, filteredPatients.length) + ' of ' + filteredPatients.length;
 
         const pages = Math.ceil(filteredPatients.length / pageSize);
         let pagHtml = `<li class="page-item${currentPage===1?' disabled':''}"><a class="page-link" href="#" onclick="goPPage(${currentPage-1});return false;">&laquo;</a></li>`;
@@ -898,7 +898,7 @@
         }
     }
 
-    // ── Patient Notes ────────────────────────────────────────────────────────
+    // â”€â”€ Patient Notes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     var notesPatientId = null;
     var notesModal = null;
 
@@ -969,7 +969,7 @@
             const author = n.Author ? (n.Author.firstName + ' ' + n.Author.lastName) : 'System';
             const dt = new Date(n.createdAt);
             const dateStr = dt.toLocaleDateString() + ' ' + dt.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
-            // Strictly enforce canDelete — no author bypass
+            // Strictly enforce canDelete â€” no author bypass
             const canDel = np.canDelete;
 
             let delBtn = '';
@@ -1038,7 +1038,7 @@
             }
         } catch(e) { showToast('Network error.', 'danger'); }
     }
-    // ────────────────────────────────────────────────────────────────────────
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     async function restorePatient(id) {
         if (!confirm('Are you sure you want to restore this patient?')) return;
@@ -1108,9 +1108,9 @@
         _printPatientData = { patient: p, rxRecords: patientRx };
 
         const isActive  = p.isActive;
-        const clinic    = p.Clinic ? p.Clinic.name : '—';
-        const ptComp    = p.PatientTransportCompany  ? (p.PatientTransportCompany.companyName  || p.PatientTransportCompany.contactPerson  || '—') : '—';
-        const phComp    = p.PharmacyTransportCompany ? (p.PharmacyTransportCompany.companyName || p.PharmacyTransportCompany.contactPerson || '—') : '—';
+        const clinic    = p.Clinic ? p.Clinic.name : 'â€”';
+        const ptComp    = p.PatientTransportCompany  ? (p.PatientTransportCompany.companyName  || p.PatientTransportCompany.contactPerson  || 'â€”') : 'â€”';
+        const phComp    = p.PharmacyTransportCompany ? (p.PharmacyTransportCompany.companyName || p.PharmacyTransportCompany.contactPerson || 'â€”') : 'â€”';
         const printDate = new Date().toLocaleString();
 
         function fmtDt(d) {
@@ -1159,9 +1159,9 @@
                     '<span style="background:' + statusColor + ';padding:2px 10px;border-radius:20px;font-size:.72rem;font-weight:600">' + statusLabel + '</span>' +
                   '</div>' +
                   '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;padding:10px 14px;border-bottom:1px solid #f0f0f0;background:#fafafa">' +
-                    '<div><div style="font-size:.65rem;color:#888;text-transform:uppercase;font-weight:700">Arrival Date</div><div style="font-weight:600">' + (rx.arrivalDate||'—') + '</div></div>' +
-                    '<div><div style="font-size:.65rem;color:#888;text-transform:uppercase;font-weight:700">Service Date</div><div style="font-weight:600">' + (rx.serviceDate||'—') + '</div></div>' +
-                    '<div><div style="font-size:.65rem;color:#888;text-transform:uppercase;font-weight:700">Pharmacy</div><div style="font-weight:600">' + (rx.Pharmacy ? rx.Pharmacy.name : '—') + '</div></div>' +
+                    '<div><div style="font-size:.65rem;color:#888;text-transform:uppercase;font-weight:700">Arrival Date</div><div style="font-weight:600">' + (rx.arrivalDate||'â€”') + '</div></div>' +
+                    '<div><div style="font-size:.65rem;color:#888;text-transform:uppercase;font-weight:700">Service Date</div><div style="font-weight:600">' + (rx.serviceDate||'â€”') + '</div></div>' +
+                    '<div><div style="font-size:.65rem;color:#888;text-transform:uppercase;font-weight:700">Pharmacy</div><div style="font-weight:600">' + (rx.Pharmacy ? rx.Pharmacy.name : 'â€”') + '</div></div>' +
                     (ptrans  ? '<div><div style="font-size:.65rem;color:#888;text-transform:uppercase;font-weight:700">Patient Transport</div><div style="font-weight:600">' + ptrans  + '</div></div>' : '') +
                     (phtrans ? '<div><div style="font-size:.65rem;color:#888;text-transform:uppercase;font-weight:700">Pharmacy Transport</div><div style="font-weight:600">' + phtrans + '</div></div>' : '') +
                   '</div>' +
@@ -1179,9 +1179,9 @@
                     '<table style="width:100%;border-collapse:collapse;font-size:.82rem">' +
                       '<tr>' +
                         '<td style="padding:6px 8px;font-weight:700">#' + rx.id + '</td>' +
-                        '<td style="padding:6px 8px">' + (rx.arrivalDate||'—') + '</td>' +
-                        '<td style="padding:6px 8px">' + (rx.serviceDate||'—') + '</td>' +
-                        '<td style="padding:6px 8px">' + (rx.Pharmacy ? rx.Pharmacy.name : '—') + '</td>' +
+                        '<td style="padding:6px 8px">' + (rx.arrivalDate||'â€”') + '</td>' +
+                        '<td style="padding:6px 8px">' + (rx.serviceDate||'â€”') + '</td>' +
+                        '<td style="padding:6px 8px">' + (rx.Pharmacy ? rx.Pharmacy.name : 'â€”') + '</td>' +
                         '<td style="padding:6px 8px"><span style="background:' + statusColor + ';color:#fff;padding:1px 8px;border-radius:10px;font-size:.72rem">' + statusLabel + '</span></td>' +
                       '</tr>' +
                       (actions.length ? '<tr><td colspan="5" style="padding:3px 8px 3px 24px;background:#f8f9fa;font-size:.78rem"><strong>Actions:</strong> ' + actionsHtml + '</td></tr>' : '') +
@@ -1196,7 +1196,7 @@
             ? '<span style="background:#198754;color:#fff;padding:3px 10px;border-radius:12px;font-size:.75rem">Active</span>'
             : '<span style="background:#6c757d;color:#fff;padding:3px 10px;border-radius:12px;font-size:.75rem">Inactive</span>';
 
-        // ── CARD LAYOUT ──────────────────────────────────────────────────────
+        // â”€â”€ CARD LAYOUT â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         const cardHTML =
         '<div id="printContentCard" style="font-family:\'Inter\',Arial,sans-serif;background:#fff;margin:20px;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.12)">' +
           '<div style="background:linear-gradient(135deg,#1a2234,#2c3e6b);color:#fff;padding:20px 28px;display:flex;justify-content:space-between;align-items:center">' +
@@ -1205,32 +1205,32 @@
               '<div style="font-size:.85rem;opacity:.75;margin-top:3px">Patient RX System &nbsp;&middot;&nbsp; Generated: ' + printDate + '</div>' +
             '</div>' +
             '<div style="text-align:right">' +
-              '<div style="font-size:1.2rem;font-weight:700;font-family:monospace">' + (p.patientCode||'—') + '</div>' +
-              '<div style="margin-top:6px"><span style="background:' + (isActive?'#198754':'#6c757d') + ';color:#fff;padding:3px 12px;border-radius:20px;font-size:.78rem;font-weight:600">' + (isActive?'● Active':'○ Inactive') + '</span></div>' +
+              '<div style="font-size:1.2rem;font-weight:700;font-family:monospace">' + (p.patientCode||'â€”') + '</div>' +
+              '<div style="margin-top:6px"><span style="background:' + (isActive?'#198754':'#6c757d') + ';color:#fff;padding:3px 12px;border-radius:20px;font-size:.78rem;font-weight:600">' + (isActive?'â— Active':'â—‹ Inactive') + '</span></div>' +
             '</div>' +
           '</div>' +
           '<div style="padding:24px 28px;display:grid;grid-template-columns:1fr 1fr;gap:14px 32px;border-bottom:1px solid #e9ecef">' +
-            [['📅 Date of Birth',p.dob||'—'],['📞 Phone',p.phone||'—'],['📅 Service Date',p.serviceDate||'—'],['🏥 Clinic',clinic],['🏠 Address',p.address||'—'],['🚐 Patient Transport',ptComp],['💊 Pharmacy Transport',phComp]]
+            [['ðŸ“… Date of Birth',p.dob||'â€”'],['ðŸ“ž Phone',p.phone||'â€”'],['ðŸ“… Service Date',p.serviceDate||'â€”'],['ðŸ¥ Clinic',clinic],['ðŸ  Address',p.address||'â€”'],['ðŸš Patient Transport',ptComp],['ðŸ’Š Pharmacy Transport',phComp]]
             .map(function(r){ return '<div><div style="font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#888;margin-bottom:3px">'+r[0]+'</div><div style="font-size:.9rem;color:#1a2234">'+r[1]+'</div></div>'; }).join('') +
           '</div>' +
-          (p.notes ? '<div style="margin:16px 28px;padding:12px 16px;background:#fffbea;border-left:4px solid #f5a623;border-radius:4px;font-size:.85rem;color:#7a5800"><strong>📝 Notes:</strong><br>' + p.notes.replace(/\n/g,'<br>') + '</div>' : '') +
+          (p.notes ? '<div style="margin:16px 28px;padding:12px 16px;background:#fffbea;border-left:4px solid #f5a623;border-radius:4px;font-size:.85rem;color:#7a5800"><strong>ðŸ“ Notes:</strong><br>' + p.notes.replace(/\n/g,'<br>') + '</div>' : '') +
           '<div style="padding:0 28px 28px">' +
             '<div style="font-size:.8rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#888;margin:20px 0 12px">RX Records (' + patientRx.length + ')</div>' +
             (patientRx.length ? patientRx.map(function(rx){ return buildRxBlock(rx,'card'); }).join('') : '<p style="color:#888;font-size:.85rem">No RX records found.</p>') +
           '</div>' +
         '</div>';
 
-        // ── CLASSIC LAYOUT ───────────────────────────────────────────────────
+        // â”€â”€ CLASSIC LAYOUT â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         const classicHTML =
         '<div id="printContentClassic" style="display:none;font-family:Inter,Arial,sans-serif;color:#1a2234;padding:28px">' +
           '<div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #1a2234;padding-bottom:12px;margin-bottom:20px">' +
             '<div><h4 style="margin:0;color:#1a2234">Patient Record</h4><div style="font-size:.8rem;color:#888;margin-top:4px">Printed: ' + printDate + '</div></div>' +
-            '<div style="text-align:right"><div style="font-size:1.1rem;font-weight:700">' + p.firstName + ' ' + p.lastName + ' ' + statusBadge + '</div><div style="color:#888;font-size:.85rem"><code>' + (p.patientCode||'—') + '</code></div></div>' +
+            '<div style="text-align:right"><div style="font-size:1.1rem;font-weight:700">' + p.firstName + ' ' + p.lastName + ' ' + statusBadge + '</div><div style="color:#888;font-size:.85rem"><code>' + (p.patientCode||'â€”') + '</code></div></div>' +
           '</div>' +
           '<table style="width:100%;border-collapse:collapse;margin-bottom:24px;font-size:.875rem">' +
-            '<tr><td style="width:50%;padding:6px 0"><strong>Date of Birth:</strong> '+(p.dob||'—')+'</td><td style="padding:6px 0"><strong>Phone:</strong> '+(p.phone||'—')+'</td></tr>' +
-            '<tr><td style="padding:6px 0"><strong>Service Date:</strong> '+(p.serviceDate||'—')+'</td><td style="padding:6px 0"><strong>Clinic:</strong> '+clinic+'</td></tr>' +
-            '<tr><td style="padding:6px 0"><strong>Address:</strong> '+(p.address||'—')+'</td><td style="padding:6px 0"><strong>Patient Transport:</strong> '+ptComp+'</td></tr>' +
+            '<tr><td style="width:50%;padding:6px 0"><strong>Date of Birth:</strong> '+(p.dob||'â€”')+'</td><td style="padding:6px 0"><strong>Phone:</strong> '+(p.phone||'â€”')+'</td></tr>' +
+            '<tr><td style="padding:6px 0"><strong>Service Date:</strong> '+(p.serviceDate||'â€”')+'</td><td style="padding:6px 0"><strong>Clinic:</strong> '+clinic+'</td></tr>' +
+            '<tr><td style="padding:6px 0"><strong>Address:</strong> '+(p.address||'â€”')+'</td><td style="padding:6px 0"><strong>Patient Transport:</strong> '+ptComp+'</td></tr>' +
             '<tr><td style="padding:6px 0"><strong>Pharmacy Transport:</strong> '+phComp+'</td><td></td></tr>' +
           '</table>' +
           (p.notes ? '<div style="background:#f8f9fa;border-left:3px solid #4a90e2;padding:10px 14px;border-radius:4px;margin-bottom:24px;font-size:.85rem"><strong>Notes:</strong><br>' + p.notes.replace(/\n/g,'<br>') + '</div>' : '') +
@@ -1262,7 +1262,7 @@
             win.document.write(`<!DOCTYPE html><html><head>
                 <title>Patient Record &mdash; ${p.firstName} ${p.lastName}</title>
                 <style>
-                    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+                    @import url('/assets/inter.css');
                     * { box-sizing:border-box; margin:0; padding:0; }
                     body { font-family:'Inter',Arial,sans-serif; background:#f0f2f5; padding:32px; }
                     #printContentCard { background:#fff; border-radius:12px; overflow:hidden; box-shadow:0 2px 16px rgba(0,0,0,.1); }
@@ -1280,7 +1280,7 @@
             win.document.write(`<!DOCTYPE html><html><head>
                 <title>Patient Record &mdash; ${p.firstName} ${p.lastName}</title>
                 <style>
-                    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+                    @import url('/assets/inter.css');
                     body { font-family:Inter,Arial,sans-serif; color:#1a2234; padding:32px; max-width:860px; margin:0 auto; }
                     table { width:100%; border-collapse:collapse; }
                     thead tr { background:#1a2234 !important; color:#fff !important; -webkit-print-color-adjust:exact; print-color-adjust:exact; }

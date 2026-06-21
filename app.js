@@ -42,10 +42,10 @@ app.use(helmet({
         useDefaults: false,  // Prevent Helmet adding upgrade-insecure-requests by default
         directives: {
             defaultSrc:     ["'self'"],
-            scriptSrc:      ["'self'", "'unsafe-inline'", 'cdn.jsdelivr.net', 'cdnjs.cloudflare.com'],
-            scriptSrcAttr:  ["'unsafe-inline'"],  // Required: app uses inline onclick handlers
-            styleSrc:       ["'self'", "'unsafe-inline'", 'cdn.jsdelivr.net', 'cdnjs.cloudflare.com', 'fonts.googleapis.com'],
-            fontSrc:        ["'self'", 'fonts.gstatic.com', 'cdnjs.cloudflare.com'],
+            scriptSrc:      ["'self'", "'unsafe-inline'"],   // CDN removed — all JS served locally
+            scriptSrcAttr:  ["'unsafe-inline'"],             // Required: app uses inline onclick handlers
+            styleSrc:       ["'self'", "'unsafe-inline'"],   // CDN removed — all CSS served locally
+            fontSrc:        ["'self'"],                      // CDN removed — Inter + FA webfonts local
             imgSrc:         ["'self'", 'data:', 'blob:'],
             connectSrc:     ["'self'", 'https://api.ipify.org', 'https://dns.google'],
             frameSrc:       ["'none'"],

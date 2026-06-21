@@ -5,9 +5,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Reports - Patient RX System</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="/assets/bootstrap.min.css" rel="stylesheet">
+    <link href="/assets/inter.css" rel="stylesheet">
+    <link rel="stylesheet" href="/assets/fontawesome.all.min.css">
     <link rel="stylesheet" href="/css/style.css">
     <style>
         /* Autocomplete dropdown */
@@ -285,7 +285,7 @@
 </div><!-- /wrapper -->
 
 <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index:1100"></div>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="/assets/bootstrap.bundle.min.js"></script>
 <script src="/js/app.js"></script>
 <script src="/js/help.js"></script>
 <script>
@@ -649,7 +649,7 @@
         if (!tbl) return;
         const win = window.open('', '_blank');
         win.document.write(`<!DOCTYPE html><html><head><title>${title}</title>
-            <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+            <link href="/assets/bootstrap.min.css" rel="stylesheet">
             </head><body class="p-4"><h4>${title}</h4>${tbl.outerHTML}</body></html>`);
         win.document.close();
         win.print();
