@@ -91,7 +91,8 @@ var allPatients = [];
     async function acquireModalLock(patientId) {
         _modalLockPatientId = patientId;
         try {
-            const res = await fetchWithAuth('/api/patient-locks/' + patientId + '/acquire', { method: 'POST' });
+            var _uAcquire = '/api/patient-locks/' + patientId + '/acquire';
+        const res = await fetchWithAuth(_uAcquire, { method: 'POST' });
             if (res && res.ok) {
                 const { others } = await res.json();
                 updateModalViewerBanner(others);
@@ -101,7 +102,8 @@ var allPatients = [];
         if (_modalHeartbeatTimer) clearInterval(_modalHeartbeatTimer);
         _modalHeartbeatTimer = setInterval(async () => {
             try {
-                const r = await fetchWithAuth('/api/patient-locks/' + patientId + '/heartbeat', { method: 'POST' });
+                var _uHb = '/api/patient-locks/' + patientId + '/heartbeat';
+            const r = await fetchWithAuth(_uHb, { method: 'POST' });
                 if (r && r.ok) { const d = await r.json(); updateModalViewerBanner(d.others); }
             } catch(e) {}
         }, 60000);
@@ -111,7 +113,8 @@ var allPatients = [];
         if (!_modalLockPatientId) return;
         if (_modalHeartbeatTimer) { clearInterval(_modalHeartbeatTimer); _modalHeartbeatTimer = null; }
         try {
-            await fetchWithAuth('/api/patient-locks/' + _modalLockPatientId + '/release', { method: 'DELETE' });
+            var _uRel = '/api/patient-locks/' + _modalLockPatientId + '/release';
+            await fetchWithAuth(_uRel, { method: 'DELETE' });
         } catch(e) {}
         _modalLockPatientId = null;
         updateModalViewerBanner([]);
@@ -217,11 +220,15 @@ var allPatients = [];
 
     async function loadDropdowns() {
         try {
+        var _uPt = '/api/patient-transport';
+        var _uRx = '/api/pharmacy-transport';
+        var _uCl = '/api/clinics';
+        var _uPh = '/api/pharmacies';
             const [ptRes, rxRes, clRes, phRes] = await Promise.all([
-                fetchWithAuth('/api/patient-transport',  { silent: true }),
-                fetchWithAuth('/api/pharmacy-transport', { silent: true }),
-                fetchWithAuth('/api/clinics',            { silent: true }),
-                fetchWithAuth('/api/pharmacies',         { silent: true })
+                fetchWithAuth(_uPt, { silent: true }),
+                fetchWithAuth(_uRx, { silent: true }),
+                fetchWithAuth(_uCl, { silent: true }),
+                fetchWithAuth(_uPh, { silent: true })
             ]);
             if (ptRes && ptRes.ok) {
                 const pt = await ptRes.json();
@@ -559,7 +566,8 @@ var allPatients = [];
     }
 
     async function deletePatient() {
-        const res = await fetchWithAuth('/api/patients/' + deletingPatientId, { method: 'DELETE' });
+        var _uDel = '/api/patients/' + deletingPatientId;
+        const res = await fetchWithAuth(_uDel, { method: 'DELETE' });
         if (!res) return;
         if (res.ok || res.status === 204) {
             bootstrap.Modal.getInstance(document.getElementById('deleteModal')).hide();
@@ -616,7 +624,8 @@ var allPatients = [];
 
     async function loadNotes() {
         try {
-            const res = await fetchWithAuth('/api/patients/' + notesPatientId + '/notes');
+            var _uNotes = '/api/patients/' + notesPatientId + '/notes';
+        const res = await fetchWithAuth(_uNotes);
             if (!res) return;
             const notes = await res.json();
             renderNotes(notes);
@@ -677,7 +686,8 @@ var allPatients = [];
         const btn = document.getElementById('addNoteBtn');
         btn.disabled = true;
         try {
-            const res = await fetchWithAuth('/api/patients/' + notesPatientId + '/notes', {
+            var _uNotePost = '/api/patients/' + notesPatientId + '/notes';
+        const res = await fetchWithAuth(_uNotePost, {
                 method: 'POST', body: JSON.stringify({ note: text })
             });
             if (res && res.ok) {
@@ -695,7 +705,8 @@ var allPatients = [];
     async function deleteNote(noteId) {
         if (!confirm('Delete this note?')) return;
         try {
-            const res = await fetchWithAuth('/api/patients/' + notesPatientId + '/notes/' + noteId, { method: 'DELETE' });
+            var _uNoteDel = '/api/patients/' + notesPatientId + '/notes/' + noteId;
+            const res = await fetchWithAuth(_uNoteDel, { method: 'DELETE' });
             if (res && (res.ok || res.status === 204)) {
                 showToast('Note deleted.', 'success');
                 await loadNotes();
@@ -710,7 +721,8 @@ var allPatients = [];
     async function restorePatient(id) {
         if (!confirm('Are you sure you want to restore this patient?')) return;
         try {
-            const res = await fetchWithAuth('/api/patients/' + id + '/restore', { method: 'PUT' });
+            var _uRestore = '/api/patients/' + id + '/restore';
+        const res = await fetchWithAuth(_uRestore, { method: 'PUT' });
             if (res.ok) {
                 showToast('Patient restored successfully.', 'success');
                 await loadPatients();
@@ -763,9 +775,11 @@ var allPatients = [];
         const modal = new bootstrap.Modal(document.getElementById('patientPrintModal'));
         modal.show();
 
-        const pRes  = await fetchWithAuth('/api/patients/' + id);
+        var _uPat = '/api/patients/' + id;
+        var _uWa  = '/api/workflow-actions';
+        const pRes  = await fetchWithAuth(_uPat);
         const rxRes = await fetchWithAuth('/api/rx-records?includeDeleted=false');
-        const waRes = await fetchWithAuth('/api/workflow-actions', { silent: true });
+        const waRes = await fetchWithAuth(_uWa, { silent: true });
         
         if (!pRes || !pRes.ok) { body.innerHTML = '<p class="text-danger text-center py-4">Failed to load patient record.</p>'; return; }
         const p     = await pRes.json();
