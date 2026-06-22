@@ -173,6 +173,7 @@
                                 <th style="cursor:pointer" onclick="sortRx('id')">RX # <i class="fas fa-sort text-muted" style="opacity:0.3" id="srIcon_id"></i></th>
                                 <th style="cursor:pointer" onclick="sortRx('Patient.firstName')">Patient <i class="fas fa-sort text-muted" style="opacity:0.3" id="srIcon_Patient.firstName"></i></th>
                                 <th style="cursor:pointer" onclick="sortRx('serviceDate')">Service Date <i class="fas fa-sort text-muted" style="opacity:0.3" id="srIcon_serviceDate"></i></th>
+                                <th>Next Service Date</th>
                                 <th style="cursor:pointer" onclick="sortRx('Pharmacy.name')">Pharmacy <i class="fas fa-sort text-muted" style="opacity:0.3" id="srIcon_Pharmacy.name"></i></th>
                                 <th>Workflow Status</th>
                                 <th>Actions</th>
@@ -900,33 +901,36 @@
                 else if (patInactive) { var pb2 = document.createElement('span'); pb2.className = 'badge bg-warning text-dark ms-1'; pb2.title = 'Patient inactive'; pb2.innerHTML = '<i class="fas fa-user-times"></i>'; tdPat.appendChild(pb2); }
                 tr.appendChild(tdPat);
 
-                /* ── Date cell ── (Service Date + 90-day next cycle indicator) */
+                /* ── Service Date cell ── (plain date) */
                 var tdSvc = document.createElement('td');
-                if (rx.serviceDate) {
-                    var _sD     = new Date(rx.serviceDate); _sD.setHours(0,0,0,0);
-                    var _exp    = new Date(_sD.getTime() + 90 * 864e5);
-                    var _today  = new Date(); _today.setHours(0,0,0,0);
-                    var _daysLeft = Math.round((_exp - _today) / 864e5);
-                    var _expStr = _exp.toLocaleDateString();
-                    var _cycleHtml;
-                    if (_daysLeft < 0) {
-                        /* Expired — show "Expired" badge + next available = today */
-                        _cycleHtml = '<span class="badge bg-danger ms-1" title="90-day window expired ' + Math.abs(_daysLeft) + ' day(s) ago. New cycle available.">' +
-                                     '<i class="fas fa-exclamation-circle me-1"></i>Expired</span>';
-                    } else if (_daysLeft <= 14) {
-                        /* Expiring soon — orange warning */
-                        _cycleHtml = '<span class="badge bg-warning text-dark ms-1" title="Next cycle available: ' + _expStr + '">' +
-                                     '<i class="fas fa-clock me-1"></i>' + _daysLeft + 'd left</span>';
-                    } else {
-                        /* Active — small muted text */
-                        _cycleHtml = '<small class="text-muted d-block" style="font-size:.7rem;line-height:1.2" title="90-day window active until ' + _expStr + '">' +
-                                     'Next: ' + _expStr + '</small>';
-                    }
-                    tdSvc.innerHTML = '<span>' + rx.serviceDate + '</span>' + _cycleHtml;
-                } else {
-                    tdSvc.textContent = '—';
-                }
+                tdSvc.textContent = rx.serviceDate || '—';
                 tr.appendChild(tdSvc);
+
+                /* ── Next Service Date cell ── (serviceDate + 90 days, color-coded) */
+                var tdNext = document.createElement('td');
+                if (rx.serviceDate) {
+                    var _sD      = new Date(rx.serviceDate); _sD.setHours(0,0,0,0);
+                    var _exp     = new Date(_sD.getTime() + 90 * 864e5);
+                    var _today   = new Date(); _today.setHours(0,0,0,0);
+                    var _dLeft   = Math.round((_exp - _today) / 864e5);
+                    var _expStr  = _exp.toLocaleDateString();
+                    if (_dLeft < 0) {
+                        /* Expired */
+                        tdNext.innerHTML = '<span class="badge bg-danger" title="Expired ' + Math.abs(_dLeft) + 'd ago — new cycle available now"><i class="fas fa-exclamation-circle me-1"></i>Expired</span>' +
+                                           '<small class="d-block text-muted" style="font-size:.7rem">' + _expStr + '</small>';
+                    } else if (_dLeft <= 14) {
+                        /* Expiring soon */
+                        tdNext.innerHTML = '<span class="badge bg-warning text-dark" title="Cycle closes ' + _expStr + '"><i class="fas fa-clock me-1"></i>' + _dLeft + 'd left</span>' +
+                                           '<small class="d-block text-muted" style="font-size:.7rem">' + _expStr + '</small>';
+                    } else {
+                        /* Active */
+                        tdNext.innerHTML = '<span class="badge bg-success" title="90-day window active"><i class="fas fa-check me-1"></i>Active</span>' +
+                                           '<small class="d-block text-muted" style="font-size:.7rem">' + _expStr + '</small>';
+                    }
+                } else {
+                    tdNext.textContent = '—';
+                }
+                tr.appendChild(tdNext);
 
                 /* ── Pharmacy cell ── */
                 var tdPh = document.createElement('td'); tdPh.textContent = pharmacyName; tr.appendChild(tdPh);
