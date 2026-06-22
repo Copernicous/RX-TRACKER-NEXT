@@ -1233,7 +1233,7 @@ async function boLoadApiKeys() {
     var tbody = document.getElementById('boApiKeysBody');
     tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--text-muted)"><i class="fas fa-spinner fa-spin me-2"></i>Loading...</td></tr>';
     try {
-        var res = await fetchWithAuth('/api/api-keys');
+        var res = await apiFetch('/api/api-keys');
         if (!res || !res.ok) throw new Error('Failed to load');
         var keys = await res.json();
         boApiKeysLoaded = true;
@@ -1270,7 +1270,7 @@ async function boLoadApiKeys() {
             btn.addEventListener('click', async function() {
                 var id = this.dataset.id;
                 this.disabled = true;
-                var res = await fetchWithAuth('/api/api-keys/' + id + '/toggle', { method:'PATCH' });
+                var res = await apiFetch('/api/api-keys/' + id + '/toggle', { method:'PATCH' });
                 if (res && res.ok) { boApiKeysLoaded = false; boLoadApiKeys(); }
                 else { showBoToast('Failed to toggle key', 'error'); this.disabled = false; }
             });
@@ -1307,7 +1307,7 @@ async function boGenerateKey() {
     var btn = document.getElementById('boGenerateFormCard').querySelector('[onclick="boGenerateKey()"]');
     if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Generating...'; }
     try {
-        var res = await fetchWithAuth('/api/api-keys', {
+        var res = await apiFetch('/api/api-keys', {
             method:'POST', headers:{'Content-Type':'application/json'},
             body: JSON.stringify({ name:name, description: desc||undefined, expiresIn:exp })
         });
@@ -1348,7 +1348,7 @@ async function boExecuteRevoke() {
     var btn = document.getElementById('confirmRevokeBtn');
     btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Revoking...';
     try {
-        var res = await fetchWithAuth('/api/api-keys/' + boRevokeKeyId, { method:'DELETE' });
+        var res = await apiFetch('/api/api-keys/' + boRevokeKeyId, { method:'DELETE' });
         if (res && (res.ok || res.status === 204)) {
             closeRevokeModal();
             boApiKeysLoaded = false;
@@ -1380,7 +1380,7 @@ async function boLoadApiReference() {
     if (_boApiRoutesCache) { boRenderApiRef('all', _boApiRoutesCache); return; }
     container.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--text-muted)"><i class="fas fa-spinner fa-spin me-2"></i>Loading API reference...</div>';
     try {
-        var res = await fetchWithAuth('/api/settings/api-routes');
+        var res = await apiFetch('/api/settings/api-routes');
         if (!res || !res.ok) throw new Error('Failed to fetch routes');
         var data = await res.json();
         _boApiRoutesCache = data.sections;
