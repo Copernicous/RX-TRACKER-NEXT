@@ -1,4 +1,4 @@
-/* FortiGate compat: no template literals, no arrows, no spread, no ??, no ?. */
+﻿/* FortiGate compat: no template literals, no arrows, no spread, no ??, no ?. */
 var _EMPTY_JOIN = '';
 
 var TOKEN = localStorage.getItem('token');
@@ -1410,33 +1410,79 @@ function boPillClick(pill, filter) {
     boRenderApiRef(filter, _boApiRoutesCache);
 }
 
-var _boMethodColors = { get:'#22c55e', post:'#6366f1', put:'#f59e0b', patch:'#06b6d4', delete:'#ef4444' };
+function boRenderEndpointRow(ep) {
+    const m = ep.method.toLowerCase();
+    const pathHtml = ep.path.replace(/:([a-zA-Z]+)/g, '<span style="color:#f59e0b">:$1</span>');
+    const queryHtml = ep.query ? `<span style="color:#8b949e">${ep.query}</span>` : '';
+    const bodyHtml  = ep.body  ? `<span class="text-muted small ms-2" style="font-size:.7rem">Body: <code style="color:#22c55e">${ep.body}</code></span>` : '';
+    const permHtml  = `<span class="perm-badge ${ep.admin ? 'admin' : ''}">${ep.admin ? '🔒 ' + ep.perm : ep.perm}</span>`;
+    const newBadge  = ep.inManifest === false ? '<span class="badge bg-info ms-1" style="font-size:.65rem">NEW</span>' : '';
+    return `
+        <div class="endpoint-row ${m}">
+            <div class="d-flex align-items-start gap-2">
+                <span class="method-badge ${m}">${ep.method}</span>
+                <div class="flex-grow-1">
+                    <span class="endpoint-path">${ep.path}${queryHtml}</span>
+                    ${newBadge}
+                    ${bodyHtml}
+                    <div class="text-muted small mt-1">${ep.desc} &nbsp; ${permHtml}</div>
+                </div>
+                <button class="btn btn-xs btn-outline-secondary ms-auto bo-copy-endpoint-btn"
+                    style="font-size:.7rem;padding:2px 8px;flex-shrink:0;"
+                    data-ep="${ep.method} ${window.location.origin}${ep.path}${ep.query || ''}">Copy URL</button>
+            </div>
+        </div>`;
+}
+
 function boRenderApiRef(filter, sections) {
     var container = document.getElementById('boApiEndpointsList');
     if (!container || !sections) return;
-    var toRender = filter === 'all' ? sections : sections.filter(function(s){return s.id===filter;});
-    if (!toRender.length) { container.innerHTML = '<p style="color:var(--text-muted);font-size:.8rem">No endpoints in this category.</p>'; return; }
-    var html = '';
-    toRender.forEach(function(sec) {
-        html += '<div style="margin-bottom:1rem"><div style="font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#9ca3af;padding:8px 0 4px">' +
-            '<span style="color:' + (sec.color||'#6366f1') + ';font-size:.85rem">●</span>&nbsp;' + sec.label +
-            ' <span style="font-size:.65rem;font-weight:400">(' + sec.endpoints.length + ' endpoint' + (sec.endpoints.length!==1?'s':'') + ')</span></div>';
-        sec.endpoints.forEach(function(ep) {
-            var m = ep.method.toLowerCase();
-            var mc = _boMethodColors[m] || '#6b7280';
-            var pathHtml = ep.path.replace(/:([a-zA-Z]+)/g,'<span style="color:#f59e0b">:$1</span>');
-            html += '<div style="border-left:3px solid ' + mc + ';border-radius:6px;padding:7px 12px;margin-bottom:3px;transition:background .12s" onmouseover="this.style.background=\'rgba(99,102,241,.04)\'" onmouseout="this.style.background=\'\'">' +
-                '<div style="display:flex;align-items:start;gap:.5rem">' +
-                '<span style="font-size:.65rem;font-weight:700;padding:2px 7px;border-radius:4px;font-family:monospace;min-width:48px;display:inline-block;text-align:center;background:rgba(' + (m==='get'?'34,197,94':m==='post'?'99,102,241':m==='put'?'245,158,11':m==='delete'?'239,68,68':'6,182,212') + ',.15);color:' + mc + '">' + ep.method + '</span>' +
-                '<div style="flex:1"><span style="font-family:monospace;font-size:.8rem;font-weight:600">' + pathHtml + '</span>' +
-                '<div style="font-size:.75rem;color:var(--text-muted);margin-top:2px">' + ep.desc + '</div></div>' +
-                '<button class="btn-bo btn-bo-outline" style="font-size:.7rem;padding:2px 8px;flex-shrink:0" onclick="navigator.clipboard.writeText(\'' + ep.method + ' ' + window.location.origin + ep.path + '\').then(function(){var b=this;showBoToast(\'URL copied\',\'success\');}).bind(this)">Copy URL</button>' +
-                '</div></div>';
+    var toRender = filter === 'all' ? sections : sections.filter(function(s){ return s.id === filter; });
+    if (!toRender.length) {
+        container.innerHTML = '<p class="text-muted small">No endpoints in this category.</p>';
+        return;
+    }
+    container.innerHTML = toRender.map(function(sec) {
+        return `<div class="mb-3">
+            <div class="section-divider">
+                <span style="color:${sec.color};font-size:.85rem">●</span>
+                &nbsp;${sec.label}
+                <span class="ms-2 text-muted" style="font-size:.65rem;font-weight:400">
+                    (${sec.endpoints.length} endpoint${sec.endpoints.length !== 1 ? 's' : ''})
+                </span>
+            </div>
+            ${(function(){ var _ep=''; sec.endpoints.forEach(function(ep){ _ep += boRenderEndpointRow(ep); }); return _ep; })()}
+        </div>`;
+    }).join('');
+
+    container.querySelectorAll('.bo-copy-endpoint-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            navigator.clipboard.writeText(this.dataset.ep).then(function() {
+                btn.textContent = 'Copied!';
+                setTimeout(function(){ btn.textContent = 'Copy URL'; }, 1500);
+            });
         });
-        html += '</div>';
     });
-    container.innerHTML = html;
 }
+
+function boRebuildPills(sections) {
+    var pillsDiv = document.getElementById('boApiFilterPills');
+    if (!pillsDiv) return;
+    var total = sections.reduce(function(sum, s){ return sum + s.endpoints.length; }, 0);
+    var _ph = '<button class="btn btn-xs api-filter active" data-filter="all">All (' + total + ')</button>';
+    sections.forEach(function(s) {
+        _ph += '<button class="btn btn-xs api-filter" data-filter="' + s.id + '">' + s.label + ' (' + s.endpoints.length + ')</button>';
+    });
+    pillsDiv.innerHTML = _ph;
+    pillsDiv.querySelectorAll('.api-filter').forEach(function(pill) {
+        pill.addEventListener('click', function() {
+            pillsDiv.querySelectorAll('.api-filter').forEach(function(p){ p.classList.remove('active'); });
+            this.classList.add('active');
+            boRenderApiRef(this.dataset.filter, _boApiRoutesCache);
+        });
+    });
+}
+
 
 function showBoToast(msg, type) {
     if (typeof showToast === 'function') { showToast(msg, type === 'error' ? 'danger' : type); return; }
