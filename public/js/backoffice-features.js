@@ -441,28 +441,46 @@ async function loadUsers() {
             var toggleStyle = u.isActive ?
                 'background:rgba(239,68,68,0.12);color:#fca5a5;border:1px solid rgba(239,68,68,0.3)' :
                 'background:rgba(16,185,129,0.12);color:#6ee7b7;border:1px solid rgba(16,185,129,0.3)';
+
+            // 2FA status badge
+            var twoFaBadge = u.twoFactorEnabled
+                ? '<span style="display:inline-flex;align-items:center;gap:3px;font-size:0.62rem;font-weight:700;padding:0.12rem 0.4rem;border-radius:4px;background:rgba(34,197,94,0.12);color:#22c55e;border:1px solid rgba(34,197,94,0.3)" title="Two-Factor Authentication is active"><i class="fas fa-shield-alt"></i> 2FA ON</span>'
+                : '<span style="display:inline-flex;align-items:center;gap:3px;font-size:0.62rem;font-weight:700;padding:0.12rem 0.4rem;border-radius:4px;background:rgba(100,116,139,0.12);color:#64748b;border:1px solid rgba(100,116,139,0.25)" title="No two-factor authentication"><i class="fas fa-shield-alt"></i> 2FA OFF</span>';
+
+            // Locked badge (shows only when currently locked)
+            var isLocked = u.lockedUntil && new Date(u.lockedUntil) > new Date();
+            var lockedBadge = isLocked
+                ? ' <span style="display:inline-flex;align-items:center;gap:3px;font-size:0.62rem;font-weight:700;padding:0.12rem 0.4rem;border-radius:4px;background:rgba(239,68,68,0.12);color:#fca5a5;border:1px solid rgba(239,68,68,0.3)" title="Account locked — too many failed login attempts"><i class="fas fa-lock"></i> LOCKED</span>'
+                : '';
+
             _uRows +=
-                '<tr style="border-bottom:1px solid rgba(255,255,255,0.04)" onmouseover="this.style.background=\'rgba(255,255,255,0.02)\'" onmouseout="this.style.background=\'\'">' +
+                '<tr style="border-bottom:1px solid rgba(255,255,255,0.04)" onmouseover="this.style.background=\'rgba(255,255,255,0.02)\'" onmouseout="this.style.background=\'\'"\'>' +
                     '<td style="padding:0.55rem 1rem"><div style="font-weight:600">' + (u.firstName||'') + ' ' + (u.lastName||'') + '</div><div style="font-size:0.7rem;color:var(--text-muted)">@' + u.username + ' &bull; ' + (u.email||'\u2014') + '</div></td>' +
                     '<td style="padding:0.55rem 1rem">' +
-                        /* BO-01: show role name label above the selector */
                         '<div style="font-size:0.65rem;font-weight:600;color:' + rc + ';margin-bottom:0.2rem">' + (ROLE_NAMES[u.roleId] || ('Role #' + u.roleId)) + '</div>' +
                         '<select style="background:' + rc + '22;color:' + rc + ';border:1px solid ' + rc + '44;border-radius:4px;padding:0.2rem 0.4rem;font-size:0.7rem;font-weight:700;cursor:pointer" onchange="updateUserRole(' + u.id + ',this.value,this)">' +
                             roleOpts +
                         '</select>' +
                     '</td>' +
-                    '<td style="padding:0.55rem 1rem"><span style="font-size:0.65rem;font-weight:700;border-radius:4px;padding:0.15rem 0.45rem;background:' + ac + '22;color:' + ac + ';border:1px solid ' + ac + '44">' + (u.isActive?'Active':'Disabled') + '</span></td>' +
+                    '<td style="padding:0.55rem 1rem">' +
+                        '<span style="font-size:0.65rem;font-weight:700;border-radius:4px;padding:0.15rem 0.45rem;background:' + ac + '22;color:' + ac + ';border:1px solid ' + ac + '44">' + (u.isActive?'Active':'Disabled') + '</span>' +
+                    '</td>' +
+                    '<td style="padding:0.55rem 1rem">' +
+                        '<div style="display:flex;flex-direction:column;gap:3px">' + twoFaBadge + lockedBadge + '</div>' +
+                    '</td>' +
                     '<td style="padding:0.55rem 1rem;color:var(--text-muted);font-size:0.72rem">' + (u.activityCount||0) + ' events<br><span style="font-size:0.68rem">' + (u.lastActivity?new Date(u.lastActivity).toLocaleDateString():'Never') + '</span></td>' +
                     '<td style="padding:0.55rem 1rem">' +
                         '<div style="display:flex;gap:0.35rem;flex-wrap:wrap">' +
                             '<button class="btn-bo" style="padding:0.25rem 0.5rem;font-size:0.68rem;' + toggleStyle + '" onclick="toggleUserActive(' + u.id + ',' + (!u.isActive) + ',this)">' + toggleLabel + '</button>' +
                             '<button class="btn-bo btn-bo-outline" style="padding:0.25rem 0.5rem;font-size:0.68rem" onclick="openResetPwd(' + u.id + ',\'' + (u.firstName||'') + ' ' + (u.lastName||'') + '\')"><i class="fas fa-key me-1"></i>Reset PWD</button>' +
+                            (u.twoFactorEnabled ? '<button class="btn-bo" style="padding:0.25rem 0.5rem;font-size:0.68rem;background:rgba(245,158,11,0.12);color:#fbbf24;border:1px solid rgba(245,158,11,0.3)" onclick="resetUser2FA(' + u.id + ',\'' + (u.firstName||'') + ' ' + (u.lastName||'') + '\')"><i class="fas fa-shield-alt me-1"></i>Reset 2FA</button>' : '') +
+                            (isLocked ? '<button class="btn-bo" style="padding:0.25rem 0.5rem;font-size:0.68rem;background:rgba(16,185,129,0.12);color:#6ee7b7;border:1px solid rgba(16,185,129,0.3)" onclick="unlockUser(' + u.id + ',\'' + (u.firstName||'') + ' ' + (u.lastName||'') + '\')"><i class="fas fa-lock-open me-1"></i>Unlock</button>' : '') +
                         '</div>' +
                     '</td>' +
                 '</tr>';
         });
         var _uThHtml = '';
-        ['User','Role','Status','Activity','Actions'].forEach(function(h) {
+        ['User','Role','Status','2FA / Lock','Activity','Actions'].forEach(function(h) {
             _uThHtml += '<th style="padding:0.5rem 1rem;text-align:left;color:var(--text-muted);font-size:0.68rem;text-transform:uppercase">' + h + '</th>';
         });
         document.getElementById('usersList').innerHTML =
@@ -486,23 +504,27 @@ async function loadUsers() {
     } catch(e) { document.getElementById('usersList').innerHTML='<p style="color:#fca5a5;padding:2rem">'+e.message+'</p>'; }
 }
 
+
 // ── Export Users CSV ──────────────────────────────────────────────────────
 function exportUsersCSV() {
     if (!_usersData.length) { toast('No user data to export.', 'info'); return; }
-    var cols = ['id','username','firstName','lastName','email','roleId','roleName','isActive','activityCount','lastActivity','createdAt'];
+    var cols = ['id','username','firstName','lastName','email','roleId','roleName','isActive','twoFactorEnabled','isLocked','activityCount','lastActivity','createdAt'];
     var rows = _usersData.map(function(u) {
+        var locked = u.lockedUntil && new Date(u.lockedUntil) > new Date();
         return {
-            id:            u.id,
-            username:      u.username,
-            firstName:     u.firstName || '',
-            lastName:      u.lastName  || '',
-            email:         u.email     || '',
-            roleId:        u.roleId,
-            roleName:      ROLE_NAMES[u.roleId] || '',
-            isActive:      u.isActive ? 'Yes' : 'No',
-            activityCount: u.activityCount || 0,
-            lastActivity:  u.lastActivity ? new Date(u.lastActivity).toLocaleString() : '',
-            createdAt:     u.createdAt ? new Date(u.createdAt).toLocaleString() : '',
+            id:               u.id,
+            username:         u.username,
+            firstName:        u.firstName || '',
+            lastName:         u.lastName  || '',
+            email:            u.email     || '',
+            roleId:           u.roleId,
+            roleName:         ROLE_NAMES[u.roleId] || '',
+            isActive:         u.isActive ? 'Yes' : 'No',
+            twoFactorEnabled: u.twoFactorEnabled ? 'Yes' : 'No',
+            isLocked:         locked ? 'Yes' : 'No',
+            activityCount:    u.activityCount || 0,
+            lastActivity:     u.lastActivity ? new Date(u.lastActivity).toLocaleString() : '',
+            createdAt:        u.createdAt ? new Date(u.createdAt).toLocaleString() : '',
         };
     });
     _downloadCSV('users-export-' + new Date().toISOString().slice(0,10) + '.csv', cols, rows);
@@ -549,6 +571,32 @@ async function toggleUserActive(id, newState, btn) {
         toast('\u2713 User ' + (newState?'enabled':'disabled'),'success');
         usersLoaded=false; await loadUsers();
     } catch(e) { toast('Update failed: '+e.message,'danger'); btn.disabled=false; }
+}
+
+// ── Admin: Reset a user's 2FA so they can re-enroll ────────────────────────
+async function resetUser2FA(id, name) {
+    if (!confirm('Reset 2FA for ' + name + '?\n\nThis will clear their authenticator setup and backup codes. They can re-enroll from My Account.')) return;
+    try {
+        var res = await apiFetch('/api/admin/users/' + id + '/reset-2fa', {method:'DELETE'});
+        var data = await res.json();
+        if (!res.ok) throw new Error(data.message || data.error || 'Failed');
+        toast('\u2713 ' + (data.message || '2FA reset for ' + name), 'success');
+        usersLoaded = false;
+        await loadUsers();
+    } catch(e) { toast('Reset 2FA failed: ' + e.message, 'danger'); }
+}
+
+// ── Admin: Unlock a locked account ────────────────────────────────────────
+async function unlockUser(id, name) {
+    if (!confirm('Unlock account for ' + name + '?\n\nThis will clear the lockout and allow them to log in immediately.')) return;
+    try {
+        var res = await apiFetch('/api/admin/users/' + id + '/unlock', {method:'POST'});
+        var data = await res.json();
+        if (!res.ok) throw new Error(data.message || data.error || 'Failed');
+        toast('\u2713 ' + (data.message || name + ' account unlocked'), 'success');
+        usersLoaded = false;
+        await loadUsers();
+    } catch(e) { toast('Unlock failed: ' + e.message, 'danger'); }
 }
 
 // --------------------------------------------------------------------------
