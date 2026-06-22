@@ -21,6 +21,66 @@ function _downloadCSV(filename, cols, rows) {
     URL.revokeObjectURL(url);
 }
 
+// BO-03: Cache stores for export
+var _orphansData     = [];
+var _locksData       = [];
+var _healthTableData = [];
+
+/* BO-03: Orphan export — data cached after scan */
+function exportOrphansCSV() {
+    if (!_orphansData || !_orphansData.length) { toast('Run a scan first to generate export data.', 'info'); return; }
+    var cols = ['childTable','childColumn','parentTable','parentColumn','orphanCount','sampleIds'];
+    var rows = _orphansData.map(function(o) {
+        return {
+            childTable:   o.childTable   || '',
+            childColumn:  o.childColumn  || '',
+            parentTable:  o.parentTable  || '',
+            parentColumn: o.parentColumn || '',
+            orphanCount:  o.orphanCount  || 0,
+            sampleIds:    (o.sampleIds   || []).join('|')
+        };
+    });
+    _downloadCSV('orphans-' + new Date().toISOString().slice(0,10) + '.csv', cols, rows);
+    toast('\u2713 Exported orphan data', 'success');
+}
+
+/* BO-03: Lock export — data cached after loadLocks() */
+function exportLocksCSV() {
+    if (!_locksData || !_locksData.length) { toast('No lock data to export.', 'info'); return; }
+    var cols = ['id','status','patientName','patientId','lockedBy','username','lockedAt','expiresAt','secsRemaining'];
+    var rows = _locksData.map(function(l) {
+        return {
+            id:            l.id,
+            status:        l.isActive ? 'Active' : 'Expired',
+            patientName:   l.patientName || '',
+            patientId:     l.patientId,
+            lockedBy:      l.userName || '',
+            username:      l.username || '',
+            lockedAt:      l.lockedAt  ? new Date(l.lockedAt).toLocaleString()  : '',
+            expiresAt:     l.expiresAt ? new Date(l.expiresAt).toLocaleString() : '',
+            secsRemaining: l.secsRemaining || 0
+        };
+    });
+    _downloadCSV('locks-' + new Date().toISOString().slice(0,10) + '.csv', cols, rows);
+    toast('\u2713 Exported ' + rows.length + ' lock(s)', 'success');
+}
+
+/* BO-03: Health table stats export — data cached after loadHealth() */
+function exportHealthCSV() {
+    if (!_healthTableData || !_healthTableData.length) { toast('Load health data first.', 'info'); return; }
+    var cols = ['table','rowEstimate','totalSize','sizeBytes'];
+    var rows = _healthTableData.map(function(t) {
+        return {
+            table:       t.table       || '',
+            rowEstimate: t.rowEstimate || 0,
+            totalSize:   t.totalSize   || '',
+            sizeBytes:   t.sizeBytes   || 0
+        };
+    });
+    _downloadCSV('health-tables-' + new Date().toISOString().slice(0,10) + '.csv', cols, rows);
+    toast('\u2713 Exported health data', 'success');
+}
+
 // ══════════════════════════════════════════════════════════════════════════
 // SYSTEM SETTINGS JS
 // ══════════════════════════════════════════════════════════════════════════
@@ -41,10 +101,15 @@ async function loadSettings() {
         cb.checked = !!data.maintenanceMode;
         document.getElementById('sMaintenanceToggle').style.background = cb.checked ? '#6366f1' : '#334155';
         document.getElementById('sMaintenanceKnob').style.left = cb.checked ? '24px' : '4px';
-        cb.addEventListener('change', function() {
+        /* BO-10: Show/hide maintenance banner */
+        function _updateMaintBanner() {
+            var banner = document.getElementById('maintModeBanner');
+            if (banner) banner.style.display = cb.checked ? '' : 'none';
             document.getElementById('sMaintenanceToggle').style.background = cb.checked ? '#6366f1' : '#334155';
             document.getElementById('sMaintenanceKnob').style.left = cb.checked ? '24px' : '4px';
-        });
+        }
+        _updateMaintBanner();
+        cb.addEventListener('change', _updateMaintBanner);
     } catch(e) { toast('Failed to load settings: ' + e.message, 'danger'); }
 }
 
@@ -147,6 +212,38 @@ async function deleteBackup(name, btn) {
 // ══════════════════════════════════════════════════════════════════════════
 var healthLoaded = false;
 
+/* BO-04: Auto-refresh timer */
+var _healthTimer     = null;
+var _healthCountSecs = 30;
+
+function startHealthCountdown() {
+    stopHealthCountdown();
+    _healthCountSecs = 30;
+    var badge = document.getElementById('healthCountdown');
+    var numEl = document.getElementById('healthCountdownNum');
+    if (badge) badge.style.display = '';
+    _healthTimer = setInterval(function() {
+        _healthCountSecs--;
+        if (numEl) numEl.textContent = _healthCountSecs;
+        if (_healthCountSecs <= 0) {
+            stopHealthCountdown();
+            loadHealth();
+        }
+    }, 1000);
+}
+
+function stopHealthCountdown() {
+    clearInterval(_healthTimer);
+    _healthTimer = null;
+    var badge = document.getElementById('healthCountdown');
+    if (badge) badge.style.display = 'none';
+}
+
+function manualHealthRefresh() {
+    stopHealthCountdown();
+    loadHealth();
+}
+
 async function loadHealth() {
     healthLoaded = false;
     document.getElementById('healthCards').innerHTML = '';
@@ -156,6 +253,7 @@ async function loadHealth() {
         var data = await res.json();
         if (!res.ok) throw new Error(data.error||'Failed');
         healthLoaded = true;
+        startHealthCountdown(); /* BO-04 */
         var fmtB  = function(b) { return !b?'0 B':b<1024?b+' B':b<1048576?(b/1024).toFixed(1)+' KB':(b/1048576).toFixed(1)+' MB'; };
         var fmtUp = function(s) { return Math.floor(s/3600)+'h '+Math.floor((s%3600)/60)+'m'; };
         var n=data.node, d=data.db;
@@ -208,6 +306,10 @@ async function loadHealth() {
                 '<thead><tr style="background:var(--surface-2);border-bottom:1px solid var(--border)">' + _thHtml + '</tr></thead>' +
                 '<tbody>' + _tbRows + '</tbody>' +
             '</table></div>';
+        /* BO-03: cache for export */
+        _healthTableData = data.tableStats || [];
+        var _hExpBtn = document.getElementById('healthExportBtn');
+        if (_hExpBtn) _hExpBtn.style.display = _healthTableData.length ? '' : 'none';
     } catch(e) { document.getElementById('healthTables').innerHTML='<p style="color:#fca5a5;padding:2rem">'+e.message+'</p>'; }
 }
 
@@ -215,6 +317,20 @@ async function loadHealth() {
 // LOCK MANAGER JS
 // ══════════════════════════════════════════════════════════════════════════
 var locksLoaded = false;
+
+/* BO-07: Format seconds to human-readable duration */
+function _fmtDuration(secs) {
+    if (secs < 0) secs = -secs;
+    if (secs < 60)   return secs + 's';
+    if (secs < 3600) return Math.floor(secs/60) + 'm ' + (secs%60) + 's';
+    return Math.floor(secs/3600) + 'h ' + Math.floor((secs%3600)/60) + 'm';
+}
+
+/* BO-07: "X ago" from a timestamp string */
+function _fmtAgo(dateStr) {
+    var diffSecs = Math.floor((new Date() - new Date(dateStr)) / 1000);
+    return _fmtDuration(diffSecs) + ' ago';
+}
 
 async function loadLocks() {
     locksLoaded = false;
@@ -224,6 +340,10 @@ async function loadLocks() {
         var data = await res.json();
         if (!res.ok) throw new Error(data.error||'Failed');
         locksLoaded = true;
+        /* BO-03: cache for export */
+        _locksData = data.locks || [];
+        var _lExpBtn = document.getElementById('locksExportBtn');
+        if (_lExpBtn) _lExpBtn.style.display = _locksData.length ? '' : 'none';
         document.getElementById('locksStatus').innerHTML =
             '<div style="display:flex;gap:0.75rem;flex-wrap:wrap">' +
                 '<span style="background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.25);color:#6ee7b7;border-radius:6px;padding:0.35rem 0.75rem;font-size:0.78rem;font-weight:600">&#128274; ' + data.active + ' Active</span>' +
@@ -236,19 +356,29 @@ async function loadLocks() {
         var _lkRows = '';
         data.locks.forEach(function(l) {
             var lc = l.isActive ? '#10b981' : '#64748b';
-            var sl = l.isActive ? '(' + Math.floor(l.secsRemaining/60) + 'm ' + (l.secsRemaining%60) + 's left)' : '';
             _lkRows +=
-                '<tr style="border-bottom:1px solid rgba(255,255,255,0.04)" onmouseover="this.style.background=\'rgba(255,255,255,0.02)\'" onmouseout="this.style.background=\'\'">' +
+                '<tr style="border-bottom:1px solid rgba(255,255,255,0.04)" onmouseover="this.style.background=\'rgba(255,255,255,0.02)\'" onmouseout="this.style.background=\'\'">'+
                     '<td style="padding:0.45rem 1rem"><span style="font-size:0.65rem;font-weight:700;border-radius:4px;padding:0.15rem 0.45rem;background:' + lc + '22;color:' + lc + ';border:1px solid ' + lc + '44">' + (l.isActive?'Active':'Expired') + '</span></td>' +
                     '<td style="padding:0.45rem 1rem">' + (l.patientName||'#'+l.patientId) + '</td>' +
                     '<td style="padding:0.45rem 1rem;color:var(--text-muted)">' + (l.userName||'') + ' <span style="font-size:0.68rem">(' + (l.username||'') + ')</span></td>' +
-                    '<td style="padding:0.45rem 1rem;color:var(--text-muted);font-size:0.72rem;white-space:nowrap">' + new Date(l.lockedAt).toLocaleString() + '</td>' +
-                    '<td style="padding:0.45rem 1rem;color:var(--text-muted);font-size:0.72rem;white-space:nowrap">' + new Date(l.expiresAt).toLocaleString() + ' ' + sl + '</td>' +
+                    /* BO-07: Acquired timestamp + "X ago" */
+                    '<td style="padding:0.45rem 1rem;font-size:0.72rem;white-space:nowrap">' +
+                        '<div style="color:var(--text-muted)">' + new Date(l.lockedAt).toLocaleString() + '</div>' +
+                        '<div style="color:#94a3b8;font-size:0.67rem;margin-top:0.1rem"><i class="fas fa-clock me-1"></i>' + _fmtAgo(l.lockedAt) + '</div>' +
+                    '</td>' +
+                    /* BO-07: Expires + time remaining or expired X ago */
+                    '<td style="padding:0.45rem 1rem;font-size:0.72rem;white-space:nowrap">' +
+                        '<div style="color:var(--text-muted)">' + new Date(l.expiresAt).toLocaleString() + '</div>' +
+                        (l.isActive
+                            ? '<div style="color:#10b981;font-size:0.67rem;font-weight:600;margin-top:0.1rem"><i class="fas fa-hourglass-half me-1"></i>' + _fmtDuration(l.secsRemaining) + ' left</div>'
+                            : '<div style="color:#ef4444;font-size:0.67rem;font-weight:600;margin-top:0.1rem"><i class="fas fa-times-circle me-1"></i>Expired ' + _fmtAgo(l.expiresAt) + '</div>'
+                        ) +
+                    '</td>' +
                     '<td style="padding:0.45rem 1rem"><button class="btn-bo btn-bo-danger" style="padding:0.25rem 0.6rem;font-size:0.7rem" onclick="releaseLock(' + l.id + ',this)"><i class="fas fa-times me-1"></i>Release</button></td>' +
                 '</tr>';
         });
         var _lkThHtml = '';
-        ['Status','Patient','Locked By','Locked At','Expires','Action'].forEach(function(h) {
+        ['Status','Patient','Locked By','Acquired','Expires / Status','Action'].forEach(function(h) {
             _lkThHtml += '<th style="padding:0.5rem 1rem;text-align:left;color:var(--text-muted);font-size:0.68rem;text-transform:uppercase">' + h + '</th>';
         });
         document.getElementById('locksList').innerHTML =
@@ -315,6 +445,8 @@ async function loadUsers() {
                 '<tr style="border-bottom:1px solid rgba(255,255,255,0.04)" onmouseover="this.style.background=\'rgba(255,255,255,0.02)\'" onmouseout="this.style.background=\'\'">' +
                     '<td style="padding:0.55rem 1rem"><div style="font-weight:600">' + (u.firstName||'') + ' ' + (u.lastName||'') + '</div><div style="font-size:0.7rem;color:var(--text-muted)">@' + u.username + ' &bull; ' + (u.email||'\u2014') + '</div></td>' +
                     '<td style="padding:0.55rem 1rem">' +
+                        /* BO-01: show role name label above the selector */
+                        '<div style="font-size:0.65rem;font-weight:600;color:' + rc + ';margin-bottom:0.2rem">' + (ROLE_NAMES[u.roleId] || ('Role #' + u.roleId)) + '</div>' +
                         '<select style="background:' + rc + '22;color:' + rc + ';border:1px solid ' + rc + '44;border-radius:4px;padding:0.2rem 0.4rem;font-size:0.7rem;font-weight:700;cursor:pointer" onchange="updateUserRole(' + u.id + ',this.value,this)">' +
                             roleOpts +
                         '</select>' +
@@ -510,8 +642,22 @@ async function loadErrorLogs(page) {
             var resC = r.resolved ? '#10b981' : '#64748b';
             var _msgEsc  = String(r.message||'').replace(/"/g,'&quot;');
             var _urlEsc  = String(r.url||'').replace(/"/g,'&quot;');
-            var _stackHtml = r.stack ?
-                '<tr id="edetail-' + r.id + '" style="display:none;background:rgba(0,0,0,0.3)"><td colspan="9" style="padding:0.5rem 1rem"><pre style="font-size:0.65rem;color:#fca5a5;white-space:pre-wrap;word-break:break-all;max-height:200px;overflow:auto;margin:0">' + String(r.stack||'').replace(/</g,'&lt;') + '</pre></td></tr>' : '';
+            /* BO-09: Enhanced stack trace accordion */
+            var _stackSafe = String(r.stack || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+            var _stackHtml = r.stack
+                ? '<tr id="edetail-' + r.id + '" style="display:none;background:rgba(0,0,0,0.4)">' +
+                      '<td colspan="9" style="padding:0;border-bottom:2px solid rgba(239,68,68,0.2)">' +
+                          '<div style="padding:0.75rem 1rem 1rem">' +
+                              '<div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.5rem">' +
+                                  '<i class="fas fa-code" style="color:#fca5a5;font-size:0.75rem"></i>' +
+                                  '<span style="font-size:0.72rem;font-weight:700;color:#fca5a5;text-transform:uppercase;letter-spacing:.06em">Stack Trace</span>' +
+                                  '<button class="btn-bo btn-bo-outline" style="padding:0.15rem 0.45rem;font-size:0.62rem;margin-left:auto" onclick="copyStack(' + r.id + ',this)"><i class="fas fa-copy me-1"></i>Copy</button>' +
+                              '</div>' +
+                              '<pre id="estack-' + r.id + '" style="font-size:0.63rem;color:#f1a1a1;background:rgba(0,0,0,0.5);border:1px solid rgba(239,68,68,0.15);border-radius:6px;padding:0.75rem;white-space:pre-wrap;word-break:break-all;max-height:250px;overflow:auto;margin:0;line-height:1.5">' + _stackSafe + '</pre>' +
+                          '</div>' +
+                      '</td>' +
+                  '</tr>'
+                : '';
             _eRows +=
                 '<tr id="erow-' + r.id + '" style="border-bottom:1px solid rgba(255,255,255,0.04)" onmouseover="this.style.background=\'rgba(255,255,255,0.02)\'" onmouseout="this.style.background=\'\'">' +
                     '<td style="padding:0.4rem 0.625rem"><input type="checkbox" class="err-chk" value="' + r.id + '" onchange="onErrCheck(' + r.id + ',this.checked)"></td>' +
@@ -522,7 +668,12 @@ async function loadErrorLogs(page) {
                     '<td style="padding:0.4rem 0.75rem;white-space:nowrap;font-size:0.7rem">' + (r.username||'<span style="color:var(--text-muted)">System</span>') + '</td>' +
                     '<td style="padding:0.4rem 0.75rem;color:var(--text-muted);white-space:nowrap;font-size:0.7rem">' + new Date(r.createdAt).toLocaleString() + '</td>' +
                     '<td style="padding:0.4rem 0.75rem"><span style="font-size:0.63rem;font-weight:700;border-radius:4px;padding:0.12rem 0.4rem;background:' + resC + '22;color:' + resC + ';border:1px solid ' + resC + '44">' + (r.resolved?'Resolved':'Open') + '</span></td>' +
-                    '<td style="padding:0.4rem 0.75rem"><button class="btn-bo btn-bo-outline" style="padding:0.18rem 0.4rem;font-size:0.65rem" onclick="showErrDetail(' + r.id + ')"><i class="fas fa-eye"></i></button></td>' +
+                    '<td style="padding:0.4rem 0.75rem">' +
+                        (r.stack
+                            ? '<button class="btn-bo btn-bo-outline" style="padding:0.18rem 0.5rem;font-size:0.63rem;white-space:nowrap" onclick="showErrDetail(' + r.id + ',this)"><i class="fas fa-code me-1"></i>Stack</button>'
+                            : '<span style="font-size:0.63rem;color:var(--text-muted)">&mdash;</span>'
+                        ) +
+                    '</td>' +
                 '</tr>' +
                 _stackHtml;
         });
@@ -596,9 +747,29 @@ async function exportErrorLogsCSV() {
     finally { if (_ebtn) { _ebtn.disabled = false; _ebtn.innerHTML = '<i class="fas fa-file-csv me-1"></i>Export CSV'; } }
 }
 
-function showErrDetail(id) {
+/* BO-09: Enhanced show/hide with button state feedback */
+function showErrDetail(id, btn) {
     var row = document.getElementById('edetail-'+id);
-    if (row) row.style.display = row.style.display === 'none' ? '' : 'none';
+    if (!row) return;
+    var isShown = row.style.display !== 'none';
+    row.style.display = isShown ? 'none' : '';
+    if (btn) {
+        btn.style.background   = isShown ? '' : 'rgba(239,68,68,0.12)';
+        btn.style.borderColor  = isShown ? '' : 'rgba(239,68,68,0.3)';
+        btn.style.color        = isShown ? '' : '#fca5a5';
+    }
+}
+
+/* BO-09: Copy stack trace text to clipboard */
+function copyStack(id, btn) {
+    var pre = document.getElementById('estack-'+id);
+    if (!pre) return;
+    if (navigator.clipboard) {
+        navigator.clipboard.writeText(pre.textContent).then(function() {
+            btn.innerHTML = '<i class="fas fa-check me-1"></i>Copied!';
+            setTimeout(function() { btn.innerHTML = '<i class="fas fa-copy me-1"></i>Copy'; }, 2000);
+        });
+    }
 }
 
 function onErrCheck(id, checked) {
@@ -886,6 +1057,19 @@ async function loadAnalytics() {
                 '<tbody>' + _aTr + '</tbody>' +
             '</table></div>' +
             '<div style="font-size:0.68rem;color:var(--text-muted);margin-top:.5rem;text-align:right">' + rows.length + ' snapshot(s) in range</div>';
+        /* BO-06: Sparklines — last 30 snapshots */
+        var _spRows = rows.slice(-30);
+        var _spLbls = _spRows.map(function(r) { return r.snapshotDate; });
+        anlMakeChart('sparkPatients', { type:'line', data:{ labels:_spLbls, datasets:[{ data:_spRows.map(function(r){return r.activePatients;}), borderColor:'#10b981', backgroundColor:'rgba(16,185,129,0.08)', tension:0.4, fill:true, pointRadius:0, borderWidth:2 }] }, options:{ responsive:true, animation:{duration:300}, plugins:{legend:{display:false},tooltip:{enabled:false}}, scales:{x:{display:false},y:{display:false,beginAtZero:false}} } });
+        var _pFirst = _spRows.length > 1 ? (_spRows[0].activePatients || 0) : null;
+        var _pLast  = _spRows.length > 0 ? (_spRows[_spRows.length-1].activePatients || 0) : null;
+        var _pDelta = document.getElementById('sparkPatientsDelta');
+        if (_pDelta && _pFirst !== null) { var _pd = _pLast - _pFirst; var _pc = _pd>=0?'#10b981':'#ef4444'; _pDelta.innerHTML = '<span style="color:' + _pc + ';font-weight:600">' + (_pd>=0?String.fromCharCode(8593):String.fromCharCode(8595)) + Math.abs(_pd) + '</span> vs 30d ago &bull; Latest: <strong>' + _pLast + '</strong>'; }
+        anlMakeChart('sparkRX', { type:'line', data:{ labels:_spLbls, datasets:[{ data:_spRows.map(function(r){return r.totalRX;}), borderColor:'#f59e0b', backgroundColor:'rgba(245,158,11,0.08)', tension:0.4, fill:true, pointRadius:0, borderWidth:2 }] }, options:{ responsive:true, animation:{duration:300}, plugins:{legend:{display:false},tooltip:{enabled:false}}, scales:{x:{display:false},y:{display:false,beginAtZero:false}} } });
+        var _rFirst = _spRows.length > 1 ? (_spRows[0].totalRX || 0) : null;
+        var _rLast  = _spRows.length > 0 ? (_spRows[_spRows.length-1].totalRX || 0) : null;
+        var _rDelta = document.getElementById('sparkRXDelta');
+        if (_rDelta && _rFirst !== null) { var _rd = _rLast - _rFirst; var _rc = _rd>=0?'#10b981':'#ef4444'; _rDelta.innerHTML = '<span style="color:' + _rc + ';font-weight:600">' + (_rd>=0?String.fromCharCode(8593):String.fromCharCode(8595)) + Math.abs(_rd) + '</span> vs 30d ago &bull; Latest: <strong>' + _rLast + '</strong>'; }
 
     } catch(e) {
         document.getElementById('anlTableWrap').innerHTML = '<p style="color:#fca5a5;padding:2rem">'+e.message+'</p>';

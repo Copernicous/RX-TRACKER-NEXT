@@ -1,5 +1,14 @@
 [
   {
+    "id": 1782108000301,
+    "filename": "backup_2026-06-22T06-00-00.dump",
+    "timestamp": "2026-06-22T06:00:00.301Z",
+    "triggeredBy": "Scheduled",
+    "status": "success",
+    "size": 104123,
+    "error": null
+  },
+  {
     "id": 1782063088650,
     "filename": "backup_2026-06-21T17-31-28.dump",
     "timestamp": "2026-06-21T17:31:28.650Z",

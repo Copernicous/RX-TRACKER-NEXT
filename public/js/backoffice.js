@@ -15,7 +15,7 @@ var viewerVis     = {};
 var viewerFilter  = '';
 var viewerFiltRows = [];
 var viewerPage    = 1;
-var viewerPageSize= 50;
+var viewerPageSize= 20; // BO-08: default preview size
 var viewerSortCol = null;
 var viewerSortDir = 'asc';
 var viewerMeta    = null;
@@ -557,6 +557,12 @@ function openConfirm() {
     });
     document.getElementById('confirmSummary').innerHTML = _sumHtml;
     document.getElementById('confirmPhrase').value = '';
+    document.getElementById('confirmPhrase').classList.remove('valid');
+    /* BO-05: clear username input and show the hint */
+    var _unInput = document.getElementById('confirmUsername');
+    if (_unInput) { _unInput.value = ''; _unInput.classList.remove('valid'); }
+    var _hint = document.getElementById('usernameHint');
+    if (_hint) _hint.textContent = (USER && USER.username) ? USER.username : 'username';
     document.getElementById('confirmPurgeBtn').disabled = true;
     document.getElementById('confirmBackdrop').classList.add('show');
     setTimeout(function() { document.getElementById('confirmPhrase').focus(); }, 80);
@@ -564,16 +570,30 @@ function openConfirm() {
 
 function closeConfirm() { document.getElementById('confirmBackdrop').classList.remove('show'); }
 
+/* BO-05: Require both DELETE FOREVER and the admin's own username */
 function checkPhrase() {
-    var ok = document.getElementById('confirmPhrase').value === 'DELETE FOREVER';
-    document.getElementById('confirmPhrase').classList.toggle('valid', ok);
-    document.getElementById('confirmPurgeBtn').disabled = !ok;
+    var phraseOk = document.getElementById('confirmPhrase').value === 'DELETE FOREVER';
+    document.getElementById('confirmPhrase').classList.toggle('valid', phraseOk);
+    var usernameOk = false;
+    var _unInput = document.getElementById('confirmUsername');
+    if (_unInput) {
+        var expected = (USER && USER.username) ? USER.username.toLowerCase() : '';
+        usernameOk = expected && _unInput.value.trim().toLowerCase() === expected;
+        _unInput.classList.toggle('valid', usernameOk);
+    }
+    document.getElementById('confirmPurgeBtn').disabled = !(phraseOk && usernameOk);
 }
 
 document.getElementById('confirmBackdrop').addEventListener('click', function(e) { if (e.target === e.currentTarget) closeConfirm(); });
 
 async function executePurge() {
     if (document.getElementById('confirmPhrase').value !== 'DELETE FOREVER') return;
+    /* BO-05: also check username */
+    var _unInput = document.getElementById('confirmUsername');
+    if (_unInput) {
+        var expected = (USER && USER.username) ? USER.username.toLowerCase() : '';
+        if (!expected || _unInput.value.trim().toLowerCase() !== expected) return;
+    }
     var btn = document.getElementById('confirmPurgeBtn');
     var sp  = document.getElementById('purgeSpinner');
     var ic  = document.getElementById('purgeIcon');
@@ -617,6 +637,8 @@ function switchTab(tab) {
     if (tab === 'users'     && !usersLoaded)     loadUsers();
     if (tab === 'errlog'    && !errlogLoaded)    loadErrorLogs(1);
     if (tab === 'analytics' && !analyticsLoaded) loadAnalytics();
+    /* BO-04: Stop health countdown when leaving health tab */
+    if (tab !== 'health' && typeof stopHealthCountdown === 'function') stopHealthCountdown();
 }
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -998,6 +1020,7 @@ async function deleteDupPatient(id, btn) {
 var auditLoaded = false;
 var auditCurrentPage = 1;
 var auditDebounceTimer = null;
+var auditPageSz = 50; /* BO-02: controlled by top selector */
 
 function auditDebounce() {
     clearTimeout(auditDebounceTimer);
@@ -1010,6 +1033,13 @@ function clearAuditFilters() {
     loadAuditLogs(1);
 }
 
+/* BO-02: Called when user changes the top page-size selector */
+function onAuditPageSizeChange() {
+    var sel = document.getElementById('auditPageSizeTop');
+    if (sel) auditPageSz = parseInt(sel.value, 10) || 50;
+    loadAuditLogs(1);
+}
+
 async function loadAuditLogs(page) {
     auditCurrentPage = page || 1;
     var _auditSearch   = document.getElementById('auditSearch')   ? document.getElementById('auditSearch').value   : '';
@@ -1019,7 +1049,8 @@ async function loadAuditLogs(page) {
     var _auditDateTo   = document.getElementById('auditDateTo')   ? document.getElementById('auditDateTo').value   : '';
     var params = new URLSearchParams({
         page:     auditCurrentPage,
-        size:     50,
+        /* BO-02: read page size from top selector each call */
+        size:     (function() { var s = document.getElementById('auditPageSizeTop'); if (s) auditPageSz = parseInt(s.value, 10) || 50; return auditPageSz; })(),
         search:   _auditSearch,
         action:   _auditAction,
         entity:   _auditEntity,
@@ -1043,6 +1074,10 @@ async function loadAuditLogs(page) {
             });
             sel.innerHTML = _opts;
         }
+
+        /* BO-02: update total count badge */
+        var _badge = document.getElementById('auditCountBadge');
+        if (_badge) _badge.textContent = (data.total || 0).toLocaleString() + ' total records';
 
         document.getElementById('auditStatus').textContent = 'Showing ' + data.rows.length + ' of ' + data.total.toLocaleString() + ' entries | Page ' + data.page + ' of ' + data.pages;
 

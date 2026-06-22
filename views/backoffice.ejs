@@ -297,6 +297,15 @@
         <p><strong>Danger Zone.</strong> Deletions are <strong>permanent and irreversible</strong>. Use <strong>View</strong> to inspect data and <strong>Export CSV</strong> to back up before purging.</p>
     </div>
 
+    <!-- BO-10: Maintenance Mode Banner (shown when active) -->
+    <div id="maintModeBanner" style="display:none;background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.35);border-radius:8px;padding:0.6rem 1rem;margin-bottom:1rem;display:none;align-items:center;gap:0.75rem">
+        <i class="fas fa-hard-hat" style="color:#f59e0b;font-size:1.1rem"></i>
+        <div style="flex:1">
+            <span style="color:#fbbf24;font-weight:700;font-size:0.82rem">MAINTENANCE MODE IS ON</span>
+            <span style="color:#94a3b8;font-size:0.75rem;margin-left:0.5rem">Non-admin users cannot log in. <button onclick="switchTab('settings')" style="background:none;border:none;color:#a5b4fc;cursor:pointer;font-size:0.75rem;padding:0;text-decoration:underline">Go to Settings to disable</button></span>
+        </div>
+    </div>
+
     <!-- Tab Navigation -->
     <div class="tab-nav">
         <button class="tab-btn active" id="tabTables" onclick="switchTab('tables')"><i class="fas fa-table"></i>Tables &amp; Data</button>
@@ -433,6 +442,19 @@
                 </div>
             </div>
         </div>
+        <!-- BO-02: Top pagination controls -->
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.5rem;margin-bottom:0.5rem">
+            <div id="auditCountBadge" style="font-size:0.75rem;color:var(--text-muted)"></div>
+            <div style="display:flex;align-items:center;gap:0.5rem">
+                <span style="font-size:0.73rem;color:var(--text-muted)">Rows per page:</span>
+                <select id="auditPageSizeTop" class="schema-search" style="margin:0;width:auto;padding:0.25rem 0.4rem;font-size:0.75rem" onchange="onAuditPageSizeChange()">
+                    <option value="10">10</option>
+                    <option value="20">20</option>
+                    <option value="50" selected>50</option>
+                    <option value="100">100</option>
+                </select>
+            </div>
+        </div>
         <div id="auditStatus" style="margin-bottom:0.5rem;font-size:0.78rem;color:var(--text-muted)"></div>
         <div id="auditList">
             <p style="text-align:center;padding:4rem;color:var(--text-muted)"><i class="fas fa-history" style="display:block;font-size:2rem;opacity:.3;margin-bottom:1rem"></i>Loading audit logs...</p>
@@ -509,7 +531,13 @@
     <div id="healthContent" class="schema-wrap">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem">
             <div><div style="font-size:1rem;font-weight:700">System Health</div><div style="font-size:0.75rem;color:var(--text-muted)">Server, database, and table statistics</div></div>
-            <button class="btn-bo btn-bo-outline" onclick="loadHealth()"><i class="fas fa-sync-alt me-1"></i>Refresh</button>
+            <div style="display:flex;align-items:center;gap:0.5rem">
+                <!-- BO-04: Countdown badge -->
+                <span id="healthCountdown" style="font-size:0.72rem;color:var(--text-muted);display:none"><i class="fas fa-clock me-1"></i><span id="healthCountdownNum">30</span>s</span>
+                <button class="btn-bo btn-bo-outline" onclick="manualHealthRefresh()"><i class="fas fa-sync-alt me-1"></i>Refresh</button>
+                <!-- BO-03: Health export button -->
+                <button class="btn-bo btn-bo-outline" id="healthExportBtn" onclick="exportHealthCSV()" style="display:none;font-size:0.78rem"><i class="fas fa-file-csv me-1"></i>Export CSV</button>
+            </div>
         </div>
         <div id="healthCards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:0.875rem;margin-bottom:1.25rem"></div>
         <div style="font-size:0.8rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:0.5rem">Table Sizes</div>
@@ -523,6 +551,8 @@
             <div style="display:flex;gap:0.5rem">
                 <button class="btn-bo btn-bo-outline" onclick="loadLocks()"><i class="fas fa-sync-alt me-1"></i>Refresh</button>
                 <button class="btn-bo btn-bo-danger" onclick="releaseExpiredLocks()" style="font-size:0.78rem"><i class="fas fa-broom me-1"></i>Clear Expired</button>
+                <!-- BO-03: Lock export button -->
+                <button class="btn-bo btn-bo-outline" id="locksExportBtn" onclick="exportLocksCSV()" style="display:none;font-size:0.78rem"><i class="fas fa-file-csv me-1"></i>Export CSV</button>
             </div>
         </div>
         <div id="locksStatus" style="margin-bottom:1rem"></div>
@@ -753,8 +783,8 @@
         <div style="display:flex;align-items:center;gap:0.4rem;margin-left:auto">
             <span style="font-size:0.73rem;color:var(--text-muted)">Rows/page:</span>
             <select class="pag-size" id="pageSizeSelect" onchange="changePageSize()">
-                <option value="25">25</option>
-                <option value="50" selected>50</option>
+                <option value="20" selected>20</option>
+                <option value="50">50</option>
                 <option value="100">100</option>
                 <option value="250">250</option>
                 <option value="0">All</option>
@@ -835,8 +865,13 @@
             <p style="font-size:0.8rem;color:#fca5a5;margin-bottom:0.875rem">You are about to <strong>permanently delete</strong> the following data. This action cannot be undone.</p>
             <div class="delete-summary" id="confirmSummary"></div>
             <div class="confirm-input-wrap">
-                <label>Type <code>DELETE FOREVER</code> to confirm:</label>
+                <label>Step 1 &mdash; Type <code>DELETE FOREVER</code> to confirm:</label>
                 <input type="text" class="confirm-input" id="confirmPhrase" placeholder="DELETE FOREVER" autocomplete="off" oninput="checkPhrase()">
+            </div>
+            <!-- BO-05: Second confirmation layer -->
+            <div class="confirm-input-wrap" style="margin-top:0.75rem">
+                <label>Step 2 &mdash; Type your <code id="usernameHint" style="color:#a5b4fc">username</code> to authorize:</label>
+                <input type="text" class="confirm-input" id="confirmUsername" placeholder="Your username" autocomplete="off" oninput="checkPhrase()">
             </div>
         </div>
         <div class="bo-modal-footer">
@@ -862,6 +897,24 @@
                 <button class="btn-bo btn-bo-outline" onclick="loadAnalytics()"><i class="fas fa-sync-alt me-1"></i>Refresh</button>
                 <button class="btn-bo" style="background:rgba(16,185,129,.12);color:#10b981;border:1px solid rgba(16,185,129,.3);font-size:0.78rem" onclick="captureNowSnapshot()"><i class="fas fa-camera me-1"></i>Capture Now</button>
                 <button class="btn-bo btn-bo-outline" style="font-size:0.78rem" onclick="exportAnalyticsCSV()"><i class="fas fa-file-csv me-1"></i>Export CSV</button>
+            </div>
+        </div>
+
+        <!-- BO-06: Sparkline trend card -->
+        <div class="schema-card" id="anlSparkCard" style="padding:1rem;margin-bottom:1rem;display:grid;grid-template-columns:1fr 1fr;gap:1rem">
+            <div>
+                <div style="font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin-bottom:0.5rem">
+                    <i class="fas fa-users me-1" style="color:#10b981"></i>PATIENT TREND (30d)
+                </div>
+                <canvas id="sparkPatients" height="60"></canvas>
+                <div id="sparkPatientsDelta" style="font-size:0.7rem;margin-top:0.3rem;color:var(--text-muted)"></div>
+            </div>
+            <div>
+                <div style="font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin-bottom:0.5rem">
+                    <i class="fas fa-prescription-bottle-alt me-1" style="color:#f59e0b"></i>RX TREND (30d)
+                </div>
+                <canvas id="sparkRX" height="60"></canvas>
+                <div id="sparkRXDelta" style="font-size:0.7rem;margin-top:0.3rem;color:var(--text-muted)"></div>
             </div>
         </div>
 
@@ -947,8 +1000,8 @@
         <div style="display:flex;align-items:center;gap:0.4rem;margin-left:auto">
             <span style="font-size:0.73rem;color:var(--text-muted)">Rows/page:</span>
             <select class="pag-size" id="pageSizeSelect" onchange="changePageSize()">
-                <option value="25">25</option>
-                <option value="50" selected>50</option>
+                <option value="20" selected>20</option>
+                <option value="50">50</option>
                 <option value="100">100</option>
                 <option value="250">250</option>
                 <option value="0">All</option>
@@ -1029,8 +1082,13 @@
             <p style="font-size:0.8rem;color:#fca5a5;margin-bottom:0.875rem">You are about to <strong>permanently delete</strong> the following data. This action cannot be undone.</p>
             <div class="delete-summary" id="confirmSummary"></div>
             <div class="confirm-input-wrap">
-                <label>Type <code>DELETE FOREVER</code> to confirm:</label>
+                <label>Step 1 &mdash; Type <code>DELETE FOREVER</code> to confirm:</label>
                 <input type="text" class="confirm-input" id="confirmPhrase" placeholder="DELETE FOREVER" autocomplete="off" oninput="checkPhrase()">
+            </div>
+            <!-- BO-05: Second confirmation layer -->
+            <div class="confirm-input-wrap" style="margin-top:0.75rem">
+                <label>Step 2 &mdash; Type your <code id="usernameHint" style="color:#a5b4fc">username</code> to authorize:</label>
+                <input type="text" class="confirm-input" id="confirmUsername" placeholder="Your username" autocomplete="off" oninput="checkPhrase()">
             </div>
         </div>
         <div class="bo-modal-footer">
