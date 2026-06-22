@@ -308,19 +308,68 @@ exports.updateWorkflowDate = async (req, res) => {
         if (isNaN(parsed.getTime())) return res.status(400).json({ error: 'Invalid date format.' });
 
         // Prevent future dates
-        if (parsed > new Date()) return res.status(400).json({ error: 'Completion date cannot be in the future.' });
+        const now = new Date();
+        now.setHours(23, 59, 59, 999); // allow same-day
+        if (parsed > now) return res.status(400).json({ error: 'Completion date cannot be in the future.' });
 
         const tracking = await db.RXWorkflowTracking.findByPk(trackingId, {
             include: [{ model: db.WorkflowAction }, { model: db.RXRecord }]
         });
         if (!tracking) return res.status(404).json({ error: 'Workflow tracking record not found.' });
 
-        const rx = tracking.RXRecord;
-        if (!rx) return res.status(404).json({ error: 'Associated RX record not found.' });
+        const rx     = tracking.RXRecord;
+        const action = tracking.WorkflowAction;
+        if (!rx)     return res.status(404).json({ error: 'Associated RX record not found.' });
+        if (!action) return res.status(404).json({ error: 'Associated workflow action not found.' });
 
-        const action   = tracking.WorkflowAction;
-        const oldDate  = tracking.completionDate ? new Date(tracking.completionDate).toLocaleString() : '(none)';
-        const newLabel = parsed.toLocaleString();
+        // ── Sequential date guard ─────────────────────────────────────────
+        // Fetch all other trackings for this RX with their workflow actions
+        const allTrackings = await db.RXWorkflowTracking.findAll({
+            where: { rxRecordId: rx.id },
+            include: [{ model: db.WorkflowAction }],
+            order: [[db.WorkflowAction, 'sequenceNumber', 'ASC']]
+        });
+
+        // Build ordered list: [{seq, name, date}]
+        const ordered = allTrackings
+            .filter(t => t.WorkflowAction)
+            .map(t => ({
+                seq:  t.WorkflowAction.sequenceNumber,
+                name: t.WorkflowAction.name,
+                date: t.completionDate ? new Date(t.completionDate) : null,
+                id:   t.id
+            }))
+            .sort((a, b) => a.seq - b.seq);
+
+        const thisSeq = action.sequenceNumber;
+
+        // Previous step (lower sequence number)
+        const prev = ordered.filter(t => t.seq < thisSeq).pop();
+        if (prev && prev.date) {
+            const prevDay = new Date(prev.date); prevDay.setHours(0, 0, 0, 0);
+            const newDay  = new Date(parsed);    newDay.setHours(0, 0, 0, 0);
+            if (newDay < prevDay) {
+                return res.status(400).json({
+                    error: `Date cannot be before "${prev.name}" (${prev.date.toLocaleDateString()}). Steps must follow chronological order.`
+                });
+            }
+        }
+
+        // Next step (higher sequence number, skip the current tracking being edited)
+        const next = ordered.find(t => t.seq > thisSeq);
+        if (next && next.date) {
+            const nextDay = new Date(next.date); nextDay.setHours(0, 0, 0, 0);
+            const newDay  = new Date(parsed);    newDay.setHours(0, 0, 0, 0);
+            if (newDay > nextDay) {
+                return res.status(400).json({
+                    error: `Date cannot be after "${next.name}" (${next.date.toLocaleDateString()}). Steps must follow chronological order.`
+                });
+            }
+        }
+        // ─────────────────────────────────────────────────────────────────
+
+        const oldDate  = tracking.completionDate ? new Date(tracking.completionDate).toLocaleDateString() : '(none)';
+        const newLabel = parsed.toLocaleDateString();
 
         await tracking.update({ completionDate: parsed });
 
@@ -330,10 +379,10 @@ exports.updateWorkflowDate = async (req, res) => {
             'Workflow Date Override',
             rx.toJSON(),
             null,
-            `Step "${action ? action.name : '#' + trackingId}" date changed from ${oldDate} to ${newLabel} by ${req.user?.username || 'user'}`
+            `Step "${action.name}" date changed from ${oldDate} to ${newLabel} by ${req.user?.username || 'user'}`
         );
 
-        res.json({ ok: true, trackingId, newDate: parsed, stepName: action ? action.name : null });
+        res.json({ ok: true, trackingId, newDate: parsed, stepName: action.name });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }

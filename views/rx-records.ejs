@@ -1438,6 +1438,11 @@
                 const tracking = completedMap[action.id];
                 const prevDone = idx === 0 || completedIds.includes(allWorkflowActions[idx-1].id);
                 const stepCanComplete = !done && prevDone && canComplete;
+                // Neighbour dates for date-picker bounds
+                const prevTracking = idx > 0 ? completedMap[allWorkflowActions[idx-1].id] : null;
+                const nextTracking = idx < allWorkflowActions.length-1 ? completedMap[allWorkflowActions[idx+1].id] : null;
+                const prevStepDate = prevTracking && prevTracking.completionDate ? new Date(prevTracking.completionDate).toISOString().slice(0,10) : '';
+                const nextStepDate = nextTracking && nextTracking.completionDate ? new Date(nextTracking.completionDate).toISOString().slice(0,10) : '';
                 return `<div class="list-group-item d-flex align-items-center gap-3 ${done ? 'list-group-item-success' : ''}">
                     <span class="badge ${done ? 'bg-success' : 'bg-secondary'} rounded-pill">${action.sequenceNumber}</span>
                     <div class="flex-grow-1">
@@ -1452,7 +1457,9 @@
                          data-done="${done?'1':'0'}"
                          data-canundo="${canUndo&&action.id===lastCompletedActionId&&!alreadyReturned?'1':'0'}"
                          data-cancomp="${stepCanComplete?'1':'0'}"
-                         data-candate="${done && tracking && canEditDate ? '1' : '0'}">
+                         data-candate="${done && tracking && canEditDate ? '1' : '0'}"
+                         data-prevdate="${prevStepDate}"
+                         data-nextdate="${nextStepDate}">
                     </div>
                 </div>`;
             }).join('') + '</div>';
@@ -1483,8 +1490,10 @@
                         bed.dataset.tid = _tid;
                         bed.dataset.rxid = _rid;
                         bed.dataset.curdate = _cur;
+                        bed.dataset.prevdate = cell.dataset.prevdate || '';
+                        bed.dataset.nextdate = cell.dataset.nextdate || '';
                         bed.addEventListener('click', function() {
-                            editStepDate(this.dataset.tid, parseInt(this.dataset.rxid), this.dataset.curdate, this);
+                            editStepDate(this.dataset.tid, parseInt(this.dataset.rxid), this.dataset.curdate, this.dataset.prevdate, this.dataset.nextdate, this);
                         });
                         cell.appendChild(bed);
                     }
@@ -1533,7 +1542,7 @@
     }
 
     /* Replaces the date label inline with a date-only picker */
-    function editStepDate(trackingId, rxId, currentDate, triggerBtn) {
+    function editStepDate(trackingId, rxId, currentDate, prevDate, nextDate, triggerBtn) {
         var listItem = triggerBtn.closest
             ? triggerBtn.closest('.list-group-item')
             : (function(el) { while (el && !el.classList.contains('list-group-item')) el = el.parentNode; return el; })(triggerBtn);
@@ -1546,11 +1555,14 @@
         var origText  = origLabel ? origLabel.textContent : '';
         var today     = _isoToLocalInput(new Date().toISOString());
         var preVal    = currentDate ? currentDate.slice(0, 10) : today;
+        /* Constrain picker: min = prev step date, max = min(today, next step date) */
+        var minVal    = prevDate || '';
+        var maxVal    = nextDate ? (nextDate < today ? nextDate : today) : today;
 
         wrap.innerHTML =
             '<input type="date" class="form-control form-control-sm d-inline-block" ' +
             'style="width:auto;max-width:160px" id="wfDateInput_' + trackingId + '" ' +
-            'value="' + preVal + '" max="' + today + '">' +
+            'value="' + preVal + '" min="' + minVal + '" max="' + maxVal + '">' +
             ' <button class="btn btn-sm btn-success" id="wfDateSave_' + trackingId + '" title="Save date">' +
             '<i class="fas fa-check"></i></button>' +
             ' <button class="btn btn-sm btn-outline-secondary" id="wfDateCancel_' + trackingId + '" title="Cancel">' +
