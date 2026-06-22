@@ -595,10 +595,11 @@ echo  Compiles the app into a single server.exe
 echo  No Node.js needed on the target machine.
 echo  PostgreSQL still needs to be installed separately.
 echo.
-echo  Build target: node20-win-x64  (from package.json)
+echo  Build tool:   @yao-pkg/pkg  (Node 20/22/24 compatible)
+echo  Build target: node20-win-x64
 echo  Output:       dist\server.exe
 echo.
-echo  Build will take 2-5 minutes on first run.
+echo  Build will take 2-5 minutes on first run (downloads Node binary).
 echo.
 set /p "CONF=  Start build? (Y/N): "
 if /i NOT "%CONF%"=="Y" goto :MainMenu
@@ -607,29 +608,41 @@ echo.
 if not exist "%APP_DIR%\dist" mkdir "%APP_DIR%\dist"
 cd /d "%APP_DIR%"
 
-echo  Installing pkg globally (if not already installed)...
-call npm install -g pkg >nul 2>&1
-
-echo  Building server.exe...
-call npm run build:exe
+echo  Building server.exe with @yao-pkg/pkg...
+echo  (Downloading Node 20 binary if first time - please wait)
+echo.
+call npx --yes @yao-pkg/pkg app.js --target node20-win-x64 --output dist/server.exe --compress GZip
 if %ERRORLEVEL% EQU 0 (
     echo.
-    echo  [OK] Built: %APP_DIR%\dist\server.exe
+    echo  ================================================
+    echo   BUILD SUCCESSFUL
+    echo  ================================================
     echo.
-    echo  Files to copy to the new PC:
-    echo    dist\server.exe
-    echo    .env
-    echo    views\
-    echo    public\
-    echo    migrations\
-    echo    seeders\
-    echo    setup.bat
-    echo    RX-Manager.bat
+    echo  [OK] Executable: %APP_DIR%\dist\server.exe
+    echo.
+    echo  Copy these to the target machine:
+    echo    dist\server.exe     ^<-- the server
+    echo    .env                ^<-- configuration
+    echo    views\              ^<-- HTML templates
+    echo    public\             ^<-- CSS / JS / images
+    echo    data\               ^<-- settings.json
+    echo    migrations\         ^<-- DB schema files
+    echo    seeders\            ^<-- default data
+    echo    RX-Manager.bat      ^<-- management tool
+    echo.
+    echo  On the target machine, run server.exe directly
+    echo  or use RX-Manager.bat option [1] to start it.
+    echo.
+    for %%F in ("%APP_DIR%\dist\server.exe") do echo  File size: %%~zF bytes
 ) else (
     echo.
     echo  [ERROR] Build failed.
-    echo          Make sure pkg is installed: npm install -g pkg
-    echo          Then re-open RX-Manager.bat and try again.
+    echo.
+    echo  Troubleshooting:
+    echo    - Make sure you have internet access (first run downloads Node binary)
+    echo    - Try: npx --yes @yao-pkg/pkg --version
+    echo    - Check that npm is working: npm --version
+    echo    - If proxy issues, set HTTP_PROXY / HTTPS_PROXY env vars
 )
 echo.
 pause
