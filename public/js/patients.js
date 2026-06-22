@@ -360,6 +360,12 @@ var allPatients = [];
             if (pSortCol === 'Clinic.name') {
                 valA = a.Clinic ? a.Clinic.name : '';
                 valB = b.Clinic ? b.Clinic.name : '';
+            } else if (pSortCol === 'nextSvcDate') {
+                // Sort by days remaining until 90-day expiry (numeric)
+                var _epA = a.serviceDate ? new Date(a.serviceDate).getTime() + 90*864e5 : null;
+                var _epB = b.serviceDate ? new Date(b.serviceDate).getTime() + 90*864e5 : null;
+                valA = _epA !== null ? Math.round((_epA - Date.now()) / 864e5) : -9999;
+                valB = _epB !== null ? Math.round((_epB - Date.now()) / 864e5) : -9999;
             }
             if (typeof valA === 'string' && typeof valB === 'string') {
                 return pSortDir === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
@@ -386,7 +392,7 @@ var allPatients = [];
     }
 
     function updatePatientSortIcons() {
-        ['patientCode', 'firstName', 'Clinic.name', 'dob', 'phone', 'serviceDate', 'isActive'].forEach(c => {
+        ['patientCode', 'firstName', 'Clinic.name', 'dob', 'phone', 'serviceDate', 'nextSvcDate', 'isActive'].forEach(c => {
             const icon = document.getElementById('spIcon_' + c);
             if (icon) {
                 icon.className = c === pSortCol 

@@ -173,8 +173,8 @@
                                 <th style="cursor:pointer" onclick="sortRx('id')">RX # <i class="fas fa-sort text-muted" style="opacity:0.3" id="srIcon_id"></i></th>
                                 <th style="cursor:pointer" onclick="sortRx('Patient.firstName')">Patient <i class="fas fa-sort text-muted" style="opacity:0.3" id="srIcon_Patient.firstName"></i></th>
                                 <th style="cursor:pointer" onclick="sortRx('serviceDate')">Service Date <i class="fas fa-sort text-muted" style="opacity:0.3" id="srIcon_serviceDate"></i></th>
-                                <th>Next Service Date</th>
-                                <th>Cycle Status</th>
+                                <th style="cursor:pointer" onclick="sortRx('nextSvcDate')">Next Service Date <i class="fas fa-sort text-muted" style="opacity:0.3" id="srIcon_nextSvcDate"></i></th>
+                                <th style="cursor:pointer" onclick="sortRx('cycleStatus')">Cycle Status <i class="fas fa-sort text-muted" style="opacity:0.3" id="srIcon_cycleStatus"></i></th>
                                 <th style="cursor:pointer" onclick="sortRx('Pharmacy.name')">Pharmacy <i class="fas fa-sort text-muted" style="opacity:0.3" id="srIcon_Pharmacy.name"></i></th>
                                 <th>Workflow Status</th>
                                 <th>Actions</th>
@@ -832,6 +832,13 @@
             } else if (rSortCol === 'Pharmacy.name') {
                 valA = a.Pharmacy ? a.Pharmacy.name : '';
                 valB = b.Pharmacy ? b.Pharmacy.name : '';
+            } else if (rSortCol === 'nextSvcDate' || rSortCol === 'cycleStatus') {
+                // Sort by days remaining until 90-day expiry (numeric)
+                // Active (many days left) → Expiring → Expired (negative)
+                var _sd2A = a.serviceDate ? new Date(a.serviceDate).getTime() + 90*864e5 : null;
+                var _sd2B = b.serviceDate ? new Date(b.serviceDate).getTime() + 90*864e5 : null;
+                valA = _sd2A !== null ? Math.round((_sd2A - Date.now()) / 864e5) : -9999;
+                valB = _sd2B !== null ? Math.round((_sd2B - Date.now()) / 864e5) : -9999;
             }
             
             if (typeof valA === 'string' && typeof valB === 'string') {
@@ -1027,7 +1034,7 @@
     }
 
     function updateRxSortIcons() {
-        ['id', 'Patient.firstName', 'serviceDate', 'Pharmacy.name'].forEach(function(c) {
+        ['id', 'Patient.firstName', 'serviceDate', 'nextSvcDate', 'cycleStatus', 'Pharmacy.name'].forEach(function(c) {
             const icon = document.getElementById('srIcon_' + c);
             if (icon) {
                 icon.className = c === rSortCol 
