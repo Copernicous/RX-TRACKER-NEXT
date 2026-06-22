@@ -518,6 +518,21 @@ var allPatients = [];
                 btnRx.addEventListener('click', function() { goToRxByEl(this); });
                 tdAct.appendChild(btnRx);
 
+                // RX History button (Previous Service Dates)
+                var btnHist = document.createElement('button');
+                btnHist.className = 'btn btn-sm me-1';
+                btnHist.title = 'Previous Service Dates / RX History';
+                btnHist.style.cssText = 'border-color:#7c3aed;color:#7c3aed';
+                btnHist.dataset.pid = p.id;
+                btnHist.dataset.pname = (p.firstName || '') + ' ' + (p.lastName || '');
+                var _histIcon = document.createElement('i');
+                _histIcon.className = 'fas fa-calendar-alt';
+                btnHist.appendChild(_histIcon);
+                btnHist.addEventListener('mouseenter', function() { this.style.background = 'rgba(124,58,237,.1)'; });
+                btnHist.addEventListener('mouseleave', function() { this.style.background = ''; });
+                btnHist.addEventListener('click', function() { openRxHistory(parseInt(this.dataset.pid), this.dataset.pname); });
+                tdAct.appendChild(btnHist);
+
                 // Timeline button
                 var btnTl = document.createElement('button');
                 btnTl.className = 'btn btn-sm me-1';
@@ -639,6 +654,108 @@ var allPatients = [];
         if(p<1||p>pages) return;
         currentPage = p; renderPatients();
     }
+
+    // ── RX History Modal — Previous Service Dates ─────────────────────────────
+    var _rxHistoryModal = null;
+
+    async function openRxHistory(patientId, patientName) {
+        var nameEl  = document.getElementById('rxHistoryPatientName');
+        var body    = document.getElementById('rxHistoryBody');
+        var countEl = document.getElementById('rxHistoryCount');
+        if (nameEl)  nameEl.textContent  = patientName || ('Patient #' + patientId);
+        if (body)    body.innerHTML      = '<p class="text-center text-muted py-5"><i class="fas fa-spinner fa-spin me-2"></i>Loading...</p>';
+        if (countEl) countEl.textContent = '';
+        if (!_rxHistoryModal) _rxHistoryModal = new bootstrap.Modal(document.getElementById('rxHistoryModal'));
+        _rxHistoryModal.show();
+
+        try {
+            var waRes = await fetchWithAuth('/api/workflow-actions', { silent: true });
+            var rxRes = await fetchWithAuth('/api/rx-records?includeDeleted=false');
+            var allWA = (waRes && waRes.ok) ? await waRes.json() : [];
+            var allRx = (rxRes && rxRes.ok) ? await rxRes.json() : [];
+            var patRx = allRx.filter(function(r) { return r.patientId === patientId; });
+
+            // Sort newest service date first
+            patRx.sort(function(a, b) {
+                var da = a.serviceDate || '', db = b.serviceDate || '';
+                return da < db ? 1 : da > db ? -1 : 0;
+            });
+
+            if (countEl) countEl.textContent = patRx.length + ' RX cycle' + (patRx.length !== 1 ? 's' : '') + ' found';
+
+            if (!patRx.length) {
+                body.innerHTML = '<div class="text-center text-muted py-5"><i class="fas fa-prescription-bottle-alt fa-2x mb-3 d-block opacity-50"></i>No RX records found for this patient.</div>';
+                return;
+            }
+
+            var html = '<div class="p-3">';
+            patRx.forEach(function(rx, idx) {
+                var svcD    = rx.serviceDate || null;
+                var expDate = svcD ? new Date(new Date(svcD).getTime() + 90 * 864e5) : null;
+                var expStr  = expDate ? expDate.toLocaleDateString() : '\u2014';
+                var dLeft   = expDate ? Math.round((expDate - new Date()) / 864e5) : null;
+                var isNewest = idx === 0;
+
+                var cycleLabel, cycleBg;
+                if (dLeft === null)    { cycleLabel = 'No Date';    cycleBg = '#6c757d'; }
+                else if (dLeft < 0)   { cycleLabel = 'Expired';    cycleBg = '#dc3545'; }
+                else if (dLeft <= 14) { cycleLabel = dLeft + 'd left'; cycleBg = '#fd7e14'; }
+                else                  { cycleLabel = 'Active';     cycleBg = '#198754'; }
+
+                var trackings  = rx.RXWorkflowTrackings || [];
+                var doneCount  = trackings.length;
+                var totalSteps = allWA.length;
+                var pct        = totalSteps > 0 ? Math.round((doneCount / totalSteps) * 100) : 0;
+                var barColor   = pct >= 100 ? '#198754' : pct > 0 ? '#fd7e14' : '#6c757d';
+                var pharmacy   = rx.Pharmacy ? rx.Pharmacy.name : '\u2014';
+
+                html += '<div style="border:1px solid ' + (isNewest ? '#4a90e2' : '#dee2e6') + ';border-left:4px solid ' + (isNewest ? '#4a90e2' : '#adb5bd') + ';border-radius:10px;overflow:hidden;margin-bottom:14px">';
+
+                // Header
+                html += '<div style="background:' + (isNewest ? '#f0f5ff' : '#f8f9fa') + ';padding:8px 14px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #e9ecef">';
+                html += '<span style="font-weight:700"><i class="fas fa-prescription-bottle-alt me-2 text-primary"></i>RX #' + rx.id;
+                if (isNewest) html += ' <span style="background:#4a90e2;color:#fff;font-size:.65rem;padding:2px 8px;border-radius:10px;margin-left:6px">Current</span>';
+                html += '</span>';
+                html += '<span style="background:' + cycleBg + ';color:#fff;font-size:.72rem;padding:2px 10px;border-radius:12px;font-weight:600">' + cycleLabel + '</span>';
+                html += '</div>';
+
+                // Info grid
+                html += '<div style="padding:10px 14px">';
+                html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px 20px;margin-bottom:10px">';
+                html += '<div><div style="font-size:.63rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#888;margin-bottom:2px">Service Date</div><div style="font-weight:600">' + (svcD || '\u2014') + '</div></div>';
+                html += '<div><div style="font-size:.63rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#888;margin-bottom:2px">Next Available</div><div style="font-weight:600;color:' + cycleBg + '">' + expStr + '</div></div>';
+                html += '<div><div style="font-size:.63rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#888;margin-bottom:2px">Pharmacy</div><div>' + pharmacy + '</div></div>';
+                html += '<div><div style="font-size:.63rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#888;margin-bottom:2px">Progress</div>';
+                html += '<div style="display:flex;align-items:center;gap:6px"><div style="flex:1;height:6px;background:#e9ecef;border-radius:3px;overflow:hidden"><div style="height:100%;width:' + pct + '%;background:' + barColor + '"></div></div><small>' + doneCount + '/' + totalSteps + '</small></div></div>';
+                html += '</div>';
+
+                // Workflow step pills
+                if (allWA.length > 0) {
+                    var trackMap = {};
+                    trackings.forEach(function(t) { trackMap[t.workflowActionId] = t; });
+                    html += '<div style="display:flex;flex-wrap:wrap;gap:5px">';
+                    allWA.forEach(function(wa) {
+                        var t = trackMap[wa.id];
+                        var done = !!t;
+                        var dateStr = (t && t.completionDate) ? new Date(t.completionDate).toLocaleDateString() : null;
+                        var pillBg  = done ? '#d1f0e0' : '#f0f0f0';
+                        var pillClr = done ? '#0a5c36' : '#888';
+                        html += '<span style="background:' + pillBg + ';color:' + pillClr + ';border-radius:20px;padding:2px 10px;font-size:.72rem;font-weight:' + (done ? '600' : '400') + '">';
+                        html += (done ? '\u2713 ' : '\u25cb ') + wa.name;
+                        if (dateStr) html += ' <span style="opacity:.75;font-size:.65rem">· ' + dateStr + '</span>';
+                        html += '</span>';
+                    });
+                    html += '</div>';
+                }
+                html += '</div></div>';
+            });
+            html += '</div>';
+            body.innerHTML = html;
+        } catch(e) {
+            if (body) body.innerHTML = '<p class="text-danger text-center py-4">Error loading RX history.</p>';
+        }
+    }
+    // ─────────────────────────────────────────────────────────────────────────
 
     // Compute and display next available service date inside the edit modal
     function _updateNextSvcDisplay() {
