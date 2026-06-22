@@ -36,6 +36,46 @@
         .stat-card-clickable:hover .card-icon {
             opacity: 0.85;
         }
+
+        /* ── Date range preset buttons ─────────────────────────────────────
+           Plain .btn .btn-sm has no visible background — dark on dark in
+           dark mode. Give them an explicit outline pill style by default
+           and a filled primary style when active.
+        ── */
+        .dash-preset {
+            background: transparent;
+            border: 1.5px solid var(--border, rgba(0,0,0,0.15));
+            color: var(--text-muted, #718096);
+            font-weight: 500;
+            transition: all 0.18s;
+        }
+        .dash-preset:hover {
+            border-color: #4a90e2;
+            color: #4a90e2;
+            background: rgba(74,144,226,0.08);
+        }
+        .dash-preset.active {
+            background: #4a90e2;
+            border-color: #4a90e2;
+            color: #ffffff !important;
+            font-weight: 600;
+            box-shadow: 0 2px 8px rgba(74,144,226,0.35);
+        }
+        /* Dark mode explicit overrides */
+        [data-theme="dark"] .dash-preset {
+            border-color: rgba(255,255,255,0.18);
+            color: #8b949e;
+        }
+        [data-theme="dark"] .dash-preset:hover {
+            border-color: #4a90e2;
+            color: #90c4f9;
+            background: rgba(74,144,226,0.12);
+        }
+        [data-theme="dark"] .dash-preset.active {
+            background: #4a90e2;
+            border-color: #4a90e2;
+            color: #ffffff !important;
+        }
     </style>
 </head>
 <body>

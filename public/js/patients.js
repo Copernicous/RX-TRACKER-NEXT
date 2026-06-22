@@ -441,8 +441,10 @@ var allPatients = [];
             var tdClinic = document.createElement('td');
             if (p.Clinic) {
                 var clinicSpan = document.createElement('span');
-                clinicSpan.className = 'badge bg-info text-dark';
-                clinicSpan.innerHTML = '<i class="fas fa-hospital me-1"></i>';
+                // Custom style: deep teal bg + white text — readable in both light & dark mode
+                // bg-info with text-dark fails in dark mode (dark text on cyan = invisible)
+                clinicSpan.style.cssText = 'display:inline-flex;align-items:center;gap:4px;background:#0e7490;color:#ffffff;font-size:0.72rem;font-weight:600;padding:2px 8px;border-radius:5px;white-space:nowrap';
+                clinicSpan.innerHTML = '<i class="fas fa-hospital" style="font-size:0.65rem;opacity:0.85"></i>';
                 clinicSpan.appendChild(document.createTextNode(p.Clinic.name));
                 tdClinic.appendChild(clinicSpan);
             } else {

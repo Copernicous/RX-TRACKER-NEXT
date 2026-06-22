@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en" data-theme="light">
 <head>
     <meta charset="UTF-8">
@@ -19,6 +19,40 @@
         .schedule-preset:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,.1); }
         .backup-row { animation: fadeIn .3s ease; }
         @keyframes fadeIn { from{opacity:0;transform:translateY(4px)} to{opacity:1;transform:none} }
+
+        /* ── Dark mode: define missing variables used by inline styles ── */
+        :root {
+            --bg-subtle:    #f8fafc;
+            --border-color: #e5e7eb;
+        }
+        [data-theme="dark"] {
+            --bg-subtle:    #1c2128;
+            --border-color: rgba(255,255,255,0.1);
+        }
+
+        /* ── Schedule preset cards (Daily/Weekly/Monthly) ── */
+        [data-theme="dark"] .schedule-preset {
+            background: var(--surface-2) !important;
+            border-color: var(--border) !important;
+            color: var(--text) !important;
+        }
+        [data-theme="dark"] .schedule-preset:hover {
+            background: rgba(74,144,226,0.08) !important;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+
+        /* ── Step cards throughout the restore guide ── */
+        [data-theme="dark"] .p-3.rounded-3 {
+            background: var(--bg-subtle) !important;
+            color: var(--text) !important;
+        }
+
+        /* ── table-light row fix ── */
+        [data-theme="dark"] .table-light > td,
+        [data-theme="dark"] .table-light {
+            background-color: rgba(255,255,255,0.03) !important;
+            color: var(--text-muted) !important;
+        }
     </style>
 </head>
 <body>

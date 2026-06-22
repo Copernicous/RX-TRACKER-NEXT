@@ -1003,3 +1003,47 @@ body {
 [data-theme="dark"] .progress {
     background-color: var(--surface-2) !important;
 }
+
+/* ── bg-info contrast fix (clinic/info badges) ──
+   Bootstrap bg-info uses cyan (#0dcaf0) which has
+   poor contrast with both text-dark (dark mode) and white.
+   Override to a deeper teal that works universally. */
+[data-theme="dark"] .badge.bg-info,
+[data-theme="dark"] .bg-info:not(button) {
+    background-color: #0e7490 !important;
+    color: #ffffff !important;
+}
+/* Light mode: also improve bg-info contrast */
+.badge.bg-info {
+    background-color: #0891b2 !important;
+    color: #ffffff !important;
+}
+/* text-info icon color — keep visible in dark mode */
+[data-theme="dark"] .text-info {
+    color: #67e8f9 !important;
+}
+
+/* ── Global --bg-subtle and --border-color alias for ALL pages ──
+   Several views use background:var(--bg-subtle,#f8fafc) inline.
+   Without this, dark mode falls back to the near-white #f8fafc. */
+:root {
+    --bg-subtle:    #f8fafc;
+}
+[data-theme="dark"] {
+    --bg-subtle:    #1c2128;
+    --border-color: rgba(255,255,255,0.1);
+}
+
+/* table-light rows in dark mode */
+[data-theme="dark"] .table-light > td,
+[data-theme="dark"] tr.table-light > td,
+[data-theme="dark"] .table-light {
+    background-color: rgba(255,255,255,0.03) !important;
+    color: var(--text-muted) !important;
+    border-color: var(--border) !important;
+}
+/* table-dark thead is fine but ensure text stays white */
+[data-theme="dark"] .table-dark {
+    background-color: #1a2234 !important;
+    color: #fff !important;
+}
