@@ -1433,7 +1433,20 @@
                 warehouseBanner = `<div class="alert alert-warning py-2 mb-3"><i class="fas fa-warehouse me-2"></i><strong>Returned to Warehouse</strong> on ${retDate}${retNote}</div>`;
             }
 
-            const html = warehouseBanner + '<div class="list-group">' + allWorkflowActions.map((action, idx) => {
+            // 90-day expiry check
+            var svcDateR    = rx.serviceDate ? new Date(rx.serviceDate) : null;
+            var expiryDateR = svcDateR ? new Date(svcDateR.getTime() + 90 * 864e5) : null;
+            var todayD      = new Date(); todayD.setHours(0,0,0,0);
+            var isExpired   = expiryDateR ? (todayD > expiryDateR) : false;
+            var svcStr      = svcDateR ? svcDateR.toLocaleDateString() : '';
+            var expStr      = expiryDateR ? expiryDateR.toLocaleDateString() : '';
+            var resetBtnHtml = (isExpired && canEditDate)
+                ? '<button class="btn btn-sm btn-danger fw-semibold" id="resetCycleBtn"><i class="fas fa-redo me-1"></i>Start New Cycle</button>'
+                : '';
+            var expiryBanner = isExpired
+                ? '<div class="alert alert-danger py-2 mb-3 d-flex align-items-center justify-content-between flex-wrap gap-2"><div><i class="fas fa-exclamation-triangle me-2"></i><strong>90-Day Window Expired</strong> <span class="ms-2 small">Service date: ' + svcStr + ' \u2014 Expired: ' + expStr + '</span></div>' + resetBtnHtml + '</div>'
+                : '';
+            const html = expiryBanner + warehouseBanner + '<div class="list-group">' + allWorkflowActions.map((action, idx) => {
                 const done = completedIds.includes(action.id);
                 const tracking = completedMap[action.id];
                 const prevDone = idx === 0 || completedIds.includes(allWorkflowActions[idx-1].id);
@@ -1441,7 +1454,7 @@
                 // Neighbour dates for date-picker bounds
                 const prevTracking = idx > 0 ? completedMap[allWorkflowActions[idx-1].id] : null;
                 const nextTracking = idx < allWorkflowActions.length-1 ? completedMap[allWorkflowActions[idx+1].id] : null;
-                const prevStepDate = prevTracking && prevTracking.completionDate ? new Date(prevTracking.completionDate).toISOString().slice(0,10) : '';
+                const prevStepDate = prevTracking && prevTracking.completionDate ? new Date(prevTracking.completionDate).toISOString().slice(0,10) : (idx === 0 && svcDateR ? svcDateR.toISOString().slice(0,10) : '');
                 const nextStepDate = nextTracking && nextTracking.completionDate ? new Date(nextTracking.completionDate).toISOString().slice(0,10) : '';
                 return `<div class="list-group-item d-flex align-items-center gap-3 ${done ? 'list-group-item-success' : ''}">
                     <span class="badge ${done ? 'bg-success' : 'bg-secondary'} rounded-pill">${action.sequenceNumber}</span>
@@ -1456,7 +1469,7 @@
                          data-curdate="${done && tracking ? new Date(tracking.completionDate).toISOString().slice(0,10) : ''}"
                          data-done="${done?'1':'0'}"
                          data-canundo="${canUndo&&action.id===lastCompletedActionId&&!alreadyReturned?'1':'0'}"
-                         data-cancomp="${stepCanComplete?'1':'0'}"
+                         data-cancomp="${stepCanComplete && !isExpired ? '1':'0'}"
                          data-candate="${done && tracking && canEditDate ? '1' : '0'}"
                          data-prevdate="${prevStepDate}"
                          data-nextdate="${nextStepDate}">
@@ -1464,6 +1477,16 @@
                 </div>`;
             }).join('') + '</div>';
             document.getElementById('workflowBody').innerHTML = html;
+
+            /* ── Start New Cycle button handler ──────────────────────── */
+            var resetBtn = document.getElementById('resetCycleBtn');
+            if (resetBtn) {
+                resetBtn.addEventListener('click', function() {
+                    promptResetCycle(rxId);
+                });
+            }
+            /* ─────────────────────────────────────────────────────────── */
+
             document.getElementById('workflowBody').querySelectorAll('.wf-cell').forEach(function(cell) {
                 var _rid = parseInt(cell.dataset.rxid);
                 var _aid = parseInt(cell.dataset.aid);
@@ -1557,7 +1580,10 @@
         var preVal    = currentDate ? currentDate.slice(0, 10) : today;
         /* Constrain picker: min = prev step date, max = min(today, next step date) */
         var minVal    = prevDate || '';
-        var maxVal    = nextDate ? (nextDate < today ? nextDate : today) : today;
+        /* Cap max at serviceDate + 90 days */
+        var svcMax90  = svcDateR ? new Date(svcDateR.getTime() + 90 * 864e5).toISOString().slice(0,10) : today;
+        var hardMax   = svcMax90 < today ? svcMax90 : today;
+        var maxVal    = nextDate ? (nextDate < hardMax ? nextDate : hardMax) : hardMax;
 
         wrap.innerHTML =
             '<input type="date" class="form-control form-control-sm d-inline-block" ' +
@@ -1603,6 +1629,64 @@
             wrap.innerHTML = '<small class="text-success wf-date-label">' + origText + '</small>';
             wrap.dataset.editing = '';
         }
+    }
+
+    /* ─────────────────────────────────────────────────────────────────────
+       Prompt user to pick a new service date, then reset the RX cycle
+       ───────────────────────────────────────────────────────────────────── */
+    function promptResetCycle(rxId) {
+        /* Build a simple inline modal-free prompt inside workflowBody */
+        var body = document.getElementById('workflowBody');
+        var today = new Date().toISOString().slice(0,10);
+
+        var existing = document.getElementById('resetCycleForm');
+        if (existing) { existing.remove(); }
+
+        var form = document.createElement('div');
+        form.id = 'resetCycleForm';
+        form.className = 'alert alert-warning mt-3 p-3';
+        form.innerHTML =
+            '<strong><i class="fas fa-redo me-2"></i>Start New 90-Day Cycle</strong>' +
+            '<p class="small mb-2 mt-1">This will <strong>clear all workflow progress</strong> for this RX and start a fresh cycle with the new service date.</p>' +
+            '<div class="d-flex align-items-center gap-2 flex-wrap">' +
+            '<label class="mb-0 small fw-semibold">New Service Date:</label>' +
+            '<input type="date" class="form-control form-control-sm" id="resetCycleDateInput" style="width:160px" max="' + today + '">' +
+            '<button class="btn btn-sm btn-danger fw-semibold" id="resetCycleConfirmBtn"><i class="fas fa-check me-1"></i>Confirm Reset</button>' +
+            '<button class="btn btn-sm btn-outline-secondary" id="resetCycleCancelBtn">Cancel</button>' +
+            '</div>';
+        body.appendChild(form);
+
+        document.getElementById('resetCycleCancelBtn').addEventListener('click', function() { form.remove(); });
+        document.getElementById('resetCycleConfirmBtn').addEventListener('click', async function() {
+            var inp = document.getElementById('resetCycleDateInput');
+            if (!inp || !inp.value) { showToast('Please select a new service date.', 'warning'); return; }
+
+            var confirmMsg = 'Are you sure? This will DELETE all workflow tracking for this RX record and start a new cycle.\n\nNew service date: ' + inp.value;
+            if (!confirm(confirmMsg)) return;
+
+            this.disabled = true;
+            this.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+
+            var res = await fetchWithAuth(window.rxUrl('/api/rx-records/') + rxId + '/reset-cycle', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ newServiceDate: inp.value })
+            });
+            if (!res) { this.disabled = false; this.innerHTML = '<i class="fas fa-check me-1"></i>Confirm Reset'; return; }
+
+            if (res.ok) {
+                var data = await res.json();
+                showToast('New cycle started. ' + data.trackingsCleared + ' tracking record(s) cleared.', 'success');
+                form.remove();
+                await openWorkflow(rxId);
+                await loadRxRecords();
+            } else {
+                var err = await res.json();
+                showToast(err.error || 'Reset failed.', 'danger');
+                this.disabled = false;
+                this.innerHTML = '<i class="fas fa-check me-1"></i>Confirm Reset';
+            }
+        });
     }
 
     async function returnToWarehouse() {

@@ -134,6 +134,20 @@ exports.updateWorkflow = async (req, res) => {
         const action = await db.WorkflowAction.findByPk(actionId);
         if (!action) return res.status(404).json({ error: 'Action not found' });
 
+        // ── 90-day window guard ────────────────────────────────────────────
+        if (rx.serviceDate) {
+            const svc    = new Date(rx.serviceDate); svc.setHours(0,0,0,0);
+            const expiry = new Date(svc); expiry.setDate(expiry.getDate() + 90);
+            const today  = new Date(); today.setHours(0,0,0,0);
+            if (today > expiry) {
+                return res.status(400).json({
+                    error: `This RX has exceeded the 90-day window (service date: ${svc.toLocaleDateString()}). Please reset the service date to start a new cycle.`,
+                    code: 'EXPIRED_90_DAYS'
+                });
+            }
+        }
+        // ──────────────────────────────────────────────────────────────────
+
         if (action.sequenceNumber > 1) {
             const prevAction = await db.WorkflowAction.findOne({ where: { sequenceNumber: action.sequenceNumber - 1 } });
             if (prevAction) {
@@ -366,6 +380,26 @@ exports.updateWorkflowDate = async (req, res) => {
                 });
             }
         }
+        // ── Step 1: must be >= serviceDate; all steps: must be <= serviceDate + 90 days ──
+        if (rx.serviceDate) {
+            const svcDay    = new Date(rx.serviceDate); svcDay.setHours(0,0,0,0);
+            const expiryDay = new Date(svcDay); expiryDay.setDate(expiryDay.getDate() + 90);
+            const newDay    = new Date(parsed); newDay.setHours(0,0,0,0);
+
+            // All steps must be within the 90-day active window
+            if (newDay > expiryDay) {
+                return res.status(400).json({
+                    error: `Date must be within 90 days of service date (${svcDay.toLocaleDateString()} – ${expiryDay.toLocaleDateString()}).`
+                });
+            }
+
+            // Step 1 (first in sequence) cannot be before service date
+            if (thisSeq === 1 && newDay < svcDay) {
+                return res.status(400).json({
+                    error: `First step date cannot be before the service date (${svcDay.toLocaleDateString()}).`
+                });
+            }
+        }
         // ─────────────────────────────────────────────────────────────────
 
         const oldDate  = tracking.completionDate ? new Date(tracking.completionDate).toLocaleDateString() : '(none)';
@@ -527,4 +561,67 @@ exports.getHistory = async (req, res) => {
         });
         res.json(history);
     } catch (err) { res.status(500).json({ error: err.message }); }
+};
+
+// POST /api/rx-records/:id/reset-cycle  (New cycle after 90 days)
+// Allowed only when today > serviceDate + 90 days.
+// Clears all workflow trackings and warehouse flags, sets new serviceDate.
+exports.resetRxCycle = async (req, res) => {
+    try {
+        const rx = await db.RXRecord.findByPk(req.params.id);
+        if (!rx) return res.status(404).json({ error: 'RX Record not found.' });
+
+        const { newServiceDate } = req.body;
+        if (!newServiceDate) return res.status(400).json({ error: 'newServiceDate is required.' });
+
+        const newSvc = new Date(newServiceDate);
+        if (isNaN(newSvc.getTime())) return res.status(400).json({ error: 'Invalid date format.' });
+
+        // Only allow reset if 90-day window has PASSED
+        if (rx.serviceDate) {
+            const oldSvc    = new Date(rx.serviceDate); oldSvc.setHours(0,0,0,0);
+            const oldExpiry = new Date(oldSvc); oldExpiry.setDate(oldExpiry.getDate() + 90);
+            const today     = new Date(); today.setHours(0,0,0,0);
+            if (today <= oldExpiry) {
+                return res.status(400).json({
+                    error: `Cannot reset: the 90-day window has not yet expired (expires ${oldExpiry.toLocaleDateString()}).`
+                });
+            }
+        }
+
+        // New service date must not be in the future
+        const todayCheck = new Date(); todayCheck.setHours(23,59,59,999);
+        if (newSvc > todayCheck) {
+            return res.status(400).json({ error: 'New service date cannot be in the future.' });
+        }
+
+        const snapshot = rx.toJSON();
+
+        // Delete all workflow trackings for this record
+        const deletedCount = await db.RXWorkflowTracking.destroy({
+            where: { rxRecordId: rx.id }
+        });
+
+        // Reset warehouse flags and set new service date
+        await rx.update({
+            serviceDate:          newSvc,
+            arrivalDate:          newSvc,           // keep in sync per business logic
+            returnedToWarehouse:  false,
+            warehouseReturnDate:  null,
+            warehouseReturnNote:  null
+        });
+
+        await saveHistory(
+            rx.id,
+            req.user?.id,
+            'Cycle Reset',
+            snapshot,
+            null,
+            `New RX cycle started. Service date set to ${newSvc.toLocaleDateString()}. ${deletedCount} workflow tracking record(s) cleared. Performed by ${req.user?.username || 'user'}.`
+        );
+
+        res.json({ ok: true, newServiceDate: newSvc, trackingsCleared: deletedCount });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 };
