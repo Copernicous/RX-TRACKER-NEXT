@@ -197,7 +197,6 @@ function setSiteBackupDir(newDir) {
         }
     }
 })();
-}
 
 function readSiteLog() {
     try { return JSON.parse(fs.readFileSync(path.join(getSiteBackupDir(), 'site-backup.log.json'), 'utf8')); } catch { return []; }
