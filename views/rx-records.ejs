@@ -130,7 +130,7 @@
                     </div>
                 </div>
 
-                <!-- ── Pagination bar TOP ── -->
+                <!-- ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Pagination bar TOP ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ -->
                 <div class="d-flex align-items-center justify-content-between mb-2" id="rxPagBar">
                     <div class="d-flex align-items-center gap-2">
                         <label class="small text-muted mb-0">Show</label>
@@ -145,7 +145,7 @@
                     <nav><ul class="pagination pagination-sm mb-0" id="rxPagination"></ul></nav>
                 </div>
 
-                <!-- ── Bulk Action Toolbar (F10-03) — hidden until rows are selected ── -->
+                <!-- ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Bulk Action Toolbar (F10-03) ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â hidden until rows are selected ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ -->
                 <div id="rxBulkBar" style="display:none;background:linear-gradient(90deg,#7c3aed,#5b21b6);border-radius:8px;padding:10px 16px;margin-bottom:10px">
                     <div class="d-flex align-items-center gap-3 flex-wrap">
                         <span class="badge bg-white text-purple fw-bold fs-6" id="rxBulkCount" style="color:#5b21b6;min-width:32px;text-align:center">0</span>
@@ -153,7 +153,7 @@
                         <div class="flex-grow-1"></div>
                         <label class="text-white small fw-semibold mb-0" for="rxBulkStepSel"><i class="fas fa-tasks me-1"></i>Apply Workflow Step:</label>
                         <select id="rxBulkStepSel" class="form-select form-select-sm" style="width:auto;max-width:240px">
-                            <option value="">— Choose step —</option>
+                            <option value="">ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Choose step ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â</option>
                         </select>
                         <button id="rxBulkApplyBtn" class="btn btn-warning btn-sm fw-bold">
                             <i class="fas fa-play me-1"></i>Apply to Selected
@@ -218,7 +218,7 @@
                 </div>
 
                 <!-- Auto-filled info panel &mdash; shows once a patient is selected -->
-                <div id="rxPatientInfoPanel" class="rounded border bg-light p-3 mb-3" style="display:none">
+                <div id="rxPatientInfoPanel" class="rounded border p-3 mb-3" style="display:none;background:var(--card-bg,#f8f9fa);color:var(--text,#212529)">
                     <div class="d-flex align-items-center gap-2 mb-2">
                         <i class="fas fa-user-check text-success"></i>
                         <span class="fw-semibold small text-success">Fields below are auto-filled from the patient record</span>
@@ -356,7 +356,7 @@
     </div>
 </div>
 
-<!-- ── Bulk Workflow Results Modal (F10-04) ── -->
+<!-- ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Bulk Workflow Results Modal (F10-04) ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ -->
 <div id="rxBulkResultOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:2000;align-items:center;justify-content:center">
   <div style="background:var(--surface,#fff);color:var(--text,#1a202c);border-radius:12px;padding:0;max-width:560px;width:94%;max-height:82vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.3);border:1px solid var(--border)">
     <div style="background:linear-gradient(135deg,#1a2234,#2c3e6b);color:#fff;padding:16px 22px;border-radius:12px 12px 0 0;display:flex;align-items:center;gap:12px">
@@ -391,15 +391,15 @@
         };
     }());
 
-    /* ════════════════════════════════════════════════════
-       F10-03 — Bulk Action Toolbar logic
-       ════════════════════════════════════════════════════ */
+    /* ÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚Â
+       F10-03 ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Bulk Action Toolbar logic
+       ÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚Â */
 
     /* Populate the step dropdown once workflow actions are loaded */
     function _rxPopulateBulkStepSel() {
         var sel = document.getElementById('rxBulkStepSel');
         if (!sel) return;
-        sel.innerHTML = '<option value="">— Choose step —</option>';
+        sel.innerHTML = '<option value="">ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Choose step ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â</option>';
         for (var i = 0; i < allWorkflowActions.length; i++) {
             var a = allWorkflowActions[i];
             var opt = document.createElement('option');
@@ -436,9 +436,9 @@
         }
     }
 
-    /* ════════════════════════════════════════════════════
-       F10-04 — Execute bulk workflow + results modal
-       ════════════════════════════════════════════════════ */
+    /* ÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚Â
+       F10-04 ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Execute bulk workflow + results modal
+       ÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚ÂÃƒÂ¢Ã¢â‚¬Â¢Ã‚Â */
 
     function _rxBulkApply() {
         var sel = document.getElementById('rxBulkStepSel');
@@ -474,7 +474,7 @@
             showToast('Bulk update failed: ' + (err.message || 'Unknown error'), 'danger');
         }).finally ? (function(){
             if (applyBtn) { applyBtn.disabled = false; applyBtn.innerHTML = '<i class="fas fa-play me-1"></i>Apply to Selected'; }
-        })() : (function(){ /* no finally fallback needed — always called */ }());
+        })() : (function(){ /* no finally fallback needed ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â always called */ }());
 
         /* Restore button regardless (finally not always available in ES5) */
         setTimeout(function() {
@@ -493,7 +493,7 @@
         var failed    = data.failed    || 0;
         var results   = data.results   || [];
 
-        if (title)   title.textContent = 'Results — ' + (data.action ? data.action.name : stepName);
+        if (title)   title.textContent = 'Results ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â ' + (data.action ? data.action.name : stepName);
 
         /* Summary bar */
         var summaryHtml = '<div style="display:flex;gap:12px;margin-bottom:10px">';
@@ -518,7 +518,7 @@
                 }
                 var label = document.createElement('span');
                 label.style.cssText = 'flex:1;font-size:.88rem';
-                var patName = r.patientName ? (' — ' + r.patientName) : '';
+                var patName = r.patientName ? (' ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â ' + r.patientName) : '';
                 var noteStr = r.skipped ? ' <em style="color:#888">(already done)</em>' : (r.error ? ' <span style="color:#dc2626">' + r.error + '</span>' : '');
                 label.innerHTML = '<strong>RX #' + r.rxId + '</strong>' + patName + noteStr;
                 row.appendChild(icon);
@@ -568,12 +568,12 @@
         });
     });
 
-    // ── Filter panel toggle ───────────────────────────────────────────────
+    // ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Filter panel toggle ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
     var _rxAdvOpen = false;
     function toggleRxPanel() {
         _rxAdvOpen = !_rxAdvOpen;
-        const el = document.getElementById('rxAdvPanel');
-        const ch = document.getElementById('rxAdvChevron');
+        var el = document.getElementById('rxAdvPanel');
+        var ch = document.getElementById('rxAdvChevron');
         if (el) el.style.display = _rxAdvOpen ? '' : 'none';
         if (ch) ch.className   = _rxAdvOpen ? 'fas fa-chevron-up ms-1' : 'fas fa-chevron-down ms-1';
     }
@@ -583,17 +583,75 @@
     var rSortDir = 'desc';
     var medCount = 0;
     var workflowModalInstance = null;
-    var allPatientsList = []; // for searchable patient picker
+    var allPatientsList    = []; // for searchable patient picker
+    var allPharmaciesList  = []; // pharmacies cache
+    var allPtList          = []; // patient transport companies cache
+    var allPhtList         = []; // pharmacy transport companies cache
+    var allMedCatalog      = []; // RX action catalog
 
-    document.addEventListener('DOMContentLoaded', async () => {
+    // Loads all dropdown data needed for the New RX modal and workflow selectors.
+    // Returns a Promise so DOMContentLoaded can chain .then(loadRxRecords).
+    function loadRxDropdowns() {
+        var pRes, phRes, ptRes, rxRes, waRes, catRes;
+        return fetchWithAuth(window.rxUrl('/api/patients'), { silent: true }).then(function(r) {
+            pRes = r;
+            return fetchWithAuth(window.rxUrl('/api/pharmacies'), { silent: true });
+        }).then(function(r) {
+            phRes = r;
+            return fetchWithAuth(window.rxUrl('/api/patient-transport'), { silent: true });
+        }).then(function(r) {
+            ptRes = r;
+            return fetchWithAuth(window.rxUrl('/api/pharmacy-transport'), { silent: true });
+        }).then(function(r) {
+            rxRes = r;
+            return fetchWithAuth(window.rxUrl('/api/workflow-actions'), { silent: true });
+        }).then(function(r) {
+            waRes = r;
+            return fetchWithAuth(window.rxUrl('/api/medication-catalog?activeOnly=true'), { silent: true });
+        }).then(function(r) {
+            catRes = r;
+            if (pRes   && pRes.ok)  { return pRes.json();   } return [];
+        }).then(function(data) {
+            allPatientsList = Array.isArray(data) ? data : [];
+            if (phRes  && phRes.ok) { return phRes.json();  } return [];
+        }).then(function(data) {
+            allPharmaciesList = Array.isArray(data) ? data : [];
+            if (ptRes  && ptRes.ok) { return ptRes.json();  } return [];
+        }).then(function(data) {
+            allPtList = Array.isArray(data) ? data : [];
+            if (rxRes  && rxRes.ok) { return rxRes.json();  } return [];
+        }).then(function(data) {
+            allPhtList = Array.isArray(data) ? data : [];
+            if (waRes  && waRes.ok) { return waRes.json();  } return [];
+        }).then(function(data) {
+            allWorkflowActions = Array.isArray(data) ? data : [];
+            _rxPopulateBulkStepSel();
+            if (catRes && catRes.ok) { return catRes.json(); } return [];
+        }).then(function(data) {
+            allMedCatalog = Array.isArray(data) ? data : [];
+            var dl = document.getElementById('medCatalogList');
+            if (!dl) { dl = document.createElement('datalist'); dl.id = 'medCatalogList'; document.body.appendChild(dl); }
+            dl.innerHTML = '';
+            for (var _mi = 0; _mi < allMedCatalog.length; _mi++) {
+                var opt = document.createElement('option');
+                opt.value = allMedCatalog[_mi].name;
+                dl.appendChild(opt);
+            }
+            initPatientSearch();
+        }).catch(function(e) {
+            console.error('[RX] loadRxDropdowns error:', e);
+            initPatientSearch(); // always init patient search even on partial failure
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
         initApp();
-        setupSidebar();
-        
+
         workflowModalInstance = new bootstrap.Modal(document.getElementById('workflowModal'));
+
         document.getElementById('exportRxListCsvBtn').addEventListener('click', function() {
             if (!filteredRx.length) { showToast('No data to export.', 'warning'); return; }
 
-            /* One column per workflow stage + one days-lag column per stage */
             var stageHeaders = [];
             allWorkflowActions.forEach(function(a) {
                 stageHeaders.push(a.name);
@@ -608,10 +666,8 @@
             }
 
             var rows = filteredRx.map(function(rx) {
-                /* lookup: workflowActionId -> tracking object */
                 var trkMap = {};
                 (rx.RXWorkflowTrackings || []).forEach(function(t) { trkMap[t.workflowActionId] = t; });
-
                 var row = [
                     rx.id,
                     rx.Patient ? (rx.Patient.patientCode || rx.patientId) : rx.patientId,
@@ -620,20 +676,15 @@
                     rx.serviceDate ? new Date(rx.serviceDate).toLocaleDateString() : '',
                     (rx.RXWorkflowTrackings || []).length + ' / ' + allWorkflowActions.length
                 ];
-
-                /* Stage + lag columns */
                 var svcDate = rx.serviceDate ? new Date(rx.serviceDate) : null;
                 allWorkflowActions.forEach(function(a, idx) {
                     var trk = trkMap[a.id];
-                    /* Date column */
                     row.push(trk && trk.completionDate ? new Date(trk.completionDate).toLocaleDateString() : '');
-                    /* Days lag column */
                     var lag = '';
                     if (trk && trk.completionDate) {
                         var prevDate = null;
-                        if (idx === 0) {
-                            prevDate = svcDate;
-                        } else {
+                        if (idx === 0) { prevDate = svcDate; }
+                        else {
                             var prevTrk = trkMap[allWorkflowActions[idx-1].id];
                             if (prevTrk && prevTrk.completionDate) prevDate = new Date(prevTrk.completionDate);
                         }
@@ -643,111 +694,79 @@
                 });
                 return row;
             });
-
             exportToCsv('rx_workflow_report_' + new Date().toISOString().slice(0,10) + '.csv', headers, rows);
         });
 
-        const urlParams = new URLSearchParams(window.location.search);
-        const patientId   = urlParams.get('patient');
-        const patientName = urlParams.get('name');
+        var urlParams = new URLSearchParams(window.location.search);
+        var patientId   = urlParams.get('patient');
+        var patientName = urlParams.get('name');
 
-        // Pre-fill patient name filter immediately so the user sees it on load
         if (patientName) {
             document.getElementById('rxFilterPatient').value = decodeURIComponent(patientName).trim();
         } else if (patientId) {
-            // Fallback: ID-based pre-filter (no name in URL)
             window._rxPrefilterPatientId = patientId;
         }
 
-        // Filter bar listeners — all trigger applyRxFilter
-        ['rxFilterPatient','rxFilterId','rxFilterPharmacy','rxFilterPatientCode',
-         'rxFilterDateFrom','rxFilterDateTo','rxFilterSvcFrom','rxFilterSvcTo'].forEach(id => {
-            const el = document.getElementById(id); if (el) el.addEventListener('input', () => { rxPage = 1; applyRxFilter(); });
-            if (el) el.addEventListener('change', () => { rxPage = 1; applyRxFilter(); });
-        });
-        document.getElementById('rxFilterBtn').addEventListener('click', () => { rxPage = 1; applyRxFilter(); });
-        document.getElementById('rxClearBtn').addEventListener('click', () => {
-            ['rxFilterPatient','rxFilterId','rxFilterPharmacy','rxFilterPatientCode',
-             'rxFilterDateFrom','rxFilterDateTo','rxFilterSvcFrom','rxFilterSvcTo'].forEach(id => {
-                const el = document.getElementById(id); if(el) el.value = '';
-            });
-            document.getElementById('rxShowDeleted').checked = false;
+        // Filter bar listeners
+        var _filterIds = ['rxFilterPatient','rxFilterId','rxFilterPharmacy','rxFilterPatientCode',
+                          'rxFilterDateFrom','rxFilterDateTo','rxFilterSvcFrom','rxFilterSvcTo'];
+        for (var _fi = 0; _fi < _filterIds.length; _fi++) {
+            (function(fid) {
+                var el = document.getElementById(fid);
+                if (!el) return;
+                el.addEventListener('input',  function() { rxPage = 1; applyRxFilter(); });
+                el.addEventListener('change', function() { rxPage = 1; applyRxFilter(); });
+            })(_filterIds[_fi]);
+        }
+        var rxFilterBtn = document.getElementById('rxFilterBtn');
+        if (rxFilterBtn) rxFilterBtn.addEventListener('click', function() { rxPage = 1; applyRxFilter(); });
+        var rxClearBtn = document.getElementById('rxClearBtn');
+        if (rxClearBtn) rxClearBtn.addEventListener('click', function() {
+            for (var _ci = 0; _ci < _filterIds.length; _ci++) {
+                var el = document.getElementById(_filterIds[_ci]); if (el) el.value = '';
+            }
+            var sdEl = document.getElementById('rxShowDeleted'); if (sdEl) sdEl.checked = false;
             window._rxPrefilterPatientId = null;
             rxPage = 1; loadRxRecords();
         });
-        document.getElementById('rxShowDeleted').addEventListener('change', () => { rxPage = 1; loadRxRecords(); });
+        var rxShowDel = document.getElementById('rxShowDeleted');
+        if (rxShowDel) rxShowDel.addEventListener('change', function() { rxPage = 1; loadRxRecords(); });
 
-        document.getElementById('exportRxListCsvBtn').addEventListener('click', () => {
-            if (!filteredRx.length) { showToast('No data to export.', 'warning'); return; }
-            var headers = ['RX #', 'Patient ID', 'Patient Name', 'Pharmacy', 'Service Date', 'Steps Completed'];
-            const rows = filteredRx.map(rx => [
-                rx.id,
-                rx.Patient ? (rx.Patient.patientCode || rx.patientId) : rx.patientId,
-                rx.Patient ? rx.Patient.firstName + ' ' + rx.Patient.lastName : '',
-                rx.Pharmacy ? rx.Pharmacy.name : '',
-                rx.serviceDate || '',
-                (rx.RXWorkflowTrackings || []).length
-            ]);
-            exportToCsv('rx_records_' + new Date().toISOString().slice(0,10) + '.csv', headers, rows);
-        });
-
-        // Apply export permission
-        const rxPerms = getPagePerms();
+        // Permissions
+        var rxPerms = getPagePerms();
         if (!rxPerms.canExport) {
-            const expBtn = document.getElementById('exportRxListCsvBtn');
-            if (expBtn) expBtn.classList.add('d-none');
+            var expBtn = document.getElementById('exportRxListCsvBtn'); if (expBtn) expBtn.classList.add('d-none');
         }
         if (!rxPerms.canAdd) {
-            const addBtn = document.getElementById('addRxBtn');
-            if (addBtn) addBtn.classList.add('d-none');
+            var addBtn = document.getElementById('addRxBtn'); if (addBtn) addBtn.classList.add('d-none');
         } else {
-            const addBtn = document.getElementById('addRxBtn');
-            if (addBtn) addBtn.addEventListener('click', openRxModal);
+            var addBtn2 = document.getElementById('addRxBtn');
+            if (addBtn2) addBtn2.addEventListener('click', openRxModal);
         }
+        // Wire Save RX and Add Action buttons
+        var saveRxBtn = document.getElementById('saveRxBtn');
+        if (saveRxBtn) saveRxBtn.addEventListener('click', saveRx);
+        var addMedBtn = document.getElementById('addMedBtn');
+        if (addMedBtn) addMedBtn.addEventListener('click', addMedicationRow);
+        // Wire remove-row delegation
+        var medContainer = document.getElementById('medicationsContainer');
+        if (medContainer) medContainer.addEventListener('click', function(e) {
+            var btn = e.target.closest('[data-remove-row]');
+            if (btn) {
+                var rowId = btn.getAttribute('data-remove-row');
+                var row = document.getElementById(rowId);
+                if (row) row.remove();
+            }
+        });
 
-        await loadRxDropdowns();
-        await loadRxRecords();
-
-        // Apply filter immediately after data loads — shows patient's records right away
-        if (patientName || patientId) {
-            rxPage = 1;
-            applyRxFilter();
-        }
+        loadRxDropdowns().then(function() {
+            return loadRxRecords();
+        }).then(function() {
+            if (patientName || patientId) { rxPage = 1; applyRxFilter(); }
+        });
     });
 
     // Cached option arrays for re-filling selects after patient switch
-    let allPharmaciesList = [];
-    let allPtList = [];
-    let allPhtList = [];
-    let allMedCatalog = []; // RX action catalog
-
-    async function loadRxDropdowns() {
-        try {
-            var pRes    = await fetchWithAuth(window.rxUrl('/api/patients'), { silent: true });
-            var phRes   = await fetchWithAuth(window.rxUrl('/api/pharmacies'), { silent: true });
-            var ptRes   = await fetchWithAuth(window.rxUrl('/api/patient-transport'), { silent: true });
-            var rxRes   = await fetchWithAuth(window.rxUrl('/api/pharmacy-transport'), { silent: true });
-            var waRes   = await fetchWithAuth(window.rxUrl('/api/workflow-actions'), { silent: true });
-            var catRes  = await fetchWithAuth(window.rxUrl('/api/medication-catalog?activeOnly=true'), { silent: true });
-
-            if (pRes   && pRes.ok)  { allPatientsList    = await pRes.json();   }
-            if (phRes  && phRes.ok) { allPharmaciesList  = await phRes.json();  }
-            if (ptRes  && ptRes.ok) { allPtList          = await ptRes.json();  }
-            if (rxRes  && rxRes.ok) { allPhtList         = await rxRes.json();  }
-            if (waRes  && waRes.ok) { allWorkflowActions = await waRes.json(); _rxPopulateBulkStepSel(); }
-
-            if (catRes && catRes.ok) {
-                allMedCatalog = await catRes.json();
-                var dl = document.getElementById('medCatalogList');
-                if (!dl) { dl = document.createElement('datalist'); dl.id = 'medCatalogList'; document.body.appendChild(dl); }
-                dl.innerHTML = '';
-                allMedCatalog.forEach(function(m) { var opt = document.createElement('option'); opt.value = m.name; dl.appendChild(opt); });
-            }
-            console.log('[RX] Patients loaded:', allPatientsList.length, '| Pharmacies:', allPharmaciesList.length);
-        } catch(e) { console.error('[RX] loadRxDropdowns error:', e); }
-        // Always init patient search — even if some calls failed
-        initPatientSearch();
-    }
 
     // Reset all display fields and hide the info panel (called on modal open)
     function resetRxForm() {
@@ -766,55 +785,54 @@
         /* arrivalDate will be set = serviceDate when patient is selected */
     }
 
-    async function loadRxRecords() {
-        const showDeleted = document.getElementById('rxShowDeleted') && document.getElementById('rxShowDeleted').checked;
-        const url = '/api/rx-records' + (showDeleted ? '?includeDeleted=true' : '');
-        const res = await fetchWithAuth(url);
-        if (!res) return;
-        const data = await res.json();
-        allRx = Array.isArray(data) ? data : [];
-        filteredRx = allRx.slice();
-        applyRxFilter();
+    function loadRxRecords() {
+        var sdEl = document.getElementById('rxShowDeleted');
+        var showDeleted = sdEl && sdEl.checked;
+        var url = window.rxUrl('/api/rx-records') + (showDeleted ? '?includeDeleted=true' : '');
+        return fetchWithAuth(url).then(function(res) {
+            if (!res) return;
+            return res.json().then(function(data) {
+                allRx = Array.isArray(data) ? data : [];
+                filteredRx = allRx.slice();
+                applyRxFilter();
+            });
+        }).catch(function(e) { console.error('[RX] loadRxRecords error:', e); });
     }
 
     function applyRxFilter() {
-        const pat   = document.getElementById('rxFilterPatient').value.toLowerCase().trim();
-        const rxId  = document.getElementById('rxFilterId').value.trim();
-        const ph    = document.getElementById('rxFilterPharmacy').value.toLowerCase().trim();
-        const from  = document.getElementById('rxFilterDateFrom').value;
-        const to    = document.getElementById('rxFilterDateTo').value;
-        const pc    = (document.getElementById('rxFilterPatientCode')?.value || '').toLowerCase().trim();
-        const sfrom = document.getElementById('rxFilterSvcFrom')?.value || '';
-        const sto   = document.getElementById('rxFilterSvcTo')?.value || '';
-        const preId = window._rxPrefilterPatientId;
+        var pat   = document.getElementById('rxFilterPatient').value.toLowerCase().trim();
+        var rxId  = document.getElementById('rxFilterId').value.trim();
+        var ph    = document.getElementById('rxFilterPharmacy').value.toLowerCase().trim();
+        var from  = document.getElementById('rxFilterDateFrom').value;
+        var to    = document.getElementById('rxFilterDateTo').value;
+        var _pcEl = document.getElementById('rxFilterPatientCode');
+        var pc    = (_pcEl ? _pcEl.value : '').toLowerCase().trim();
+        var _sfEl = document.getElementById('rxFilterSvcFrom');
+        var sfrom = _sfEl ? _sfEl.value : '';
+        var _stEl = document.getElementById('rxFilterSvcTo');
+        var sto   = _stEl ? _stEl.value : '';
+        var preId = window._rxPrefilterPatientId;
 
-        filteredRx = allRx.filter(r => {
-            // Patient name filter
+        filteredRx = allRx.filter(function(r) {
             if (pat) {
-                const fullName = r.Patient ? (r.Patient.firstName + ' ' + r.Patient.lastName).toLowerCase() : '';
-                const code     = r.Patient ? (r.Patient.patientCode || '').toLowerCase() : '';
-                if (!fullName.includes(pat) && !code.includes(pat)) return false;
+                var fullName = r.Patient ? (r.Patient.firstName + ' ' + r.Patient.lastName).toLowerCase() : '';
+                var code     = r.Patient ? (r.Patient.patientCode || '').toLowerCase() : '';
+                if (fullName.indexOf(pat) === -1 && code.indexOf(pat) === -1) return false;
             }
-            // Patient Code exact/partial filter (Advanced)
             if (pc) {
-                const code = r.Patient ? (r.Patient.patientCode || '').toLowerCase() : '';
-                if (!code.includes(pc)) return false;
+                var code2 = r.Patient ? (r.Patient.patientCode || '').toLowerCase() : '';
+                if (code2.indexOf(pc) === -1) return false;
             }
-            // Pre-filter by patient ID (from URL ?patient=)
             if (preId && !pat && !pc) {
                 if (!r.Patient || String(r.Patient.id) !== String(preId)) return false;
             }
-            // RX number filter
             if (rxId && String(r.id) !== rxId) return false;
-            // Pharmacy name filter
             if (ph) {
-                const phName = r.Pharmacy ? r.Pharmacy.name.toLowerCase() : '';
-                if (!phName.includes(ph)) return false;
+                var phName = r.Pharmacy ? r.Pharmacy.name.toLowerCase() : '';
+                if (phName.indexOf(ph) === -1) return false;
             }
-            // Service date range (from advanced filter 'Service Date From/To')
-            if (from && r.serviceDate && r.serviceDate < from) return false;
-            if (to   && r.serviceDate && r.serviceDate > to)   return false;
-            // Service date range
+            if (from  && r.serviceDate && r.serviceDate < from)  return false;
+            if (to    && r.serviceDate && r.serviceDate > to)     return false;
             if (sfrom && r.serviceDate && r.serviceDate < sfrom) return false;
             if (sto   && r.serviceDate && r.serviceDate > sto)   return false;
             return true;
@@ -827,9 +845,9 @@
     }
 
     function renderRxSorted() {
-        filteredRx.sort((a, b) => {
-            let valA = a[rSortCol];
-            let valB = b[rSortCol];
+        filteredRx.sort(function(a, b) {
+            var valA = a[rSortCol];
+            var valB = b[rSortCol];
             
             if (rSortCol === 'Patient.firstName') {
                 valA = a.Patient ? (a.Patient.firstName + ' ' + a.Patient.lastName) : '';
@@ -839,7 +857,7 @@
                 valB = b.Pharmacy ? b.Pharmacy.name : '';
             } else if (rSortCol === 'nextSvcDate' || rSortCol === 'cycleStatus') {
                 // Sort by days remaining until 90-day expiry (numeric)
-                // Active (many days left) → Expiring → Expired (negative)
+                // Active (many days left) ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ Expiring ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ Expired (negative)
                 var _sd2A = a.serviceDate ? new Date(a.serviceDate).getTime() + 90*864e5 : null;
                 var _sd2B = b.serviceDate ? new Date(b.serviceDate).getTime() + 90*864e5 : null;
                 valA = _sd2A !== null ? Math.round((_sd2A - Date.now()) / 864e5) : -9999;
@@ -863,7 +881,7 @@
         if (page.length === 0) {
             tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">No RX records found.</td></tr>';
         } else {
-            /* Build rows purely via DOM API (no template literals) — FortiGate-safe */
+            /* Build rows purely via DOM API (no template literals) ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â FortiGate-safe */
             tbody.innerHTML = '';
             for (var ri = 0; ri < page.length; ri++) {
                 var rx           = page[ri];
@@ -882,7 +900,7 @@
                 if (isDeleted)   tr.className = 'table-secondary text-muted';
                 else if (patInactive) tr.className = 'table-warning';
 
-                /* ── Checkbox cell (F10-02) ── */
+                /* ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Checkbox cell (F10-02) ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ */
                 var tdCb = document.createElement('td');
                 var cb = document.createElement('input');
                 cb.type = 'checkbox';
@@ -898,7 +916,7 @@
                 tdCb.appendChild(cb);
                 tr.appendChild(tdCb);
 
-                /* ── RX # cell ── */
+                /* ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ RX # cell ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ */
                 var tdId = document.createElement('td');
                 var strong = document.createElement('strong');
                 strong.textContent = '#' + rx.id;
@@ -907,21 +925,21 @@
                 if (rx.returnedToWarehouse) { var whB = document.createElement('span'); whB.className = 'badge bg-warning text-dark ms-1'; whB.title = 'Returned to Warehouse'; whB.innerHTML = '<i class="fas fa-warehouse"></i>'; tdId.appendChild(whB); }
                 tr.appendChild(tdId);
 
-                /* ── Patient cell ── */
+                /* ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Patient cell ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ */
                 var tdPat = document.createElement('td');
                 tdPat.textContent = patientName;
                 if (patDeleted) { var pb = document.createElement('span'); pb.className = 'badge bg-danger ms-1'; pb.title = 'Patient deleted'; pb.innerHTML = '<i class="fas fa-user-slash"></i>'; tdPat.appendChild(pb); }
                 else if (patInactive) { var pb2 = document.createElement('span'); pb2.className = 'badge bg-warning text-dark ms-1'; pb2.title = 'Patient inactive'; pb2.innerHTML = '<i class="fas fa-user-times"></i>'; tdPat.appendChild(pb2); }
                 tr.appendChild(tdPat);
 
-                /* ── Service Date cell ── (plain date) */
+                /* ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Service Date cell ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ (plain date) */
                 var tdSvc = document.createElement('td');
-                tdSvc.textContent = rx.serviceDate || '—';
+                tdSvc.textContent = rx.serviceDate || 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â';
                 tr.appendChild(tdSvc);
 
-                /* ── Next Service Date cell ── (plain expiry date) */
+                /* ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Next Service Date cell ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ (plain expiry date) */
                 var tdNext   = document.createElement('td');
-                /* ── Cycle Status cell ── (color badge) */
+                /* ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Cycle Status cell ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ (color badge) */
                 var tdStatus = document.createElement('td');
                 if (rx.serviceDate) {
                     var _sD      = new Date(rx.serviceDate); _sD.setHours(0,0,0,0);
@@ -931,23 +949,23 @@
                     var _expStr  = _exp.toLocaleDateString();
                     tdNext.textContent = _expStr;
                     if (_dLeft < 0) {
-                        tdStatus.innerHTML = '<span class="badge bg-danger" title="Expired ' + Math.abs(_dLeft) + 'd ago — new cycle available now"><i class="fas fa-exclamation-circle me-1"></i>Expired</span>';
+                        tdStatus.innerHTML = '<span class="badge bg-danger" title="Expired ' + Math.abs(_dLeft) + 'd ago ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â new cycle available now"><i class="fas fa-exclamation-circle me-1"></i>Expired</span>';
                     } else if (_dLeft <= 14) {
                         tdStatus.innerHTML = '<span class="badge bg-warning text-dark" title="Cycle closes ' + _expStr + '"><i class="fas fa-clock me-1"></i>' + _dLeft + 'd left</span>';
                     } else {
                         tdStatus.innerHTML = '<span class="badge bg-success" title="90-day window active until ' + _expStr + '"><i class="fas fa-check me-1"></i>Active</span>';
                     }
                 } else {
-                    tdNext.textContent   = '—';
-                    tdStatus.textContent = '—';
+                    tdNext.textContent   = 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â';
+                    tdStatus.textContent = 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â';
                 }
                 tr.appendChild(tdNext);
                 tr.appendChild(tdStatus);
 
-                /* ── Pharmacy cell ── */
+                /* ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Pharmacy cell ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ */
                 var tdPh = document.createElement('td'); tdPh.textContent = pharmacyName; tr.appendChild(tdPh);
 
-                /* ── Workflow status cell ── */
+                /* ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Workflow status cell ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ */
                 var tdWf = document.createElement('td');
                 var wfDiv = document.createElement('div');
                 wfDiv.className = 'd-flex align-items-center gap-2';
@@ -965,7 +983,7 @@
                 tdWf.appendChild(wfDiv);
                 tr.appendChild(tdWf);
 
-                /* ── Actions cell ── */
+                /* ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Actions cell ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ */
                 var tdAct = document.createElement('td');
                 tdAct.className = 'rx-act';
                 tdAct.dataset.rxid     = rx.id;
@@ -1008,7 +1026,7 @@
             if (saEl) saEl.indeterminate = false;
         }
         _rxUpdateBulkBar();
-        document.getElementById('rxPageInfo').textContent = 'Showing ' + (filteredRx.length === 0 ? 0 : Math.min(start+1, filteredRx.length)) + '–' + Math.min(start+rxPageSize, filteredRx.length) + ' of ' + filteredRx.length;
+        document.getElementById('rxPageInfo').textContent = 'Showing ' + (filteredRx.length === 0 ? 0 : Math.min(start+1, filteredRx.length)) + 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“' + Math.min(start+rxPageSize, filteredRx.length) + ' of ' + filteredRx.length;
         var rxPages = Math.ceil(filteredRx.length / rxPageSize) || 1;
         // Smart ellipsis paginator
         var rxIsFirst = rxPage === 1; var rxIsLast = rxPage >= rxPages;
@@ -1058,10 +1076,10 @@
         // Reset display panel and hidden inputs
         resetRxForm();
         // Reset patient search picker
-        const searchInput = document.getElementById('patientSearchInput');
-        const hiddenInput = document.getElementById('rxPatientId');
-        const dropdown   = document.getElementById('patientDropdown');
-        const info       = document.getElementById('patientSelectedInfo');
+        var searchInput = document.getElementById('patientSearchInput');
+        var hiddenInput = document.getElementById('rxPatientId');
+        var dropdown   = document.getElementById('patientDropdown');
+        var info       = document.getElementById('patientSelectedInfo');
         if (searchInput) { searchInput.value = ''; searchInput.classList.remove('is-selected'); }
         if (hiddenInput) hiddenInput.value = '';
         if (dropdown)    dropdown.classList.remove('open');
@@ -1072,27 +1090,27 @@
 
     // ---- Patient search picker ----
     function initPatientSearch() {
-        const searchInput = document.getElementById('patientSearchInput');
-        const hiddenInput = document.getElementById('rxPatientId');
-        const dropdown    = document.getElementById('patientDropdown');
-        const info        = document.getElementById('patientSelectedInfo');
+        var searchInput = document.getElementById('patientSearchInput');
+        var hiddenInput = document.getElementById('rxPatientId');
+        var dropdown    = document.getElementById('patientDropdown');
+        var info        = document.getElementById('patientSelectedInfo');
         if (!searchInput || !dropdown) return;
 
-        let hiIdx = -1;
+        var hiIdx = -1;
 
         function renderDropdown(query) {
-            const q = query.trim().toLowerCase();
-            const matches = q.length === 0 ? allPatientsList.slice(0, 50) : allPatientsList.filter(p => {
-                const name  = (p.firstName + ' ' + p.lastName).toLowerCase();
-                const code  = (p.patientCode || '').toLowerCase();
-                const idStr = String(p.id);
-                return name.includes(q) || code.includes(q) || idStr.includes(q);
+            var q = query.trim().toLowerCase();
+            var matches = q.length === 0 ? allPatientsList.slice(0, 50) : allPatientsList.filter(function(p) {
+                var name  = (p.firstName + ' ' + p.lastName).toLowerCase();
+                var code  = (p.patientCode || '').toLowerCase();
+                var idStr = String(p.id);
+                return name.indexOf(q) !== -1 || code.indexOf(q) !== -1 || idStr.indexOf(q) !== -1;
             });
 
             if (matches.length === 0) {
                 dropdown.innerHTML = '<div class="patient-dropdown-empty">No patients found.</div>';
             } else {
-                // Build via DOM API — FortiGate corrupts template literals in inline scripts
+                // Build via DOM API ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â FortiGate corrupts template literals in inline scripts
                 dropdown.innerHTML = '';
                 matches.forEach(function(p, i) {
                     var display   = p.firstName + ' ' + p.lastName;
@@ -1155,7 +1173,7 @@
             var ptObj   = allPtList.filter(function(p)  { return String(p.id) === String(ptId); })[0];
             var phtObj  = allPhtList.filter(function(p)  { return String(p.id) === String(phtId); })[0];
 
-            // Fill hidden values — arrivalDate = patient serviceDate (business rule)
+            // Fill hidden values ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â arrivalDate = patient serviceDate (business rule)
             function setHidden(elId, val) { var el = document.getElementById(elId); if (el) el.value = val || ''; }
             setHidden('rxPharmacyId',       pharmId || '');
             setHidden('rxArrivalDate',       serviceDate || '');
@@ -1176,8 +1194,8 @@
 
             info.innerHTML = '&#10003; <strong>' + name + '</strong> selected &mdash; info loaded below';
         }
-        searchInput.addEventListener('focus', () => { renderDropdown(searchInput.value); });
-        searchInput.addEventListener('input', () => {
+        searchInput.addEventListener('focus', function() { renderDropdown(searchInput.value); });
+        searchInput.addEventListener('input', function() {
             hiddenInput.value = '';
             searchInput.classList.remove('is-selected');
             info.textContent = '';
@@ -1185,8 +1203,8 @@
         });
 
         // Keyboard navigation
-        searchInput.addEventListener('keydown', (e) => {
-            const items = dropdown.querySelectorAll('.patient-dropdown-item');
+        searchInput.addEventListener('keydown', function(e) {
+            var items = dropdown.querySelectorAll('.patient-dropdown-item');
             if (e.key === 'ArrowDown') {
                 e.preventDefault();
                 hiIdx = Math.min(hiIdx + 1, items.length - 1);
@@ -1195,7 +1213,7 @@
                 hiIdx = Math.max(hiIdx - 1, 0);
             } else if (e.key === 'Enter' && hiIdx >= 0) {
                 e.preventDefault();
-                const item = items[hiIdx];
+                var item = items[hiIdx];
                 if (item) selectPatient(item.dataset.id, item.dataset.name,
                     item.dataset.serviceDate, item.dataset.ptId, item.dataset.phtId, item.dataset.pharmacyId);
                 return;
@@ -1203,14 +1221,16 @@
                 dropdown.classList.remove('open');
                 return;
             }
-            items.forEach((it, i) => it.classList.toggle('highlighted', i === hiIdx));
+            for (var _ki = 0; _ki < items.length; _ki++) {
+                items[_ki].classList.toggle('highlighted', _ki === hiIdx);
+            }
             if (items[hiIdx]) items[hiIdx].scrollIntoView({ block: 'nearest' });
         });
 
-
         // Close on outside click
-        document.addEventListener('click', (e) => {
-            if (!document.getElementById('patientSearchWrapper').contains(e.target)) {
+        document.addEventListener('click', function(e) {
+            var wrapper = document.getElementById('patientSearchWrapper');
+            if (wrapper && !wrapper.contains(e.target)) {
                 dropdown.classList.remove('open');
             }
         });
@@ -1218,71 +1238,103 @@
 
     function addMedicationRow() {
         medCount++;
-        const rowId = 'med_' + medCount;
-        const n = medCount;
-        const div = document.createElement('div');
+        var rowId = 'med_' + medCount;
+        var n = medCount;
+        var div = document.createElement('div');
         div.className = 'row g-2 align-items-end mb-2 med-row';
         div.id = rowId;
-        div.innerHTML = `
-            <div class="col-md-5">
-                <div class="input-group input-group-sm">
-                    <span class="input-group-text"><i class="fas fa-clipboard-list"></i></span>
-                    <input type="text" class="form-control" placeholder="Select or type action..." name="medName_${n}"
-                           list="medCatalogList" autocomplete="off"
-                           oninput="checkMedCatalog(this)">
-                </div>
-                <small class="text-warning med-warn" style="display:none;font-size:.7rem">
-                    <i class="fas fa-exclamation-triangle me-1"></i>Not in actions list
-                </small>
-            </div>
-            <div class="col-md-2">
-                <input type="number" class="form-control form-control-sm" placeholder="#" name="medQty_${n}" min="1" value="1">
-            </div>
-            <div class="col-md-4">
-                <input type="text" class="form-control form-control-sm" placeholder="Notes (optional)" name="medNotes_${n}">
-            </div>
-            <div class="col-md-1">
-                <button type="button" class="btn btn-outline-danger btn-sm w-100"
-                        data-remove-row="${rowId}" title="Remove">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-        `;
+
+        // Col 1: action name input
+        var col1 = document.createElement('div'); col1.className = 'col-md-5';
+        var ig = document.createElement('div'); ig.className = 'input-group input-group-sm';
+        var igSpan = document.createElement('span'); igSpan.className = 'input-group-text';
+        igSpan.innerHTML = '<i class="fas fa-clipboard-list"></i>';
+        var nameInput = document.createElement('input');
+        nameInput.type = 'text'; nameInput.className = 'form-control';
+        nameInput.placeholder = 'Select or type action...';
+        nameInput.name = 'medName_' + n;
+        nameInput.setAttribute('list', 'medCatalogList');
+        nameInput.setAttribute('autocomplete', 'off');
+        nameInput.setAttribute('oninput', 'checkMedCatalog(this)');
+        ig.appendChild(igSpan); ig.appendChild(nameInput); col1.appendChild(ig);
+        var warn = document.createElement('small');
+        warn.className = 'text-warning med-warn';
+        warn.style.display = 'none'; warn.style.fontSize = '.7rem';
+        warn.innerHTML = '<i class="fas fa-exclamation-triangle me-1"></i>Not in actions list';
+        col1.appendChild(warn);
+
+        // Col 2: quantity
+        var col2 = document.createElement('div'); col2.className = 'col-md-2';
+        var qtyInput = document.createElement('input');
+        qtyInput.type = 'number'; qtyInput.className = 'form-control form-control-sm';
+        qtyInput.placeholder = '#'; qtyInput.name = 'medQty_' + n;
+        qtyInput.min = '1'; qtyInput.value = '1';
+        col2.appendChild(qtyInput);
+
+        // Col 3: notes
+        var col3 = document.createElement('div'); col3.className = 'col-md-4';
+        var notesInput = document.createElement('input');
+        notesInput.type = 'text'; notesInput.className = 'form-control form-control-sm';
+        notesInput.placeholder = 'Notes (optional)'; notesInput.name = 'medNotes_' + n;
+        col3.appendChild(notesInput);
+
+        // Col 4: remove button
+        var col4 = document.createElement('div'); col4.className = 'col-md-1';
+        var removeBtn = document.createElement('button');
+        removeBtn.type = 'button'; removeBtn.className = 'btn btn-outline-danger btn-sm w-100';
+        removeBtn.title = 'Remove'; removeBtn.setAttribute('data-remove-row', rowId);
+        removeBtn.innerHTML = '<i class="fas fa-times"></i>';
+        col4.appendChild(removeBtn);
+
+        div.appendChild(col1); div.appendChild(col2); div.appendChild(col3); div.appendChild(col4);
         document.getElementById('medicationsContainer').appendChild(div);
     }
 
     // Show a soft warning when the typed medication isn't in the catalog (still saveable)
     function checkMedCatalog(input) {
-        const val = input.value.trim().toLowerCase();
-        const warn = input.closest('.med-row') && input.closest('.med-row').querySelector('.med-warn');
+        var val = input.value.trim().toLowerCase();
+        var row = input.closest ? input.closest('.med-row') : null;
+        if (!row) {
+            var p = input.parentNode;
+            while (p && !p.classList.contains('med-row')) p = p.parentNode;
+            row = p;
+        }
+        var warn = row ? row.querySelector('.med-warn') : null;
         if (!warn) return;
-        const inCatalog = val === '' || allMedCatalog.some(m => m.name.toLowerCase() === val);
+        var inCatalog = val === '';
+        if (!inCatalog) {
+            for (var _ci = 0; _ci < allMedCatalog.length; _ci++) {
+                if (allMedCatalog[_ci].name.toLowerCase() === val) { inCatalog = true; break; }
+            }
+        }
         warn.style.display = inCatalog ? 'none' : '';
     }
 
-    async function saveRx() {
-        const btn = document.getElementById('saveRxBtn');
-        const spinner = document.getElementById('saveRxSpinner');
+    function saveRx() {
+        var btn = document.getElementById('saveRxBtn');
+        var spinner = document.getElementById('saveRxSpinner');
         btn.disabled = true; spinner.classList.remove('d-none');
-        const medications = [];
-        for (let i = 1; i <= medCount; i++) {
-            const nameEl = document.querySelector(`[name="medName_${i}"]`);
+        var medications = [];
+        for (var i = 1; i <= medCount; i++) {
+            var nameEl = document.querySelector('[name="medName_' + i + '"]');
             if (nameEl && nameEl.value.trim()) {
+                var qtyEl   = document.querySelector('[name="medQty_'   + i + '"]');
+                var notesEl = document.querySelector('[name="medNotes_' + i + '"]');
                 medications.push({
-                    name: nameEl.value.trim(),
-                    quantity: parseInt(document.querySelector(`[name="medQty_${i}"]`)?.value) || 1,
-                    notes: document.querySelector(`[name="medNotes_${i}"]`)?.value.trim() || ''
+                    name:     nameEl.value.trim(),
+                    quantity: parseInt(qtyEl   ? qtyEl.value   : '1') || 1,
+                    notes:    notesEl ? notesEl.value.trim() : ''
                 });
             }
         }
-        const body = {
-            patientId: document.getElementById('rxPatientId').value || null,
-            pharmacyId: document.getElementById('rxPharmacyId').value || null,
-            arrivalDate: document.getElementById('rxArrivalDate').value,
-            serviceDate: document.getElementById('rxServiceDate').value,
-            patientTransportCompanyId: document.getElementById('rxPatientTransport').value || null,
+        var body = {
+            patientId:                  document.getElementById('rxPatientId').value || null,
+            pharmacyId:                 document.getElementById('rxPharmacyId').value || null,
+            arrivalDate:                document.getElementById('rxArrivalDate').value,
+            serviceDate:                document.getElementById('rxServiceDate').value,
+            patientTransportCompanyId:  document.getElementById('rxPatientTransport').value || null,
             pharmacyTransportCompanyId: document.getElementById('rxPharmacyTransport').value || null,
-            medications
+            medications:                medications
         };
 
         if (!body.patientId) {
@@ -1297,361 +1349,374 @@
             return;
         }
 
-        try {
-            const res = await fetchWithAuth(window.rxUrl('/api/rx-records'), { method: 'POST', body: JSON.stringify(body) });
-            if (!res) return;
+        fetchWithAuth(window.rxUrl('/api/rx-records'), { method: 'POST', body: JSON.stringify(body) })
+        .then(function(res) {
+            if (!res) { btn.disabled = false; spinner.classList.add('d-none'); return; }
             if (res.ok) {
                 bootstrap.Modal.getInstance(document.getElementById('rxModal')).hide();
                 showToast('RX Record created!', 'success');
-                await loadRxRecords();
+                return loadRxRecords();
             } else {
-                const err = await res.json();
-                showToast(err.error || err.message || 'Save failed.', 'danger');
+                return res.json().then(function(err) {
+                    showToast(err.error || err.message || 'Save failed.', 'danger');
+                });
             }
-        } catch(e) { showToast('Network error.', 'danger'); }
-        finally { btn.disabled = false; spinner.classList.add('d-none'); }
+        }).catch(function() {
+            showToast('Network error.', 'danger');
+        }).then(function() {
+            btn.disabled = false; spinner.classList.add('d-none');
+        });
     }
 
-    // ── View RX Record Details ────────────────────────────────────────────────
-    async function viewRxDetail(id) {
-        const body = document.getElementById('rxDetailBody');
-        body.innerHTML = '<p class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin me-2"></i>Loading record...</p>';
+    // ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ View RX Record Details ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
+    function viewRxDetail(id) {
+        var bodyEl = document.getElementById('rxDetailBody');
+        bodyEl.innerHTML = '<p class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin me-2"></i>Loading record...</p>';
 
-        // Wire the Print button
-        const printBtn = document.getElementById('rxDetailPrintBtn');
-        if (printBtn) printBtn.onclick = () => { printRxRecord(id); };
+        var printBtn = document.getElementById('rxDetailPrintBtn');
+        if (printBtn) printBtn.onclick = function() { printRxRecord(id); };
 
         new bootstrap.Modal(document.getElementById('rxDetailModal')).show();
 
-        try {
-            const res = await fetchWithAuth(window.rxUrl('/api/rx-records/') + id);
-            if (!res || !res.ok) { body.innerHTML = '<p class="text-danger text-center py-4">Failed to load record.</p>'; return; }
-            const rx = await res.json();
+        fetchWithAuth(window.rxUrl('/api/rx-records/') + id)
+        .then(function(res) {
+            if (!res || !res.ok) { bodyEl.innerHTML = '<p class="text-danger text-center py-4">Failed to load record.</p>'; return; }
+            return res.json().then(function(rx) {
+                var patient    = rx.Patient  || {};
+                var pharmacy   = rx.Pharmacy || {};
+                var meds       = rx.Medications || [];
+                var trackings  = rx.RXWorkflowTrackings || [];
+                var totalSteps = allWorkflowActions.length;
+                var doneCount  = trackings.length;
+                var pct        = totalSteps > 0 ? Math.round((doneCount / totalSteps) * 100) : 0;
 
-            const patient    = rx.Patient  || {};
-            const pharmacy   = rx.Pharmacy || {};
-            const meds       = rx.Medications || [];
-            const trackings  = rx.RXWorkflowTrackings || [];
-            const totalSteps = allWorkflowActions.length;
-            const doneCount  = trackings.length;
-            const pct        = totalSteps > 0 ? Math.round((doneCount / totalSteps) * 100) : 0;
+                var statusColor = pct >= 100 ? '#198754' : pct > 0 ? '#fd7e14' : '#6c757d';
+                var statusLabel = pct >= 100 ? 'Completed' : pct > 0 ? 'In Progress' : 'Not Started';
 
-            const statusColor = pct >= 100 ? '#198754' : pct > 0 ? '#fd7e14' : '#6c757d';
-            const statusLabel = pct >= 100 ? 'Completed' : pct > 0 ? 'In Progress' : 'Not Started';
+                var ptComp  = rx.PatientTransportCompany  ? (rx.PatientTransportCompany.contactPerson  || rx.PatientTransportCompany.companyName  || '\u2014') : '\u2014';
+                var phtComp = rx.PharmacyTransportCompany ? (rx.PharmacyTransportCompany.companyName || rx.PharmacyTransportCompany.contactPerson || '\u2014') : '\u2014';
 
-            // Build transport labels
-            const ptComp  = rx.PatientTransportCompany  ? (rx.PatientTransportCompany.contactPerson  || rx.PatientTransportCompany.companyName  || '—') : '—';
-            const phtComp = rx.PharmacyTransportCompany ? (rx.PharmacyTransportCompany.companyName || rx.PharmacyTransportCompany.contactPerson || '—') : '—';
+                var infoRows = [
+                    ['Patient',            (patient.firstName || '') + ' ' + (patient.lastName || '')],
+                    ['Patient ID',         patient.patientCode || '\u2014'],
+                    ['Default Pharmacy',   pharmacy.name || '\u2014'],
+                    ['Service Date',       rx.serviceDate || '\u2014'],
+                    ['Next Service Date',  (function(){ if (!rx.serviceDate) return '\u2014'; var e = new Date(new Date(rx.serviceDate).getTime() + 90*864e5); return e.toLocaleDateString(); })()],
+                    ['Cycle Status',       (function(){ if (!rx.serviceDate) return '\u2014'; var e = new Date(new Date(rx.serviceDate).getTime() + 90*864e5); var d = Math.round((e - new Date()) / 864e5); if (d < 0) return '\u26a0\ufe0f Expired (' + Math.abs(d) + 'd ago)'; if (d <= 14) return '\u23f1\ufe0f Expiring (' + d + 'd left)'; return '\u2705 Active'; })()],
+                    ['Patient Transport',  ptComp],
+                    ['Pharmacy Transport', phtComp],
+                    ['Created',            rx.createdAt ? new Date(rx.createdAt).toLocaleString() : '\u2014']
+                ];
 
-            // Info rows
-            const infoRows = [
-                ['Patient',            (patient.firstName || '') + ' ' + (patient.lastName || '')],
-                ['Patient ID',         patient.patientCode || '—'],
-                ['Default Pharmacy',   pharmacy.name || '—'],
-                ['Service Date',       rx.serviceDate || '—'],
-                ['Next Service Date',  (function(){ if (!rx.serviceDate) return '—'; var e = new Date(new Date(rx.serviceDate).getTime() + 90*864e5); return e.toLocaleDateString(); })()],
-                ['Cycle Status',       (function(){ if (!rx.serviceDate) return '—'; var e = new Date(new Date(rx.serviceDate).getTime() + 90*864e5); var d = Math.round((e - new Date()) / 864e5); if (d < 0) return '\u26a0\ufe0f Expired (' + Math.abs(d) + 'd ago)'; if (d <= 14) return '\u23f1\ufe0f Expiring (' + d + 'd left)'; return '\u2705 Active'; })()],
-                ['Patient Transport',  ptComp],
-                ['Pharmacy Transport', phtComp],
-                ['Created',            rx.createdAt ? new Date(rx.createdAt).toLocaleString() : '—'],
-            ];
+                var infoHtml = '';
+                for (var ii = 0; ii < infoRows.length; ii++) {
+                    infoHtml += '<div class="col-md-6 mb-2">' +
+                        '<div class="small text-muted text-uppercase fw-bold" style="font-size:.68rem;letter-spacing:.06em">' + infoRows[ii][0] + '</div>' +
+                        '<div class="fw-semibold">' + infoRows[ii][1] + '</div>' +
+                        '</div>';
+                }
 
-            const infoHtml = infoRows.map(([label, val]) => `
-                <div class="col-md-6 mb-2">
-                    <div class="small text-muted text-uppercase fw-bold" style="font-size:.68rem;letter-spacing:.06em">${label}</div>
-                    <div class="fw-semibold">${val}</div>
-                </div>`).join('');
-
-            // Actions table
-            const medHtml = meds.length === 0
-                ? '<p class="text-muted small mb-0"><i class="fas fa-info-circle me-1"></i>No actions recorded.</p>'
-                : `<table class="table table-sm table-bordered mb-0">
-                    <thead class="table-dark"><tr>
-                        <th>Action</th><th style="width:60px">#</th><th>Notes</th>
-                    </tr></thead>
-                    <tbody>
-                        ${meds.map(m => `<tr>
-                            <td class="fw-semibold">${m.name || '—'}</td>
-                            <td class="text-center">${m.quantity || 1}</td>
-                            <td class="text-muted small">${m.notes || ''}</td>
-                        </tr>`).join('')}
-                    </tbody>
-                </table>`;
-
-            // Workflow checklist
-            const wfHtml = allWorkflowActions.length === 0
-                ? '<p class="text-muted small">No workflow steps defined.</p>'
-                : allWorkflowActions.map((wa, wi) => {
-                    const tracking = trackings.find(t => t.workflowActionId === wa.id);
-                    const done     = !!tracking;
-                    const dateStr  = done && tracking.completionDate
-                        ? new Date(tracking.completionDate).toLocaleDateString()
-                        : null;
-                    // Days lag from previous event
-                    var lagHtml = '';
-                    if (done && tracking.completionDate) {
-                        var prevDate = null;
-                        if (wi === 0 && rx.serviceDate) {
-                            var sd = new Date(rx.serviceDate); sd.setHours(0,0,0,0);
-                            prevDate = sd;
-                        } else if (wi > 0) {
-                            var prevTk = trackings.find(t => t.workflowActionId === allWorkflowActions[wi-1].id);
-                            if (prevTk && prevTk.completionDate) { prevDate = new Date(prevTk.completionDate); prevDate.setHours(0,0,0,0); }
-                        }
-                        if (prevDate) {
-                            var cur = new Date(tracking.completionDate); cur.setHours(0,0,0,0);
-                            var diff = Math.round((cur - prevDate) / 864e5);
-                            var prevRef = wi === 0 ? 'svc. date' : 'prev. step';
-                            var lagTxt  = diff === 0 ? 'same as ' + prevRef : '+' + diff + 'd from ' + prevRef;
-                            lagHtml = `<span class="text-muted ms-1" style="font-size:.68rem">(${lagTxt})</span>`;
-                        }
+                var medHtml;
+                if (meds.length === 0) {
+                    medHtml = '<p class="text-muted small mb-0"><i class="fas fa-info-circle me-1"></i>No actions recorded.</p>';
+                } else {
+                    var medRows = '';
+                    for (var mi = 0; mi < meds.length; mi++) {
+                        var m = meds[mi];
+                        medRows += '<tr><td class="fw-semibold">' + (m.name || '\u2014') + '</td>' +
+                            '<td class="text-center">' + (m.quantity || 1) + '</td>' +
+                            '<td class="text-muted small">' + (m.notes || '') + '</td></tr>';
                     }
-                    return `<div class="d-flex align-items-center gap-2 py-1" style="border-bottom:1px solid #f0f0f0">
-                        <i class="fas ${done ? 'fa-check-circle text-success' : 'fa-circle text-secondary'}" style="font-size:.95rem;width:18px;flex-shrink:0"></i>
-                        <span class="${done ? 'text-success fw-semibold' : 'text-muted'}" style="font-size:.87rem">${wa.name}</span>
-                        ${done ? `<span class="ms-auto d-flex align-items-center gap-1 flex-wrap justify-content-end">
-                            <span class="badge bg-success" style="font-size:.65rem">${dateStr}</span>
-                            ${lagHtml}
-                        </span>` : ''}
-                    </div>`;
-                }).join('');
+                    medHtml = '<table class="table table-sm table-bordered mb-0">' +
+                        '<thead class="table-dark"><tr><th>Action</th><th style="width:60px">#</th><th>Notes</th></tr></thead>' +
+                        '<tbody>' + medRows + '</tbody></table>';
+                }
 
-            body.innerHTML = `
-                <!-- Header strip -->
-                <div class="d-flex justify-content-between align-items-start mb-3 p-3 rounded"
-                     style="background:linear-gradient(135deg,#1a2234,#2c3e6b);color:#fff">
-                    <div>
-                        <div class="fw-bold fs-5">RX Record <span style="font-family:monospace">#${rx.id}</span></div>
-                        <div class="small opacity-75">${(patient.firstName || '') + ' ' + (patient.lastName || '')} &nbsp;·&nbsp; ${pharmacy.name || 'No pharmacy'}</div>
-                    </div>
-                    <span class="badge rounded-pill px-3 py-2" style="background:${statusColor};font-size:.82rem">
-                        ${statusLabel} &nbsp; ${pct}%
-                    </span>
-                </div>
+                var wfHtml;
+                if (allWorkflowActions.length === 0) {
+                    wfHtml = '<p class="text-muted small">No workflow steps defined.</p>';
+                } else {
+                    wfHtml = '';
+                    for (var wi = 0; wi < allWorkflowActions.length; wi++) {
+                        var wa = allWorkflowActions[wi];
+                        var tracking = null;
+                        for (var ti = 0; ti < trackings.length; ti++) {
+                            if (trackings[ti].workflowActionId === wa.id) { tracking = trackings[ti]; break; }
+                        }
+                        var done    = !!tracking;
+                        var dateStr = done && tracking.completionDate ? new Date(tracking.completionDate).toLocaleDateString() : null;
+                        var lagHtml = '';
+                        if (done && tracking.completionDate) {
+                            var prevDate = null;
+                            if (wi === 0 && rx.serviceDate) {
+                                var sd = new Date(rx.serviceDate); sd.setHours(0,0,0,0); prevDate = sd;
+                            } else if (wi > 0) {
+                                var prevTk = null;
+                                for (var pti = 0; pti < trackings.length; pti++) {
+                                    if (trackings[pti].workflowActionId === allWorkflowActions[wi-1].id) { prevTk = trackings[pti]; break; }
+                                }
+                                if (prevTk && prevTk.completionDate) { prevDate = new Date(prevTk.completionDate); prevDate.setHours(0,0,0,0); }
+                            }
+                            if (prevDate) {
+                                var cur  = new Date(tracking.completionDate); cur.setHours(0,0,0,0);
+                                var diff = Math.round((cur - prevDate) / 864e5);
+                                var prevRef = wi === 0 ? 'svc. date' : 'prev. step';
+                                var lagTxt  = diff === 0 ? 'same as ' + prevRef : '+' + diff + 'd from ' + prevRef;
+                                lagHtml = '<span class="text-muted ms-1" style="font-size:.68rem">(' + lagTxt + ')</span>';
+                            }
+                        }
+                        wfHtml += '<div class="d-flex align-items-center gap-2 py-1" style="border-bottom:1px solid #f0f0f0">' +
+                            '<i class="fas ' + (done ? 'fa-check-circle text-success' : 'fa-circle text-secondary') + '" style="font-size:.95rem;width:18px;flex-shrink:0"></i>' +
+                            '<span class="' + (done ? 'text-success fw-semibold' : 'text-muted') + '" style="font-size:.87rem">' + wa.name + '</span>' +
+                            (done ? '<span class="ms-auto d-flex align-items-center gap-1 flex-wrap justify-content-end">' +
+                                '<span class="badge bg-success" style="font-size:.65rem">' + (dateStr || '') + '</span>' +
+                                lagHtml + '</span>' : '') +
+                            '</div>';
+                    }
+                }
 
-                <!-- Info grid -->
-                <div class="row g-0 mb-3">
-                    ${infoHtml}
-                </div>
-
-                <!-- Progress bar -->
-                <div class="mb-3">
-                    <div class="d-flex justify-content-between small text-muted mb-1">
-                        <span>Workflow Progress</span><span>${doneCount} / ${totalSteps} steps</span>
-                    </div>
-                    <div class="progress" style="height:10px;border-radius:5px">
-                        <div class="progress-bar" style="width:${pct}%;background:linear-gradient(90deg,#4a90e2,${statusColor})"></div>
-                    </div>
-                </div>
-
-                <!-- RX Actions -->
-                <div class="mb-3">
-                    <div class="fw-bold mb-2"><i class="fas fa-clipboard-list me-2 text-primary"></i>RX Actions
-                        <span class="badge bg-primary ms-1">${meds.length}</span>
-                    </div>
-                    ${medHtml}
-                </div>
-
-                <!-- Workflow checklist -->
-                <div>
-                    <div class="fw-bold mb-2"><i class="fas fa-tasks me-2 text-info"></i>Workflow Checklist</div>
-                    ${wfHtml}
-                </div>`;
-
-        } catch(e) { body.innerHTML = '<p class="text-danger text-center py-4">Error loading record.</p>'; }
+                bodyEl.innerHTML =
+                    '<div class="d-flex justify-content-between align-items-start mb-3 p-3 rounded" style="background:linear-gradient(135deg,#1a2234,#2c3e6b);color:#fff">' +
+                        '<div>' +
+                            '<div class="fw-bold fs-5">RX Record <span style="font-family:monospace">#' + rx.id + '</span></div>' +
+                            '<div class="small opacity-75">' + (patient.firstName || '') + ' ' + (patient.lastName || '') + ' &nbsp;&middot;&nbsp; ' + (pharmacy.name || 'No pharmacy') + '</div>' +
+                        '</div>' +
+                        '<span class="badge rounded-pill px-3 py-2" style="background:' + statusColor + ';font-size:.82rem">' + statusLabel + ' &nbsp; ' + pct + '%</span>' +
+                    '</div>' +
+                    '<div class="row g-0 mb-3">' + infoHtml + '</div>' +
+                    '<div class="mb-3">' +
+                        '<div class="d-flex justify-content-between small text-muted mb-1">' +
+                            '<span>Workflow Progress</span><span>' + doneCount + ' / ' + totalSteps + ' steps</span>' +
+                        '</div>' +
+                        '<div class="progress" style="height:10px;border-radius:5px">' +
+                            '<div class="progress-bar" style="width:' + pct + '%;background:linear-gradient(90deg,#4a90e2,' + statusColor + ')"></div>' +
+                        '</div>' +
+                    '</div>' +
+                    '<div class="mb-3">' +
+                        '<div class="fw-bold mb-2"><i class="fas fa-clipboard-list me-2 text-primary"></i>RX Actions <span class="badge bg-primary ms-1">' + meds.length + '</span></div>' +
+                        medHtml +
+                    '</div>' +
+                    '<div>' +
+                        '<div class="fw-bold mb-2"><i class="fas fa-tasks me-2 text-info"></i>Workflow Checklist</div>' +
+                        wfHtml +
+                    '</div>';
+            });
+        }).catch(function() {
+            bodyEl.innerHTML = '<p class="text-danger text-center py-4">Error loading record.</p>';
+        });
     }
 
-    async function openWorkflow(rxId) {
+
+    function openWorkflow(rxId) {
         currentRxId = rxId;
         document.getElementById('workflowBody').innerHTML = '<p class="text-muted text-center py-3">Loading...</p>';
         workflowModalInstance.show();
-        try {
-            const res = await fetchWithAuth(window.rxUrl('/api/rx-records/') + rxId);
+        fetchWithAuth(window.rxUrl('/api/rx-records/') + rxId)
+        .then(function(res) {
             if (!res) return;
-            const rx = await res.json();
-            const completedIds = (rx.RXWorkflowTrackings || []).map(t => t.workflowActionId);
-            const completedMap = {};
-            (rx.RXWorkflowTrackings || []).forEach(t => { completedMap[t.workflowActionId] = t; });
-            
-            let userRole = '';
-            let rxPerms = { canAdd: false, canEdit: false, canDelete: false, canUndo: false, canWarehouse: false }; // safe defaults
-            try {
-                const u = JSON.parse(localStorage.getItem('user'));
-                if (u && u.role) userRole = u.role;
-                // Administrators always have full access
-                if (userRole === 'Administrator') {
-                    rxPerms = { canAdd: true, canEdit: true, canDelete: true, canUndo: true, canWarehouse: true };
-                } else {
-                    const gp = getPagePerms();
-                    rxPerms = {
-                        canAdd:       !!gp.canAdd,
-                        canEdit:      !!gp.canEdit,
-                        canDelete:    !!gp.canDelete,
-                        canUndo:      !!gp.canUndo,
-                        canWarehouse: gp.canWarehouse !== undefined ? !!gp.canWarehouse : !!gp.canEdit // fallback
-                    };
-                }
-            } catch(e) {}
-            
-            // Workflow action permissions — each independently controlled
-            const canComplete  = !!rxPerms.canAdd;       // complete step = POST /workflow (canAdd)
-            const canUndo      = !!rxPerms.canUndo;      // undo step     = POST /undo-workflow (canUndo)
-            const canWarehouse = !!rxPerms.canWarehouse; // return to warehouse (canWarehouse)
-            const canEditDate  = !!rxPerms.canEdit;      // edit completion date (canEdit)
-            const lastCompletedActionId = completedIds.length > 0 ? rx.RXWorkflowTrackings[rx.RXWorkflowTrackings.length - 1].workflowActionId : null;
-
-            // Store current rxId for Return to Warehouse button
-            window._workflowRxId = rxId;
-
-            // Show/hide Return to Warehouse footer — only when canWarehouse=true
-            const footer = document.getElementById('workflowFooter');
-            const warehouseBtn = document.getElementById('returnToWarehouseBtn');
-            const alreadyReturned = !!rx.returnedToWarehouse;
-            if (canWarehouse && footer) {
-                footer.style.display = '';
-                if (alreadyReturned) {
-                    warehouseBtn.innerHTML = '<i class="fas fa-warehouse me-1"></i>Already Returned — Re-send to Warehouse';
-                    warehouseBtn.className = 'btn btn-sm btn-outline-warning fw-semibold';
-                } else {
-                    warehouseBtn.innerHTML = '<i class="fas fa-warehouse me-1"></i>Return to Warehouse';
-                    warehouseBtn.className = 'btn btn-sm btn-warning fw-semibold';
-                }
-            } else if (footer) {
-                footer.style.display = 'none';
-            }
-
-            // Warehouse banner if already returned
-            let warehouseBanner = '';
-            if (alreadyReturned) {
-                const retDate = rx.warehouseReturnDate ? new Date(rx.warehouseReturnDate).toLocaleString() : '';
-                const retNote = rx.warehouseReturnNote ? ` — ${rx.warehouseReturnNote}` : '';
-                warehouseBanner = `<div class="alert alert-warning py-2 mb-3"><i class="fas fa-warehouse me-2"></i><strong>Returned to Warehouse</strong> on ${retDate}${retNote}</div>`;
-            }
-
-            // 90-day expiry check
-            var svcDateR    = rx.serviceDate ? new Date(rx.serviceDate) : null;
-            var expiryDateR = svcDateR ? new Date(svcDateR.getTime() + 90 * 864e5) : null;
-            var todayD      = new Date(); todayD.setHours(0,0,0,0);
-            var isExpired   = expiryDateR ? (todayD > expiryDateR) : false;
-            var svcStr      = svcDateR ? svcDateR.toLocaleDateString() : '';
-            var expStr      = expiryDateR ? expiryDateR.toLocaleDateString() : '';
-            var resetBtnHtml = (isExpired && canEditDate)
-                ? '<button class="btn btn-sm btn-danger fw-semibold" id="resetCycleBtn"><i class="fas fa-redo me-1"></i>Start New Cycle</button>'
-                : '';
-            var expiryBanner = isExpired
-                ? '<div class="alert alert-danger py-2 mb-3 d-flex align-items-center justify-content-between flex-wrap gap-2"><div><i class="fas fa-exclamation-triangle me-2"></i><strong>90-Day Window Expired</strong> <span class="ms-2 small">Service date: ' + svcStr + ' \u2014 Expired: ' + expStr + '</span></div>' + resetBtnHtml + '</div>'
-                : '';
-            const html = expiryBanner + warehouseBanner + '<div class="list-group">' + allWorkflowActions.map((action, idx) => {
-                const done = completedIds.includes(action.id);
-                const tracking = completedMap[action.id];
-                const prevDone = idx === 0 || completedIds.includes(allWorkflowActions[idx-1].id);
-                const stepCanComplete = !done && prevDone && canComplete;
-                // Neighbour dates for date-picker bounds
-                const prevTracking = idx > 0 ? completedMap[allWorkflowActions[idx-1].id] : null;
-                const nextTracking = idx < allWorkflowActions.length-1 ? completedMap[allWorkflowActions[idx+1].id] : null;
-                const prevStepDate = prevTracking && prevTracking.completionDate ? new Date(prevTracking.completionDate).toISOString().slice(0,10) : (idx === 0 && svcDateR ? svcDateR.toISOString().slice(0,10) : '');
-                const nextStepDate = nextTracking && nextTracking.completionDate ? new Date(nextTracking.completionDate).toISOString().slice(0,10) : '';
-                return `<div class="list-group-item d-flex align-items-center gap-3 ${done ? 'list-group-item-success' : ''}">
-                    <span class="badge ${done ? 'bg-success' : 'bg-secondary'} rounded-pill">${action.sequenceNumber}</span>
-                    <div class="flex-grow-1">
-                        <div class="fw-bold">${action.name}</div>
-                        <small class="text-muted">${action.description || ''}</small>
-                        ${done && tracking ? `<br><span class="wf-date-wrap d-inline-flex align-items-center gap-1"><small class="text-success wf-date-label"><i class="fas fa-check me-1"></i>Completed: ${new Date(tracking.completionDate).toLocaleDateString()}</small></span>` : ''}
-                    </div>
-                    <div class="d-flex gap-2 wf-cell"
-                         data-rxid="${rxId}" data-aid="${action.id}"
-                         data-tid="${done && tracking ? tracking.id : ''}"
-                         data-curdate="${done && tracking ? new Date(tracking.completionDate).toISOString().slice(0,10) : ''}"
-                         data-done="${done?'1':'0'}"
-                         data-canundo="${canUndo&&action.id===lastCompletedActionId&&!alreadyReturned?'1':'0'}"
-                         data-cancomp="${stepCanComplete && !isExpired ? '1':'0'}"
-                         data-candate="${done && tracking && canEditDate ? '1' : '0'}"
-                         data-prevdate="${prevStepDate}"
-                         data-nextdate="${nextStepDate}"
-                         data-svcdate="${svcDateR ? svcDateR.toISOString().slice(0,10) : ''}">
-                    </div>
-                </div>`;
-            }).join('') + '</div>';
-            document.getElementById('workflowBody').innerHTML = html;
-
-            /* ── Start New Cycle button handler ──────────────────────── */
-            var resetBtn = document.getElementById('resetCycleBtn');
-            if (resetBtn) {
-                resetBtn.addEventListener('click', function() {
-                    promptResetCycle(rxId);
+            return res.json().then(function(rx) {
+                var completedIds = [];
+                var completedMap = {};
+                (rx.RXWorkflowTrackings || []).forEach(function(t) {
+                    completedIds.push(t.workflowActionId);
+                    completedMap[t.workflowActionId] = t;
                 });
-            }
-            /* ─────────────────────────────────────────────────────────── */
 
-            document.getElementById('workflowBody').querySelectorAll('.wf-cell').forEach(function(cell) {
-                var _rid = parseInt(cell.dataset.rxid);
-                var _aid = parseInt(cell.dataset.aid);
-                var _tid = cell.dataset.tid   || '';
-                var _cur = cell.dataset.curdate || '';
-                var _done= cell.dataset.done   === '1';
-                var _cu  = cell.dataset.canundo === '1';
-                var _cc  = cell.dataset.cancomp === '1';
-                var _cd  = cell.dataset.candate === '1';
-                var _svc = cell.dataset.svcdate || '';
-                if (_done) {
-                    if (_cu) {
-                        var bu = document.createElement('button');
-                        bu.className = 'btn btn-sm btn-outline-danger';
-                        bu.textContent = 'Undo';
-                        bu.dataset.rxid = _rid;
-                        bu.addEventListener('click', function() { undoStep(parseInt(this.dataset.rxid)); });
-                        cell.appendChild(bu);
+                var userRole = '';
+                var rxPerms = { canAdd: false, canEdit: false, canDelete: false, canUndo: false, canWarehouse: false };
+                try {
+                    var u = JSON.parse(localStorage.getItem('user'));
+                    if (u && u.role) userRole = u.role;
+                    if (userRole === 'Administrator') {
+                        rxPerms = { canAdd: true, canEdit: true, canDelete: true, canUndo: true, canWarehouse: true };
+                    } else {
+                        var gp = getPagePerms();
+                        rxPerms = {
+                            canAdd:       !!gp.canAdd,
+                            canEdit:      !!gp.canEdit,
+                            canDelete:    !!gp.canDelete,
+                            canUndo:      !!gp.canUndo,
+                            canWarehouse: gp.canWarehouse !== undefined ? !!gp.canWarehouse : !!gp.canEdit
+                        };
                     }
-                    if (_cd && _tid) {
-                        var bed = document.createElement('button');
-                        bed.className = 'btn btn-sm btn-outline-secondary';
-                        bed.title = 'Edit completion date';
-                        bed.innerHTML = '<i class="fas fa-calendar-alt"></i>';
-                        bed.dataset.tid = _tid;
-                        bed.dataset.rxid = _rid;
-                        bed.dataset.curdate = _cur;
-                        bed.dataset.prevdate = cell.dataset.prevdate || '';
-                        bed.dataset.nextdate = cell.dataset.nextdate || '';
-                        bed.dataset.svcdate = cell.dataset.svcdate || '';
-                        bed.addEventListener('click', function() {
-                            editStepDate(this.dataset.tid, parseInt(this.dataset.rxid), this.dataset.curdate, this.dataset.prevdate, this.dataset.nextdate, this.dataset.svcdate, this);
-                        });
-                        cell.appendChild(bed);
+                } catch(e) {}
+
+                var canComplete  = !!rxPerms.canAdd;
+                var canUndo      = !!rxPerms.canUndo;
+                var canWarehouse = !!rxPerms.canWarehouse;
+                var canEditDate  = !!rxPerms.canEdit;
+                var lastCompletedActionId = completedIds.length > 0 ? rx.RXWorkflowTrackings[rx.RXWorkflowTrackings.length - 1].workflowActionId : null;
+
+                window._workflowRxId = rxId;
+
+                var footer      = document.getElementById('workflowFooter');
+                var warehouseBtn = document.getElementById('returnToWarehouseBtn');
+                var alreadyReturned = !!rx.returnedToWarehouse;
+                if (canWarehouse && footer) {
+                    footer.style.display = '';
+                    if (alreadyReturned) {
+                        warehouseBtn.innerHTML = '<i class="fas fa-warehouse me-1"></i>Already Returned \u2014 Re-send to Warehouse';
+                        warehouseBtn.className = 'btn btn-sm btn-outline-warning fw-semibold';
+                    } else {
+                        warehouseBtn.innerHTML = '<i class="fas fa-warehouse me-1"></i>Return to Warehouse';
+                        warehouseBtn.className = 'btn btn-sm btn-warning fw-semibold';
                     }
-                    cell.insertAdjacentHTML('beforeend', '<i class="fas fa-check-circle text-success fs-5"></i>');
-                } else if (_cc) {
-                    var bc = document.createElement('button');
-                    bc.className = 'btn btn-sm btn-primary';
-                    bc.textContent = 'Complete';
-                    bc.dataset.rxid = _rid;
-                    bc.dataset.aid  = _aid;
-                    bc.addEventListener('click', function() { completeStep(parseInt(this.dataset.rxid), parseInt(this.dataset.aid)); });
-                    cell.appendChild(bc);
-                } else {
-                    cell.insertAdjacentHTML('beforeend', '<i class="fas fa-lock text-muted"></i>');
+                } else if (footer) {
+                    footer.style.display = 'none';
                 }
-            });
-        } catch(e) { document.getElementById('workflowBody').innerHTML = '<p class="text-danger text-center">Error loading workflow.</p>'; }
+
+                var warehouseBanner = '';
+                if (alreadyReturned) {
+                    var retDate = rx.warehouseReturnDate ? new Date(rx.warehouseReturnDate).toLocaleString() : '';
+                    var retNote = rx.warehouseReturnNote ? ' \u2014 ' + rx.warehouseReturnNote : '';
+                    warehouseBanner = '<div class="alert alert-warning py-2 mb-3"><i class="fas fa-warehouse me-2"></i><strong>Returned to Warehouse</strong> on ' + retDate + retNote + '</div>';
+                }
+
+                var svcDateR    = rx.serviceDate ? new Date(rx.serviceDate) : null;
+                var expiryDateR = svcDateR ? new Date(svcDateR.getTime() + 90 * 864e5) : null;
+                var todayD      = new Date(); todayD.setHours(0,0,0,0);
+                var isExpired   = expiryDateR ? (todayD > expiryDateR) : false;
+                var svcStr      = svcDateR ? svcDateR.toLocaleDateString() : '';
+                var expStr      = expiryDateR ? expiryDateR.toLocaleDateString() : '';
+                var resetBtnHtml = (isExpired && canEditDate)
+                    ? '<button class="btn btn-sm btn-danger fw-semibold" id="resetCycleBtn"><i class="fas fa-redo me-1"></i>Start New Cycle</button>'
+                    : '';
+                var expiryBanner = isExpired
+                    ? '<div class="alert alert-danger py-2 mb-3 d-flex align-items-center justify-content-between flex-wrap gap-2"><div><i class="fas fa-exclamation-triangle me-2"></i><strong>90-Day Window Expired</strong> <span class="ms-2 small">Service date: ' + svcStr + ' \u2014 Expired: ' + expStr + '</span></div>' + resetBtnHtml + '</div>'
+                    : '';
+
+                var listHtml = '';
+                for (var idx = 0; idx < allWorkflowActions.length; idx++) {
+                    var action = allWorkflowActions[idx];
+                    var done = completedIds.indexOf(action.id) !== -1;
+                    var tracking = completedMap[action.id] || null;
+                    var prevDone = idx === 0 || completedIds.indexOf(allWorkflowActions[idx-1].id) !== -1;
+                    var stepCanComplete = !done && prevDone && canComplete;
+                    var prevTracking = idx > 0 ? completedMap[allWorkflowActions[idx-1].id] : null;
+                    var nextTracking = idx < allWorkflowActions.length-1 ? completedMap[allWorkflowActions[idx+1].id] : null;
+                    var prevStepDate = prevTracking && prevTracking.completionDate ? new Date(prevTracking.completionDate).toISOString().slice(0,10) : (idx === 0 && svcDateR ? svcDateR.toISOString().slice(0,10) : '');
+                    var nextStepDate = nextTracking && nextTracking.completionDate ? new Date(nextTracking.completionDate).toISOString().slice(0,10) : '';
+                    var completedDateStr = done && tracking && tracking.completionDate ? new Date(tracking.completionDate).toISOString().slice(0,10) : '';
+                    listHtml += '<div class="list-group-item d-flex align-items-center gap-3 ' + (done ? 'list-group-item-success' : '') + '">' +
+                        '<span class="badge ' + (done ? 'bg-success' : 'bg-secondary') + ' rounded-pill">' + action.sequenceNumber + '</span>' +
+                        '<div class="flex-grow-1">' +
+                            '<div class="fw-bold">' + action.name + '</div>' +
+                            '<small class="text-muted">' + (action.description || '') + '</small>' +
+                            (done && tracking ? '<br><span class="wf-date-wrap d-inline-flex align-items-center gap-1"><small class="text-success wf-date-label"><i class="fas fa-check me-1"></i>Completed: ' + new Date(tracking.completionDate).toLocaleDateString() + '</small></span>' : '') +
+                        '</div>' +
+                        '<div class="d-flex gap-2 wf-cell"' +
+                            ' data-rxid="' + rxId + '" data-aid="' + action.id + '"' +
+                            ' data-tid="' + (done && tracking ? tracking.id : '') + '"' +
+                            ' data-curdate="' + completedDateStr + '"' +
+                            ' data-done="' + (done ? '1' : '0') + '"' +
+                            ' data-canundo="' + (canUndo && action.id === lastCompletedActionId && !alreadyReturned ? '1' : '0') + '"' +
+                            ' data-cancomp="' + (stepCanComplete && !isExpired ? '1' : '0') + '"' +
+                            ' data-candate="' + (done && tracking && canEditDate ? '1' : '0') + '"' +
+                            ' data-prevdate="' + prevStepDate + '"' +
+                            ' data-nextdate="' + nextStepDate + '"' +
+                            ' data-svcdate="' + (svcDateR ? svcDateR.toISOString().slice(0,10) : '') + '">' +
+                        '</div>' +
+                    '</div>';
+                }
+
+                var html = expiryBanner + warehouseBanner + '<div class="list-group">' + listHtml + '</div>';
+                document.getElementById('workflowBody').innerHTML = html;
+
+                /* Wire Reset Cycle button */
+                var resetBtn = document.getElementById('resetCycleBtn');
+                if (resetBtn) {
+                    resetBtn.addEventListener('click', function() { promptResetCycle(rxId); });
+                }
+
+                /* Wire action buttons inside each wf-cell */
+                document.getElementById('workflowBody').querySelectorAll('.wf-cell').forEach(function(cell) {
+                    var _rid = parseInt(cell.dataset.rxid);
+                    var _aid = parseInt(cell.dataset.aid);
+                    var _tid = cell.dataset.tid    || '';
+                    var _cur = cell.dataset.curdate || '';
+                    var _done= cell.dataset.done   === '1';
+                    var _cu  = cell.dataset.canundo === '1';
+                    var _cc  = cell.dataset.cancomp === '1';
+                    var _cd  = cell.dataset.candate === '1';
+                    if (_done) {
+                        if (_cu) {
+                            var bu = document.createElement('button');
+                            bu.className = 'btn btn-sm btn-outline-danger';
+                            bu.textContent = 'Undo';
+                            bu.dataset.rxid = _rid;
+                            bu.addEventListener('click', function() { undoStep(parseInt(this.dataset.rxid)); });
+                            cell.appendChild(bu);
+                        }
+                        if (_cd && _tid) {
+                            var bed = document.createElement('button');
+                            bed.className = 'btn btn-sm btn-outline-secondary';
+                            bed.title = 'Edit completion date';
+                            bed.innerHTML = '<i class="fas fa-calendar-alt"></i>';
+                            bed.dataset.tid     = _tid;
+                            bed.dataset.rxid    = _rid;
+                            bed.dataset.curdate = _cur;
+                            bed.dataset.prevdate = cell.dataset.prevdate || '';
+                            bed.dataset.nextdate = cell.dataset.nextdate || '';
+                            bed.dataset.svcdate  = cell.dataset.svcdate  || '';
+                            bed.addEventListener('click', function() {
+                                editStepDate(this.dataset.tid, parseInt(this.dataset.rxid),
+                                    this.dataset.curdate, this.dataset.prevdate,
+                                    this.dataset.nextdate, this.dataset.svcdate, this);
+                            });
+                            cell.appendChild(bed);
+                        }
+                        cell.insertAdjacentHTML('beforeend', '<i class="fas fa-check-circle text-success fs-5"></i>');
+                    } else if (_cc) {
+                        var bc = document.createElement('button');
+                        bc.className = 'btn btn-sm btn-primary';
+                        bc.textContent = 'Complete';
+                        bc.dataset.rxid = _rid;
+                        bc.dataset.aid  = _aid;
+                        bc.addEventListener('click', function() {
+                            completeStep(parseInt(this.dataset.rxid), parseInt(this.dataset.aid));
+                        });
+                        cell.appendChild(bc);
+                    } else {
+                        cell.insertAdjacentHTML('beforeend', '<i class="fas fa-lock text-muted"></i>');
+                    }
+                });
+            }); // end res.json().then(function(rx)
+        }).catch(function() {
+            document.getElementById('workflowBody').innerHTML = '<p class="text-danger text-center py-3">Error loading workflow.</p>';
+        });
+    } // end openWorkflow
+
+    function completeStep(rxId, actionId) {
+        fetchWithAuth(window.rxUrl('/api/rx-records/workflow'), { method: 'POST', body: JSON.stringify({ rxId: rxId, actionId: actionId }) })
+
+        .then(function(res) {
+            if (!res) return;
+            if (res.ok) {
+                showToast('Step completed!', 'success');
+                return openWorkflow(rxId).then(function() { return loadRxRecords(); });
+            } else {
+                return res.json().then(function(err) { showToast(err.error || 'Failed', 'danger'); });
+            }
+        }).catch(function() { showToast('Network error.', 'danger'); });
     }
 
-    async function completeStep(rxId, actionId) {
-        const res = await fetchWithAuth(window.rxUrl('/api/rx-records/workflow'), { method: 'POST', body: JSON.stringify({ rxId, actionId }) });
-        if (!res) return;
-        if (res.ok) { showToast('Step completed!', 'success'); await openWorkflow(rxId); await loadRxRecords(); }
-        else { const err = await res.json(); showToast(err.error || 'Failed', 'danger'); }
-    }
-
-    async function undoStep(rxId) {
+    function undoStep(rxId) {
         if (!confirm('Are you sure you want to undo the last workflow step?')) return;
-        const res = await fetchWithAuth(window.rxUrl('/api/rx-records/undo-workflow'), { method: 'POST', body: JSON.stringify({ rxId }) });
-        if (!res) return;
-        if (res.ok) { showToast('Workflow step undone.', 'success'); await openWorkflow(rxId); await loadRxRecords(); }
-        else { const err = await res.json(); showToast(err.error || 'Undo failed', 'danger'); }
+        fetchWithAuth(window.rxUrl('/api/rx-records/undo-workflow'), { method: 'POST', body: JSON.stringify({ rxId: rxId }) })
+        .then(function(res) {
+            if (!res) return;
+            if (res.ok) {
+                showToast('Workflow step undone.', 'success');
+                return openWorkflow(rxId).then(function() { return loadRxRecords(); });
+            } else {
+                return res.json().then(function(err) { showToast(err.error || 'Undo failed', 'danger'); });
+            }
+        }).catch(function() { showToast('Network error.', 'danger'); });
     }
 
-    /* ─────────────────────────────────────────────────────────────────────
+    /* ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
        FEAT-11: Workflow step date override (date-only, no time)
-       ───────────────────────────────────────────────────────────────────── */
+       ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ */
 
     /* Returns YYYY-MM-DD from an ISO date string */
     function _isoToLocalInput(isoStr) {
@@ -1703,35 +1768,40 @@
         });
     }
 
-    async function updateStepDate(trackingId, rxId, newDateStr, wrap, origText) {
+    function updateStepDate(trackingId, rxId, newDateStr, wrap, origText) {
         var saveBtn = document.getElementById('wfDateSave_' + trackingId);
         if (saveBtn) { saveBtn.disabled = true; saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>'; }
-
-        var res = await fetchWithAuth(window.rxUrl('/api/rx-records/workflow-date'), {
+        fetchWithAuth(window.rxUrl('/api/rx-records/workflow-date'), {
             method:  'PUT',
             headers: { 'Content-Type': 'application/json' },
             body:    JSON.stringify({ trackingId: parseInt(trackingId, 10), newDate: newDateStr })
+        }).then(function(res) {
+            if (!res) {
+                wrap.innerHTML = '<small class="text-success wf-date-label">' + origText + '</small>';
+                wrap.dataset.editing = ''; return;
+            }
+            if (res.ok) {
+                showToast('Completion date updated and logged in history.', 'success');
+                return openWorkflow(rxId).then(function() { return loadRxRecords(); });
+            } else {
+                return res.json().then(function(err) {
+                    showToast(err.error || 'Failed to update date.', 'danger');
+                    wrap.innerHTML = '<small class="text-success wf-date-label">' + origText + '</small>';
+                    wrap.dataset.editing = '';
+                });
+            }
+        }).catch(function() {
+            wrap.innerHTML = '<small class="text-success wf-date-label">' + origText + '</small>';
+            wrap.dataset.editing = '';
+        }).then(function() {
+            var sb = document.getElementById('wfDateSave_' + trackingId);
+            if (sb) { sb.disabled = false; sb.innerHTML = '<i class="fas fa-check"></i>'; }
         });
-        if (!res) {
-            wrap.innerHTML = '<small class="text-success wf-date-label">' + origText + '</small>';
-            wrap.dataset.editing = '';
-            return;
-        }
-        if (res.ok) {
-            showToast('Completion date updated and logged in history.', 'success');
-            await openWorkflow(rxId);
-            await loadRxRecords();
-        } else {
-            var err = await res.json();
-            showToast(err.error || 'Failed to update date.', 'danger');
-            wrap.innerHTML = '<small class="text-success wf-date-label">' + origText + '</small>';
-            wrap.dataset.editing = '';
-        }
     }
 
-    /* ─────────────────────────────────────────────────────────────────────
+    /* ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
        Prompt user to pick a new service date, then reset the RX cycle
-       ───────────────────────────────────────────────────────────────────── */
+       ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ */
     function promptResetCycle(rxId) {
         /* Build a simple inline modal-free prompt inside workflowBody */
         var body = document.getElementById('workflowBody');
@@ -1755,162 +1825,165 @@
         body.appendChild(form);
 
         document.getElementById('resetCycleCancelBtn').addEventListener('click', function() { form.remove(); });
-        document.getElementById('resetCycleConfirmBtn').addEventListener('click', async function() {
+        document.getElementById('resetCycleConfirmBtn').addEventListener('click', function() {
+            var _btn = this;
             var inp = document.getElementById('resetCycleDateInput');
             if (!inp || !inp.value) { showToast('Please select a new service date.', 'warning'); return; }
-
             var confirmMsg = 'Are you sure? This will DELETE all workflow tracking for this RX record and start a new cycle.\n\nNew service date: ' + inp.value;
             if (!confirm(confirmMsg)) return;
-
-            this.disabled = true;
-            this.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-
-            var res = await fetchWithAuth(window.rxUrl('/api/rx-records/') + rxId + '/reset-cycle', {
+            _btn.disabled = true;
+            _btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            fetchWithAuth(window.rxUrl('/api/rx-records/') + rxId + '/reset-cycle', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ newServiceDate: inp.value })
+            }).then(function(res) {
+                if (!res) { _btn.disabled = false; _btn.innerHTML = '<i class="fas fa-check me-1"></i>Confirm Reset'; return; }
+                if (res.ok) {
+                    return res.json().then(function(data) {
+                        showToast('New cycle started. ' + data.trackingsCleared + ' tracking record(s) cleared.', 'success');
+                        form.remove();
+                        return openWorkflow(rxId).then(function() { return loadRxRecords(); });
+                    });
+                } else {
+                    return res.json().then(function(err) {
+                        showToast(err.error || 'Reset failed.', 'danger');
+                        _btn.disabled = false;
+                        _btn.innerHTML = '<i class="fas fa-check me-1"></i>Confirm Reset';
+                    });
+                }
+            }).catch(function() {
+                showToast('Network error.', 'danger');
+                _btn.disabled = false;
+                _btn.innerHTML = '<i class="fas fa-check me-1"></i>Confirm Reset';
             });
-            if (!res) { this.disabled = false; this.innerHTML = '<i class="fas fa-check me-1"></i>Confirm Reset'; return; }
-
-            if (res.ok) {
-                var data = await res.json();
-                showToast('New cycle started. ' + data.trackingsCleared + ' tracking record(s) cleared.', 'success');
-                form.remove();
-                await openWorkflow(rxId);
-                await loadRxRecords();
-            } else {
-                var err = await res.json();
-                showToast(err.error || 'Reset failed.', 'danger');
-                this.disabled = false;
-                this.innerHTML = '<i class="fas fa-check me-1"></i>Confirm Reset';
-            }
         });
     }
 
-    async function returnToWarehouse() {
-        const rxId = window._workflowRxId;
+    function returnToWarehouse() {
+        var rxId = window._workflowRxId;
         if (!rxId) return;
-        const note = (document.getElementById('warehouseNoteInput').value || '').trim();
-        const msg = 'Return this RX to the warehouse?\n\nThe workflow will reset to Step 1 (Warehouse) — all steps after Step 1 will be cleared.\n\nThe RX will be marked as returned to warehouse.';
+        var noteEl = document.getElementById('warehouseNoteInput');
+        var note = (noteEl ? noteEl.value : '').trim();
+        var msg = 'Return this RX to the warehouse?\n\nThe workflow will reset to Step 1 (Warehouse) \u2014 all steps after Step 1 will be cleared.\n\nThe RX will be marked as returned to warehouse.';
         if (!confirm(msg)) return;
-        const btn = document.getElementById('returnToWarehouseBtn');
+        var btn = document.getElementById('returnToWarehouseBtn');
         btn.disabled = true;
-        const orig = btn.innerHTML;
+        var orig = btn.innerHTML;
         btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Processing...';
-        try {
-            const res = await fetchWithAuth(window.rxUrl('/api/rx-records/return-to-warehouse'), {
-                method: 'POST',
-                body: JSON.stringify({ rxId, note })
-            });
-            if (!res) return;
+        fetchWithAuth(window.rxUrl('/api/rx-records/return-to-warehouse'), {
+            method: 'POST',
+            body: JSON.stringify({ rxId: rxId, note: note })
+        }).then(function(res) {
+            if (!res) { btn.disabled = false; btn.innerHTML = orig; return; }
             if (res.ok) {
                 showToast('RX returned to warehouse. Workflow reset to Step 1.', 'warning');
-                document.getElementById('warehouseNoteInput').value = '';
-                await openWorkflow(rxId);
-                await loadRxRecords();
+                if (noteEl) noteEl.value = '';
+                return openWorkflow(rxId).then(function() { return loadRxRecords(); });
             } else {
-                const err = await res.json();
-                showToast(err.error || 'Return failed', 'danger');
+                return res.json().then(function(err) { showToast(err.error || 'Return failed', 'danger'); });
             }
-        } finally {
-            btn.disabled = false;
-            btn.innerHTML = orig;
-        }
+        }).catch(function() { showToast('Network error.', 'danger'); })
+        .then(function() { btn.disabled = false; btn.innerHTML = orig; });
     }
 
-    async function deleteRx(id) {
+    function deleteRx(id) {
         if (!confirm('Hide this RX record? You can restore it later from "Show Hidden Records".')) return;
-        const res = await fetchWithAuth(window.rxUrl('/api/rx-records/') + id, { method: 'DELETE' });
-        if (res && res.ok) { showToast('RX Record hidden.', 'success'); await loadRxRecords(); }
-        else showToast('Failed to hide record.', 'danger');
+        fetchWithAuth(window.rxUrl('/api/rx-records/') + id, { method: 'DELETE' })
+        .then(function(res) {
+            if (res && res.ok) { showToast('RX Record hidden.', 'success'); return loadRxRecords(); }
+            else showToast('Failed to hide record.', 'danger');
+        }).catch(function() { showToast('Network error.', 'danger'); });
     }
 
-    async function restoreRx(id) {
-        const res = await fetchWithAuth(window.rxUrl('/api/rx-records/') + id + '/restore', { method: 'PUT' });
-        if (res && res.ok) { showToast('RX Record restored.', 'success'); await loadRxRecords(); }
-        else showToast('Restore failed.', 'danger');
+    function restoreRx(id) {
+        fetchWithAuth(window.rxUrl('/api/rx-records/') + id + '/restore', { method: 'PUT' })
+        .then(function(res) {
+            if (res && res.ok) { showToast('RX Record restored.', 'success'); return loadRxRecords(); }
+            else showToast('Restore failed.', 'danger');
+        }).catch(function() { showToast('Network error.', 'danger'); });
     }
 
     // ---- RX History ----
-    async function openRxHistory(rxId) {
-        const body = document.getElementById('rxHistoryBody');
-        body.innerHTML = '<p class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin me-2"></i>Loading history...</p>';
-        const modal = new bootstrap.Modal(document.getElementById('rxHistoryModal'));
+    function openRxHistory(rxId) {
+        var bodyEl = document.getElementById('rxHistoryBody');
+        bodyEl.innerHTML = '<p class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin me-2"></i>Loading history...</p>';
+        var modal = new bootstrap.Modal(document.getElementById('rxHistoryModal'));
         modal.show();
-
-        const res = await fetchWithAuth(window.rxUrl('/api/rx-records/') + rxId + '/history');
-        if (!res || !res.ok) {
-            body.innerHTML = '<p class="text-center text-danger py-4">Failed to load history.</p>';
-            return;
-        }
-        const history = await res.json();
-
-        if (!history.length) {
-            body.innerHTML = '<p class="text-center text-muted py-4">No history recorded yet for this RX record.</p>';
-            return;
-        }
-
-        var typeColors = { Create:'success', Update:'primary', Workflow:'info', Delete:'danger', Restore:'warning' };
-        var typeIcons  = { Create:'plus-circle', Update:'edit', Workflow:'tasks', Delete:'eye-slash', Restore:'undo' };
-
-        var html = '<p class="text-muted small mb-3"><i class="fas fa-info-circle me-1"></i>' +
-                   history.length + ' history entr' + (history.length === 1 ? 'y' : 'ies') + ' \u2014 most recent first</p>' +
-                   '<div class="timeline">';
-
-        history.forEach(function(h, i) {
-            var dt    = new Date(h.createdAt);
-            var date  = dt.toLocaleDateString();
-            var time  = dt.toLocaleTimeString();
-            var user  = h.ChangedBy
-                ? (h.ChangedBy.username || (h.ChangedBy.firstName + ' ' + h.ChangedBy.lastName))
-                : 'System';
-            var color = typeColors[h.changeType] || 'secondary';
-            var icon  = typeIcons[h.changeType]  || 'circle';
-
-            var changedHtml = '';
-            if (h.changedFields) {
-                var fields = JSON.parse(h.changedFields);
-                if (fields.length) {
-                    changedHtml = '<table class="table table-sm table-bordered mt-2" style="font-size:0.8rem">' +
-                        '<thead><tr><th>Field</th><th>Before</th><th>After</th></tr></thead><tbody>' +
-                        fields.map(function(f) {
-                            return '<tr><td class="fw-bold">' + f.field + '</td>' +
-                                   '<td class="text-danger">'  + (f.from || '\u2014') + '</td>' +
-                                   '<td class="text-success">' + (f.to   || '\u2014') + '</td></tr>';
-                        }).join('') +
-                        '</tbody></table>';
+        fetchWithAuth(window.rxUrl('/api/rx-records/') + rxId + '/history')
+        .then(function(res) {
+            if (!res || !res.ok) { bodyEl.innerHTML = '<p class="text-center text-danger py-4">Failed to load history.</p>'; return; }
+            return res.json().then(function(history) {
+                if (!history.length) {
+                    bodyEl.innerHTML = '<p class="text-center text-muted py-4">No history recorded yet for this RX record.</p>';
+                    return;
                 }
-            }
 
-            var connector = (i < history.length - 1)
-                ? '<div class="mx-auto" style="width:2px;background:var(--border-color,#dee2e6);min-height:20px"></div>'
-                : '';
+                var typeColors = { Create:'success', Update:'primary', Workflow:'info', Delete:'danger', Restore:'warning' };
+                var typeIcons  = { Create:'plus-circle', Update:'edit', Workflow:'tasks', Delete:'eye-slash', Restore:'undo' };
 
-            html += '<div class="d-flex gap-3 mb-3">' +
-                      '<div class="flex-shrink-0 text-center" style="width:48px">' +
-                        '<div class="rounded-circle bg-' + color + ' text-white d-flex align-items-center justify-content-center mx-auto mb-1" style="width:36px;height:36px">' +
-                          '<i class="fas fa-' + icon + '" style="font-size:0.85rem"></i>' +
-                        '</div>' + connector +
-                      '</div>' +
-                      '<div class="flex-grow-1 pb-2" style="border-bottom:1px solid var(--border-color,#dee2e6)">' +
-                        '<div class="d-flex justify-content-between align-items-start flex-wrap gap-1">' +
-                          '<div>' +
-                            '<span class="badge bg-' + color + ' me-1">' + h.changeType + '</span>' +
-                            '<strong class="small">' + user + '</strong>' +
-                            (h.note ? '<span class="text-muted small ms-2">\u2014 ' + h.note + '</span>' : '') +
-                          '</div>' +
-                          '<small class="text-muted">' + date + ' ' + time + '</small>' +
-                        '</div>' +
-                        changedHtml +
-                      '</div>' +
-                    '</div>';
-        });
+                var html = '<p class="text-muted small mb-3"><i class="fas fa-info-circle me-1"></i>' +
+                           history.length + ' history entr' + (history.length === 1 ? 'y' : 'ies') + ' \u2014 most recent first</p>' +
+                           '<div class="timeline">';
 
-        html += '</div>';
-        body.innerHTML = html;
+                history.forEach(function(h, i) {
+                    var dt    = new Date(h.createdAt);
+                    var date  = dt.toLocaleDateString();
+                    var time  = dt.toLocaleTimeString();
+                    var user  = h.ChangedBy
+                        ? (h.ChangedBy.username || (h.ChangedBy.firstName + ' ' + h.ChangedBy.lastName))
+                        : 'System';
+                    var color = typeColors[h.changeType] || 'secondary';
+                    var icon  = typeIcons[h.changeType]  || 'circle';
+
+                    var changedHtml = '';
+                    if (h.changedFields) {
+                        var fields = JSON.parse(h.changedFields);
+                        if (fields.length) {
+                            changedHtml = '<table class="table table-sm table-bordered mt-2" style="font-size:0.8rem">' +
+                                '<thead><tr><th>Field</th><th>Before</th><th>After</th></tr></thead><tbody>' +
+                                fields.map(function(f) {
+                                    return '<tr><td class="fw-bold">' + f.field + '</td>' +
+                                           '<td class="text-danger">'  + (f.from || '\u2014') + '</td>' +
+                                           '<td class="text-success">' + (f.to   || '\u2014') + '</td></tr>';
+                                }).join('') +
+                                '</tbody></table>';
+                        }
+                    }
+
+                    var connector = (i < history.length - 1)
+                        ? '<div class="mx-auto" style="width:2px;background:var(--border-color,#dee2e6);min-height:20px"></div>'
+                        : '';
+
+                    html += '<div class="d-flex gap-3 mb-3">' +
+                              '<div class="flex-shrink-0 text-center" style="width:48px">' +
+                                '<div class="rounded-circle bg-' + color + ' text-white d-flex align-items-center justify-content-center mx-auto mb-1" style="width:36px;height:36px">' +
+                                  '<i class="fas fa-' + icon + '" style="font-size:0.85rem"></i>' +
+                                '</div>' + connector +
+                              '</div>' +
+                              '<div class="flex-grow-1 pb-2" style="border-bottom:1px solid var(--border-color,#dee2e6)">' +
+                                '<div class="d-flex justify-content-between align-items-start flex-wrap gap-1">' +
+                                  '<div>' +
+                                    '<span class="badge bg-' + color + ' me-1">' + h.changeType + '</span>' +
+                                    '<strong class="small">' + user + '</strong>' +
+                                    (h.note ? '<span class="text-muted small ms-2">\u2014 ' + h.note + '</span>' : '') +
+                                  '</div>' +
+                                  '<small class="text-muted">' + date + ' ' + time + '</small>' +
+                                '</div>' +
+                                changedHtml +
+                              '</div>' +
+                            '</div>';
+                });
+
+                html += '</div>';
+                bodyEl.innerHTML = html;
+            });
+        }).catch(function() { bodyEl.innerHTML = '<p class="text-center text-danger py-4">Error loading history.</p>'; });
     }
 
-    // ── RX Print / PDF ──────────────────────────────────────────────────────────
+
+
+    // ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ RX Print / PDF ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
     var _rxPrintData  = null;
     var _rxPrintLayout = 'card';
 
@@ -1937,28 +2010,29 @@
         }
     }
 
-    async function printRxRecord(id) {
-        const body = document.getElementById('rxPrintBody');
-        body.innerHTML = '<p class="text-center text-muted py-5"><i class="fas fa-spinner fa-spin me-2"></i>Loading record...</p>';
+    function printRxRecord(id) {
+        var bodyEl2 = document.getElementById('rxPrintBody');
+        bodyEl2.innerHTML = '<p class="text-center text-muted py-5"><i class="fas fa-spinner fa-spin me-2"></i>Loading record...</p>';
         _rxPrintLayout = 'card';
-        const cardRadio = document.getElementById('rxLayoutCard');
+        var cardRadio = document.getElementById('rxLayoutCard');
         if (cardRadio) cardRadio.checked = true;
-        const modal = new bootstrap.Modal(document.getElementById('rxPrintModal'));
+        var modal = new bootstrap.Modal(document.getElementById('rxPrintModal'));
         modal.show();
 
-        const rx = allRx.find(r => r.id === id);
-        if (!rx) { body.innerHTML = '<p class="text-danger text-center py-4">Record not found.</p>'; return; }
-        _rxPrintData = { rx };
+        var rx = null;
+        for (var _rxi = 0; _rxi < allRx.length; _rxi++) { if (allRx[_rxi].id === id) { rx = allRx[_rxi]; break; } }
+        if (!rx) { bodyEl2.innerHTML = '<p class="text-danger text-center py-4">Record not found.</p>'; return; }
+        _rxPrintData = { rx: rx };
 
-        const patient      = rx.Patient || {};
-        const pharmacy     = rx.Pharmacy || {};
-        const trackings    = rx.RXWorkflowTrackings || [];
-        const totalSteps   = allWorkflowActions.length;
-        const doneCount    = trackings.length;
-        const pct          = totalSteps > 0 ? Math.round((doneCount / totalSteps) * 100) : 0;
-        const printDate    = new Date().toLocaleString();
+        var patient      = rx.Patient || {};
+        var pharmacy     = rx.Pharmacy || {};
+        var trackings    = rx.RXWorkflowTrackings || [];
+        var totalSteps   = allWorkflowActions.length;
+        var doneCount    = trackings.length;
+        var pct          = totalSteps > 0 ? Math.round((doneCount / totalSteps) * 100) : 0;
+        var printDate    = new Date().toLocaleString();
 
-        const STEP_COLORS = ['#4a90e2','#7b61ff','#fd7e14','#20c997','#e24a9a','#50e3c2','#f5a623'];
+        var STEP_COLORS = ['#4a90e2','#7b61ff','#fd7e14','#20c997','#e24a9a','#50e3c2','#f5a623'];
 
         // Build workflow checklist for card
         // Helper: whole days between two dates
@@ -2045,141 +2119,118 @@
         // 90-day cycle computation for print
         var _pSvcD    = rx.serviceDate ? new Date(rx.serviceDate) : null;
         var _pExpD    = _pSvcD ? new Date(_pSvcD.getTime() + 90*864e5) : null;
-        var _pExpStr  = _pExpD ? _pExpD.toLocaleDateString() : '—';
+        var _pExpStr  = _pExpD ? _pExpD.toLocaleDateString() : 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â';
         var _pDLeft   = _pExpD ? Math.round((_pExpD - new Date()) / 864e5) : null;
         var _pStatus, _pStatusColor;
-        if (_pDLeft === null) { _pStatus = '—'; _pStatusColor = '#888'; }
-        else if (_pDLeft < 0) { _pStatus = '⚠ Expired (' + Math.abs(_pDLeft) + 'd ago)'; _pStatusColor = '#dc3545'; }
-        else if (_pDLeft <= 14) { _pStatus = '⏱ Expiring (' + _pDLeft + 'd left)'; _pStatusColor = '#fd7e14'; }
-        else { _pStatus = '✅ Active'; _pStatusColor = '#198754'; }
-        // ── CARD ────────────────────────────────────────────────────────────────────────
-        const cardHTML = `
-        <div id="rxPrintContentCard" style="font-family:'Inter',Arial,sans-serif;background:#fff;margin:20px;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.12)">
+        if (_pDLeft === null) { _pStatus = 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â'; _pStatusColor = '#888'; }
+        else if (_pDLeft < 0) { _pStatus = 'ÃƒÂ¢Ã…Â¡Ã‚Â  Expired (' + Math.abs(_pDLeft) + 'd ago)'; _pStatusColor = '#dc3545'; }
+        else if (_pDLeft <= 14) { _pStatus = 'ÃƒÂ¢Ã‚ÂÃ‚Â± Expiring (' + _pDLeft + 'd left)'; _pStatusColor = '#fd7e14'; }
+        else { _pStatus = 'ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ Active'; _pStatusColor = '#198754'; }
+        // -- CARD --
+        var cardInfoRows = [
+            ['Patient',      (patient.firstName || '') + ' ' + (patient.lastName || '')],
+            ['Patient Code', patient.patientCode || '--'],
+            ['Pharmacy',     pharmacy.name || '--'],
+            ['Service Date',      rx.serviceDate || '--'],
+            ['Next Svc Date',     _pExpStr],
+            ['Cycle Status',      _pStatus],
+            ['Workflow',          doneCount + '/' + totalSteps + ' steps (' + pct + '%)']
+        ];
+        var cardInfoHtml = '';
+        for (var _cii = 0; _cii < cardInfoRows.length; _cii++) {
+            cardInfoHtml += '<div><div style="font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#888;margin-bottom:3px">' + cardInfoRows[_cii][0] + '</div>' +
+                '<div style="font-size:.9rem;color:#1a2234">' + cardInfoRows[_cii][1] + '</div></div>';
+        }
+        var cardNotesHtml = rx.notes ? '<div style="margin:0 28px 20px;padding:12px 16px;background:#fffbea;border-left:4px solid #f5a623;border-radius:4px;font-size:.85rem;color:#7a5800"><strong>Notes:</strong><br>' + rx.notes.replace(/\n/g,'<br>') + '</div>' : '';
+        var cardHTML =
+            '<div id="rxPrintContentCard" style="font-family:Inter,Arial,sans-serif;background:#fff;margin:20px;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.12)">' +
+            '<div style="background:linear-gradient(135deg,#1a2234,#2c3e6b);color:#fff;padding:20px 28px;display:flex;justify-content:space-between;align-items:center">' +
+              '<div>' +
+                '<div style="font-size:1.4rem;font-weight:700">RX Record <span style="font-family:monospace">#' + rx.id + '</span></div>' +
+                '<div style="font-size:.85rem;opacity:.75;margin-top:3px">Patient RX System &nbsp;&middot;&nbsp; Generated: ' + printDate + '</div>' +
+              '</div>' +
+              '<div style="text-align:right">' +
+                '<div style="font-size:1rem;font-weight:600;opacity:.85">' + (patient.firstName || '') + ' ' + (patient.lastName || '') + '</div>' +
+                '<div style="margin-top:6px"><span style="background:' + statusColor + ';color:#fff;padding:3px 12px;border-radius:20px;font-size:.78rem;font-weight:600">' + statusLabel + '</span></div>' +
+              '</div>' +
+            '</div>' +
+            '<div style="padding:20px 28px;display:grid;grid-template-columns:1fr 1fr;gap:12px 32px;border-bottom:1px solid #e9ecef">' + cardInfoHtml + '</div>' +
+            '<div style="padding:16px 28px;border-bottom:1px solid #e9ecef">' +
+              '<div style="display:flex;justify-content:space-between;margin-bottom:6px">' +
+                '<span style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#888">Overall Progress</span>' +
+                '<span style="font-size:.72rem;font-weight:700;color:' + statusColor + '">' + pct + '%</span>' +
+              '</div>' +
+              '<div style="height:8px;border-radius:4px;background:#e9ecef;overflow:hidden">' +
+                '<div style="height:100%;border-radius:4px;background:linear-gradient(90deg,#4a90e2,' + statusColor + ');width:' + pct + '%"></div>' +
+              '</div>' +
+            '</div>' +
+            '<div style="padding:16px 28px">' +
+              '<div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#888;margin-bottom:10px">Workflow Checklist</div>' +
+              stepsCardHtml +
+            '</div>' +
+            cardNotesHtml +
+            '</div>';
 
-          <!-- Header -->
-          <div style="background:linear-gradient(135deg,#1a2234,#2c3e6b);color:#fff;padding:20px 28px;display:flex;justify-content:space-between;align-items:center">
-            <div>
-              <div style="font-size:1.4rem;font-weight:700">RX Record <span style="font-family:monospace">#${rx.id}</span></div>
-              <div style="font-size:.85rem;opacity:.75;margin-top:3px">Patient RX System &nbsp;·&nbsp; Generated: ${printDate}</div>
-            </div>
-            <div style="text-align:right">
-              <div style="font-size:1rem;font-weight:600;opacity:.85">${patient.firstName || ''} ${patient.lastName || ''}</div>
-              <div style="margin-top:6px">
-                <span style="background:${statusColor};color:#fff;padding:3px 12px;border-radius:20px;font-size:.78rem;font-weight:600">● ${statusLabel}</span>
-              </div>
-            </div>
-          </div>
+        // -- CLASSIC --
+        var classicNotesHtml = rx.notes ? '<div style="background:#f8f9fa;border-left:3px solid #4a90e2;padding:10px 14px;border-radius:4px;margin-bottom:20px;font-size:.85rem"><strong>Notes:</strong><br>' + rx.notes.replace(/\n/g,'<br>') + '</div>' : '';
+        var classicHTML =
+            '<div id="rxPrintContentClassic" style="display:none;font-family:Inter,Arial,sans-serif;color:#1a2234;padding:28px">' +
+            '<div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #1a2234;padding-bottom:12px;margin-bottom:20px">' +
+              '<div><h4 style="margin:0;color:#1a2234">RX Record</h4><div style="font-size:.8rem;color:#888;margin-top:4px">Printed: ' + printDate + '</div></div>' +
+              '<div style="text-align:right"><div style="font-size:1.1rem;font-weight:700">#' + rx.id + ' <span style="background:' + statusColor + ';color:#fff;padding:3px 10px;border-radius:12px;font-size:.75rem;margin-left:8px">' + statusLabel + '</span></div></div>' +
+            '</div>' +
+            '<table style="width:100%;border-collapse:collapse;margin-bottom:20px;font-size:.875rem">' +
+              '<tr><td style="width:50%;padding:5px 0"><strong>Patient:</strong> ' + (patient.firstName || '') + ' ' + (patient.lastName || '') + '</td>' +
+              '<td style="width:50%;padding:5px 0"><strong>Patient Code:</strong> ' + (patient.patientCode || '--') + '</td></tr>' +
+              '<tr><td style="padding:5px 0"><strong>Pharmacy:</strong> ' + (pharmacy.name || '--') + '</td>' +
+              '<td style="padding:5px 0"><strong>Service Date:</strong> ' + (rx.serviceDate || '--') + '</td></tr>' +
+              '<tr><td style="padding:5px 0"><strong>Next Service Date:</strong> ' + _pExpStr + '</td>' +
+              '<td style="padding:5px 0"><strong>Cycle Status:</strong> <span style="color:' + _pStatusColor + ';font-weight:600">' + _pStatus + '</span></td></tr>' +
+              '<tr><td style="padding:5px 0"><strong>Progress:</strong> ' + doneCount + '/' + totalSteps + ' steps (' + pct + '%)</td><td></td></tr>' +
+            '</table>' +
+            classicNotesHtml +
+            '<h6 style="border-bottom:1px solid #dee2e6;padding-bottom:6px;margin-bottom:10px">Workflow Steps</h6>' +
+            '<table style="width:100%;border-collapse:collapse;font-size:.85rem">' +
+              '<thead><tr style="background:#1a2234;color:#fff">' +
+                '<th style="padding:7px 10px">Step</th>' +
+                '<th style="padding:7px 10px;text-align:center">Date Completed</th>' +
+                '<th style="padding:7px 10px;text-align:center">Days Lag</th>' +
+                '<th style="padding:7px 10px;text-align:center">Status</th>' +
+              '</tr></thead>' +
+              '<tbody>' + stepsClassicHtml + '</tbody>' +
+            '</table></div>';
 
-          <!-- Info grid -->
-          <div style="padding:20px 28px;display:grid;grid-template-columns:1fr 1fr;gap:12px 32px;border-bottom:1px solid #e9ecef">
-            ${ [['Patient',      (patient.firstName||'') + ' ' + (patient.lastName||'')],
-                ['Patient Code', patient.patientCode||'—'],
-                ['Pharmacy',     pharmacy.name||'—'],
-                ['Service Date',      rx.serviceDate||'—'],
-                ['Next Svc Date',     _pExpStr],
-                ['Cycle Status',      _pStatus],
-                ['Workflow',          doneCount + '/' + totalSteps + ' steps (' + pct + '%)']
-               ].map(([label, val]) =>
-              `<div><div style="font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#888;margin-bottom:3px">${label}</div>
-               <div style="font-size:.9rem;color:#1a2234">${val}</div></div>`
-            ).join('') }
-          </div>
-
-          <!-- Progress bar -->
-          <div style="padding:16px 28px;border-bottom:1px solid #e9ecef">
-            <div style="display:flex;justify-content:space-between;margin-bottom:6px">
-              <span style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#888">Overall Progress</span>
-              <span style="font-size:.72rem;font-weight:700;color:${statusColor}">${pct}%</span>
-            </div>
-            <div style="height:8px;border-radius:4px;background:#e9ecef;overflow:hidden">
-              <div style="height:100%;border-radius:4px;background:linear-gradient(90deg,#4a90e2,${statusColor});width:${pct}%"></div>
-            </div>
-          </div>
-
-          <!-- Workflow checklist -->
-          <div style="padding:16px 28px">
-            <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#888;margin-bottom:10px">Workflow Checklist</div>
-            ${stepsCardHtml}
-          </div>
-
-          <!-- Notes -->
-          ${rx.notes ? `<div style="margin:0 28px 20px;padding:12px 16px;background:#fffbea;border-left:4px solid #f5a623;border-radius:4px;font-size:.85rem;color:#7a5800"><strong>📝 Notes:</strong><br>${rx.notes.replace(/\n/g,'<br>')}</div>` : ''}
-        </div>`;
-
-        // ── CLASSIC ───────────────────────────────────────────────────────────────────────
-        const classicHTML = `
-        <div id="rxPrintContentClassic" style="display:none;font-family:Inter,Arial,sans-serif;color:#1a2234;padding:28px">
-          <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #1a2234;padding-bottom:12px;margin-bottom:20px">
-            <div>
-              <h4 style="margin:0;color:#1a2234">RX Record</h4>
-              <div style="font-size:.8rem;color:#888;margin-top:4px">Printed: ${printDate}</div>
-            </div>
-            <div style="text-align:right">
-              <div style="font-size:1.1rem;font-weight:700">#${rx.id}
-                <span style="background:${statusColor};color:#fff;padding:3px 10px;border-radius:12px;font-size:.75rem;margin-left:8px">${statusLabel}</span>
-              </div>
-            </div>
-          </div>
-          <table style="width:100%;border-collapse:collapse;margin-bottom:20px;font-size:.875rem">
-            <tr>
-              <td style="width:50%;padding:5px 0"><strong>Patient:</strong> ${(patient.firstName||'') + ' ' + (patient.lastName||'')}</td>
-              <td style="width:50%;padding:5px 0"><strong>Patient Code:</strong> ${patient.patientCode||'—'}</td>
-            </tr><tr>
-              <td style="padding:5px 0"><strong>Pharmacy:</strong> ${pharmacy.name||'—'}</td>
-              <td style="padding:5px 0"><strong>Service Date:</strong> ${rx.serviceDate||'—'}</td>
-            </tr><tr>
-              <td style="padding:5px 0"><strong>Next Service Date:</strong> ${_pExpStr}</td>
-              <td style="padding:5px 0"><strong>Cycle Status:</strong> <span style="color:${_pStatusColor};font-weight:600">${_pStatus}</span></td>
-            </tr><tr>
-              <td style="padding:5px 0"><strong>Progress:</strong> ${doneCount}/${totalSteps} steps (${pct}%)</td>
-              <td></td>
-            </tr>
-          </table>
-          ${rx.notes ? `<div style="background:#f8f9fa;border-left:3px solid #4a90e2;padding:10px 14px;border-radius:4px;margin-bottom:20px;font-size:.85rem"><strong>Notes:</strong><br>${rx.notes.replace(/\n/g,'<br>')}</div>` : ''}
-          <h6 style="border-bottom:1px solid #dee2e6;padding-bottom:6px;margin-bottom:10px">Workflow Steps</h6>
-          <table style="width:100%;border-collapse:collapse;font-size:.85rem">
-            <thead><tr style="background:#1a2234;color:#fff">
-              <th style="padding:7px 10px">Step</th>
-              <th style="padding:7px 10px;text-align:center">Date Completed</th>
-              <th style="padding:7px 10px;text-align:center">Days Lag</th>
-              <th style="padding:7px 10px;text-align:center">Status</th>
-            </tr></thead>
-            <tbody>${stepsClassicHtml}</tbody>
-          </table>
-        </div>`;
-
-        body.innerHTML = cardHTML + classicHTML;
-        body.style.background = '#f0f2f5';
+        bodyEl2.innerHTML = cardHTML + classicHTML;
+        bodyEl2.style.background = '#f0f2f5';
     }
 
     function doPrintRx() {
         if (!_rxPrintData) return;
-        const contentId = _rxPrintLayout === 'card' ? 'rxPrintContentCard' : 'rxPrintContentClassic';
-        const content   = document.getElementById(contentId);
+        var contentId = _rxPrintLayout === 'card' ? 'rxPrintContentCard' : 'rxPrintContentClassic';
+        var content   = document.getElementById(contentId);
         if (!content) return;
-        const rx  = _rxPrintData.rx;
-        const win = window.open('', '_blank', 'width=900,height=750');
-        const css = _rxPrintLayout === 'card'
-            ? `@import url('/assets/inter.css');
-               *{box-sizing:border-box;margin:0;padding:0}
-               body{font-family:'Inter',Arial,sans-serif;background:#f0f2f5;padding:32px}
-               #rxPrintContentCard{background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 16px rgba(0,0,0,.1)}
-               @media print{@page{margin:15mm;size:A4}body{background:#fff;padding:0}#rxPrintContentCard{box-shadow:none;border-radius:0}
-               div[style*="background:linear-gradient"]{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}}`
-            : `@import url('/assets/inter.css');
-               body{font-family:Inter,Arial,sans-serif;color:#1a2234;padding:32px;max-width:860px;margin:0 auto}
-               table{width:100%;border-collapse:collapse}
-               thead tr{background:#1a2234!important;color:#fff!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-               th,td{padding:7px 10px;text-align:left;border-bottom:1px solid #dee2e6}
-               @media print{@page{margin:20mm}body{padding:0}}`;
-        win.document.write(`<!DOCTYPE html><html><head>
-    <meta charset="UTF-8">
-    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-            <title>RX Record #${rx.id}</title>
-            <style>${css}</style></head>
-            <body>${content.outerHTML}
-            <script>window.onload=function(){window.print();}<\/script>
-</body></html>`);
+        var rx2 = _rxPrintData.rx;
+        var win = window.open('', '_blank', 'width=900,height=750');
+        var cssCard = '@import url("/assets/inter.css");' +
+            '*{box-sizing:border-box;margin:0;padding:0}' +
+            'body{font-family:"Inter",Arial,sans-serif;background:#f0f2f5;padding:32px}' +
+            '#rxPrintContentCard{background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 16px rgba(0,0,0,.1)}' +
+            '@media print{@page{margin:15mm;size:A4}body{background:#fff;padding:0}#rxPrintContentCard{box-shadow:none;border-radius:0}' +
+            'div[style*="background:linear-gradient"]{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}}';
+        var cssClassic = '@import url("/assets/inter.css");' +
+            'body{font-family:Inter,Arial,sans-serif;color:#1a2234;padding:32px;max-width:860px;margin:0 auto}' +
+            'table{width:100%;border-collapse:collapse}' +
+            'thead tr{background:#1a2234!important;color:#fff!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}' +
+            'th,td{padding:7px 10px;text-align:left;border-bottom:1px solid #dee2e6}' +
+            '@media print{@page{margin:20mm}body{padding:0}}';
+        var css = _rxPrintLayout === 'card' ? cssCard : cssClassic;
+        win.document.write('<!DOCTYPE html><html><head>' +
+            '<meta charset="UTF-8"><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">' +
+            '<title>RX Record #' + rx2.id + '</title>' +
+            '<style>' + css + '</style></head>' +
+            '<body>' + content.outerHTML +
+            '<script>window.onload=function(){window.print();}<\/script>' +
+            '</body></html>');
         win.document.close();
         win.focus();
     }
