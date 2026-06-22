@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en" data-theme="light">
 <head>
     <meta charset="UTF-8">
@@ -1867,24 +1867,30 @@
 
         // Build workflow checklist for card
         const stepsCardHtml = allWorkflowActions.map((wa, i) => {
-            const done   = trackings.some(t => t.workflowActionId === wa.id);
-            const color  = done ? '#198754' : STEP_COLORS[i % STEP_COLORS.length];
-            const icon   = done ? 'fa-check-circle' : 'fa-circle';
-            const label  = done ? 'color:#198754;font-weight:600' : 'color:#888';
+            const tracking = trackings.find(t => t.workflowActionId === wa.id);
+            const done     = !!tracking;
+            const dateStr  = done && tracking.completionDate ? new Date(tracking.completionDate).toLocaleDateString() : '';
+            const color    = done ? '#198754' : STEP_COLORS[i % STEP_COLORS.length];
+            const icon     = done ? 'fa-check-circle' : 'fa-circle';
+            const label    = done ? 'color:#198754;font-weight:600' : 'color:#888';
             return `<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid #f0f0f0">
                 <i class="fas ${icon}" style="color:${color};font-size:1rem;flex-shrink:0"></i>
                 <span style="${label};font-size:.87rem">${wa.name}</span>
-                ${done ? '<span style="margin-left:auto;font-size:.7rem;color:#198754;background:#19875415;padding:2px 8px;border-radius:10px">Done</span>' : ''}
-            </div>`;
+                ${done ? `<span style="margin-left:auto;font-size:.7rem;color:#198754;background:#19875415;padding:2px 8px;border-radius:10px">&#10003; ${dateStr}</span>` : ""}
+            </div>;
         }).join('');
 
         // Build workflow steps for classic
         const stepsClassicHtml = allWorkflowActions.map((wa, i) => {
-            const done = trackings.some(t => t.workflowActionId === wa.id);
-            return `<tr>
+            const tracking = trackings.find(t => t.workflowActionId === wa.id);
+            const done     = !!tracking;
+            const dateStr  = done && tracking.completionDate ? new Date(tracking.completionDate).toLocaleDateString() : '&mdash;';
+            const statusTd = done ? '<td style="padding:5px 8px;border-bottom:1px solid #dee2e6;text-align:center;color:#198754;font-weight:600">&#10003;</td>' : '<td style="padding:5px 8px;border-bottom:1px solid #dee2e6;text-align:center;color:#aaa">&#8212;</td>';
+            return <tr>
                 <td style="padding:5px 8px;border-bottom:1px solid #dee2e6">${i+1}. ${wa.name}</td>
-                <td style="padding:5px 8px;border-bottom:1px solid #dee2e6;text-align:center">${done ? '✓' : '—'}</td>
-            </tr>`;
+                <td style="padding:5px 8px;border-bottom:1px solid #dee2e6;text-align:center;color:#555;font-size:.85rem">${dateStr}</td>
+                
+            </tr>;
         }).join('');
 
         const statusColor = pct >= 100 ? '#198754' : pct >= 50 ? '#fd7e14' : '#6c757d';
@@ -1973,7 +1979,8 @@
           <table style="width:100%;border-collapse:collapse;font-size:.85rem">
             <thead><tr style="background:#1a2234;color:#fff">
               <th style="padding:7px 10px">Step</th>
-              <th style="padding:7px 10px;text-align:center">Completed</th>
+              <th style="padding:7px 10px;text-align:center">Date Completed</th>
+              <th style="padding:7px 10px;text-align:center">Status</th>
             </tr></thead>
             <tbody>${stepsClassicHtml}</tbody>
           </table>
