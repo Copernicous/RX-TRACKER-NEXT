@@ -19,22 +19,24 @@
             z-index: 1055;
             max-height: 220px;
             overflow-y: auto;
-            background: var(--card-bg, #fff);
-            border: 1px solid var(--border-color, #dee2e6);
+            background: var(--surface, #fff);
+            border: 1px solid var(--border, #dee2e6);
             border-radius: 0.375rem;
             box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+            color: var(--text, #1a202c);
         }
         .patient-dropdown.open { display: block; }
         .patient-dropdown-item {
             padding: 8px 14px;
             cursor: pointer;
-            border-bottom: 1px solid var(--border-color, #f0f0f0);
+            border-bottom: 1px solid var(--border, #f0f0f0);
             transition: background 0.15s;
+            color: var(--text, #1a202c);
         }
         .patient-dropdown-item:last-child { border-bottom: none; }
         .patient-dropdown-item:hover,
         .patient-dropdown-item.highlighted { background: rgba(99,102,241,0.12); }
-        .patient-dropdown-item .pat-name  { font-weight: 600; font-size: 0.9rem; }
+        .patient-dropdown-item .pat-name  { font-weight: 600; font-size: 0.9rem; color: var(--text, #1a202c); }
         .patient-dropdown-item .pat-id    { font-size: 0.78rem; color: var(--text-muted, #6c757d); }
         .patient-dropdown-empty { padding: 10px 14px; color: var(--text-muted, #6c757d); font-size: 0.85rem; }
         #patientSearchInput.is-selected { border-color: #6366f1; }
@@ -356,7 +358,7 @@
 
 <!-- ── Bulk Workflow Results Modal (F10-04) ── -->
 <div id="rxBulkResultOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:2000;align-items:center;justify-content:center">
-  <div style="background:#fff;border-radius:12px;padding:0;max-width:560px;width:94%;max-height:82vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.3)">
+  <div style="background:var(--surface,#fff);color:var(--text,#1a202c);border-radius:12px;padding:0;max-width:560px;width:94%;max-height:82vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.3);border:1px solid var(--border)">
     <div style="background:linear-gradient(135deg,#1a2234,#2c3e6b);color:#fff;padding:16px 22px;border-radius:12px 12px 0 0;display:flex;align-items:center;gap:12px">
       <i class="fas fa-tasks" style="font-size:1.2rem"></i>
       <span class="fw-bold" id="rxBulkResTitle" style="font-size:1rem">Bulk Workflow Results</span>

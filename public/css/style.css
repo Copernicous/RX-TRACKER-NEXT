@@ -39,6 +39,9 @@
     --text:        #e6edf3;
     --text-muted:  #8b949e;
     --sidebar-bg:  #0d1117;
+    /* Alias vars used by inline styles in views */
+    --card-bg:        #161b22;
+    --border-color:   rgba(255,255,255,0.1);
 }
 
 /* ---------- Global Reset ---------- */
@@ -758,4 +761,245 @@ body {
     background-color: rgba(139,148,158,0.12) !important;
     border-color: rgba(139,148,158,0.3) !important;
     color: #b0bcc8 !important;
+}
+
+/* ============================================
+   COMPREHENSIVE DARK MODE OVERRIDES
+   Covers all Bootstrap components that bleed
+   white/light backgrounds in dark theme.
+   ============================================ */
+
+/* ── Body & base ── */
+[data-theme="dark"] body {
+    background-color: var(--bg) !important;
+    color: var(--text) !important;
+}
+
+/* ── Utility class overrides ── */
+/* .bg-white used in readonly display inputs in rx-records */
+[data-theme="dark"] .bg-white {
+    background-color: var(--surface-2) !important;
+    color: var(--text) !important;
+}
+/* .text-dark loses contrast on dark backgrounds */
+[data-theme="dark"] .text-dark {
+    color: var(--text) !important;
+}
+[data-theme="dark"] .text-body {
+    color: var(--text) !important;
+}
+[data-theme="dark"] .text-muted {
+    color: var(--text-muted) !important;
+}
+
+/* ── Input group addon (search icons, @, currency symbols etc.) ── */
+[data-theme="dark"] .input-group-text {
+    background-color: var(--surface-2) !important;
+    border-color: var(--border) !important;
+    color: var(--text-muted) !important;
+}
+
+/* ── Readonly / disabled inputs (display-only fields) ── */
+[data-theme="dark"] .form-control[readonly],
+[data-theme="dark"] .form-control:disabled,
+[data-theme="dark"] input[readonly],
+[data-theme="dark"] input:disabled {
+    background-color: var(--surface-2) !important;
+    color: var(--text-muted) !important;
+    border-color: var(--border) !important;
+    opacity: 1 !important;
+}
+
+/* ── Dropdown menus ── */
+[data-theme="dark"] .dropdown-menu {
+    background-color: var(--surface) !important;
+    border-color: var(--border) !important;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5) !important;
+}
+[data-theme="dark"] .dropdown-item {
+    color: var(--text) !important;
+}
+[data-theme="dark"] .dropdown-item:hover,
+[data-theme="dark"] .dropdown-item:focus {
+    background-color: var(--surface-2) !important;
+    color: var(--text) !important;
+}
+[data-theme="dark"] .dropdown-divider {
+    border-color: var(--border) !important;
+}
+
+/* ── Patient search dropdown (rx-records) ── */
+[data-theme="dark"] .patient-dropdown {
+    background: var(--surface) !important;
+    border-color: var(--border) !important;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5) !important;
+}
+[data-theme="dark"] .patient-dropdown-item {
+    color: var(--text) !important;
+    border-bottom-color: var(--border) !important;
+}
+[data-theme="dark"] .patient-dropdown-item:hover,
+[data-theme="dark"] .patient-dropdown-item.highlighted {
+    background: rgba(99,102,241,0.18) !important;
+}
+[data-theme="dark"] .patient-dropdown-empty {
+    color: var(--text-muted) !important;
+}
+
+/* ── Global search dropdown (app.js) ── */
+[data-theme="dark"] #globalSearchDropdown {
+    background: var(--surface) !important;
+    border-color: var(--border) !important;
+}
+[data-theme="dark"] #globalSearchDropdown .search-result-item {
+    color: var(--text) !important;
+}
+[data-theme="dark"] #globalSearchDropdown .search-result-item:hover {
+    background: rgba(74,144,226,0.12) !important;
+}
+
+/* ── List group ── */
+[data-theme="dark"] .list-group-item {
+    background-color: var(--surface) !important;
+    border-color: var(--border) !important;
+    color: var(--text) !important;
+}
+[data-theme="dark"] .list-group-item:hover {
+    background-color: var(--surface-2) !important;
+}
+[data-theme="dark"] .list-group-item-success {
+    background-color: rgba(61,187,108,0.12) !important;
+    color: #6ee7a0 !important;
+}
+[data-theme="dark"] .list-group-item-warning {
+    background-color: rgba(245,166,35,0.12) !important;
+    color: #fbbf5a !important;
+}
+[data-theme="dark"] .list-group-item-danger {
+    background-color: rgba(229,83,83,0.12) !important;
+    color: #f98989 !important;
+}
+
+/* ── Nav pills ── */
+[data-theme="dark"] .nav-pills .nav-link {
+    color: var(--text-muted) !important;
+}
+[data-theme="dark"] .nav-pills .nav-link.active {
+    background-color: var(--primary) !important;
+    color: #fff !important;
+}
+[data-theme="dark"] .nav-pills .nav-link:hover:not(.active) {
+    background-color: var(--surface-2) !important;
+    color: var(--text) !important;
+}
+
+/* ── Toast notifications ── */
+[data-theme="dark"] .toast {
+    background-color: var(--surface) !important;
+    border-color: var(--border) !important;
+    color: var(--text) !important;
+}
+
+/* ── Badge overrides ── */
+/* bg-white badge used on bulk count in rx-records */
+[data-theme="dark"] .badge.bg-white {
+    background-color: var(--surface-2) !important;
+    color: var(--text) !important;
+}
+/* bg-warning text-dark badges — keep warning color but fix text */
+[data-theme="dark"] .badge.bg-warning {
+    color: #1a1a1a !important; /* keep dark text on yellow for contrast */
+}
+
+/* ── Table striping & borders ── */
+[data-theme="dark"] .table-striped > tbody > tr:nth-of-type(odd) > * {
+    background-color: rgba(255,255,255,0.02) !important;
+    color: var(--text) !important;
+}
+[data-theme="dark"] .table-bordered > :not(caption) > * > * {
+    border-color: var(--border) !important;
+}
+[data-theme="dark"] .table > :not(caption) > * > * {
+    background-color: transparent;
+    color: var(--text);
+}
+
+/* ── Pagination ── */
+[data-theme="dark"] .page-link {
+    background-color: var(--surface) !important;
+    border-color: var(--border) !important;
+    color: var(--primary) !important;
+}
+[data-theme="dark"] .page-item.active .page-link {
+    background-color: var(--primary) !important;
+    border-color: var(--primary) !important;
+    color: #fff !important;
+}
+[data-theme="dark"] .page-item.disabled .page-link {
+    background-color: var(--surface-2) !important;
+    color: var(--text-muted) !important;
+}
+
+/* ── Select2 / chosen if present ── */
+[data-theme="dark"] select option {
+    background-color: var(--surface) !important;
+    color: var(--text) !important;
+}
+
+/* ── Checkbox and radio ── */
+[data-theme="dark"] .form-check-label {
+    color: var(--text) !important;
+}
+
+/* ── Filter panels and glass cards ── */
+[data-theme="dark"] .filter-panel {
+    background-color: var(--surface) !important;
+    border-color: var(--border) !important;
+}
+[data-theme="dark"] .glass-card {
+    background-color: var(--surface) !important;
+    border-color: var(--border) !important;
+}
+
+/* ── Navbar ── */
+[data-theme="dark"] .navbar {
+    background-color: var(--surface) !important;
+    border-bottom-color: var(--border) !important;
+}
+
+/* ── Code / pre ── */
+[data-theme="dark"] code,
+[data-theme="dark"] pre {
+    background-color: var(--surface-2) !important;
+    color: #79c0ff !important;
+}
+
+/* ── HR dividers ── */
+[data-theme="dark"] hr {
+    border-color: var(--border) !important;
+    opacity: 1;
+}
+
+/* ── Small text legibility ── */
+[data-theme="dark"] small,
+[data-theme="dark"] .small {
+    color: var(--text-muted) !important;
+}
+
+/* ── Override any inline style that hardcodes #fff bg ──
+   Targets the bulk results modal in rx-records           */
+[data-theme="dark"] #rxBulkResModal > div {
+    background: var(--surface) !important;
+    color: var(--text) !important;
+    border: 1px solid var(--border) !important;
+}
+
+/* ── Spinner / loading ── */
+[data-theme="dark"] .spinner-border {
+    color: var(--primary) !important;
+}
+
+/* ── Progress bars ── */
+[data-theme="dark"] .progress {
+    background-color: var(--surface-2) !important;
 }
