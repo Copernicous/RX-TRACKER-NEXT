@@ -617,9 +617,9 @@ async function executePurge() {
 // TAB SWITCHER
 // ══════════════════════════════════════════════════════════════════════════
 function switchTab(tab) {
-    var tabs  = ['tables','schema','orphans','dupes','audit','settings','backups','health','locks','users','errlog','analytics'];
-    var ids   = { tables:'tablesContent', schema:'schemaContent', orphans:'orphanContent', dupes:'dupesContent', audit:'auditContent', settings:'settingsContent', backups:'backupsContent', health:'healthContent', locks:'locksContent', users:'usersContent', errlog:'errlogContent', analytics:'analyticsContent' };
-    var btns  = { tables:'tabTables', schema:'tabSchema', orphans:'tabOrphans', dupes:'tabDupes', audit:'tabAudit', settings:'tabSettings', backups:'tabBackups', health:'tabHealth', locks:'tabLocks', users:'tabUsers', errlog:'tabErrlog', analytics:'tabAnalytics' };
+    var tabs  = ['tables','schema','orphans','dupes','audit','settings','backups','health','locks','users','apikeys','errlog','analytics'];
+    var ids   = { tables:'tablesContent', schema:'schemaContent', orphans:'orphanContent', dupes:'dupesContent', audit:'auditContent', settings:'settingsContent', backups:'backupsContent', health:'healthContent', locks:'locksContent', users:'usersContent', apikeys:'apiKeysContent', errlog:'errlogContent', analytics:'analyticsContent' };
+    var btns  = { tables:'tabTables', schema:'tabSchema', orphans:'tabOrphans', dupes:'tabDupes', audit:'tabAudit', settings:'tabSettings', backups:'tabBackups', health:'tabHealth', locks:'tabLocks', users:'tabUsers', apikeys:'tabApiKeys', errlog:'tabErrlog', analytics:'tabAnalytics' };
     tabs.forEach(function(t) {
         document.getElementById(btns[t]).classList.toggle('active', t === tab);
         var el = document.getElementById(ids[t]);
@@ -635,6 +635,7 @@ function switchTab(tab) {
     if (tab === 'health'    && !healthLoaded)    loadHealth();
     if (tab === 'locks'     && !locksLoaded)     loadLocks();
     if (tab === 'users'     && !usersLoaded)     loadUsers();
+    if (tab === 'apikeys'   && !boApiKeysLoaded) boLoadApiKeys();
     if (tab === 'errlog'    && !errlogLoaded)    loadErrorLogs(1);
     if (tab === 'analytics' && !analyticsLoaded) loadAnalytics();
     /* BO-04: Stop health countdown when leaving health tab */
@@ -1202,4 +1203,248 @@ async function exportAuditLogsCSV() {
         toast('\u2713 Exported ' + rows.length + ' audit log(s)', 'success');
     } catch(e) { toast('Export failed: ' + e.message, 'danger'); }
     finally { if (_ebtn) { _ebtn.disabled = false; _ebtn.innerHTML = '<i class="fas fa-file-csv"></i>'; } }
+}
+// ══════════════════════════════════════════════════════════════════════════
+// API KEYS TAB  (moved from System Settings)
+// ══════════════════════════════════════════════════════════════════════════
+var boApiKeysLoaded  = false;
+var boRevokeKeyId    = null;
+var _boApiRoutesCache = null;
+
+function _boFmtRelative(dateStr) {
+    if (!dateStr) return '<span style="color:var(--text-muted)">—</span>';
+    var d = new Date(dateStr), now = new Date(), diff = now - d;
+    if (diff < 60000)    return 'just now';
+    if (diff < 3600000)  return Math.floor(diff/60000)  + 'm ago';
+    if (diff < 86400000) return Math.floor(diff/3600000) + 'h ago';
+    return d.toLocaleDateString();
+}
+
+function _boFmtExpiry(dateStr) {
+    if (!dateStr) return '<span style="color:var(--text-muted);font-size:.8rem">Never</span>';
+    var d = new Date(dateStr), now = new Date();
+    if (d < now) return '<span class="badge bg-danger">Expired</span>';
+    var days = Math.ceil((d - now) / 86400000);
+    if (days <= 14) return '<span style="color:#f59e0b;font-size:.75rem"><i class="fas fa-exclamation-triangle me-1"></i>' + days + 'd left</span>';
+    return '<span style="color:var(--text-muted);font-size:.8rem">' + d.toLocaleDateString() + '</span>';
+}
+
+async function boLoadApiKeys() {
+    var tbody = document.getElementById('boApiKeysBody');
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--text-muted)"><i class="fas fa-spinner fa-spin me-2"></i>Loading...</td></tr>';
+    try {
+        var res = await fetchWithAuth('/api/api-keys');
+        if (!res || !res.ok) throw new Error('Failed to load');
+        var keys = await res.json();
+        boApiKeysLoaded = true;
+        if (!keys.length) {
+            tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:3rem;color:var(--text-muted)"><i class="fas fa-key fa-2x" style="opacity:.25;display:block;margin-bottom:.75rem"></i>No API keys yet — generate one to get started.</td></tr>';
+            return;
+        }
+        var html = '';
+        keys.forEach(function(k) {
+            var creator = k.CreatedBy ? (k.CreatedBy.firstName + ' ' + k.CreatedBy.lastName) : 'System';
+            var statusDot = k.isActive
+                ? '<span style="width:8px;height:8px;border-radius:50%;background:#22c55e;box-shadow:0 0 6px rgba(34,197,94,.5);display:inline-block;margin-right:5px"></span><span style="color:#22c55e;font-size:.8rem;font-weight:600">Active</span>'
+                : '<span style="width:8px;height:8px;border-radius:50%;background:#ef4444;display:inline-block;margin-right:5px"></span><span style="color:#ef4444;font-size:.8rem;font-weight:600">Disabled</span>';
+            var toggleIcon = k.isActive ? 'fa-toggle-on' : 'fa-toggle-off';
+            var toggleStyle = k.isActive ? 'color:#22c55e' : 'color:var(--text-muted)';
+            html += '<tr style="transition:background .15s" onmouseover="this.style.background=\'rgba(99,102,241,.04)\'" onmouseout="this.style.background=\'\'">' +
+                '<td><div style="font-weight:600;font-size:.85rem">' + k.name + '</div>' + (k.description ? '<div style="font-size:.75rem;color:var(--text-muted)">' + k.description + '</div>' : '') + '</td>' +
+                '<td><code style="font-size:.8rem;background:rgba(99,102,241,.08);color:#6366f1;border-radius:5px;padding:2px 8px">' + k.keyPrefix + '…</code></td>' +
+                '<td>' + statusDot + '</td>' +
+                '<td style="font-size:.8rem;color:var(--text-muted)">' + creator + '</td>' +
+                '<td style="font-size:.8rem;color:var(--text-muted)">' + _boFmtRelative(k.createdAt) + '</td>' +
+                '<td style="font-size:.8rem;color:var(--text-muted)">' + _boFmtRelative(k.lastUsedAt) + '</td>' +
+                '<td>' + _boFmtExpiry(k.expiresAt) + '</td>' +
+                '<td style="text-align:right;white-space:nowrap">' +
+                    '<button class="btn-bo btn-bo-outline bo-toggle-key" data-id="' + k.id + '" style="padding:3px 8px;margin-right:4px;font-size:.75rem" title="' + (k.isActive ? 'Disable' : 'Enable') + '">' +
+                        '<i class="fas ' + toggleIcon + '" style="' + toggleStyle + '"></i></button>' +
+                    '<button class="btn-bo btn-bo-danger bo-delete-key" data-id="' + k.id + '" data-name="' + k.name + '" style="padding:3px 8px;font-size:.75rem"><i class="fas fa-trash"></i></button>' +
+                '</td></tr>';
+        });
+        tbody.innerHTML = html;
+
+        // Event delegation
+        tbody.querySelectorAll('.bo-toggle-key').forEach(function(btn) {
+            btn.addEventListener('click', async function() {
+                var id = this.dataset.id;
+                this.disabled = true;
+                var res = await fetchWithAuth('/api/api-keys/' + id + '/toggle', { method:'PATCH' });
+                if (res && res.ok) { boApiKeysLoaded = false; boLoadApiKeys(); }
+                else { showBoToast('Failed to toggle key', 'error'); this.disabled = false; }
+            });
+        });
+        tbody.querySelectorAll('.bo-delete-key').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                boRevokeKeyId = this.dataset.id;
+                document.getElementById('revokeKeyName').textContent = '"' + this.dataset.name + '"';
+                document.getElementById('revokeKeyBackdrop').style.display = '';
+            });
+        });
+    } catch(e) {
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:2rem;color:#ef4444"><i class="fas fa-exclamation-circle me-2"></i>' + e.message + '</td></tr>';
+    }
+}
+
+function boShowGenerateForm() {
+    document.getElementById('boGenerateFormCard').style.display = '';
+    document.getElementById('boShowGenerateFormBtn').style.display = 'none';
+    document.getElementById('boNewKeyBanner').style.display = 'none';
+    document.getElementById('boKeyName').focus();
+}
+
+function boCancelGenerateForm() {
+    document.getElementById('boGenerateFormCard').style.display = 'none';
+    document.getElementById('boShowGenerateFormBtn').style.display = '';
+}
+
+async function boGenerateKey() {
+    var name = document.getElementById('boKeyName').value.trim();
+    var desc = document.getElementById('boKeyDescription').value.trim();
+    var exp  = document.getElementById('boKeyExpiry').value;
+    if (!name) { showBoToast('Please enter a name for the API key', 'warning'); document.getElementById('boKeyName').focus(); return; }
+    var btn = document.getElementById('boGenerateFormCard').querySelector('[onclick="boGenerateKey()"]');
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Generating...'; }
+    try {
+        var res = await fetchWithAuth('/api/api-keys', {
+            method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({ name:name, description: desc||undefined, expiresIn:exp })
+        });
+        if (res && res.ok) {
+            var data = await res.json();
+            document.getElementById('boNewKeyValue').textContent = data.fullKey;
+            document.getElementById('boNewKeyBanner').style.display = '';
+            document.getElementById('boGenerateFormCard').style.display = 'none';
+            document.getElementById('boShowGenerateFormBtn').style.display = '';
+            document.getElementById('boKeyName').value = '';
+            document.getElementById('boKeyDescription').value = '';
+            document.getElementById('boKeyExpiry').value = 'never';
+            boApiKeysLoaded = false;
+            boLoadApiKeys();
+            showBoToast('API key generated — copy it now!', 'success');
+        } else {
+            var err = await res.json();
+            showBoToast(err.error || 'Failed to generate key', 'error');
+        }
+    } catch(e) { showBoToast('Network error', 'error'); }
+    finally { if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-key me-1"></i>Generate Key'; } }
+}
+
+function boCopyNewKey() {
+    var key = document.getElementById('boNewKeyValue').textContent;
+    navigator.clipboard.writeText(key).then(function() {
+        showBoToast('API key copied to clipboard!', 'success');
+    }).catch(function() { showBoToast('Could not copy — please copy manually', 'warning'); });
+}
+
+function closeRevokeModal() {
+    document.getElementById('revokeKeyBackdrop').style.display = 'none';
+    boRevokeKeyId = null;
+}
+
+async function boExecuteRevoke() {
+    if (!boRevokeKeyId) return;
+    var btn = document.getElementById('confirmRevokeBtn');
+    btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Revoking...';
+    try {
+        var res = await fetchWithAuth('/api/api-keys/' + boRevokeKeyId, { method:'DELETE' });
+        if (res && (res.ok || res.status === 204)) {
+            closeRevokeModal();
+            boApiKeysLoaded = false;
+            boLoadApiKeys();
+            showBoToast('API key revoked permanently', 'success');
+        } else { showBoToast('Failed to revoke key', 'error'); }
+    } catch(e) { showBoToast('Network error', 'error'); }
+    finally { btn.disabled = false; btn.innerHTML = '<i class="fas fa-trash me-1"></i>Revoke Key'; }
+}
+
+// ── API Reference (toggle + lazy load) ──────────────────────────────────────
+var _boApiRefOpen = false;
+function boToggleApiRef() {
+    _boApiRefOpen = !_boApiRefOpen;
+    var panel = document.getElementById('boApiRefPanel');
+    var btn   = document.querySelector('[onclick="boToggleApiRef()"]');
+    panel.style.display = _boApiRefOpen ? '' : 'none';
+    if (btn) btn.innerHTML = _boApiRefOpen
+        ? '<i class="fas fa-times me-1"></i>Hide Reference'
+        : '<i class="fas fa-book me-1"></i>Show API Reference';
+    if (_boApiRefOpen) boLoadApiReference();
+}
+
+function boRefreshApiRoutes() { _boApiRoutesCache = null; boLoadApiReference(); }
+
+async function boLoadApiReference() {
+    var container = document.getElementById('boApiEndpointsList');
+    if (!container) return;
+    if (_boApiRoutesCache) { boRenderApiRef('all', _boApiRoutesCache); return; }
+    container.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--text-muted)"><i class="fas fa-spinner fa-spin me-2"></i>Loading API reference...</div>';
+    try {
+        var res = await fetchWithAuth('/api/settings/api-routes');
+        if (!res || !res.ok) throw new Error('Failed to fetch routes');
+        var data = await res.json();
+        _boApiRoutesCache = data.sections;
+        var totalEl = document.getElementById('boApiRoutesTotal');
+        if (totalEl) totalEl.textContent = data.totalRoutes + ' endpoints';
+        boRebuildPills(data.sections);
+        boRenderApiRef('all', data.sections);
+    } catch(e) {
+        container.innerHTML = '<div style="color:#ef4444;font-size:.8rem;padding:.5rem"><i class="fas fa-times me-1"></i>Could not load API routes: ' + e.message + '</div>';
+    }
+}
+
+function boRebuildPills(sections) {
+    var pills = document.getElementById('boApiFilterPills');
+    if (!pills) return;
+    var total = sections.reduce(function(s,x){return s+x.endpoints.length;},0);
+    var html = '<button class="btn-bo btn-bo-outline active" data-filter="all" style="font-size:.7rem;padding:3px 10px;border-radius:20px" onclick="boPillClick(this,\'all\')">All (' + total + ')</button>';
+    sections.forEach(function(s) {
+        html += '<button class="btn-bo btn-bo-outline" data-filter="' + s.id + '" style="font-size:.7rem;padding:3px 10px;border-radius:20px" onclick="boPillClick(this,\'' + s.id + '\')">' + s.label + ' (' + s.endpoints.length + ')</button>';
+    });
+    pills.innerHTML = html;
+}
+
+function boPillClick(pill, filter) {
+    document.querySelectorAll('#boApiFilterPills .btn-bo').forEach(function(b){b.classList.remove('active');});
+    pill.classList.add('active');
+    boRenderApiRef(filter, _boApiRoutesCache);
+}
+
+var _boMethodColors = { get:'#22c55e', post:'#6366f1', put:'#f59e0b', patch:'#06b6d4', delete:'#ef4444' };
+function boRenderApiRef(filter, sections) {
+    var container = document.getElementById('boApiEndpointsList');
+    if (!container || !sections) return;
+    var toRender = filter === 'all' ? sections : sections.filter(function(s){return s.id===filter;});
+    if (!toRender.length) { container.innerHTML = '<p style="color:var(--text-muted);font-size:.8rem">No endpoints in this category.</p>'; return; }
+    var html = '';
+    toRender.forEach(function(sec) {
+        html += '<div style="margin-bottom:1rem"><div style="font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#9ca3af;padding:8px 0 4px">' +
+            '<span style="color:' + (sec.color||'#6366f1') + ';font-size:.85rem">●</span>&nbsp;' + sec.label +
+            ' <span style="font-size:.65rem;font-weight:400">(' + sec.endpoints.length + ' endpoint' + (sec.endpoints.length!==1?'s':'') + ')</span></div>';
+        sec.endpoints.forEach(function(ep) {
+            var m = ep.method.toLowerCase();
+            var mc = _boMethodColors[m] || '#6b7280';
+            var pathHtml = ep.path.replace(/:([a-zA-Z]+)/g,'<span style="color:#f59e0b">:$1</span>');
+            html += '<div style="border-left:3px solid ' + mc + ';border-radius:6px;padding:7px 12px;margin-bottom:3px;transition:background .12s" onmouseover="this.style.background=\'rgba(99,102,241,.04)\'" onmouseout="this.style.background=\'\'">' +
+                '<div style="display:flex;align-items:start;gap:.5rem">' +
+                '<span style="font-size:.65rem;font-weight:700;padding:2px 7px;border-radius:4px;font-family:monospace;min-width:48px;display:inline-block;text-align:center;background:rgba(' + (m==='get'?'34,197,94':m==='post'?'99,102,241':m==='put'?'245,158,11':m==='delete'?'239,68,68':'6,182,212') + ',.15);color:' + mc + '">' + ep.method + '</span>' +
+                '<div style="flex:1"><span style="font-family:monospace;font-size:.8rem;font-weight:600">' + pathHtml + '</span>' +
+                '<div style="font-size:.75rem;color:var(--text-muted);margin-top:2px">' + ep.desc + '</div></div>' +
+                '<button class="btn-bo btn-bo-outline" style="font-size:.7rem;padding:2px 8px;flex-shrink:0" onclick="navigator.clipboard.writeText(\'' + ep.method + ' ' + window.location.origin + ep.path + '\').then(function(){var b=this;showBoToast(\'URL copied\',\'success\');}).bind(this)">Copy URL</button>' +
+                '</div></div>';
+        });
+        html += '</div>';
+    });
+    container.innerHTML = html;
+}
+
+function showBoToast(msg, type) {
+    if (typeof showToast === 'function') { showToast(msg, type === 'error' ? 'danger' : type); return; }
+    var wrap = document.getElementById('toastWrap');
+    if (!wrap) return;
+    var t = document.createElement('div');
+    t.className = 'bo-toast bo-toast-' + (type||'info');
+    t.textContent = msg;
+    wrap.appendChild(t);
+    setTimeout(function(){ t.remove(); }, 3500);
 }

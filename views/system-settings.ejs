@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en" data-theme="light">
 <head>
     <meta charset="UTF-8">
@@ -150,9 +150,6 @@
                 <ul class="nav nav-pills mb-4 gap-2" id="settingsTabs">
                     <li class="nav-item">
                         <button class="nav-link active" data-tab="general"><i class="fas fa-cog me-2"></i>General</button>
-                    </li>
-                    <li class="nav-item">
-                        <button class="nav-link" data-tab="apikeys"><i class="fas fa-key me-2"></i>API Keys</button>
                     </li>
                     <li class="nav-item">
                         <button class="nav-link" data-tab="email"><i class="fas fa-envelope me-2"></i>Email Setup</button>
@@ -307,170 +304,8 @@
                     </div>
                 </div><!-- /tab-general -->
 
-                <!-- ══════════════════ API KEYS TAB ══════════════════ -->
-                <div id="tab-apikeys" class="d-none">
+                <!-- API Keys tab moved to Backoffice -->
 
-                    <!-- Header card -->
-                    <div class="glass-card p-4 mb-4" style="background:linear-gradient(135deg,rgba(245,158,11,.06) 0%,rgba(234,179,8,.03) 100%);border-left:4px solid #f59e0b;">
-                        <div class="d-flex align-items-start gap-3">
-                            <div class="setting-icon" style="background:rgba(245,158,11,.12);color:#f59e0b;width:52px;height:52px;border-radius:14px;font-size:1.3rem;">
-                                <i class="fas fa-key"></i>
-                            </div>
-                            <div class="flex-grow-1">
-                                <h6 class="mb-1 fw-bold">API Key Management</h6>
-                                <p class="text-muted small mb-0">
-                                    API keys allow external systems, scripts, or integrations to access this system's REST API without a user login session.
-                                    Each key is shown <strong>only once</strong> at creation &mdash; store it securely immediately.
-                                </p>
-                            </div>
-                            <div class="ms-auto">
-                                <button class="btn btn-warning btn-sm fw-semibold" id="showGenerateFormBtn" style="color:#fff;">
-                                    <i class="fas fa-plus-circle me-1"></i>Generate New Key
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- How to use + Full API Reference -->
-                    <div class="glass-card p-4 mb-4">
-                        <div class="d-flex align-items-center justify-content-between mb-3">
-                            <h6 class="fw-bold mb-0"><i class="fas fa-code me-2 text-muted"></i>How to Use API Keys</h6>
-                            <button class="btn btn-sm btn-outline-secondary" id="toggleApiRefBtn">
-                                <i class="fas fa-book me-1"></i>Show API Reference
-                            </button>
-                        </div>
-                        <p class="text-muted small mb-2">Include the key in the <code>X-API-Key</code> HTTP header on any API request. All endpoints are prefixed with <code>/api</code>.</p>
-
-                        <!-- Authentication examples -->
-                        <div class="row g-2 mb-3">
-                            <div class="col-md-6">
-                                <div class="api-usage-box">
-                                    <span style="color:#8b949e"># HTTP Header</span><br>
-                                    <span class="hl">GET</span> <span class="val">http://localhost:3000/api/patients</span><br>
-                                    <span class="hl">X-API-Key:</span> <span class="val">rxk_your_key_here</span>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="api-usage-box">
-                                    <span style="color:#8b949e"># curl example</span><br>
-                                    curl <span class="val">\</span><br>
-                                    &nbsp;&nbsp;-H <span class="val">"X-API-Key: rxk_your_key"</span> <span class="val">\</span><br>
-                                    &nbsp;&nbsp;http://localhost:3000/api/patients
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Response codes -->
-                        <div class="d-flex gap-2 flex-wrap mb-2">
-                            <span class="badge" style="background:rgba(34,197,94,.15);color:#22c55e;font-size:.75rem;">200 OK &mdash; success</span>
-                            <span class="badge" style="background:rgba(99,102,241,.15);color:#6366f1;font-size:.75rem;">201 Created &mdash; new record</span>
-                            <span class="badge" style="background:rgba(234,179,8,.15);color:#ca8a04;font-size:.75rem;">400 Bad Request &mdash; validation error</span>
-                            <span class="badge" style="background:rgba(239,68,68,.15);color:#ef4444;font-size:.75rem;">401 Unauthorized &mdash; invalid/missing key</span>
-                            <span class="badge" style="background:rgba(239,68,68,.15);color:#ef4444;font-size:.75rem;">403 Forbidden &mdash; key disabled / expired</span>
-                            <span class="badge" style="background:rgba(156,163,175,.15);color:#6b7280;font-size:.75rem;">204 No Content &mdash; delete success</span>
-                        </div>
-
-                        <!-- Full API Reference (collapsed by default) -->
-                        <div id="apiRefPanel" class="d-none mt-3">
-                            <hr class="my-3">
-                            <div class="d-flex align-items-center gap-2 mb-3 flex-wrap">
-                                <h6 class="fw-bold mb-0"><i class="fas fa-book-open me-2" style="color:#6366f1"></i>Complete API Reference</h6>
-                                <span class="text-muted small">Base URL: <code>http://localhost:3000/api</code></span>
-                                <span class="tz-badge ms-1" id="apiRoutesTotal" style="font-size:.7rem">Loading...</span>
-                                <button class="btn btn-xs btn-outline-secondary ms-auto" id="refreshApiRoutesBtn" style="font-size:.7rem;padding:2px 8px;">
-                                    <i class="fas fa-sync me-1"></i>Refresh
-                                </button>
-                            </div>
-
-                            <!-- Filter pills -->
-                            <div class="d-flex gap-2 flex-wrap mb-3" id="apiFilterPills">
-                                <button class="btn btn-xs api-filter active" data-filter="all">All</button>
-                                <button class="btn btn-xs api-filter" data-filter="patients">Patients</button>
-                                <button class="btn btn-xs api-filter" data-filter="rx">RX Records</button>
-                                <button class="btn btn-xs api-filter" data-filter="dashboard">Dashboard</button>
-                                <button class="btn btn-xs api-filter" data-filter="reports">Reports</button>
-                                <button class="btn btn-xs api-filter" data-filter="settings">Settings</button>
-                                <button class="btn btn-xs api-filter" data-filter="admin">Admin Only</button>
-                            </div>
-
-                            <div id="apiEndpointsList"></div>
-                        </div>
-                    </div>
-
-                    <!-- Generate form (hidden by default) -->
-                    <div class="glass-card p-4 mb-4 d-none" id="generateFormCard" style="border:1.5px dashed rgba(245,158,11,.4);">
-                        <h6 class="fw-bold mb-3"><i class="fas fa-plus me-2 text-warning"></i>Generate New API Key</h6>
-                        <div class="row g-3">
-                            <div class="col-md-4">
-                                <label class="form-label fw-semibold small">Key Name / Label <span class="text-danger">*</span></label>
-                                <input type="text" class="form-control form-control-sm" id="keyName" placeholder="e.g. Integration System, Mobile App">
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label fw-semibold small">Description (optional)</label>
-                                <input type="text" class="form-control form-control-sm" id="keyDescription" placeholder="What will this key be used for?">
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label fw-semibold small">Expires In</label>
-                                <select class="form-select form-select-sm" id="keyExpiry">
-                                    <option value="never">Never expires</option>
-                                    <option value="30d">30 days</option>
-                                    <option value="90d">90 days</option>
-                                    <option value="180d">180 days</option>
-                                    <option value="1y">1 year</option>
-                                </select>
-                            </div>
-                            <div class="col-12 d-flex gap-2">
-                                <button class="btn btn-warning btn-sm fw-semibold" id="generateKeyBtn" style="color:#fff;">
-                                    <i class="fas fa-key me-1"></i>Generate Key
-                                </button>
-                                <button class="btn btn-outline-secondary btn-sm" id="cancelGenerateBtn">Cancel</button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- New key reveal banner (hidden until generation) -->
-                    <div class="new-key-banner mb-4 d-none" id="newKeyBanner">
-                        <div class="d-flex align-items-center gap-2 mb-2">
-                            <i class="fas fa-check-circle text-success"></i>
-                            <strong>API Key Generated Successfully!</strong>
-                            <span class="badge bg-danger ms-auto">Copy now &mdash; will not be shown again</span>
-                        </div>
-                        <div class="apikey-reveal mb-2" id="newKeyValue">rxk_...</div>
-                        <div class="d-flex align-items-center gap-2">
-                            <button class="btn btn-sm btn-outline-success copy-btn" id="copyKeyBtn">
-                                <i class="fas fa-copy me-1"></i>Copy Key
-                            </button>
-                            <span class="text-muted small">Store this key securely. It cannot be retrieved again.</span>
-                        </div>
-                    </div>
-
-                    <!-- API Keys list -->
-                    <div class="glass-card p-4 mb-4">
-                        <div class="d-flex align-items-center justify-content-between mb-3">
-                            <h6 class="fw-bold mb-0"><i class="fas fa-list me-2 text-muted"></i>All API Keys</h6>
-                            <button class="btn btn-outline-secondary btn-sm" id="refreshKeysBtn"><i class="fas fa-sync me-1"></i>Refresh</button>
-                        </div>
-                        <div class="table-responsive">
-                            <table class="table table-hover align-middle mb-0" id="apiKeysTable">
-                                <thead>
-                                    <tr>
-                                        <th>Name / Label</th>
-                                        <th>Key Prefix</th>
-                                        <th>Status</th>
-                                        <th>Created By</th>
-                                        <th>Created</th>
-                                        <th>Last Used</th>
-                                        <th>Expires</th>
-                                        <th class="text-end">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="apiKeysBody">
-                                    <tr><td colspan="8" class="text-center text-muted py-4">Loading...</td></tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div><!-- /tab-apikeys -->
 
 
                 <!-- ══════════════════ EMAIL TAB ══════════════════ -->
@@ -640,7 +475,6 @@
                             <a class="btn btn-sm btn-outline-primary" href="#man-users">👤 Users</a>
                             <a class="btn btn-sm btn-outline-primary" href="#man-settings">⚙️ Settings</a>
                             <a class="btn btn-sm btn-outline-primary" href="#man-email">📧 Email</a>
-                            <a class="btn btn-sm btn-outline-primary" href="#man-apikeys">🔑 API Keys</a>
                             <a class="btn btn-sm btn-outline-primary" href="#man-multiuser">👁️ Multi-User</a>
                             <a class="btn btn-sm btn-outline-primary" href="#man-import">📥 Import</a>
                         </div>
@@ -850,30 +684,7 @@
                             </div>
                         </div>
 
-                        <!-- API KEYS -->
-                        <div class="glass-card p-4 mb-3" id="man-apikeys">
-                            <h6 class="fw-bold mb-3" style="color:#f59e0b"><i class="fas fa-key me-2"></i>System Settings &mdash; API Keys</h6>
-                            <div class="accordion" id="accApi">
-                                <div class="accordion-item border-0 mb-1" style="background:var(--bg-subtle,#f8fafc);border-radius:8px;overflow:hidden">
-                                    <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#ak1">What is an API key?</button>
-                                    <div id="ak1" class="accordion-collapse collapse">
-                                        <div class="accordion-body small text-muted">A secret token for external scripts. Include it in the HTTP header: <code>X-API-Key: rxk_yourkey</code>. Allows automation, scheduled reports, and integrations without a browser login.</div>
-                                    </div>
-                                </div>
-                                <div class="accordion-item border-0 mb-1" style="background:var(--bg-subtle,#f8fafc);border-radius:8px;overflow:hidden">
-                                    <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#ak2">The full key is shown ONCE</button>
-                                    <div id="ak2" class="accordion-collapse collapse">
-                                        <div class="accordion-body small text-muted">When you generate a key, <strong>copy it immediately</strong>. The system stores only a SHA-256 hash &mdash; the full key cannot be shown again. If lost, delete the key and generate a new one.</div>
-                                    </div>
-                                </div>
-                                <div class="accordion-item border-0 mb-1" style="background:var(--bg-subtle,#f8fafc);border-radius:8px;overflow:hidden">
-                                    <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#ak3">Show API Reference button</button>
-                                    <div id="ak3" class="accordion-collapse collapse">
-                                        <div class="accordion-body small text-muted">Click <strong>"Show API Reference"</strong> to see all 97 available API endpoints, grouped by category. Each row has a <strong>"Copy URL"</strong> button. The reference loads live from the server &mdash; if new routes are added, they appear automatically after clicking "Refresh".</div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+                        <!-- API Keys manual section moved to Backoffice -->
 
                         <!-- MULTI-USER -->
                         <div class="glass-card p-4 mb-3" id="man-multiuser">
@@ -924,27 +735,8 @@
     </div>
 </div>
 
-<!-- Delete Key Confirm Modal -->
-<div class="modal fade" id="deleteKeyModal" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header border-0">
-                <h5 class="modal-title"><i class="fas fa-exclamation-triangle text-danger me-2"></i>Revoke API Key</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <p>Are you sure you want to permanently revoke the key <strong id="deleteKeyName"></strong>?</p>
-                <div class="alert alert-danger py-2 small mb-0">
-                    <i class="fas fa-ban me-1"></i>This action is <strong>irreversible</strong>. Any system using this key will immediately lose access.
-                </div>
-            </div>
-            <div class="modal-footer border-0">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-danger" id="confirmDeleteKeyBtn"><i class="fas fa-trash me-1"></i>Revoke Key</button>
-            </div>
-        </div>
-    </div>
-</div>
+<!-- Revoke API Key modal moved to Backoffice -->
+
 
 <script src="/assets/bootstrap.bundle.min.js"></script>
 <script src="/js/base.js"></script>
