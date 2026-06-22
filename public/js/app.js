@@ -52,6 +52,60 @@ function initApp() {
     setupGlobalSearch();
     setupNotifications();
     observeAndApplyRestrictions();
+    setupNavDate();
+}
+
+// ----- Live Date in Navbar -----
+function setupNavDate() {
+    // Find the navbar right-side container (has userGreeting inside it)
+    var greeting = document.getElementById('userGreeting');
+    if (!greeting) return;
+    var container = greeting.parentElement; // the ms-auto flex div
+    if (!container) return;
+
+    // Build the date element
+    var dateEl = document.createElement('span');
+    dateEl.id = 'navLiveDate';
+    dateEl.style.cssText = [
+        'font-size:.78rem',
+        'font-weight:700',
+        'color:var(--text)',
+        'white-space:nowrap',
+        'letter-spacing:.01em',
+        'padding:3px 10px',
+        'border-radius:20px',
+        'border:1.5px solid var(--border)',
+        'display:inline-flex',
+        'align-items:center',
+        'gap:5px'
+    ].join(';');
+
+    function formatDate() {
+        var d = new Date();
+        var days    = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+        var months  = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        return days[d.getDay()] + ', ' + months[d.getMonth()] + ' ' + d.getDate() + ', ' + d.getFullYear();
+    }
+
+    dateEl.innerHTML = '<i class="fas fa-calendar-day" style="font-size:.7rem;opacity:.7"></i><span id="navLiveDateText">' + formatDate() + '</span>';
+
+    // Insert before the first child (start of the right-side group)
+    container.insertBefore(dateEl, container.firstChild);
+
+    // Update at the next minute boundary, then every minute
+    function scheduleUpdate() {
+        var now = new Date();
+        var msUntilNextMin = (60 - now.getSeconds()) * 1000 - now.getMilliseconds();
+        setTimeout(function() {
+            var txt = document.getElementById('navLiveDateText');
+            if (txt) txt.textContent = formatDate();
+            setInterval(function() {
+                var t = document.getElementById('navLiveDateText');
+                if (t) t.textContent = formatDate();
+            }, 60000);
+        }, msUntilNextMin);
+    }
+    scheduleUpdate();
 }
 
 // ----- Sidebar Toggle -----

@@ -31,6 +31,22 @@ var viewerMeta    = null;
         document.getElementById('userBadge').textContent = (USER.firstName || '') + ' \u2014 Administrator';
         loadStats();
     }
+
+    // ── Live date in header ────────────────────────────────────────────────
+    var _boDays   = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+    var _boMonths = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    function _boFmtDate() {
+        var d = new Date();
+        return _boDays[d.getDay()] + ', ' + _boMonths[d.getMonth()] + ' ' + d.getDate() + ', ' + d.getFullYear();
+    }
+    var _boDateEl = document.getElementById('boLiveDateText');
+    if (_boDateEl) {
+        _boDateEl.textContent = _boFmtDate();
+        setInterval(function() {
+            var el = document.getElementById('boLiveDateText');
+            if (el) el.textContent = _boFmtDate();
+        }, 60000);
+    }
 })();
 
 // ── apiFetch helper ────────────────────────────────────────────────────────
