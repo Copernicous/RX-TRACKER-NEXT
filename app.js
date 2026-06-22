@@ -33,8 +33,8 @@ const settingsService = require('./services/settingsService');
 
 const app = express();
 
-// ── Trust proxy (for correct IP behind nginx/Cloudflare/Heroku/FortiGate) ───
-app.set('trust proxy', true);
+// 🔒 Trust proxy — 1st hop only (FortiGate). Prevents IP spoofing via forged X-Forwarded-For 🔒
+app.set('trust proxy', 1);
 
 function isSecureRequest(req) {
     if (req.secure) return true;

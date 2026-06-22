@@ -1,4 +1,4 @@
-﻿/* FortiGate compat: no template literals, no arrows, no spread, no ??, no ?. */
+/* FortiGate compat: no template literals, no arrows, no spread, no ??, no ?. */
 var _EMPTY_JOIN = '';
 
 var TOKEN = localStorage.getItem('token');
@@ -1103,17 +1103,22 @@ async function loadAuditLogs(page) {
         var _auditRows = '';
         data.rows.forEach(function(r) {
             var _ac = actionColor(r.action);
-            var _user = r.firstName ? r.firstName + ' ' + r.lastName :
+            // escHtml() prevents XSS — user names, actions, modules, details come from DB and may contain injected HTML
+            var _firstName = escHtml(r.firstName || '');
+            var _lastName  = escHtml(r.lastName  || '');
+            var _user = r.firstName ? _firstName + ' ' + _lastName :
                         (r.userId ? 'User #' + r.userId : '<span style="color:var(--text-muted)">System</span>');
             var _entityId = r.entityId ? ' <span style="color:var(--text-muted);font-size:0.7rem">#' + r.entityId + '</span>' : '';
-            var _details = String(r.details || '').replace(/"/g, '&quot;');
+            var _details  = escHtml(r.details  || '');
+            var _action   = escHtml(r.action   || '');
+            var _entity   = escHtml(r.entity   || '');
             _auditRows +=
                 '<tr style="border-bottom:1px solid rgba(255,255,255,0.04)" onmouseover="this.style.background=\'rgba(255,255,255,0.02)\'" onmouseout="this.style.background=\'\'">' +
                     '<td style="padding:0.45rem 0.875rem;color:var(--text-muted);white-space:nowrap">' + new Date(r.createdAt).toLocaleString() + '</td>' +
                     '<td style="padding:0.45rem 0.875rem;white-space:nowrap">' + _user + '</td>' +
-                    '<td style="padding:0.45rem 0.875rem;white-space:nowrap"><span style="font-size:0.65rem;font-weight:700;border-radius:4px;padding:0.15rem 0.45rem;background:' + _ac + '22;color:' + _ac + ';border:1px solid ' + _ac + '44">' + (r.action || '\u2014') + '</span></td>' +
-                    '<td style="padding:0.45rem 0.875rem;color:#a5b4fc">' + (r.entity || '\u2014') + _entityId + '</td>' +
-                    '<td style="padding:0.45rem 0.875rem;color:var(--text-muted);max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + _details + '">' + (r.details || '\u2014') + '</td>' +
+                    '<td style="padding:0.45rem 0.875rem;white-space:nowrap"><span style="font-size:0.65rem;font-weight:700;border-radius:4px;padding:0.15rem 0.45rem;background:' + _ac + '22;color:' + _ac + ';border:1px solid ' + _ac + '44">' + (_action || '\u2014') + '</span></td>' +
+                    '<td style="padding:0.45rem 0.875rem;color:#a5b4fc">' + (_entity || '\u2014') + _entityId + '</td>' +
+                    '<td style="padding:0.45rem 0.875rem;color:var(--text-muted);max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + _details + '">' + (_details || '\u2014') + '</td>' +
                 '</tr>';
         });
 

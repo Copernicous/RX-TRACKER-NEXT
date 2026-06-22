@@ -3697,3 +3697,1223 @@ Server is running on port 3000.
 [0mGET /api/dashboard/rx-pipeline [32m200[0m 15.760 ms - 392[0m
 [0mGET /api/dashboard/charts [32m200[0m 24.536 ms - 170[0m
 [0mGET /api/auth/2fa/status [32m200[0m 57.483 ms - 26[0m
+◇ injected env (2) from .env // tip: ⌘ custom filepath { path: '/custom/path/.env' }
+◇ injected env (0) from .env // tip: ◈ encrypted .env [www.dotenvx.com]
+[Backup] Scheduler started with expression: 0 2 * * *
+[SiteBackup] Weekly scheduler started: 0 3 * * 0
+Database verified: Users.permissions column ready.
+Database verified: RXRecords warehouse columns ready.
+Database verified: AuditLogs.previousValue column ready.
+Database verified: Users.notes column ready.
+Database verified: MedicationCatalogs.sortOrder column ready.
+Database verified: Users 2FA, lockout, backup codes, and tokenVersion columns ready.
+Database verified: Roles custom columns ready.
+Database verified: Built-in role permissions seeded.
+[Settings] Loaded. Timezone: America/New_York | SMTP: (not set)
+Server is running on port 3000.
+[0mGET /rx-records [32m200[0m 23.608 ms - 133136[0m
+[0mGET /rx-records [32m200[0m 10.084 ms - 133136[0m
+[0mGET /assets/bootstrap.min.css [32m200[0m 6.283 ms - 232914[0m
+[0mGET /assets/fontawesome.all.min.css [32m200[0m 1.686 ms - 102010[0m
+[0mGET /assets/inter.css [32m200[0m 3.075 ms - 825[0m
+[0mGET /css/style.css [32m200[0m 4.098 ms - 18110[0m
+[0mGET /assets/bootstrap.bundle.min.js [32m200[0m 0.775 ms - 80421[0m
+[0mGET /js/app.js [32m200[0m 1.123 ms - 94678[0m
+[0mGET /js/help.js [32m200[0m 1.156 ms - 53880[0m
+[0mGET /js/base.js [32m200[0m 2.679 ms - 1870[0m
+[0mGET /assets/webfonts/fa-solid-900.woff2 [32m200[0m 1.747 ms - 150124[0m
+[0mGET /assets/inter.css [32m200[0m 4.714 ms - 825[0m
+[0mGET /assets/fonts/inter-700.woff2 [32m200[0m 3.344 ms - 22936[0m
+[0mGET /assets/fonts/inter-500.woff2 [32m200[0m 2.841 ms - 22740[0m
+[0mGET /assets/fonts/inter-400.woff2 [32m200[0m 3.212 ms - 21624[0m
+[0mGET /assets/fonts/inter-600.woff2 [32m200[0m 3.449 ms - 22820[0m
+[0mGET /api/patients [32m200[0m 334.357 ms - 1328802[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 333.833 ms - 8890[0m
+[0mGET /api/pharmacies [32m200[0m 8.276 ms - 1487[0m
+[0mGET /api/patient-transport [32m200[0m 10.111 ms - 1330[0m
+[0mGET /api/pharmacy-transport [32m200[0m 2.991 ms - 204[0m
+[0mGET /api/workflow-actions [32m200[0m 5.452 ms - 1188[0m
+[0mGET /api/medication-catalog?activeOnly=true [32m200[0m 4.259 ms - 1849[0m
+[0mGET /api/rx-records [32m200[0m 13.719 ms - 2225[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 7.971 ms - 8890[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 4.061 ms - 8890[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 79.392 ms - 8890[0m
+[0mGET /rx-records [32m200[0m 7.712 ms - 133136[0m
+[0mGET /assets/inter.css [32m200[0m 4.745 ms - 825[0m
+[0mGET /css/style.css [32m200[0m 3.471 ms - 18110[0m
+[0mGET /js/base.js [32m200[0m 3.407 ms - 1870[0m
+[0mGET /assets/fontawesome.all.min.css [32m200[0m 3.660 ms - 102010[0m
+[0mGET /assets/bootstrap.bundle.min.js [32m200[0m 3.448 ms - 80421[0m
+[0mGET /assets/bootstrap.min.css [32m200[0m 4.909 ms - 232914[0m
+[0mGET /js/help.js [32m200[0m 9.890 ms - 53880[0m
+[0mGET /js/app.js [32m200[0m 10.654 ms - 94678[0m
+[0mGET /assets/inter.css [32m200[0m 1.029 ms - 825[0m
+[0mGET /assets/fonts/inter-700.woff2 [32m200[0m 4.088 ms - 22936[0m
+[0mGET /assets/fonts/inter-400.woff2 [32m200[0m 4.040 ms - 21624[0m
+[0mGET /assets/webfonts/fa-solid-900.woff2 [32m200[0m 4.287 ms - 150124[0m
+[0mGET /assets/fonts/inter-600.woff2 [32m200[0m 9.895 ms - 22820[0m
+[0mGET /assets/fonts/inter-500.woff2 [32m200[0m 11.598 ms - 22740[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 5.808 ms - 8890[0m
+[0mGET /api/patients [32m200[0m 234.074 ms - 1328802[0m
+[0mGET /api/pharmacies [32m200[0m 2.469 ms - 1487[0m
+[0mGET /api/patient-transport [32m200[0m 1.604 ms - 1330[0m
+[0mGET /api/pharmacy-transport [32m200[0m 1.431 ms - 204[0m
+[0mGET /api/workflow-actions [32m200[0m 3.222 ms - 1188[0m
+[0mGET /api/medication-catalog?activeOnly=true [32m200[0m 2.897 ms - 1849[0m
+[0mGET /api/rx-records [32m200[0m 9.266 ms - 2225[0m
+[0mGET /users [32m200[0m 3.280 ms - 12176[0m
+[0mGET /assets/bootstrap.min.css [32m200[0m 2.422 ms - 232914[0m
+[0mGET /css/style.css [32m200[0m 1.827 ms - 18110[0m
+[0mGET /assets/inter.css [32m200[0m 0.941 ms - 825[0m
+[0mGET /js/help.js [32m200[0m 0.902 ms - 53880[0m
+[0mGET /js/app.js [32m200[0m 3.674 ms - 94678[0m
+[0mGET /assets/fontawesome.all.min.css [32m200[0m 4.120 ms - 102010[0m
+[0mGET /assets/bootstrap.bundle.min.js [32m200[0m 1.210 ms - 80421[0m
+[0mGET /js/base.js [32m200[0m 0.814 ms - 1870[0m
+[0mGET /assets/inter.css [32m200[0m 1.184 ms - 825[0m
+[0mGET /assets/webfonts/fa-solid-900.woff2 [32m200[0m 1.219 ms - 150124[0m
+[0mGET /assets/fonts/inter-700.woff2 [32m200[0m 1.153 ms - 22936[0m
+[0mGET /assets/fonts/inter-400.woff2 [32m200[0m 0.962 ms - 21624[0m
+[0mGET /assets/fonts/inter-500.woff2 [32m200[0m 2.276 ms - 22740[0m
+[0mGET /assets/fonts/inter-600.woff2 [32m200[0m 4.151 ms - 22820[0m
+[0mGET /api/roles [32m200[0m 114.322 ms - 13583[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 124.917 ms - 8890[0m
+[0mGET /api/users [32m200[0m 7.289 ms - 25925[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 104.837 ms - 8890[0m
+[0mGET /system-settings [32m200[0m 6.481 ms - 65813[0m
+[0mGET /assets/bootstrap.min.css [32m200[0m 1.370 ms - 232914[0m
+[0mGET /assets/inter.css [32m200[0m 2.560 ms - 825[0m
+[0mGET /assets/fontawesome.all.min.css [32m200[0m 1.938 ms - 102010[0m
+[0mGET /js/app.js [32m200[0m 1.079 ms - 94678[0m
+[0mGET /css/style.css [32m200[0m 2.241 ms - 18110[0m
+[0mGET /js/help.js [32m200[0m 1.081 ms - 53880[0m
+[0mGET /js/system-settings.js [32m200[0m 5.577 ms - 23426[0m
+[0mGET /assets/bootstrap.bundle.min.js [32m200[0m 8.273 ms - 80421[0m
+[0mGET /assets/inter.css [32m200[0m 0.911 ms - 825[0m
+[0mGET /js/base.js [32m200[0m 2.496 ms - 1870[0m
+[0mGET /assets/webfonts/fa-solid-900.woff2 [32m200[0m 1.982 ms - 150124[0m
+[0mGET /assets/fonts/inter-700.woff2 [32m200[0m 1.191 ms - 22936[0m
+[0mGET /assets/fonts/inter-500.woff2 [32m200[0m 7.568 ms - 22740[0m
+[0mGET /assets/fonts/inter-400.woff2 [32m200[0m 5.402 ms - 21624[0m
+[0mGET /assets/fonts/inter-600.woff2 [32m200[0m 5.946 ms - 22820[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 10.025 ms - 8890[0m
+ValidationError: The Express 'trust proxy' setting is true, which allows anyone to trivially bypass IP-based rate limiting. See https://express-rate-limit.github.io/ERR_ERL_PERMISSIVE_TRUST_PROXY/ for more information.
+    at Object.trustProxy (E:\Documents\Daniely RX\node_modules\express-rate-limit\dist\index.cjs:363:13)
+    at wrappedValidations.<computed> [as trustProxy] (E:\Documents\Daniely RX\node_modules\express-rate-limit\dist\index.cjs:704:22)
+    at Object.keyGenerator (E:\Documents\Daniely RX\node_modules\express-rate-limit\dist\index.cjs:810:20)
+    at E:\Documents\Daniely RX\node_modules\express-rate-limit\dist\index.cjs:893:32
+    at async E:\Documents\Daniely RX\node_modules\express-rate-limit\dist\index.cjs:854:5 {
+  code: 'ERR_ERL_PERMISSIVE_TRUST_PROXY',
+  help: 'https://express-rate-limit.github.io/ERR_ERL_PERMISSIVE_TRUST_PROXY/'
+}
+[0mGET /api/settings [32m200[0m 15.931 ms - 201[0m
+[0mGET /import [32m200[0m 4.998 ms - 15478[0m
+[0mGET /assets/inter.css [32m200[0m 2.483 ms - 825[0m
+[0mGET /assets/bootstrap.min.css [32m200[0m 2.944 ms - 232914[0m
+[0mGET /css/style.css [32m200[0m 1.823 ms - 18110[0m
+[0mGET /assets/fontawesome.all.min.css [32m200[0m 2.634 ms - 102010[0m
+[0mGET /assets/bootstrap.bundle.min.js [32m200[0m 1.166 ms - 80421[0m
+[0mGET /js/base.js [32m200[0m 1.139 ms - 1870[0m
+[0mGET /js/app.js [32m200[0m 0.930 ms - 94678[0m
+[0mGET /js/import.js [32m200[0m 2.738 ms - 22318[0m
+[0mGET /js/help.js [32m200[0m 1.223 ms - 53880[0m
+[0mGET /assets/inter.css [32m200[0m 1.242 ms - 825[0m
+[0mGET /assets/fonts/inter-700.woff2 [32m200[0m 3.251 ms - 22936[0m
+[0mGET /assets/fonts/inter-500.woff2 [32m200[0m 3.976 ms - 22740[0m
+[0mGET /assets/webfonts/fa-solid-900.woff2 [32m200[0m 1.118 ms - 150124[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 8.854 ms - 8890[0m
+[0mGET /assets/fonts/inter-400.woff2 [32m200[0m 6.928 ms - 21624[0m
+[0mGET /assets/fonts/inter-600.woff2 [32m200[0m 2.822 ms - 22820[0m
+[0mGET /backups [32m200[0m 6.673 ms - 49709[0m
+[0mGET /assets/fontawesome.all.min.css [32m200[0m 1.173 ms - 102010[0m
+[0mGET /css/style.css [32m200[0m 1.493 ms - 18110[0m
+[0mGET /assets/inter.css [32m200[0m 2.867 ms - 825[0m
+[0mGET /assets/bootstrap.min.css [32m200[0m 3.417 ms - 232914[0m
+[0mGET /js/base.js [32m200[0m 0.597 ms - 1870[0m
+[0mGET /assets/bootstrap.bundle.min.js [32m200[0m 0.712 ms - 80421[0m
+[0mGET /js/app.js [32m200[0m 0.819 ms - 94678[0m
+[0mGET /js/help.js [32m200[0m 0.510 ms - 53880[0m
+[0mGET /assets/inter.css [32m200[0m 2.907 ms - 825[0m
+[0mGET /api/backups/status [32m200[0m 1.340 ms - 1174[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 8.284 ms - 8890[0m
+[0mGET /assets/webfonts/fa-solid-900.woff2 [32m200[0m 1.013 ms - 150124[0m
+[0mGET /assets/fonts/inter-700.woff2 [32m200[0m 4.843 ms - 22936[0m
+[0mGET /api/backups/site/status [32m200[0m 4.195 ms - 2181[0m
+[0mGET /assets/fonts/inter-400.woff2 [32m200[0m 7.544 ms - 21624[0m
+[0mGET /assets/fonts/inter-600.woff2 [32m200[0m 4.302 ms - 22820[0m
+[0mGET /assets/fonts/inter-500.woff2 [32m200[0m 4.746 ms - 22740[0m
+[0mGET /workflow-actions [32m200[0m 6.782 ms - 12201[0m
+[0mGET /assets/bootstrap.min.css [32m200[0m 1.597 ms - 232914[0m
+[0mGET /assets/inter.css [32m200[0m 4.254 ms - 825[0m
+[0mGET /js/base.js [32m200[0m 0.693 ms - 1870[0m
+[0mGET /css/style.css [32m200[0m 1.579 ms - 18110[0m
+[0mGET /assets/fontawesome.all.min.css [32m200[0m 1.148 ms - 102010[0m
+[0mGET /js/app.js [32m200[0m 0.884 ms - 94678[0m
+[0mGET /assets/bootstrap.bundle.min.js [32m200[0m 0.691 ms - 80421[0m
+[0mGET /js/help.js [32m200[0m 1.166 ms - 53880[0m
+[0mGET /assets/inter.css [32m200[0m 1.940 ms - 825[0m
+[0mGET /assets/fonts/inter-700.woff2 [32m200[0m 2.359 ms - 22936[0m
+[0mGET /assets/webfonts/fa-solid-900.woff2 [32m200[0m 1.551 ms - 150124[0m
+[0mGET /assets/fonts/inter-500.woff2 [32m200[0m 4.212 ms - 22740[0m
+[0mGET /api/workflow-actions [32m200[0m 9.457 ms - 1188[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 14.797 ms - 8890[0m
+[0mGET /assets/fonts/inter-400.woff2 [32m200[0m 25.219 ms - 21624[0m
+[0mGET /assets/fonts/inter-600.woff2 [32m200[0m 15.789 ms - 22820[0m
+[0mGET /medication-catalog [32m200[0m 3.010 ms - 12187[0m
+[0mGET /assets/bootstrap.min.css [32m200[0m 1.504 ms - 232914[0m
+[0mGET /assets/fontawesome.all.min.css [32m200[0m 1.188 ms - 102010[0m
+[0mGET /assets/inter.css [32m200[0m 3.363 ms - 825[0m
+[0mGET /css/style.css [32m200[0m 2.660 ms - 18110[0m
+[0mGET /js/base.js [32m200[0m 1.176 ms - 1870[0m
+[0mGET /assets/bootstrap.bundle.min.js [32m200[0m 1.354 ms - 80421[0m
+[0mGET /js/help.js [32m200[0m 1.276 ms - 53880[0m
+[0mGET /js/app.js [32m200[0m 3.591 ms - 94678[0m
+[0mGET /assets/inter.css [32m200[0m 1.548 ms - 825[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 9.821 ms - 8890[0m
+[0mGET /api/medication-catalog [32m200[0m 4.730 ms - 1849[0m
+[0mGET /assets/fonts/inter-400.woff2 [32m200[0m 3.752 ms - 21624[0m
+[0mGET /assets/fonts/inter-700.woff2 [32m200[0m 2.293 ms - 22936[0m
+[0mGET /assets/webfonts/fa-solid-900.woff2 [32m200[0m 7.273 ms - 150124[0m
+[0mGET /assets/fonts/inter-500.woff2 [32m200[0m 0.981 ms - 22740[0m
+[0mGET /assets/fonts/inter-600.woff2 [32m200[0m 1.888 ms - 22820[0m
+[0mGET /roles [32m200[0m 2.935 ms - 13164[0m
+[0mGET /assets/inter.css [32m200[0m 2.388 ms - 825[0m
+[0mGET /assets/bootstrap.min.css [32m200[0m 1.346 ms - 232914[0m
+[0mGET /js/base.js [32m200[0m 1.858 ms - 1870[0m
+[0mGET /css/style.css [32m200[0m 2.074 ms - 18110[0m
+[0mGET /assets/fontawesome.all.min.css [32m200[0m 1.765 ms - 102010[0m
+[0mGET /assets/bootstrap.bundle.min.js [32m200[0m 0.906 ms - 80421[0m
+[0mGET /js/app.js [32m200[0m 1.315 ms - 94678[0m
+[0mGET /js/help.js [32m200[0m 1.520 ms - 53880[0m
+[0mGET /js/roles.js [32m200[0m 6.832 ms - 21938[0m
+[0mGET /assets/inter.css [32m200[0m 4.808 ms - 825[0m
+[0mGET /assets/webfonts/fa-solid-900.woff2 [32m200[0m 2.434 ms - 150124[0m
+[0mGET /assets/fonts/inter-600.woff2 [32m200[0m 0.860 ms - 22820[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 7.238 ms - 8890[0m
+[0mGET /assets/fonts/inter-700.woff2 [32m200[0m 6.464 ms - 22936[0m
+[0mGET /assets/fonts/inter-400.woff2 [32m200[0m 1.372 ms - 21624[0m
+[0mGET /assets/fonts/inter-500.woff2 [32m200[0m 1.681 ms - 22740[0m
+[0mGET /api/roles [32m200[0m 7.818 ms - 13583[0m
+[0mGET /api/roles/permission-defaults [32m200[0m 6.146 ms - 7347[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 4.401 ms - 8890[0m
+[0mGET /users [32m200[0m 3.846 ms - 12176[0m
+[0mGET /assets/inter.css [32m200[0m 2.261 ms - 825[0m
+[0mGET /assets/bootstrap.min.css [32m200[0m 1.047 ms - 232914[0m
+[0mGET /assets/bootstrap.bundle.min.js [32m200[0m 0.740 ms - 80421[0m
+[0mGET /js/base.js [32m200[0m 1.342 ms - 1870[0m
+[0mGET /js/app.js [32m200[0m 1.064 ms - 94678[0m
+[0mGET /assets/fontawesome.all.min.css [32m200[0m 1.157 ms - 102010[0m
+[0mGET /css/style.css [32m200[0m 1.526 ms - 18110[0m
+[0mGET /js/help.js [32m200[0m 0.642 ms - 53880[0m
+[0mGET /assets/inter.css [32m200[0m 5.325 ms - 825[0m
+[0mGET /api/roles [32m200[0m 7.883 ms - 13583[0m
+[0mGET /assets/fonts/inter-700.woff2 [32m200[0m 2.941 ms - 22936[0m
+[0mGET /assets/fonts/inter-500.woff2 [32m200[0m 2.003 ms - 22740[0m
+[0mGET /assets/fonts/inter-400.woff2 [32m200[0m 5.359 ms - 21624[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 18.518 ms - 8890[0m
+[0mGET /assets/webfonts/fa-solid-900.woff2 [32m200[0m 4.880 ms - 150124[0m
+[0mGET /assets/fonts/inter-600.woff2 [32m200[0m 1.604 ms - 22820[0m
+[0mGET /api/users [32m200[0m 5.848 ms - 25925[0m
+◇ injected env (2) from .env // tip: ⌁ auth for agents [www.vestauth.com]
+◇ injected env (0) from .env // tip: ⌘ multiple files { path: ['.env.local', '.env'] }
+[Backup] Scheduler started with expression: 0 2 * * *
+[SiteBackup] Weekly scheduler started: 0 3 * * 0
+Database verified: Users.permissions column ready.
+Database verified: RXRecords warehouse columns ready.
+Database verified: AuditLogs.previousValue column ready.
+Database verified: Users.notes column ready.
+Database verified: MedicationCatalogs.sortOrder column ready.
+Database verified: Users 2FA, lockout, backup codes, and tokenVersion columns ready.
+Database verified: Roles custom columns ready.
+Database verified: Built-in role permissions seeded.
+[Settings] Loaded. Timezone: America/New_York | SMTP: (not set)
+Server is running on port 3000.
+[0mGET /users [32m200[0m 12.254 ms - 12176[0m
+[0mGET /assets/bootstrap.min.css [32m200[0m 5.290 ms - 232914[0m
+[0mGET /assets/fontawesome.all.min.css [32m200[0m 5.580 ms - 102010[0m
+[0mGET /css/style.css [32m200[0m 1.934 ms - 18110[0m
+[0mGET /assets/inter.css [32m200[0m 1.636 ms - 825[0m
+[0mGET /js/app.js [32m200[0m 0.947 ms - 94678[0m
+[0mGET /js/help.js [32m200[0m 0.941 ms - 53880[0m
+[0mGET /js/base.js [32m200[0m 1.810 ms - 1870[0m
+[0mGET /assets/bootstrap.bundle.min.js [32m200[0m 1.840 ms - 80421[0m
+[0mGET /assets/inter.css [32m200[0m 3.364 ms - 825[0m
+[0mGET /assets/webfonts/fa-solid-900.woff2 [32m200[0m 4.919 ms - 150124[0m
+[0mGET /assets/fonts/inter-500.woff2 [32m200[0m 5.281 ms - 22740[0m
+[0mGET /assets/fonts/inter-700.woff2 [32m200[0m 5.747 ms - 22936[0m
+[0mGET /assets/fonts/inter-400.woff2 [32m200[0m 10.241 ms - 21624[0m
+[0mGET /api/roles [32m200[0m 14.380 ms - 13583[0m
+[0mGET /assets/fonts/inter-600.woff2 [32m200[0m 6.049 ms - 22820[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 17.522 ms - 8890[0m
+[0mGET /api/users [32m200[0m 9.880 ms - 25925[0m
+[0mGET /rx-records [32m200[0m 10.924 ms - 133291[0m
+[0mGET /assets/inter.css [32m200[0m 2.005 ms - 825[0m
+[0mGET /assets/fontawesome.all.min.css [32m200[0m 2.186 ms - 102010[0m
+[0mGET /assets/bootstrap.bundle.min.js [32m200[0m 3.148 ms - 80421[0m
+[0mGET /js/base.js [32m200[0m 3.820 ms - 1870[0m
+[0mGET /assets/bootstrap.min.css [32m200[0m 2.029 ms - 232914[0m
+[0mGET /css/style.css [32m200[0m 3.593 ms - 18110[0m
+[0mGET /js/app.js [32m200[0m 1.277 ms - 94678[0m
+[0mGET /js/help.js [32m200[0m 0.914 ms - 53880[0m
+[0mGET /assets/inter.css [32m200[0m 1.653 ms - 825[0m
+[0mGET /assets/fonts/inter-600.woff2 [32m200[0m 1.584 ms - 22820[0m
+[0mGET /assets/fonts/inter-500.woff2 [32m200[0m 1.973 ms - 22740[0m
+[0mGET /assets/fonts/inter-700.woff2 [32m200[0m 4.541 ms - 22936[0m
+[0mGET /assets/webfonts/fa-solid-900.woff2 [32m200[0m 7.500 ms - 150124[0m
+[0mGET /assets/fonts/inter-400.woff2 [32m200[0m 4.459 ms - 21624[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 14.500 ms - 8890[0m
+[0mGET /api/patients [32m200[0m 237.858 ms - 1328802[0m
+[0mGET /api/pharmacies [32m200[0m 2.954 ms - 1487[0m
+[0mGET /api/patient-transport [32m200[0m 5.480 ms - 1330[0m
+[0mGET /api/pharmacy-transport [32m200[0m 1.905 ms - 204[0m
+[0mGET /api/workflow-actions [32m200[0m 3.767 ms - 1188[0m
+[0mGET /api/medication-catalog?activeOnly=true [32m200[0m 4.244 ms - 1849[0m
+[0mGET /api/rx-records [32m200[0m 10.952 ms - 2225[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 7.973 ms - 8890[0m
+[0mGET /users [32m200[0m 3.495 ms - 12176[0m
+[0mGET /assets/bootstrap.min.css [32m200[0m 1.805 ms - 232914[0m
+[0mGET /assets/bootstrap.bundle.min.js [32m200[0m 0.918 ms - 80421[0m
+[0mGET /js/base.js [32m200[0m 2.012 ms - 1870[0m
+[0mGET /assets/fontawesome.all.min.css [32m200[0m 2.726 ms - 102010[0m
+[0mGET /css/style.css [32m200[0m 2.833 ms - 18110[0m
+[0mGET /assets/inter.css [32m200[0m 1.191 ms - 825[0m
+[0mGET /js/app.js [32m200[0m 1.889 ms - 94678[0m
+[0mGET /js/help.js [32m200[0m 0.980 ms - 53880[0m
+[0mGET /assets/inter.css [32m200[0m 1.816 ms - 825[0m
+[0mGET /assets/fonts/inter-400.woff2 [32m200[0m 1.537 ms - 21624[0m
+[0mGET /assets/webfonts/fa-solid-900.woff2 [32m200[0m 2.245 ms - 150124[0m
+[0mGET /assets/fonts/inter-700.woff2 [32m200[0m 1.456 ms - 22936[0m
+[0mGET /assets/fonts/inter-500.woff2 [32m200[0m 1.437 ms - 22740[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 5.903 ms - 8890[0m
+[0mGET /assets/fonts/inter-600.woff2 [32m200[0m 11.220 ms - 22820[0m
+[0mGET /api/roles [32m200[0m 7.959 ms - 13583[0m
+[0mGET /api/users [32m200[0m 9.096 ms - 25925[0m
+[0mGET /api/users?includeInactive=true [32m200[0m 4.549 ms - 28604[0m
+[0mGET /api/users [32m200[0m 3.504 ms - 25925[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 4.434 ms - 8890[0m
+[0mGET /api/admin/users [32m200[0m 3.065 ms - 2381[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 179.673 ms - 8890[0m
+[0mGET /api/api-keys [32m200[0m 3.505 ms - 2[0m
+ValidationError: The Express 'trust proxy' setting is true, which allows anyone to trivially bypass IP-based rate limiting. See https://express-rate-limit.github.io/ERR_ERL_PERMISSIVE_TRUST_PROXY/ for more information.
+    at Object.trustProxy (E:\Documents\Daniely RX\node_modules\express-rate-limit\dist\index.cjs:363:13)
+    at wrappedValidations.<computed> [as trustProxy] (E:\Documents\Daniely RX\node_modules\express-rate-limit\dist\index.cjs:704:22)
+    at Object.keyGenerator (E:\Documents\Daniely RX\node_modules\express-rate-limit\dist\index.cjs:810:20)
+    at E:\Documents\Daniely RX\node_modules\express-rate-limit\dist\index.cjs:893:32
+    at async E:\Documents\Daniely RX\node_modules\express-rate-limit\dist\index.cjs:854:5 {
+  code: 'ERR_ERL_PERMISSIVE_TRUST_PROXY',
+  help: 'https://express-rate-limit.github.io/ERR_ERL_PERMISSIVE_TRUST_PROXY/'
+}
+[0mGET /api/settings/api-routes [32m200[0m 11.733 ms - 33741[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 4.457 ms - 8890[0m
+[0mGET /api/admin/snapshots?limit=365 [32m200[0m 13.357 ms - 2338[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 5.664 ms - 8890[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 63.659 ms - 8890[0m
+[0mGET /dashboard [32m200[0m 3.580 ms - 30658[0m
+[0mGET /assets/bootstrap.min.css [32m200[0m 4.197 ms - 232914[0m
+[0mGET /css/style.css [32m200[0m 3.073 ms - 18110[0m
+[0mGET /dashboard?_v=1782158958594 [32m200[0m 4.788 ms - 30658[0m
+[0mGET /assets/inter.css [32m200[0m 1.486 ms - 825[0m
+[0mGET /assets/fontawesome.all.min.css [32m200[0m 1.585 ms - 102010[0m
+[0mGET /js/base.js [32m200[0m 10.938 ms - 1870[0m
+[0mGET /js/help.js [32m200[0m 2.154 ms - 53880[0m
+[0mGET /js/app.js [32m200[0m 1.828 ms - 94678[0m
+[0mGET /assets/chart.umd.min.js [32m200[0m 1.623 ms - 205637[0m
+[0mGET /assets/inter.css [32m200[0m 1.744 ms - 825[0m
+[0mGET /assets/fontawesome.all.min.css [32m200[0m 1.529 ms - 102010[0m
+[0mGET /js/base.js [32m200[0m 0.784 ms - 1870[0m
+[0mGET /assets/chart.umd.min.js [32m200[0m 1.160 ms - 205637[0m
+[0mGET /assets/bootstrap.bundle.min.js [32m200[0m 2.719 ms - 80421[0m
+[0mGET /assets/bootstrap.min.css [32m200[0m 1.021 ms - 232914[0m
+[0mGET /css/style.css [32m200[0m 1.429 ms - 18110[0m
+[0mGET /js/app.js [32m200[0m 0.967 ms - 94678[0m
+[0mGET /js/help.js [32m200[0m 0.674 ms - 53880[0m
+[0mGET /js/dashboard.js [32m200[0m 1.240 ms - 32889[0m
+[0mGET /assets/inter.css [32m200[0m 2.802 ms - 825[0m
+[0mGET /assets/webfonts/fa-solid-900.woff2 [32m200[0m 1.818 ms - 150124[0m
+[0mGET /assets/fonts/inter-700.woff2 [32m200[0m 1.443 ms - 22936[0m
+[0mGET /assets/fonts/inter-400.woff2 [32m200[0m 1.410 ms - 21624[0m
+[0mGET /assets/fonts/inter-500.woff2 [32m200[0m 2.689 ms - 22740[0m
+[0mGET /assets/fonts/inter-600.woff2 [32m200[0m 2.620 ms - 22820[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 9.283 ms - 8890[0m
+[0mGET /assets/fonts/inter-400.woff2 [32m200[0m 1.593 ms - 21624[0m
+[0mGET /assets/fonts/inter-600.woff2 [32m200[0m 3.029 ms - 22820[0m
+[0mGET /api/dashboard/stats [32m200[0m 30.980 ms - 3345[0m
+[0mGET /api/dashboard/rx-pipeline [32m200[0m 10.056 ms - 392[0m
+[0mGET /api/dashboard/charts [32m200[0m 19.907 ms - 170[0m
+[0mGET /patients [32m200[0m 7.187 ms - 31267[0m
+[0mGET /assets/bootstrap.min.css [32m200[0m 1.416 ms - 232914[0m
+[0mGET /assets/bootstrap.bundle.min.js [32m200[0m 1.233 ms - 80421[0m
+[0mGET /js/base.js [32m200[0m 1.392 ms - 1870[0m
+[0mGET /assets/inter.css [32m200[0m 1.295 ms - 825[0m
+[0mGET /css/style.css [32m200[0m 0.992 ms - 18110[0m
+[0mGET /assets/fontawesome.all.min.css [32m200[0m 1.140 ms - 102010[0m
+[0mGET /js/app.js [32m200[0m 0.671 ms - 94678[0m
+[0mGET /js/help.js [32m200[0m 0.633 ms - 53880[0m
+[0mGET /js/patients.js [32m200[0m 0.623 ms - 83035[0m
+[0mGET /assets/inter.css [32m200[0m 1.155 ms - 825[0m
+[0mGET /assets/fonts/inter-700.woff2 [32m200[0m 1.611 ms - 22936[0m
+[0mGET /assets/fonts/inter-500.woff2 [32m200[0m 1.343 ms - 22740[0m
+[0mGET /assets/fonts/inter-600.woff2 [32m200[0m 1.240 ms - 22820[0m
+[0mGET /assets/webfonts/fa-solid-900.woff2 [32m200[0m 1.749 ms - 150124[0m
+[0mGET /assets/fonts/inter-400.woff2 [32m200[0m 1.855 ms - 21624[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 12.143 ms - 8890[0m
+[0mGET /api/pharmacy-transport [32m200[0m 4.695 ms - 204[0m
+[0mGET /api/pharmacies [32m200[0m 4.999 ms - 1487[0m
+[0mGET /api/clinics [32m200[0m 3.457 ms - 1243[0m
+[0mGET /api/patient-transport [32m200[0m 6.135 ms - 1330[0m
+[0mGET /api/patients [32m200[0m 228.756 ms - 1328802[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 83.636 ms - 8890[0m
+[0mGET /rx-records [32m200[0m 7.237 ms - 133291[0m
+[0mGET /assets/bootstrap.min.css [32m200[0m 1.537 ms - 232914[0m
+[0mGET /css/style.css [32m200[0m 2.440 ms - 18110[0m
+[0mGET /assets/inter.css [32m200[0m 1.415 ms - 825[0m
+[0mGET /assets/fontawesome.all.min.css [32m200[0m 1.414 ms - 102010[0m
+[0mGET /assets/bootstrap.bundle.min.js [32m200[0m 1.021 ms - 80421[0m
+[0mGET /js/help.js [32m200[0m 0.971 ms - 53880[0m
+[0mGET /js/base.js [32m200[0m 2.775 ms - 1870[0m
+[0mGET /js/app.js [32m200[0m 1.373 ms - 94678[0m
+[0mGET /assets/inter.css [32m200[0m 5.279 ms - 825[0m
+[0mGET /assets/fonts/inter-600.woff2 [32m200[0m 1.630 ms - 22820[0m
+[0mGET /assets/webfonts/fa-solid-900.woff2 [32m200[0m 2.063 ms - 150124[0m
+[0mGET /assets/fonts/inter-400.woff2 [32m200[0m 2.186 ms - 21624[0m
+[0mGET /assets/fonts/inter-700.woff2 [32m200[0m 4.940 ms - 22936[0m
+[0mGET /api/patients [32m200[0m 225.804 ms - 1328802[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 229.401 ms - 8890[0m
+[0mGET /assets/fonts/inter-500.woff2 [32m200[0m 4.729 ms - 22740[0m
+[0mGET /api/pharmacies [32m200[0m 6.266 ms - 1487[0m
+[0mGET /api/patient-transport [32m200[0m 4.048 ms - 1330[0m
+[0mGET /api/pharmacy-transport [32m200[0m 5.187 ms - 204[0m
+[0mGET /api/workflow-actions [32m200[0m 2.995 ms - 1188[0m
+[0mGET /api/medication-catalog?activeOnly=true [32m200[0m 3.405 ms - 1849[0m
+[0mGET /api/rx-records [32m200[0m 9.844 ms - 2225[0m
+[0mGET /workflow-actions [32m200[0m 2.251 ms - 12201[0m
+[0mGET /assets/bootstrap.min.css [32m200[0m 1.558 ms - 232914[0m
+[0mGET /css/style.css [32m200[0m 1.391 ms - 18110[0m
+[0mGET /assets/inter.css [32m200[0m 3.291 ms - 825[0m
+[0mGET /assets/fontawesome.all.min.css [32m200[0m 2.795 ms - 102010[0m
+[0mGET /js/app.js [32m200[0m 1.507 ms - 94678[0m
+[0mGET /js/help.js [32m200[0m 2.217 ms - 53880[0m
+[0mGET /js/base.js [32m200[0m 0.961 ms - 1870[0m
+[0mGET /assets/bootstrap.bundle.min.js [32m200[0m 0.936 ms - 80421[0m
+[0mGET /assets/inter.css [32m200[0m 1.182 ms - 825[0m
+[0mGET /assets/webfonts/fa-solid-900.woff2 [32m200[0m 1.017 ms - 150124[0m
+[0mGET /assets/fonts/inter-500.woff2 [32m200[0m 1.694 ms - 22740[0m
+[0mGET /assets/fonts/inter-700.woff2 [32m200[0m 3.302 ms - 22936[0m
+[0mGET /assets/fonts/inter-400.woff2 [32m200[0m 1.476 ms - 21624[0m
+[0mGET /assets/fonts/inter-600.woff2 [32m200[0m 1.268 ms - 22820[0m
+[0mGET /api/workflow-actions [32m200[0m 490.842 ms - 1188[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 570.034 ms - 8890[0m
+[0mGET /backoffice [32m200[0m 11.416 ms - 96676[0m
+[0mGET /assets/bootstrap.min.css [32m200[0m 10.180 ms - 232914[0m
+[0mGET /assets/inter.css [32m200[0m 16.930 ms - 825[0m
+[0mGET /assets/fontawesome.all.min.css [32m200[0m 16.122 ms - 102010[0m
+[0mGET /js/base.js [32m200[0m 1.537 ms - 1870[0m
+[0mGET /js/backoffice-features.js [32m200[0m 1.309 ms - 75062[0m
+[0mGET /js/backoffice.js [32m200[0m 1.795 ms - 86006[0m
+[0mGET /assets/chart.umd.min.js [32m200[0m 2.403 ms - 205637[0m
+[0mGET /assets/fonts/inter-600.woff2 [32m200[0m 1.865 ms - 22820[0m
+[0mGET /assets/fonts/inter-400.woff2 [32m200[0m 3.321 ms - 21624[0m
+[0mGET /assets/fonts/inter-700.woff2 [32m200[0m 4.929 ms - 22936[0m
+[0mGET /assets/webfonts/fa-solid-900.woff2 [32m200[0m 2.237 ms - 150124[0m
+[0mGET /api/admin/stats [32m200[0m 37.188 ms - 2667[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 6.411 ms - 8890[0m
+[0mGET /api/admin/schema [32m200[0m 49.958 ms - 24443[0m
+[0mGET /api/admin/orphans [32m200[0m 8.438 ms - 1347[0m
+[0mGET /api/admin/duplicates [32m200[0m 17.293 ms - 2465[0m
+[0mGET /api/admin/audit-logs?page=1&size=50&search=&action=&entity=&dateFrom=&dateTo= [32m200[0m 6.338 ms - 22038[0m
+[0mGET /api/api-keys [32m200[0m 2.983 ms - 2[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 4.515 ms - 8890[0m
+[0mGET /backoffice [32m200[0m 6.106 ms - 96676[0m
+[0mGET /assets/inter.css [32m200[0m 7.215 ms - 825[0m
+[0mGET /js/base.js [32m200[0m 2.952 ms - 1870[0m
+[0mGET /assets/bootstrap.min.css [32m200[0m 6.696 ms - 232914[0m
+[0mGET /js/backoffice.js [32m200[0m 4.763 ms - 86006[0m
+[0mGET /assets/chart.umd.min.js [32m200[0m 3.162 ms - 205637[0m
+[0mGET /assets/fontawesome.all.min.css [32m200[0m 9.887 ms - 102010[0m
+[0mGET /js/backoffice-features.js [32m200[0m 6.855 ms - 75062[0m
+[0mGET /assets/fonts/inter-700.woff2 [32m200[0m 3.325 ms - 22936[0m
+[0mGET /assets/webfonts/fa-solid-900.woff2 [32m200[0m 3.416 ms - 150124[0m
+[0mGET /assets/fonts/inter-600.woff2 [32m200[0m 0.938 ms - 22820[0m
+[0mGET /assets/fonts/inter-400.woff2 [32m200[0m 1.448 ms - 21624[0m
+[0mGET /api/admin/stats [32m200[0m 118.348 ms - 2667[0m
+[0mGET /api/admin/schema [32m200[0m 50.620 ms - 24443[0m
+[0mGET /api/admin/orphans [32m200[0m 11.451 ms - 1347[0m
+[0mGET /api/admin/duplicates [32m200[0m 15.276 ms - 2465[0m
+[0mGET /api/admin/audit-logs?page=1&size=50&search=&action=&entity=&dateFrom=&dateTo= [32m200[0m 4.952 ms - 22038[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 4.461 ms - 8890[0m
+[0mGET /backoffice [32m200[0m 5.542 ms - 96676[0m
+[0mGET /assets/bootstrap.min.css [32m200[0m 4.445 ms - 232914[0m
+[0mGET /assets/inter.css [32m200[0m 3.990 ms - 825[0m
+[0mGET /js/base.js [32m200[0m 2.004 ms - 1870[0m
+[0mGET /js/backoffice-features.js [32m200[0m 2.337 ms - 75063[0m
+[0mGET /js/backoffice.js [32m200[0m 2.846 ms - 86006[0m
+[0mGET /assets/fontawesome.all.min.css [32m200[0m 5.620 ms - 102010[0m
+[0mGET /assets/chart.umd.min.js [32m200[0m 2.809 ms - 205637[0m
+[0mGET /assets/fonts/inter-600.woff2 [32m200[0m 1.340 ms - 22820[0m
+[0mGET /assets/fonts/inter-700.woff2 [32m200[0m 2.495 ms - 22936[0m
+[0mGET /assets/webfonts/fa-solid-900.woff2 [32m200[0m 2.180 ms - 150124[0m
+[0mGET /api/admin/stats [32m200[0m 28.099 ms - 2667[0m
+[0mGET /assets/fonts/inter-400.woff2 [32m200[0m 14.597 ms - 21624[0m
+[0mGET /api/admin/settings [32m200[0m 1.035 ms - 177[0m
+[0mGET /api/admin/backups [32m200[0m 4.215 ms - 1309[0m
+[0mGET /api/admin/health [32m200[0m 285.328 ms - 2176[0m
+[0mGET /api/admin/locks [32m200[0m 2.962 ms - 284[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 5.518 ms - 8890[0m
+◇ injected env (2) from .env // tip: ◈ secrets for agents [www.dotenvx.com]
+◇ injected env (0) from .env // tip: ◈ encrypted .env [www.dotenvx.com]
+[Backup] Scheduler started with expression: 0 2 * * *
+[SiteBackup] Weekly scheduler started: 0 3 * * 0
+Database verified: Users.permissions column ready.
+Database verified: RXRecords warehouse columns ready.
+Database verified: AuditLogs.previousValue column ready.
+Database verified: Users.notes column ready.
+Database verified: MedicationCatalogs.sortOrder column ready.
+Database verified: Users 2FA, lockout, backup codes, and tokenVersion columns ready.
+Database verified: Roles custom columns ready.
+Database verified: Built-in role permissions seeded.
+[Settings] Loaded. Timezone: America/New_York | SMTP: (not set)
+Server is running on port 3000.
+[0mGET /backoffice [32m200[0m 14.098 ms - 96676[0m
+[0mGET /assets/inter.css [32m200[0m 6.904 ms - 825[0m
+[0mGET /assets/fontawesome.all.min.css [32m200[0m 6.692 ms - 102010[0m
+[0mGET /assets/bootstrap.min.css [32m200[0m 9.747 ms - 232914[0m
+[0mGET /assets/chart.umd.min.js [32m200[0m 5.728 ms - 205637[0m
+[0mGET /js/base.js [32m200[0m 3.334 ms - 1870[0m
+[0mGET /js/backoffice.js [32m200[0m 2.539 ms - 86006[0m
+[0mGET /js/backoffice-features.js [32m200[0m 4.404 ms - 75063[0m
+[0mGET /assets/fonts/inter-700.woff2 [32m200[0m 5.698 ms - 22936[0m
+[0mGET /assets/fonts/inter-600.woff2 [32m200[0m 5.657 ms - 22820[0m
+[0mGET /assets/webfonts/fa-solid-900.woff2 [32m200[0m 7.821 ms - 150124[0m
+[0mGET /assets/fonts/inter-400.woff2 [32m200[0m 3.558 ms - 21624[0m
+[0mGET /api/admin/stats [32m200[0m 65.473 ms - 2667[0m
+[0mGET /api/admin/users [32m200[0m 5.174 ms - 2381[0m
+[0mGET /dashboard [32m200[0m 6.983 ms - 30658[0m
+[0mGET /assets/bootstrap.min.css [32m200[0m 1.892 ms - 232914[0m
+[0mGET /assets/inter.css [32m200[0m 1.442 ms - 825[0m
+[0mGET /assets/fontawesome.all.min.css [32m200[0m 1.313 ms - 102010[0m
+[0mGET /js/base.js [32m200[0m 0.901 ms - 1870[0m
+[0mGET /css/style.css [32m200[0m 1.799 ms - 18110[0m
+[0mGET /js/app.js [32m200[0m 0.662 ms - 94678[0m
+[0mGET /assets/bootstrap.bundle.min.js [32m200[0m 3.585 ms - 80421[0m
+[0mGET /js/help.js [32m200[0m 2.070 ms - 53880[0m
+[0mGET /js/dashboard.js [32m200[0m 1.593 ms - 32889[0m
+[0mGET /assets/chart.umd.min.js [32m200[0m 0.827 ms - 205637[0m
+[0mGET /dashboard?_v=1782159245093 [32m200[0m 5.362 ms - 30658[0m
+[0mGET /assets/bootstrap.min.css [32m200[0m 9.695 ms - 232914[0m
+[0mGET /assets/inter.css [32m200[0m 1.829 ms - 825[0m
+[0mGET /css/style.css [32m200[0m 7.635 ms - 18110[0m
+[0mGET /assets/fontawesome.all.min.css [32m200[0m 7.335 ms - 102010[0m
+[0mGET /assets/bootstrap.bundle.min.js [32m200[0m 1.105 ms - 80421[0m
+[0mGET /js/base.js [32m200[0m 2.209 ms - 1870[0m
+[0mGET /js/app.js [32m200[0m 1.323 ms - 94678[0m
+[0mGET /js/help.js [32m200[0m 1.442 ms - 53880[0m
+[0mGET /assets/chart.umd.min.js [32m200[0m 4.015 ms - 205637[0m
+[0mGET /js/dashboard.js [32m200[0m 0.550 ms - 32889[0m
+[0mGET /assets/fonts/inter-400.woff2 [32m200[0m 12.252 ms - 21624[0m
+[0mGET /assets/fonts/inter-700.woff2 [32m200[0m 2.694 ms - 22936[0m
+[0mGET /assets/fonts/inter-500.woff2 [32m200[0m 2.513 ms - 22740[0m
+[0mGET /assets/webfonts/fa-solid-900.woff2 [32m200[0m 1.176 ms - 150124[0m
+[0mGET /assets/fonts/inter-600.woff2 [32m200[0m 9.925 ms - 22820[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 19.849 ms - 8890[0m
+[0mGET /api/dashboard/stats [32m200[0m 33.876 ms - 3345[0m
+[0mGET /api/dashboard/rx-pipeline [32m200[0m 4.755 ms - 392[0m
+[0mGET /api/dashboard/charts [32m200[0m 18.981 ms - 170[0m
+[0mGET /api/auth/2fa/status [32m200[0m 2.386 ms - 51[0m
+ValidationError: The Express 'trust proxy' setting is true, which allows anyone to trivially bypass IP-based rate limiting. See https://express-rate-limit.github.io/ERR_ERL_PERMISSIVE_TRUST_PROXY/ for more information.
+    at Object.trustProxy (E:\Documents\Daniely RX\node_modules\express-rate-limit\dist\index.cjs:363:13)
+    at wrappedValidations.<computed> [as trustProxy] (E:\Documents\Daniely RX\node_modules\express-rate-limit\dist\index.cjs:704:22)
+    at Object.keyGenerator (E:\Documents\Daniely RX\node_modules\express-rate-limit\dist\index.cjs:810:20)
+    at E:\Documents\Daniely RX\node_modules\express-rate-limit\dist\index.cjs:893:32
+    at async E:\Documents\Daniely RX\node_modules\express-rate-limit\dist\index.cjs:854:5 {
+  code: 'ERR_ERL_PERMISSIVE_TRUST_PROXY',
+  help: 'https://express-rate-limit.github.io/ERR_ERL_PERMISSIVE_TRUST_PROXY/'
+}
+[0mGET /api/auth/2fa/setup [32m200[0m 44.549 ms - 2821[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 54.736 ms - 8890[0m
+[0mPOST /api/auth/2fa/enable [32m200[0m 304.741 ms - 228[0m
+[0mGET /api/auth/2fa/status [32m200[0m 2.936 ms - 50[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 52.523 ms - 8849[0m
+[0mGET /backoffice [32m200[0m 6.829 ms - 96676[0m
+[0mGET /assets/inter.css [32m200[0m 3.175 ms - 825[0m
+[0mGET /assets/fontawesome.all.min.css [32m200[0m 2.748 ms - 102010[0m
+[0mGET /assets/bootstrap.min.css [32m200[0m 4.295 ms - 232914[0m
+[0mGET /assets/chart.umd.min.js [32m200[0m 1.593 ms - 205637[0m
+[0mGET /js/base.js [32m200[0m 2.902 ms - 1870[0m
+[0mGET /js/backoffice-features.js [32m200[0m 2.805 ms - 75063[0m
+[0mGET /js/backoffice.js [32m200[0m 3.945 ms - 86006[0m
+[0mGET /assets/fonts/inter-600.woff2 [32m200[0m 2.567 ms - 22820[0m
+[0mGET /assets/fonts/inter-700.woff2 [32m200[0m 3.960 ms - 22936[0m
+[0mGET /assets/webfonts/fa-solid-900.woff2 [32m200[0m 3.646 ms - 150124[0m
+[0mGET /assets/fonts/inter-400.woff2 [32m200[0m 11.819 ms - 21624[0m
+[0mGET /api/admin/stats [32m200[0m 48.232 ms - 2667[0m
+[0mGET /api/admin/users [32m200[0m 3.266 ms - 2380[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 19.154 ms - 8849[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 7.792 ms - 8849[0m
+[0mGET /dashboard [32m200[0m 6.932 ms - 30658[0m
+[0mGET /dashboard?_v=1782159245093 [32m200[0m 3.660 ms - 30658[0m
+[0mGET /assets/inter.css [32m200[0m 2.631 ms - 825[0m
+[0mGET /css/style.css [32m200[0m 2.470 ms - 18110[0m
+[0mGET /assets/bootstrap.bundle.min.js [32m200[0m 1.930 ms - 80421[0m
+[0mGET /assets/bootstrap.min.css [32m200[0m 6.305 ms - 232914[0m
+[0mGET /assets/fontawesome.all.min.css [32m200[0m 4.748 ms - 102010[0m
+[0mGET /assets/chart.umd.min.js [32m200[0m 2.266 ms - 205637[0m
+[0mGET /js/dashboard.js [0m-[0m - ms - -[0m
+[0mGET /js/help.js [0m-[0m - ms - -[0m
+[0mGET /js/app.js [0m-[0m - ms - -[0m
+[0mGET /js/base.js [0m-[0m - ms - -[0m
+[0mGET /css/style.css [32m200[0m 3.953 ms - 18110[0m
+[0mGET /assets/bootstrap.bundle.min.js [32m200[0m 3.085 ms - 80421[0m
+[0mGET /assets/chart.umd.min.js [32m200[0m 2.204 ms - 205637[0m
+[0mGET /js/base.js [32m200[0m 3.335 ms - 1870[0m
+[0mGET /js/app.js [32m200[0m 7.847 ms - 94678[0m
+[0mGET /js/help.js [32m200[0m 11.496 ms - 53880[0m
+[0mGET /js/dashboard.js [32m200[0m 8.516 ms - 32889[0m
+[0mGET /assets/inter.css [32m200[0m 22.051 ms - 825[0m
+[0mGET /assets/fontawesome.all.min.css [32m200[0m 25.490 ms - 102010[0m
+[0mGET /assets/bootstrap.min.css [32m200[0m 23.994 ms - 232914[0m
+[0mGET /assets/fonts/inter-400.woff2 [32m200[0m 7.917 ms - 21624[0m
+[0mGET /assets/fonts/inter-700.woff2 [32m200[0m 6.354 ms - 22936[0m
+[0mGET /assets/fonts/inter-500.woff2 [32m200[0m 6.143 ms - 22740[0m
+[0mGET /assets/webfonts/fa-solid-900.woff2 [32m200[0m 6.978 ms - 150124[0m
+[0mGET /assets/fonts/inter-600.woff2 [32m200[0m 1.522 ms - 22820[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 186.999 ms - 8849[0m
+[0mGET /api/dashboard/stats [32m200[0m 198.040 ms - 3344[0m
+[0mGET /api/dashboard/rx-pipeline [32m200[0m 9.316 ms - 392[0m
+[0mGET /api/dashboard/charts [32m200[0m 20.318 ms - 170[0m
+[0mGET /patients [32m200[0m 4.049 ms - 31267[0m
+[0mGET /assets/bootstrap.min.css [32m200[0m 5.009 ms - 232914[0m
+[0mGET /assets/fontawesome.all.min.css [32m200[0m 4.111 ms - 102010[0m
+[0mGET /assets/inter.css [32m200[0m 5.584 ms - 825[0m
+[0mGET /css/style.css [32m200[0m 5.476 ms - 18110[0m
+[0mGET /assets/bootstrap.bundle.min.js [32m200[0m 4.125 ms - 80421[0m
+[0mGET /js/base.js [32m200[0m 3.520 ms - 1870[0m
+[0mGET /js/app.js [32m200[0m 3.392 ms - 94678[0m
+[0mGET /js/help.js [32m200[0m 4.066 ms - 53880[0m
+[0mGET /js/patients.js [32m200[0m 3.503 ms - 83035[0m
+[0mGET /assets/inter.css [32m200[0m 1.287 ms - 825[0m
+[0mGET /api/patient-transport [32m200[0m 10.327 ms - 1330[0m
+[0mGET /api/pharmacy-transport [32m200[0m 10.768 ms - 204[0m
+[0mGET /assets/fonts/inter-400.woff2 [32m200[0m 12.582 ms - 21624[0m
+[0mGET /api/clinics [32m200[0m 11.932 ms - 1243[0m
+[0mGET /api/pharmacies [32m200[0m 12.505 ms - 1487[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 18.003 ms - 8849[0m
+[0mGET /assets/fonts/inter-700.woff2 [32m200[0m 4.156 ms - 22936[0m
+[0mGET /assets/fonts/inter-500.woff2 [32m200[0m 5.043 ms - 22740[0m
+[0mGET /assets/webfonts/fa-solid-900.woff2 [32m200[0m 5.135 ms - 150124[0m
+[0mGET /assets/fonts/inter-600.woff2 [32m200[0m 9.479 ms - 22820[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 5.181 ms - 8849[0m
+[0mGET /api/patients [32m200[0m 277.808 ms - 1328802[0m
+[0mGET /rx-records [32m200[0m 9.802 ms - 133291[0m
+[0mGET /assets/inter.css [32m200[0m 3.537 ms - 825[0m
+[0mGET /assets/bootstrap.min.css [32m200[0m 4.725 ms - 232914[0m
+[0mGET /assets/fontawesome.all.min.css [32m200[0m 3.334 ms - 102010[0m
+[0mGET /js/base.js [32m200[0m 2.517 ms - 1870[0m
+[0mGET /js/help.js [32m200[0m 2.288 ms - 53880[0m
+[0mGET /assets/bootstrap.bundle.min.js [32m200[0m 2.253 ms - 80421[0m
+[0mGET /css/style.css [32m200[0m 4.357 ms - 18110[0m
+[0mGET /js/app.js [32m200[0m 2.431 ms - 94678[0m
+[0mGET /assets/inter.css [32m200[0m 1.849 ms - 825[0m
+[0mGET /assets/fonts/inter-700.woff2 [32m200[0m 2.990 ms - 22936[0m
+[0mGET /assets/fonts/inter-400.woff2 [32m200[0m 3.006 ms - 21624[0m
+[0mGET /assets/fonts/inter-500.woff2 [32m200[0m 3.958 ms - 22740[0m
+[0mGET /assets/fonts/inter-600.woff2 [32m200[0m 5.623 ms - 22820[0m
+[0mGET /assets/webfonts/fa-solid-900.woff2 [32m200[0m 3.692 ms - 150124[0m
+[0mGET /api/patients [32m200[0m 203.737 ms - 1328802[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 212.230 ms - 8849[0m
+[0mGET /api/pharmacies [32m200[0m 11.730 ms - 1487[0m
+[0mGET /api/patient-transport [32m200[0m 2.857 ms - 1330[0m
+[0mGET /api/pharmacy-transport [32m200[0m 3.782 ms - 204[0m
+[0mGET /api/workflow-actions [32m200[0m 2.798 ms - 1188[0m
+[0mGET /api/medication-catalog?activeOnly=true [32m200[0m 4.015 ms - 1849[0m
+[0mGET /api/rx-records [32m200[0m 11.376 ms - 2225[0m
+[0mGET /pharmacies [32m200[0m 2.939 ms - 12171[0m
+[0mGET /assets/inter.css [32m200[0m 2.370 ms - 825[0m
+[0mGET /assets/fontawesome.all.min.css [32m200[0m 2.807 ms - 102010[0m
+[0mGET /css/style.css [32m200[0m 3.446 ms - 18110[0m
+[0mGET /assets/bootstrap.bundle.min.js [32m200[0m 1.630 ms - 80421[0m
+[0mGET /assets/bootstrap.min.css [32m200[0m 3.006 ms - 232914[0m
+[0mGET /js/base.js [32m200[0m 1.847 ms - 1870[0m
+[0mGET /js/help.js [32m200[0m 1.740 ms - 53880[0m
+[0mGET /js/app.js [32m200[0m 1.823 ms - 94678[0m
+[0mGET /assets/inter.css [32m200[0m 1.259 ms - 825[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 8.732 ms - 8849[0m
+[0mGET /api/pharmacies [32m200[0m 11.883 ms - 1487[0m
+[0mGET /assets/fonts/inter-700.woff2 [32m200[0m 1.828 ms - 22936[0m
+[0mGET /assets/fonts/inter-500.woff2 [32m200[0m 2.696 ms - 22740[0m
+[0mGET /assets/fonts/inter-400.woff2 [32m200[0m 2.654 ms - 21624[0m
+[0mGET /assets/fonts/inter-600.woff2 [32m200[0m 3.170 ms - 22820[0m
+[0mGET /assets/webfonts/fa-solid-900.woff2 [32m200[0m 3.467 ms - 150124[0m
+[0mGET /patient-transport [32m200[0m 2.419 ms - 12236[0m
+[0mGET /assets/bootstrap.min.css [32m200[0m 1.148 ms - 232914[0m
+[0mGET /assets/inter.css [32m200[0m 6.973 ms - 825[0m
+[0mGET /css/style.css [32m200[0m 6.822 ms - 18110[0m
+[0mGET /js/base.js [32m200[0m 2.588 ms - 1870[0m
+[0mGET /assets/fontawesome.all.min.css [32m200[0m 7.494 ms - 102010[0m
+[0mGET /assets/bootstrap.bundle.min.js [32m200[0m 3.483 ms - 80421[0m
+[0mGET /js/app.js [32m200[0m 2.334 ms - 94678[0m
+[0mGET /js/help.js [32m200[0m 0.875 ms - 53880[0m
+[0mGET /assets/inter.css [32m200[0m 1.029 ms - 825[0m
+[0mGET /assets/fonts/inter-700.woff2 [32m200[0m 2.573 ms - 22936[0m
+[0mGET /assets/fonts/inter-500.woff2 [32m200[0m 7.415 ms - 22740[0m
+[0mGET /assets/webfonts/fa-solid-900.woff2 [32m200[0m 6.755 ms - 150124[0m
+[0mGET /assets/fonts/inter-400.woff2 [32m200[0m 4.108 ms - 21624[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 5.644 ms - 8849[0m
+[0mGET /api/patient-transport [32m200[0m 4.750 ms - 1330[0m
+[0mGET /assets/fonts/inter-600.woff2 [32m200[0m 4.228 ms - 22820[0m
+[0mGET /pharmacy-transport [32m200[0m 2.108 ms - 12241[0m
+[0mGET /js/base.js [32m200[0m 1.784 ms - 1870[0m
+[0mGET /assets/bootstrap.bundle.min.js [32m200[0m 2.137 ms - 80421[0m
+[0mGET /assets/fontawesome.all.min.css [32m200[0m 2.898 ms - 102010[0m
+[0mGET /assets/bootstrap.min.css [32m200[0m 2.865 ms - 232914[0m
+[0mGET /assets/inter.css [32m200[0m 6.817 ms - 825[0m
+[0mGET /css/style.css [32m200[0m 6.910 ms - 18110[0m
+[0mGET /js/help.js [32m200[0m 3.147 ms - 53880[0m
+[0mGET /js/app.js [32m200[0m 2.350 ms - 94678[0m
+[0mGET /assets/inter.css [32m200[0m 3.661 ms - 825[0m
+[0mGET /assets/fonts/inter-400.woff2 [32m200[0m 4.722 ms - 21624[0m
+[0mGET /api/pharmacy-transport [32m200[0m 4.906 ms - 204[0m
+[0mGET /assets/fonts/inter-700.woff2 [32m200[0m 6.431 ms - 22936[0m
+[0mGET /assets/fonts/inter-500.woff2 [32m200[0m 6.265 ms - 22740[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 9.725 ms - 8849[0m
+[0mGET /assets/webfonts/fa-solid-900.woff2 [32m200[0m 6.317 ms - 150124[0m
+[0mGET /assets/fonts/inter-600.woff2 [32m200[0m 1.483 ms - 22820[0m
+[0mGET /clinics [32m200[0m 2.649 ms - 12156[0m
+[0mGET /assets/inter.css [32m200[0m 1.202 ms - 825[0m
+[0mGET /assets/fontawesome.all.min.css [32m200[0m 1.494 ms - 102010[0m
+[0mGET /css/style.css [32m200[0m 1.792 ms - 18110[0m
+[0mGET /assets/bootstrap.min.css [32m200[0m 1.826 ms - 232914[0m
+[0mGET /js/base.js [32m200[0m 0.858 ms - 1870[0m
+[0mGET /js/help.js [32m200[0m 1.119 ms - 53880[0m
+[0mGET /assets/bootstrap.bundle.min.js [32m200[0m 1.472 ms - 80421[0m
+[0mGET /js/app.js [32m200[0m 1.148 ms - 94678[0m
+[0mGET /assets/inter.css [32m200[0m 7.118 ms - 825[0m
+[0mGET /api/clinics [32m200[0m 9.204 ms - 1243[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 14.180 ms - 8849[0m
+[0mGET /assets/fonts/inter-500.woff2 [32m200[0m 0.944 ms - 22740[0m
+[0mGET /assets/webfonts/fa-solid-900.woff2 [32m200[0m 1.488 ms - 150124[0m
+[0mGET /assets/fonts/inter-400.woff2 [32m200[0m 1.446 ms - 21624[0m
+[0mGET /assets/fonts/inter-700.woff2 [32m200[0m 2.242 ms - 22936[0m
+[0mGET /assets/fonts/inter-600.woff2 [32m200[0m 1.340 ms - 22820[0m
+[0mGET /reports [32m200[0m 4.448 ms - 28249[0m
+[0mGET /css/style.css [32m200[0m 2.882 ms - 18110[0m
+[0mGET /assets/fontawesome.all.min.css [32m200[0m 2.317 ms - 102010[0m
+[0mGET /assets/bootstrap.bundle.min.js [32m200[0m 2.319 ms - 80421[0m
+[0mGET /assets/inter.css [32m200[0m 6.385 ms - 825[0m
+[0mGET /assets/bootstrap.min.css [32m200[0m 5.563 ms - 232914[0m
+[0mGET /js/base.js [32m200[0m 2.355 ms - 1870[0m
+[0mGET /js/help.js [32m200[0m 2.511 ms - 53880[0m
+[0mGET /js/app.js [32m200[0m 2.976 ms - 94678[0m
+[0mGET /js/reports.js [32m200[0m 2.468 ms - 24440[0m
+[0mGET /assets/fonts/inter-500.woff2 [32m200[0m 4.000 ms - 22740[0m
+[0mGET /assets/fonts/inter-700.woff2 [32m200[0m 5.111 ms - 22936[0m
+[0mGET /assets/fonts/inter-400.woff2 [32m200[0m 4.347 ms - 21624[0m
+[0mGET /assets/fonts/inter-600.woff2 [32m200[0m 14.613 ms - 22820[0m
+[0mGET /assets/webfonts/fa-solid-900.woff2 [32m200[0m 12.199 ms - 150124[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 5.185 ms - 8849[0m
+[0mGET /api/reports/patients [32m200[0m 205.268 ms - 1281835[0m
+[0mGET /api/workflow-actions [32m200[0m 205.911 ms - 1188[0m
+[0mGET /api/reports/rx-actions [32m200[0m 215.786 ms - 2214[0m
+[0mGET /audit-log [32m200[0m 2.917 ms - 19920[0m
+[0mGET /js/base.js [32m200[0m 2.075 ms - 1870[0m
+[0mGET /assets/inter.css [32m200[0m 3.989 ms - 825[0m
+[0mGET /assets/fontawesome.all.min.css [32m200[0m 2.121 ms - 102010[0m
+[0mGET /assets/bootstrap.bundle.min.js [32m200[0m 2.105 ms - 80421[0m
+[0mGET /css/style.css [32m200[0m 3.606 ms - 18110[0m
+[0mGET /assets/bootstrap.min.css [32m200[0m 3.471 ms - 232914[0m
+[0mGET /js/audit-log.js [32m200[0m 1.185 ms - 40137[0m
+[0mGET /js/app.js [32m200[0m 1.609 ms - 94678[0m
+[0mGET /js/help.js [32m200[0m 2.190 ms - 53880[0m
+[0mGET /assets/inter.css [32m200[0m 1.158 ms - 825[0m
+[0mGET /assets/fonts/inter-700.woff2 [32m200[0m 7.058 ms - 22936[0m
+[0mGET /assets/fonts/inter-500.woff2 [32m200[0m 7.306 ms - 22740[0m
+[0mGET /assets/fonts/inter-600.woff2 [32m200[0m 8.453 ms - 22820[0m
+[0mGET /assets/fonts/inter-400.woff2 [32m200[0m 9.109 ms - 21624[0m
+[0mGET /assets/webfonts/fa-solid-900.woff2 [32m200[0m 13.267 ms - 150124[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 21.655 ms - 8849[0m
+[0mGET /api/errors?limit=500 [32m200[0m 16.624 ms - 41244[0m
+[0mGET /api/audit-logs/modules [32m200[0m 8.911 ms - 70[0m
+[0mGET /api/audit-logs/actions [32m200[0m 10.754 ms - 131[0m
+[0mGET /api/audit-logs/users [32m200[0m 12.298 ms - 153[0m
+[0mGET /api/audit-logs?limit=10&offset=0 [32m200[0m 11.696 ms - 3486[0m
+[0mGET /workflow-actions [32m200[0m 2.178 ms - 12201[0m
+[0mGET /assets/inter.css [32m200[0m 2.597 ms - 825[0m
+[0mGET /assets/fontawesome.all.min.css [32m200[0m 1.699 ms - 102010[0m
+[0mGET /css/style.css [32m200[0m 4.667 ms - 18110[0m
+[0mGET /js/base.js [32m200[0m 2.064 ms - 1870[0m
+[0mGET /assets/bootstrap.min.css [32m200[0m 3.072 ms - 232914[0m
+[0mGET /assets/bootstrap.bundle.min.js [32m200[0m 2.516 ms - 80421[0m
+[0mGET /js/help.js [32m200[0m 2.588 ms - 53880[0m
+[0mGET /js/app.js [32m200[0m 1.290 ms - 94678[0m
+[0mGET /assets/inter.css [32m200[0m 1.104 ms - 825[0m
+[0mGET /assets/fonts/inter-700.woff2 [32m200[0m 1.946 ms - 22936[0m
+[0mGET /assets/fonts/inter-500.woff2 [32m200[0m 2.111 ms - 22740[0m
+[0mGET /assets/fonts/inter-400.woff2 [32m200[0m 4.970 ms - 21624[0m
+[0mGET /assets/webfonts/fa-solid-900.woff2 [32m200[0m 4.516 ms - 150124[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 4.944 ms - 8849[0m
+[0mGET /assets/fonts/inter-600.woff2 [32m200[0m 5.087 ms - 22820[0m
+[0mGET /api/workflow-actions [32m200[0m 7.299 ms - 1188[0m
+[0mGET /medication-catalog [32m200[0m 2.596 ms - 12187[0m
+[0mGET /assets/bootstrap.min.css [32m200[0m 1.537 ms - 232914[0m
+[0mGET /assets/inter.css [32m200[0m 3.513 ms - 825[0m
+[0mGET /js/base.js [32m200[0m 2.223 ms - 1870[0m
+[0mGET /assets/bootstrap.bundle.min.js [32m200[0m 2.275 ms - 80421[0m
+[0mGET /js/app.js [32m200[0m 2.121 ms - 94678[0m
+[0mGET /assets/fontawesome.all.min.css [32m200[0m 4.322 ms - 102010[0m
+[0mGET /js/help.js [32m200[0m 0.752 ms - 53880[0m
+[0mGET /css/style.css [32m200[0m 6.703 ms - 18110[0m
+[0mGET /assets/inter.css [32m200[0m 0.975 ms - 825[0m
+[0mGET /assets/fonts/inter-400.woff2 [32m200[0m 1.887 ms - 21624[0m
+[0mGET /assets/fonts/inter-500.woff2 [32m200[0m 7.010 ms - 22740[0m
+[0mGET /assets/fonts/inter-700.woff2 [32m200[0m 8.478 ms - 22936[0m
+[0mGET /assets/webfonts/fa-solid-900.woff2 [32m200[0m 7.630 ms - 150124[0m
+[0mGET /api/medication-catalog [32m200[0m 4.978 ms - 1849[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 8.916 ms - 8849[0m
+[0mGET /assets/fonts/inter-600.woff2 [32m200[0m 1.067 ms - 22820[0m
+[0mGET /roles [32m200[0m 2.423 ms - 13164[0m
+[0mGET /assets/bootstrap.min.css [32m200[0m 1.244 ms - 232914[0m
+[0mGET /js/base.js [32m200[0m 2.405 ms - 1870[0m
+[0mGET /assets/fontawesome.all.min.css [32m200[0m 2.563 ms - 102010[0m
+[0mGET /assets/bootstrap.bundle.min.js [32m200[0m 2.361 ms - 80421[0m
+[0mGET /js/app.js [32m200[0m 2.486 ms - 94678[0m
+[0mGET /assets/inter.css [32m200[0m 9.484 ms - 825[0m
+[0mGET /css/style.css [32m200[0m 9.151 ms - 18110[0m
+[0mGET /js/roles.js [32m200[0m 2.691 ms - 21938[0m
+[0mGET /js/help.js [32m200[0m 5.066 ms - 53880[0m
+[0mGET /assets/inter.css [32m200[0m 1.665 ms - 825[0m
+[0mGET /assets/fonts/inter-500.woff2 [32m200[0m 1.176 ms - 22740[0m
+[0mGET /assets/fonts/inter-700.woff2 [32m200[0m 1.708 ms - 22936[0m
+[0mGET /assets/fonts/inter-400.woff2 [32m200[0m 1.929 ms - 21624[0m
+[0mGET /assets/fonts/inter-600.woff2 [32m200[0m 1.877 ms - 22820[0m
+[0mGET /assets/webfonts/fa-solid-900.woff2 [32m200[0m 2.281 ms - 150124[0m
+[0mGET /api/roles/permission-defaults [32m200[0m 1.689 ms - 7347[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 6.439 ms - 8849[0m
+[0mGET /api/roles [32m200[0m 8.950 ms - 13583[0m
+[0mGET /system-settings [32m200[0m 5.960 ms - 65813[0m
+[0mGET /assets/bootstrap.min.css [32m200[0m 1.337 ms - 232914[0m
+[0mGET /js/base.js [32m200[0m 1.539 ms - 1870[0m
+[0mGET /assets/bootstrap.bundle.min.js [32m200[0m 1.430 ms - 80421[0m
+[0mGET /js/app.js [32m200[0m 1.283 ms - 94678[0m
+[0mGET /css/style.css [32m200[0m 3.189 ms - 18110[0m
+[0mGET /assets/inter.css [32m200[0m 4.846 ms - 825[0m
+[0mGET /assets/fontawesome.all.min.css [32m200[0m 4.007 ms - 102010[0m
+[0mGET /js/help.js [32m200[0m 1.120 ms - 53880[0m
+[0mGET /js/system-settings.js [32m200[0m 0.840 ms - 23426[0m
+[0mGET /assets/inter.css [32m200[0m 1.092 ms - 825[0m
+[0mGET /assets/fonts/inter-700.woff2 [32m200[0m 4.067 ms - 22936[0m
+[0mGET /assets/fonts/inter-600.woff2 [32m200[0m 4.590 ms - 22820[0m
+[0mGET /assets/fonts/inter-500.woff2 [32m200[0m 7.520 ms - 22740[0m
+[0mGET /assets/fonts/inter-400.woff2 [32m200[0m 8.308 ms - 21624[0m
+[0mGET /assets/webfonts/fa-solid-900.woff2 [32m200[0m 6.147 ms - 150124[0m
+ValidationError: The Express 'trust proxy' setting is true, which allows anyone to trivially bypass IP-based rate limiting. See https://express-rate-limit.github.io/ERR_ERL_PERMISSIVE_TRUST_PROXY/ for more information.
+    at Object.trustProxy (E:\Documents\Daniely RX\node_modules\express-rate-limit\dist\index.cjs:363:13)
+    at wrappedValidations.<computed> [as trustProxy] (E:\Documents\Daniely RX\node_modules\express-rate-limit\dist\index.cjs:704:22)
+    at Object.keyGenerator (E:\Documents\Daniely RX\node_modules\express-rate-limit\dist\index.cjs:810:20)
+    at E:\Documents\Daniely RX\node_modules\express-rate-limit\dist\index.cjs:893:32
+    at async E:\Documents\Daniely RX\node_modules\express-rate-limit\dist\index.cjs:854:5 {
+  code: 'ERR_ERL_PERMISSIVE_TRUST_PROXY',
+  help: 'https://express-rate-limit.github.io/ERR_ERL_PERMISSIVE_TRUST_PROXY/'
+}
+[0mGET /api/settings [32m200[0m 6.281 ms - 201[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 16.238 ms - 8849[0m
+[0mGET /backups [32m200[0m 4.294 ms - 49709[0m
+[0mGET /css/style.css [32m200[0m 3.462 ms - 18110[0m
+[0mGET /assets/bootstrap.min.css [32m200[0m 2.087 ms - 232914[0m
+[0mGET /assets/fontawesome.all.min.css [32m200[0m 5.099 ms - 102010[0m
+[0mGET /assets/inter.css [32m200[0m 6.532 ms - 825[0m
+[0mGET /js/base.js [32m200[0m 1.414 ms - 1870[0m
+[0mGET /assets/bootstrap.bundle.min.js [32m200[0m 1.329 ms - 80421[0m
+[0mGET /js/help.js [32m200[0m 1.518 ms - 53880[0m
+[0mGET /js/app.js [32m200[0m 1.614 ms - 94678[0m
+[0mGET /api/backups/status [32m200[0m 6.404 ms - 1174[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 10.443 ms - 8849[0m
+[0mGET /assets/webfonts/fa-solid-900.woff2 [32m200[0m 9.096 ms - 150124[0m
+[0mGET /assets/fonts/inter-700.woff2 [32m200[0m 1.701 ms - 22936[0m
+[0mGET /assets/fonts/inter-400.woff2 [32m200[0m 1.584 ms - 21624[0m
+[0mGET /assets/fonts/inter-600.woff2 [32m200[0m 1.509 ms - 22820[0m
+[0mGET /assets/fonts/inter-500.woff2 [32m200[0m 2.387 ms - 22740[0m
+[0mGET /api/backups/site/status [32m200[0m 2.195 ms - 2181[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 6.434 ms - 8849[0m
+[0mGET /import [32m200[0m 4.695 ms - 15478[0m
+[0mGET /assets/inter.css [32m200[0m 2.400 ms - 825[0m
+[0mGET /css/style.css [32m200[0m 2.476 ms - 18110[0m
+[0mGET /js/base.js [32m200[0m 1.448 ms - 1870[0m
+[0mGET /assets/fontawesome.all.min.css [32m200[0m 2.605 ms - 102010[0m
+[0mGET /assets/bootstrap.bundle.min.js [32m200[0m 1.858 ms - 80421[0m
+[0mGET /assets/bootstrap.min.css [32m200[0m 2.442 ms - 232914[0m
+[0mGET /js/app.js [32m200[0m 0.553 ms - 94678[0m
+[0mGET /js/help.js [32m200[0m 1.420 ms - 53880[0m
+[0mGET /js/import.js [32m200[0m 1.759 ms - 22318[0m
+[0mGET /assets/inter.css [32m200[0m 1.015 ms - 825[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 4.281 ms - 8849[0m
+[0mGET /assets/fonts/inter-700.woff2 [32m200[0m 1.223 ms - 22936[0m
+[0mGET /assets/fonts/inter-400.woff2 [32m200[0m 1.450 ms - 21624[0m
+[0mGET /assets/fonts/inter-600.woff2 [32m200[0m 1.484 ms - 22820[0m
+[0mGET /assets/fonts/inter-500.woff2 [32m200[0m 1.649 ms - 22740[0m
+[0mGET /assets/webfonts/fa-solid-900.woff2 [32m200[0m 2.019 ms - 150124[0m
+[0mGET /patients [32m200[0m 4.035 ms - 31267[0m
+[0mGET /assets/bootstrap.min.css [32m200[0m 1.394 ms - 232914[0m
+[0mGET /js/base.js [32m200[0m 2.156 ms - 1870[0m
+[0mGET /assets/fontawesome.all.min.css [32m200[0m 0.976 ms - 102010[0m
+[0mGET /assets/inter.css [32m200[0m 2.727 ms - 825[0m
+[0mGET /css/style.css [32m200[0m 1.440 ms - 18110[0m
+[0mGET /js/help.js [32m200[0m 0.807 ms - 53880[0m
+[0mGET /js/app.js [32m200[0m 1.599 ms - 94678[0m
+[0mGET /assets/bootstrap.bundle.min.js [32m200[0m 1.707 ms - 80421[0m
+[0mGET /js/patients.js [32m200[0m 9.698 ms - 83035[0m
+[0mGET /assets/inter.css [32m200[0m 1.659 ms - 825[0m
+[0mGET /assets/fonts/inter-400.woff2 [32m200[0m 1.002 ms - 21624[0m
+[0mGET /assets/webfonts/fa-solid-900.woff2 [32m200[0m 1.008 ms - 150124[0m
+[0mGET /assets/fonts/inter-700.woff2 [32m200[0m 1.456 ms - 22936[0m
+[0mGET /assets/fonts/inter-500.woff2 [32m200[0m 4.086 ms - 22740[0m
+[0mGET /api/pharmacies [32m200[0m 212.559 ms - 1487[0m
+[0mGET /api/pharmacy-transport [32m200[0m 205.891 ms - 204[0m
+[0mGET /api/clinics [32m200[0m 201.288 ms - 1243[0m
+[0mGET /api/patient-transport [32m200[0m 169.674 ms - 1330[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 202.689 ms - 8849[0m
+[0mGET /assets/fonts/inter-600.woff2 [32m200[0m 1.567 ms - 22820[0m
+[0mGET /api/patients [32m200[0m 179.377 ms - 1328802[0m
+[0mGET /rx-records [32m200[0m 8.730 ms - 133291[0m
+[0mGET /assets/bootstrap.min.css [32m200[0m 2.341 ms - 232914[0m
+[0mGET /css/style.css [32m200[0m 1.826 ms - 18110[0m
+[0mGET /assets/fontawesome.all.min.css [32m200[0m 2.638 ms - 102010[0m
+[0mGET /assets/bootstrap.bundle.min.js [32m200[0m 0.637 ms - 80421[0m
+[0mGET /assets/inter.css [32m200[0m 1.878 ms - 825[0m
+[0mGET /js/base.js [32m200[0m 0.771 ms - 1870[0m
+[0mGET /js/help.js [32m200[0m 2.229 ms - 53880[0m
+[0mGET /js/app.js [32m200[0m 0.915 ms - 94678[0m
+[0mGET /assets/inter.css [32m200[0m 0.967 ms - 825[0m
+[0mGET /assets/fonts/inter-700.woff2 [32m200[0m 2.220 ms - 22936[0m
+[0mGET /assets/webfonts/fa-solid-900.woff2 [32m200[0m 1.515 ms - 150124[0m
+[0mGET /assets/fonts/inter-600.woff2 [32m200[0m 3.598 ms - 22820[0m
+[0mGET /assets/fonts/inter-400.woff2 [32m200[0m 1.764 ms - 21624[0m
+[0mGET /assets/fonts/inter-500.woff2 [32m200[0m 4.662 ms - 22740[0m
+[0mGET /api/patients [32m200[0m 279.857 ms - 1328802[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 284.796 ms - 8849[0m
+[0mGET /api/pharmacies [32m200[0m 4.399 ms - 1487[0m
+[0mGET /api/patient-transport [32m200[0m 3.725 ms - 1330[0m
+[0mGET /api/pharmacy-transport [32m200[0m 3.101 ms - 204[0m
+[0mGET /api/workflow-actions [32m200[0m 3.813 ms - 1188[0m
+[0mGET /api/medication-catalog?activeOnly=true [32m200[0m 4.234 ms - 1849[0m
+[0mGET /api/rx-records [32m200[0m 16.327 ms - 2225[0m
+[0mGET /patients [32m200[0m 2.885 ms - 31267[0m
+[0mGET /assets/bootstrap.min.css [32m200[0m 1.219 ms - 232914[0m
+[0mGET /assets/fontawesome.all.min.css [32m200[0m 1.607 ms - 102010[0m
+[0mGET /css/style.css [32m200[0m 2.704 ms - 18110[0m
+[0mGET /assets/inter.css [32m200[0m 1.034 ms - 825[0m
+[0mGET /js/base.js [32m200[0m 1.519 ms - 1870[0m
+[0mGET /assets/bootstrap.bundle.min.js [32m200[0m 1.960 ms - 80421[0m
+[0mGET /js/help.js [32m200[0m 1.174 ms - 53880[0m
+[0mGET /js/app.js [32m200[0m 1.323 ms - 94678[0m
+[0mGET /js/patients.js [32m200[0m 5.364 ms - 83035[0m
+[0mGET /assets/inter.css [32m200[0m 1.151 ms - 825[0m
+[0mGET /assets/fonts/inter-500.woff2 [32m200[0m 0.938 ms - 22740[0m
+[0mGET /assets/fonts/inter-700.woff2 [32m200[0m 0.801 ms - 22936[0m
+[0mGET /assets/webfonts/fa-solid-900.woff2 [32m200[0m 0.855 ms - 150124[0m
+[0mGET /assets/fonts/inter-400.woff2 [32m200[0m 1.787 ms - 21624[0m
+[0mGET /assets/fonts/inter-600.woff2 [32m200[0m 1.465 ms - 22820[0m
+[0mGET /api/clinics [32m200[0m 109.694 ms - 1243[0m
+[0mGET /api/pharmacies [32m200[0m 111.116 ms - 1487[0m
+[0mGET /api/patient-transport [32m200[0m 105.285 ms - 1330[0m
+[0mGET /api/pharmacy-transport [32m200[0m 103.066 ms - 204[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 121.024 ms - 8849[0m
+[0mGET /api/patients [32m200[0m 151.356 ms - 1328802[0m
+[0mGET /rx-records?patient=4136&name=CARIDAD%20MART%C3%8DNEZ%20CU%C3%89LLAR [32m200[0m 5.870 ms - 133291[0m
+[0mGET /assets/bootstrap.min.css [32m200[0m 1.503 ms - 232914[0m
+[0mGET /assets/inter.css [32m200[0m 1.113 ms - 825[0m
+[0mGET /js/base.js [32m200[0m 0.815 ms - 1870[0m
+[0mGET /css/style.css [32m200[0m 1.215 ms - 18110[0m
+[0mGET /assets/fontawesome.all.min.css [32m200[0m 1.026 ms - 102010[0m
+[0mGET /js/app.js [32m200[0m 3.080 ms - 94678[0m
+[0mGET /js/help.js [32m200[0m 0.776 ms - 53880[0m
+[0mGET /assets/bootstrap.bundle.min.js [32m200[0m 0.732 ms - 80421[0m
+[0mGET /assets/inter.css [32m200[0m 1.207 ms - 825[0m
+[0mGET /assets/fonts/inter-700.woff2 [32m200[0m 3.699 ms - 22936[0m
+[0mGET /assets/fonts/inter-400.woff2 [32m200[0m 3.203 ms - 21624[0m
+[0mGET /assets/fonts/inter-500.woff2 [32m200[0m 3.198 ms - 22740[0m
+[0mGET /assets/webfonts/fa-solid-900.woff2 [32m200[0m 3.322 ms - 150124[0m
+[0mGET /assets/fonts/inter-600.woff2 [32m200[0m 1.317 ms - 22820[0m
+[0mGET /api/patients [32m200[0m 296.200 ms - 1328802[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 270.220 ms - 8849[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 299.541 ms - 8849[0m
+[0mGET /api/pharmacies [32m200[0m 6.677 ms - 1487[0m
+[0mGET /api/patient-transport [32m200[0m 4.638 ms - 1330[0m
+[0mGET /api/pharmacy-transport [32m200[0m 2.534 ms - 204[0m
+[0mGET /api/workflow-actions [32m200[0m 3.108 ms - 1188[0m
+[0mGET /api/medication-catalog?activeOnly=true [32m200[0m 3.174 ms - 1849[0m
+[0mGET /api/rx-records [32m200[0m 10.579 ms - 2225[0m
+[0mGET /api/rx-records/13 [32m200[0m 4.654 ms - 1753[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 7.250 ms - 8849[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 51.711 ms - 8849[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 3.851 ms - 8849[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 94.852 ms - 8849[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 59.931 ms - 8849[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 3.729 ms - 8849[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 60.787 ms - 8849[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 56.874 ms - 8849[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 5.328 ms - 8849[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 119.651 ms - 8849[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 67.137 ms - 8849[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 4.331 ms - 8849[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 156.002 ms - 8849[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 71.326 ms - 8849[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 6.466 ms - 8849[0m
+[0mGET /roles [32m200[0m 7.350 ms - 13164[0m
+[0mGET /assets/bootstrap.min.css [32m200[0m 2.088 ms - 232914[0m
+[0mGET /js/base.js [32m200[0m 1.470 ms - 1870[0m
+[0mGET /assets/fontawesome.all.min.css [32m200[0m 10.657 ms - 102010[0m
+[0mGET /assets/bootstrap.bundle.min.js [32m200[0m 1.688 ms - 80421[0m
+[0mGET /assets/inter.css [32m200[0m 12.817 ms - 825[0m
+[0mGET /css/style.css [32m200[0m 3.719 ms - 18110[0m
+[0mGET /js/app.js [32m200[0m 1.759 ms - 94678[0m
+[0mGET /js/help.js [32m200[0m 1.387 ms - 53880[0m
+[0mGET /js/roles.js [32m200[0m 1.377 ms - 21938[0m
+[0mGET /assets/inter.css [32m200[0m 6.991 ms - 825[0m
+[0mGET /assets/fonts/inter-500.woff2 [32m200[0m 3.573 ms - 22740[0m
+[0mGET /assets/fonts/inter-400.woff2 [32m200[0m 8.518 ms - 21624[0m
+[0mGET /assets/fonts/inter-600.woff2 [32m200[0m 9.655 ms - 22820[0m
+[0mGET /assets/webfonts/fa-solid-900.woff2 [32m200[0m 3.868 ms - 150124[0m
+[0mGET /assets/fonts/inter-700.woff2 [32m200[0m 12.153 ms - 22936[0m
+[0mGET /api/roles/permission-defaults [32m200[0m 1.102 ms - 7347[0m
+[0mGET /api/roles [32m200[0m 10.405 ms - 13583[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 21.969 ms - 8849[0m
+[0mGET /users [32m200[0m 2.271 ms - 12176[0m
+[0mGET /assets/bootstrap.min.css [32m200[0m 13.285 ms - 232914[0m
+[0mGET /assets/inter.css [32m200[0m 6.022 ms - 825[0m
+[0mGET /assets/fontawesome.all.min.css [32m200[0m 1.508 ms - 102010[0m
+[0mGET /css/style.css [32m200[0m 2.175 ms - 18110[0m
+[0mGET /assets/bootstrap.bundle.min.js [32m200[0m 1.708 ms - 80421[0m
+[0mGET /js/base.js [32m200[0m 1.603 ms - 1870[0m
+[0mGET /js/app.js [32m200[0m 1.536 ms - 94678[0m
+[0mGET /js/help.js [32m200[0m 0.766 ms - 53880[0m
+[0mGET /assets/inter.css [32m200[0m 1.194 ms - 825[0m
+[0mGET /api/roles [32m200[0m 11.590 ms - 13583[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 13.967 ms - 8849[0m
+[0mGET /assets/fonts/inter-400.woff2 [32m200[0m 2.450 ms - 21624[0m
+[0mGET /assets/fonts/inter-700.woff2 [32m200[0m 3.310 ms - 22936[0m
+[0mGET /assets/fonts/inter-500.woff2 [32m200[0m 3.222 ms - 22740[0m
+[0mGET /assets/fonts/inter-600.woff2 [32m200[0m 3.068 ms - 22820[0m
+[0mGET /assets/webfonts/fa-solid-900.woff2 [32m200[0m 3.063 ms - 150124[0m
+[0mGET /api/users [32m200[0m 11.484 ms - 26427[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 157.494 ms - 8849[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 53.886 ms - 8849[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 3.835 ms - 8849[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 52.020 ms - 8849[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 95.628 ms - 8849[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 69.483 ms - 8849[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 21.677 ms - 8849[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 49.953 ms - 8849[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 144.495 ms - 8849[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 49.537 ms - 8849[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 69.342 ms - 8849[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 13.099 ms - 8849[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 50.709 ms - 8849[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 52.260 ms - 8849[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 25.448 ms - 8849[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 69.233 ms - 8849[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 56.805 ms - 8849[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 21.128 ms - 8849[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 64.404 ms - 8849[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 14.981 ms - 8849[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 3.878 ms - 8849[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 100.249 ms - 8849[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 4.337 ms - 8849[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 56.821 ms - 8849[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 25.692 ms - 8849[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 4.377 ms - 8849[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 53.218 ms - 8849[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 22.013 ms - 8849[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 4.654 ms - 8849[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 48.509 ms - 8849[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 47.105 ms - 8849[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 3.173 ms - 8849[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 55.405 ms - 8849[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 26.298 ms - 8849[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 4.369 ms - 8849[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 97.199 ms - 8849[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 3.677 ms - 8849[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 53.351 ms - 8849[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 18.715 ms - 8849[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 4.301 ms - 8849[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 52.929 ms - 8849[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 23.941 ms - 8849[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 3.705 ms - 8849[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 59.919 ms - 8849[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 27.629 ms - 8849[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 4.313 ms - 8849[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 67.184 ms - 8849[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 3.358 ms - 8849[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 3.354 ms - 8849[0m
+[0mPOST /api/auth/logout [32m200[0m 55.340 ms - 25[0m
+[0mGET /login?reason=timeout [32m200[0m 3.354 ms - 15158[0m
+[0mGET /assets/inter.css [32m200[0m 2.592 ms - 825[0m
+[0mGET /assets/fontawesome.all.min.css [32m200[0m 3.424 ms - 102010[0m
+[0mGET /assets/bootstrap.min.css [32m200[0m 2.411 ms - 232914[0m
+[0mGET /css/style.css [32m200[0m 1.524 ms - 18110[0m
+[0mGET /js/base.js [32m200[0m 0.520 ms - 1870[0m
+[0mGET /assets/inter.css [32m200[0m 0.796 ms - 825[0m
+[0mGET /assets/fonts/inter-700.woff2 [32m200[0m 2.063 ms - 22936[0m
+[0mGET /assets/webfonts/fa-solid-900.woff2 [32m200[0m 2.038 ms - 150124[0m
+[0mGET /assets/fonts/inter-400.woff2 [32m200[0m 3.167 ms - 21624[0m
+[0mGET /assets/fonts/inter-600.woff2 [32m200[0m 1.606 ms - 22820[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 92.693 ms - 8807[0m
+[0mGET /api/audit-logs?limit=20&page=1 [32m200[0m 154.965 ms - 8807[0m
+◇ injected env (2) from .env // tip: ⌘ multiple files { path: ['.env.local', '.env'] }
+◇ injected env (0) from .env // tip: ◈ encrypted .env [www.dotenvx.com]
+[Backup] Scheduler started with expression: 0 2 * * *
+[SiteBackup] Weekly scheduler started: 0 3 * * 0
+Startup migration warning (non-fatal): password authentication failed for user "postgres"
+Startup migration warning (RXRecords warehouse, non-fatal): password authentication failed for user "postgres"
+Startup migration warning (AuditLogs.previousValue, non-fatal): password authentication failed for user "postgres"
+Startup migration warning (Users.notes, non-fatal): password authentication failed for user "postgres"
+Startup migration warning (MedicationCatalogs.sortOrder, non-fatal): password authentication failed for user "postgres"
+Startup migration warning (Patients.patientCode unique, non-fatal): password authentication failed for user "postgres"
+Startup migration warning (Users 2FA columns, non-fatal): password authentication failed for user "postgres"
+Startup migration warning (Roles custom columns, non-fatal): password authentication failed for user "postgres"
+[CRASH PREVENTED] Unhandled Promise Rejection: ConnectionError [SequelizeConnectionError]: password authentication failed for user "postgres"
+    at Client._connectionCallback (E:\Documents\Daniely RX\node_modules\sequelize\lib\dialects\postgres\connection-manager.js:145:24)
+    at Client._handleErrorWhileConnecting (E:\Documents\Daniely RX\node_modules\pg\lib\client.js:403:19)
+    at Client._handleErrorMessage (E:\Documents\Daniely RX\node_modules\pg\lib\client.js:423:19)
+    at Connection.emit (node:events:508:28)
+    at E:\Documents\Daniely RX\node_modules\pg\lib\connection.js:136:12
+    at Parser.parse (E:\Documents\Daniely RX\node_modules\pg-protocol\dist\parser.js:38:17)
+    at Socket.<anonymous> (E:\Documents\Daniely RX\node_modules\pg-protocol\dist\index.js:12:42)
+    at Socket.emit (node:events:508:28)
+    at addChunk (node:internal/streams/readable:563:12)
+    at readableAddChunkPushByteMode (node:internal/streams/readable:514:3) {
+  parent: error: password authentication failed for user "postgres"
+      at parseErrorMessage (E:\Documents\Daniely RX\node_modules\pg-protocol\dist\parser.js:305:11)
+      at Parser.handlePacket (E:\Documents\Daniely RX\node_modules\pg-protocol\dist\parser.js:143:27)
+      at Parser.parse (E:\Documents\Daniely RX\node_modules\pg-protocol\dist\parser.js:37:38)
+      at Socket.<anonymous> (E:\Documents\Daniely RX\node_modules\pg-protocol\dist\index.js:12:42)
+      at Socket.emit (node:events:508:28)
+      at addChunk (node:internal/streams/readable:563:12)
+      at readableAddChunkPushByteMode (node:internal/streams/readable:514:3)
+      at Readable.push (node:internal/streams/readable:394:5)
+      at TCP.onStreamRead (node:internal/stream_base_commons:189:23) {
+    length: 104,
+    severity: 'FATAL',
+    code: '28P01',
+    detail: undefined,
+    hint: undefined,
+    position: undefined,
+    internalPosition: undefined,
+    internalQuery: undefined,
+    where: undefined,
+    schema: undefined,
+    table: undefined,
+    column: undefined,
+    dataType: undefined,
+    constraint: undefined,
+    file: 'auth.c',
+    line: '332',
+    routine: 'auth_failed'
+  },
+  original: error: password authentication failed for user "postgres"
+      at parseErrorMessage (E:\Documents\Daniely RX\node_modules\pg-protocol\dist\parser.js:305:11)
+      at Parser.handlePacket (E:\Documents\Daniely RX\node_modules\pg-protocol\dist\parser.js:143:27)
+      at Parser.parse (E:\Documents\Daniely RX\node_modules\pg-protocol\dist\parser.js:37:38)
+      at Socket.<anonymous> (E:\Documents\Daniely RX\node_modules\pg-protocol\dist\index.js:12:42)
+      at Socket.emit (node:events:508:28)
+      at addChunk (node:internal/streams/readable:563:12)
+      at readableAddChunkPushByteMode (node:internal/streams/readable:514:3)
+      at Readable.push (node:internal/streams/readable:394:5)
+      at TCP.onStreamRead (node:internal/stream_base_commons:189:23) {
+    length: 104,
+    severity: 'FATAL',
+    code: '28P01',
+    detail: undefined,
+    hint: undefined,
+    position: undefined,
+    internalPosition: undefined,
+    internalQuery: undefined,
+    where: undefined,
+    schema: undefined,
+    table: undefined,
+    column: undefined,
+    dataType: undefined,
+    constraint: undefined,
+    file: 'auth.c',
+    line: '332',
+    routine: 'auth_failed'
+  }
+}
+◇ injected env (2) from .env // tip: ⌘ suppress logs { quiet: true }
+◇ injected env (0) from .env // tip: ⌘ custom filepath { path: '/custom/path/.env' }
+[Backup] Scheduler started with expression: 0 2 * * *
+[SiteBackup] Weekly scheduler started: 0 3 * * 0
+Startup migration warning (non-fatal): password authentication failed for user "postgres"
+Startup migration warning (RXRecords warehouse, non-fatal): password authentication failed for user "postgres"
+Startup migration warning (AuditLogs.previousValue, non-fatal): password authentication failed for user "postgres"
+Startup migration warning (Users.notes, non-fatal): password authentication failed for user "postgres"
+Startup migration warning (MedicationCatalogs.sortOrder, non-fatal): password authentication failed for user "postgres"
+Startup migration warning (Patients.patientCode unique, non-fatal): password authentication failed for user "postgres"
+Startup migration warning (Users 2FA columns, non-fatal): password authentication failed for user "postgres"
+Startup migration warning (Roles custom columns, non-fatal): password authentication failed for user "postgres"
+[CRASH PREVENTED] Unhandled Promise Rejection: ConnectionError [SequelizeConnectionError]: password authentication failed for user "postgres"
+    at Client._connectionCallback (E:\Documents\Daniely RX\node_modules\sequelize\lib\dialects\postgres\connection-manager.js:145:24)
+    at Client._handleErrorWhileConnecting (E:\Documents\Daniely RX\node_modules\pg\lib\client.js:403:19)
+    at Client._handleErrorMessage (E:\Documents\Daniely RX\node_modules\pg\lib\client.js:423:19)
+    at Connection.emit (node:events:508:28)
+    at E:\Documents\Daniely RX\node_modules\pg\lib\connection.js:136:12
+    at Parser.parse (E:\Documents\Daniely RX\node_modules\pg-protocol\dist\parser.js:38:17)
+    at Socket.<anonymous> (E:\Documents\Daniely RX\node_modules\pg-protocol\dist\index.js:12:42)
+    at Socket.emit (node:events:508:28)
+    at addChunk (node:internal/streams/readable:563:12)
+    at readableAddChunkPushByteMode (node:internal/streams/readable:514:3) {
+  parent: error: password authentication failed for user "postgres"
+      at parseErrorMessage (E:\Documents\Daniely RX\node_modules\pg-protocol\dist\parser.js:305:11)
+      at Parser.handlePacket (E:\Documents\Daniely RX\node_modules\pg-protocol\dist\parser.js:143:27)
+      at Parser.parse (E:\Documents\Daniely RX\node_modules\pg-protocol\dist\parser.js:37:38)
+      at Socket.<anonymous> (E:\Documents\Daniely RX\node_modules\pg-protocol\dist\index.js:12:42)
+      at Socket.emit (node:events:508:28)
+      at addChunk (node:internal/streams/readable:563:12)
+      at readableAddChunkPushByteMode (node:internal/streams/readable:514:3)
+      at Readable.push (node:internal/streams/readable:394:5)
+      at TCP.onStreamRead (node:internal/stream_base_commons:189:23) {
+    length: 104,
+    severity: 'FATAL',
+    code: '28P01',
+    detail: undefined,
+    hint: undefined,
+    position: undefined,
+    internalPosition: undefined,
+    internalQuery: undefined,
+    where: undefined,
+    schema: undefined,
+    table: undefined,
+    column: undefined,
+    dataType: undefined,
+    constraint: undefined,
+    file: 'auth.c',
+    line: '332',
+    routine: 'auth_failed'
+  },
+  original: error: password authentication failed for user "postgres"
+      at parseErrorMessage (E:\Documents\Daniely RX\node_modules\pg-protocol\dist\parser.js:305:11)
+      at Parser.handlePacket (E:\Documents\Daniely RX\node_modules\pg-protocol\dist\parser.js:143:27)
+      at Parser.parse (E:\Documents\Daniely RX\node_modules\pg-protocol\dist\parser.js:37:38)
+      at Socket.<anonymous> (E:\Documents\Daniely RX\node_modules\pg-protocol\dist\index.js:12:42)
+      at Socket.emit (node:events:508:28)
+      at addChunk (node:internal/streams/readable:563:12)
+      at readableAddChunkPushByteMode (node:internal/streams/readable:514:3)
+      at Readable.push (node:internal/streams/readable:394:5)
+      at TCP.onStreamRead (node:internal/stream_base_commons:189:23) {
+    length: 104,
+    severity: 'FATAL',
+    code: '28P01',
+    detail: undefined,
+    hint: undefined,
+    position: undefined,
+    internalPosition: undefined,
+    internalQuery: undefined,
+    where: undefined,
+    schema: undefined,
+    table: undefined,
+    column: undefined,
+    dataType: undefined,
+    constraint: undefined,
+    file: 'auth.c',
+    line: '332',
+    routine: 'auth_failed'
+  }
+}

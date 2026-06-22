@@ -45,3 +45,34 @@
         window.location.href = base + path;
     };
 })();
+
+// ─── Security Utilities (globally available) ─────────────────────────────────
+
+/**
+ * escHtml — sanitize a string before inserting into innerHTML.
+ * Converts <, >, &, " to safe HTML entities so user-supplied content
+ * cannot execute as HTML/JS (prevents XSS via audit log, names, etc.)
+ * Usage: element.innerHTML = escHtml(untrustedString);
+ */
+function escHtml(s) {
+    return String(s == null ? '' : s)
+        .replace(/&/g,  '&amp;')
+        .replace(/</g,  '&lt;')
+        .replace(/>/g,  '&gt;')
+        .replace(/"/g,  '&quot;')
+        .replace(/'/g,  '&#x27;');
+}
+
+/**
+ * sanitizeCsvCell — prevent CSV/spreadsheet formula injection.
+ * If a cell value starts with =, +, -, @, tab, or carriage return,
+ * Excel/LibreOffice would execute it as a formula. Prefix with ' to neutralize.
+ * Usage: replace all cell values with sanitizeCsvCell(value) before building CSV.
+ */
+function sanitizeCsvCell(val) {
+    var s = String(val == null ? '' : val);
+    if (s.length > 0 && ['=', '+', '-', '@', '\t', '\r'].indexOf(s[0]) !== -1) {
+        s = "'" + s;
+    }
+    return '"' + s.replace(/"/g, '""') + '"';
+}

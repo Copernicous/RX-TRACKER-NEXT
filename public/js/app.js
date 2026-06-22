@@ -406,9 +406,7 @@ function setupLogout() {
         } catch(e) { /* non-fatal */ }
         localStorage.removeItem('token');
         localStorage.removeItem('user');
-        // Clear the server-side session cookie using the same attributes as it was set with.
-        const secure = window.location.protocol === 'https:' ? '; Secure' : '';
-        document.cookie = 'rxToken=; path=/; max-age=0; SameSite=None' + secure;
+        // Server's /api/auth/logout calls res.clearCookie('rxToken') — no need to touch document.cookie
         window.rxNav('/login');
     });
 }

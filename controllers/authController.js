@@ -110,7 +110,7 @@ async function issueFullToken(user, req, res) {
 
     // Set rxToken cookie so it passes through FortiGate SSL portal (which may strip Authorization headers) and can still be used across a proxy boundary.
     const cookieOptions = {
-        httpOnly: false,   // must be false so client-side logout can clear it
+        httpOnly: true,    // 🔒 JS cannot read rxToken — prevents XSS token theft
         path: '/',
         maxAge: 8 * 60 * 60 * 1000  // 8 hours, matches JWT expiry
     };
