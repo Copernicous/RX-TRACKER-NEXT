@@ -168,6 +168,134 @@ exports.updateWorkflow = async (req, res) => {
     } catch (err) { res.status(400).json({ error: err.message }); }
 };
 
+// POST /api/rx-records/bulk-workflow  (FEAT-10)
+// Body: { rxIds: [1,2,3], actionId: 5 }
+// Processes each record independently — partial success allowed.
+exports.bulkWorkflow = async (req, res) => {
+    try {
+        const { rxIds, actionId } = req.body;
+
+        if (!Array.isArray(rxIds) || rxIds.length === 0) {
+            return res.status(400).json({ error: 'rxIds must be a non-empty array.' });
+        }
+        if (!actionId) {
+            return res.status(400).json({ error: 'actionId is required.' });
+        }
+        // Cap at 200 records per batch to prevent abuse
+        if (rxIds.length > 200) {
+            return res.status(400).json({ error: 'Maximum 200 records per bulk operation.' });
+        }
+
+        const action = await db.WorkflowAction.findByPk(actionId);
+        if (!action) return res.status(404).json({ error: 'Workflow action not found.' });
+
+        // Pre-fetch previous step (needed for sequence guard)
+        let prevAction = null;
+        if (action.sequenceNumber > 1) {
+            prevAction = await db.WorkflowAction.findOne({
+                where: { sequenceNumber: action.sequenceNumber - 1 }
+            });
+        }
+
+        var results = [];
+        var succeeded = 0;
+        var failed = 0;
+
+        for (var i = 0; i < rxIds.length; i++) {
+            var rxId = parseInt(rxIds[i], 10);
+            if (isNaN(rxId)) {
+                results.push({ rxId: rxIds[i], ok: false, error: 'Invalid ID.' });
+                failed++;
+                continue;
+            }
+
+            try {
+                var rx = await db.RXRecord.findByPk(rxId);
+                if (!rx) {
+                    results.push({ rxId: rxId, ok: false, error: 'Record not found.' });
+                    failed++;
+                    continue;
+                }
+                if (rx.isDeleted) {
+                    results.push({ rxId: rxId, ok: false, error: 'Record is hidden.' });
+                    failed++;
+                    continue;
+                }
+
+                // Sequence guard — same logic as updateWorkflow
+                if (prevAction) {
+                    var prevCompleted = await db.RXWorkflowTracking.findOne({
+                        where: { rxRecordId: rxId, workflowActionId: prevAction.id }
+                    });
+                    if (!prevCompleted) {
+                        results.push({
+                            rxId: rxId,
+                            ok: false,
+                            error: 'Step \'' + prevAction.name + '\' not yet completed.'
+                        });
+                        failed++;
+                        continue;
+                    }
+                }
+
+                // Skip if already completed (idempotent)
+                var alreadyDone = await db.RXWorkflowTracking.findOne({
+                    where: { rxRecordId: rxId, workflowActionId: actionId }
+                });
+                if (alreadyDone) {
+                    results.push({ rxId: rxId, ok: true, skipped: true, note: 'Already completed.' });
+                    succeeded++;
+                    continue;
+                }
+
+                await db.RXWorkflowTracking.create({
+                    rxRecordId:      rxId,
+                    workflowActionId: actionId,
+                    completionDate:  new Date(),
+                    userId:          req.user.id
+                });
+
+                // Clear warehouse flag if applicable
+                if (rx.returnedToWarehouse && action.sequenceNumber > 1) {
+                    await rx.update({
+                        returnedToWarehouse: false,
+                        warehouseReturnDate: null,
+                        warehouseReturnNote: null
+                    });
+                }
+
+                await saveHistory(rxId, req.user.id, 'Workflow', rx.toJSON(), null,
+                    'Bulk step completed: ' + action.name);
+
+                var patientLabel = '';
+                try {
+                    var fullRx = await db.RXRecord.findByPk(rxId, { include: [db.Patient] });
+                    if (fullRx && fullRx.Patient) {
+                        patientLabel = fullRx.Patient.firstName + ' ' + fullRx.Patient.lastName;
+                    }
+                } catch(e) { /* non-critical */ }
+
+                results.push({ rxId: rxId, ok: true, patientName: patientLabel });
+                succeeded++;
+
+            } catch (rowErr) {
+                results.push({ rxId: rxId, ok: false, error: rowErr.message || 'Unknown error.' });
+                failed++;
+            }
+        }
+
+        res.json({
+            results:   results,
+            succeeded: succeeded,
+            failed:    failed,
+            action:    { id: action.id, name: action.name }
+        });
+
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+};
+
 // POST /api/rx-records/undo-workflow
 exports.undoWorkflow = async (req, res) => {
     try {

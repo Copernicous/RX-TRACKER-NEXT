@@ -93,11 +93,11 @@
                             <input type="text" class="form-control form-control-sm" id="rxFilterPatientCode" placeholder="e.g. PAT-00001">
                         </div>
                         <div class="col-md-2">
-                            <label class="form-label small fw-bold"><i class="fas fa-calendar me-1"></i>Arrival From</label>
+                            <label class="form-label small fw-bold"><i class="fas fa-calendar-check me-1"></i>Service Date From</label>
                             <input type="date" class="form-control form-control-sm" id="rxFilterDateFrom">
                         </div>
                         <div class="col-md-2">
-                            <label class="form-label small fw-bold"><i class="fas fa-calendar me-1"></i>Arrival To</label>
+                            <label class="form-label small fw-bold"><i class="fas fa-calendar-check me-1"></i>Service Date To</label>
                             <input type="date" class="form-control form-control-sm" id="rxFilterDateTo">
                         </div>
                         <div class="col-md-2">
@@ -144,12 +144,15 @@
                 </div>
 
                 <div class="table-responsive">
-                    <table class="table table-hover align-middle">
+                    <table class="table table-hover align-middle" id="rxTable">
                         <thead>
                             <tr>
+                                <!-- F10-02: Select-all checkbox -->
+                                <th style="width:36px">
+                                    <input type="checkbox" id="rxSelectAll" title="Select all on this page" style="cursor:pointer">
+                                </th>
                                 <th style="cursor:pointer" onclick="sortRx('id')">RX # <i class="fas fa-sort text-muted" style="opacity:0.3" id="srIcon_id"></i></th>
                                 <th style="cursor:pointer" onclick="sortRx('Patient.firstName')">Patient <i class="fas fa-sort text-muted" style="opacity:0.3" id="srIcon_Patient.firstName"></i></th>
-                                <th style="cursor:pointer" onclick="sortRx('arrivalDate')">Arrival Date <i class="fas fa-sort text-muted" style="opacity:0.3" id="srIcon_arrivalDate"></i></th>
                                 <th style="cursor:pointer" onclick="sortRx('serviceDate')">Service Date <i class="fas fa-sort text-muted" style="opacity:0.3" id="srIcon_serviceDate"></i></th>
                                 <th style="cursor:pointer" onclick="sortRx('Pharmacy.name')">Pharmacy <i class="fas fa-sort text-muted" style="opacity:0.3" id="srIcon_Pharmacy.name"></i></th>
                                 <th>Workflow Status</th>
@@ -204,14 +207,11 @@
                             <input type="hidden" id="rxPharmacyId">
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label small mb-1 text-muted">Arrival Date</label>
-                            <input type="text" class="form-control form-control-sm bg-white" id="rxArrivalDisplay" readonly tabindex="-1">
-                            <input type="hidden" id="rxArrivalDate">
-                        </div>
-                        <div class="col-md-6">
                             <label class="form-label small mb-1 text-muted">Service Date</label>
                             <input type="text" class="form-control form-control-sm bg-white" id="rxServiceDisplay" readonly tabindex="-1">
                             <input type="hidden" id="rxServiceDate">
+                            <!-- arrivalDate hidden mirrors serviceDate so DB validation passes -->
+                            <input type="hidden" id="rxArrivalDate">
                         </div>
                         <div class="col-md-6">
                             <label class="form-label small mb-1 text-muted">Patient Transport</label>
@@ -341,6 +341,8 @@
 <script src="/js/help.js"></script>
 <script>
     var allRx = [], filteredRx = [], allWorkflowActions = [];
+    /* F10-02: Bulk selection tracking */
+    var _rxBulkSel = new Set ? new Set() : (function(){ var s={_d:{}}; s.add=function(v){s._d[v]=1;}; s.delete=function(v){delete s._d[v];}; s.has=function(v){return !!s._d[v];}; Object.defineProperty(s,'size',{get:function(){return Object.keys(s._d).length;}}); s.clear=function(){s._d={};} ; s.forEach=function(fn){Object.keys(s._d).forEach(fn);}; return s; }());
     // ── Filter panel toggle ───────────────────────────────────────────────
     var _rxAdvOpen = false;
     function toggleRxPanel() {
@@ -405,13 +407,13 @@
 
         document.getElementById('exportRxListCsvBtn').addEventListener('click', () => {
             if (!filteredRx.length) { showToast('No data to export.', 'warning'); return; }
-            const headers = ['RX #', 'Patient ID', 'Patient Name', 'Pharmacy', 'Arrival Date', 'Service Date', 'Steps Completed'];
+            var headers = ['RX #', 'Patient ID', 'Patient Name', 'Pharmacy', 'Service Date', 'Steps Completed'];
             const rows = filteredRx.map(rx => [
                 rx.id,
                 rx.Patient ? (rx.Patient.patientCode || rx.patientId) : rx.patientId,
                 rx.Patient ? rx.Patient.firstName + ' ' + rx.Patient.lastName : '',
                 rx.Pharmacy ? rx.Pharmacy.name : '',
-                rx.arrivalDate || '', rx.serviceDate || '',
+                rx.serviceDate || '',
                 (rx.RXWorkflowTrackings || []).length
             ]);
             exportToCsv('rx_records_' + new Date().toISOString().slice(0,10) + '.csv', headers, rows);
@@ -473,23 +475,19 @@
 
     // Reset all display fields and hide the info panel (called on modal open)
     function resetRxForm() {
-        const panel = document.getElementById('rxPatientInfoPanel');
+        var panel = document.getElementById('rxPatientInfoPanel');
         if (panel) panel.style.display = 'none';
-        ['rxPharmacyDisplay','rxArrivalDisplay','rxServiceDisplay',
-         'rxPatientTransportDisplay','rxPharmacyTransportDisplay'].forEach(id => {
-            const el = document.getElementById(id);
+        ['rxPharmacyDisplay','rxServiceDisplay',
+         'rxPatientTransportDisplay','rxPharmacyTransportDisplay'].forEach(function(id) {
+            var el = document.getElementById(id);
             if (el) el.value = '';
         });
         ['rxPharmacyId','rxArrivalDate','rxServiceDate',
-         'rxPatientTransport','rxPharmacyTransport'].forEach(id => {
-            const el = document.getElementById(id);
+         'rxPatientTransport','rxPharmacyTransport'].forEach(function(id) {
+            var el = document.getElementById(id);
             if (el) el.value = '';
         });
-        // Set arrival hidden input to today's date
-        const arrEl = document.getElementById('rxArrivalDate');
-        if (arrEl) arrEl.value = new Date().toISOString().slice(0, 10);
-        const arrDisp = document.getElementById('rxArrivalDisplay');
-        if (arrDisp) arrDisp.value = new Date().toLocaleDateString();
+        /* arrivalDate will be set = serviceDate when patient is selected */
     }
 
     async function loadRxRecords() {
@@ -537,9 +535,9 @@
                 const phName = r.Pharmacy ? r.Pharmacy.name.toLowerCase() : '';
                 if (!phName.includes(ph)) return false;
             }
-            // Arrival date range
-            if (from && r.arrivalDate && r.arrivalDate < from) return false;
-            if (to   && r.arrivalDate && r.arrivalDate > to)   return false;
+            // Service date range (from advanced filter 'Service Date From/To')
+            if (from && r.serviceDate && r.serviceDate < from) return false;
+            if (to   && r.serviceDate && r.serviceDate > to)   return false;
             // Service date range
             if (sfrom && r.serviceDate && r.serviceDate < sfrom) return false;
             if (sto   && r.serviceDate && r.serviceDate > sto)   return false;
@@ -576,60 +574,103 @@
 
         updateRxSortIcons();
 
-        const start = (rxPage - 1) * rxPageSize;
-        const page = filteredRx.slice(start, start + rxPageSize);
-        const tbody = document.getElementById('rxBody');
+        var start = (rxPage - 1) * rxPageSize;
+        var page  = filteredRx.slice(start, start + rxPageSize);
+        var tbody = document.getElementById('rxBody');
         if (page.length === 0) {
             tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">No RX records found.</td></tr>';
         } else {
-            tbody.innerHTML = page.map(rx => {
-                const isDeleted   = !!rx.isDeleted;
-                const patInactive = rx.Patient && rx.Patient.isActive === false;
-                const patDeleted  = rx.Patient && rx.Patient.isDeleted === true;
-                const patientName = rx.Patient ? rx.Patient.firstName + ' ' + rx.Patient.lastName : 'ID:' + rx.patientId;
-                const pharmacyName = rx.Pharmacy ? rx.Pharmacy.name : 'ID:' + rx.pharmacyId;
-                const completedSteps = rx.RXWorkflowTrackings ? rx.RXWorkflowTrackings.length : 0;
-                const totalSteps = allWorkflowActions.length;
-                const pct = totalSteps > 0 ? Math.round((completedSteps / totalSteps) * 100) : 0;
-                const rxP = getPagePerms();
+            /* Build rows purely via DOM API (no template literals) — FortiGate-safe */
+            tbody.innerHTML = '';
+            for (var ri = 0; ri < page.length; ri++) {
+                var rx           = page[ri];
+                var isDeleted    = !!rx.isDeleted;
+                var patInactive  = rx.Patient && rx.Patient.isActive === false;
+                var patDeleted   = rx.Patient && rx.Patient.isDeleted === true;
+                var patientName  = rx.Patient ? rx.Patient.firstName + ' ' + rx.Patient.lastName : 'ID:' + rx.patientId;
+                var pharmacyName = rx.Pharmacy ? rx.Pharmacy.name : 'ID:' + rx.pharmacyId;
+                var completedSteps = rx.RXWorkflowTrackings ? rx.RXWorkflowTrackings.length : 0;
+                var totalSteps   = allWorkflowActions.length;
+                var pct          = totalSteps > 0 ? Math.round((completedSteps / totalSteps) * 100) : 0;
+                var rxP          = getPagePerms();
+                var isSel        = _rxBulkSel.has(rx.id);
 
-                // Patient status badge
-                let patBadge = '';
-                if (patDeleted)       patBadge = '<span class="badge bg-danger ms-1" title="Patient deleted"><i class="fas fa-user-slash"></i></span>';
-                else if (patInactive) patBadge = '<span class="badge bg-warning text-dark ms-1" title="Patient inactive"><i class="fas fa-user-times"></i></span>';
-                
-                // Warehouse badge
-                let whBadge = rx.returnedToWarehouse ? '<span class="badge bg-warning text-dark ms-1" title="Returned to Warehouse"><i class="fas fa-warehouse"></i></span>' : '';
+                var tr = document.createElement('tr');
+                if (isDeleted)   tr.className = 'table-secondary text-muted';
+                else if (patInactive) tr.className = 'table-warning';
 
-                const rowClass = isDeleted ? 'table-secondary text-muted' : (patInactive ? 'table-warning' : '');
+                /* ── Checkbox cell (F10-02) ── */
+                var tdCb = document.createElement('td');
+                var cb = document.createElement('input');
+                cb.type = 'checkbox';
+                cb.className = 'rx-row-cb';
+                cb.dataset.rxid = rx.id;
+                cb.checked = isSel;
+                cb.style.cursor = 'pointer';
+                cb.addEventListener('change', function() {
+                    var id = parseInt(this.dataset.rxid);
+                    if (this.checked) { _rxBulkSel.add(id); } else { _rxBulkSel.delete(id); }
+                    _rxUpdateBulkBar();
+                });
+                tdCb.appendChild(cb);
+                tr.appendChild(tdCb);
 
-                return `<tr class="${rowClass}">
-                    <td><strong>#${rx.id}</strong>${isDeleted ? ' <span class="badge bg-secondary">Hidden</span>' : ''}${whBadge}</td>
-                    <td>${patientName}${patBadge}</td>
-                    <td>${rx.arrivalDate || '\u2014'}</td>
-                    <td>${rx.serviceDate || '\u2014'}</td>
-                    <td>${pharmacyName}</td>
-                    <td>
-                        <div class="d-flex align-items-center gap-2">
-                            <div class="progress flex-grow-1" style="height:8px">
-                                <div class="progress-bar bg-success" style="width:${pct}%"></div>
-                            </div>
-                            <small>${completedSteps}/${totalSteps}</small>
-                        </div>
-                    </td>
-                    <td class="rx-act"
-                        data-rxid="${rx.id}"
-                        data-del="${isDeleted?'1':'0'}"
-                        data-candelete="${rxP.canDelete?'1':'0'}"
-                        data-canedit="${rxP.canEdit?'1':'0'}"
-                        data-canadd="${rxP.canAdd?'1':'0'}"
-                        data-canundo="${rxP.canUndo?'1':'0'}"
-                        data-canwh="${rxP.canWarehouse?'1':'0'}">
-                    </td>
-                </tr>`;
-            }).join('');
+                /* ── RX # cell ── */
+                var tdId = document.createElement('td');
+                var strong = document.createElement('strong');
+                strong.textContent = '#' + rx.id;
+                tdId.appendChild(strong);
+                if (isDeleted) { var hidBadge = document.createElement('span'); hidBadge.className = 'badge bg-secondary ms-1'; hidBadge.textContent = 'Hidden'; tdId.appendChild(hidBadge); }
+                if (rx.returnedToWarehouse) { var whB = document.createElement('span'); whB.className = 'badge bg-warning text-dark ms-1'; whB.title = 'Returned to Warehouse'; whB.innerHTML = '<i class="fas fa-warehouse"></i>'; tdId.appendChild(whB); }
+                tr.appendChild(tdId);
 
-            // Build action buttons via DOM API — FortiGate corrupts onclick= inside template strings
+                /* ── Patient cell ── */
+                var tdPat = document.createElement('td');
+                tdPat.textContent = patientName;
+                if (patDeleted) { var pb = document.createElement('span'); pb.className = 'badge bg-danger ms-1'; pb.title = 'Patient deleted'; pb.innerHTML = '<i class="fas fa-user-slash"></i>'; tdPat.appendChild(pb); }
+                else if (patInactive) { var pb2 = document.createElement('span'); pb2.className = 'badge bg-warning text-dark ms-1'; pb2.title = 'Patient inactive'; pb2.innerHTML = '<i class="fas fa-user-times"></i>'; tdPat.appendChild(pb2); }
+                tr.appendChild(tdPat);
+
+                /* ── Date cell ── (Service Date only) */
+                var tdSvc = document.createElement('td'); tdSvc.textContent = rx.serviceDate || '—'; tr.appendChild(tdSvc);
+
+                /* ── Pharmacy cell ── */
+                var tdPh = document.createElement('td'); tdPh.textContent = pharmacyName; tr.appendChild(tdPh);
+
+                /* ── Workflow status cell ── */
+                var tdWf = document.createElement('td');
+                var wfDiv = document.createElement('div');
+                wfDiv.className = 'd-flex align-items-center gap-2';
+                var prog = document.createElement('div');
+                prog.className = 'progress flex-grow-1';
+                prog.style.height = '8px';
+                var bar = document.createElement('div');
+                bar.className = 'progress-bar bg-success';
+                bar.style.width = pct + '%';
+                prog.appendChild(bar);
+                var sm = document.createElement('small');
+                sm.textContent = completedSteps + '/' + totalSteps;
+                wfDiv.appendChild(prog);
+                wfDiv.appendChild(sm);
+                tdWf.appendChild(wfDiv);
+                tr.appendChild(tdWf);
+
+                /* ── Actions cell ── */
+                var tdAct = document.createElement('td');
+                tdAct.className = 'rx-act';
+                tdAct.dataset.rxid     = rx.id;
+                tdAct.dataset.del      = isDeleted ? '1' : '0';
+                tdAct.dataset.candelete = rxP.canDelete ? '1' : '0';
+                tdAct.dataset.canedit  = rxP.canEdit ? '1' : '0';
+                tdAct.dataset.canadd   = rxP.canAdd ? '1' : '0';
+                tdAct.dataset.canundo  = rxP.canUndo ? '1' : '0';
+                tdAct.dataset.canwh    = rxP.canWarehouse ? '1' : '0';
+                tr.appendChild(tdAct);
+
+                tbody.appendChild(tr);
+            }
+
+            /* Wire action buttons for each rx-act td */
             tbody.querySelectorAll('td.rx-act').forEach(function(td) {
                 var rxid   = parseInt(td.dataset.rxid);
                 var isDel  = td.dataset.del === '1';
@@ -650,8 +691,14 @@
                     if (canDel) { b = document.createElement('button'); b.className = 'btn btn-sm btn-outline-danger'; b.title = 'Hide Record'; b.innerHTML = '<i class="fas fa-eye-slash"></i>'; b.dataset.id = rxid; b.addEventListener('click', function() { deleteRx(parseInt(this.dataset.id)); }); td.appendChild(b); }
                 }
             });
+
+            /* Sync select-all checkbox state */
+            var allCbs = tbody.querySelectorAll('.rx-row-cb');
+            var saEl = document.getElementById('rxSelectAll');
+            if (saEl) saEl.indeterminate = false;
         }
-        document.getElementById('rxPageInfo').textContent = 'Showing ' + (filteredRx.length === 0 ? 0 : Math.min(start+1, filteredRx.length)) + '\u2013' + Math.min(start+rxPageSize, filteredRx.length) + ' of ' + filteredRx.length;
+        _rxUpdateBulkBar();
+        document.getElementById('rxPageInfo').textContent = 'Showing ' + (filteredRx.length === 0 ? 0 : Math.min(start+1, filteredRx.length)) + '–' + Math.min(start+rxPageSize, filteredRx.length) + ' of ' + filteredRx.length;
         var rxPages = Math.ceil(filteredRx.length / rxPageSize) || 1;
         // Smart ellipsis paginator
         var rxIsFirst = rxPage === 1; var rxIsLast = rxPage >= rxPages;
@@ -682,7 +729,7 @@
     }
 
     function updateRxSortIcons() {
-        ['id', 'Patient.firstName', 'arrivalDate', 'serviceDate', 'Pharmacy.name'].forEach(c => {
+        ['id', 'Patient.firstName', 'serviceDate', 'Pharmacy.name'].forEach(function(c) {
             const icon = document.getElementById('srIcon_' + c);
             if (icon) {
                 icon.className = c === rSortCol 
@@ -794,36 +841,31 @@
             dropdown.classList.remove('open');
 
             // Resolve display labels from cached lists
-            const pharObj = allPharmaciesList.find(p => String(p.id) === String(pharmId));
-            const ptObj   = allPtList.find(p  => String(p.id) === String(ptId));
-            const phtObj  = allPhtList.find(p  => String(p.id) === String(phtId));
+            var pharObj = allPharmaciesList.filter(function(p) { return String(p.id) === String(pharmId); })[0];
+            var ptObj   = allPtList.filter(function(p)  { return String(p.id) === String(ptId); })[0];
+            var phtObj  = allPhtList.filter(function(p)  { return String(p.id) === String(phtId); })[0];
 
-            const today      = new Date().toISOString().slice(0,10);
-            const todayDisp  = new Date().toLocaleDateString();
+            // Fill hidden values — arrivalDate = patient serviceDate (business rule)
+            function setHidden(elId, val) { var el = document.getElementById(elId); if (el) el.value = val || ''; }
+            setHidden('rxPharmacyId',       pharmId || '');
+            setHidden('rxArrivalDate',       serviceDate || '');
+            setHidden('rxServiceDate',       serviceDate || '');
+            setHidden('rxPatientTransport',  ptId || '');
+            setHidden('rxPharmacyTransport', phtId || '');
 
-            // Fill hidden values for form submit
-            const setHidden = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ''; };
-            setHidden('rxPharmacyId',        pharmId || '');
-            setHidden('rxArrivalDate',        today);
-            setHidden('rxServiceDate',        serviceDate || '');
-            setHidden('rxPatientTransport',   ptId || '');
-            setHidden('rxPharmacyTransport',  phtId || '');
+            // Fill display inputs
+            function setDisp(elId, val) { var el = document.getElementById(elId); if (el) el.value = val || String.fromCharCode(8212); }
+            setDisp('rxPharmacyDisplay',         pharObj ? pharObj.name : (pharmId ? 'Pharmacy #' + pharmId : String.fromCharCode(8212)));
+            setDisp('rxServiceDisplay',           serviceDate || String.fromCharCode(8212));
+            setDisp('rxPatientTransportDisplay',  ptObj  ? (ptObj.contactPerson  || ptObj.companyName)  : (ptId  ? '#' + ptId  : String.fromCharCode(8212)));
+            setDisp('rxPharmacyTransportDisplay', phtObj ? (phtObj.companyName || phtObj.contactPerson) : (phtId ? '#' + phtId : String.fromCharCode(8212)));
 
-            // Fill display text inputs
-            const setDisp = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || '—'; };
-            setDisp('rxPharmacyDisplay',         pharObj ? pharObj.name : (pharmId ? 'Pharmacy #' + pharmId : '—'));
-            setDisp('rxArrivalDisplay',           todayDisp);
-            setDisp('rxServiceDisplay',           serviceDate || '—');
-            setDisp('rxPatientTransportDisplay',  ptObj  ? (ptObj.contactPerson  || ptObj.companyName)  : (ptId  ? '#' + ptId  : '—'));
-            setDisp('rxPharmacyTransportDisplay', phtObj ? (phtObj.companyName || phtObj.contactPerson) : (phtId ? '#' + phtId : '—'));
-
-            // Show the info panel
-            const panel = document.getElementById('rxPatientInfoPanel');
+            // Show info panel
+            var panel = document.getElementById('rxPatientInfoPanel');
             if (panel) panel.style.display = '';
 
-            info.innerHTML = '&#10003; <strong>' + name + '</strong> selected — info loaded below';
+            info.innerHTML = '&#10003; <strong>' + name + '</strong> selected &mdash; info loaded below';
         }
-
         searchInput.addEventListener('focus', () => { renderDropdown(searchInput.value); });
         searchInput.addEventListener('input', () => {
             hiddenInput.value = '';
@@ -996,7 +1038,6 @@
                 ['Patient',            (patient.firstName || '') + ' ' + (patient.lastName || '')],
                 ['Patient ID',         patient.patientCode || '—'],
                 ['Default Pharmacy',   pharmacy.name || '—'],
-                ['Arrival Date',       rx.arrivalDate || '—'],
                 ['Service Date',       rx.serviceDate || '—'],
                 ['Patient Transport',  ptComp],
                 ['Pharmacy Transport', phtComp],
@@ -1418,7 +1459,6 @@
             ${ [['Patient',      (patient.firstName||'') + ' ' + (patient.lastName||'')],
                 ['Patient Code', patient.patientCode||'—'],
                 ['Pharmacy',     pharmacy.name||'—'],
-                ['Arrival Date', rx.arrivalDate||'—'],
                 ['Service Date', rx.serviceDate||'—'],
                 ['Workflow',     doneCount + '/' + totalSteps + ' steps (' + pct + '%)']
                ].map(([label, val]) =>
@@ -1468,7 +1508,7 @@
               <td style="width:50%;padding:5px 0"><strong>Patient Code:</strong> ${patient.patientCode||'—'}</td>
             </tr><tr>
               <td style="padding:5px 0"><strong>Pharmacy:</strong> ${pharmacy.name||'—'}</td>
-              <td style="padding:5px 0"><strong>Arrival Date:</strong> ${rx.arrivalDate||'—'}</td>
+              <td style="padding:5px 0"><strong>Service Date:</strong> ${rx.serviceDate||'—'}</td>
             </tr><tr>
               <td style="padding:5px 0"><strong>Service Date:</strong> ${rx.serviceDate||'—'}</td>
               <td style="padding:5px 0"><strong>Progress:</strong> ${doneCount}/${totalSteps} steps (${pct}%)</td>
