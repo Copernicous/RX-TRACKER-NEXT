@@ -93,6 +93,32 @@
                 <button id="exportDashboardBtn" class="btn btn-outline-success btn-sm" title="Export full dashboard summary as CSV">
                     <i class="fas fa-file-csv me-1"></i>Export Report
                 </button>
+
+                <!-- ── Auto-refresh control ── -->
+                <div class="d-flex align-items-center gap-1" id="autoRefreshWidget"
+                     style="border:1.5px solid var(--border);border-radius:20px;padding:2px 10px 2px 8px;background:transparent">
+                    <!-- Pulse dot -->
+                    <span id="arPulseDot" style="width:7px;height:7px;border-radius:50%;background:#6c757d;display:inline-block;margin-right:4px;transition:background .3s"></span>
+                    <!-- Countdown -->
+                    <span id="arCountdown" style="font-size:.72rem;font-weight:600;color:var(--text-muted);min-width:30px;text-align:right;font-variant-numeric:tabular-nums">Off</span>
+                    <!-- Divider -->
+                    <span style="color:var(--border);margin:0 4px">|</span>
+                    <!-- Interval selector -->
+                    <select id="arIntervalSelect"
+                            style="border:none;background:transparent;font-size:.72rem;color:var(--text-muted);cursor:pointer;padding:0;outline:none;font-weight:500">
+                        <option value="0">Off</option>
+                        <option value="15">15 s</option>
+                        <option value="60">1 min</option>
+                        <option value="300">5 min</option>
+                        <option value="600">10 min</option>
+                    </select>
+                    <!-- Manual refresh -->
+                    <button id="arManualBtn" title="Refresh now"
+                            style="background:none;border:none;color:var(--text-muted);cursor:pointer;padding:0 0 0 4px;font-size:.78rem;line-height:1">
+                        <i class="fas fa-sync-alt"></i>
+                    </button>
+                </div>
+
                 <button id="themeToggle" class="btn btn-outline-secondary btn-sm"><i class="fas fa-moon"></i></button>
                 <span id="userGreeting" class="text-muted small"></span>
                 <button class="btn btn-outline-info btn-sm" onclick="openAccountModal()" title="My Account / 2FA">

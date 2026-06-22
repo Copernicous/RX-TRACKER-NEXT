@@ -140,6 +140,113 @@ document.addEventListener('DOMContentLoaded', async () => {
         const chartRes = await fetchWithAuth(_api.charts);
         if (chartRes && chartRes.ok) renderCharts(await chartRes.json());
     } catch(e) { console.warn('Charts failed:', e); }
+
+    // ── Auto-refresh engine ───────────────────────────────────────────────────
+    (function initAutoRefresh() {
+        var _arTimer        = null;   // setInterval handle
+        var _arCountTimer   = null;   // 1-second countdown ticker
+        var _arSecondsLeft  = 0;      // countdown value
+        var _arInterval     = 0;      // selected interval in seconds (0 = off)
+
+        var elSelect    = document.getElementById('arIntervalSelect');
+        var elCountdown = document.getElementById('arCountdown');
+        var elDot       = document.getElementById('arPulseDot');
+        var elManual    = document.getElementById('arManualBtn');
+
+        if (!elSelect) return; // safety guard
+
+        // Restore saved preference
+        var _saved = parseInt(localStorage.getItem('rxDashRefresh') || '0', 10);
+        if (_saved > 0) { elSelect.value = String(_saved); }
+
+        function formatCountdown(s) {
+            if (s <= 0) return '0s';
+            if (s < 60)  return s + 's';
+            var m = Math.floor(s / 60);
+            var r = s % 60;
+            return r > 0 ? m + 'm ' + r + 's' : m + 'm';
+        }
+
+        function setDotActive(active) {
+            elDot.style.background = active ? '#22c55e' : '#6c757d';
+            elDot.style.boxShadow  = active ? '0 0 6px rgba(34,197,94,0.6)' : 'none';
+        }
+
+        function stopTimers() {
+            if (_arTimer)      { clearInterval(_arTimer);      _arTimer      = null; }
+            if (_arCountTimer) { clearInterval(_arCountTimer); _arCountTimer = null; }
+        }
+
+        function startAutoRefresh(seconds) {
+            stopTimers();
+            _arInterval    = seconds;
+            _arSecondsLeft = seconds;
+
+            if (seconds <= 0) {
+                elCountdown.textContent = 'Off';
+                setDotActive(false);
+                return;
+            }
+
+            // Countdown ticker — fires every second
+            elCountdown.textContent = formatCountdown(_arSecondsLeft);
+            setDotActive(true);
+
+            _arCountTimer = setInterval(function() {
+                _arSecondsLeft--;
+                elCountdown.textContent = formatCountdown(Math.max(0, _arSecondsLeft));
+            }, 1000);
+
+            // Main refresh timer
+            _arTimer = setInterval(function() {
+                _arSecondsLeft = _arInterval; // reset countdown
+                // Spin the manual button icon briefly to signal refresh
+                var icon = elManual.querySelector('i');
+                if (icon) {
+                    icon.style.transition = 'transform 0.6s ease';
+                    icon.style.transform  = 'rotate(360deg)';
+                    setTimeout(function() {
+                        icon.style.transition = '';
+                        icon.style.transform  = '';
+                    }, 700);
+                }
+                refreshDashboard();
+            }, seconds * 1000);
+        }
+
+        // Init with saved value
+        startAutoRefresh(_saved);
+
+        // Interval selector change
+        elSelect.addEventListener('change', function() {
+            var val = parseInt(this.value, 10);
+            localStorage.setItem('rxDashRefresh', String(val));
+            startAutoRefresh(val);
+        });
+
+        // Manual refresh button
+        elManual.addEventListener('click', function() {
+            var icon = this.querySelector('i');
+            if (icon) {
+                icon.style.transition = 'transform 0.5s ease';
+                icon.style.transform  = 'rotate(360deg)';
+                setTimeout(function() { icon.style.transition = ''; icon.style.transform = ''; }, 600);
+            }
+            // Reset countdown
+            _arSecondsLeft = _arInterval;
+            refreshDashboard();
+        });
+
+        // Pause countdown when tab is hidden, resume when visible
+        document.addEventListener('visibilitychange', function() {
+            if (document.hidden) {
+                stopTimers();
+            } else if (_arInterval > 0) {
+                _arSecondsLeft = _arInterval;
+                startAutoRefresh(_arInterval);
+            }
+        });
+    })();
 });
 
 async function loadRxPipeline() {
