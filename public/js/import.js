@@ -286,8 +286,17 @@ let currentDataset = 'patients';
             errSect.classList.add('d-none');
         }
 
-        confirmBtn.disabled    = goodCnt === 0;
-        confirmBtn.textContent = goodCnt === 0 ? 'No valid rows to import' : 'Confirm Import (' + goodCnt + ' rows)';
+        confirmBtn.disabled    = invalidRows.length > 0 || goodCnt === 0;
+        if (invalidRows.length > 0) {
+            confirmBtn.textContent = 'Fix ' + invalidRows.length + ' error(s) to continue';
+            confirmBtn.className   = 'btn btn-danger btn-sm';
+        } else if (goodCnt === 0) {
+            confirmBtn.textContent = 'No valid rows to import';
+            confirmBtn.className   = 'btn btn-secondary btn-sm';
+        } else {
+            confirmBtn.textContent = 'Import All ' + goodCnt + ' Rows';
+            confirmBtn.className   = 'btn btn-success btn-sm';
+        }
 
         section.classList.remove('d-none');
         section.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -326,7 +335,14 @@ let currentDataset = 'patients';
         } finally {
             confirmBtn.disabled = false;
             cancelBtn.disabled  = false;
-            confirmBtn.innerHTML = 'Confirm Import (' + validRows.length + ' rows)';
+            if (invalidRows.length > 0) {
+                confirmBtn.innerHTML = 'Fix ' + invalidRows.length + ' error(s) to continue';
+                confirmBtn.className = 'btn btn-danger btn-sm';
+            } else {
+                confirmBtn.innerHTML = 'Import All ' + validRows.length + ' Rows';
+                confirmBtn.className = 'btn btn-success btn-sm';
+            }
+
         }
     }
 
@@ -348,19 +364,71 @@ let currentDataset = 'patients';
     function displayResults(data) {
         const box = document.getElementById('resultsBox');
         box.style.display = 'block';
-        box.className = 'results-box alert ' + (data.errorCount > 0 ? 'alert-warning' : 'alert-success');
-        document.getElementById('resultsHeading').textContent = data.errorCount > 0 ? 'Import Processed with Warnings' : 'Import Successful!';
-        document.getElementById('resultsSummary').textContent = 'Successfully imported ' + data.successCount + ' rows. Skipped/Invalid rows: ' + data.errorCount + '.';
-        const errSection = document.getElementById('errorsSection');
-        const errList    = document.getElementById('errorsList');
-        if (data.errorCount > 0) {
+
+        if (data.aborted) {
+            // All-or-nothing: nothing was saved, show download button
+            box.className = 'results-box alert alert-danger';
+            document.getElementById('resultsHeading').textContent = '\u26a0 Import Aborted — Nothing Saved';
+            document.getElementById('resultsSummary').textContent =
+                data.errorCount + ' error(s) found. NO records were imported. Fix the errors and re-upload.';
+
+            const errSection = document.getElementById('errorsSection');
+            const errList    = document.getElementById('errorsList');
             errSection.classList.remove('d-none');
-            var _de=''; data.errors.forEach(function(e){ _de +=
-                '<div class="text-danger py-1 border-bottom border-light-subtle"><strong>Line ' + e.row + ':</strong> ' + e.error + '</div>'
-;
+            var _de = ''; data.errors.forEach(function(e) {
+                _de += '<div class="text-danger py-1 border-bottom border-light-subtle"><strong>Line ' + e.row + ':</strong> ' + e.error + '</div>';
             }); errList.innerHTML = _de;
+
+            // Download Failed Rows button
+            var dlBtn = document.getElementById('downloadFailedBtn');
+            if (!dlBtn) {
+                dlBtn = document.createElement('button');
+                dlBtn.id = 'downloadFailedBtn';
+                dlBtn.className = 'btn btn-outline-danger btn-sm mt-2';
+                dlBtn.innerHTML = '<i class="fas fa-download me-1"></i>Download Failed Rows CSV';
+                errSection.appendChild(dlBtn);
+            }
+            dlBtn.onclick = function() { downloadFailedRows(data.failedRows); };
+            dlBtn.style.display = '';
+
         } else {
+            box.className = 'results-box alert alert-success';
+            document.getElementById('resultsHeading').textContent = '\u2705 Import Successful!';
+            document.getElementById('resultsSummary').textContent = 'Successfully imported ' + data.successCount + ' rows.';
+            const errSection = document.getElementById('errorsSection');
             errSection.classList.add('d-none');
+            var dlBtn2 = document.getElementById('downloadFailedBtn');
+            if (dlBtn2) dlBtn2.style.display = 'none';
         }
-        showToast('Import finished! ' + data.successCount + ' added, ' + data.errorCount + ' skipped.', data.errorCount > 0 ? 'warning' : 'success');
+
+        showToast(
+            data.aborted
+                ? 'Import aborted: ' + data.errorCount + ' error(s). Nothing was saved.'
+                : 'Import complete! ' + data.successCount + ' records added.',
+            data.aborted ? 'danger' : 'success'
+        );
+    }
+
+    function downloadFailedRows(failedRows) {
+        if (!failedRows || !failedRows.length) return;
+        // Build CSV — all columns of first row, _import_error last
+        var keys = Object.keys(failedRows[0]).filter(function(k) { return k !== '_import_error'; });
+        keys.push('_import_error');
+        var lines = [keys.map(function(k) { return '"' + k + '"'; }).join(',')];
+        failedRows.forEach(function(row) {
+            var vals = keys.map(function(k) {
+                var v = (row[k] !== undefined && row[k] !== null) ? String(row[k]) : '';
+                return '"' + v.replace(/"/g, '""') + '"';
+            });
+            lines.push(vals.join(','));
+        });
+        var csv = lines.join('\r\n');
+        var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        var url  = URL.createObjectURL(blob);
+        var a = Object.assign(document.createElement('a'), {
+            href: url,
+            download: 'failed_rows_' + currentDataset + '_' + new Date().toISOString().slice(0,10) + '.csv'
+        });
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        URL.revokeObjectURL(url);
     }
