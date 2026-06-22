@@ -589,18 +589,25 @@
         document.getElementById('exportRxListCsvBtn').addEventListener('click', function() {
             if (!filteredRx.length) { showToast('No data to export.', 'warning'); return; }
 
-            /* One column per workflow stage */
-            var stageHeaders = allWorkflowActions.map(function(a) { return a.name; });
+            /* One column per workflow stage + one days-lag column per stage */
+            var stageHeaders = [];
+            allWorkflowActions.forEach(function(a) {
+                stageHeaders.push(a.name);
+                stageHeaders.push(a.name + ' (Days Lag)');
+            });
             var headers = ['RX #', 'Patient ID', 'Patient Name', 'Pharmacy', 'Service Date', 'Completed Steps'].concat(stageHeaders);
 
+            function _csvDaysBetween(d1, d2) {
+                var t1 = new Date(d1); t1.setHours(0,0,0,0);
+                var t2 = new Date(d2); t2.setHours(0,0,0,0);
+                return Math.round((t2 - t1) / 864e5);
+            }
+
             var rows = filteredRx.map(function(rx) {
-                /* lookup: workflowActionId -> formatted date */
-                var doneMap = {};
-                (rx.RXWorkflowTrackings || []).forEach(function(t) {
-                    doneMap[t.workflowActionId] = t.completionDate
-                        ? new Date(t.completionDate).toLocaleDateString()
-                        : 'Done';
-                });
+                /* lookup: workflowActionId -> tracking object */
+                var trkMap = {};
+                (rx.RXWorkflowTrackings || []).forEach(function(t) { trkMap[t.workflowActionId] = t; });
+
                 var row = [
                     rx.id,
                     rx.Patient ? (rx.Patient.patientCode || rx.patientId) : rx.patientId,
@@ -609,8 +616,27 @@
                     rx.serviceDate ? new Date(rx.serviceDate).toLocaleDateString() : '',
                     (rx.RXWorkflowTrackings || []).length + ' / ' + allWorkflowActions.length
                 ];
-                /* Stage columns: completion date or blank */
-                allWorkflowActions.forEach(function(a) { row.push(doneMap[a.id] || ''); });
+
+                /* Stage + lag columns */
+                var svcDate = rx.serviceDate ? new Date(rx.serviceDate) : null;
+                allWorkflowActions.forEach(function(a, idx) {
+                    var trk = trkMap[a.id];
+                    /* Date column */
+                    row.push(trk && trk.completionDate ? new Date(trk.completionDate).toLocaleDateString() : '');
+                    /* Days lag column */
+                    var lag = '';
+                    if (trk && trk.completionDate) {
+                        var prevDate = null;
+                        if (idx === 0) {
+                            prevDate = svcDate;
+                        } else {
+                            var prevTrk = trkMap[allWorkflowActions[idx-1].id];
+                            if (prevTrk && prevTrk.completionDate) prevDate = new Date(prevTrk.completionDate);
+                        }
+                        if (prevDate) { lag = _csvDaysBetween(prevDate, new Date(trk.completionDate)); }
+                    }
+                    row.push(lag);
+                });
                 return row;
             });
 
@@ -1866,14 +1892,41 @@
         const STEP_COLORS = ['#4a90e2','#7b61ff','#fd7e14','#20c997','#e24a9a','#50e3c2','#f5a623'];
 
         // Build workflow checklist for card
+        // Helper: whole days between two dates
+        function _daysBetween(d1, d2) {
+            var t1 = new Date(d1); t1.setHours(0,0,0,0);
+            var t2 = new Date(d2); t2.setHours(0,0,0,0);
+            return Math.round((t2 - t1) / 864e5);
+        }
+        // Pre-build ordered date anchors: [serviceDate, step1Date, step2Date, ...]
+        var _svcAnchor = rx.serviceDate ? new Date(rx.serviceDate) : null;
+
+        // Build workflow checklist for card
         const stepsCardHtml = allWorkflowActions.map(function(wa, i) {
-            var tracking = trackings.find(function(t) { return t.workflowActionId === wa.id; });
-            var done     = !!tracking;
-            var dateStr  = done && tracking.completionDate ? new Date(tracking.completionDate).toLocaleDateString() : '';
-            var color    = done ? '#198754' : STEP_COLORS[i % STEP_COLORS.length];
-            var icon     = done ? 'fa-check-circle' : 'fa-circle';
-            var label    = done ? 'color:#198754;font-weight:600' : 'color:#888';
-            var badge    = done ? '<span style="margin-left:auto;font-size:.7rem;color:#198754;background:#19875415;padding:2px 8px;border-radius:10px">&#10003; ' + dateStr + '</span>' : '';
+            var tracking   = trackings.find(function(t) { return t.workflowActionId === wa.id; });
+            var done       = !!tracking;
+            var dateStr    = done && tracking.completionDate ? new Date(tracking.completionDate).toLocaleDateString() : '';
+            var color      = done ? '#198754' : STEP_COLORS[i % STEP_COLORS.length];
+            var icon       = done ? 'fa-check-circle' : 'fa-circle';
+            var label      = done ? 'color:#198754;font-weight:600' : 'color:#888';
+            // Days since previous event
+            var lagStr = '';
+            if (done && tracking.completionDate) {
+                var prevDate = null;
+                if (i === 0) {
+                    prevDate = _svcAnchor;
+                } else {
+                    var prevWa = allWorkflowActions[i-1];
+                    var prevTk = trackings.find(function(t) { return t.workflowActionId === prevWa.id; });
+                    if (prevTk && prevTk.completionDate) prevDate = new Date(prevTk.completionDate);
+                }
+                if (prevDate) {
+                    var days = _daysBetween(prevDate, new Date(tracking.completionDate));
+                    lagStr = days === 0 ? 'same day' : days + 'd lag';
+                }
+            }
+            var lagHtml = (done && lagStr) ? '<span style="font-size:.68rem;color:#6c757d;margin-left:4px">(' + lagStr + ')</span>' : '';
+            var badge   = done ? '<span style="margin-left:auto;font-size:.7rem;color:#198754;background:#19875415;padding:2px 8px;border-radius:10px">&#10003; ' + dateStr + '</span>' + lagHtml : '';
             return '<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid #f0f0f0">' +
                    '<i class="fas ' + icon + '" style="color:' + color + ';font-size:1rem;flex-shrink:0"></i>' +
                    '<span style="' + label + ';font-size:.87rem">' + wa.name + '</span>' +
@@ -1881,17 +1934,37 @@
                    '</div>';
         }).join('');
 
+
         // Build workflow steps for classic
         const stepsClassicHtml = allWorkflowActions.map(function(wa, i) {
             var tracking  = trackings.find(function(t) { return t.workflowActionId === wa.id; });
             var done      = !!tracking;
             var dateStr   = done && tracking.completionDate ? new Date(tracking.completionDate).toLocaleDateString() : '&mdash;';
+            // Days lag
+            var lagTd = '<td style="padding:5px 8px;border-bottom:1px solid #dee2e6;text-align:center;color:#6c757d;font-size:.82rem">&mdash;</td>';
+            if (done && tracking.completionDate) {
+                var prevDate2 = null;
+                if (i === 0) {
+                    prevDate2 = _svcAnchor;
+                } else {
+                    var prevWa2 = allWorkflowActions[i-1];
+                    var prevTk2 = trackings.find(function(t) { return t.workflowActionId === prevWa2.id; });
+                    if (prevTk2 && prevTk2.completionDate) prevDate2 = new Date(prevTk2.completionDate);
+                }
+                if (prevDate2) {
+                    var days2 = _daysBetween(prevDate2, new Date(tracking.completionDate));
+                    var lagColor = days2 <= 1 ? '#198754' : days2 <= 3 ? '#fd7e14' : '#dc3545';
+                    var lagLabel = days2 === 0 ? 'Same day' : days2 + ' day' + (days2 === 1 ? '' : 's');
+                    lagTd = '<td style="padding:5px 8px;border-bottom:1px solid #dee2e6;text-align:center;color:' + lagColor + ';font-weight:600;font-size:.82rem">' + lagLabel + '</td>';
+                }
+            }
             var statusTd  = done
                 ? '<td style="padding:5px 8px;border-bottom:1px solid #dee2e6;text-align:center;color:#198754;font-weight:600">&#10003;</td>'
                 : '<td style="padding:5px 8px;border-bottom:1px solid #dee2e6;text-align:center;color:#aaa">&#8212;</td>';
             return '<tr>' +
                    '<td style="padding:5px 8px;border-bottom:1px solid #dee2e6">' + (i+1) + '. ' + wa.name + '</td>' +
                    '<td style="padding:5px 8px;border-bottom:1px solid #dee2e6;text-align:center;color:#555;font-size:.85rem">' + dateStr + '</td>' +
+                   lagTd +
                    statusTd +
                    '</tr>';
         }).join('');
@@ -1982,6 +2055,7 @@
             <thead><tr style="background:#1a2234;color:#fff">
               <th style="padding:7px 10px">Step</th>
               <th style="padding:7px 10px;text-align:center">Date Completed</th>
+              <th style="padding:7px 10px;text-align:center">Days Lag</th>
               <th style="padding:7px 10px;text-align:center">Status</th>
             </tr></thead>
             <tbody>${stepsClassicHtml}</tbody>
