@@ -694,3 +694,68 @@ body {
 
 /* Hide print header outside of print */
 .print-header { display: none; }
+
+/* ============================================
+   DK-02: Bootstrap .card dark mode fix
+   Without this, Bootstrap .card uses a hardcoded
+   white background that ignores our CSS variables.
+   ============================================ */
+[data-theme="dark"] .card {
+    background-color: var(--surface) !important;
+    border-color: var(--border) !important;
+    color: var(--text) !important;
+}
+[data-theme="dark"] .card-header {
+    background-color: var(--surface-2) !important;
+    border-bottom-color: var(--border) !important;
+    color: var(--text) !important;
+}
+[data-theme="dark"] .card-footer {
+    background-color: var(--surface-2) !important;
+    border-top-color: var(--border) !important;
+    color: var(--text) !important;
+}
+[data-theme="dark"] .card-body {
+    color: var(--text) !important;
+}
+
+/* ============================================
+   DK-06: Bootstrap .alert dark mode fix
+   Bootstrap alerts use fixed light backgrounds.
+   Override to semi-transparent tinted versions
+   that look correct on dark backgrounds.
+   ============================================ */
+[data-theme="dark"] .alert {
+    border-color: rgba(255,255,255,0.1) !important;
+    color: var(--text) !important;
+}
+[data-theme="dark"] .alert-primary {
+    background-color: rgba(74,144,226,0.15) !important;
+    border-color: rgba(74,144,226,0.3) !important;
+    color: #90c4f9 !important;
+}
+[data-theme="dark"] .alert-success {
+    background-color: rgba(61,187,108,0.12) !important;
+    border-color: rgba(61,187,108,0.3) !important;
+    color: #6ee7a0 !important;
+}
+[data-theme="dark"] .alert-danger {
+    background-color: rgba(229,83,83,0.12) !important;
+    border-color: rgba(229,83,83,0.3) !important;
+    color: #f98989 !important;
+}
+[data-theme="dark"] .alert-warning {
+    background-color: rgba(245,166,35,0.12) !important;
+    border-color: rgba(245,166,35,0.3) !important;
+    color: #fbbf5a !important;
+}
+[data-theme="dark"] .alert-info {
+    background-color: rgba(6,182,212,0.12) !important;
+    border-color: rgba(6,182,212,0.3) !important;
+    color: #67e8f9 !important;
+}
+[data-theme="dark"] .alert-secondary {
+    background-color: rgba(139,148,158,0.12) !important;
+    border-color: rgba(139,148,158,0.3) !important;
+    color: #b0bcc8 !important;
+}

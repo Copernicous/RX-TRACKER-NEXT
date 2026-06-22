@@ -280,12 +280,14 @@ exports.purge = async (req, res) => {
 
         // Write to audit log
         try {
+            // Use validated labels from TABLE_META (not raw user input) to prevent log injection
+            var _validatedLabels = toDelete.map(function(t) { return t.label; }).join(', ');
             await db.AuditLog.create({
                 userId: req.user?.id || null,
                 action: 'BACKOFFICE_PURGE',
                 entity: 'ADMIN',
                 entityId: null,
-                details: `Purged tables: ${tables.join(', ')}. Counts: ${JSON.stringify(results)}`
+                details: `Purged tables: ${_validatedLabels}. Counts: ${JSON.stringify(results)}`
             });
         } catch(e) { /* non-fatal */ }
 

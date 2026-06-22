@@ -7,7 +7,16 @@ const importController = require('../controllers/importController');
 
 const upload = multer({
     storage: multer.memoryStorage(),
-    limits: { fileSize: 5 * 1024 * 1024 } // 5MB limit
+    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+    fileFilter: function(req, file, cb) {
+        var allowed = ['text/csv', 'application/vnd.ms-excel', 'text/plain', 'application/octet-stream'];
+        var ext = (file.originalname || '').toLowerCase().split('.').pop();
+        if (allowed.indexOf(file.mimetype) !== -1 || ext === 'csv') {
+            cb(null, true);
+        } else {
+            cb(new Error('Only CSV files are allowed. Received: ' + file.mimetype));
+        }
+    }
 });
 
 // Require authentication for all endpoints

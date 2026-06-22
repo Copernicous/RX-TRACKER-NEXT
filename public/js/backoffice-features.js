@@ -2,14 +2,12 @@
 var _EMPTY_JOIN = '';
 
 // ── Generic CSV download helper ──────────────────────────────────────────
+// sanitizeCsvCell() from base.js prevents formula injection (=, +, -, @ prefix)
 function _downloadCSV(filename, cols, rows) {
     var header = cols.join(',');
     var body = rows.map(function(row) {
         return cols.map(function(c) {
-            var v = row[c];
-            if (v === null || v === undefined) return '';
-            var s = String(v);
-            return (s.indexOf(',') >= 0 || s.indexOf('"') >= 0 || s.indexOf('\n') >= 0) ? '"' + s.replace(/"/g,'""') + '"' : s;
+            return sanitizeCsvCell(row[c]);
         }).join(',');
     }).join('\n');
     var csv  = header + '\n' + body;
