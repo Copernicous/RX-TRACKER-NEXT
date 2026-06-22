@@ -1369,12 +1369,38 @@
             // Workflow checklist
             const wfHtml = allWorkflowActions.length === 0
                 ? '<p class="text-muted small">No workflow steps defined.</p>'
-                : allWorkflowActions.map(wa => {
-                    const done = trackings.some(t => t.workflowActionId === wa.id);
+                : allWorkflowActions.map((wa, wi) => {
+                    const tracking = trackings.find(t => t.workflowActionId === wa.id);
+                    const done     = !!tracking;
+                    const dateStr  = done && tracking.completionDate
+                        ? new Date(tracking.completionDate).toLocaleDateString()
+                        : null;
+                    // Days lag from previous event
+                    var lagHtml = '';
+                    if (done && tracking.completionDate) {
+                        var prevDate = null;
+                        if (wi === 0 && rx.serviceDate) {
+                            var sd = new Date(rx.serviceDate); sd.setHours(0,0,0,0);
+                            prevDate = sd;
+                        } else if (wi > 0) {
+                            var prevTk = trackings.find(t => t.workflowActionId === allWorkflowActions[wi-1].id);
+                            if (prevTk && prevTk.completionDate) { prevDate = new Date(prevTk.completionDate); prevDate.setHours(0,0,0,0); }
+                        }
+                        if (prevDate) {
+                            var cur = new Date(tracking.completionDate); cur.setHours(0,0,0,0);
+                            var diff = Math.round((cur - prevDate) / 864e5);
+                            var prevRef = wi === 0 ? 'svc. date' : 'prev. step';
+                            var lagTxt  = diff === 0 ? 'same as ' + prevRef : '+' + diff + 'd from ' + prevRef;
+                            lagHtml = `<span class="text-muted ms-1" style="font-size:.68rem">(${lagTxt})</span>`;
+                        }
+                    }
                     return `<div class="d-flex align-items-center gap-2 py-1" style="border-bottom:1px solid #f0f0f0">
                         <i class="fas ${done ? 'fa-check-circle text-success' : 'fa-circle text-secondary'}" style="font-size:.95rem;width:18px;flex-shrink:0"></i>
                         <span class="${done ? 'text-success fw-semibold' : 'text-muted'}" style="font-size:.87rem">${wa.name}</span>
-                        ${done ? '<span class="badge bg-success ms-auto" style="font-size:.65rem">Done</span>' : ''}
+                        ${done ? `<span class="ms-auto d-flex align-items-center gap-1 flex-wrap justify-content-end">
+                            <span class="badge bg-success" style="font-size:.65rem">${dateStr}</span>
+                            ${lagHtml}
+                        </span>` : ''}
                     </div>`;
                 }).join('');
 
