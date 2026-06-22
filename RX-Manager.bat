@@ -1,8 +1,8 @@
 @echo off
 setlocal EnableDelayedExpansion
 
-:: Patient RX System Manager
-:: Double-click this file to manage the server, database, and settings
+:: Patient RX System Manager v2
+:: Double-click to manage the server, database, and settings.
 
 cd /d "%~dp0"
 set "APP_DIR=%~dp0"
@@ -23,49 +23,59 @@ echo   SERVER
 echo   [1]  Start Server
 echo   [2]  Stop Server
 echo   [3]  Restart Server
-echo   [4]  Open in Browser  (http://localhost:%PORT%)
+echo   [4]  Open Main App     (http://localhost:%PORT%)
+echo   [4b] Open Backoffice   (http://localhost:%PORT%/backoffice)
 echo   [5]  Server Status
 echo.
 echo   CONFIGURATION
 echo   [6]  Change PostgreSQL Password
 echo   [7]  Change Application Port
 echo   [8]  Change JWT Secret Key
+echo   [9]  Change SMTP Email Password
 echo.
 echo   DATABASE
-echo   [9]  Backup Database Now
-echo   [10] Restore Database from Backup
-echo   [11] Initialize Fresh Database (new install)
+echo   [10] Backup Database Now
+echo   [11] Restore Database from Backup
+echo   [12] Run Database Migrations
+echo   [13] Initialize Fresh Database (new install)
 echo.
 echo   BACKUP
-echo   [12] Create Full Site Backup (ZIP + Database)
+echo   [14] Create Full Site Backup (ZIP + Database)
+echo.
+echo   LOGS
+echo   [15] View Server Logs (last 40 lines)
+echo   [16] Clear Server Log File
 echo.
 echo   INFO
-echo   [13] View Server Logs
-echo   [14] Show Current Configuration
+echo   [17] Show Current Configuration
 echo.
 echo   BUILD
-echo   [15] Build Portable EXE (server.exe)
+echo   [18] Build Portable EXE (server.exe)
 echo.
 echo   [0]  Exit
 echo.
 set /p "CHOICE=  Select option: "
 
-if "%CHOICE%"=="1"  goto :StartServer
-if "%CHOICE%"=="2"  goto :StopServer
-if "%CHOICE%"=="3"  goto :RestartServer
-if "%CHOICE%"=="4"  goto :OpenBrowser
-if "%CHOICE%"=="5"  goto :ServerStatus
-if "%CHOICE%"=="6"  goto :ChangeDBPass
-if "%CHOICE%"=="7"  goto :ChangePort
-if "%CHOICE%"=="8"  goto :ChangeJWT
-if "%CHOICE%"=="9"  goto :BackupNow
-if "%CHOICE%"=="10" goto :RestoreDB
-if "%CHOICE%"=="11" goto :FreshDB
-if "%CHOICE%"=="12" goto :SiteBackupMenu
-if "%CHOICE%"=="13" goto :ViewLogs
-if "%CHOICE%"=="14" goto :ShowConfig
-if "%CHOICE%"=="15" goto :BuildEXE
-if "%CHOICE%"=="0"  goto :Done
+if /i "%CHOICE%"=="1"   goto :StartServer
+if /i "%CHOICE%"=="2"   goto :StopServer
+if /i "%CHOICE%"=="3"   goto :RestartServer
+if /i "%CHOICE%"=="4"   goto :OpenBrowser
+if /i "%CHOICE%"=="4b"  goto :OpenBackoffice
+if /i "%CHOICE%"=="5"   goto :ServerStatus
+if /i "%CHOICE%"=="6"   goto :ChangeDBPass
+if /i "%CHOICE%"=="7"   goto :ChangePort
+if /i "%CHOICE%"=="8"   goto :ChangeJWT
+if /i "%CHOICE%"=="9"   goto :ChangeSMTPPass
+if /i "%CHOICE%"=="10"  goto :BackupNow
+if /i "%CHOICE%"=="11"  goto :RestoreDB
+if /i "%CHOICE%"=="12"  goto :RunMigrations
+if /i "%CHOICE%"=="13"  goto :FreshDB
+if /i "%CHOICE%"=="14"  goto :SiteBackupMenu
+if /i "%CHOICE%"=="15"  goto :ViewLogs
+if /i "%CHOICE%"=="16"  goto :ClearLogs
+if /i "%CHOICE%"=="17"  goto :ShowConfig
+if /i "%CHOICE%"=="18"  goto :BuildEXE
+if /i "%CHOICE%"=="0"   goto :Done
 goto :MainMenu
 
 :: ================================================
@@ -92,7 +102,7 @@ if "!PORT_IN_USE!"=="1" (
     echo      Open: http://localhost:%PORT%
 ) else (
     echo  [!] Server may still be loading... check logs if it fails.
-    echo      Option [13] to view logs.
+    echo      Option [15] to view logs.
 )
 echo.
 pause
@@ -118,12 +128,18 @@ echo.
 echo  Restarting server...
 taskkill /FI "WINDOWTITLE eq PatientRX-Server" /F >nul 2>&1
 taskkill /FI "IMAGENAME eq node.exe" /F >nul 2>&1
+taskkill /FI "IMAGENAME eq server.exe" /F >nul 2>&1
 timeout /t 2 /nobreak >nul
 goto :StartServer
 
 :: ================================================
 :OpenBrowser
 start "" "http://localhost:%PORT%"
+goto :MainMenu
+
+:: ================================================
+:OpenBackoffice
+start "" "http://localhost:%PORT%/backoffice"
 goto :MainMenu
 
 :: ================================================
@@ -153,6 +169,11 @@ if %ERRORLEVEL% EQU 0 (
 )
 echo.
 echo  PORT: %PORT%   DB: %DB_NAME%   HOST: %DB_HOST%
+echo.
+:: Log file size
+if exist "%APP_DIR%\logs\server.log" (
+    for %%F in ("%APP_DIR%\logs\server.log") do echo  Log size: %%~zF bytes
+)
 echo.
 pause
 goto :MainMenu
@@ -223,17 +244,17 @@ echo  ================================================
 echo   CHANGE JWT SECRET KEY
 echo  ================================================
 echo.
-echo  Warning: Changing this will log out all current users.
+echo  Warning: Changing this will log out ALL current users.
 echo.
 echo  [1] Enter a custom secret
-echo  [2] Auto-generate a random secret
+echo  [2] Auto-generate a random secret (recommended)
 echo.
 set /p "JC=  Select: "
 if "%JC%"=="2" (
-    set "NEW_JWT=RXSystem_%RANDOM%%RANDOM%_Key%RANDOM%"
+    set "NEW_JWT=RXSystem_%RANDOM%%RANDOM%_SecureKey%RANDOM%_%RANDOM%"
     echo  Generated: !NEW_JWT!
 ) else (
-    set /p "NEW_JWT=  Enter new JWT secret (at least 20 characters): "
+    set /p "NEW_JWT=  Enter new JWT secret (min 20 characters): "
 )
 if "%NEW_JWT%"=="" goto :MainMenu
 if "!NEW_JWT!"=="" goto :MainMenu
@@ -246,6 +267,36 @@ pause
 goto :MainMenu
 
 :: ================================================
+:ChangeSMTPPass
+cls
+echo.
+echo  ================================================
+echo   CHANGE SMTP EMAIL PASSWORD
+echo  ================================================
+echo.
+echo  Current SMTP User:  %SMTP_USER%
+echo  Current SMTP Host:  %SMTP_HOST%:%SMTP_PORT%
+echo.
+echo  For Gmail: use an App Password (not your regular password)
+echo  Google Account > Security > 2-Step Verification > App Passwords
+echo.
+set /p "NEW_SMTP_PASS=  Enter SMTP password / App Password: "
+if "%NEW_SMTP_PASS%"=="" (
+    echo  Cancelled.
+    pause
+    goto :MainMenu
+)
+call :UpdateEnvLine "SMTP_PASS" "%NEW_SMTP_PASS%"
+set "SMTP_PASS=%NEW_SMTP_PASS%"
+echo.
+echo  [OK] SMTP password updated in .env
+echo       Restart server for changes to take effect.
+echo.
+set /p "RST=  Restart server now? (Y/N): "
+if /i "%RST%"=="Y" goto :RestartServer
+goto :MainMenu
+
+:: ================================================
 :BackupNow
 cls
 echo.
@@ -253,7 +304,6 @@ echo  Creating database backup...
 echo.
 if not exist "%APP_DIR%\backups" mkdir "%APP_DIR%\backups"
 
-:: Build timestamp
 for /f "tokens=2 delims==" %%I in ('wmic os get localdatetime /value') do set "DT=%%I"
 set "STAMP=%DT:~0,4%-%DT:~4,2%-%DT:~6,2%_%DT:~8,2%-%DT:~10,2%"
 set "DUMPFILE=%APP_DIR%\backups\backup_%STAMP%.dump"
@@ -264,6 +314,13 @@ if %ERRORLEVEL% EQU 0 (
     echo.
     echo  [OK] Backup saved:
     echo       %DUMPFILE%
+    echo.
+    :: Show last 5 backups
+    echo  Recent backups:
+    for /f "tokens=*" %%F in ('dir /b /o-d "%APP_DIR%\backups\*.dump" 2^>nul') do (
+        set /a _BC+=1
+        if !_BC! LEQ 5 echo    - %%F
+    )
 ) else (
     echo.
     echo  [ERROR] Backup failed. Is PostgreSQL running?
@@ -291,7 +348,7 @@ for %%F in ("%APP_DIR%\backups\*.dump") do (
 )
 if %IDX%==0 (
     echo  No backup files found.
-    echo  Create one with option [9] first.
+    echo  Create one with option [10] first.
     echo.
     pause
     goto :MainMenu
@@ -336,6 +393,31 @@ timeout /t 1 /nobreak >nul
 goto :StartServer
 
 :: ================================================
+:RunMigrations
+cls
+echo.
+echo  ================================================
+echo   RUN DATABASE MIGRATIONS
+echo  ================================================
+echo.
+echo  This applies any pending schema changes to the database.
+echo  Safe to run on an existing database (only runs new migrations).
+echo.
+set /p "CONF=  Continue? (Y/N): "
+if /i NOT "%CONF%"=="Y" goto :MainMenu
+echo.
+call npm run db:migrate
+echo.
+if %ERRORLEVEL% EQU 0 (
+    echo  [OK] Migrations complete.
+) else (
+    echo  [ERROR] Migration failed. Check output above.
+)
+echo.
+pause
+goto :MainMenu
+
+:: ================================================
 :FreshDB
 cls
 echo.
@@ -345,6 +427,7 @@ echo  ================================================
 echo.
 echo  This creates a NEW empty database with a default admin.
 echo  Use ONLY for a brand new installation.
+echo  EXISTING DATA WILL BE LOST.
 echo.
 set /p "CONF=  Type YES to continue: "
 if /i NOT "%CONF%"=="YES" goto :MainMenu
@@ -355,9 +438,9 @@ psql -U %DB_USER% -h %DB_HOST% -c "CREATE DATABASE %DB_NAME%;" postgres 2>nul
 echo  Installing packages...
 call npm install --silent
 echo  Creating tables (running migrations)...
-call npx sequelize-cli db:migrate
+call npm run db:migrate
 echo  Creating default admin account...
-call npx sequelize-cli db:seed:all
+call npm run db:seed
 echo.
 echo  [OK] Database ready!
 echo       Login: admin / admin123
@@ -391,7 +474,7 @@ if %ERRORLEVEL% NEQ 0 (
 )
 
 echo  Step 2/2 - Creating ZIP archive...
-set "PSCMD=Add-Type -Assembly System.IO.Compression.FileSystem; $src='%APP_DIR%'; $dest='%ZIPFILE%'; $dump='%TMPFILE%'; $ex=@('node_modules','.git','logs'); $files=Get-ChildItem -Path $src -Recurse -File | Where-Object { $rel=$_.FullName.Substring($src.Length+1); $parts=$rel -split '[/\\]'; $skip=$false; foreach($e in $ex){if($parts -contains $e){$skip=$true;break}}; -not $skip }; if(Test-Path $dest){Remove-Item $dest -Force}; $zip=[System.IO.Compression.ZipFile]::Open($dest,'Create'); foreach($f in $files){$e=$f.FullName.Substring($src.Length+1); try{[System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zip,$f.FullName,$e)|Out-Null}catch{}}; try{[System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zip,$dump,'db_backup.dump')|Out-Null}catch{}; $zip.Dispose(); Remove-Item $dump -Force -ErrorAction SilentlyContinue; Write-Host 'DONE'"
+set "PSCMD=Add-Type -Assembly System.IO.Compression.FileSystem; $src='%APP_DIR%'; $dest='%ZIPFILE%'; $dump='%TMPFILE%'; $ex=@('node_modules','.git','logs','dist'); $files=Get-ChildItem -Path $src -Recurse -File | Where-Object { $rel=$_.FullName.Substring($src.Length+1); $parts=$rel -split '[/\\]'; $skip=$false; foreach($e in $ex){if($parts -contains $e){$skip=$true;break}}; -not $skip }; if(Test-Path $dest){Remove-Item $dest -Force}; $zip=[System.IO.Compression.ZipFile]::Open($dest,'Create'); foreach($f in $files){$e=$f.FullName.Substring($src.Length+1); try{[System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zip,$f.FullName,$e)|Out-Null}catch{}}; try{[System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zip,$dump,'db_backup.dump')|Out-Null}catch{}; $zip.Dispose(); Remove-Item $dump -Force -ErrorAction SilentlyContinue; Write-Host 'DONE'"
 
 powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "%PSCMD%"
 
@@ -412,15 +495,39 @@ goto :MainMenu
 cls
 echo.
 echo  ================================================
-echo   SERVER LOGS (last 40 lines)
+echo   SERVER LOGS (last 50 lines)
 echo  ================================================
 echo.
 if exist "%APP_DIR%\logs\server.log" (
-    powershell -Command "Get-Content '%APP_DIR%\logs\server.log' -Tail 40"
+    powershell -Command "Get-Content '%APP_DIR%\logs\server.log' -Tail 50"
+    echo.
+    for %%F in ("%APP_DIR%\logs\server.log") do echo  File size: %%~zF bytes
 ) else (
-    echo  No log file found yet.
-    echo  The server may output directly to its window.
+    echo  No log file found yet. Start the server first (option 1).
 )
+echo.
+pause
+goto :MainMenu
+
+:: ================================================
+:ClearLogs
+cls
+echo.
+echo  ================================================
+echo   CLEAR SERVER LOG FILE
+echo  ================================================
+echo.
+if not exist "%APP_DIR%\logs\server.log" (
+    echo  No log file to clear.
+    pause
+    goto :MainMenu
+)
+for %%F in ("%APP_DIR%\logs\server.log") do echo  Current size: %%~zF bytes
+echo.
+set /p "CONF=  Clear the log file? (Y/N): "
+if /i NOT "%CONF%"=="Y" goto :MainMenu
+echo. > "%APP_DIR%\logs\server.log"
+echo  [OK] Log file cleared.
 echo.
 pause
 goto :MainMenu
@@ -435,33 +542,43 @@ echo  ================================================
 echo.
 echo  Web Server
 echo  ----------
-echo  Port:         %PORT%
-echo  App URL:      %APP_ORIGIN%
-echo  Timezone:     %TZ%
+echo  Port:           %PORT%
+echo  App URL:        %APP_ORIGIN%
+echo  Timezone:       %TZ%
+echo  Environment:    %NODE_ENV%
 echo.
 echo  Database
 echo  ----------
-echo  Host:         %DB_HOST%
-echo  Database:     %DB_NAME%
-echo  User:         %DB_USER%
-echo  Password:     %DB_PASS:~0,3%****** (hidden for security)
+echo  Host:           %DB_HOST%
+echo  Database:       %DB_NAME%
+echo  User:           %DB_USER%
+echo  Password:       %DB_PASS:~0,3%****** (hidden)
 echo.
 echo  Security
 echo  ----------
 set "JSHORT=%JWT_SECRET:~0,6%"
-echo  JWT Secret:   %JSHORT%****** (hidden)
+echo  JWT Secret:     %JSHORT%****** (hidden)
 echo.
 echo  Email (SMTP)
 echo  ----------
-echo  SMTP Host:    %SMTP_HOST%
-echo  SMTP Port:    %SMTP_PORT%
-echo  SMTP User:    %SMTP_USER%
+echo  SMTP Host:      %SMTP_HOST%
+echo  SMTP Port:      %SMTP_PORT%
+echo  SMTP User:      %SMTP_USER%
+echo  From Name:      %SMTP_FROM_NAME%
+if defined SMTP_PASS (
+    echo  SMTP Password:  ****** (set)
+) else (
+    echo  SMTP Password:  (not set)
+)
 echo.
 echo  Paths
 echo  ----------
-echo  App folder:   %APP_DIR%
-echo  DB Backups:   %APP_DIR%\backups\
-echo  Site Backups: C:\RX-SiteBackups\
+echo  App folder:     %APP_DIR%
+echo  DB Backups:     %APP_DIR%\backups\
+echo  Site Backups:   C:\RX-SiteBackups\
+echo  Server Log:     %APP_DIR%\logs\server.log
+echo.
+echo  Backoffice URL: %APP_ORIGIN%/backoffice
 echo.
 pause
 goto :MainMenu
@@ -474,32 +591,32 @@ echo  ================================================
 echo   BUILD PORTABLE server.exe
 echo  ================================================
 echo.
-echo  This compiles the app into server.exe
-echo  No Node.js installation needed on the target PC.
+echo  Compiles the app into a single server.exe
+echo  No Node.js needed on the target machine.
 echo  PostgreSQL still needs to be installed separately.
+echo.
+echo  Build target: node20-win-x64  (from package.json)
+echo  Output:       dist\server.exe
 echo.
 echo  Build will take 2-5 minutes on first run.
 echo.
 set /p "CONF=  Start build? (Y/N): "
 if /i NOT "%CONF%"=="Y" goto :MainMenu
 echo.
-echo  Installing/verifying pkg...
-call npm install -g pkg >nul 2>&1
 
 if not exist "%APP_DIR%\dist" mkdir "%APP_DIR%\dist"
-echo  Building server.exe (this may take a few minutes)...
 cd /d "%APP_DIR%"
 
-:: Use full path to pkg.cmd — avoids PATH refresh issues in current session
-set "PKG_CMD=%APPDATA%\npm\pkg.cmd"
-if not exist "!PKG_CMD!" set "PKG_CMD=%APPDATA%\npm\pkg"
+echo  Installing pkg globally (if not already installed)...
+call npm install -g pkg >nul 2>&1
 
-call "!PKG_CMD!" app.js --target node18-win-x64 --output dist\server.exe --compress GZip
+echo  Building server.exe...
+call npm run build:exe
 if %ERRORLEVEL% EQU 0 (
     echo.
     echo  [OK] Built: %APP_DIR%\dist\server.exe
     echo.
-    echo  Copy these files to the new PC:
+    echo  Files to copy to the new PC:
     echo    dist\server.exe
     echo    .env
     echo    views\
@@ -510,14 +627,9 @@ if %ERRORLEVEL% EQU 0 (
     echo    RX-Manager.bat
 ) else (
     echo.
-    echo  [!] Trying via npx...
-    call npx pkg app.js --target node18-win-x64 --output dist\server.exe --compress GZip
-    if !ERRORLEVEL! EQU 0 (
-        echo  [OK] Built successfully!
-    ) else (
-        echo  [ERROR] Build failed. Try running: npm install -g pkg
-        echo          Then re-open RX-Manager.bat and try again.
-    )
+    echo  [ERROR] Build failed.
+    echo          Make sure pkg is installed: npm install -g pkg
+    echo          Then re-open RX-Manager.bat and try again.
 )
 echo.
 pause
@@ -532,7 +644,7 @@ exit /b 0
 :: HELPER: Check if something is on the configured port
 :CheckPort
 set "PORT_IN_USE=0"
-powershell -Command "try{$r=(New-Object Net.Sockets.TcpClient).Connect('127.0.0.1',%PORT%);$r.Close();exit 0}catch{exit 1}" >nul 2>&1
+powershell -Command "try{$c=New-Object Net.Sockets.TcpClient;$c.Connect('127.0.0.1',%PORT%);$c.Close();exit 0}catch{exit 1}" >nul 2>&1
 if %ERRORLEVEL% EQU 0 set "PORT_IN_USE=1"
 goto :eof
 
@@ -549,25 +661,30 @@ set "TZ=America/New_York"
 set "SMTP_HOST=smtp.gmail.com"
 set "SMTP_PORT=587"
 set "SMTP_USER="
+set "SMTP_PASS="
+set "SMTP_FROM_NAME=Patient RX System"
 set "APP_ORIGIN=http://localhost:3000"
+set "NODE_ENV=production"
 if not exist "%ENV_FILE%" goto :eof
 for /f "usebackq tokens=1,* delims==" %%A in ("%ENV_FILE%") do (
     set "_K=%%A"
     set "_V=%%B"
-    :: Skip comment lines
     echo !_K! | findstr /B "#" >nul 2>&1
     if !ERRORLEVEL! NEQ 0 (
-        if "!_K!"=="PORT"        set "PORT=!_V!"
-        if "!_K!"=="DB_USER"     set "DB_USER=!_V!"
-        if "!_K!"=="DB_PASS"     set "DB_PASS=!_V!"
-        if "!_K!"=="DB_NAME"     set "DB_NAME=!_V!"
-        if "!_K!"=="DB_HOST"     set "DB_HOST=!_V!"
-        if "!_K!"=="JWT_SECRET"  set "JWT_SECRET=!_V!"
-        if "!_K!"=="TZ"          set "TZ=!_V!"
-        if "!_K!"=="SMTP_HOST"   set "SMTP_HOST=!_V!"
-        if "!_K!"=="SMTP_PORT"   set "SMTP_PORT=!_V!"
-        if "!_K!"=="SMTP_USER"   set "SMTP_USER=!_V!"
-        if "!_K!"=="APP_ORIGIN"  set "APP_ORIGIN=!_V!"
+        if "!_K!"=="PORT"           set "PORT=!_V!"
+        if "!_K!"=="DB_USER"        set "DB_USER=!_V!"
+        if "!_K!"=="DB_PASS"        set "DB_PASS=!_V!"
+        if "!_K!"=="DB_NAME"        set "DB_NAME=!_V!"
+        if "!_K!"=="DB_HOST"        set "DB_HOST=!_V!"
+        if "!_K!"=="JWT_SECRET"     set "JWT_SECRET=!_V!"
+        if "!_K!"=="TZ"             set "TZ=!_V!"
+        if "!_K!"=="SMTP_HOST"      set "SMTP_HOST=!_V!"
+        if "!_K!"=="SMTP_PORT"      set "SMTP_PORT=!_V!"
+        if "!_K!"=="SMTP_USER"      set "SMTP_USER=!_V!"
+        if "!_K!"=="SMTP_PASS"      set "SMTP_PASS=!_V!"
+        if "!_K!"=="SMTP_FROM_NAME" set "SMTP_FROM_NAME=!_V!"
+        if "!_K!"=="APP_ORIGIN"     set "APP_ORIGIN=!_V!"
+        if "!_K!"=="NODE_ENV"       set "NODE_ENV=!_V!"
     )
 )
 set "PGPASSWORD=%DB_PASS%"
@@ -580,14 +697,18 @@ set "_KEY=%~1"
 set "_VAL=%~2"
 set "_TMP=%ENV_FILE%.tmp"
 if exist "%_TMP%" del /Q "%_TMP%"
+set "_FOUND=0"
 for /f "usebackq delims=" %%L in ("%ENV_FILE%") do (
     set "_LINE=%%L"
     echo !_LINE! | findstr /B /C:"!_KEY!=" >nul 2>&1
     if !ERRORLEVEL! EQU 0 (
         echo !_KEY!=!_VAL!>>"%_TMP%"
+        set "_FOUND=1"
     ) else (
         echo !_LINE!>>"%_TMP%"
     )
 )
+:: If key didn't exist, append it
+if "!_FOUND!"=="0" echo !_KEY!=!_VAL!>>"%_TMP%"
 move /Y "%_TMP%" "%ENV_FILE%" >nul
 goto :eof
