@@ -491,6 +491,7 @@ exports.getUsers = async (req, res) => {
         const users = await db.sequelize.query(`
             SELECT u.id, u."username", u."firstName", u."lastName", u."email",
                    u."roleId", u."isActive", u."createdAt",
+                   u."twoFactorEnabled", u."failedLoginCount", u."lockedUntil",
                    (SELECT COUNT(*) FROM "AuditLogs" al WHERE al."userId" = u.id)::int AS "activityCount",
                    (SELECT MAX("createdAt") FROM "AuditLogs" al WHERE al."userId" = u.id) AS "lastActivity"
             FROM "Users" u ORDER BY u."createdAt" DESC

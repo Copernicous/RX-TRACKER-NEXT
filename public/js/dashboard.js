@@ -19,7 +19,9 @@ var _api = (function() {
         s2fa:   _h('xa-s2fa'),
         u2fa:   _h('xa-u2fa'),
         e2fa:   _h('xa-e2fa'),
-        d2fa:   _h('xa-d2fa')
+        d2fa:   _h('xa-d2fa'),
+        r2fa:   _h('xa-r2fa'),
+        cpw:    _h('xa-cpw')
     };
 })();
 
@@ -364,16 +366,23 @@ async function load2FAStatus() {
         const data = await res.json();
         const enabled = !!data.twoFactorEnabled;
 
-        const icon = document.getElementById('twoFAStatusIcon');
-        const text = document.getElementById('twoFAStatusText');
-        const sub  = document.getElementById('twoFAStatusSub');
-        const banner = document.getElementById('twoFAStatusBanner');
+        const icon    = document.getElementById('twoFAStatusIcon');
+        const text    = document.getElementById('twoFAStatusText');
+        const sub     = document.getElementById('twoFAStatusSub');
+        const banner  = document.getElementById('twoFAStatusBanner');
+        const remain  = document.getElementById('twoFABackupRemaining');
 
         if (enabled) {
             icon.innerHTML = '<i class="fas fa-shield-alt text-success"></i>';
             text.innerHTML = '<span class="text-success">2FA is ENABLED</span>';
             sub.textContent  = 'Your account is protected with two-factor authentication.';
             banner.style.background = 'rgba(25,135,84,.15)';
+            if (remain) {
+                const cnt = data.backupCodesRemaining;
+                remain.className = 'mt-1 small ' + (cnt > 2 ? 'text-success' : 'text-warning');
+                remain.textContent = cnt + ' backup code' + (cnt !== 1 ? 's' : '') + ' remaining';
+                remain.classList.remove('d-none');
+            }
             document.getElementById('twoFASetupSection').classList.add('d-none');
             document.getElementById('twoFADisableSection').classList.remove('d-none');
             document.getElementById('twoFADisableCode').value = '';
@@ -383,13 +392,13 @@ async function load2FAStatus() {
             text.innerHTML = '<span class="text-muted">2FA is DISABLED</span>';
             sub.textContent  = 'Enable 2FA to protect your account.';
             banner.style.background = 'rgba(255,255,255,.05)';
+            if (remain) remain.classList.add('d-none');
             document.getElementById('twoFASetupSection').classList.remove('d-none');
             document.getElementById('twoFADisableSection').classList.add('d-none');
             document.getElementById('twoFAQRSection').classList.add('d-none');
+            document.getElementById('twoFABackupCodesSection').classList.add('d-none');
         }
-    } catch(e) {
-        console.error('2FA status load failed', e);
-    }
+    } catch(e) { console.error('2FA status load failed', e); }
 }
 
 async function start2FASetup() {
@@ -421,11 +430,24 @@ async function enable2FA() {
     if (rawCode.length !== 6) { errEl.textContent='Enter the full 6-digit code.'; errEl.classList.remove('d-none'); return; }
     btn.disabled = true; spinner.classList.remove('d-none');
     try {
-        var _u2fa = _api.e2fa;
-        const res  = await fetchWithAuth(_u2fa, { method:'POST', body: JSON.stringify({ code: rawCode }) });
+        const res  = await fetchWithAuth(_api.e2fa, { method:'POST', body: JSON.stringify({ code: rawCode }) });
         const data = await res.json();
-        if (res.ok) { showToast('2FA enabled! You will need your authenticator app on next login.', 'success'); load2FAStatus(); }
-        else        { errEl.textContent = data.message || 'Invalid code.'; errEl.classList.remove('d-none'); }
+        if (res.ok) {
+            showToast('2FA enabled! Save your backup codes.', 'success');
+            // Show backup codes grid (displayed once only)
+            if (data.backupCodes && data.backupCodes.length) {
+                var grid = document.getElementById('twoFABackupCodesGrid');
+                var section = document.getElementById('twoFABackupCodesSection');
+                if (grid && section) {
+                    grid.innerHTML = data.backupCodes.map(function(c) {
+                        return '<div style="font-family:monospace;font-size:.85rem;background:rgba(255,255,255,.07);border-radius:6px;padding:6px 8px;text-align:center;letter-spacing:.08em">' + c + '</div>';
+                    }).join('');
+                    section.classList.remove('d-none');
+                    window._backupCodesArr = data.backupCodes;
+                }
+            }
+            load2FAStatus();
+        } else { errEl.textContent = data.message || 'Invalid code.'; errEl.classList.remove('d-none'); }
     } catch(e) { errEl.textContent='Network error.'; errEl.classList.remove('d-none'); }
     finally { btn.disabled=false; spinner.classList.add('d-none'); }
 }
@@ -439,8 +461,7 @@ async function disable2FA() {
     if (rawCode.length !== 6) { errEl.textContent='Enter the full 6-digit code.'; errEl.classList.remove('d-none'); return; }
     btn.disabled = true; spinner.classList.remove('d-none');
     try {
-        var _ud2fa = _api.d2fa;
-        const res  = await fetchWithAuth(_ud2fa, { method:'POST', body: JSON.stringify({ code: rawCode }) });
+        const res  = await fetchWithAuth(_api.d2fa, { method:'POST', body: JSON.stringify({ code: rawCode }) });
         const data = await res.json();
         if (res.ok) { showToast('2FA has been disabled.', 'warning'); load2FAStatus(); }
         else        { errEl.textContent = data.message || 'Invalid code.'; errEl.classList.remove('d-none'); }
@@ -448,17 +469,68 @@ async function disable2FA() {
     finally { btn.disabled=false; spinner.classList.add('d-none'); }
 }
 
+async function regenerateBackupCodes() {
+    const code = document.getElementById('regenCode').value.replace(/\s/g,'');
+    const errEl = document.getElementById('regenError');
+    errEl.classList.add('d-none');
+    if (code.length !== 6) { errEl.textContent='Enter the 6-digit authenticator code.'; errEl.classList.remove('d-none'); return; }
+    try {
+        const res = await fetchWithAuth(_api.r2fa, { method:'POST', body: JSON.stringify({ code }) });
+        const data = await res.json();
+        if (res.ok && data.backupCodes) {
+            var grid = document.getElementById('twoFABackupCodesGrid');
+            var section = document.getElementById('twoFABackupCodesSection');
+            if (grid && section) {
+                grid.innerHTML = data.backupCodes.map(function(c) {
+                    return '<div style="font-family:monospace;font-size:.85rem;background:rgba(255,255,255,.07);border-radius:6px;padding:6px 8px;text-align:center;letter-spacing:.08em">' + c + '</div>';
+                }).join('');
+                section.classList.remove('d-none');
+                window._backupCodesArr = data.backupCodes;
+            }
+            document.getElementById('regenCode').value = '';
+            showToast('New backup codes generated. Old codes are now invalid.', 'success');
+            load2FAStatus();
+        } else { errEl.textContent = data.message || 'Failed.'; errEl.classList.remove('d-none'); }
+    } catch(e) { errEl.textContent = 'Network error.'; errEl.classList.remove('d-none'); }
+}
+
+function copyBackupCodes() {
+    var codes = window._backupCodesArr;
+    if (!codes || !codes.length) { showToast('No codes to copy.', 'warning'); return; }
+    navigator.clipboard.writeText(codes.join('\n')).then(function() { showToast('Backup codes copied!', 'info'); });
+}
+
+async function changePassword() {
+    const current = document.getElementById('cpCurrentPw').value;
+    const newPw   = document.getElementById('cpNewPw').value;
+    const errEl   = document.getElementById('cpError');
+    const okEl    = document.getElementById('cpSuccess');
+    errEl.classList.add('d-none'); okEl.classList.add('d-none');
+    if (!current || !newPw) { errEl.textContent='Both fields are required.'; errEl.classList.remove('d-none'); return; }
+    if (newPw.length < 8)   { errEl.textContent='New password must be at least 8 characters.'; errEl.classList.remove('d-none'); return; }
+    try {
+        const res  = await fetchWithAuth(_api.cpw, { method:'POST', body: JSON.stringify({ currentPassword: current, newPassword: newPw }) });
+        const data = await res.json();
+        if (res.ok) {
+            okEl.classList.remove('d-none');
+            document.getElementById('cpCurrentPw').value = '';
+            document.getElementById('cpNewPw').value = '';
+            showToast('Password changed! Other sessions signed out.', 'success');
+        } else { errEl.textContent = data.message || 'Failed.'; errEl.classList.remove('d-none'); }
+    } catch(e) { errEl.textContent = 'Network error.'; errEl.classList.remove('d-none'); }
+}
+
 function copySecret() {
     const s = document.getElementById('twoFASecretDisplay').value;
-    navigator.clipboard.writeText(s).then(() => showToast('Secret key copied!', 'info'));
+    navigator.clipboard.writeText(s).then(function() { showToast('Secret key copied!', 'info'); });
 }
 
 // Auto-format 2FA code inputs (insert space after 3 digits)
-['twoFAEnableCode','twoFADisableCode'].forEach(id => {
-    const el = document.getElementById(id);
+['twoFAEnableCode','twoFADisableCode','regenCode'].forEach(function(id) {
+    var el = document.getElementById(id);
     if (!el) return;
     el.addEventListener('input', function() {
-        let v = this.value.replace(/\D/g,'').substring(0,6);
+        var v = this.value.replace(/\D/g,'').substring(0,6);
         this.value = v.length > 3 ? v.slice(0,3)+' '+v.slice(3) : v;
     });
 });

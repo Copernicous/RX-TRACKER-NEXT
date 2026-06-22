@@ -299,6 +299,9 @@ router.delete('/admin/locks',           adminOnly, adminController.releaseExpire
 router.get('/admin/users',              adminOnly, adminController.getUsers);
 router.patch('/admin/users/:id',        adminOnly, adminController.updateUser);
 router.post('/admin/users/:id/reset-password', adminOnly, adminController.adminResetPassword);
+router.post('/admin/users/:id/unlock',          adminOnly, require('../controllers/twoFactorController').adminUnlock);
+router.delete('/admin/users/:id/reset-2fa',    adminOnly, require('../controllers/twoFactorController').adminReset);
+
 
 // Error Log Manager
 router.get('/admin/error-logs',            adminOnly, adminController.getErrorLogs);

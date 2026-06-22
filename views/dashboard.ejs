@@ -76,6 +76,20 @@
           <div id="twoFAStatusIcon" style="font-size:2rem;margin-bottom:.3rem"></div>
           <div id="twoFAStatusText" class="fw-bold"></div>
           <div id="twoFAStatusSub" class="text-muted small mt-1"></div>
+          <div id="twoFABackupRemaining" class="d-none mt-1"></div>
+        </div>
+
+        <!-- Backup codes display (shown once after enable) -->
+        <div id="twoFABackupCodesSection" class="d-none mb-4">
+          <div class="alert alert-warning py-2 mb-2 small">
+            <i class="fas fa-exclamation-triangle me-1"></i>
+            <strong>Save these backup codes now.</strong> They will not be shown again.
+            Use one if you lose access to your authenticator app.
+          </div>
+          <div id="twoFABackupCodesGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px"></div>
+          <button class="btn btn-outline-secondary btn-sm w-100" onclick="copyBackupCodes()">
+            <i class="fas fa-copy me-1"></i>Copy All Codes
+          </button>
         </div>
 
         <!-- Setup Flow (shown when 2FA is OFF) -->
@@ -115,7 +129,7 @@
           </div>
         </div>
 
-        <!-- Disable Flow (shown when 2FA is ON) -->
+        <!-- Disable Flow + Backup Code Management (shown when 2FA is ON) -->
         <div id="twoFADisableSection" class="d-none">
           <p class="text-muted small mb-3">
             <i class="fas fa-exclamation-triangle text-warning me-1"></i>
@@ -125,9 +139,37 @@
                  inputmode="numeric" maxlength="7" placeholder="000 000"
                  style="font-size:1.4rem;letter-spacing:.3rem;background:rgba(255,255,255,.1);color:#fff;border:1px solid rgba(255,255,255,.2)">
           <div id="twoFADisableError" class="alert alert-danger py-2 small d-none"></div>
-          <button class="btn btn-danger w-100" id="disableTwoFABtn" onclick="disable2FA()">
+          <button class="btn btn-danger w-100 mb-3" id="disableTwoFABtn" onclick="disable2FA()">
             <span id="disableSpinner" class="spinner-border spinner-border-sm me-1 d-none"></span>
             <i class="fas fa-times-circle me-1"></i>Disable Two-Factor Authentication
+          </button>
+          <hr style="border-color:rgba(255,255,255,.1)">
+          <!-- Regenerate backup codes -->
+          <div id="regenCodesSection">
+            <p class="text-muted small mb-2"><i class="fas fa-key me-1"></i>Lost your backup codes? Generate a new set (invalidates old codes).</p>
+            <div class="input-group input-group-sm mb-2">
+              <input type="text" id="regenCode" class="form-control text-center font-monospace" placeholder="Enter authenticator code to confirm" inputmode="numeric" maxlength="7"
+                style="background:rgba(255,255,255,.1);color:#fff;border:1px solid rgba(255,255,255,.2)">
+              <button class="btn btn-outline-warning" onclick="regenerateBackupCodes()">
+                <i class="fas fa-redo me-1"></i>Regenerate
+              </button>
+            </div>
+            <div id="regenError" class="alert alert-danger py-1 small d-none"></div>
+          </div>
+        </div>
+
+        <!-- Change Password section -->
+        <hr style="border-color:rgba(255,255,255,.1)" class="mt-3">
+        <div id="changePwSection">
+          <p class="small fw-semibold mb-2"><i class="fas fa-key me-1 text-warning"></i>Change Password</p>
+          <input type="password" id="cpCurrentPw" class="form-control mb-2 form-control-sm" placeholder="Current password"
+            style="background:rgba(255,255,255,.08);color:#fff;border:1px solid rgba(255,255,255,.2)">
+          <input type="password" id="cpNewPw" class="form-control mb-2 form-control-sm" placeholder="New password (min 8 chars)"
+            style="background:rgba(255,255,255,.08);color:#fff;border:1px solid rgba(255,255,255,.2)">
+          <div id="cpError" class="alert alert-danger py-1 small d-none mb-2"></div>
+          <div id="cpSuccess" class="alert alert-success py-1 small d-none mb-2">Password changed. Other sessions have been signed out.</div>
+          <button class="btn btn-outline-warning btn-sm w-100" onclick="changePassword()">
+            <i class="fas fa-save me-1"></i>Change Password &amp; Sign Out Other Sessions
           </button>
         </div>
       </div>
@@ -336,6 +378,9 @@
     <a id="xa-u2fa"   href="/api/auth/2fa/setup"></a>
     <a id="xa-e2fa"   href="/api/auth/2fa/enable"></a>
     <a id="xa-d2fa"   href="/api/auth/2fa/disable"></a>
+    <a id="xa-r2fa"   href="/api/auth/2fa/regenerate-backup-codes"></a>
+    <a id="xa-cpw"    href="/api/auth/change-password"></a>
+    <a id="xa-login2" href="/api/auth/login/2fa"></a>
     <!-- Page link anchors for drilldown navigation (avoids JS '/' strings FortiGate corrupts) -->
     <a id="xl-patients-active"    href="/patients?status=active"></a>
     <a id="xl-patients-inactive"  href="/patients?status=inactive"></a>

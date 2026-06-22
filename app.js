@@ -175,8 +175,30 @@ apiRoutes._mountPrefix         = '/api';
 webRoutes._mountPrefix         = '/';
 twoFactorRoutes._mountPrefix   = '/api/auth';
 
-// Apply rate limiter to login routes only
-app.use('/api/auth/login', loginLimiter);
+// ── Extended rate limiting for sensitive endpoints ───────────────────────────
+// API key management: 30 requests / 15 min (prevents key enumeration)
+const apiKeyLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, max: 30, standardHeaders: true, legacyHeaders: false,
+    message: { message: 'Too many API key requests. Please try again later.' }
+});
+// 2FA setup: 10 requests / 15 min per IP
+const twoFaSetupLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, max: 10, standardHeaders: true, legacyHeaders: false,
+    message: { message: 'Too many 2FA setup attempts. Please try again later.' }
+});
+// Settings write: 20 changes / 15 min
+const settingsLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, max: 20, standardHeaders: true, legacyHeaders: false,
+    message: { message: 'Too many settings changes. Please try again later.' },
+    skipSuccessfulRequests: false
+});
+
+// Apply rate limiters to login and sensitive endpoints
+app.use('/api/auth/login',          loginLimiter);
+app.use('/api/auth/2fa/setup',      twoFaSetupLimiter);
+app.use('/api/auth/2fa/enable',     twoFaSetupLimiter);
+app.use('/api/keys',                apiKeyLimiter);
+app.use('/api/settings',            settingsLimiter);
 
 app.use('/api/auth',    authRoutes);
 app.use('/api/auth',    twoFactorRoutes);
@@ -266,7 +288,9 @@ const startServer = async () => {
         await db.sequelize.query('ALTER TABLE "Users" ADD COLUMN IF NOT EXISTS "twoFactorEnabled" BOOLEAN DEFAULT FALSE;');
         await db.sequelize.query('ALTER TABLE "Users" ADD COLUMN IF NOT EXISTS "failedLoginCount" INTEGER DEFAULT 0;');
         await db.sequelize.query('ALTER TABLE "Users" ADD COLUMN IF NOT EXISTS "lockedUntil" TIMESTAMP WITH TIME ZONE;');
-        console.log('Database verified: Users 2FA and lockout columns ready.');
+        await db.sequelize.query('ALTER TABLE "Users" ADD COLUMN IF NOT EXISTS "backupCodes" TEXT;');
+        await db.sequelize.query('ALTER TABLE "Users" ADD COLUMN IF NOT EXISTS "tokenVersion" INTEGER DEFAULT 0;');
+        console.log('Database verified: Users 2FA, lockout, backup codes, and tokenVersion columns ready.');
     } catch (e) {
         console.warn('Startup migration warning (Users 2FA columns, non-fatal):', e.message);
     }

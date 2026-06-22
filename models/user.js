@@ -30,9 +30,21 @@ module.exports = (sequelize, DataTypes) => {
     // 2FA fields
     twoFactorSecret:  DataTypes.TEXT,
     twoFactorEnabled: { type: DataTypes.BOOLEAN, defaultValue: false },
+    backupCodes: {
+        type: DataTypes.TEXT,
+        get() {
+            const raw = this.getDataValue('backupCodes');
+            return raw ? JSON.parse(raw) : [];
+        },
+        set(value) {
+            this.setDataValue('backupCodes', value ? JSON.stringify(value) : null);
+        }
+    },
     // Account lockout fields
     failedLoginCount: { type: DataTypes.INTEGER, defaultValue: 0 },
     lockedUntil:      DataTypes.DATE,
+    // Token version — increment on password change to invalidate old JWTs
+    tokenVersion:     { type: DataTypes.INTEGER, defaultValue: 0 },
     permissions: {
         type: DataTypes.TEXT,
         get() {
