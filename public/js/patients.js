@@ -459,6 +459,26 @@ var allPatients = [];
             tdSvc.textContent = p.serviceDate || '\u2014';
             tr.appendChild(tdSvc);
 
+            // Col: Next Svc Date (serviceDate + 90 days, color-coded)
+            var tdNext = document.createElement('td');
+            if (p.serviceDate) {
+                var _sd   = new Date(p.serviceDate); _sd.setHours(0,0,0,0);
+                var _exp  = new Date(_sd.getTime() + 90 * 864e5);
+                var _now  = new Date(); _now.setHours(0,0,0,0);
+                var _dl   = Math.round((_exp - _now) / 864e5);
+                var _es   = _exp.toLocaleDateString();
+                if (_dl < 0) {
+                    tdNext.innerHTML = '<span class="badge bg-danger" title="Expired ' + Math.abs(_dl) + 'd ago"><i class="fas fa-exclamation-circle me-1"></i>Expired</span><small class="d-block text-muted" style="font-size:.7rem">' + _es + '</small>';
+                } else if (_dl <= 14) {
+                    tdNext.innerHTML = '<span class="badge bg-warning text-dark" title="' + _dl + ' days left"><i class="fas fa-clock me-1"></i>' + _dl + 'd left</span><small class="d-block text-muted" style="font-size:.7rem">' + _es + '</small>';
+                } else {
+                    tdNext.innerHTML = '<span style="font-size:.87rem">' + _es + '</span>';
+                }
+            } else {
+                tdNext.innerHTML = '<span class="text-muted">—</span>';
+            }
+            tr.appendChild(tdNext);
+
             // Col: Status
             var tdStatus = document.createElement('td');
             var statusSpan = document.createElement('span');
@@ -620,6 +640,29 @@ var allPatients = [];
         currentPage = p; renderPatients();
     }
 
+    // Compute and display next available service date inside the edit modal
+    function _updateNextSvcDisplay() {
+        var el = document.getElementById('pNextSvcDisplay');
+        var inp = document.getElementById('pServiceDate');
+        if (!el || !inp) return;
+        var val = inp.value;
+        if (!val) { el.innerHTML = ''; return; }
+        var sd   = new Date(val); sd.setHours(0,0,0,0);
+        var exp  = new Date(sd.getTime() + 90 * 864e5);
+        var now  = new Date(); now.setHours(0,0,0,0);
+        var dl   = Math.round((exp - now) / 864e5);
+        var es   = exp.toLocaleDateString();
+        var html;
+        if (dl < 0) {
+            html = '<span class="badge bg-danger"><i class="fas fa-exclamation-circle me-1"></i>Expired ' + Math.abs(dl) + 'd ago</span> <small class="text-muted">Next: ' + es + '</small>';
+        } else if (dl <= 14) {
+            html = '<span class="badge bg-warning text-dark"><i class="fas fa-clock me-1"></i>' + dl + 'd left</span> <small class="text-muted">Closes: ' + es + '</small>';
+        } else {
+            html = '<span class="badge bg-success"><i class="fas fa-check me-1"></i>Active</span> <small class="text-muted">Next available: ' + es + '</small>';
+        }
+        el.innerHTML = html;
+    }
+
     function openPatientModal(id) {
         editingPatientId = id;
         document.getElementById('patientModalTitle').textContent = id ? 'Edit Patient' : 'Add Patient';
@@ -639,6 +682,8 @@ var allPatients = [];
         document.getElementById('pClinicId').value = patient ? (patient.clinicId !== null && patient.clinicId !== undefined ? String(patient.clinicId) : '') : '';
         document.getElementById('pPharmacyId').value = patient ? (patient.pharmacyId !== null && patient.pharmacyId !== undefined ? String(patient.pharmacyId) : '') : '';
         new bootstrap.Modal(document.getElementById('patientModal')).show();
+        // Refresh the next-svc-date display for whatever date is loaded
+        setTimeout(_updateNextSvcDisplay, 50);
         // Show/hide save button based on add vs edit permission
         const _saveBtn = document.getElementById('savePatientBtn');
         if (_saveBtn) {

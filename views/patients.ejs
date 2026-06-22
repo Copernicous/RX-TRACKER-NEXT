@@ -150,6 +150,7 @@
                                 <th style="cursor:pointer" onclick="sortPatients('dob')">DOB <i class="fas fa-sort text-muted" style="opacity:0.3" id="spIcon_dob"></i></th>
                                 <th style="cursor:pointer" onclick="sortPatients('phone')">Phone <i class="fas fa-sort text-muted" style="opacity:0.3" id="spIcon_phone"></i></th>
                                 <th style="cursor:pointer" onclick="sortPatients('serviceDate')">Service Date <i class="fas fa-sort text-muted" style="opacity:0.3" id="spIcon_serviceDate"></i></th>
+                                <th>Next Svc Date</th>
                                 <th style="cursor:pointer" onclick="sortPatients('isActive')">Status <i class="fas fa-sort text-muted" style="opacity:0.3" id="spIcon_isActive"></i></th>
                                 <th>Actions</th>
                             </tr>
@@ -197,7 +198,8 @@
                         </div>
                         <div class="col-md-4">
                             <label class="form-label">Service Date</label>
-                            <input type="date" class="form-control" id="pServiceDate">
+                            <input type="date" class="form-control" id="pServiceDate" oninput="_updateNextSvcDisplay()">
+                            <div id="pNextSvcDisplay" class="mt-1" style="min-height:1.4rem"></div>
                             <small class="text-muted"><i class="fas fa-info-circle me-1"></i>This date will auto-fill the Service Date on new RX records for this patient</small>
                         </div>
                         <div class="col-12">
