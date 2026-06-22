@@ -383,7 +383,10 @@
                 <div style="font-size:1rem;font-weight:700">Orphan Record Detector</div>
                 <div style="font-size:0.75rem;color:var(--text-muted)">FK references pointing to non-existent parent records</div>
             </div>
-            <button class="btn-bo btn-bo-primary" onclick="loadOrphans()"><i class="fas fa-sync-alt me-1"></i>Scan Now</button>
+            <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
+                <button class="btn-bo btn-bo-primary" onclick="loadOrphans()"><i class="fas fa-sync-alt me-1"></i>Scan Now</button>
+                <button class="btn-bo btn-bo-outline" id="orphanExportBtn" onclick="exportOrphansCSV()" style="display:none"><i class="fas fa-file-csv me-1"></i>Export CSV</button>
+            </div>
         </div>
         <div id="orphanStatus" style="margin-bottom:1rem"></div>
         <div id="orphanList">
@@ -402,6 +405,7 @@
                 <button class="tab-btn active" id="dupeTabName" onclick="switchDupeTab('name')" style="flex:unset;padding:0.4rem 0.8rem;font-size:0.75rem">By Name</button>
                 <button class="tab-btn" id="dupeTabPhone" onclick="switchDupeTab('phone')" style="flex:unset;padding:0.4rem 0.8rem;font-size:0.75rem">By Phone</button>
                 <button class="btn-bo btn-bo-primary" onclick="loadDupes()"><i class="fas fa-sync-alt me-1"></i>Scan</button>
+                <button class="btn-bo btn-bo-outline" id="dupesExportBtn" onclick="exportDupesCSV()" style="display:none"><i class="fas fa-file-csv me-1"></i>Export CSV</button>
             </div>
         </div>
         <div id="dupesStatus" style="margin-bottom:1rem"></div>
@@ -1037,6 +1041,8 @@
 <div class="bo-toast-wrap" id="toastWrap"></div>
 
 <!-- ═══════════════════════════════════════════════════════════════════════ -->
+<a id="xa-base" href="/login" style="display:none"></a>
+<script src="/js/base.js"></script>
 <script src="/js/backoffice.js"></script>
 <script src="/js/backoffice-features.js"></script>
 </body>

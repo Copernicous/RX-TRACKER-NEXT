@@ -52,76 +52,83 @@ let selectedIds = new Set();
 let isAdmin     = false;
 let logsMap     = {};
 
-// ── Filter panel toggle ───────────────────────────────────────────────────────
-let _auditAdvOpen = false;
+// Filter panel toggle
+var _auditAdvOpen = false;
 function toggleAuditAdv() {
+    var el = document.getElementById('auditAdvPanel');
+    var ch = document.getElementById('auditAdvChevron');
     _auditAdvOpen = !_auditAdvOpen;
-    const el = document.getElementById('auditAdvPanel');
-    const ch = document.getElementById('auditAdvChevron');
     if (el) el.style.display = _auditAdvOpen ? '' : 'none';
-    if (ch) ch.className   = _auditAdvOpen ? 'fas fa-chevron-up ms-1' : 'fas fa-chevron-down ms-1';
+    if (ch) ch.className    = _auditAdvOpen ? 'fas fa-chevron-up ms-1' : 'fas fa-chevron-down ms-1';
 }
 
-
-// ── Init ─────────────────────────────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', async () => {
+// Init
+document.addEventListener('DOMContentLoaded', async function() {
     initApp();
-
-    // Check admin
     try {
-        const u = JSON.parse(localStorage.getItem('user') || '{}');
-        if (u.role === 'Administrator') {
+        var _u = JSON.parse(localStorage.getItem('user') || '{}');
+        if (_u.role === 'Administrator') {
             isAdmin = true;
             document.getElementById('adminZone').classList.remove('d-none');
             document.getElementById('actHeader').classList.remove('d-none');
-            loadErrors();   // show error log section for admins
+            loadErrors();
         }
     } catch(e) {}
-
-    // Load filter dropdowns in parallel \u2014 failures are non-fatal
-    await Promise.allSettled([loadUserFilter(), loadModuleFilter()]);
-
-    // Load first page
+    await Promise.allSettled([loadUserFilter(), loadModuleFilter(), loadActionFilter()]);
     await loadPage();
-
-    // Wire controls
-    document.getElementById('searchBtn').addEventListener('click', () => { currentPage = 1; loadPage(); });
+    document.getElementById('searchBtn').addEventListener('click', function() { currentPage = 1; loadPage(); });
     document.getElementById('clearBtn').addEventListener('click', clearFilters);
     document.getElementById('exportBtn').addEventListener('click', exportAll);
-    document.getElementById('pgSize').addEventListener('change', e => { pageSize = parseInt(e.target.value); currentPage = 1; loadPage(); });
-    document.getElementById('selAll').addEventListener('change', e => toggleAll(e.target.checked));
-
+    document.getElementById('pgSize').addEventListener('change', function(e) { pageSize = parseInt(e.target.value); currentPage = 1; loadPage(); });
+    document.getElementById('selAll').addEventListener('change', function(e) { toggleAll(e.target.checked); });
     if (isAdmin) {
         document.getElementById('delSelBtn').addEventListener('click', deleteSelected);
         document.getElementById('rotateBtn').addEventListener('click', rotateLogs);
     }
 });
 
-// ── Filter dropdowns ──────────────────────────────────────────────────────────
+// Filter dropdowns
 async function loadUserFilter() {
-    const res = await fetchWithAuth(_uAlUsers);
+    var res = await fetchWithAuth(_uAlUsers);
     if (!res || !res.ok) return;
-    const users = await res.json();
-    const sel = document.getElementById('fUser');
-    (users || []).forEach(u => {
-        const opt = document.createElement('option');
+    var users = await res.json();
+    var sel = document.getElementById('fUser');
+    (users || []).forEach(function(u) {
+        var opt = document.createElement('option');
         opt.value = u.id;
-        opt.textContent = `${u.firstName} ${u.lastName} (${u.username})`;
+        opt.textContent = u.firstName + ' ' + u.lastName + ' (' + u.username + ')';
         sel.appendChild(opt);
     });
 }
 
 async function loadModuleFilter() {
-    const res = await fetchWithAuth(_uAlModules);
+    var res = await fetchWithAuth(_uAlModules);
     if (!res || !res.ok) return;
-    const mods = await res.json();
-    const sel = document.getElementById('fModule');
-    (mods || []).forEach(m => {
-        const opt = document.createElement('option');
+    var mods = await res.json();
+    var sel = document.getElementById('fModule');
+    (mods || []).forEach(function(m) {
+        var opt = document.createElement('option');
         opt.value = m; opt.textContent = m;
         sel.appendChild(opt);
     });
 }
+
+async function loadActionFilter() {
+    var _uAlActions = '/api/audit-logs/actions';
+    var res = await fetchWithAuth(_uAlActions);
+    if (!res || !res.ok) return;
+    var actions = await res.json();
+    if (!Array.isArray(actions) || !actions.length) return;
+    var sel = document.getElementById('fAction');
+    if (!sel) return;
+    while (sel.options.length > 1) { sel.remove(1); }
+    actions.forEach(function(a) {
+        var opt = document.createElement('option');
+        opt.value = a; opt.textContent = a;
+        sel.appendChild(opt);
+    });
+}
+
 
 // ── Build query params ────────────────────────────────────────────────────────
 function buildParams(forExport) {
@@ -292,24 +299,46 @@ function renderTable() {
 
 // ── Pagination ────────────────────────────────────────────────────────────────
 function renderPagination() {
-    const pages = Math.ceil(totalCount / pageSize) || 1;
-    const start = Math.min((currentPage - 1) * pageSize + 1, totalCount);
-    const end   = Math.min(currentPage * pageSize, totalCount);
-    document.getElementById('pgInfo').textContent =
-        `Showing ${start.toLocaleString()}\u2013${end.toLocaleString()} of ${totalCount.toLocaleString()} entries`;
+    var pages = Math.ceil(totalCount / pageSize) || 1;
+    var start = totalCount === 0 ? 0 : Math.min((currentPage - 1) * pageSize + 1, totalCount);
+    var end   = Math.min(currentPage * pageSize, totalCount);
 
-    const nav = document.getElementById('pgNav');
-    var isFirst = currentPage === 1; var isLast = currentPage >= pages;
-    var html = '<li class="page-item' + (isFirst ? ' disabled' : '') + '"><a class="page-link" data-pg="' + (currentPage-1) + '">&laquo;</a></li>';
-
-    const lo = Math.max(1, currentPage - 2);
-    const hi = Math.min(pages, currentPage + 2);
-    if (lo > 1) html += `<li class="page-item disabled"><a class="page-link">…</a></li>`;
-    for (let i = lo; i <= hi; i++) {
-        html += '<li class="page-item' + (i===currentPage ? ' active' : '') + '"><a class="page-link" data-pg="' + i + '">"' + i + '</a></li>';
+    // Counter text — string concat (no template literals for FortiGate safety)
+    var pgInfoEl = document.getElementById('pgInfo');
+    if (pgInfoEl) {
+        pgInfoEl.textContent = 'Showing ' + start.toLocaleString() + '\u2013' + end.toLocaleString() + ' of ' + totalCount.toLocaleString() + ' entries';
     }
-    if (hi < pages) html += `<li class="page-item disabled"><a class="page-link">…</a></li>`;
-    html += '<li class="page-item' + (isLast ? ' disabled' : '') + '"><a class="page-link" data-pg="' + (currentPage+1) + '">&raquo;</a></li>';
+
+    var nav = document.getElementById('pgNav');
+    if (!nav) return;
+
+    var isFirst = currentPage === 1;
+    var isLast  = currentPage >= pages;
+
+    // Smart ellipsis paginator — matches patients.js pattern
+    var html = '<li class="page-item' + (isFirst ? ' disabled' : '') + '"><a class="page-link" data-pg="' + (currentPage - 1) + '">&laquo;</a></li>';
+
+    var delta = 2;
+    var lo = Math.max(2, currentPage - delta);
+    var hi = Math.min(pages - 1, currentPage + delta);
+
+    // Always show page 1
+    html += '<li class="page-item' + (currentPage === 1 ? ' active' : '') + '"><a class="page-link" data-pg="1">1</a></li>';
+
+    if (lo > 2) html += '<li class="page-item disabled"><span class="page-link">&hellip;</span></li>';
+
+    for (var i = lo; i <= hi; i++) {
+        html += '<li class="page-item' + (i === currentPage ? ' active' : '') + '"><a class="page-link" data-pg="' + i + '">' + i + '</a></li>';
+    }
+
+    if (hi < pages - 1) html += '<li class="page-item disabled"><span class="page-link">&hellip;</span></li>';
+
+    // Always show last page (if more than 1 page)
+    if (pages > 1) {
+        html += '<li class="page-item' + (currentPage === pages ? ' active' : '') + '"><a class="page-link" data-pg="' + pages + '">' + pages + '</a></li>';
+    }
+
+    html += '<li class="page-item' + (isLast ? ' disabled' : '') + '"><a class="page-link" data-pg="' + (currentPage + 1) + '">&raquo;</a></li>';
     nav.innerHTML = html;
 }
 
@@ -428,12 +457,12 @@ function showDetail(id) {
                 ${(function(){var _rc=''; changed.forEach(function(k){                    const ov = oldObj ? oldObj[k] : undefined;
                     const nv = newObj ? newObj[k] : undefined;
                     const lbl = FIELD_LABELS[k] || k.replace(/([A-Z])/g,' $1').replace(/^./,s=>s.toUpperCase());
-                    _rc += `<tr>
-                        <td class="fw-semibold text-muted small" style="text-transform:uppercase;letter-spacing:.04em">${lbl}</td>
-                        <td style="background:rgba(220,53,69,0.06)">${ov !== undefined ? formatVal(k,ov) : '<span class="text-muted fst-italic">\u2014</span>'}</td>
-                        <td style="background:rgba(25,135,84,0.06)">${nv !== undefined ? formatVal(k,nv) : '<span class="text-muted fst-italic">\u2014</span>'}</td>
-                    </tr>`;
-                `}); return _rc;})()}
+                    _rc += '<tr>' +
+                        '<td class="fw-semibold text-muted small" style="text-transform:uppercase;letter-spacing:.04em">' + lbl + '</td>' +
+                        '<td style="background:rgba(220,53,69,0.06)">' + (ov !== undefined ? formatVal(k,ov) : '<span class="text-muted fst-italic">\u2014</span>') + '</td>' +
+                        '<td style="background:rgba(25,135,84,0.06)">' + (nv !== undefined ? formatVal(k,nv) : '<span class="text-muted fst-italic">\u2014</span>') + '</td>' +
+                    '</tr>';
+                }); return _rc;})()}
                 </tbody>
             </table>
             </div>
@@ -453,8 +482,8 @@ function showDetail(id) {
                 <tbody>
                 ${(function(){var _ru=''; unchanged.forEach(function(k){                    const val = newObj ? newObj[k] : (oldObj ? oldObj[k] : undefined);
                     const lbl = FIELD_LABELS[k] || k.replace(/([A-Z])/g,' $1').replace(/^./,s=>s.toUpperCase());
-                    _ru += `<tr><td class="fw-semibold text-muted small" style="text-transform:uppercase;letter-spacing:.04em">${lbl}</td><td>${formatVal(k,val)}</td></tr>`;
-                `}); return _ru;})()}
+                    _ru += '<tr><td class="fw-semibold text-muted small" style="text-transform:uppercase;letter-spacing:.04em">' + lbl + '</td><td>' + formatVal(k,val) + '</td></tr>';
+                }); return _ru;})()}}
                 </tbody>
             </table>
             </div>

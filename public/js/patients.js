@@ -1,7 +1,7 @@
 var allPatients = [];
     var filteredPatients = [];
     var currentPage = 1;
-    var pageSize = 15;
+    var pageSize = 20;
     var editingPatientId = null;
     var deletingPatientId = null;
     var pSortCol = 'id';
@@ -10,6 +10,16 @@ var allPatients = [];
     document.addEventListener('DOMContentLoaded', async () => {
         initApp();
         await loadDropdowns();
+
+        // Page-size selector
+        var psSel = document.getElementById('patPageSizeSelect');
+        if (psSel) {
+            psSel.addEventListener('change', function() {
+                pageSize = parseInt(this.value);
+                currentPage = 1;
+                renderPatients();
+            });
+        }
 
         // ── Determine URL params BEFORE loading patients ────────────────────
         // This lets us avoid loading ALL patients when we only need a subset.
@@ -556,13 +566,23 @@ var allPatients = [];
         });
 
         var pi = document.getElementById('patientPageInfo');
-        if (pi) pi.textContent = 'Showing ' + (Math.min(start + 1, filteredPatients.length)) + '\u2013' + Math.min(start + pageSize, filteredPatients.length) + ' of ' + filteredPatients.length;
+        if (pi) pi.textContent = 'Showing ' + (filteredPatients.length === 0 ? 0 : Math.min(start + 1, filteredPatients.length)) + '\u2013' + Math.min(start + pageSize, filteredPatients.length) + ' of ' + filteredPatients.length;
 
         var pages = Math.ceil(filteredPatients.length / pageSize);
+        // Smart ellipsis pagination — never renders more than ~9 buttons
         var pagHtml = '<li class="page-item' + (currentPage === 1 ? ' disabled' : '') + '"><a class="page-link" href="#" data-pg="' + (currentPage - 1) + '">&laquo;</a></li>';
-        for (var pageNum = 1; pageNum <= pages; pageNum++) {
+        var delta = 2; // pages each side of current
+        var lo = Math.max(2, currentPage - delta);
+        var hi = Math.min(pages - 1, currentPage + delta);
+        // Always show page 1
+        pagHtml += '<li class="page-item' + (currentPage === 1 ? ' active' : '') + '"><a class="page-link" href="#" data-pg="1">1</a></li>';
+        if (lo > 2) pagHtml += '<li class="page-item disabled"><span class="page-link">&hellip;</span></li>';
+        for (var pageNum = lo; pageNum <= hi; pageNum++) {
             pagHtml += '<li class="page-item' + (pageNum === currentPage ? ' active' : '') + '"><a class="page-link" href="#" data-pg="' + pageNum + '">' + pageNum + '</a></li>';
         }
+        if (hi < pages - 1) pagHtml += '<li class="page-item disabled"><span class="page-link">&hellip;</span></li>';
+        // Always show last page (if more than 1 page)
+        if (pages > 1) pagHtml += '<li class="page-item' + (currentPage === pages ? ' active' : '') + '"><a class="page-link" href="#" data-pg="' + pages + '">' + pages + '</a></li>';
         pagHtml += '<li class="page-item' + ((currentPage >= pages || pages === 0) ? ' disabled' : '') + '"><a class="page-link" href="#" data-pg="' + (currentPage + 1) + '">&raquo;</a></li>';
         var pagEl = document.getElementById('patientPagination');
         pagEl.innerHTML = pagHtml;

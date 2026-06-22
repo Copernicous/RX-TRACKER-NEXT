@@ -169,6 +169,8 @@ body {
 /* ---------- Main Content ---------- */
 #content {
     flex: 1;
+    min-width: 0;          /* prevent flex child from overflowing viewport */
+    overflow-x: hidden;    /* belt-and-suspenders: clip any internal overflow */
     margin-left: var(--sidebar-w);
     min-height: 100vh;
     transition: margin var(--transition);
@@ -341,22 +343,22 @@ body {
 }
 
 .table thead th {
-    font-size: 0.78rem;
+    font-size: 0.75rem;
     font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.4px;
     color: var(--text-muted);
     border-bottom: 2px solid var(--border);
-    padding: 0.75rem 1rem;
+    padding: 0.5rem 0.6rem;   /* tighter horizontal padding */
     background: var(--surface-2);
     white-space: nowrap;
 }
 
 .table tbody td {
-    padding: 0.75rem 1rem;
+    padding: 0.45rem 0.6rem;  /* compact rows */
     border-bottom: 1px solid var(--border);
     vertical-align: middle;
-    font-size: 0.875rem;
+    font-size: 0.845rem;
 }
 
 .table tbody tr:last-child td { border-bottom: none; }

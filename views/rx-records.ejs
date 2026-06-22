@@ -127,6 +127,22 @@
                         <button class="btn btn-success btn-sm" id="addRxBtn"><i class="fas fa-plus me-1"></i>New RX</button>
                     </div>
                 </div>
+
+                <!-- ── Pagination bar TOP ── -->
+                <div class="d-flex align-items-center justify-content-between mb-2" id="rxPagBar">
+                    <div class="d-flex align-items-center gap-2">
+                        <label class="small text-muted mb-0">Show</label>
+                        <select class="form-select form-select-sm" style="width:auto" id="rxPageSizeSelect">
+                            <option value="10">10</option>
+                            <option value="20">20</option>
+                            <option value="50" selected>50</option>
+                            <option value="100">100</option>
+                        </select>
+                        <small class="text-muted" id="rxPageInfo"></small>
+                    </div>
+                    <nav><ul class="pagination pagination-sm mb-0" id="rxPagination"></ul></nav>
+                </div>
+
                 <div class="table-responsive">
                     <table class="table table-hover align-middle">
                         <thead>
@@ -144,10 +160,6 @@
                             <tr><td colspan="7" class="text-center text-muted py-4">Loading...</td></tr>
                         </tbody>
                     </table>
-                </div>
-                <div class="d-flex justify-content-between align-items-center mt-3">
-                    <small class="text-muted" id="rxPageInfo"></small>
-                    <nav><ul class="pagination pagination-sm mb-0" id="rxPagination"></ul></nav>
                 </div>
             </div>
         </div>
@@ -323,6 +335,8 @@
 
 <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index:1100"></div>
 <script src="/assets/bootstrap.bundle.min.js"></script>
+<a id="xa-base" href="/login" style="display:none"></a>
+<script src="/js/base.js"></script>
 <script src="/js/app.js"></script>
 <script src="/js/help.js"></script>
 <script>
@@ -336,7 +350,7 @@
         if (el) el.style.display = _rxAdvOpen ? '' : 'none';
         if (ch) ch.className   = _rxAdvOpen ? 'fas fa-chevron-up ms-1' : 'fas fa-chevron-down ms-1';
     }
-    var rxPage = 1, rxPageSize = 15;
+    var rxPage = 1, rxPageSize = 50;
     var currentRxId = null;
     var rSortCol = 'id';
     var rSortDir = 'desc';
@@ -352,6 +366,12 @@
         document.getElementById('addRxBtn').addEventListener('click', () => openRxModal());
         document.getElementById('addMedBtn').addEventListener('click', addMedicationRow);
         document.getElementById('saveRxBtn').addEventListener('click', saveRx);
+
+        document.getElementById('rxPageSizeSelect').addEventListener('change', (e) => {
+            rxPageSize = parseInt(e.target.value);
+            rxPage = 1;
+            renderRx();
+        });
 
         const urlParams = new URLSearchParams(window.location.search);
         const patientId   = urlParams.get('patient');
@@ -426,29 +446,29 @@
 
     async function loadRxDropdowns() {
         try {
-            const [pRes, phRes, ptRes, rxRes, waRes, catRes] = await Promise.all([
-                fetchWithAuth(window.rxUrl('/api/patients')),
-                fetchWithAuth(window.rxUrl('/api/pharmacies'),         { silent: true }),
-                fetchWithAuth(window.rxUrl('/api/patient-transport'),  { silent: true }),
-                fetchWithAuth(window.rxUrl('/api/pharmacy-transport'), { silent: true }),
-                fetchWithAuth(window.rxUrl('/api/workflow-actions'),   { silent: true }),
-                fetchWithAuth(window.rxUrl('/api/medication-catalog?activeOnly=true'))
-            ]);
-            // Guard: only parse JSON if response is OK (not 403 Access Denied)
-            if (pRes   && pRes.ok)  { allPatientsList    = await pRes.json(); }
-            if (phRes  && phRes.ok) { allPharmaciesList  = await phRes.json(); }
-            if (ptRes  && ptRes.ok) { allPtList          = await ptRes.json(); }
-            if (rxRes  && rxRes.ok) { allPhtList         = await rxRes.json(); }
-            if (waRes  && waRes.ok) { allWorkflowActions = await waRes.json(); }
+            var pRes    = await fetchWithAuth(window.rxUrl('/api/patients'), { silent: true });
+            var phRes   = await fetchWithAuth(window.rxUrl('/api/pharmacies'), { silent: true });
+            var ptRes   = await fetchWithAuth(window.rxUrl('/api/patient-transport'), { silent: true });
+            var rxRes   = await fetchWithAuth(window.rxUrl('/api/pharmacy-transport'), { silent: true });
+            var waRes   = await fetchWithAuth(window.rxUrl('/api/workflow-actions'), { silent: true });
+            var catRes  = await fetchWithAuth(window.rxUrl('/api/medication-catalog?activeOnly=true'), { silent: true });
+
+            if (pRes   && pRes.ok)  { allPatientsList    = await pRes.json();   }
+            if (phRes  && phRes.ok) { allPharmaciesList  = await phRes.json();  }
+            if (ptRes  && ptRes.ok) { allPtList          = await ptRes.json();  }
+            if (rxRes  && rxRes.ok) { allPhtList         = await rxRes.json();  }
+            if (waRes  && waRes.ok) { allWorkflowActions = await waRes.json();  }
             if (catRes && catRes.ok) {
                 allMedCatalog = await catRes.json();
-                // Build or rebuild the datalist for RX action autocomplete
-                let dl = document.getElementById('medCatalogList');
+                var dl = document.getElementById('medCatalogList');
                 if (!dl) { dl = document.createElement('datalist'); dl.id = 'medCatalogList'; document.body.appendChild(dl); }
-                dl.innerHTML = allMedCatalog.map(m => `<option value="${m.name}"></option>`).join('');
+                dl.innerHTML = '';
+                allMedCatalog.forEach(function(m) { var opt = document.createElement('option'); opt.value = m.name; dl.appendChild(opt); });
             }
-            initPatientSearch();
-        } catch(e) { console.error(e); }
+            console.log('[RX] Patients loaded:', allPatientsList.length, '| Pharmacies:', allPharmaciesList.length);
+        } catch(e) { console.error('[RX] loadRxDropdowns error:', e); }
+        // Always init patient search — even if some calls failed
+        initPatientSearch();
     }
 
     // Reset all display fields and hide the info panel (called on modal open)
@@ -631,11 +651,20 @@
                 }
             });
         }
-        document.getElementById('rxPageInfo').textContent = 'Showing ' + Math.min(start+1, filteredRx.length) + '\u2013' + Math.min(start+rxPageSize, filteredRx.length) + ' of ' + filteredRx.length;
-        var rxPages = Math.ceil(filteredRx.length / rxPageSize);
-        var rxPh = '<li class="page-item' + (rxPage===1?' disabled':'') + '"><a class="page-link" href="#" data-pg="' + (rxPage-1) + '">&laquo;</a></li>';
-        for (var rxi=1; rxi<=rxPages; rxi++) rxPh += '<li class="page-item' + (rxi===rxPage?' active':'') + '"><a class="page-link" href="#" data-pg="' + rxi + '">' + rxi + '</a></li>';
-        rxPh += '<li class="page-item' + (rxPage>=rxPages||rxPages===0?' disabled':'') + '"><a class="page-link" href="#" data-pg="' + (rxPage+1) + '">&raquo;</a></li>';
+        document.getElementById('rxPageInfo').textContent = 'Showing ' + (filteredRx.length === 0 ? 0 : Math.min(start+1, filteredRx.length)) + '\u2013' + Math.min(start+rxPageSize, filteredRx.length) + ' of ' + filteredRx.length;
+        var rxPages = Math.ceil(filteredRx.length / rxPageSize) || 1;
+        // Smart ellipsis paginator
+        var rxIsFirst = rxPage === 1; var rxIsLast = rxPage >= rxPages;
+        var rxPh = '<li class="page-item' + (rxIsFirst ? ' disabled' : '') + '"><a class="page-link" href="#" data-pg="' + (rxPage-1) + '">&laquo;</a></li>';
+        var rxDelta = 2;
+        var rxLo = Math.max(2, rxPage - rxDelta);
+        var rxHi = Math.min(rxPages - 1, rxPage + rxDelta);
+        rxPh += '<li class="page-item' + (rxPage===1 ? ' active' : '') + '"><a class="page-link" href="#" data-pg="1">1</a></li>';
+        if (rxLo > 2) rxPh += '<li class="page-item disabled"><span class="page-link">&hellip;</span></li>';
+        for (var rxi=rxLo; rxi<=rxHi; rxi++) rxPh += '<li class="page-item' + (rxi===rxPage ? ' active' : '') + '"><a class="page-link" href="#" data-pg="' + rxi + '">' + rxi + '</a></li>';
+        if (rxHi < rxPages - 1) rxPh += '<li class="page-item disabled"><span class="page-link">&hellip;</span></li>';
+        if (rxPages > 1) rxPh += '<li class="page-item' + (rxPage===rxPages ? ' active' : '') + '"><a class="page-link" href="#" data-pg="' + rxPages + '">' + rxPages + '</a></li>';
+        rxPh += '<li class="page-item' + (rxIsLast ? ' disabled' : '') + '"><a class="page-link" href="#" data-pg="' + (rxPage+1) + '">&raquo;</a></li>';
         var rxPagEl = document.getElementById('rxPagination');
         rxPagEl.innerHTML = rxPh;
         rxPagEl.addEventListener('click', function(e) { e.preventDefault(); var a = e.target.closest('a[data-pg]'); if (!a) return; goRxPage(parseInt(a.dataset.pg)); });
@@ -706,26 +735,52 @@
             if (matches.length === 0) {
                 dropdown.innerHTML = '<div class="patient-dropdown-empty">No patients found.</div>';
             } else {
-                dropdown.innerHTML = matches.map((p, i) => {
-                    const display = (p.firstName + ' ' + p.lastName);
-                    const sub     = [(p.patientCode ? 'ID: ' + p.patientCode : ''), 'Rec#' + p.id].filter(Boolean).join(' · ');
-                    const svcDate  = p.serviceDate || '';
-                    const ptId     = p.patientTransportCompanyId  || '';
-                    const phtId    = p.pharmacyTransportCompanyId || '';
-                    const pharmId  = p.pharmacyId || '';
-                    const pharmName = p.Pharmacy ? p.Pharmacy.name : '';
-                    return `<div class="patient-dropdown-item" data-id="${p.id}" data-name="${display}" data-idx="${i}"
-                        data-service-date="${svcDate}" data-pt-id="${ptId}" data-pht-id="${phtId}" data-pharmacy-id="${pharmId}">
-                        <div class="pat-name">${display}</div>
-                        <div class="pat-id">${sub}${svcDate ? ' · Svc: ' + svcDate : ''}${pharmName ? ' · 💊 ' + pharmName : ''}</div>
-                    </div>`;
-                }).join('');
-                dropdown.querySelectorAll('.patient-dropdown-item').forEach(item => {
-                    item.addEventListener('mousedown', (e) => {
+                // Build via DOM API — FortiGate corrupts template literals in inline scripts
+                dropdown.innerHTML = '';
+                matches.forEach(function(p, i) {
+                    var display   = p.firstName + ' ' + p.lastName;
+                    var sub       = [];
+                    if (p.patientCode) sub.push('ID: ' + p.patientCode);
+                    sub.push('Rec#' + p.id);
+                    var subText   = sub.join(' \u00b7 ');
+                    var svcDate   = p.serviceDate || '';
+                    var ptId      = p.patientTransportCompanyId  || '';
+                    var phtId     = p.pharmacyTransportCompanyId || '';
+                    var pharmId   = p.pharmacyId || '';
+                    var pharmName = (p.Pharmacy && p.Pharmacy.name) ? p.Pharmacy.name : '';
+                    if (svcDate)   subText += ' \u00b7 Svc: ' + svcDate;
+                    if (pharmName) subText += ' \u00b7 ' + pharmName;
+
+                    var item = document.createElement('div');
+                    item.className = 'patient-dropdown-item';
+                    item.dataset.id          = p.id;
+                    item.dataset.name        = display;
+                    item.dataset.idx         = i;
+                    item.dataset.serviceDate = svcDate;
+                    item.dataset.ptId        = ptId;
+                    item.dataset.phtId       = phtId;
+                    item.dataset.pharmacyId  = pharmId;
+
+                    var nameDiv = document.createElement('div');
+                    nameDiv.className   = 'pat-name';
+                    nameDiv.textContent = display;
+
+                    var idDiv = document.createElement('div');
+                    idDiv.className   = 'pat-id';
+                    idDiv.textContent = subText;
+
+                    item.appendChild(nameDiv);
+                    item.appendChild(idDiv);
+
+                    item.addEventListener('mousedown', function(e) {
                         e.preventDefault();
-                        selectPatient(item.dataset.id, item.dataset.name,
-                            item.dataset.serviceDate, item.dataset.ptId, item.dataset.phtId, item.dataset.pharmacyId);
+                        selectPatient(
+                            this.dataset.id,   this.dataset.name,
+                            this.dataset.serviceDate, this.dataset.ptId,
+                            this.dataset.phtId, this.dataset.pharmacyId
+                        );
                     });
+                    dropdown.appendChild(item);
                 });
             }
             hiIdx = -1;

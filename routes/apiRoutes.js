@@ -141,6 +141,7 @@ router.get('/reports/rx-actions', rbac.requirePermission('reports', 'read'), rep
 router.get('/audit-logs',              rbac.requirePermission('audit_log', 'read'),  auditLogController.getAll);
 router.get('/audit-logs/users',        rbac.requirePermission('audit_log', 'read'),  auditLogController.getUsers);
 router.get('/audit-logs/modules',      rbac.requirePermission('audit_log', 'read'),  auditLogController.getModules);
+router.get('/audit-logs/actions',      rbac.requirePermission('audit_log', 'read'),  auditLogController.getActions);
 router.delete('/audit-logs/:id',       rbac.requireRole(['Administrator']),           auditLogController.deleteOne);
 router.delete('/audit-logs',           rbac.requireRole(['Administrator']),           auditLogController.bulkDelete);
 router.post('/audit-logs/rotate',      rbac.requireRole(['Administrator']),           auditLogController.rotate);

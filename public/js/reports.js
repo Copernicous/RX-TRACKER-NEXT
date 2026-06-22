@@ -1,4 +1,4 @@
-﻿// reports.js — Extracted from reports.ejs inline script for FortiGate proxy compatibility.
+// reports.js — Extracted from reports.ejs inline script for FortiGate proxy compatibility.
 // External JS files are not rewritten by FortiGate's content rewriter.
 
     var allPatientReport = [];
@@ -7,6 +7,37 @@
     var prSortCol = 'id', prSortDir = 'desc';
     var rrSortCol = 'id', rrSortDir = 'desc';
     var _panelStates = {};
+
+    // ── Pagination state ────────────────────────────────────────────────────────
+    var prPage = 1, prPageSize = 10;
+    var rrPage = 1, rrPageSize = 10;
+
+    function prChangeSize(n) { prPageSize = parseInt(n); prPage = 1; renderPatientReport(); }
+    function rrChangeSize(n) { rrPageSize = parseInt(n); rrPage = 1; renderRxActionReport(); }
+    function prGoPage(p)     { prPage = p; renderPatientReport(); }
+    function rrGoPage(p)     { rrPage = p; renderRxActionReport(); }
+
+    // Smart ellipsis paginator — returns HTML string, FortiGate-safe (no template literals)
+    function buildPagNav(currentPage, totalPages, goFn) {
+        if (totalPages <= 1) return '';
+        var isFirst = currentPage === 1;
+        var isLast  = currentPage >= totalPages;
+        var html = '<li class="page-item' + (isFirst ? ' disabled' : '') + '"><a class="page-link" onclick="' + goFn + '(' + (currentPage - 1) + ')">&laquo;</a></li>';
+        var delta = 2;
+        var lo = Math.max(2, currentPage - delta);
+        var hi = Math.min(totalPages - 1, currentPage + delta);
+        // always page 1
+        html += '<li class="page-item' + (currentPage === 1 ? ' active' : '') + '"><a class="page-link" onclick="' + goFn + '(1)">1</a></li>';
+        if (lo > 2) html += '<li class="page-item disabled"><span class="page-link">&hellip;</span></li>';
+        for (var i = lo; i <= hi; i++) {
+            html += '<li class="page-item' + (i === currentPage ? ' active' : '') + '"><a class="page-link" onclick="' + goFn + '(' + i + ')">' + i + '</a></li>';
+        }
+        if (hi < totalPages - 1) html += '<li class="page-item disabled"><span class="page-link">&hellip;</span></li>';
+        // always last page
+        html += '<li class="page-item' + (currentPage === totalPages ? ' active' : '') + '"><a class="page-link" onclick="' + goFn + '(' + totalPages + ')">' + totalPages + '</a></li>';
+        html += '<li class="page-item' + (isLast ? ' disabled' : '') + '"><a class="page-link" onclick="' + goFn + '(' + (currentPage + 1) + ')">&raquo;</a></li>';
+        return html;
+    }
 
     function togglePanel(panelId, chevronId, stateKey) {
         _panelStates[stateKey] = !_panelStates[stateKey];
@@ -147,28 +178,36 @@
             if (countEl) countEl.textContent = '0 records';
             return;
         }
-        var _ptHtml = ''; for (var _pi = 0; _pi < data.length; _pi++) { var p = data[_pi]; _ptHtml += (function() {
+        var _ptHtml = ''; var _ptPage = data.slice((prPage-1)*prPageSize, prPage*prPageSize);
+        for (var _pi = 0; _pi < _ptPage.length; _pi++) { var p = _ptPage[_pi]; _ptHtml += (function() {
             const statusBadge = p.isActive
                 ? '<span class="badge bg-success">Active</span>'
                 : '<span class="badge bg-secondary">Inactive</span>';
             const dob = p.dob ? new Date(p.dob+'T12:00:00').toLocaleDateString() : '-';
             const svc = p.serviceDate ? new Date(p.serviceDate+'T12:00:00').toLocaleDateString() : '-';
-            return `<tr>
-                <td><span class="badge bg-primary">${p.patientCode||''}</span></td>
-                <td>${p.firstName||''}</td>
-                <td>${p.lastName||''}</td>
-                <td>${dob}</td>
-                <td>${p.phone||'-'}</td>
-                <td>${p.address||'-'}</td>
-                <td>${svc}</td>
-                <td>${statusBadge}</td>
-                <td>${p.Clinic&&p.Clinic.name||'-'}</td>
-                <td>${p.PatientTransportCompany&&p.PatientTransportCompany.companyName||'-'}</td>
-                <td>${p.PharmacyTransportCompany&&p.PharmacyTransportCompany.companyName||'-'}</td>
-            </tr>`;
+            return '<tr>' +
+                '<td><span class="badge bg-primary">' + (p.patientCode||'') + '</span></td>' +
+                '<td>' + (p.firstName||'') + '</td>' +
+                '<td>' + (p.lastName||'') + '</td>' +
+                '<td>' + dob + '</td>' +
+                '<td>' + (p.phone||'-') + '</td>' +
+                '<td>' + (p.address||'-') + '</td>' +
+                '<td>' + svc + '</td>' +
+                '<td>' + statusBadge + '</td>' +
+                '<td>' + (p.Clinic&&p.Clinic.name||'-') + '</td>' +
+                '<td>' + (p.PatientTransportCompany&&p.PatientTransportCompany.companyName||'-') + '</td>' +
+                '<td>' + (p.PharmacyTransportCompany&&p.PharmacyTransportCompany.companyName||'-') + '</td>' +
+            '</tr>';
         })();
         } tbody.innerHTML = _ptHtml;
-        if (countEl) countEl.textContent = data.length + ' record' + (data.length !== 1 ? 's' : '');
+        // Counter and pagination
+        var total = data.length;
+        var pages = Math.ceil(total / prPageSize) || 1;
+        var start = total === 0 ? 0 : (prPage - 1) * prPageSize + 1;
+        var end   = Math.min(prPage * prPageSize, total);
+        if (countEl) countEl.textContent = 'Showing ' + start + '-' + end + ' of ' + total + ' records';
+        var nav = document.getElementById('prPagNav');
+        if (nav) nav.innerHTML = buildPagNav(prPage, pages, 'prGoPage');
     }
 
     function getNestedVal(obj, path) {
@@ -240,7 +279,8 @@
             if (countEl) countEl.textContent = '0 records';
             return;
         }
-        var _rxHtml = ''; for (var _ri = 0; _ri < data.length; _ri++) { var r = data[_ri]; _rxHtml += (function() {
+        var _rxHtml = ''; var _rxPage = data.slice((rrPage-1)*rrPageSize, rrPage*rrPageSize);
+        for (var _ri = 0; _ri < _rxPage.length; _ri++) { var r = _rxPage[_ri]; _rxHtml += (function() {
             const steps   = r.completedSteps || [];
             const wfTotal = allWorkflowActions.length;
             const done    = steps.length;
@@ -252,20 +292,32 @@
             const phName  = r.Pharmacy ? r.Pharmacy.name : '-';
             const progBadge = pct >= 100
                 ? '<span class="badge bg-success">Complete</span>'
-                : `<span class="badge bg-warning text-dark">${pct}%</span>`;
-            return `<tr>
-                <td><span class="badge bg-primary">RX-${r.id}</span></td>
-                <td>${ptName}</td>
-                <td><span class="badge bg-info text-dark">${ptCode}</span></td>
-                <td>${phName}</td>
-                <td>${svc}</td>
-                <td>${done > 0 ? (function(){var _sp=''; steps.forEach(function(id){ const a = allWorkflowActions.find(w=>w.id===id); _sp += a ? '<span class="badge bg-success me-1">'+a.name+'</span>' : ''; }); return _sp;})()) : '-'}</td>
-                <td>${nextStep ? '<span class="badge bg-warning text-dark">'+nextStep.name+'</span>' : '<span class="badge bg-success">All done</span>'}</td>
-                <td>${progBadge}</td>
-            </tr>`;
+                : '<span class="badge bg-warning text-dark">' + pct + '%</span>';
+            var stepsHtml = '';
+            if (done > 0) {
+                steps.forEach(function(sid) { var a = allWorkflowActions.find(function(w){return w.id===sid;}); if(a) stepsHtml += '<span class="badge bg-success me-1">' + a.name + '</span>'; });
+            } else { stepsHtml = '-'; }
+            var nextHtml = nextStep ? '<span class="badge bg-warning text-dark">' + nextStep.name + '</span>' : '<span class="badge bg-success">All done</span>';
+            return '<tr>' +
+                '<td><span class="badge bg-primary">RX-' + r.id + '</span></td>' +
+                '<td>' + ptName + '</td>' +
+                '<td><span class="badge bg-info text-dark">' + ptCode + '</span></td>' +
+                '<td>' + phName + '</td>' +
+                '<td>' + svc + '</td>' +
+                '<td>' + stepsHtml + '</td>' +
+                '<td>' + nextHtml + '</td>' +
+                '<td>' + progBadge + '</td>' +
+            '</tr>';
         })();
         } tbody.innerHTML = _rxHtml;
-        if (countEl) countEl.textContent = data.length + ' record' + (data.length !== 1 ? 's' : '');
+        // Counter and pagination
+        var rxTotal = data.length;
+        var rxPages = Math.ceil(rxTotal / rrPageSize) || 1;
+        var rxStart = rxTotal === 0 ? 0 : (rrPage - 1) * rrPageSize + 1;
+        var rxEnd   = Math.min(rrPage * rrPageSize, rxTotal);
+        if (countEl) countEl.textContent = 'Showing ' + rxStart + '-' + rxEnd + ' of ' + rxTotal + ' records';
+        var rrNav = document.getElementById('rrPagNav');
+        if (rrNav) rrNav.innerHTML = buildPagNav(rrPage, rxPages, 'rrGoPage');
     }
 
     function sortRxReport(col) {

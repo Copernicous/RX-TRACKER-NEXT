@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en" data-theme="light">
 <head>
     <meta charset="UTF-8">
@@ -26,6 +26,15 @@
             white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
         }
         .ac-item:hover { background: rgba(74,144,226,.12); color: #4a90e2; }
+        /* Pagination bar */
+        .pag-bar {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 8px 0; margin-top: 12px; margin-bottom: 6px;
+            border-top: 1px solid var(--border-color, #dee2e6);
+            flex-wrap: wrap; gap: 8px;
+        }
+        .pag-bar .pag-left  { display: flex; align-items: center; gap: 8px; }
+        .pag-bar .pag-right { display: flex; align-items: center; gap: 4px; }
     </style>
 </head>
 <body>
@@ -109,7 +118,7 @@
                                 </select>
                             </div>
                             <div class="col-md-2 d-flex gap-2 align-items-end">
-                                <button class="btn btn-primary btn-sm flex-grow-1" onclick="renderPatientReport()"><i class="fas fa-search me-1"></i>Search</button>
+                                <button class="btn btn-primary btn-sm flex-grow-1" onclick="prPage=1;renderPatientReport()"><i class="fas fa-search me-1"></i>Search</button>
                                 <button class="btn btn-outline-secondary btn-sm" onclick="clearPatientFilters()" title="Clear"><i class="fas fa-times"></i></button>
                             </div>
                             <div class="col-md-2 d-flex align-items-end gap-2">
@@ -150,8 +159,25 @@
                             </div>
                         </div>
 
+                        <!-- ── Pagination bar TOP ── -->
+                        <div class="pag-bar" id="prPagBar">
+                            <div class="pag-left">
+                                <label class="small text-muted mb-0">Show</label>
+                                <select class="form-select form-select-sm" style="width:auto" id="prPageSize" onchange="prChangeSize(this.value)">
+                                    <option value="10" selected>10</option>
+                                    <option value="20">20</option>
+                                    <option value="50">50</option>
+                                    <option value="100">100</option>
+                                </select>
+                                <span class="small text-muted" id="patientReportCount"></span>
+                            </div>
+                            <div class="pag-right">
+                                <nav><ul class="pagination pagination-sm mb-0" id="prPagNav"></ul></nav>
+                            </div>
+                        </div>
+
                         <!-- Patient table -->
-                        <div class="table-responsive mt-3">
+                        <div class="table-responsive">
                             <table class="table table-hover align-middle" id="patientReportTable">
                                 <thead>
                                     <tr>
@@ -173,7 +199,6 @@
                                 </tbody>
                             </table>
                         </div>
-                        <small class="text-muted" id="patientReportCount"></small>
                     </div>
                 </div>
 
@@ -222,7 +247,7 @@
                                 </select>
                             </div>
                             <div class="col-md-2 d-flex gap-2 align-items-end">
-                                <button class="btn btn-primary btn-sm flex-grow-1" onclick="renderRxActionReport()"><i class="fas fa-search me-1"></i>Search</button>
+                                <button class="btn btn-primary btn-sm flex-grow-1" onclick="rrPage=1;renderRxActionReport()"><i class="fas fa-search me-1"></i>Search</button>
                                 <button class="btn btn-outline-secondary btn-sm" onclick="clearRxFilters()" title="Clear"><i class="fas fa-times"></i></button>
                             </div>
                             <div class="col-md-2 d-flex align-items-end gap-2">
@@ -256,8 +281,25 @@
                             </div>
                         </div>
 
+                        <!-- ── Pagination bar TOP ── -->
+                        <div class="pag-bar" id="rrPagBar">
+                            <div class="pag-left">
+                                <label class="small text-muted mb-0">Show</label>
+                                <select class="form-select form-select-sm" style="width:auto" id="rrPageSize" onchange="rrChangeSize(this.value)">
+                                    <option value="10" selected>10</option>
+                                    <option value="20">20</option>
+                                    <option value="50">50</option>
+                                    <option value="100">100</option>
+                                </select>
+                                <span class="small text-muted" id="rxReportCount"></span>
+                            </div>
+                            <div class="pag-right">
+                                <nav><ul class="pagination pagination-sm mb-0" id="rrPagNav"></ul></nav>
+                            </div>
+                        </div>
+
                         <!-- RX table -->
-                        <div class="table-responsive mt-3">
+                        <div class="table-responsive">
                             <table class="table table-hover align-middle" id="rxReportTable">
                                 <thead>
                                     <tr>
@@ -276,7 +318,6 @@
                                 </tbody>
                             </table>
                         </div>
-                        <small class="text-muted" id="rxReportCount"></small>
                     </div>
                 </div>
 

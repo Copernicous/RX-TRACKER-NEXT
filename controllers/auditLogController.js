@@ -73,6 +73,18 @@ exports.getModules = async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 };
 
+// GET /api/audit-logs/actions — distinct actions
+exports.getActions = async (req, res) => {
+    try {
+        const rows = await db.AuditLog.findAll({
+            attributes: [[db.sequelize.fn('DISTINCT', db.sequelize.col('action')), 'action']],
+            raw: true
+        });
+        res.json(rows.map(r => r.action).filter(Boolean).sort());
+    } catch (err) { res.status(500).json({ error: err.message }); }
+};
+
+
 // DELETE /api/audit-logs/:id — delete single log (Admin only)
 exports.deleteOne = async (req, res) => {
     try {
