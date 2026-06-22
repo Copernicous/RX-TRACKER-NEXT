@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en" data-theme="light">
 <head>
     <meta charset="UTF-8">
@@ -900,8 +900,33 @@
                 else if (patInactive) { var pb2 = document.createElement('span'); pb2.className = 'badge bg-warning text-dark ms-1'; pb2.title = 'Patient inactive'; pb2.innerHTML = '<i class="fas fa-user-times"></i>'; tdPat.appendChild(pb2); }
                 tr.appendChild(tdPat);
 
-                /* ── Date cell ── (Service Date only) */
-                var tdSvc = document.createElement('td'); tdSvc.textContent = rx.serviceDate || '—'; tr.appendChild(tdSvc);
+                /* ── Date cell ── (Service Date + 90-day next cycle indicator) */
+                var tdSvc = document.createElement('td');
+                if (rx.serviceDate) {
+                    var _sD     = new Date(rx.serviceDate); _sD.setHours(0,0,0,0);
+                    var _exp    = new Date(_sD.getTime() + 90 * 864e5);
+                    var _today  = new Date(); _today.setHours(0,0,0,0);
+                    var _daysLeft = Math.round((_exp - _today) / 864e5);
+                    var _expStr = _exp.toLocaleDateString();
+                    var _cycleHtml;
+                    if (_daysLeft < 0) {
+                        /* Expired — show "Expired" badge + next available = today */
+                        _cycleHtml = '<span class="badge bg-danger ms-1" title="90-day window expired ' + Math.abs(_daysLeft) + ' day(s) ago. New cycle available.">' +
+                                     '<i class="fas fa-exclamation-circle me-1"></i>Expired</span>';
+                    } else if (_daysLeft <= 14) {
+                        /* Expiring soon — orange warning */
+                        _cycleHtml = '<span class="badge bg-warning text-dark ms-1" title="Next cycle available: ' + _expStr + '">' +
+                                     '<i class="fas fa-clock me-1"></i>' + _daysLeft + 'd left</span>';
+                    } else {
+                        /* Active — small muted text */
+                        _cycleHtml = '<small class="text-muted d-block" style="font-size:.7rem;line-height:1.2" title="90-day window active until ' + _expStr + '">' +
+                                     'Next: ' + _expStr + '</small>';
+                    }
+                    tdSvc.innerHTML = '<span>' + rx.serviceDate + '</span>' + _cycleHtml;
+                } else {
+                    tdSvc.textContent = '—';
+                }
+                tr.appendChild(tdSvc);
 
                 /* ── Pharmacy cell ── */
                 var tdPh = document.createElement('td'); tdPh.textContent = pharmacyName; tr.appendChild(tdPh);
