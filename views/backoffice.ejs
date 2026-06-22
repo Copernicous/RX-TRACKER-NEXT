@@ -318,6 +318,7 @@
         <button class="tab-btn" id="tabHealth" onclick="switchTab('health')"><i class="fas fa-heartbeat"></i>Health</button>
         <button class="tab-btn" id="tabLocks" onclick="switchTab('locks')"><i class="fas fa-lock"></i>Locks</button>
         <button class="tab-btn" id="tabUsers" onclick="switchTab('users')"><i class="fas fa-user-shield"></i>Users</button>
+        <button class="tab-btn" id="tabRxActions" onclick="switchTab('rxactions')"><i class="fas fa-clipboard-list"></i>RX Actions</button>
         <button class="tab-btn" id="tabErrlog" onclick="switchTab('errlog')"><i class="fas fa-bug"></i>Error Logs</button>
         <button class="tab-btn" id="tabAnalytics" onclick="switchTab('analytics')"><i class="fas fa-chart-line"></i>Analytics</button>
     </div>
@@ -569,6 +570,81 @@
             </div>
         </div>
         <div id="usersList"><p style="text-align:center;padding:4rem;color:var(--text-muted)"><i class="fas fa-spinner fa-spin me-2"></i>Loading users...</p></div>
+    </div>
+
+    <!-- ══ RX Actions Panel ══ -->
+    <div id="rxActionsContent" class="schema-wrap">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:0.75rem">
+            <div>
+                <div style="font-size:1rem;font-weight:700">RX Actions (Medication Catalog)</div>
+                <div style="font-size:0.75rem;color:var(--text-muted)">Master list of medication/action names used in RX records</div>
+            </div>
+            <div style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center">
+                <input type="text" id="rxActSearch" placeholder="Search name or description..." class="schema-search" style="margin:0;width:220px" oninput="filterRxActions()">
+                <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.78rem;color:var(--text-muted);cursor:pointer">
+                    <input type="checkbox" id="rxActShowInactive" onchange="filterRxActions()"> Show Disabled
+                </label>
+                <button class="btn-bo btn-bo-outline" onclick="loadRxActions()"><i class="fas fa-sync-alt me-1"></i>Refresh</button>
+                <button class="btn-bo btn-bo-primary" id="rxActAddBtn" onclick="openRxActModal(null)"><i class="fas fa-plus me-1"></i>Add New</button>
+            </div>
+        </div>
+        <!-- Table -->
+        <div id="rxActStatus" style="margin-bottom:0.75rem;font-size:0.78rem;color:var(--text-muted)"></div>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden">
+            <table style="width:100%;border-collapse:collapse;font-size:0.82rem">
+                <thead>
+                    <tr style="background:var(--surface-2);border-bottom:1px solid var(--border)">
+                        <th style="padding:0.55rem 1rem;font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text-muted);text-align:left">ID</th>
+                        <th style="padding:0.55rem 1rem;font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text-muted);text-align:left">Name</th>
+                        <th style="padding:0.55rem 1rem;font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text-muted);text-align:left">Description</th>
+                        <th style="padding:0.55rem 1rem;font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text-muted);text-align:center">Sort</th>
+                        <th style="padding:0.55rem 1rem;font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text-muted);text-align:center">Status</th>
+                        <th style="padding:0.55rem 1rem;font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text-muted);text-align:right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="rxActBody">
+                    <tr><td colspan="6" style="text-align:center;padding:3rem;color:var(--text-muted)"><i class="fas fa-spinner fa-spin me-2"></i>Loading...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ══ RX Actions Add/Edit Modal ══ -->
+    <div id="rxActModalBackdrop" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);backdrop-filter:blur(6px);z-index:9600;align-items:center;justify-content:center">
+        <div style="background:var(--surface);border:1px solid rgba(99,102,241,0.3);border-radius:20px;width:100%;max-width:480px;margin:1rem;overflow:hidden;animation:modalIn 0.2s ease">
+            <div style="background:linear-gradient(135deg,#0f172a,#1e1b4b);border-bottom:1px solid rgba(99,102,241,0.2);padding:1.125rem 1.5rem;display:flex;align-items:center;gap:0.75rem">
+                <div style="width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,#6366f1,#4f46e5);display:flex;align-items:center;justify-content:center;font-size:0.85rem;box-shadow:0 0 14px rgba(99,102,241,0.4)">
+                    <i class="fas fa-clipboard-list"></i>
+                </div>
+                <h5 id="rxActModalTitle" style="margin:0;font-size:0.95rem;font-weight:700;color:#c7d2fe">Add RX Action</h5>
+            </div>
+            <div style="padding:1.375rem;display:flex;flex-direction:column;gap:0.875rem">
+                <div>
+                    <label style="font-size:0.72rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.07em;display:block;margin-bottom:0.35rem">Name <span style="color:#ef4444">*</span></label>
+                    <input type="text" id="rxActName" class="schema-search" style="margin:0;width:100%" placeholder="e.g. Metformin, Lisinopril...">
+                </div>
+                <div>
+                    <label style="font-size:0.72rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.07em;display:block;margin-bottom:0.35rem">Description</label>
+                    <input type="text" id="rxActDesc" class="schema-search" style="margin:0;width:100%" placeholder="Optional description">
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem">
+                    <div>
+                        <label style="font-size:0.72rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.07em;display:block;margin-bottom:0.35rem">Sort Order</label>
+                        <input type="number" id="rxActSort" class="schema-search" style="margin:0;width:100%" placeholder="999" min="0">
+                    </div>
+                    <div style="display:flex;align-items:flex-end;padding-bottom:0.1rem">
+                        <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;font-size:0.82rem">
+                            <input type="checkbox" id="rxActActive" checked style="accent-color:#6366f1;width:16px;height:16px"> Active
+                        </label>
+                    </div>
+                </div>
+                <div id="rxActModalErr" style="display:none;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.25);border-radius:8px;padding:0.6rem 0.875rem;font-size:0.8rem;color:#fca5a5"></div>
+            </div>
+            <div style="padding:0.875rem 1.375rem;border-top:1px solid var(--border);display:flex;gap:0.625rem;justify-content:flex-end">
+                <button class="btn-bo btn-bo-outline" onclick="closeRxActModal()">Cancel</button>
+                <button class="btn-bo btn-bo-primary" id="rxActSaveBtn" onclick="saveRxAct()"><i class="fas fa-save me-1"></i>Save</button>
+            </div>
+        </div>
     </div>
 
     <!-- ══ Error Logs Panel ══ -->

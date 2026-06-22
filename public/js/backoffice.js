@@ -617,26 +617,27 @@ async function executePurge() {
 // TAB SWITCHER
 // ══════════════════════════════════════════════════════════════════════════
 function switchTab(tab) {
-    var tabs  = ['tables','schema','orphans','dupes','audit','settings','backups','health','locks','users','errlog','analytics'];
-    var ids   = { tables:'tablesContent', schema:'schemaContent', orphans:'orphanContent', dupes:'dupesContent', audit:'auditContent', settings:'settingsContent', backups:'backupsContent', health:'healthContent', locks:'locksContent', users:'usersContent', errlog:'errlogContent', analytics:'analyticsContent' };
-    var btns  = { tables:'tabTables', schema:'tabSchema', orphans:'tabOrphans', dupes:'tabDupes', audit:'tabAudit', settings:'tabSettings', backups:'tabBackups', health:'tabHealth', locks:'tabLocks', users:'tabUsers', errlog:'tabErrlog', analytics:'tabAnalytics' };
+    var tabs  = ['tables','schema','orphans','dupes','audit','settings','backups','health','locks','users','rxactions','errlog','analytics'];
+    var ids   = { tables:'tablesContent', schema:'schemaContent', orphans:'orphanContent', dupes:'dupesContent', audit:'auditContent', settings:'settingsContent', backups:'backupsContent', health:'healthContent', locks:'locksContent', users:'usersContent', rxactions:'rxActionsContent', errlog:'errlogContent', analytics:'analyticsContent' };
+    var btns  = { tables:'tabTables', schema:'tabSchema', orphans:'tabOrphans', dupes:'tabDupes', audit:'tabAudit', settings:'tabSettings', backups:'tabBackups', health:'tabHealth', locks:'tabLocks', users:'tabUsers', rxactions:'tabRxActions', errlog:'tabErrlog', analytics:'tabAnalytics' };
     tabs.forEach(function(t) {
         document.getElementById(btns[t]).classList.toggle('active', t === tab);
         var el = document.getElementById(ids[t]);
         if (t === 'tables') el.style.display = t === tab ? '' : 'none';
         else el.classList.toggle('show', t === tab);
     });
-    if (tab === 'schema'    && !schemaData)      loadSchema();
-    if (tab === 'orphans'   && !orphanData)      loadOrphans();
-    if (tab === 'dupes'     && !dupesData)       loadDupes();
-    if (tab === 'audit'     && !auditLoaded)     loadAuditLogs(1);
-    if (tab === 'settings'  && !settingsLoaded)  loadSettings();
-    if (tab === 'backups'   && !backupsLoaded)   loadBackups();
-    if (tab === 'health'    && !healthLoaded)    loadHealth();
-    if (tab === 'locks'     && !locksLoaded)     loadLocks();
-    if (tab === 'users'     && !usersLoaded)     loadUsers();
-    if (tab === 'errlog'    && !errlogLoaded)    loadErrorLogs(1);
-    if (tab === 'analytics' && !analyticsLoaded) loadAnalytics();
+    if (tab === 'schema'    && !schemaData)       loadSchema();
+    if (tab === 'orphans'   && !orphanData)       loadOrphans();
+    if (tab === 'dupes'     && !dupesData)        loadDupes();
+    if (tab === 'audit'     && !auditLoaded)      loadAuditLogs(1);
+    if (tab === 'settings'  && !settingsLoaded)   loadSettings();
+    if (tab === 'backups'   && !backupsLoaded)    loadBackups();
+    if (tab === 'health'    && !healthLoaded)     loadHealth();
+    if (tab === 'locks'     && !locksLoaded)      loadLocks();
+    if (tab === 'users'     && !usersLoaded)      loadUsers();
+    if (tab === 'rxactions' && !rxActLoaded)      loadRxActions();
+    if (tab === 'errlog'    && !errlogLoaded)     loadErrorLogs(1);
+    if (tab === 'analytics' && !analyticsLoaded)  loadAnalytics();
     /* BO-04: Stop health countdown when leaving health tab */
     if (tab !== 'health' && typeof stopHealthCountdown === 'function') stopHealthCountdown();
 }
@@ -1202,4 +1203,242 @@ async function exportAuditLogsCSV() {
         toast('\u2713 Exported ' + rows.length + ' audit log(s)', 'success');
     } catch(e) { toast('Export failed: ' + e.message, 'danger'); }
     finally { if (_ebtn) { _ebtn.disabled = false; _ebtn.innerHTML = '<i class="fas fa-file-csv"></i>'; } }
+}
+
+// \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
+// RX ACTIONS (MEDICATION CATALOG)
+// \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
+var rxActData     = [];
+var rxActFiltered = [];
+var rxActLoaded   = false;
+var rxActEditId   = null;
+
+// ── Permission helpers ───────────────────────────────────────────────────
+function rxActPerms() {
+    var p = (USER && USER.perms && USER.perms.medication_catalog) ? USER.perms.medication_catalog : {};
+    return {
+        canAdd:    p.add    !== false,
+        canEdit:   p.edit   !== false,
+        canDelete: p.delete !== false
+    };
+}
+
+// ── Load ─────────────────────────────────────────────────────────────────
+async function loadRxActions() {
+    document.getElementById('rxActBody').innerHTML =
+        '<tr><td colspan="6" style="text-align:center;padding:3rem;color:var(--text-muted)"><i class="fas fa-spinner fa-spin me-2"></i>Loading...</td></tr>';
+    document.getElementById('rxActStatus').textContent = '';
+    try {
+        var res  = await apiFetch('/api/medication-catalog');
+        var data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Load failed');
+        rxActData   = data;
+        rxActLoaded = true;
+        // Apply permission guards to UI buttons
+        var perms = rxActPerms();
+        var addBtn = document.getElementById('rxActAddBtn');
+        if (addBtn) addBtn.style.display = perms.canAdd ? '' : 'none';
+        filterRxActions();
+    } catch(e) {
+        document.getElementById('rxActBody').innerHTML =
+            '<tr><td colspan="6" style="text-align:center;padding:3rem;color:#fca5a5"><i class="fas fa-exclamation-triangle me-2"></i>' + e.message + '</td></tr>';
+    }
+}
+
+// ── Filter ───────────────────────────────────────────────────────────────
+function filterRxActions() {
+    var q            = (document.getElementById('rxActSearch')       ? document.getElementById('rxActSearch').value.toLowerCase()          : '');
+    var showInactive = (document.getElementById('rxActShowInactive') ? document.getElementById('rxActShowInactive').checked : false);
+    rxActFiltered = rxActData.filter(function(r) {
+        if (!showInactive && r.isActive === false) return false;
+        if (!q) return true;
+        return (r.name        || '').toLowerCase().indexOf(q) >= 0 ||
+               (r.description || '').toLowerCase().indexOf(q) >= 0;
+    });
+    var status = document.getElementById('rxActStatus');
+    if (status) {
+        status.textContent = rxActFiltered.length + ' of ' + rxActData.length + ' entries' +
+            (showInactive ? '' : ' (active only)');
+    }
+    renderRxActTable();
+}
+
+// ── Render Table ──────────────────────────────────────────────────────────
+function renderRxActTable() {
+    var perms = rxActPerms();
+    var tbody = document.getElementById('rxActBody');
+    if (!rxActFiltered.length) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:3rem;color:var(--text-muted)"><i class="fas fa-clipboard-list" style="font-size:2rem;opacity:.3;display:block;margin-bottom:1rem"></i>No RX actions found.</td></tr>';
+        return;
+    }
+    var html = '';
+    rxActFiltered.forEach(function(r) {
+        var isInactive = r.isActive === false;
+        var rowStyle   = isInactive ? 'opacity:0.55;' : '';
+        var statusBadge = isInactive
+            ? '<span style="background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.25);color:#fca5a5;border-radius:6px;padding:0.15rem 0.55rem;font-size:0.7rem;font-weight:600">Disabled</span>'
+            : '<span style="background:rgba(16,185,129,0.12);border:1px solid rgba(16,185,129,0.25);color:#6ee7b7;border-radius:6px;padding:0.15rem 0.55rem;font-size:0.7rem;font-weight:600">\u2713 Active</span>';
+
+        var editBtn = perms.canEdit && !isInactive
+            ? '<button onclick="openRxActModal(' + r.id + ')" style="background:rgba(99,102,241,0.12);border:1px solid rgba(99,102,241,0.25);color:#a5b4fc;border-radius:6px;padding:0.28rem 0.65rem;font-size:0.72rem;font-weight:600;cursor:pointer;transition:all .15s" onmouseover="this.style.background=\'rgba(99,102,241,0.22)\'" onmouseout="this.style.background=\'rgba(99,102,241,0.12)\'"><i class="fas fa-edit me-1"></i>Edit</button>'
+            : '';
+        var disableBtn = perms.canDelete && !isInactive
+            ? '<button onclick="rxActDisable(' + r.id + ', this)" style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.22);color:#fca5a5;border-radius:6px;padding:0.28rem 0.65rem;font-size:0.72rem;font-weight:600;cursor:pointer;transition:all .15s" onmouseover="this.style.background=\'rgba(239,68,68,0.2)\'" onmouseout="this.style.background=\'rgba(239,68,68,0.1)\'"><i class="fas fa-ban me-1"></i>Disable</button>'
+            : '';
+        var restoreBtn = perms.canEdit && isInactive
+            ? '<button onclick="rxActRestore(' + r.id + ', this)" style="background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.22);color:#6ee7b7;border-radius:6px;padding:0.28rem 0.65rem;font-size:0.72rem;font-weight:600;cursor:pointer;transition:all .15s" onmouseover="this.style.background=\'rgba(16,185,129,0.2)\'" onmouseout="this.style.background=\'rgba(16,185,129,0.1)\'"><i class="fas fa-redo me-1"></i>Restore</button>'
+            : '';
+
+        html +=
+            '<tr style="border-bottom:1px solid var(--border);transition:background .1s;' + rowStyle + '" ' +
+            'onmouseover="this.style.background=\'rgba(255,255,255,0.025)\'" onmouseout="this.style.background=\'\'">' +
+                '<td style="padding:0.5rem 1rem;color:var(--text-muted);font-size:0.75rem">' + r.id + '</td>' +
+                '<td style="padding:0.5rem 1rem;font-weight:600">' + (r.name || '\u2014') + '</td>' +
+                '<td style="padding:0.5rem 1rem;color:var(--text-muted);font-size:0.8rem;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (r.description || '\u2014') + '</td>' +
+                '<td style="padding:0.5rem 1rem;text-align:center;color:var(--text-muted);font-size:0.8rem">' + (r.sortOrder !== undefined && r.sortOrder !== null ? r.sortOrder : '\u2014') + '</td>' +
+                '<td style="padding:0.5rem 1rem;text-align:center">' + statusBadge + '</td>' +
+                '<td style="padding:0.5rem 1rem;text-align:right"><div style="display:flex;gap:0.4rem;justify-content:flex-end">' +
+                    editBtn + disableBtn + restoreBtn +
+                '</div></td>' +
+            '</tr>';
+    });
+    tbody.innerHTML = html;
+}
+
+// ── Modal Open/Close ──────────────────────────────────────────────────────
+function openRxActModal(id) {
+    rxActEditId = id || null;
+    var backdrop = document.getElementById('rxActModalBackdrop');
+    var title    = document.getElementById('rxActModalTitle');
+    var errDiv   = document.getElementById('rxActModalErr');
+    errDiv.style.display = 'none';
+    errDiv.textContent   = '';
+
+    if (id) {
+        // Edit mode — find record
+        var rec = null;
+        rxActData.forEach(function(r) { if (r.id === id) rec = r; });
+        title.textContent = 'Edit RX Action';
+        document.getElementById('rxActName').value   = rec ? (rec.name        || '') : '';
+        document.getElementById('rxActDesc').value   = rec ? (rec.description || '') : '';
+        document.getElementById('rxActSort').value   = rec ? (rec.sortOrder !== undefined && rec.sortOrder !== null ? rec.sortOrder : 999) : 999;
+        document.getElementById('rxActActive').checked = rec ? (rec.isActive !== false) : true;
+    } else {
+        // Add mode
+        title.textContent = 'Add RX Action';
+        document.getElementById('rxActName').value   = '';
+        document.getElementById('rxActDesc').value   = '';
+        document.getElementById('rxActSort').value   = '999';
+        document.getElementById('rxActActive').checked = true;
+    }
+
+    backdrop.style.display = 'flex';
+    setTimeout(function() { document.getElementById('rxActName').focus(); }, 80);
+}
+
+function closeRxActModal() {
+    document.getElementById('rxActModalBackdrop').style.display = 'none';
+    rxActEditId = null;
+}
+
+// Close modal on backdrop click
+document.getElementById('rxActModalBackdrop').addEventListener('click', function(e) {
+    if (e.target === e.currentTarget) closeRxActModal();
+});
+
+// ── Save (Add / Edit) ─────────────────────────────────────────────────────
+async function saveRxAct() {
+    var name     = (document.getElementById('rxActName').value || '').trim();
+    var desc     = (document.getElementById('rxActDesc').value || '').trim();
+    var sortVal  = document.getElementById('rxActSort').value;
+    var isActive = document.getElementById('rxActActive').checked;
+    var errDiv   = document.getElementById('rxActModalErr');
+    var saveBtn  = document.getElementById('rxActSaveBtn');
+
+    errDiv.style.display = 'none';
+    if (!name) {
+        errDiv.textContent   = 'Name is required.';
+        errDiv.style.display = '';
+        document.getElementById('rxActName').focus();
+        return;
+    }
+
+    var payload = {
+        name:        name,
+        description: desc || null,
+        sortOrder:   sortVal !== '' ? parseInt(sortVal, 10) : 999,
+        isActive:    isActive
+    };
+
+    saveBtn.disabled = true;
+    saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Saving...';
+    try {
+        var url    = rxActEditId ? '/api/medication-catalog/' + rxActEditId : '/api/medication-catalog';
+        var method = rxActEditId ? 'PUT' : 'POST';
+        var res    = await apiFetch(url, {
+            method: method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        var data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Save failed');
+
+        closeRxActModal();
+        toast('\u2713 RX Action "' + name + '" ' + (rxActEditId ? 'updated' : 'added'), 'success');
+        rxActLoaded = false;   // force reload to get fresh sort order
+        await loadRxActions();
+    } catch(e) {
+        errDiv.textContent   = e.message;
+        errDiv.style.display = '';
+    } finally {
+        saveBtn.disabled = false;
+        saveBtn.innerHTML = '<i class="fas fa-save me-1"></i>Save';
+    }
+}
+
+// ── Disable (soft-delete) ─────────────────────────────────────────────────
+async function rxActDisable(id, btn) {
+    var rec = null;
+    rxActData.forEach(function(r) { if (r.id === id) rec = r; });
+    var name = rec ? rec.name : 'this entry';
+    if (!confirm('Disable "' + name + '"? It will no longer appear in the RX form dropdown.')) return;
+    var orig = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    try {
+        var res  = await apiFetch('/api/medication-catalog/' + id, { method: 'DELETE' });
+        if (!res.ok && res.status !== 204) {
+            var data = await res.json();
+            throw new Error(data.error || 'Disable failed');
+        }
+        toast('\u2713 "' + name + '" disabled', 'success');
+        rxActLoaded = false;
+        await loadRxActions();
+    } catch(e) {
+        toast('Error: ' + e.message, 'danger');
+        btn.disabled = false;
+        btn.innerHTML = orig;
+    }
+}
+
+// ── Restore ───────────────────────────────────────────────────────────────
+async function rxActRestore(id, btn) {
+    var rec = null;
+    rxActData.forEach(function(r) { if (r.id === id) rec = r; });
+    var name = rec ? rec.name : 'this entry';
+    var orig = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    try {
+        var res  = await apiFetch('/api/medication-catalog/' + id + '/restore', { method: 'PUT' });
+        var data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Restore failed');
+        toast('\u2713 "' + name + '" restored', 'success');
+        rxActLoaded = false;
+        await loadRxActions();
+    } catch(e) {
+        toast('Error: ' + e.message, 'danger');
+        btn.disabled = false;
+        btn.innerHTML = orig;
+    }
 }
