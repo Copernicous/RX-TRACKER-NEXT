@@ -1337,6 +1337,8 @@
                 ['Patient ID',         patient.patientCode || '—'],
                 ['Default Pharmacy',   pharmacy.name || '—'],
                 ['Service Date',       rx.serviceDate || '—'],
+                ['Next Service Date',  (function(){ if (!rx.serviceDate) return '—'; var e = new Date(new Date(rx.serviceDate).getTime() + 90*864e5); return e.toLocaleDateString(); })()],
+                ['Cycle Status',       (function(){ if (!rx.serviceDate) return '—'; var e = new Date(new Date(rx.serviceDate).getTime() + 90*864e5); var d = Math.round((e - new Date()) / 864e5); if (d < 0) return '\u26a0\ufe0f Expired (' + Math.abs(d) + 'd ago)'; if (d <= 14) return '\u23f1\ufe0f Expiring (' + d + 'd left)'; return '\u2705 Active'; })()],
                 ['Patient Transport',  ptComp],
                 ['Pharmacy Transport', phtComp],
                 ['Created',            rx.createdAt ? new Date(rx.createdAt).toLocaleString() : '—'],
@@ -2002,6 +2004,16 @@
         const statusColor = pct >= 100 ? '#198754' : pct >= 50 ? '#fd7e14' : '#6c757d';
         const statusLabel = pct >= 100 ? 'Completed' : pct > 0 ? 'In Progress' : 'Not Started';
 
+        // 90-day cycle computation for print
+        var _pSvcD    = rx.serviceDate ? new Date(rx.serviceDate) : null;
+        var _pExpD    = _pSvcD ? new Date(_pSvcD.getTime() + 90*864e5) : null;
+        var _pExpStr  = _pExpD ? _pExpD.toLocaleDateString() : '—';
+        var _pDLeft   = _pExpD ? Math.round((_pExpD - new Date()) / 864e5) : null;
+        var _pStatus, _pStatusColor;
+        if (_pDLeft === null) { _pStatus = '—'; _pStatusColor = '#888'; }
+        else if (_pDLeft < 0) { _pStatus = '⚠ Expired (' + Math.abs(_pDLeft) + 'd ago)'; _pStatusColor = '#dc3545'; }
+        else if (_pDLeft <= 14) { _pStatus = '⏱ Expiring (' + _pDLeft + 'd left)'; _pStatusColor = '#fd7e14'; }
+        else { _pStatus = '✅ Active'; _pStatusColor = '#198754'; }
         // ── CARD ────────────────────────────────────────────────────────────────────────
         const cardHTML = `
         <div id="rxPrintContentCard" style="font-family:'Inter',Arial,sans-serif;background:#fff;margin:20px;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.12)">
@@ -2025,8 +2037,10 @@
             ${ [['Patient',      (patient.firstName||'') + ' ' + (patient.lastName||'')],
                 ['Patient Code', patient.patientCode||'—'],
                 ['Pharmacy',     pharmacy.name||'—'],
-                ['Service Date', rx.serviceDate||'—'],
-                ['Workflow',     doneCount + '/' + totalSteps + ' steps (' + pct + '%)']
+                ['Service Date',      rx.serviceDate||'—'],
+                ['Next Svc Date',     _pExpStr],
+                ['Cycle Status',      _pStatus],
+                ['Workflow',          doneCount + '/' + totalSteps + ' steps (' + pct + '%)']
                ].map(([label, val]) =>
               `<div><div style="font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#888;margin-bottom:3px">${label}</div>
                <div style="font-size:.9rem;color:#1a2234">${val}</div></div>`
@@ -2076,8 +2090,11 @@
               <td style="padding:5px 0"><strong>Pharmacy:</strong> ${pharmacy.name||'—'}</td>
               <td style="padding:5px 0"><strong>Service Date:</strong> ${rx.serviceDate||'—'}</td>
             </tr><tr>
-              <td style="padding:5px 0"><strong>Service Date:</strong> ${rx.serviceDate||'—'}</td>
+              <td style="padding:5px 0"><strong>Next Service Date:</strong> ${_pExpStr}</td>
+              <td style="padding:5px 0"><strong>Cycle Status:</strong> <span style="color:${_pStatusColor};font-weight:600">${_pStatus}</span></td>
+            </tr><tr>
               <td style="padding:5px 0"><strong>Progress:</strong> ${doneCount}/${totalSteps} steps (${pct}%)</td>
+              <td></td>
             </tr>
           </table>
           ${rx.notes ? `<div style="background:#f8f9fa;border-left:3px solid #4a90e2;padding:10px 14px;border-radius:4px;margin-bottom:20px;font-size:.85rem"><strong>Notes:</strong><br>${rx.notes.replace(/\n/g,'<br>')}</div>` : ''}
