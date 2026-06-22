@@ -595,11 +595,11 @@ echo  Compiles the app into a single server.exe
 echo  No Node.js needed on the target machine.
 echo  PostgreSQL still needs to be installed separately.
 echo.
-echo  Build tool:   @yao-pkg/pkg  (Node 20/22/24 compatible)
-echo  Build target: node20-win-x64
+echo  Build tool:   @yao-pkg/pkg  (Node 22 LTS embedded)
+echo  Build target: node22-win-x64
 echo  Output:       dist\server.exe
 echo.
-echo  Build will take 2-5 minutes on first run (downloads Node binary).
+echo  First run: binary already cached (~55 MB saved).
 echo.
 set /p "CONF=  Start build? (Y/N): "
 if /i NOT "%CONF%"=="Y" goto :MainMenu
@@ -611,7 +611,7 @@ cd /d "%APP_DIR%"
 echo  Building server.exe with @yao-pkg/pkg...
 echo  (Downloading Node 20 binary if first time - please wait)
 echo.
-call npx --yes @yao-pkg/pkg app.js --target node20-win-x64 --output dist/server.exe --compress GZip
+call npx --yes @yao-pkg/pkg app.js --target node22-win-x64 --output dist/server.exe --compress GZip
 if %ERRORLEVEL% EQU 0 (
     echo.
     echo  ================================================

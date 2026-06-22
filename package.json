@@ -8,11 +8,18 @@
     "dev": "nodemon app.js",
     "db:migrate": "sequelize-cli db:migrate",
     "db:seed": "sequelize-cli db:seed:all",
-    "build:exe": "npx --yes @yao-pkg/pkg app.js --target node20-win-x64 --output dist/server.exe --compress GZip"
+    "build:exe": "npx --yes @yao-pkg/pkg app.js --target node22-win-x64 --output dist/server.exe --compress GZip"
   },
   "pkg": {
     "targets": [
-      "node20-win-x64"
+      "node22-win-x64"
+    ],
+    "scripts": [
+      "models/**/*.js",
+      "controllers/**/*.js",
+      "routes/**/*.js",
+      "middleware/**/*.js",
+      "services/**/*.js"
     ],
     "assets": [
       "views/**/*",
@@ -20,11 +27,6 @@
       "config/**/*",
       "migrations/**/*",
       "seeders/**/*",
-      "services/**/*",
-      "controllers/**/*",
-      "routes/**/*",
-      "middleware/**/*",
-      "models/**/*",
       "data/**/*",
       "node_modules/bcrypt/lib/binding/napi-v3/bcrypt_lib.node",
       ".env.example"
