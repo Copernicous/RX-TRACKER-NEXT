@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en" data-theme="light">
 <head>
     <meta charset="UTF-8">
@@ -1866,33 +1866,35 @@
         const STEP_COLORS = ['#4a90e2','#7b61ff','#fd7e14','#20c997','#e24a9a','#50e3c2','#f5a623'];
 
         // Build workflow checklist for card
-        const stepsCardHtml = allWorkflowActions.map((wa, i) => {
-            const tracking = trackings.find(t => t.workflowActionId === wa.id);
-            const done     = !!tracking;
-            const dateStr  = done && tracking.completionDate ? new Date(tracking.completionDate).toLocaleDateString() : '';
-            const color    = done ? '#198754' : STEP_COLORS[i % STEP_COLORS.length];
-            const icon     = done ? 'fa-check-circle' : 'fa-circle';
-            const label    = done ? 'color:#198754;font-weight:600' : 'color:#888';
-            return `<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid #f0f0f0">
-                <i class="fas ${icon}" style="color:${color};font-size:1rem;flex-shrink:0"></i>
-                <span style="${label};font-size:.87rem">${wa.name}</span>
-                ${done ? `<span style="margin-left:auto;font-size:.7rem;color:#198754;background:#19875415;padding:2px 8px;border-radius:10px">&#10003; ${dateStr}</span>` : ""}
-            </div>;
+        const stepsCardHtml = allWorkflowActions.map(function(wa, i) {
+            var tracking = trackings.find(function(t) { return t.workflowActionId === wa.id; });
+            var done     = !!tracking;
+            var dateStr  = done && tracking.completionDate ? new Date(tracking.completionDate).toLocaleDateString() : '';
+            var color    = done ? '#198754' : STEP_COLORS[i % STEP_COLORS.length];
+            var icon     = done ? 'fa-check-circle' : 'fa-circle';
+            var label    = done ? 'color:#198754;font-weight:600' : 'color:#888';
+            var badge    = done ? '<span style="margin-left:auto;font-size:.7rem;color:#198754;background:#19875415;padding:2px 8px;border-radius:10px">&#10003; ' + dateStr + '</span>' : '';
+            return '<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid #f0f0f0">' +
+                   '<i class="fas ' + icon + '" style="color:' + color + ';font-size:1rem;flex-shrink:0"></i>' +
+                   '<span style="' + label + ';font-size:.87rem">' + wa.name + '</span>' +
+                   badge +
+                   '</div>';
         }).join('');
 
         // Build workflow steps for classic
-        const stepsClassicHtml = allWorkflowActions.map((wa, i) => {
-            const tracking = trackings.find(t => t.workflowActionId === wa.id);
-            const done     = !!tracking;
-            const dateStr  = done && tracking.completionDate ? new Date(tracking.completionDate).toLocaleDateString() : '&mdash;';
-            const statusTd = done ? '<td style="padding:5px 8px;border-bottom:1px solid #dee2e6;text-align:center;color:#198754;font-weight:600">&#10003;</td>' : '<td style="padding:5px 8px;border-bottom:1px solid #dee2e6;text-align:center;color:#aaa">&#8212;</td>';
-            return <tr>
-                <td style="padding:5px 8px;border-bottom:1px solid #dee2e6">${i+1}. ${wa.name}</td>
-                <td style="padding:5px 8px;border-bottom:1px solid #dee2e6;text-align:center;color:#555;font-size:.85rem">${dateStr}</td>
-                
-            </tr>;
+        const stepsClassicHtml = allWorkflowActions.map(function(wa, i) {
+            var tracking  = trackings.find(function(t) { return t.workflowActionId === wa.id; });
+            var done      = !!tracking;
+            var dateStr   = done && tracking.completionDate ? new Date(tracking.completionDate).toLocaleDateString() : '&mdash;';
+            var statusTd  = done
+                ? '<td style="padding:5px 8px;border-bottom:1px solid #dee2e6;text-align:center;color:#198754;font-weight:600">&#10003;</td>'
+                : '<td style="padding:5px 8px;border-bottom:1px solid #dee2e6;text-align:center;color:#aaa">&#8212;</td>';
+            return '<tr>' +
+                   '<td style="padding:5px 8px;border-bottom:1px solid #dee2e6">' + (i+1) + '. ' + wa.name + '</td>' +
+                   '<td style="padding:5px 8px;border-bottom:1px solid #dee2e6;text-align:center;color:#555;font-size:.85rem">' + dateStr + '</td>' +
+                   statusTd +
+                   '</tr>';
         }).join('');
-
         const statusColor = pct >= 100 ? '#198754' : pct >= 50 ? '#fd7e14' : '#6c757d';
         const statusLabel = pct >= 100 ? 'Completed' : pct > 0 ? 'In Progress' : 'Not Started';
 
