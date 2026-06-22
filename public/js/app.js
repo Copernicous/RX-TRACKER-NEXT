@@ -56,11 +56,11 @@ function initApp() {
 
 // ----- Sidebar Toggle -----
 function setupSidebar() {
-    const btn = document.getElementById('sidebarCollapse');
+    var btn = document.getElementById('sidebarCollapse');
     if (!btn) return;
-    btn.addEventListener('click', () => {
-        const sidebar = document.getElementById('sidebar');
-        const content = document.getElementById('content');
+    btn.addEventListener('click', function() {
+        var sidebar = document.getElementById('sidebar');
+        var content = document.getElementById('content');
         sidebar.classList.toggle('active');
         content.classList.toggle('sidebar-hidden');
     });
@@ -68,13 +68,13 @@ function setupSidebar() {
 
 // ----- Dark/Light Theme -----
 function setupTheme() {
-    const btn = document.getElementById('themeToggle');
+    var btn = document.getElementById('themeToggle');
     if (!btn) return;
-    const saved = localStorage.getItem('rxTheme') || 'light';
+    var saved = localStorage.getItem('rxTheme') || 'light';
     applyTheme(saved, btn);
-    btn.addEventListener('click', () => {
-        const current = document.documentElement.getAttribute('data-theme') || 'light';
-        const next = current === 'dark' ? 'light' : 'dark';
+    btn.addEventListener('click', function() {
+        var current = document.documentElement.getAttribute('data-theme') || 'light';
+        var next = current === 'dark' ? 'light' : 'dark';
         localStorage.setItem('rxTheme', next);
         applyTheme(next, btn);
     });
@@ -87,10 +87,10 @@ function applyTheme(theme, btn) {
 
 // ----- Global Search -----
 function setupGlobalSearch() {
-    const themeBtn = document.getElementById('themeToggle');
+    var themeBtn = document.getElementById('themeToggle');
     if (!themeBtn) return;
 
-    const wrapper = document.createElement('div');
+    var wrapper = document.createElement('div');
     wrapper.id = 'globalSearchWrapper';
     wrapper.style.cssText = 'position:relative;display:inline-block;';
     wrapper.innerHTML =
@@ -112,12 +112,12 @@ function setupGlobalSearch() {
     themeBtn.parentNode.insertBefore(wrapper, themeBtn);
 
     const input    = document.getElementById('globalSearchInput');
-    const dropdown = document.getElementById('globalSearchDropdown');
+    var dropdown = document.getElementById('globalSearchDropdown');
     let debounceTimer = null;
     let activeIdx = -1;  // keyboard nav index
 
     // ---- Ctrl+K shortcut ----
-    document.addEventListener('keydown', (e) => {
+    document.addEventListener('keydown', function(e) {
         if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
             e.preventDefault();
             input.focus();
@@ -130,8 +130,8 @@ function setupGlobalSearch() {
     });
 
     // ---- Keyboard navigation inside dropdown ----
-    input.addEventListener('keydown', (e) => {
-        const items = dropdown.querySelectorAll('.search-result-item');
+    input.addEventListener('keydown', function(e) {
+        var items = dropdown.querySelectorAll('.search-result-item');
         if (!items.length) return;
         if (e.key === 'ArrowDown') {
             e.preventDefault();
@@ -150,27 +150,27 @@ function setupGlobalSearch() {
     });
 
     function applyActive(items) {
-        items.forEach((el, i) => {
+        items.forEach(function(el, i) {
             el.style.background = i === activeIdx ? 'rgba(74,144,226,.12)' : '';
             if (i === activeIdx) el.scrollIntoView({ block: 'nearest' });
         });
     }
 
     // ---- Debounced search on input ----
-    input.addEventListener('input', () => {
+    input.addEventListener('input', function() {
         clearTimeout(debounceTimer);
         activeIdx = -1;
-        const q = input.value.trim();
+        var q = input.value.trim();
         if (q.length < 2) { dropdown.style.display = 'none'; return; }
-        debounceTimer = setTimeout(() => doSearch(q), 280);
+        debounceTimer = setTimeout(function(){doSearch(q);}, 280);
     });
 
     // ---- Focus ring ----
-    input.addEventListener('focus', () => input.style.boxShadow = '0 0 0 3px rgba(74,144,226,.25)');
-    input.addEventListener('blur',  () => input.style.boxShadow = '');
+    input.addEventListener('focus', function() { input.style.boxShadow = '0 0 0 3px rgba(74,144,226,.25)'; });
+    input.addEventListener('blur',  function() { input.style.boxShadow = ''; });
 
     // ---- Close on outside click ----
-    document.addEventListener('click', (e) => {
+    document.addEventListener('click', function(e) {
         if (!wrapper.contains(e.target)) { dropdown.style.display = 'none'; activeIdx = -1; }
     });
 
@@ -187,9 +187,9 @@ function setupGlobalSearch() {
         dropdown.style.display = 'block';
         try {
             var _uSearch = window.rxUrl('/api/search') + '?q=' + encodeURIComponent(q);
-            const res = await fetchWithAuth(_uSearch);
+            var res = await fetchWithAuth(_uSearch);
             if (!res || !res.ok) { dropdown.innerHTML = '<p class="text-danger small text-center py-2 mb-0">Search error</p>'; return; }
-            const data = await res.json();
+            var data = await res.json();
             renderResults(data, q);
         } catch(e) { dropdown.innerHTML = '<p class="text-danger small text-center py-2 mb-0">Search failed</p>'; }
     }
@@ -210,7 +210,7 @@ function setupGlobalSearch() {
                       '<small class="text-muted fw-bold text-uppercase" style="font-size:.7rem"><i class="fas fa-user me-1"></i>Patients</small>' +
                       '<small class="text-muted">' + patients.length + '</small>' +
                     '</div>';
-            patients.forEach(p => {
+            patients.forEach(function(p) {
                 const badge = p.isActive
                     ? '<span class="badge bg-success ms-1" style="font-size:.6rem">Active</span>'
                     : '<span class="badge bg-secondary ms-1" style="font-size:.6rem">Inactive</span>';
@@ -234,7 +234,7 @@ function setupGlobalSearch() {
                       '<small class="text-muted fw-bold text-uppercase" style="font-size:.7rem"><i class="fas fa-prescription-bottle-alt me-1"></i>RX Records</small>' +
                       '<small class="text-muted">' + rxRecords.length + '</small>' +
                     '</div>';
-            rxRecords.forEach(rx => {
+            rxRecords.forEach(function(rx) {
                 const pat = rx.Patient ? rx.Patient.firstName + ' ' + rx.Patient.lastName : '\u2014';
                 const patHL = highlight(pat, q);
                 const rxHL  = highlight('RX #' + rx.id, q);
@@ -257,7 +257,7 @@ function setupGlobalSearch() {
                       '<small class="text-muted fw-bold text-uppercase" style="font-size:.7rem"><i class="fas fa-clinic-medical me-1"></i>Pharmacies</small>' +
                       '<small class="text-muted">' + pharmacies.length + '</small>' +
                     '</div>';
-            pharmacies.forEach(ph => {
+            pharmacies.forEach(function(ph) {
                 const nameHL = highlight(ph.name, q);
                 html += '<a href="/pharmacies"' +
                     ' class="d-flex align-items-center px-3 py-2 text-decoration-none search-result-item" style="transition:background .15s">' +
@@ -281,10 +281,10 @@ function setupGlobalSearch() {
         activeIdx = -1;
 
         // Hover effects
-        dropdown.querySelectorAll('.search-result-item').forEach((el, i) => {
-            el.addEventListener('mouseenter', () => { activeIdx = i; applyActive(dropdown.querySelectorAll('.search-result-item')); });
-            el.addEventListener('mouseleave', () => { activeIdx = -1; el.style.background = ''; });
-            el.addEventListener('click', () => { dropdown.style.display = 'none'; input.value = ''; activeIdx = -1; });
+        dropdown.querySelectorAll('.search-result-item').forEach(function(el, i) {
+            el.addEventListener('mouseenter', function() { activeIdx = i; applyActive(dropdown.querySelectorAll('.search-result-item')); });
+            el.addEventListener('mouseleave', function() { activeIdx = -1; el.style.background = ''; });
+            el.addEventListener('click', function() { dropdown.style.display = 'none'; input.value = ''; activeIdx = -1; });
         });
     }
 }
@@ -292,14 +292,14 @@ function setupGlobalSearch() {
 
 // ----- Auth Guard -----
 function checkAuth() {
-    const token = localStorage.getItem('token');
+    var token = localStorage.getItem('token');
     if (!token) {
         window.rxNav('/login');
         return;
     }
     try {
         const user = JSON.parse(localStorage.getItem('user'));
-        const el = document.getElementById('userGreeting');
+        var el = document.getElementById('userGreeting');
         if (el && user) {
             el.textContent = 'Hello, ' + user.firstName + ' ' + user.lastName;
         }
@@ -331,18 +331,18 @@ function checkAuth() {
         else permissions.dashboard = { visible: true, readOnly: false };
         // For Administrators: force-show admin-only pages regardless of stored permissions
         if (role === 'Administrator') {
-            ['backups','system_settings','audit_log','users','medication_catalog'].forEach(k => {
+            ['backups','system_settings','audit_log','users','medication_catalog'].forEach(function(k) {
                 if (!permissions[k]) permissions[k] = { visible: true };
                 else permissions[k].visible = true;
             });
         }
         
-        Object.keys(sidebarMapping).forEach(href => {
-            const permKey = sidebarMapping[href];
-            const perm = permissions[permKey] || { visible: true, readOnly: false };
-            const a = document.querySelector('#sidebar a[href="' + href + '"]');
+        Object.keys(sidebarMapping).forEach(function(href) {
+            var permKey = sidebarMapping[href];
+            var perm = permissions[permKey] || { visible: true, readOnly: false };
+            var a = document.querySelector('#sidebar a[href="' + href + '"]');
             if (a) {
-                const li = a.closest('li');
+                var li = a.closest('li');
                 if (li) {
                     if (!perm.visible) {
                         li.classList.add('d-none');
@@ -356,10 +356,10 @@ function checkAuth() {
         // For each submenu group: hide the group header if ALL its child items are hidden.
         // Works with the new sidebar structure: refDataSubmenu, reportsSubmenu, adminSubmenu.
         ['refDataSubmenu', 'reportsSubmenu', 'adminSubmenu'].forEach(function(menuId) {
-            const submenu = document.getElementById(menuId);
+            var submenu = document.getElementById(menuId);
             if (!submenu) return;
             const allItems   = submenu.querySelectorAll('li');
-            const visibleItems = submenu.querySelectorAll('li:not(.d-none)');
+            var visibleItems = submenu.querySelectorAll('li:not(.d-none)');
             const toggleA  = document.querySelector('#sidebar a[href="#' + menuId + '"]');
             if (toggleA) {
                 const toggleLi = toggleA.closest('li');
@@ -375,9 +375,9 @@ function checkAuth() {
 
         // Redirect on direct URL load if visible=false
         const currentPath = window.location.pathname;
-        const currentPermKey = sidebarMapping[currentPath];
+        var currentPermKey = sidebarMapping[currentPath];
         if (currentPermKey) {
-            const perm = permissions[currentPermKey] || { visible: true, readOnly: false };
+            var perm = permissions[currentPermKey] || { visible: true, readOnly: false };
             if (!perm.visible) {
                 window.rxNav('/dashboard');
                 return;
@@ -390,12 +390,12 @@ function checkAuth() {
 
 // ----- Logout -----
 function setupLogout() {
-    const btn = document.getElementById('logoutBtn');
+    var btn = document.getElementById('logoutBtn');
     if (!btn) return;
-    btn.addEventListener('click', async () => {
+    btn.addEventListener('click', async function() {
         // Track logout in audit log (fire-and-forget)
         try {
-            const token = localStorage.getItem('token');
+            var token = localStorage.getItem('token');
             if (token) {
                 await fetch(window.rxUrl('/api/auth/logout'), {
                     method: 'POST',
@@ -421,7 +421,7 @@ function setupSessionTimeout() {
 
     // Inject warning modal once
     if (!document.getElementById('sessionWarnModal')) {
-        const modal = document.createElement('div');
+        var modal = document.createElement('div');
         modal.innerHTML = '<div class="modal fade" id="sessionWarnModal" tabindex="-1" data-bs-backdrop="static">' +
           '<div class="modal-dialog modal-dialog-centered">' +
             '<div class="modal-content border-warning">' +
@@ -441,8 +441,8 @@ function setupSessionTimeout() {
         '</div>';
         document.body.appendChild(modal.firstElementChild);
 
-        document.getElementById('sessionStayBtn').addEventListener('click', () => {
-            bootstrap.Modal.getInstance(document.getElementById('sessionWarnModal'))?.hide();
+        document.getElementById('sessionStayBtn').addEventListener('click', function() {
+            var _wm=bootstrap.Modal.getInstance(document.getElementById('sessionWarnModal'));if(_wm)_wm.hide();
             resetTimers();
         });
         document.getElementById('sessionLogoutNowBtn').addEventListener('click', performLogout);
@@ -450,7 +450,7 @@ function setupSessionTimeout() {
 
     async function performLogout() {
         try {
-            const token = localStorage.getItem('token');
+            var token = localStorage.getItem('token');
             if (token) await fetch(window.rxUrl('/api/auth/logout'), {
                 method: 'POST',
                 headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' }
@@ -462,14 +462,14 @@ function setupSessionTimeout() {
     }
 
     function showWarning() {
-        const modalEl = document.getElementById('sessionWarnModal');
+        var modalEl = document.getElementById('sessionWarnModal');
         if (!modalEl) return;
         let secsLeft = 120;
-        const cd = document.getElementById('sessionCountdown');
-        const tick = setInterval(() => {
+        var cd = document.getElementById('sessionCountdown');
+        var tick = setInterval(function() {
             secsLeft--;
-            const m = Math.floor(secsLeft / 60);
-            const s = secsLeft % 60;
+            var m = Math.floor(secsLeft / 60);
+            var s = secsLeft % 60;
             if (cd) cd.textContent = m + ':' + String(s).padStart(2, '0');
             if (secsLeft <= 0) { clearInterval(tick); performLogout(); }
         }, 1000);
@@ -478,7 +478,7 @@ function setupSessionTimeout() {
         const modal = new bootstrap.Modal(modalEl);
         modal.show();
         // When hidden (Stay clicked), clear the countdown
-        modalEl.addEventListener('hidden.bs.modal', () => clearInterval(parseInt(modalEl.dataset.tick)), { once: true });
+        modalEl.addEventListener('hidden.bs.modal', function() { clearInterval(parseInt(modalEl.dataset.tick)); }, { once: true });
     }
 
     function resetTimers() {
@@ -491,7 +491,7 @@ function setupSessionTimeout() {
     }
 
     // Reset on any user activity
-    ['mousemove','mousedown','keydown','scroll','touchstart','click'].forEach(evt => {
+    ['mousemove','mousedown','keydown','scroll','touchstart','click'].forEach(function(evt) {
         document.addEventListener(evt, resetTimers, { passive: true });
     });
 
@@ -501,7 +501,7 @@ function setupSessionTimeout() {
 // ----- Authenticated Fetch -----
 // Pass options.silent = true to suppress the 403 toast for background/init calls
 async function fetchWithAuth(url, options = {}) {
-    const token = localStorage.getItem('token');
+    var token = localStorage.getItem('token');
     const silent = !!options.silent;
     const fetchOptions = Object.assign({}, options);
     delete fetchOptions.silent; // don't forward to fetch()
@@ -510,7 +510,7 @@ async function fetchWithAuth(url, options = {}) {
         'Authorization': 'Bearer ' + token
     }, fetchOptions.headers || {});
 
-    const res = await fetch(url, Object.assign({}, fetchOptions, { headers, credentials: fetchOptions.credentials || 'include' }));
+    var res = await fetch(url, Object.assign({}, fetchOptions, { headers, credentials: fetchOptions.credentials || 'include' }));
 
     // 401 = token expired / invalid → logout
     if (res.status === 401) {
@@ -524,7 +524,7 @@ async function fetchWithAuth(url, options = {}) {
     // silent=false → show toast so the user knows the action was blocked
     if (res.status === 403) {
         if (!silent) {
-            const body = await res.clone().json().catch(function() { return {}; });
+            var body = await res.clone().json().catch(function() { return {}; });
             showToast(body.message || 'Access denied.', 'warning');
         }
         return res;
@@ -535,7 +535,7 @@ async function fetchWithAuth(url, options = {}) {
 // ----- Toast Notification -----
 function showToast(message, type) {
     type = type || 'success';
-    const container = document.querySelector('.toast-container');
+    var container = document.querySelector('.toast-container');
     if (!container) return;
     const id = 'toast-' + Date.now();
     const icons = { success: 'fa-check-circle', danger: 'fa-times-circle', warning: 'fa-exclamation-circle', info: 'fa-info-circle' };
@@ -548,7 +548,7 @@ function showToast(message, type) {
         '</div></div>';
     container.insertAdjacentHTML('beforeend', html);
     setTimeout(function() {
-        const el = document.getElementById(id);
+        var el = document.getElementById(id);
         if (el) el.remove();
     }, 4000);
 }
@@ -721,13 +721,13 @@ async function loadCrudModule(moduleName, apiEndpoint) {
 async function loadRolesForUserForm() {
     try {
         var _uRoles = '/api/roles';
-        const res = await fetchWithAuth(_uRoles, { silent: true });
+        var res = await fetchWithAuth(_uRoles, { silent: true });
         if (res && res.ok) {
-            const roles = await res.json();
-            const cfg = MODULE_CONFIGS['users'];
-            const roleField = cfg.fields.find(f => f.key === 'roleId');
+            var roles = await res.json();
+            var cfg = MODULE_CONFIGS['users'];
+            var roleField = cfg.fields.filter(function(f){return f.key==='roleId';})[0];
             if (roleField) {
-                roleField.options = roles.map(r => ({ value: r.id, label: r.name + (r.description ? ' — ' + r.description : '') }));
+                roleField.options = roles.map(function(r){ return { value: r.id, label: r.name + (r.description ? ' \u2014 ' + r.description : '') }; });
             }
         }
     } catch(e) { /* non-fatal — form will show empty dropdown */ }
@@ -739,9 +739,9 @@ async function refreshTable() {
         var isSoftDelete = config && config.softDelete;
         var showInactive = isSoftDelete && document.getElementById('showInactiveToggle') && document.getElementById('showInactiveToggle').checked;
         var url = crudState.endpoint + (showInactive ? '?includeInactive=true' : '');
-        const res = await fetchWithAuth(url);
+        var res = await fetchWithAuth(url);
         if (!res) return;
-        const data = await res.json();
+        var data = await res.json();
         if (Array.isArray(data)) {
             crudState.data = data;
         } else {
@@ -848,7 +848,7 @@ function renderTable() {
                 if (val === false) return '<td><span class="badge bg-secondary">No</span></td>';
                 if (val === null || val === undefined) return '<td class="text-muted">\u2014</td>';
                 // BUG-07 FIX: Show ellipsis + tooltip when value is truncated
-                const strVal = String(val);
+                var strVal = String(val);
                 if (strVal.length > 60) {
                     return '<td title="' + strVal.replace(/"/g, '&quot;') + '">' + strVal.substring(0, 60) + '\u2026</td>';
                 }
@@ -1125,14 +1125,14 @@ async function saveRecord() {
     // ── Duplicate patient check (new patients only) ──────────────────────────
     if (crudState.module === 'patients' && !crudState.editingId && body.firstName && body.lastName && body.dob) {
         try {
-            const dupRes = await fetchWithAuth(
+            var dupRes = await fetchWithAuth(
                 '/api/patients/check-duplicate?firstName=' + encodeURIComponent(body.firstName) + '&lastName=' + encodeURIComponent(body.lastName) + '&dob=' + encodeURIComponent(body.dob)
             );
             if (dupRes && dupRes.ok) {
                 const { duplicates } = await dupRes.json();
                 if (duplicates && duplicates.length > 0) {
                     // Show duplicate warning and wait for user decision
-                    const proceed = await showDuplicateWarning(duplicates, body);
+                    var proceed = await showDuplicateWarning(duplicates, body);
                     if (!proceed) return; // user chose to cancel
                 }
             }
@@ -1168,9 +1168,9 @@ async function saveRecord() {
 
 // Show duplicate patient warning modal — returns Promise<boolean> (true = proceed, false = cancel)
 function showDuplicateWarning(duplicates, newPatient) {
-    return new Promise((resolve) => {
+    return new Promise(function(resolve) {
         // Remove existing if any
-        const existing = document.getElementById('dupWarnModal');
+        var existing = document.getElementById('dupWarnModal');
         if (existing) existing.remove();
 
         var _dups=duplicates; var _dupHtml=''; for(var _di=0;_di<_dups.length;_di++){var d=_dups[_di]; _dupHtml+=(function(){
@@ -1182,7 +1182,7 @@ function showDuplicateWarning(duplicates, newPatient) {
             '</tr>';
         })(); } var rows=_dupHtml;
 
-        const div = document.createElement('div');
+        var div = document.createElement('div');
         div.innerHTML = '<div class="modal fade" id="dupWarnModal" tabindex="-1" data-bs-backdrop="static">' +
           '<div class="modal-dialog modal-lg modal-dialog-centered">' +
             '<div class="modal-content border-warning">' +
@@ -1206,12 +1206,12 @@ function showDuplicateWarning(duplicates, newPatient) {
         '</div>';
         document.body.appendChild(div.firstElementChild);
 
-        const modalEl = document.getElementById('dupWarnModal');
-        const modal = new bootstrap.Modal(modalEl);
+        var modalEl = document.getElementById('dupWarnModal');
+        var modal = new bootstrap.Modal(modalEl);
 
-        document.getElementById('dupProceedBtn').onclick = () => { modal.hide(); resolve(true); };
-        document.getElementById('dupCancelBtn').onclick  = () => { modal.hide(); resolve(false); };
-        modalEl.addEventListener('hidden.bs.modal', () => modalEl.remove(), { once: true });
+        document.getElementById('dupProceedBtn').onclick = function() { modal.hide(); resolve(true); };
+        document.getElementById('dupCancelBtn').onclick  = function() { modal.hide(); resolve(false); };
+        modalEl.addEventListener('hidden.bs.modal', function() { modalEl.remove(); }, { once: true });
 
         modal.show();
     });
@@ -1274,15 +1274,18 @@ async function restoreRecord(id) {
 // CSV Export — shared across all pages
 // =============================================
 async function exportToCsv(filename, headers, rows) {
-    const csvLines = [headers, ...rows].map(row =>
-        row.map(val => '"' + String(val == null ? '' : val).replace(/"/g, '""') + '"').join(',')
-    );
-    const csvContent = csvLines.join('\n');
+    var allRows = [headers].concat(rows);
+    var csvLines = allRows.map(function(row) {
+        return row.map(function(val) {
+            return '"' + String(val == null ? '' : val).replace(/"/g, '""') + '"';
+        }).join(',');
+    });
+    var csvContent = csvLines.join('\n');
 
     // 1. Try modern File System Access API to force Windows Explorer "Save As" Dialog
     if (window.showSaveFilePicker) {
         try {
-            const handle = await window.showSaveFilePicker({
+            var handle = await window.showSaveFilePicker({
                 suggestedName: filename,
                 types: [{
                     description: 'CSV Files',
@@ -1291,7 +1294,7 @@ async function exportToCsv(filename, headers, rows) {
                     }
                 }]
             });
-            const writable = await handle.createWritable();
+            var writable = await handle.createWritable();
             await writable.write(csvContent); // Write string directly to avoid [object Blob] serialization bugs
             await writable.close();
             showToast('File saved successfully.', 'success');
@@ -1308,13 +1311,13 @@ async function exportToCsv(filename, headers, rows) {
     // 2. Fallback: Standard automatic download
 const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    var a = document.createElement('a');
     a.style.display = 'none';
     a.href = url;
     a.download = filename;
     document.body.appendChild(a);
     a.click();
-    setTimeout(() => {
+    setTimeout(function() {
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
     }, 150);

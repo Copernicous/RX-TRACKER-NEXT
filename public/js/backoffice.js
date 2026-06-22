@@ -930,6 +930,49 @@ function renderDupes() {
             '</div>';
     });
     document.getElementById('dupesList').innerHTML = _dupeCards;
+    var _dupExpBtn = document.getElementById('dupesExportBtn');
+    if (_dupExpBtn) _dupExpBtn.style.display = '';
+}
+
+// ── Export Duplicates CSV ────────────────────────────────────────────────
+function exportDupesCSV() {
+    if (!dupesData) { toast('Run a scan first.', 'info'); return; }
+    var groups = dupeTabMode === 'name' ? dupesData.byName : dupesData.byPhone;
+    if (!groups || !groups.length) { toast('No duplicate data to export.', 'info'); return; }
+    var cols = ['group_key','id','firstName','lastName','dob','phone','isActive','createdAt'];
+    var rows = [];
+    groups.forEach(function(g) {
+        var recs = typeof g.records === 'string' ? JSON.parse(g.records) : g.records;
+        recs.forEach(function(p) {
+            rows.push({
+                group_key:  g.match_key,
+                id:         p.id,
+                firstName:  p.firstName || '',
+                lastName:   p.lastName  || '',
+                dob:        p.dob       || '',
+                phone:      p.phone     || '',
+                isActive:   p.isActive  ? 'Yes' : 'No',
+                createdAt:  p.createdAt ? new Date(p.createdAt).toLocaleString() : '',
+            });
+        });
+    });
+    var header = cols.join(',');
+    var body = rows.map(function(row) {
+        return cols.map(function(c) {
+            var v = row[c];
+            if (v === null || v === undefined) return '';
+            var s = String(v);
+            return (s.indexOf(',') >= 0 || s.indexOf('"') >= 0 || s.indexOf('\n') >= 0) ? '"' + s.replace(/"/g,'""') + '"' : s;
+        }).join(',');
+    }).join('\n');
+    var csv  = header + '\n' + body;
+    var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    var url  = URL.createObjectURL(blob);
+    var a    = document.createElement('a');
+    a.href = url; a.download = 'duplicates-' + dupeTabMode + '-' + new Date().toISOString().slice(0,10) + '.csv';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast('\u2713 Exported ' + rows.length + ' duplicate patient rows', 'success');
 }
 
 async function deleteDupPatient(id, btn) {
@@ -1051,6 +1094,9 @@ async function loadAuditLogs(page) {
                 '<tbody>' + _auditRows + '</tbody>' +
             '</table></div>';
 
+        var _ebtn = document.getElementById('auditExportBtn');
+        if (_ebtn) _ebtn.style.display = '';
+
         // Pagination
         var pag = '';
         if (data.pages > 1) {
@@ -1062,7 +1108,63 @@ async function loadAuditLogs(page) {
             if (page < data.pages) pag += '<button class="pag-btn" onclick="loadAuditLogs(' + (page+1) + ')">&#8250;</button>';
         }
         document.getElementById('auditPagination').innerHTML = pag;
+        if (_ebtn) _ebtn.style.display = '';
     } catch(e) {
         document.getElementById('auditList').innerHTML = '<p style="color:#fca5a5;padding:2rem">' + e.message + '</p>';
     }
+}
+
+// ── Export Audit Logs CSV (fetches all matching rows) ─────────────────────
+async function exportAuditLogsCSV() {
+    var _ebtn = document.getElementById('auditExportBtn');
+    if (_ebtn) { _ebtn.disabled = true; _ebtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>'; }
+    try {
+        var _auditSearch   = document.getElementById('auditSearch')   ? document.getElementById('auditSearch').value   : '';
+        var _auditAction   = document.getElementById('auditAction')   ? document.getElementById('auditAction').value   : '';
+        var _auditEntity   = document.getElementById('auditEntity')   ? document.getElementById('auditEntity').value   : '';
+        var _auditDateFrom = document.getElementById('auditDateFrom') ? document.getElementById('auditDateFrom').value : '';
+        var _auditDateTo   = document.getElementById('auditDateTo')   ? document.getElementById('auditDateTo').value   : '';
+        var params = new URLSearchParams({
+            page: 1, size: 9999,
+            search:   _auditSearch,
+            action:   _auditAction,
+            entity:   _auditEntity,
+            dateFrom: _auditDateFrom,
+            dateTo:   _auditDateTo,
+        });
+        var res  = await apiFetch('/api/admin/audit-logs?' + params);
+        var data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Failed');
+        var cols = ['id','createdAt','userId','username','action','entity','entityId','details'];
+        var rows = (data.rows || []).map(function(r) {
+            return {
+                id:        r.id,
+                createdAt: r.createdAt ? new Date(r.createdAt).toLocaleString() : '',
+                userId:    r.userId || '',
+                username:  r.firstName ? r.firstName + ' ' + r.lastName : (r.userId ? 'User #' + r.userId : 'System'),
+                action:    r.action   || '',
+                entity:    r.entity   || '',
+                entityId:  r.entityId || '',
+                details:   r.details  || '',
+            };
+        });
+        var header = cols.join(',');
+        var body = rows.map(function(row) {
+            return cols.map(function(c) {
+                var v = row[c];
+                if (v === null || v === undefined) return '';
+                var s = String(v);
+                return (s.indexOf(',') >= 0 || s.indexOf('"') >= 0 || s.indexOf('\n') >= 0) ? '"' + s.replace(/"/g,'""') + '"' : s;
+            }).join(',');
+        }).join('\n');
+        var csv  = header + '\n' + body;
+        var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        var url  = URL.createObjectURL(blob);
+        var a    = document.createElement('a');
+        a.href = url; a.download = 'audit-logs-' + new Date().toISOString().slice(0,10) + '.csv';
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        toast('\u2713 Exported ' + rows.length + ' audit log(s)', 'success');
+    } catch(e) { toast('Export failed: ' + e.message, 'danger'); }
+    finally { if (_ebtn) { _ebtn.disabled = false; _ebtn.innerHTML = '<i class="fas fa-file-csv"></i>'; } }
 }

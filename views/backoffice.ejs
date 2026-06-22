@@ -429,6 +429,7 @@
                 <div style="display:flex;gap:0.4rem;align-items:center">
                     <button class="btn-bo btn-bo-primary" onclick="loadAuditLogs(1)" style="flex:1;padding:0.45rem"><i class="fas fa-search me-1"></i>Apply</button>
                     <button class="btn-bo btn-bo-outline" onclick="clearAuditFilters()" style="padding:0.45rem 0.7rem"><i class="fas fa-times"></i></button>
+                    <button class="btn-bo btn-bo-outline" id="auditExportBtn" onclick="exportAuditLogsCSV()" style="padding:0.45rem 0.7rem;display:none" title="Export all matching logs as CSV"><i class="fas fa-file-csv"></i></button>
                 </div>
             </div>
         </div>
@@ -532,7 +533,10 @@
     <div id="usersContent" class="schema-wrap">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:0.75rem">
             <div><div style="font-size:1rem;font-weight:700">User Manager</div><div style="font-size:0.75rem;color:var(--text-muted)">View users, change roles, enable/disable accounts, reset passwords</div></div>
-            <button class="btn-bo btn-bo-outline" onclick="loadUsers()"><i class="fas fa-sync-alt me-1"></i>Refresh</button>
+            <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
+                <button class="btn-bo btn-bo-outline" onclick="loadUsers()"><i class="fas fa-sync-alt me-1"></i>Refresh</button>
+                <button class="btn-bo btn-bo-outline" id="usersExportBtn" onclick="exportUsersCSV()" style="display:none"><i class="fas fa-file-csv me-1"></i>Export CSV</button>
+            </div>
         </div>
         <div id="usersList"><p style="text-align:center;padding:4rem;color:var(--text-muted)"><i class="fas fa-spinner fa-spin me-2"></i>Loading users...</p></div>
     </div>
@@ -547,6 +551,7 @@
             </div>
             <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
                 <button class="btn-bo btn-bo-outline" onclick="loadErrorLogs(1)"><i class="fas fa-sync-alt me-1"></i>Refresh</button>
+                <button class="btn-bo btn-bo-outline" id="errlogExportBtn" onclick="exportErrorLogsCSV()" style="display:none"><i class="fas fa-file-csv me-1"></i>Export CSV</button>
                 <button class="btn-bo" style="background:rgba(234,179,8,0.12);color:#fbbf24;border:1px solid rgba(234,179,8,0.3);font-size:0.78rem" onclick="resolveSelectedErrors()"><i class="fas fa-check-double me-1"></i>Mark Resolved</button>
                 <button class="btn-bo btn-bo-danger" onclick="openPurgeModal()" style="font-size:0.78rem"><i class="fas fa-fire me-1"></i>Purge Logs</button>
             </div>
