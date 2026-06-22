@@ -698,6 +698,9 @@
         if (!rxPerms.canAdd) {
             const addBtn = document.getElementById('addRxBtn');
             if (addBtn) addBtn.classList.add('d-none');
+        } else {
+            const addBtn = document.getElementById('addRxBtn');
+            if (addBtn) addBtn.addEventListener('click', openRxModal);
         }
 
         await loadRxDropdowns();
