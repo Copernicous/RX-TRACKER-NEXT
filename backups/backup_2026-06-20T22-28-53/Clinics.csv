@@ -1,6 +1,0 @@
-id,name,address,phone,contactPerson,notes,isActive,createdAt,updatedAt
-1,Keter Medical Center,"8000 nw 7th st suite 102 Miami, FL 33126",(305) 400-8005,Dr. Smith,Primary care clinic,true,"""2026-06-20T21:46:18.489Z""","""2026-06-20T21:46:18.489Z"""
-2,Glades-North Miami,"1 NE 167th St, North Miami Beach, FL 33162",(305) 432-9565,,,true,"""2026-06-20T21:46:18.489Z""","""2026-06-20T21:46:18.489Z"""
-3,Glades-Coral Way,"1 NE 167th St, North Miami Beach, FL 33162",(305) 432-9565,,,true,"""2026-06-20T21:46:18.489Z""","""2026-06-20T21:46:18.489Z"""
-4,Glades-Homestead,"1 NE 167th St, North Miami Beach, FL 33162",(305) 432-9565,,,true,"""2026-06-20T21:46:18.489Z""","""2026-06-20T21:46:18.489Z"""
-5,Glades-Lakeland,"1 NE 167th St, North Miami Beach, FL 33162",(305) 432-9565,,,true,"""2026-06-20T21:46:18.489Z""","""2026-06-20T21:46:18.489Z"""

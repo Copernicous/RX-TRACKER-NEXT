@@ -102,6 +102,33 @@ function pruneOldBackups() {
     } catch {}
 }
 
+// ---- Sync log with actual files on disk ----
+// Removes log entries whose .dump files no longer exist
+function syncLogWithDisk() {
+    const entries = readLog();
+    const synced  = entries.filter(e => {
+        // Keep failed entries (no file), keep if file exists
+        if (!e.filename) return true;
+        return fs.existsSync(path.join(BACKUP_DIR, e.filename));
+    });
+    if (synced.length !== entries.length) writeLog(synced);
+    return synced;
+}
+
+// ---- Delete a specific DB backup ----
+function deleteBackup(filename) {
+    // Validate: must look like a real backup filename (prevent path traversal)
+    if (!filename || !/^backup_[\w\-]+\.dump$/.test(filename)) {
+        throw new Error('Invalid backup filename');
+    }
+    const filepath = path.join(BACKUP_DIR, filename);
+    // Delete file if it exists
+    if (fs.existsSync(filepath)) fs.unlinkSync(filepath);
+    // Remove from log
+    const entries = readLog();
+    writeLog(entries.filter(e => e.filename !== filename));
+}
+
 // ---- Cron scheduler ----
 let _cronJob = null;
 let _currentSchedule = null;
@@ -167,6 +194,31 @@ function pruneOldSiteBackups() {
             try { fs.unlinkSync(path.join(SITE_BACKUP_DIR, f.name)); } catch {}
         });
     } catch {}
+}
+
+// ---- Sync site log with actual files on disk ----
+function syncSiteLogWithDisk() {
+    const entries = readSiteLog();
+    const synced  = entries.filter(e => {
+        if (!e.filename) return true;
+        return fs.existsSync(path.join(SITE_BACKUP_DIR, e.filename));
+    });
+    if (synced.length !== entries.length) {
+        try { fs.writeFileSync(SITE_BACKUP_LOG, JSON.stringify(synced, null, 2)); } catch {}
+    }
+    return synced;
+}
+
+// ---- Delete a specific site backup ----
+function deleteSiteBackup(filename) {
+    if (!filename || !/^RX_SiteBackup_[\w\-]+\.zip$/.test(filename)) {
+        throw new Error('Invalid site backup filename');
+    }
+    const filepath = path.join(SITE_BACKUP_DIR, filename);
+    if (fs.existsSync(filepath)) fs.unlinkSync(filepath);
+    const entries = readSiteLog();
+    const synced  = entries.filter(e => e.filename !== filename);
+    try { fs.writeFileSync(SITE_BACKUP_LOG, JSON.stringify(synced, null, 2)); } catch {}
 }
 
 function runFullSiteBackup(triggeredBy = 'Manual') {
@@ -322,21 +374,23 @@ startSiteBackupScheduler(DEFAULT_SITE_SCHEDULE);
 module.exports = {
     runBackup,
     readLog,
+    deleteBackup,
     startScheduler,
     getStatus: () => ({
         schedule:      _currentSchedule || DEFAULT_SCHEDULE,
         backupDir:     BACKUP_DIR,
         maxBackups:    MAX_BACKUPS,
-        recentBackups: readLog().slice(0, 20)
+        recentBackups: syncLogWithDisk().slice(0, 20)   // auto-sync on every status read
     }),
     // Full site backup exports
     runFullSiteBackup,
     readSiteLog,
+    deleteSiteBackup,
     startSiteBackupScheduler,
     getSiteBackupStatus: () => ({
         schedule:      _siteBackupSchedule || DEFAULT_SITE_SCHEDULE,
         backupDir:     SITE_BACKUP_DIR,
         maxBackups:    MAX_SITE_BACKUPS,
-        recentBackups: readSiteLog().slice(0, 10)
+        recentBackups: syncSiteLogWithDisk().slice(0, 10)  // auto-sync on every status read
     })
 };

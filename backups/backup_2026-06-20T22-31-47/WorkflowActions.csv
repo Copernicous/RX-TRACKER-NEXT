@@ -1,8 +1,0 @@
-id,name,description,sequenceNumber,isActive,createdAt,updatedAt
-1,RX Received Warehouse,RX Received Warehouse,1,true,"""2026-06-19T19:16:33.955Z""","""2026-06-20T15:33:29.588Z"""
-2,On Route with Driver,On Route with Driver,2,true,"""2026-06-19T19:16:33.955Z""","""2026-06-20T15:33:34.443Z"""
-3,Delivered ,Transportation company assigned,3,true,"""2026-06-19T19:16:33.955Z""","""2026-06-20T15:34:44.797Z"""
-4,Mark as Received to print log,Mark as Received to print log,4,true,"""2026-06-19T19:16:33.955Z""","""2026-06-20T15:35:55.587Z"""
-5,Signed by Pharmacy,"Signed by Pharmacy , returned ",5,true,"""2026-06-19T19:16:33.955Z""","""2026-06-20T15:37:04.707Z"""
-6,Archived on local and case close,Archived on local and case close,6,true,"""2026-06-19T19:16:33.955Z""","""2026-06-20T15:37:45.655Z"""
-7,Non Action,,7,false,"""2026-06-20T00:21:53.178Z""","""2026-06-20T15:04:14.699Z"""

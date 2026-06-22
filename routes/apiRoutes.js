@@ -198,6 +198,17 @@ router.get('/backups/download/:filename', adminOnly, (req, res) => {
     res.download(filepath, filename);
 });
 
+// ---- Delete a DB backup (file + log entry) ----
+router.delete('/backups/:filename', adminOnly, (req, res) => {
+    try {
+        const filename = path.basename(req.params.filename);
+        backupService.deleteBackup(filename);
+        res.status(204).end();
+    } catch (e) {
+        res.status(400).json({ error: e.message });
+    }
+});
+
 // ---- Full Site Backup (Admin only) ----
 router.get('/backups/site/status', adminOnly, (req, res) => {
     res.json(backupService.getSiteBackupStatus());
@@ -221,6 +232,17 @@ router.get('/backups/site/download/:filename', adminOnly, (req, res) => {
     const filepath = path.join(siteDir, filename);
     if (!fs.existsSync(filepath)) return res.status(404).json({ error: 'File not found' });
     res.download(filepath, filename);
+});
+
+// ---- Delete a Site backup (file + log entry) ----
+router.delete('/backups/site/:filename', adminOnly, (req, res) => {
+    try {
+        const filename = path.basename(req.params.filename);
+        backupService.deleteSiteBackup(filename);
+        res.status(204).end();
+    } catch (e) {
+        res.status(400).json({ error: e.message });
+    }
 });
 
 

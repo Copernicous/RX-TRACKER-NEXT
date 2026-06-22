@@ -494,24 +494,40 @@ setup.bat</code></pre>
             var cls    = b.status === 'success' ? 'status-success' : 'status-failed';
             var size   = b.size ? (b.size / 1024).toFixed(1) + ' KB' : '\u2014';
             var dt     = b.timestamp ? new Date(b.timestamp).toLocaleString() : '\u2014';
-            var dlBtn  = b.status === 'success' && b.filename
-                ? '<a class="btn btn-sm btn-outline-primary" href="/api/backups/download/' + b.filename + '"><i class="fas fa-download"></i></a>'
+            var dlBtn  = (b.status === 'success' && b.filename)
+                ? '<a class="btn btn-sm btn-outline-primary me-1" href="/api/backups/download/' + b.filename + '" title="Download"><i class="fas fa-download"></i></a>'
                 : '';
+            var fn = b.filename ? b.filename.replace(/'/g,'') : '';
+            var delBtn = '<button class="btn btn-sm btn-outline-danger" title="Delete" onclick="deleteBackupEntry(\'' + fn + '\')">' +
+                         '<i class="fas fa-trash-alt"></i></button>';
             return '<tr class="backup-row">' +
                 '<td><i class="fas fa-' + icon + ' ' + cls + ' me-2"></i><strong class="' + cls + '">' + b.status + '</strong></td>' +
                 '<td><small>' + dt + '</small></td>' +
                 '<td><small class="text-muted">' + (b.triggeredBy || '\u2014') + '</small></td>' +
                 '<td><small>' + size + '</small></td>' +
                 '<td>' + (b.error ? '<span class="badge bg-danger" title="' + b.error + '">error</span>' : '') + '</td>' +
-                '<td>' + dlBtn + '</td>' +
+                '<td class="text-nowrap">' + dlBtn + delBtn + '</td>' +
                 '</tr>';
         }).join('');
         el.innerHTML =
             '<div class="table-responsive">' +
             '<table class="table table-sm align-middle">' +
-            '<thead><tr><th>Status</th><th>Timestamp</th><th>Triggered By</th><th>Size</th><th>Error</th><th>Download</th></tr></thead>' +
+            '<thead><tr><th>Status</th><th>Timestamp</th><th>Triggered By</th><th>Size</th><th>Error</th><th>Actions</th></tr></thead>' +
             '<tbody>' + rows + '</tbody>' +
             '</table></div>';
+    }
+
+    async function deleteBackupEntry(filename) {
+        var label = filename ? filename : 'this entry';
+        if (!confirm('Permanently delete ' + label + '?\n\nThe .dump file and its history entry will both be removed.')) return;
+        if (!filename) { await loadStatus(); return; }
+        var r = await fetchWithAuth(window.rxUrl('/api/backups/' + encodeURIComponent(filename)), { method: 'DELETE' });
+        if (r && (r.status === 204 || r.ok)) {
+            showToast('Backup deleted: ' + filename, 'success');
+        } else {
+            showToast('Failed to delete backup.', 'danger');
+        }
+        await loadStatus();
     }
 
     async function runBackup() {
@@ -602,24 +618,41 @@ setup.bat</code></pre>
             const size  = b.size ? (b.size > 1048576 ? (b.size/1048576).toFixed(1) + ' MB' : (b.size/1024).toFixed(1) + ' KB') : '\u2014';
             const dt    = b.timestamp ? new Date(b.timestamp).toLocaleString() : '\u2014';
             const dl    = (b.status === 'success' && b.filename)
-                ? '<a class="btn btn-sm btn-outline-primary" href="/api/backups/site/download/' + b.filename + '" title="Download ZIP"><i class="fas fa-download me-1"></i>ZIP</a>'
+                ? '<a class="btn btn-sm btn-outline-primary me-1" href="/api/backups/site/download/' + b.filename + '" title="Download ZIP"><i class="fas fa-download me-1"></i>ZIP</a>'
                 : '';
+            const fn = b.filename ? b.filename.replace(/'/g,'') : '';
+            const delBtn = '<button class="btn btn-sm btn-outline-danger" title="Delete ZIP and history entry" onclick="deleteSiteBackupEntry(\'' + fn + '\')">' +
+                           '<i class="fas fa-trash-alt"></i></button>';
             return '<tr class="backup-row">' +
                 '<td><i class="fas fa-' + icon + ' ' + cls + ' me-2"></i><strong class="' + cls + '">' + b.status + '</strong></td>' +
                 '<td><small>' + dt + '</small></td>' +
                 '<td><small class="text-muted">' + (b.triggeredBy || '\u2014') + '</small></td>' +
                 '<td><small><strong>' + size + '</strong></small></td>' +
                 '<td>' + (b.error ? '<span class="badge bg-danger" title="' + b.error + '">error</span>' : '') + '</td>' +
-                '<td>' + dl + '</td>' +
+                '<td class="text-nowrap">' + dl + delBtn + '</td>' +
                 '</tr>';
         }).join('');
         el.innerHTML =
             '<div class="table-responsive">' +
             '<table class="table table-sm align-middle">' +
-            '<thead><tr><th>Status</th><th>Timestamp</th><th>Triggered By</th><th>Size</th><th>Error</th><th>Download</th></tr></thead>' +
+            '<thead><tr><th>Status</th><th>Timestamp</th><th>Triggered By</th><th>Size</th><th>Error</th><th>Actions</th></tr></thead>' +
             '<tbody>' + rows + '</tbody>' +
             '</table></div>';
     }
+
+    async function deleteSiteBackupEntry(filename) {
+        var label = filename ? filename : 'this entry';
+        if (!confirm('Permanently delete ' + label + '?\n\nThe ZIP file and its history entry will both be removed.')) return;
+        if (!filename) { await loadSiteStatus(); return; }
+        var r = await fetchWithAuth(window.rxUrl('/api/backups/site/' + encodeURIComponent(filename)), { method: 'DELETE' });
+        if (r && (r.status === 204 || r.ok)) {
+            showToast('Site backup deleted: ' + filename, 'success');
+        } else {
+            showToast('Failed to delete site backup.', 'danger');
+        }
+        await loadSiteStatus();
+    }
+
 
     async function runSiteBackup() {
         const btn     = document.getElementById('runSiteBackupBtn');
