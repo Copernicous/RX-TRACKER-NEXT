@@ -143,6 +143,25 @@
                     <nav><ul class="pagination pagination-sm mb-0" id="rxPagination"></ul></nav>
                 </div>
 
+                <!-- ── Bulk Action Toolbar (F10-03) — hidden until rows are selected ── -->
+                <div id="rxBulkBar" style="display:none;background:linear-gradient(90deg,#7c3aed,#5b21b6);border-radius:8px;padding:10px 16px;margin-bottom:10px">
+                    <div class="d-flex align-items-center gap-3 flex-wrap">
+                        <span class="badge bg-white text-purple fw-bold fs-6" id="rxBulkCount" style="color:#5b21b6;min-width:32px;text-align:center">0</span>
+                        <span class="text-white small fw-semibold"><i class="fas fa-check-square me-1"></i>records selected</span>
+                        <div class="flex-grow-1"></div>
+                        <label class="text-white small fw-semibold mb-0" for="rxBulkStepSel"><i class="fas fa-tasks me-1"></i>Apply Workflow Step:</label>
+                        <select id="rxBulkStepSel" class="form-select form-select-sm" style="width:auto;max-width:240px">
+                            <option value="">— Choose step —</option>
+                        </select>
+                        <button id="rxBulkApplyBtn" class="btn btn-warning btn-sm fw-bold">
+                            <i class="fas fa-play me-1"></i>Apply to Selected
+                        </button>
+                        <button id="rxBulkClearBtn" class="btn btn-outline-light btn-sm">
+                            <i class="fas fa-times me-1"></i>Clear
+                        </button>
+                    </div>
+                </div>
+
                 <div class="table-responsive">
                     <table class="table table-hover align-middle" id="rxTable">
                         <thead>
@@ -333,6 +352,20 @@
     </div>
 </div>
 
+<!-- ── Bulk Workflow Results Modal (F10-04) ── -->
+<div id="rxBulkResultOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:2000;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:12px;padding:0;max-width:560px;width:94%;max-height:82vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.3)">
+    <div style="background:linear-gradient(135deg,#1a2234,#2c3e6b);color:#fff;padding:16px 22px;border-radius:12px 12px 0 0;display:flex;align-items:center;gap:12px">
+      <i class="fas fa-tasks" style="font-size:1.2rem"></i>
+      <span class="fw-bold" id="rxBulkResTitle" style="font-size:1rem">Bulk Workflow Results</span>
+      <div style="flex:1"></div>
+      <button id="rxBulkResClose" style="background:none;border:none;color:#fff;font-size:1.3rem;cursor:pointer;line-height:1">&times;</button>
+    </div>
+    <div id="rxBulkResSummary" style="padding:12px 22px 0"></div>
+    <div id="rxBulkResList" style="overflow-y:auto;flex:1;padding:10px 22px 16px"></div>
+  </div>
+</div>
+
 <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index:1100"></div>
 <script src="/assets/bootstrap.bundle.min.js"></script>
 <a id="xa-base" href="/login" style="display:none"></a>
@@ -341,8 +374,196 @@
 <script src="/js/help.js"></script>
 <script>
     var allRx = [], filteredRx = [], allWorkflowActions = [];
-    /* F10-02: Bulk selection tracking */
-    var _rxBulkSel = new Set ? new Set() : (function(){ var s={_d:{}}; s.add=function(v){s._d[v]=1;}; s.delete=function(v){delete s._d[v];}; s.has=function(v){return !!s._d[v];}; Object.defineProperty(s,'size',{get:function(){return Object.keys(s._d).length;}}); s.clear=function(){s._d={};} ; s.forEach=function(fn){Object.keys(s._d).forEach(fn);}; return s; }());
+    /* F10-02: Bulk selection Set */
+    var _rxBulkSel = (typeof Set === 'function') ? new Set() : (function(){
+        var d = {};
+        return {
+            add:    function(v){ d[v]=1; },
+            delete: function(v){ delete d[v]; },
+            has:    function(v){ return !!d[v]; },
+            clear:  function(){ d={}; },
+            forEach:function(fn){ Object.keys(d).forEach(fn); },
+            get size(){ return Object.keys(d).length; }
+        };
+    }());
+
+    /* ════════════════════════════════════════════════════
+       F10-03 — Bulk Action Toolbar logic
+       ════════════════════════════════════════════════════ */
+
+    /* Populate the step dropdown once workflow actions are loaded */
+    function _rxPopulateBulkStepSel() {
+        var sel = document.getElementById('rxBulkStepSel');
+        if (!sel) return;
+        sel.innerHTML = '<option value="">— Choose step —</option>';
+        for (var i = 0; i < allWorkflowActions.length; i++) {
+            var a = allWorkflowActions[i];
+            var opt = document.createElement('option');
+            opt.value = a.id;
+            opt.textContent = a.sequenceNumber + '. ' + a.name;
+            sel.appendChild(opt);
+        }
+    }
+
+    /* Show / hide the bulk bar and update count badge */
+    function _rxUpdateBulkBar() {
+        var bar   = document.getElementById('rxBulkBar');
+        var badge = document.getElementById('rxBulkCount');
+        var n = _rxBulkSel.size;
+        if (!bar) return;
+        if (n > 0) {
+            bar.style.display = '';
+            if (badge) badge.textContent = n;
+        } else {
+            bar.style.display = 'none';
+            if (badge) badge.textContent = '0';
+        }
+        /* Sync select-all header checkbox */
+        var saEl  = document.getElementById('rxSelectAll');
+        var tbody = document.getElementById('rxBody');
+        if (saEl && tbody) {
+            var allCbs = tbody.querySelectorAll('.rx-row-cb');
+            var checkedCount = 0;
+            for (var ci = 0; ci < allCbs.length; ci++) { if (allCbs[ci].checked) checkedCount++; }
+            if (allCbs.length === 0) { saEl.checked = false; saEl.indeterminate = false; }
+            else if (checkedCount === 0) { saEl.checked = false; saEl.indeterminate = false; }
+            else if (checkedCount === allCbs.length) { saEl.checked = true; saEl.indeterminate = false; }
+            else { saEl.checked = false; saEl.indeterminate = true; }
+        }
+    }
+
+    /* ════════════════════════════════════════════════════
+       F10-04 — Execute bulk workflow + results modal
+       ════════════════════════════════════════════════════ */
+
+    function _rxBulkApply() {
+        var sel = document.getElementById('rxBulkStepSel');
+        var actionId = sel ? sel.value : '';
+        if (!actionId) { showToast('Please choose a workflow step first.', 'warning'); return; }
+        var n = _rxBulkSel.size;
+        if (n === 0)   { showToast('No records selected.', 'warning'); return; }
+
+        /* Collect IDs */
+        var ids = [];
+        _rxBulkSel.forEach(function(v) { ids.push(v); });
+
+        /* Find action name for confirmation */
+        var stepName = sel.options[sel.selectedIndex].textContent;
+        if (!confirm('Apply step "' + stepName + '" to ' + n + ' selected record(s)?\n\nRecords that have not completed the previous step will be skipped.')) return;
+
+        /* Disable button while running */
+        var applyBtn = document.getElementById('rxBulkApplyBtn');
+        if (applyBtn) { applyBtn.disabled = true; applyBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Working...'; }
+
+        fetchWithAuth('/api/rx-records/bulk-workflow', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ rxIds: ids, actionId: parseInt(actionId, 10) })
+        }).then(function(res) {
+            if (!res) throw new Error('No response');
+            return res.json();
+        }).then(function(data) {
+            _rxShowBulkResults(data, stepName);
+            _rxBulkSel.clear();
+            loadRxRecords();
+        }).catch(function(err) {
+            showToast('Bulk update failed: ' + (err.message || 'Unknown error'), 'danger');
+        }).finally ? (function(){
+            if (applyBtn) { applyBtn.disabled = false; applyBtn.innerHTML = '<i class="fas fa-play me-1"></i>Apply to Selected'; }
+        })() : (function(){ /* no finally fallback needed — always called */ }());
+
+        /* Restore button regardless (finally not always available in ES5) */
+        setTimeout(function() {
+            if (applyBtn) { applyBtn.disabled = false; applyBtn.innerHTML = '<i class="fas fa-play me-1"></i>Apply to Selected'; }
+        }, 5000);
+    }
+
+    function _rxShowBulkResults(data, stepName) {
+        var overlay = document.getElementById('rxBulkResultOverlay');
+        var title   = document.getElementById('rxBulkResTitle');
+        var summary = document.getElementById('rxBulkResSummary');
+        var list    = document.getElementById('rxBulkResList');
+        if (!overlay) return;
+
+        var succeeded = data.succeeded || 0;
+        var failed    = data.failed    || 0;
+        var results   = data.results   || [];
+
+        if (title)   title.textContent = 'Results — ' + (data.action ? data.action.name : stepName);
+
+        /* Summary bar */
+        var summaryHtml = '<div style="display:flex;gap:12px;margin-bottom:10px">';
+        summaryHtml += '<span style="background:#dcfce7;color:#16a34a;border-radius:6px;padding:6px 14px;font-weight:700"><i class="fas fa-check me-1"></i>' + succeeded + ' succeeded</span>';
+        summaryHtml += '<span style="background:#fee2e2;color:#dc2626;border-radius:6px;padding:6px 14px;font-weight:700"><i class="fas fa-times me-1"></i>' + failed + ' failed</span>';
+        summaryHtml += '</div>';
+        if (summary) summary.innerHTML = summaryHtml;
+
+        /* Per-record list */
+        if (list) {
+            list.innerHTML = '';
+            for (var i = 0; i < results.length; i++) {
+                var r   = results[i];
+                var row = document.createElement('div');
+                row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid #f0f0f0';
+                var icon = document.createElement('span');
+                icon.style.cssText = 'font-size:1rem;min-width:18px;text-align:center';
+                if (r.ok) {
+                    icon.innerHTML = '<i class="fas fa-check-circle" style="color:#16a34a"></i>';
+                } else {
+                    icon.innerHTML = '<i class="fas fa-times-circle" style="color:#dc2626"></i>';
+                }
+                var label = document.createElement('span');
+                label.style.cssText = 'flex:1;font-size:.88rem';
+                var patName = r.patientName ? (' — ' + r.patientName) : '';
+                var noteStr = r.skipped ? ' <em style="color:#888">(already done)</em>' : (r.error ? ' <span style="color:#dc2626">' + r.error + '</span>' : '');
+                label.innerHTML = '<strong>RX #' + r.rxId + '</strong>' + patName + noteStr;
+                row.appendChild(icon);
+                row.appendChild(label);
+                list.appendChild(row);
+            }
+        }
+
+        overlay.style.display = 'flex';
+    }
+
+    /* Wire close button */
+    document.addEventListener('DOMContentLoaded', function() {
+        var closeBtn = document.getElementById('rxBulkResClose');
+        if (closeBtn) closeBtn.addEventListener('click', function() {
+            var ov = document.getElementById('rxBulkResultOverlay');
+            if (ov) ov.style.display = 'none';
+        });
+        /* Click outside to close */
+        var overlay = document.getElementById('rxBulkResultOverlay');
+        if (overlay) overlay.addEventListener('click', function(e) {
+            if (e.target === overlay) overlay.style.display = 'none';
+        });
+        /* Clear button */
+        var clearBtn = document.getElementById('rxBulkClearBtn');
+        if (clearBtn) clearBtn.addEventListener('click', function() {
+            _rxBulkSel.clear();
+            var tbody = document.getElementById('rxBody');
+            if (tbody) tbody.querySelectorAll('.rx-row-cb').forEach(function(cb) { cb.checked = false; });
+            _rxUpdateBulkBar();
+        });
+        /* Apply button */
+        var applyBtn = document.getElementById('rxBulkApplyBtn');
+        if (applyBtn) applyBtn.addEventListener('click', _rxBulkApply);
+        /* Select-all header checkbox */
+        var saEl = document.getElementById('rxSelectAll');
+        if (saEl) saEl.addEventListener('change', function() {
+            var tbody = document.getElementById('rxBody');
+            if (!tbody) return;
+            var cbs = tbody.querySelectorAll('.rx-row-cb');
+            for (var i = 0; i < cbs.length; i++) {
+                cbs[i].checked = saEl.checked;
+                var id = parseInt(cbs[i].dataset.rxid);
+                if (saEl.checked) { _rxBulkSel.add(id); } else { _rxBulkSel.delete(id); }
+            }
+            _rxUpdateBulkBar();
+        });
+    });
+
     // ── Filter panel toggle ───────────────────────────────────────────────
     var _rxAdvOpen = false;
     function toggleRxPanel() {
@@ -459,7 +680,8 @@
             if (phRes  && phRes.ok) { allPharmaciesList  = await phRes.json();  }
             if (ptRes  && ptRes.ok) { allPtList          = await ptRes.json();  }
             if (rxRes  && rxRes.ok) { allPhtList         = await rxRes.json();  }
-            if (waRes  && waRes.ok) { allWorkflowActions = await waRes.json();  }
+            if (waRes  && waRes.ok) { allWorkflowActions = await waRes.json(); _rxPopulateBulkStepSel(); }
+
             if (catRes && catRes.ok) {
                 allMedCatalog = await catRes.json();
                 var dl = document.getElementById('medCatalogList');
