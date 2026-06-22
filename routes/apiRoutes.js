@@ -209,6 +209,27 @@ router.delete('/backups/:filename', adminOnly, (req, res) => {
     }
 });
 
+// ---- Backup folder configuration ----
+router.get('/backups/config', adminOnly, (req, res) => {
+    res.json({
+        dbBackupDir:   backupService.getDbBackupDir(),
+        siteBackupDir: backupService.getSiteBackupDir()
+    });
+});
+
+router.post('/backups/config', adminOnly, (req, res) => {
+    const { siteBackupDir } = req.body;
+    if (!siteBackupDir || typeof siteBackupDir !== 'string' || siteBackupDir.trim().length < 3) {
+        return res.status(400).json({ error: 'Invalid directory path' });
+    }
+    try {
+        backupService.setSiteBackupDir(siteBackupDir.trim());
+        res.json({ ok: true, siteBackupDir: siteBackupDir.trim() });
+    } catch (e) {
+        res.status(500).json({ error: 'Could not set directory: ' + e.message });
+    }
+});
+
 // ---- Full Site Backup (Admin only) ----
 router.get('/backups/site/status', adminOnly, (req, res) => {
     res.json(backupService.getSiteBackupStatus());

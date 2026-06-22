@@ -1,8 +1,9 @@
-{
+﻿{
     "maintenanceMode":  false,
     "appName":  "Daniely RX",
     "backupRetentionDays":  30,
     "maxLoginAttempts":  5,
     "sessionTimeoutMinutes":  60,
-    "backupPath":  "e:\\\\Documents\\\\Daniely RX\\\\backups"
+    "backupPath":  "e:\\\\Documents\\\\Daniely RX\\\\backups",
+    "siteBackupPath":  "C:\\RX-SiteBackups"
 }

@@ -6,9 +6,11 @@ const path    = require('path');
 const fs      = require('fs');
 
 // ---- Config ----
-const BACKUP_DIR  = path.join(__dirname, '..', 'backups');
+const BACKUP_DIR   = path.join(__dirname, '..', 'backups');
 const MAX_BACKUPS  = parseInt(process.env.BACKUP_RETAIN || '10');   // keep last N
 const BACKUP_LOG   = path.join(BACKUP_DIR, 'backup.log.json');
+const SETTINGS_PATH = path.join(__dirname, '..', 'data', 'settings.json');
+const PROJECT_ROOT  = path.join(__dirname, '..');
 
 // Ensure backup dir exists
 if (!fs.existsSync(BACKUP_DIR)) fs.mkdirSync(BACKUP_DIR, { recursive: true });
@@ -159,39 +161,61 @@ const DEFAULT_SCHEDULE = process.env.BACKUP_SCHEDULE || '0 2 * * *'; // daily at
 startScheduler(DEFAULT_SCHEDULE);
 
 // ════════════════════════════════════════════════════════════════════════
-// FULL SITE BACKUP — ZIP of code + fresh DB dump
-// Saved to C:\RX-SiteBackups\ (OUTSIDE the project folder)
-// This folder is never included in the regular database backup
+// FULL SITE BACKUP — ZIP of code + fresh DB dump, saved OUTSIDE project
+// Directory is configurable via Settings > Backup Folders
 // ════════════════════════════════════════════════════════════════════════
-const SITE_BACKUP_DIR = process.env.SITE_BACKUP_DIR || 'C:\\RX-SiteBackups';
-const SITE_BACKUP_LOG = path.join(SITE_BACKUP_DIR, 'site-backup.log.json');
-const MAX_SITE_BACKUPS = parseInt(process.env.SITE_BACKUP_RETAIN || '5'); // keep last 5 ZIPs
-const PROJECT_ROOT     = path.join(__dirname, '..');
+const MAX_SITE_BACKUPS = parseInt(process.env.SITE_BACKUP_RETAIN || '5');
 
-// Ensure site backup directory exists
-if (!fs.existsSync(SITE_BACKUP_DIR)) {
-    try { fs.mkdirSync(SITE_BACKUP_DIR, { recursive: true }); } catch (e) {
-        console.error('[SiteBackup] Could not create dir:', SITE_BACKUP_DIR, e.message);
+// Dynamic site backup dir — reads from settings.json, falls back to env/default
+function readSettings() {
+    try { return JSON.parse(fs.readFileSync(SETTINGS_PATH, 'utf8')); } catch { return {}; }
+}
+function getSiteBackupDir() {
+    const s = readSettings();
+    return s.siteBackupPath || process.env.SITE_BACKUP_DIR || 'C:\\RX-SiteBackups';
+}
+function setSiteBackupDir(newDir) {
+    const s = readSettings();
+    s.siteBackupPath = newDir;
+    fs.writeFileSync(SETTINGS_PATH, JSON.stringify(s, null, 2), 'utf8');
+    // Ensure directory exists
+    if (!fs.existsSync(newDir)) {
+        try { fs.mkdirSync(newDir, { recursive: true }); } catch (e) {
+            console.error('[SiteBackup] Could not create dir:', newDir, e.message);
+            throw e;
+        }
     }
+    console.log('[SiteBackup] Directory updated to:', newDir);
+}
+
+// Ensure current site backup dir exists on startup
+(function() {
+    const dir = getSiteBackupDir();
+    if (!fs.existsSync(dir)) {
+        try { fs.mkdirSync(dir, { recursive: true }); } catch (e) {
+            console.error('[SiteBackup] Could not create dir:', dir, e.message);
+        }
+    }
+})();
 }
 
 function readSiteLog() {
-    try { return JSON.parse(fs.readFileSync(SITE_BACKUP_LOG, 'utf8')); } catch { return []; }
+    try { return JSON.parse(fs.readFileSync(path.join(getSiteBackupDir(), 'site-backup.log.json'), 'utf8')); } catch { return []; }
 }
 function appendSiteLog(entry) {
     const entries = readSiteLog();
     entries.unshift(entry);
     if (entries.length > 50) entries.splice(50);
-    try { fs.writeFileSync(SITE_BACKUP_LOG, JSON.stringify(entries, null, 2)); } catch {}
+    try { fs.writeFileSync(path.join(getSiteBackupDir(), 'site-backup.log.json'), JSON.stringify(entries, null, 2)); } catch {}
 }
 function pruneOldSiteBackups() {
     try {
-        const files = fs.readdirSync(SITE_BACKUP_DIR)
+        const files = fs.readdirSync(getSiteBackupDir())
             .filter(f => f.startsWith('RX_SiteBackup_') && f.endsWith('.zip'))
-            .map(f => ({ name: f, mtime: fs.statSync(path.join(SITE_BACKUP_DIR, f)).mtimeMs }))
+            .map(f => ({ name: f, mtime: fs.statSync(path.join(getSiteBackupDir(), f)).mtimeMs }))
             .sort((a, b) => b.mtime - a.mtime);
         files.slice(MAX_SITE_BACKUPS).forEach(f => {
-            try { fs.unlinkSync(path.join(SITE_BACKUP_DIR, f.name)); } catch {}
+            try { fs.unlinkSync(path.join(getSiteBackupDir(), f.name)); } catch {}
         });
     } catch {}
 }
@@ -201,10 +225,10 @@ function syncSiteLogWithDisk() {
     const entries = readSiteLog();
     const synced  = entries.filter(e => {
         if (!e.filename) return true;
-        return fs.existsSync(path.join(SITE_BACKUP_DIR, e.filename));
+        return fs.existsSync(path.join(getSiteBackupDir(), e.filename));
     });
     if (synced.length !== entries.length) {
-        try { fs.writeFileSync(SITE_BACKUP_LOG, JSON.stringify(synced, null, 2)); } catch {}
+        try { fs.writeFileSync(path.join(getSiteBackupDir(), 'site-backup.log.json'), JSON.stringify(synced, null, 2)); } catch {}
     }
     return synced;
 }
@@ -214,21 +238,21 @@ function deleteSiteBackup(filename) {
     if (!filename || !/^RX_SiteBackup_[\w\-]+\.zip$/.test(filename)) {
         throw new Error('Invalid site backup filename');
     }
-    const filepath = path.join(SITE_BACKUP_DIR, filename);
+    const filepath = path.join(getSiteBackupDir(), filename);
     if (fs.existsSync(filepath)) fs.unlinkSync(filepath);
     const entries = readSiteLog();
     const synced  = entries.filter(e => e.filename !== filename);
-    try { fs.writeFileSync(SITE_BACKUP_LOG, JSON.stringify(synced, null, 2)); } catch {}
+    try { fs.writeFileSync(path.join(getSiteBackupDir(), 'site-backup.log.json'), JSON.stringify(synced, null, 2)); } catch {}
 }
 
 function runFullSiteBackup(triggeredBy = 'Manual') {
     return new Promise((resolve) => {
         const ts       = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
         const zipName  = 'RX_SiteBackup_' + ts + '.zip';
-        const zipPath  = path.join(SITE_BACKUP_DIR, zipName);
+        const zipPath  = path.join(getSiteBackupDir(), zipName);
 
         // Step 1 — fresh DB dump inside the site backup dir (temp)
-        const dbDump   = path.join(SITE_BACKUP_DIR, '_temp_db_' + ts + '.dump');
+        const dbDump   = path.join(getSiteBackupDir(), '_temp_db_' + ts + '.dump');
         const env      = process.env;
         const pgEnv    = Object.assign({}, process.env, { PGPASSWORD: env.DB_PASS || '' });
         const dumpArgs = [
@@ -260,7 +284,7 @@ function runFullSiteBackup(triggeredBy = 'Manual') {
             }
 
             // Step 2 — Write a temp .ps1 script and run it (avoids all escaping issues)
-            const psFile = path.join(SITE_BACKUP_DIR, '_sitebackup_' + ts + '.ps1');
+            const psFile = path.join(getSiteBackupDir(), '_sitebackup_' + ts + '.ps1');
             const srcEsc    = PROJECT_ROOT.replace(/\\/g, '\\\\');
             const destEsc   = zipPath.replace(/\\/g, '\\\\');
             const dumpEsc   = dbDump.replace(/\\/g, '\\\\');
@@ -376,21 +400,25 @@ module.exports = {
     readLog,
     deleteBackup,
     startScheduler,
+    getDbBackupDir: () => BACKUP_DIR,
     getStatus: () => ({
         schedule:      _currentSchedule || DEFAULT_SCHEDULE,
         backupDir:     BACKUP_DIR,
         maxBackups:    MAX_BACKUPS,
-        recentBackups: syncLogWithDisk().slice(0, 20)   // auto-sync on every status read
+        recentBackups: syncLogWithDisk().slice(0, 20)
     }),
     // Full site backup exports
     runFullSiteBackup,
     readSiteLog,
     deleteSiteBackup,
+    setSiteBackupDir,
+    getSiteBackupDir,
     startSiteBackupScheduler,
     getSiteBackupStatus: () => ({
         schedule:      _siteBackupSchedule || DEFAULT_SITE_SCHEDULE,
-        backupDir:     SITE_BACKUP_DIR,
+        backupDir:     getSiteBackupDir(),
         maxBackups:    MAX_SITE_BACKUPS,
-        recentBackups: syncSiteLogWithDisk().slice(0, 10)  // auto-sync on every status read
+        recentBackups: syncSiteLogWithDisk().slice(0, 10)
     })
 };
+
