@@ -119,6 +119,8 @@ router.post('/rx-records/undo-workflow',        rbac.requirePermission('rx_recor
 router.post('/rx-records/workflow',             rbac.requirePermission('rx_records', 'add'),  auditLogger('RX Workflow'), rxController.updateWorkflow);
 // FEAT-10: Bulk workflow step application
 router.post('/rx-records/bulk-workflow',        rbac.requirePermission('rx_records', 'add'),  auditLogger('RX Workflow'), rxController.bulkWorkflow);
+// FEAT-11: Workflow step date override (edit permission required)
+router.put('/rx-records/workflow-date',         rbac.requirePermission('rx_records', 'edit'), auditLogger('RX Workflow'), rxController.updateWorkflowDate);
 router.put('/rx-records/:id/restore',           rbac.requirePermission('rx_records', 'edit'), auditLogger('RX Records'), rxController.restore);
 // RX History — must be before the generic CRUD block
 router.get('/rx-records/:id/history', rbac.requirePermission('rx_records', 'read'), rxController.getHistory);

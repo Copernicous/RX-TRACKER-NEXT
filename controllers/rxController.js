@@ -296,6 +296,49 @@ exports.bulkWorkflow = async (req, res) => {
     }
 };
 
+// PUT /api/rx-records/workflow-date  (FEAT-11: Step date override)
+// Body: { trackingId, newDate }  — newDate format: YYYY-MM-DD or ISO string
+exports.updateWorkflowDate = async (req, res) => {
+    try {
+        const { trackingId, newDate } = req.body;
+        if (!trackingId) return res.status(400).json({ error: 'trackingId is required.' });
+        if (!newDate)    return res.status(400).json({ error: 'newDate is required.' });
+
+        const parsed = new Date(newDate);
+        if (isNaN(parsed.getTime())) return res.status(400).json({ error: 'Invalid date format.' });
+
+        // Prevent future dates
+        if (parsed > new Date()) return res.status(400).json({ error: 'Completion date cannot be in the future.' });
+
+        const tracking = await db.RXWorkflowTracking.findByPk(trackingId, {
+            include: [{ model: db.WorkflowAction }, { model: db.RXRecord }]
+        });
+        if (!tracking) return res.status(404).json({ error: 'Workflow tracking record not found.' });
+
+        const rx = tracking.RXRecord;
+        if (!rx) return res.status(404).json({ error: 'Associated RX record not found.' });
+
+        const action   = tracking.WorkflowAction;
+        const oldDate  = tracking.completionDate ? new Date(tracking.completionDate).toLocaleString() : '(none)';
+        const newLabel = parsed.toLocaleString();
+
+        await tracking.update({ completionDate: parsed });
+
+        await saveHistory(
+            rx.id,
+            req.user?.id,
+            'Workflow Date Override',
+            rx.toJSON(),
+            null,
+            `Step "${action ? action.name : '#' + trackingId}" date changed from ${oldDate} to ${newLabel} by ${req.user?.username || 'user'}`
+        );
+
+        res.json({ ok: true, trackingId, newDate: parsed, stepName: action ? action.name : null });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+};
+
 // POST /api/rx-records/undo-workflow
 exports.undoWorkflow = async (req, res) => {
     try {
