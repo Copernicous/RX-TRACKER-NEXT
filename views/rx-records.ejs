@@ -1922,7 +1922,8 @@
                 }
                 if (prevDate) {
                     var days = _daysBetween(prevDate, new Date(tracking.completionDate));
-                    lagStr = days === 0 ? 'same day' : days + 'd lag';
+                    var prevRef = (i === 0) ? 'service date' : 'prev. step';
+                    lagStr = days === 0 ? 'same as ' + prevRef : '+' + days + 'd from ' + prevRef;
                 }
             }
             var lagHtml = (done && lagStr) ? '<span style="font-size:.68rem;color:#6c757d;margin-left:4px">(' + lagStr + ')</span>' : '';
@@ -1954,7 +1955,8 @@
                 if (prevDate2) {
                     var days2 = _daysBetween(prevDate2, new Date(tracking.completionDate));
                     var lagColor = days2 <= 1 ? '#198754' : days2 <= 3 ? '#fd7e14' : '#dc3545';
-                    var lagLabel = days2 === 0 ? 'Same day' : days2 + ' day' + (days2 === 1 ? '' : 's');
+                    var prevRef2  = (i === 0) ? 'service date' : 'prev. step';
+                    var lagLabel  = days2 === 0 ? 'Same as ' + prevRef2 : '+' + days2 + ' day' + (days2 === 1 ? '' : 's') + ' from ' + prevRef2;
                     lagTd = '<td style="padding:5px 8px;border-bottom:1px solid #dee2e6;text-align:center;color:' + lagColor + ';font-weight:600;font-size:.82rem">' + lagLabel + '</td>';
                 }
             }
