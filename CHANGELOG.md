@@ -9,6 +9,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ### 🐛 Bug Fixes (post-release)
 
+#### Fix: Classic print preview — invisible text in dark mode
+**Commit:** `d1d207f` | **Files changed:** 1 | **Lines:** +24 / -24
+- `public/js/patients.js` — `classicHTML` container and all `buildRxBlock('classic')` cells
+- **Root cause:** `.modal-body { background: var(--surface) !important }` (dark in dark mode) overrode the JS `body.style.background = '#fff'` assignment. Container div had `color:#1a2234` but no background, inheriting dark surface → text invisible.
+- **Fix:** added `background:#ffffff` explicitly on the outer container div and every `<td>`/`<th>` in the classic layout so it renders as a white paper document on the dark backdrop.
+- **Bonus:** classic layout dates now display as `MM/DD/YYYY` via `window.fmtDate()`.
+
 #### Fix: Date picker calendar icon invisible in dark mode
 **Commit:** `b28b0cc` | **Files changed:** 1 | **Lines:** +20
 - `public/css/style.css` +20 lines — added `DK-DATE` block
