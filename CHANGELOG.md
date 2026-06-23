@@ -5,7 +5,39 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ---
 
+## [2.0.12] — 2026-06-23
+
+### 🐛 Bug Fix — Garbled Text (UTF-8 Encoding Corruption) Throughout RX Records Page
+**Files changed:** 1 | BUG-18
+
+- **BUG-18** Multiple user-visible strings on the RX Records page displayed garbled characters (`ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦`, `Ã¢â€šÂ¬Ã¢â‚¬Â`) instead of their intended content. Affected locations:
+  - **Bulk toolbar dropdown** — `-- Choose step --` placeholder rendered as garbled bytes in both the static HTML `<option>` and the JS-reset version inside `_rxPopulateBulkStepSel()`
+  - **Cycle Status column** — "no service date" cells showed garbled em-dash instead of `—`
+  - **Cycle Status print/detail view** — Active (`🔒`), Expiring (`⏱️`), Eligible (`✅`) labels all garbled
+  - **Bulk Results modal title** — `Results — Step Name` showed garbled em-dash
+  - **Results list patient separator** — `RX #N — Patient Name` separator garbled
+  - **Pagination text** — `Showing X–Y of Z` showed garbled en-dash between page numbers
+
+  **Root cause:** Raw Unicode / emoji characters (em-dash `—`, en-dash `–`, `🔒`, `⏱️`, `⚠️`, `✅`) were saved into the EJS file as UTF-8 bytes but the file was subsequently re-encoded, producing double-encoded Latin-1 sequences. Node.js read and served these garbled byte sequences verbatim to the browser.
+
+  **Fix:** All garbled sequences replaced with safe `\uXXXX` JavaScript Unicode escape sequences (e.g. `'\u2014'` for `—`, `'\uD83D\uDD12'` for 🔒) which JavaScript engines always interpret correctly regardless of file encoding. Also improved Cycle Status badge labels for clarity (Expired→Eligible, added day counts).
+
+### 🐛 Bug Fix — Bulk Workflow "Apply to Selected" Button Restored Immediately (Not After API Settles)
+**Files changed:** 1 | BUG-19
+
+- **BUG-19** After clicking "Apply to Selected", the button was supposed to be disabled (showing spinner) until the API call completed. Instead it was immediately re-enabled because the restore code used a broken `.finally` pattern:
+  ```js
+  // BEFORE (broken): Runs the restore IIFE immediately at call time, not on promise settle
+  }).finally ? (function(){ applyBtn.disabled = false; })() : (function(){})();
+  ```
+  The ternary expression evaluated `.finally` as a truthy property check, then immediately executed the restore IIFE synchronously — before the fetch even had a chance to complete. A 5-second `setTimeout` fallback was the only actual restore mechanism.
+
+  **Fix:** Moved button restore into both the `.then()` success handler and the `.catch()` error handler. Also added `_rxUpdateBulkBar()` call after `_rxBulkSel.clear()` so the bulk toolbar correctly hides after a successful bulk operation.
+
+---
+
 ## [2.0.11] — 2026-06-23
+
 
 ### 🐛 Bug Fix — Export Column Selector (All/None/Individual) Had No Effect
 **Files changed:** 1 | BUG-17

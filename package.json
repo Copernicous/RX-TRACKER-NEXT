@@ -1,6 +1,6 @@
 {
   "name": "patient-rx-system",
-  "version": "2.0.11",
+  "version": "2.0.12",
   "description": "Patient RX Delivery Management System",
   "main": "app.js",
   "scripts": {
@@ -20,7 +20,17 @@
       "routes/**/*.js",
       "middleware/**/*.js",
       "services/**/*.js",
-      "node_modules/bcryptjs/**/*.js"
+      "node_modules/bcryptjs/**/*.js",
+      "node_modules/ejs/**/*.js",
+      "node_modules/jsonwebtoken/**/*.js",
+      "node_modules/qrcode/**/*.js",
+      "node_modules/speakeasy/**/*.js",
+      "node_modules/csv-parser/**/*.js",
+      "node_modules/nodemailer/**/*.js",
+      "node_modules/node-cron/**/*.js",
+      "node_modules/multer/**/*.js",
+      "node_modules/sequelize/**/*.js",
+      "node_modules/pg/**/*.js"
     ],
     "assets": [
       "views/**/*",
@@ -29,6 +39,7 @@
       "migrations/**/*",
       "seeders/**/*",
       "data/**/*",
+      "CHANGELOG.md",
       ".env.example"
     ],
     "outputPath": "dist"
@@ -64,3 +75,4 @@
     "sequelize-cli": "^6.6.5"
   }
 }
+

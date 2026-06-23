@@ -153,7 +153,7 @@
                         <div class="flex-grow-1"></div>
                         <label class="text-white small fw-semibold mb-0" for="rxBulkStepSel"><i class="fas fa-tasks me-1"></i>Apply Workflow Step:</label>
                         <select id="rxBulkStepSel" class="form-select form-select-sm" style="width:auto;max-width:240px">
-                            <option value="">ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Choose step ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â</option>
+                            <option value="">-- Choose step --</option>
                         </select>
                         <button id="rxBulkApplyBtn" class="btn btn-warning btn-sm fw-bold">
                             <i class="fas fa-play me-1"></i>Apply to Selected
@@ -399,7 +399,7 @@
     function _rxPopulateBulkStepSel() {
         var sel = document.getElementById('rxBulkStepSel');
         if (!sel) return;
-        sel.innerHTML = '<option value="">ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â Choose step ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â</option>';
+        sel.innerHTML = '<option value="">-- Choose step --</option>';
         for (var i = 0; i < allWorkflowActions.length; i++) {
             var a = allWorkflowActions[i];
             var opt = document.createElement('option');
@@ -502,7 +502,7 @@
         var failed    = data.failed    || 0;
         var results   = data.results   || [];
 
-        if (title)   title.textContent = 'Results ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â ' + (data.action ? data.action.name : stepName);
+        if (title)   title.textContent = 'Results \u2014 ' + (data.action ? data.action.name : stepName);
 
         /* Summary bar */
         var summaryHtml = '<div style="display:flex;gap:12px;margin-bottom:10px">';
@@ -527,7 +527,7 @@
                 }
                 var label = document.createElement('span');
                 label.style.cssText = 'flex:1;font-size:.88rem';
-                var patName = r.patientName ? (' ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â ' + r.patientName) : '';
+                var patName = r.patientName ? (' \u2014 ' + r.patientName) : '';
                 var noteStr = r.skipped ? ' <em style="color:#888">(already done)</em>' : (r.error ? ' <span style="color:#dc2626">' + r.error + '</span>' : '');
                 label.innerHTML = '<strong>RX #' + r.rxId + '</strong>' + patName + noteStr;
                 row.appendChild(icon);
@@ -1035,7 +1035,7 @@
             if (saEl) saEl.indeterminate = false;
         }
         _rxUpdateBulkBar();
-        document.getElementById('rxPageInfo').textContent = 'Showing ' + (filteredRx.length === 0 ? 0 : Math.min(start+1, filteredRx.length)) + 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“' + Math.min(start+rxPageSize, filteredRx.length) + ' of ' + filteredRx.length;
+        document.getElementById('rxPageInfo').textContent = 'Showing ' + (filteredRx.length === 0 ? 0 : Math.min(start+1, filteredRx.length)) + '\u2013' + Math.min(start+rxPageSize, filteredRx.length) + ' of ' + filteredRx.length;
         var rxPages = Math.ceil(filteredRx.length / rxPageSize) || 1;
         // Smart ellipsis paginator
         var rxIsFirst = rxPage === 1; var rxIsLast = rxPage >= rxPages;
