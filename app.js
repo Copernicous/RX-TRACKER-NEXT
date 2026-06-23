@@ -228,7 +228,43 @@ app.use(async (err, req, res, next) => {
 
 const PORT = process.env.PORT || 3000;
 
+// ── Auto-create database if it doesn't exist ──────────────────────────────────
+// Connects to the always-present 'postgres' default database first, then issues
+// CREATE DATABASE. Safe to run on every boot — postgres ignores it if db exists.
+async function ensureDatabase() {
+    const { Client } = require('pg');
+    const dbName = process.env.DB_NAME || 'patient_rx_dev';
+    const client = new Client({
+        host:     process.env.DB_HOST     || '127.0.0.1',
+        port:     parseInt(process.env.DB_PORT || '5432'),
+        user:     process.env.DB_USER     || 'postgres',
+        password: process.env.DB_PASS     || '',
+        database: 'postgres'   // always exists on any PostgreSQL install
+    });
+    try {
+        await client.connect();
+        const res = await client.query(
+            `SELECT 1 FROM pg_database WHERE datname = $1`, [dbName]
+        );
+        if (res.rowCount === 0) {
+            // Must use template0 so encoding/locale are always compatible
+            await client.query(`CREATE DATABASE "${dbName}" TEMPLATE template0`);
+            console.log(`[DB] Database "${dbName}" created automatically.`);
+        } else {
+            console.log(`[DB] Database "${dbName}" already exists.`);
+        }
+    } catch (e) {
+        console.error(`[DB] Could not auto-create database "${dbName}":`, e.message);
+        console.error('[DB] Make sure PostgreSQL is running and DB_USER has CREATEDB privilege.');
+        process.exit(1);   // fatal — nothing works without a database
+    } finally {
+        await client.end().catch(() => {});
+    }
+}
+
 const startServer = async () => {
+    await ensureDatabase();   // ← must succeed before any other DB work
+
     try {
         // Automatically ensure permissions column exists in PostgreSQL
         await db.sequelize.query('ALTER TABLE "Users" ADD COLUMN IF NOT EXISTS "permissions" TEXT;');
