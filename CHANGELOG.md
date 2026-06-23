@@ -7,6 +7,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [1.1.0] — 2026-06-23
 
+### 🐛 Bug Fixes (post-release)
+
+#### Fix: Changelog page stuck on "Loading…" in production
+**Commit:** `7e9f659` | **Files changed:** 2 | **Lines:** +70 / -1
+- `public/assets/marked.min.js` (new, 39 KB) — bundled locally
+- `views/changelog.ejs` line 12 — changed `src` from `https://cdn.jsdelivr.net/npm/marked/marked.min.js` to `/assets/marked.min.js`
+- **Root cause:** production server CSP header `script-src 'self' 'unsafe-inline'` blocked the external CDN URL. Page loaded but `marked` was undefined so JS crashed silently and content stayed on the spinner.
+
 ### 🚀 New Features
 
 #### GUI Database Restore from `.dump` file
