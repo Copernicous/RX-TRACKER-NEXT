@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en" data-theme="light">
 <head>
     <meta charset="UTF-8">
@@ -478,18 +478,18 @@
                 showToast(ok + ' updated, ' + bad + ' skipped — ' + sn, 'warning');
             }
             _rxBulkSel.clear();
+            _rxUpdateBulkBar();
             loadRxRecords();
+            /* Restore button on success */
+            if (applyBtn) { applyBtn.disabled = false; applyBtn.innerHTML = '<i class="fas fa-play me-1"></i>Apply to Selected'; }
         }).catch(function(err) {
             showToast('Bulk update failed: ' + (err.message || 'Unknown error'), 'danger');
-        }).finally ? (function(){
+            /* Restore button on error */
             if (applyBtn) { applyBtn.disabled = false; applyBtn.innerHTML = '<i class="fas fa-play me-1"></i>Apply to Selected'; }
-        })() : (function(){ /* no finally fallback needed ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â always called */ }());
-
-        /* Restore button regardless (finally not always available in ES5) */
-        setTimeout(function() {
-            if (applyBtn) { applyBtn.disabled = false; applyBtn.innerHTML = '<i class="fas fa-play me-1"></i>Apply to Selected'; }
-        }, 5000);
+        });
     }
+
+
 
     function _rxShowBulkResults(data, stepName) {
         var overlay = document.getElementById('rxBulkResultOverlay');
@@ -943,7 +943,7 @@
 
                 /* ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Service Date cell ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ (plain date) */
                 var tdSvc = document.createElement('td');
-                tdSvc.textContent = rx.serviceDate || 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â';
+                tdSvc.textContent = rx.serviceDate || '\u2014';
                 tr.appendChild(tdSvc);
 
                 /* ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Next Service Date cell ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ (plain expiry date) */
@@ -958,15 +958,15 @@
                     var _expStr  = _exp.toLocaleDateString();
                     tdNext.textContent = _expStr;
                     if (_dLeft < 0) {
-                        tdStatus.innerHTML = '<span class="badge bg-danger" title="Expired ' + Math.abs(_dLeft) + 'd ago ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â new cycle available now"><i class="fas fa-exclamation-circle me-1"></i>Expired</span>';
+                        tdStatus.innerHTML = '<span class="badge bg-success" title="Eligible \u2014 window closed ' + Math.abs(_dLeft) + 'd ago"><i class="fas fa-check-circle me-1"></i>Eligible</span>';
                     } else if (_dLeft <= 14) {
                         tdStatus.innerHTML = '<span class="badge bg-warning text-dark" title="Cycle closes ' + _expStr + '"><i class="fas fa-clock me-1"></i>' + _dLeft + 'd left</span>';
                     } else {
                         tdStatus.innerHTML = '<span class="badge bg-success" title="90-day window active until ' + _expStr + '"><i class="fas fa-check me-1"></i>Active</span>';
                     }
                 } else {
-                    tdNext.textContent   = 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â';
-                    tdStatus.textContent = 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â';
+                    tdNext.textContent   = '\u2014';
+                    tdStatus.textContent = '\u2014';
                 }
                 tr.appendChild(tdNext);
                 tr.appendChild(tdStatus);
@@ -2167,13 +2167,13 @@
         // 90-day cycle computation for print
         var _pSvcD    = rx.serviceDate ? new Date(rx.serviceDate) : null;
         var _pExpD    = _pSvcD ? new Date(_pSvcD.getTime() + 90*864e5) : null;
-        var _pExpStr  = _pExpD ? _pExpD.toLocaleDateString() : 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â';
+        var _pExpStr  = _pExpD ? _pExpD.toLocaleDateString() : '\u2014';
         var _pDLeft   = _pExpD ? Math.round((_pExpD - new Date()) / 864e5) : null;
         var _pStatus, _pStatusColor;
-        if (_pDLeft === null) { _pStatus = 'ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â'; _pStatusColor = '#888'; }
-        else if (_pDLeft < 0) { _pStatus = 'ÃƒÂ¢Ã…Â¡Ã‚Â  Expired (' + Math.abs(_pDLeft) + 'd ago)'; _pStatusColor = '#dc3545'; }
-        else if (_pDLeft <= 14) { _pStatus = 'ÃƒÂ¢Ã‚ÂÃ‚Â± Expiring (' + _pDLeft + 'd left)'; _pStatusColor = '#fd7e14'; }
-        else { _pStatus = 'ÃƒÂ¢Ã…â€œÃ¢â‚¬Â¦ Active'; _pStatusColor = '#198754'; }
+        if (_pDLeft === null)    { _pStatus = '\u2014';                                                          _pStatusColor = '#888'; }
+        else if (_pDLeft < 0)   { _pStatus = '\u2705 Eligible for renewal (' + Math.abs(_pDLeft) + 'd ago)';  _pStatusColor = '#198754'; }
+        else if (_pDLeft <= 7)  { _pStatus = '\u26a0\ufe0f Expiring (' + _pDLeft + 'd left) \u2014 Date Locked'; _pStatusColor = '#dc3545'; }
+        else                    { _pStatus = '\ud83d\udd12 Active Window (' + _pDLeft + 'd remaining)';       _pStatusColor = '#0d6efd'; }
         // -- CARD --
         var cardInfoRows = [
             ['Patient',      (patient.firstName || '') + ' ' + (patient.lastName || '')],
