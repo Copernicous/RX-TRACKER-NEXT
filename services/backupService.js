@@ -446,56 +446,101 @@ const DEFAULT_SITE_SCHEDULE = process.env.SITE_BACKUP_SCHEDULE || '0 3 * * 0';
 startSiteBackupScheduler(DEFAULT_SITE_SCHEDULE);
 
 // ── Restore from a .dump file ─────────────────────────────────────────────────
-// 1. Auto-safety-backup current DB first
-// 2. Run pg_restore --clean --if-exists -d DB_NAME -F c dumpFilePath
-// Returns { status:'success'|'failed', log, error }
+// Strategy: DROP the target DB entirely, recreate it empty, then pg_restore.
+// This avoids all FK cascade errors from --clean trying to drop tables in wrong order.
+// Steps:
+//   1. Auto-safety-backup current DB
+//   2. Connect to 'postgres' default DB → DROP DATABASE → CREATE DATABASE
+//   3. pg_restore into the fresh empty database (no --clean needed)
 function restoreBackup(dumpFilePath, triggeredBy) {
     triggeredBy = triggeredBy || 'Manual restore';
     return new Promise(function(resolve) {
         ensureDir(BACKUP_DIR);
         var env    = process.env;
         var pgEnv  = Object.assign({}, process.env, { PGPASSWORD: env.DB_PASS || '' });
-        var dbName = env.DB_NAME || 'patient_rx_dev';
+        var dbName = env.DB_NAME    || 'patient_rx_dev';
+        var host   = env.DB_HOST   || '127.0.0.1';
+        var port   = env.DB_PORT   || '5432';
+        var user   = env.DB_USER   || 'postgres';
 
-        // Step 1: safety backup of current state
+        // Step 1: safety backup
         runBackup('Pre-restore auto-safety-backup').then(function() {
 
-            // Step 2: pg_restore
-            var args = [
-                '--clean', '--if-exists',
-                '-h', env.DB_HOST || '127.0.0.1',
-                '-p', env.DB_PORT  || '5432',
-                '-U', env.DB_USER  || 'postgres',
-                '-d', dbName,
-                '-F', 'c',
-                dumpFilePath
-            ];
+            // Step 2: drop + recreate DB via psql connecting to 'postgres'
+            // We run two psql commands: one DROP, one CREATE
+            var psqlTool = findPgTool('psql');
 
-            var child = spawn(findPgTool('pg_restore'), args, { env: pgEnv });
-            var log = '', errLog = '';
-            child.stdout.on('data', function(d) { log    += d.toString(); });
-            child.stderr.on('data', function(d) { errLog += d.toString(); });
+            function runPsql(sql, cb) {
+                var args = [
+                    '-h', host, '-p', port, '-U', user,
+                    '-d', 'postgres',
+                    '-c', sql
+                ];
+                var proc = spawn(psqlTool, args, { env: pgEnv });
+                var out = '', err = '';
+                proc.stdout.on('data', function(d) { out += d.toString(); });
+                proc.stderr.on('data', function(d) { err += d.toString(); });
+                proc.on('error', function(e) { cb(e, '', ''); });
+                proc.on('close', function(code) { cb(null, out, err, code); });
+            }
 
-            child.on('error', function(err) {
-                resolve({ status: 'failed', log: '', error: 'pg_restore not found: ' + err.message });
-            });
+            var logLines = '';
 
-            child.on('close', function(code) {
-                var success = code === 0;
-                var entry = {
-                    id:          Date.now(),
-                    filename:    null,
-                    timestamp:   new Date().toISOString(),
-                    triggeredBy: triggeredBy,
-                    status:      success ? 'success' : 'failed',
-                    size:        0,
-                    error:       success ? null : (errLog.trim() || ('Exit code ' + code))
-                };
-                appendLog(entry);
-                resolve({
-                    status: success ? 'success' : 'failed',
-                    log:    log + (errLog ? '\n[stderr]\n' + errLog : ''),
-                    error:  success ? null : (errLog.trim() || ('Exit code ' + code))
+            // Terminate all connections first (required before DROP)
+            var terminateSql = 'SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = \'' + dbName + '\' AND pid <> pg_backend_pid();';
+            runPsql(terminateSql, function(e1) {
+                if (e1) {
+                    return resolve({ status: 'failed', log: '', error: 'psql not found: ' + e1.message + '\nMake sure PostgreSQL bin is in PATH or set PGBIN in .env' });
+                }
+
+                runPsql('DROP DATABASE IF EXISTS "' + dbName + '";', function(e2, o2, err2, c2) {
+                    logLines += '[DROP] ' + (c2 === 0 ? 'OK' : 'exit ' + c2) + (err2 ? ' ' + err2.trim() : '') + '\n';
+
+                    runPsql('CREATE DATABASE "' + dbName + '" TEMPLATE template0;', function(e3, o3, err3, c3) {
+                        logLines += '[CREATE] ' + (c3 === 0 ? 'OK' : 'exit ' + c3) + (err3 ? ' ' + err3.trim() : '') + '\n';
+
+                        if (c3 !== 0) {
+                            return resolve({ status: 'failed', log: logLines, error: 'Failed to recreate database: ' + err3.trim() });
+                        }
+
+                        // Step 3: pg_restore into fresh empty DB
+                        var args = [
+                            '-h', host, '-p', port, '-U', user,
+                            '-d', dbName,
+                            '-F', 'c',
+                            '--no-owner', '--no-privileges',
+                            dumpFilePath
+                        ];
+
+                        var child = spawn(findPgTool('pg_restore'), args, { env: pgEnv });
+                        var restoreOut = '', restoreErr = '';
+                        child.stdout.on('data', function(d) { restoreOut += d.toString(); });
+                        child.stderr.on('data', function(d) { restoreErr += d.toString(); });
+
+                        child.on('error', function(err) {
+                            resolve({ status: 'failed', log: logLines, error: 'pg_restore not found: ' + err.message });
+                        });
+
+                        child.on('close', function(code) {
+                            var success = code === 0;
+                            var fullLog = logLines + restoreOut + (restoreErr ? '\n[stderr]\n' + restoreErr : '');
+                            var entry = {
+                                id:          Date.now(),
+                                filename:    null,
+                                timestamp:   new Date().toISOString(),
+                                triggeredBy: triggeredBy,
+                                status:      success ? 'success' : 'failed',
+                                size:        0,
+                                error:       success ? null : (restoreErr.trim() || ('Exit code ' + code))
+                            };
+                            appendLog(entry);
+                            resolve({
+                                status: success ? 'success' : 'failed',
+                                log:    fullLog,
+                                error:  success ? null : (restoreErr.trim() || ('Exit code ' + code))
+                            });
+                        });
+                    });
                 });
             });
         });
