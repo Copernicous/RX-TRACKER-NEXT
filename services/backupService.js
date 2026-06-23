@@ -7,11 +7,11 @@ const fs        = require('fs');
 
 // ── Writable root ─────────────────────────────────────────────────────────────
 // When running as a pkg .exe, __dirname points inside the read-only snapshot.
-// process.execDir is the directory that contains the .exe — always writable.
-// In dev (plain node), execDir === __dirname/../ which equals the project root.
-const IS_PKG     = typeof process.pkg !== 'undefined';
+// path.dirname(process.execPath) gives the real folder containing server.exe.
+// In dev (plain node), process.execPath is the node binary so we fall back to __dirname/../.
+const IS_PKG        = typeof process.pkg !== 'undefined';
 const WRITABLE_ROOT = IS_PKG
-    ? process.execDir                          // e.g. C:\RX-Tracker\RX-APP
+    ? path.dirname(process.execPath)           // dir containing server.exe  e.g. C:\RX-Tracker\RX-APP
     : path.join(__dirname, '..');              // dev: project root
 
 // ── Config ────────────────────────────────────────────────────────────────────
