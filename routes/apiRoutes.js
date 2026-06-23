@@ -176,6 +176,51 @@ function adminOnly(req, res, next) {
     next();
 }
 
+// ---- DB Restore — multer upload ----
+const multer = require('multer');
+const IS_PKG_ROUTES = typeof process.pkg !== 'undefined';
+const UPLOAD_DIR    = IS_PKG_ROUTES
+    ? path.join(path.dirname(process.execPath), 'backups', 'uploads')
+    : path.join(__dirname, '..', 'backups', 'uploads');
+
+const restoreUpload = multer({
+    storage: multer.diskStorage({
+        destination: function(req, file, cb) {
+            if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+            cb(null, UPLOAD_DIR);
+        },
+        filename: function(req, file, cb) {
+            cb(null, 'restore_upload_' + Date.now() + '.dump');
+        }
+    }),
+    limits: { fileSize: 500 * 1024 * 1024 },  // 500 MB cap
+    fileFilter: function(req, file, cb) {
+        if (!file.originalname.endsWith('.dump')) {
+            return cb(new Error('Only .dump files are accepted'));
+        }
+        cb(null, true);
+    }
+}).single('dumpFile');
+
+router.post('/backups/restore', auth, adminOnly, function(req, res) {
+    restoreUpload(req, res, async function(err) {
+        if (err) return res.status(400).json({ error: err.message });
+        if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+        try {
+            const result = await backupService.restoreBackup(
+                req.file.path,
+                'GUI restore by ' + req.user.username
+            );
+            // Clean up temp upload file
+            try { fs.unlinkSync(req.file.path); } catch {}
+            res.json(result);
+        } catch (e) {
+            try { fs.unlinkSync(req.file.path); } catch {}
+            res.status(500).json({ error: e.message });
+        }
+    });
+});
+
 router.get('/backups/status', adminOnly, (req, res) => {
     res.json(backupService.getStatus());
 });

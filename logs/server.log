@@ -4917,3 +4917,21 @@ Startup migration warning (Roles custom columns, non-fatal): password authentica
     routine: 'auth_failed'
   }
 }
+◇ injected env (2) from .env // tip: ◈ secrets for agents [www.dotenvx.com]
+◇ injected env (0) from .env // tip: ⌘ override existing { override: true }
+[Backup] Scheduler started with expression: 0 2 * * *
+[SiteBackup] Weekly scheduler started: 0 3 * * 0
+[DB] Could not auto-create database "patient_rx_dev": password authentication failed for user "postgres"
+[DB] Make sure PostgreSQL is running and DB_USER has CREATEDB privilege.
+◇ injected env (2) from .env // tip: ⌘ enable debugging { debug: true }
+◇ injected env (0) from .env // tip: ⌘ enable debugging { debug: true }
+[Backup] Scheduler started with expression: 0 2 * * *
+[SiteBackup] Weekly scheduler started: 0 3 * * 0
+[DB] Could not auto-create database "patient_rx_dev": password authentication failed for user "postgres"
+[DB] Make sure PostgreSQL is running and DB_USER has CREATEDB privilege.
+◇ injected env (2) from .env // tip: ⌘ override existing { override: true }
+◇ injected env (0) from .env // tip: ⌘ suppress logs { quiet: true }
+[Backup] Scheduler started with expression: 0 2 * * *
+[SiteBackup] Weekly scheduler started: 0 3 * * 0
+[DB] Could not auto-create database "patient_rx_dev": password authentication failed for user "postgres"
+[DB] Make sure PostgreSQL is running and DB_USER has CREATEDB privilege.

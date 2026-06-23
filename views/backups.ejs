@@ -323,6 +323,77 @@
                     </div>
                 </div>
 
+                <!-- ══════════════════ RESTORE FROM BACKUP (GUI) ══════════════════ -->
+                <div class="glass-card p-4 mt-4" id="restoreUploadPanel" style="border-left:4px solid #ef4444;">
+                    <div class="d-flex align-items-center gap-3 mb-4">
+                        <div style="width:48px;height:48px;border-radius:14px;background:linear-gradient(135deg,#dc2626,#ef4444);
+                                    display:flex;align-items:center;justify-content:center;font-size:1.3rem;color:#fff;flex-shrink:0;">
+                            <i class="fas fa-upload"></i>
+                        </div>
+                        <div>
+                            <h5 class="fw-bold mb-0">Restore Database from Backup</h5>
+                            <p class="text-muted small mb-0">Upload a <code>.dump</code> file from another server to replace all data on this machine.</p>
+                        </div>
+                    </div>
+
+                    <!-- Danger warning -->
+                    <div class="alert alert-danger d-flex gap-3 align-items-start mb-4" style="border-radius:12px;">
+                        <i class="fas fa-exclamation-triangle fa-lg mt-1 flex-shrink-0"></i>
+                        <div>
+                            <strong>This will permanently replace ALL current data.</strong>
+                            A safety backup of the current database will be taken automatically before restoring.
+                            However, this action is irreversible once confirmed.
+                        </div>
+                    </div>
+
+                    <div class="row g-4">
+                        <!-- Left: file + confirm -->
+                        <div class="col-lg-5">
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold small">
+                                    <i class="fas fa-file me-1 text-danger"></i>Select Backup File (.dump)
+                                </label>
+                                <input type="file" class="form-control" id="restoreDumpFile" accept=".dump">
+                                <div class="form-text">PostgreSQL custom-format dump only (pg_dump -F c). Max 500 MB.</div>
+                            </div>
+                            <div class="mb-4">
+                                <label class="form-label fw-semibold small">
+                                    <i class="fas fa-keyboard me-1 text-danger"></i>Type <code>RESTORE</code> to confirm
+                                </label>
+                                <input type="text" class="form-control font-monospace" id="restoreConfirmInput"
+                                       placeholder="Type RESTORE" autocomplete="off" spellcheck="false">
+                            </div>
+                            <!-- Progress -->
+                            <div id="restoreProgressWrap" style="display:none;" class="mb-3">
+                                <div class="d-flex justify-content-between small text-muted mb-1">
+                                    <span id="restoreProgressLabel">Uploading…</span>
+                                    <span id="restoreProgressPct">0%</span>
+                                </div>
+                                <div class="progress" style="height:8px;border-radius:6px;">
+                                    <div class="progress-bar progress-bar-striped progress-bar-animated bg-danger"
+                                         id="restoreProgressBar" style="width:0%"></div>
+                                </div>
+                            </div>
+                            <button class="btn btn-danger w-100 fw-bold" id="restoreStartBtn" onclick="startRestore()" disabled>
+                                <i class="fas fa-upload me-2"></i>Upload &amp; Restore
+                            </button>
+                        </div>
+
+                        <!-- Right: result log -->
+                        <div class="col-lg-7">
+                            <label class="form-label fw-semibold small">
+                                <i class="fas fa-terminal me-1"></i>Restore Log
+                            </label>
+                            <div id="restoreLogBox" style="background:#0f172a;color:#94a3b8;border-radius:10px;
+                                 padding:14px 16px;font-family:monospace;font-size:.78rem;min-height:160px;
+                                 max-height:320px;overflow-y:auto;white-space:pre-wrap;border:1px solid rgba(255,255,255,.07);">
+Waiting for restore action…
+                            </div>
+                            <div id="restoreResultBadge" class="mt-2" style="display:none;"></div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- ══════════════════ RESTORE INSTRUCTIONS ══════════════════ -->
                 <div class="glass-card p-4 mt-4" id="restoreGuidePanel" style="border-left:4px solid #22c55e;">
                     <div class="d-flex align-items-center gap-3 mb-4">
@@ -837,6 +908,93 @@ setup.bat</code></pre>
         showToast('\u2705 Site backup folder updated to: ' + newDir, 'success');
         await loadBackupConfig();
         await loadSiteStatus();
+    }
+
+    // ── Restore UI logic ─────────────────────────────────────────────────────
+    document.getElementById('restoreDumpFile').addEventListener('change', checkRestoreReady);
+    document.getElementById('restoreConfirmInput').addEventListener('input', checkRestoreReady);
+
+    function checkRestoreReady() {
+        var file    = document.getElementById('restoreDumpFile').files[0];
+        var confirm = document.getElementById('restoreConfirmInput').value.trim();
+        var btn     = document.getElementById('restoreStartBtn');
+        btn.disabled = !(file && confirm === 'RESTORE');
+    }
+
+    function startRestore() {
+        var file = document.getElementById('restoreDumpFile').files[0];
+        if (!file) { showToast('Please select a .dump file', 'warning'); return; }
+        if (document.getElementById('restoreConfirmInput').value.trim() !== 'RESTORE') {
+            showToast('Type RESTORE in the confirmation box to proceed', 'warning'); return;
+        }
+        if (!confirm('⚠️ This will replace ALL data on this server with the uploaded backup.\n\nA safety backup will be taken first, but this is irreversible.\n\nContinue?')) return;
+
+        var btn        = document.getElementById('restoreStartBtn');
+        var progress   = document.getElementById('restoreProgressWrap');
+        var bar        = document.getElementById('restoreProgressBar');
+        var pctLabel   = document.getElementById('restoreProgressPct');
+        var statusLbl  = document.getElementById('restoreProgressLabel');
+        var logBox     = document.getElementById('restoreLogBox');
+        var badge      = document.getElementById('restoreResultBadge');
+
+        btn.disabled   = true;
+        progress.style.display = 'block';
+        badge.style.display    = 'none';
+        logBox.textContent     = 'Uploading ' + file.name + ' (' + (file.size / 1024 / 1024).toFixed(1) + ' MB)…\n';
+        bar.style.width        = '0%';
+        pctLabel.textContent   = '0%';
+        statusLbl.textContent  = 'Uploading…';
+
+        var token = (document.cookie.match(/rxToken=([^;]+)/) || [])[1] || '';
+        var fd    = new FormData();
+        fd.append('dumpFile', file);
+
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', window.rxUrl('/api/backups/restore'));
+        xhr.setRequestHeader('Authorization', 'Bearer ' + token);
+
+        xhr.upload.onprogress = function(e) {
+            if (e.lengthComputable) {
+                var pct = Math.round(e.loaded / e.total * 80); // upload = 0–80%
+                bar.style.width      = pct + '%';
+                pctLabel.textContent = pct + '%';
+            }
+        };
+
+        xhr.onload = function() {
+            bar.style.width      = '100%';
+            pctLabel.textContent = '100%';
+            statusLbl.textContent = 'Done';
+            btn.disabled = false;
+
+            var result = {};
+            try { result = JSON.parse(xhr.responseText); } catch {}
+
+            if (xhr.status === 200 && result.status === 'success') {
+                badge.innerHTML = '<span class="badge bg-success fs-6"><i class="fas fa-check-circle me-1"></i>Restore Completed Successfully</span>';
+                badge.style.display = 'block';
+                logBox.textContent = '✅ RESTORE SUCCESSFUL\n\n' + (result.log || '(no output)');
+                showToast('✅ Database restored successfully!', 'success');
+                loadStatus();
+            } else {
+                var errMsg = result.error || 'Unknown error (HTTP ' + xhr.status + ')';
+                badge.innerHTML = '<span class="badge bg-danger fs-6"><i class="fas fa-times-circle me-1"></i>Restore Failed</span>';
+                badge.style.display = 'block';
+                logBox.textContent = '❌ RESTORE FAILED\n\n' + errMsg + '\n\n' + (result.log || '');
+                showToast('Restore failed: ' + errMsg, 'danger');
+                bar.classList.remove('bg-danger');
+                bar.classList.add('bg-danger');
+            }
+        };
+
+        xhr.onerror = function() {
+            btn.disabled = false;
+            logBox.textContent = '❌ Network error — could not reach server.';
+            showToast('Network error during restore', 'danger');
+        };
+
+        statusLbl.textContent = 'Uploading & running pg_restore…';
+        xhr.send(fd);
     }
 
 </script>

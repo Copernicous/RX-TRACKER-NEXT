@@ -379,8 +379,66 @@ function startSiteBackupScheduler(cronExpression) {
 const DEFAULT_SITE_SCHEDULE = process.env.SITE_BACKUP_SCHEDULE || '0 3 * * 0';
 startSiteBackupScheduler(DEFAULT_SITE_SCHEDULE);
 
+// ── Restore from a .dump file ─────────────────────────────────────────────────
+// 1. Auto-safety-backup current DB first
+// 2. Run pg_restore --clean --if-exists -d DB_NAME -F c dumpFilePath
+// Returns { status:'success'|'failed', log, error }
+function restoreBackup(dumpFilePath, triggeredBy) {
+    triggeredBy = triggeredBy || 'Manual restore';
+    return new Promise(function(resolve) {
+        ensureDir(BACKUP_DIR);
+        var env    = process.env;
+        var pgEnv  = Object.assign({}, process.env, { PGPASSWORD: env.DB_PASS || '' });
+        var dbName = env.DB_NAME || 'patient_rx_dev';
+
+        // Step 1: safety backup of current state
+        runBackup('Pre-restore auto-safety-backup').then(function() {
+
+            // Step 2: pg_restore
+            var args = [
+                '--clean', '--if-exists',
+                '-h', env.DB_HOST || '127.0.0.1',
+                '-p', env.DB_PORT  || '5432',
+                '-U', env.DB_USER  || 'postgres',
+                '-d', dbName,
+                '-F', 'c',
+                dumpFilePath
+            ];
+
+            var child = require('child_process').spawn('pg_restore', args, { env: pgEnv });
+            var log = '', errLog = '';
+            child.stdout.on('data', function(d) { log    += d.toString(); });
+            child.stderr.on('data', function(d) { errLog += d.toString(); });
+
+            child.on('error', function(err) {
+                resolve({ status: 'failed', log: '', error: 'pg_restore not found: ' + err.message });
+            });
+
+            child.on('close', function(code) {
+                var success = code === 0;
+                var entry = {
+                    id:          Date.now(),
+                    filename:    null,
+                    timestamp:   new Date().toISOString(),
+                    triggeredBy: triggeredBy,
+                    status:      success ? 'success' : 'failed',
+                    size:        0,
+                    error:       success ? null : (errLog.trim() || ('Exit code ' + code))
+                };
+                appendLog(entry);
+                resolve({
+                    status: success ? 'success' : 'failed',
+                    log:    log + (errLog ? '\n[stderr]\n' + errLog : ''),
+                    error:  success ? null : (errLog.trim() || ('Exit code ' + code))
+                });
+            });
+        });
+    });
+}
+
 module.exports = {
     runBackup,
+    restoreBackup,
     readLog,
     deleteBackup,
     startScheduler,
