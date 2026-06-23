@@ -1,12 +1,12 @@
 'use strict';
 
-const fs = require('fs');
-const path = require('path');
 const Sequelize = require('sequelize');
-const process = require('process');
-const basename = path.basename(__filename);
-const env = process.env.NODE_ENV || 'development';
-const config = require(__dirname + '/../server/config.js')[env];
+const process   = require('process');
+
+// Static require — pkg can resolve this at compile time
+const env    = process.env.NODE_ENV || 'development';
+const config = require('../server/config.js')[env];
+
 const db = {};
 
 let sequelize;
@@ -16,21 +16,38 @@ if (config.use_env_variable) {
   sequelize = new Sequelize(config.database, config.username, config.password, config);
 }
 
-fs
-  .readdirSync(__dirname)
-  .filter(file => {
-    return (
-      file.indexOf('.') !== 0 &&
-      file !== basename &&
-      file.slice(-3) === '.js' &&
-      file.indexOf('.test.js') === -1
-    );
-  })
-  .forEach(file => {
-    const model = require(path.join(__dirname, file))(sequelize, Sequelize.DataTypes);
-    db[model.name] = model;
-  });
+// ── Static model registration ─────────────────────────────────────────────────
+// pkg needs literal string paths to include files in the snapshot.
+// Keep this list in sync whenever you add / remove a model file.
+const modelFiles = [
+  require('./RXHistory.js'),
+  require('./apikey.js'),
+  require('./auditlog.js'),
+  require('./clinic.js'),
+  require('./dailysnapshot.js'),
+  require('./errorlog.js'),
+  require('./medication.js'),
+  require('./medicationcatalog.js'),
+  require('./patient.js'),
+  require('./patientlock.js'),
+  require('./patientnote.js'),
+  require('./patienttransportcompany.js'),
+  require('./pharmacy.js'),
+  require('./pharmacytransportcompany.js'),
+  require('./role.js'),
+  require('./rxrecord.js'),
+  require('./rxworkflowtracking.js'),
+  require('./systemsetting.js'),
+  require('./user.js'),
+  require('./workflowaction.js'),
+];
 
+modelFiles.forEach(modelDef => {
+  const model = modelDef(sequelize, Sequelize.DataTypes);
+  db[model.name] = model;
+});
+
+// ── Associations ──────────────────────────────────────────────────────────────
 Object.keys(db).forEach(modelName => {
   if (db[modelName].associate) {
     db[modelName].associate(db);
@@ -38,6 +55,6 @@ Object.keys(db).forEach(modelName => {
 });
 
 db.sequelize = sequelize;
-db.Sequelize = Sequelize;
+db.Sequelize  = Sequelize;
 
 module.exports = db;
