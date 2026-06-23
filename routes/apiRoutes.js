@@ -402,4 +402,17 @@ router.get('/admin/snapshots',             adminOnly, snapshotController.getSnap
 router.post('/admin/snapshots/capture',    adminOnly, snapshotController.captureNow);
 router.delete('/admin/snapshots/:date',    adminOnly, snapshotController.deleteSnapshot);
 
+// ── Version info (public — no auth required) ─────────────────────────────────
+router.get('/version', (req, res) => {
+    const pkg = require('../package.json');
+    res.json({
+        version:   pkg.version,
+        name:      pkg.description || 'Patient RX System',
+        node:      process.version,
+        uptime:    Math.floor(process.uptime()),
+        buildDate: '2026-06-23'
+    });
+});
+
 module.exports = router;
+

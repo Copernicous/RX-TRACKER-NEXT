@@ -83,4 +83,17 @@ router.get('/backoffice', (req, res) => {
     res.render('backoffice', { title: 'Back Office — Data Control Center', activePage: 'backoffice' });
 });
 
+// Changelog page — reads CHANGELOG.md and renders it
+router.get('/changelog', (req, res) => {
+    const fs   = require('fs');
+    const path = require('path');
+    const IS_PKG = typeof process.pkg !== 'undefined';
+    const root   = IS_PKG ? path.dirname(process.execPath) : path.join(__dirname, '..');
+    const mdPath = path.join(root, 'CHANGELOG.md');
+    let markdown = '';
+    try { markdown = fs.readFileSync(mdPath, 'utf8'); } catch {}
+    res.render('changelog', { title: 'Changelog', activePage: 'changelog', markdown });
+});
+
 module.exports = router;
+
