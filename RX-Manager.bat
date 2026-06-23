@@ -41,6 +41,7 @@ echo   [13] Initialize Fresh Database (new install)
 echo.
 echo   BACKUP
 echo   [14] Create Full Site Backup (ZIP + Database)
+echo   [19] Restore from Site Backup ZIP
 echo.
 echo   LOGS
 echo   [15] View Server Logs (last 40 lines)
@@ -75,6 +76,7 @@ if /i "%CHOICE%"=="15"  goto :ViewLogs
 if /i "%CHOICE%"=="16"  goto :ClearLogs
 if /i "%CHOICE%"=="17"  goto :ShowConfig
 if /i "%CHOICE%"=="18"  goto :BuildEXE
+if /i "%CHOICE%"=="19"  goto :RestoreSiteBackup
 if /i "%CHOICE%"=="0"   goto :Done
 goto :MainMenu
 
@@ -648,6 +650,159 @@ echo.
 pause
 goto :MainMenu
 
+
+:: ================================================
+:RestoreSiteBackup
+cls
+echo.
+echo  ================================================
+echo   RESTORE FROM FULL SITE BACKUP ZIP
+echo  ================================================
+echo.
+echo  This extracts the database dump from a Site Backup ZIP
+echo  and restores it — the same as option [11] but reading
+echo  the dump from inside the ZIP file.
+echo.
+echo  Note: Only the DATABASE is restored. Application code
+echo  files inside the ZIP are NOT extracted (to preserve
+echo  your current installation).
+echo.
+
+:: Determine site backup dir (default or env override)
+set "SITE_BACKUP_DIR=C:\RX-SiteBackups"
+if exist "%ENV_FILE%" (
+    for /f "usebackq tokens=1,* delims==" %%A in ("%ENV_FILE%") do (
+        if "%%A"=="SITE_BACKUP_DIR" set "SITE_BACKUP_DIR=%%B"
+    )
+)
+
+echo  Scanning: %SITE_BACKUP_DIR%\
+echo.
+
+set "ZIPIDX=0"
+for %%F in ("%SITE_BACKUP_DIR%\*.zip") do (
+    set /a ZIPIDX+=1
+    echo  [!ZIPIDX!] %%~nxF
+    set "ZIP_!ZIPIDX!=%%F"
+)
+if %ZIPIDX%==0 (
+    echo  No ZIP backup files found in %SITE_BACKUP_DIR%\
+    echo  Create one with option [14] first.
+    echo.
+    pause
+    goto :MainMenu
+)
+echo.
+set /p "ZC=  Select number to restore from (0 to cancel): "
+if "%ZC%"=="0" goto :MainMenu
+if "%ZC%"=="" goto :MainMenu
+
+set "SELECTED_ZIP=!ZIP_%ZC%!"
+if "!SELECTED_ZIP!"=="" (
+    echo  Invalid selection.
+    pause
+    goto :MainMenu
+)
+echo.
+echo  Selected: !SELECTED_ZIP!
+echo.
+
+:: Check that db_backup.dump exists inside the ZIP
+powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command ^
+  "Add-Type -Assembly System.IO.Compression.FileSystem; ^
+   $zip=[System.IO.Compression.ZipFile]::OpenRead('!SELECTED_ZIP!'); ^
+   $entry=$zip.Entries | Where-Object { $_.Name -eq 'db_backup.dump' }; ^
+   $zip.Dispose(); ^
+   if($entry){ exit 0 } else { exit 1 }" >nul 2>&1
+if %ERRORLEVEL% NEQ 0 (
+    echo  [ERROR] No db_backup.dump found inside this ZIP.
+    echo          This does not appear to be a valid Site Backup file.
+    echo.
+    pause
+    goto :MainMenu
+)
+
+echo  Found db_backup.dump inside ZIP.
+echo.
+echo  WARNING: This will REPLACE all current database data!
+echo.
+set /p "CONF=  Type YES to confirm: "
+if /i NOT "%CONF%"=="YES" (
+    echo  Cancelled.
+    pause
+    goto :MainMenu
+)
+
+:: Extract db_backup.dump to a temp file
+set "TMPDIR=%APP_DIR%\backups"
+if not exist "%TMPDIR%" mkdir "%TMPDIR%"
+for /f "tokens=2 delims==" %%I in ('wmic os get localdatetime /value') do set "DT=%%I"
+set "STAMP=%DT:~0,4%-%DT:~4,2%-%DT:~6,2%_%DT:~8,2%-%DT:~10,2%"
+set "TMPDUMP=%TMPDIR%\site_restore_temp_%STAMP%.dump"
+
+echo  Extracting db_backup.dump from ZIP...
+powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command ^
+  "Add-Type -Assembly System.IO.Compression.FileSystem; ^
+   $zip=[System.IO.Compression.ZipFile]::OpenRead('!SELECTED_ZIP!'); ^
+   $entry=$zip.Entries | Where-Object { $_.Name -eq 'db_backup.dump' } | Select-Object -First 1; ^
+   $stream=$entry.Open(); ^
+   $out=[System.IO.File]::Create('!TMPDUMP!'); ^
+   $stream.CopyTo($out); ^
+   $out.Dispose(); $stream.Dispose(); $zip.Dispose(); ^
+   Write-Host 'Extracted OK'"
+
+if not exist "!TMPDUMP!" (
+    echo  [ERROR] Extraction failed.
+    pause
+    goto :MainMenu
+)
+echo  [OK] Extracted to temp file.
+echo.
+
+echo  Stopping server...
+taskkill /FI "WINDOWTITLE eq PatientRX-Server" /F >nul 2>&1
+taskkill /FI "IMAGENAME eq node.exe" /F >nul 2>&1
+taskkill /FI "IMAGENAME eq server.exe" /F >nul 2>&1
+timeout /t 2 /nobreak >nul
+
+echo  Terminating active DB connections...
+set "PGPASSWORD=%DB_PASS%"
+psql -U %DB_USER% -h %DB_HOST% -d postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname='%DB_NAME%' AND pid <> pg_backend_pid();" >nul 2>&1
+
+echo  Dropping old database...
+psql -U %DB_USER% -h %DB_HOST% -d postgres -c "DROP DATABASE IF EXISTS "%DB_NAME%";"
+
+echo  Creating fresh database...
+psql -U %DB_USER% -h %DB_HOST% -d postgres -c "CREATE DATABASE "%DB_NAME%" TEMPLATE template0;"
+
+echo  Restoring data from Site Backup...
+pg_restore -U %DB_USER% -h %DB_HOST% -d %DB_NAME% --no-owner --no-privileges "!TMPDUMP!"
+set "RESTORE_ERR=%ERRORLEVEL%"
+
+echo  Cleaning up temp file...
+del /Q "!TMPDUMP!" >nul 2>&1
+
+if %RESTORE_ERR% EQU 0 (
+    echo.
+    echo  ================================================
+    echo   RESTORE SUCCESSFUL
+    echo  ================================================
+    echo.
+    echo  All data from the Site Backup has been restored.
+    echo  Starting server...
+    echo.
+    timeout /t 1 /nobreak >nul
+    goto :StartServer
+) else (
+    echo.
+    echo  [WARNING] pg_restore finished with warnings or errors.
+    echo  Some data may not have been restored correctly.
+    echo  Check the output above for details.
+    echo.
+    set /p "RST=  Start server anyway? (Y/N): "
+    if /i "!RST!"=="Y" goto :StartServer
+    goto :MainMenu
+)
 
 :: ================================================
 :Done
