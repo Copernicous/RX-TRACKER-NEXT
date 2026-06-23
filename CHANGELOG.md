@@ -15,6 +15,25 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 - **Root cause:** `input[type="date"]` browser-native chrome (calendar icon, spin buttons) follows the page `color-scheme`. Our dark theme set a dark input background, but the icon was still rendered dark (default `light` color-scheme) → invisible.
 - **Fix:** added `color-scheme: light` on all date/time inputs globally; `color-scheme: dark` when `[data-theme="dark"]` is set. Applies to all `input[type=date/time/datetime-local]` across every page.
 
+#### Feat: `server.exe --v` prints version and exits (no server start)
+**Commit:** `9339328` | **Files changed:** 1 | **Lines:** +21
+- `app.js` lines 1–20 — `checkCliFlags()` IIFE added before `require('dotenv')`
+- Flags accepted: `--v`, `-v`, `--version`
+- Output: name, version, Node.js version, platform/arch, mode (compiled vs dev), build date
+- Exits with code 0 immediately — no DB connection, no `.env` required, safe on any machine
+- Also works with `node app.js --v` in dev mode
+
+#### Fix: "invalid input syntax for type date" — date format normalization
+**Commit:** `e254da3` | **Files changed:** 5 | **Lines:** +150 / -15
+- `utils/dateUtils.js` (NEW, +80 lines) — `parseDate()` / `formatDate()` helpers
+  - `parseDate()`: accepts `MM/DD/YYYY`, `M/D/YYYY`, `YYYY-MM-DD` → returns `YYYY-MM-DD` for DB; `null` for invalid
+  - `formatDate()`: `YYYY-MM-DD` → `MM/DD/YYYY` for display
+- `controllers/patientController.js` — `create` and `update` now call `parseDate(dob)` and `parseDate(serviceDate)` before any DB write
+- `controllers/rxController.js` — `create` now calls `parseDate(arrivalDate)` and `parseDate(serviceDate)`
+- `public/js/app.js` — `window.fmtDate()` (YYYY-MM-DD → MM/DD/YYYY) and `window.isoDate()` (MM/DD/YYYY → YYYY-MM-DD) added as global helpers
+- `public/js/patients.js` — DOB/service date columns use `fmtDate()`; edit modal uses `isoDate()` to load into `<input type=date>`
+- **Root cause:** `<input type=date>` `.value` returns `""` when typed manually in wrong format; `new Date("")` produces "Invalid Date" string which was sent raw to PostgreSQL
+
 #### Fix: Changelog page stuck on "Loading…" in production
 **Commit:** `7e9f659` | **Files changed:** 2 | **Lines:** +70 / -1
 - `public/assets/marked.min.js` (new, 39 KB) — bundled locally
