@@ -1,11 +1,20 @@
 [
   {
-    "id": 1782164400898,
-    "filename": "backup_2026-06-22T21-40-00.dump",
-    "timestamp": "2026-06-22T21:40:00.898Z",
+    "id": 1782194400391,
+    "filename": "backup_2026-06-23T06-00-00.dump",
+    "timestamp": "2026-06-23T06:00:00.391Z",
+    "triggeredBy": "Scheduled",
+    "status": "success",
+    "size": 65720,
+    "error": null
+  },
+  {
+    "id": 1782186271321,
+    "filename": "backup_2026-06-23T03-44-30.dump",
+    "timestamp": "2026-06-23T03:44:31.321Z",
     "triggeredBy": "Manual (admin)",
     "status": "success",
-    "size": 110215,
+    "size": 65703,
     "error": null
   }
 ]
