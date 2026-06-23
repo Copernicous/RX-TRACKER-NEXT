@@ -657,7 +657,7 @@ setup.bat</code></pre>
                 ? '<a class="btn btn-sm btn-outline-primary me-1" href="/api/backups/download/' + b.filename + '" title="Download"><i class="fas fa-download"></i></a>'
                 : '';
             var fn = b.filename ? b.filename.replace(/'/g,'') : '';
-            var delBtn = '<button class="btn btn-sm btn-outline-danger" title="Delete" onclick="deleteBackupEntry(\'' + fn + '\')">' +
+            var delBtn = '<button class="btn btn-sm btn-outline-danger" title="Delete" onclick="deleteBackupEntry(\'' + fn + '\', ' + (b.id || 0) + ')">' +
                          '<i class="fas fa-trash-alt"></i></button>';
             return '<tr class="backup-row">' +
                 '<td><i class="fas fa-' + icon + ' ' + cls + ' me-2"></i><strong class="' + cls + '">' + b.status + '</strong></td>' +
@@ -676,15 +676,21 @@ setup.bat</code></pre>
             '</table></div>';
     }
 
-    async function deleteBackupEntry(filename) {
-        var label = filename ? filename : 'this entry';
-        if (!confirm('Permanently delete ' + label + '?\n\nThe .dump file and its history entry will both be removed.')) return;
-        if (!filename) { await loadStatus(); return; }
-        var r = await fetchWithAuth(window.rxUrl('/api/backups/' + encodeURIComponent(filename)), { method: 'DELETE' });
-        if (r && (r.status === 204 || r.ok)) {
-            showToast('Backup deleted: ' + filename, 'success');
+    async function deleteBackupEntry(filename, id) {
+        var label = filename || 'this failed entry';
+        if (!confirm('Permanently delete ' + label + '?\n\n' + (filename ? 'The .dump file and its history entry will both be removed.' : 'This failed history entry will be removed.'))) return;
+        var r;
+        if (filename) {
+            r = await fetchWithAuth(window.rxUrl('/api/backups/' + encodeURIComponent(filename)), { method: 'DELETE' });
+        } else if (id) {
+            r = await fetchWithAuth(window.rxUrl('/api/backups/history/' + id), { method: 'DELETE' });
         } else {
-            showToast('Failed to delete backup.', 'danger');
+            await loadStatus(); return;
+        }
+        if (r && (r.status === 204 || r.ok)) {
+            showToast('Backup entry deleted.', 'success');
+        } else {
+            showToast('Failed to delete backup entry.', 'danger');
         }
         await loadStatus();
     }
@@ -780,7 +786,7 @@ setup.bat</code></pre>
                 ? '<a class="btn btn-sm btn-outline-primary me-1" href="/api/backups/site/download/' + b.filename + '" title="Download ZIP"><i class="fas fa-download me-1"></i>ZIP</a>'
                 : '';
             const fn = b.filename ? b.filename.replace(/'/g,'') : '';
-            const delBtn = '<button class="btn btn-sm btn-outline-danger" title="Delete ZIP and history entry" onclick="deleteSiteBackupEntry(\'' + fn + '\')">' +
+            const delBtn = '<button class="btn btn-sm btn-outline-danger" title="Delete ZIP and history entry" onclick="deleteSiteBackupEntry(\'' + fn + '\', ' + (b.id || 0) + ')">' +
                            '<i class="fas fa-trash-alt"></i></button>';
             return '<tr class="backup-row">' +
                 '<td><i class="fas fa-' + icon + ' ' + cls + ' me-2"></i><strong class="' + cls + '">' + b.status + '</strong></td>' +
@@ -799,15 +805,21 @@ setup.bat</code></pre>
             '</table></div>';
     }
 
-    async function deleteSiteBackupEntry(filename) {
-        var label = filename ? filename : 'this entry';
-        if (!confirm('Permanently delete ' + label + '?\n\nThe ZIP file and its history entry will both be removed.')) return;
-        if (!filename) { await loadSiteStatus(); return; }
-        var r = await fetchWithAuth(window.rxUrl('/api/backups/site/' + encodeURIComponent(filename)), { method: 'DELETE' });
-        if (r && (r.status === 204 || r.ok)) {
-            showToast('Site backup deleted: ' + filename, 'success');
+    async function deleteSiteBackupEntry(filename, id) {
+        var label = filename || 'this failed entry';
+        if (!confirm('Permanently delete ' + label + '?\n\n' + (filename ? 'The ZIP file and its history entry will both be removed.' : 'This failed history entry will be removed.'))) return;
+        var r;
+        if (filename) {
+            r = await fetchWithAuth(window.rxUrl('/api/backups/site/' + encodeURIComponent(filename)), { method: 'DELETE' });
+        } else if (id) {
+            r = await fetchWithAuth(window.rxUrl('/api/backups/site/history/' + id), { method: 'DELETE' });
         } else {
-            showToast('Failed to delete site backup.', 'danger');
+            await loadSiteStatus(); return;
+        }
+        if (r && (r.status === 204 || r.ok)) {
+            showToast('Backup entry deleted.', 'success');
+        } else {
+            showToast('Failed to delete backup entry.', 'danger');
         }
         await loadSiteStatus();
     }

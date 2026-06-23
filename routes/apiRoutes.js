@@ -338,6 +338,25 @@ router.delete('/backups/site/:filename', adminOnly, (req, res) => {
     }
 });
 
+// ---- Delete a DB backup history entry by ID (for failed entries with no file) ----
+router.delete('/backups/history/:id', adminOnly, (req, res) => {
+    try {
+        backupService.deleteBackupHistoryEntry(req.params.id);
+        res.status(204).end();
+    } catch (e) {
+        res.status(404).json({ error: e.message });
+    }
+});
+
+// ---- Delete a Site backup history entry by ID ----
+router.delete('/backups/site/history/:id', adminOnly, (req, res) => {
+    try {
+        backupService.deleteBackupSiteHistoryEntry(req.params.id);
+        res.status(204).end();
+    } catch (e) {
+        res.status(404).json({ error: e.message });
+    }
+});
 
 
 // ---- Error Boundary Logging ----

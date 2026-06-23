@@ -5,6 +5,22 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ---
 
+## [2.0.4] — 2026-06-23
+
+### 🐛 Bug Fix — Trash button does nothing on failed backup history entries
+**Files changed:** 3 | BUG-13
+
+- **BUG-13** — Failed backup entries (status=failed, filename=null) could not be deleted from the Backup History table. Clicking the trash 🗑️ icon had no effect because:
+  1. `deleteBackupEntry('')` was called with an empty filename
+  2. The function hit `if (!filename) { await loadStatus(); return; }` and silently refreshed without deleting
+
+  **Fix:** Three-file fix:
+  - `services/backupService.js` — Added `deleteBackupHistoryEntry(id)` and `deleteBackupSiteHistoryEntry(id)` which remove log entries by their numeric `id` field without requiring a filename
+  - `routes/apiRoutes.js` — Added `DELETE /api/backups/history/:id` and `DELETE /api/backups/site/history/:id` endpoints
+  - `views/backups.ejs` — Updated `deleteBackupEntry(filename, id)` and `deleteSiteBackupEntry(filename, id)` to route to the new history endpoint when filename is empty. Trash button on failed entries now works correctly.
+
+---
+
 ## [2.0.3] — 2026-06-23
 
 ### ✨ New Feature — Emergency Password Reset CLI Flag

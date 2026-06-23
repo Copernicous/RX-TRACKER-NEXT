@@ -204,6 +204,23 @@ function deleteBackup(filename) {
     writeLog(entries.filter(e => e.filename !== filename));
 }
 
+// ── Delete a history entry by ID (for failed entries with no file) ────────────
+function deleteBackupHistoryEntry(id) {
+    const entries = readLog();
+    const filtered = entries.filter(e => String(e.id) !== String(id));
+    if (filtered.length === entries.length) throw new Error('Entry not found: ' + id);
+    writeLog(filtered);
+}
+
+// ── Delete a site backup history entry by ID ──────────────────────────────────
+function deleteBackupSiteHistoryEntry(id) {
+    const entries = readSiteLog();
+    const filtered = entries.filter(e => String(e.id) !== String(id));
+    if (filtered.length === entries.length) throw new Error('Site entry not found: ' + id);
+    const logPath = path.join(getSiteBackupDir(), 'site-backup.log.json');
+    try { fs.writeFileSync(logPath, JSON.stringify(filtered, null, 2)); } catch {}
+}
+
 // ── Cron scheduler ────────────────────────────────────────────────────────────
 let _cronJob = null;
 let _currentSchedule = null;
@@ -552,6 +569,8 @@ module.exports = {
     restoreBackup,
     readLog,
     deleteBackup,
+    deleteBackupHistoryEntry,
+    deleteBackupSiteHistoryEntry,
     startScheduler,
     getDbBackupDir: () => BACKUP_DIR,
     getStatus: () => ({
