@@ -1,4 +1,4 @@
-'use strict';
+﻿'use strict';
 const jwt      = require('jsonwebtoken');
 const db       = require('../models');
 const settings = require('../services/settingsService');
@@ -167,7 +167,7 @@ exports.changePassword = async (req, res) => {
             return res.status(400).json({ message: 'New password must be at least 8 characters.' });
         }
 
-        const bcrypt = require('bcrypt');
+        const bcrypt = require('bcryptjs');
         const user = await db.User.findByPk(req.user.id);
         if (!user) return res.status(404).json({ message: 'User not found.' });
 

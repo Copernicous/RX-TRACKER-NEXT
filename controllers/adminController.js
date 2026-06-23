@@ -1,10 +1,10 @@
-'use strict';
+﻿'use strict';
 const db        = require('../models');
 const { QueryTypes } = require('sequelize');
 const fs        = require('fs');
 const path      = require('path');
 const os        = require('os');
-const bcrypt    = require('bcrypt');
+const bcrypt    = require('bcryptjs');
 
 const SETTINGS_PATH = path.join(__dirname, '..', 'data', 'settings.json');
 

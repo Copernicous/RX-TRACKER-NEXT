@@ -1,6 +1,6 @@
 ﻿const db = require('../models');
 const { Op } = require('sequelize');
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 const csv = require('csv-parser');
 const { Readable } = require('stream');
 

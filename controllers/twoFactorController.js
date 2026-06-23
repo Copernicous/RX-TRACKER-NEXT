@@ -1,8 +1,8 @@
-'use strict';
+﻿'use strict';
 const speakeasy = require('speakeasy');
 const QRCode    = require('qrcode');
 const crypto    = require('crypto');
-const bcrypt    = require('bcrypt');
+const bcrypt    = require('bcryptjs');
 const jwt       = require('jsonwebtoken');
 const db        = require('../models');
 const { issueFullToken } = require('./authController');

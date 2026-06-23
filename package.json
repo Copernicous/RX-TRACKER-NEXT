@@ -19,7 +19,8 @@
       "controllers/**/*.js",
       "routes/**/*.js",
       "middleware/**/*.js",
-      "services/**/*.js"
+      "services/**/*.js",
+      "node_modules/bcryptjs/**/*.js"
     ],
     "assets": [
       "views/**/*",
@@ -28,7 +29,6 @@
       "migrations/**/*",
       "seeders/**/*",
       "data/**/*",
-      "node_modules/bcrypt/lib/binding/napi-v3/bcrypt_lib.node",
       ".env.example"
     ],
     "outputPath": "dist"
@@ -39,6 +39,7 @@
   "type": "commonjs",
   "dependencies": {
     "bcrypt": "^6.0.0",
+    "bcryptjs": "^3.0.3",
     "body-parser": "^2.3.0",
     "cors": "^2.8.6",
     "csv-parser": "^3.2.1",

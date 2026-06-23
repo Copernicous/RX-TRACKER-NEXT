@@ -1,5 +1,5 @@
-const db = require('../models');
-const bcrypt = require('bcrypt');
+﻿const db = require('../models');
+const bcrypt = require('bcryptjs');
 
 exports.getAll = async (req, res) => {
     try {

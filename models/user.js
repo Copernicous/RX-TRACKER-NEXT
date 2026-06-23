@@ -1,4 +1,4 @@
-'use strict';
+﻿'use strict';
 const {
   Model
 } = require('sequelize');
@@ -14,7 +14,7 @@ module.exports = (sequelize, DataTypes) => {
     }
     
     async validPassword(password) {
-      const bcrypt = require('bcrypt');
+      const bcrypt = require('bcryptjs');
       return await bcrypt.compare(password, this.passwordHash);
     }
   }
