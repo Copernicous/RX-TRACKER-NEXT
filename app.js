@@ -363,6 +363,53 @@ const startServer = async () => {
 
     await db.sequelize.sync();
 
+    // ── Auto-seed Roles + default admin on a brand-new database ──────────────
+    try {
+        const bcrypt = require('bcryptjs');
+        const { BUILT_IN_DEFAULTS } = require('./middleware/rbac');
+
+        // 1. Ensure the 4 built-in roles exist
+        const builtInNames = ['Administrator', 'Supervisor', 'Operator', 'Read Only'];
+        let adminRole = null;
+        for (const name of builtInNames) {
+            const [role] = await db.Role.findOrCreate({
+                where: { name },
+                defaults: {
+                    name,
+                    isSystem:    true,
+                    permissions: BUILT_IN_DEFAULTS[name] ? BUILT_IN_DEFAULTS[name]() : {},
+                    description: name + ' role'
+                }
+            });
+            if (name === 'Administrator') adminRole = role;
+        }
+
+        // 2. Ensure a default admin user exists (only if NO users at all)
+        const userCount = await db.User.count();
+        if (userCount === 0 && adminRole) {
+            const hash = await bcrypt.hash('admin123', 10);
+            await db.User.create({
+                firstName:    'System',
+                lastName:     'Administrator',
+                username:     'admin',
+                email:        'admin@rxsystem.local',
+                passwordHash: hash,
+                roleId:       adminRole.id,
+                isActive:     true
+            });
+            console.log('');
+            console.log('╔══════════════════════════════════════════════╗');
+            console.log('║         FIRST-RUN DEFAULT CREDENTIALS        ║');
+            console.log('║  Username : admin                            ║');
+            console.log('║  Password : admin123                         ║');
+            console.log('║  !! CHANGE THIS PASSWORD AFTER LOGIN !!      ║');
+            console.log('╚══════════════════════════════════════════════╝');
+            console.log('');
+        }
+    } catch (e) {
+        console.warn('Startup seed warning (non-fatal):', e.message);
+    }
+
     // Load system settings (including timezone) BEFORE the server starts accepting requests
     await settingsService.load();
 
