@@ -1,7 +1,7 @@
 'use strict';
 
 const cron      = require('node-cron');
-const { spawn } = require('child_process');
+const { spawn, spawnSync } = require('child_process');
 const path      = require('path');
 const fs        = require('fs');
 
@@ -20,6 +20,72 @@ const MAX_BACKUPS   = parseInt(process.env.BACKUP_RETAIN || '10');
 const BACKUP_LOG    = path.join(BACKUP_DIR, 'backup.log.json');
 const SETTINGS_PATH = path.join(WRITABLE_ROOT, 'data', 'settings.json');
 const PROJECT_ROOT  = IS_PKG ? path.dirname(process.execPath) : path.join(__dirname, '..');
+
+// ── PostgreSQL tool locator ───────────────────────────────────────────────────
+// Finds pg_dump / pg_restore even when PostgreSQL bin is not in PATH.
+// Search order:
+//   1. PGBIN env var  (set explicitly by user)
+//   2. PATH  (works on dev machines where psql is in PATH)
+//   3. Common Windows PostgreSQL install directories (newest version first)
+var _pgBinCache = null;
+function findPgTool(toolName) {
+    // Return cached bin dir result
+    if (_pgBinCache) return path.join(_pgBinCache, toolName + '.exe');
+
+    // 1. Explicit env var
+    if (process.env.PGBIN) {
+        var explicit = path.join(process.env.PGBIN, toolName + '.exe');
+        if (fs.existsSync(explicit)) { _pgBinCache = process.env.PGBIN; return explicit; }
+    }
+
+    // 2. Try PATH — spawnSync 'where pg_dump' on Windows
+    try {
+        var where = spawnSync('where', [toolName], { encoding: 'utf8', timeout: 3000 });
+        if (where.status === 0 && where.stdout) {
+            var first = where.stdout.trim().split(/\r?\n/)[0];
+            if (fs.existsSync(first)) {
+                _pgBinCache = path.dirname(first);
+                console.log('[Backup] Found PostgreSQL tools via PATH:', _pgBinCache);
+                return first;
+            }
+        }
+    } catch {}
+
+    // 3. Scan common Windows install paths (Program Files, versions 10-20)
+    var bases = [
+        process.env['ProgramFiles'],
+        process.env['ProgramFiles(x86)'],
+        'C:\\Program Files',
+        'C:\\Program Files (x86)',
+        'C:\\PostgreSQL',
+        'C:\\pgsql'
+    ].filter(Boolean);
+
+    var candidates = [];
+    bases.forEach(function(base) {
+        var pgDir = path.join(base, 'PostgreSQL');
+        if (!fs.existsSync(pgDir)) return;
+        try {
+            fs.readdirSync(pgDir).forEach(function(ver) {
+                var bin = path.join(pgDir, ver, 'bin');
+                var exe = path.join(bin, toolName + '.exe');
+                if (fs.existsSync(exe)) candidates.push({ ver: parseFloat(ver) || 0, bin, exe });
+            });
+        } catch {}
+    });
+
+    if (candidates.length) {
+        // Pick highest version
+        candidates.sort(function(a, b) { return b.ver - a.ver; });
+        _pgBinCache = candidates[0].bin;
+        console.log('[Backup] Found PostgreSQL tools at:', _pgBinCache);
+        return candidates[0].exe;
+    }
+
+    // Fallback — return bare name and let the OS try (will get ENOENT if missing)
+    console.warn('[Backup] pg tool not found — tried PATH and common dirs. Set PGBIN in .env');
+    return toolName;
+}
 
 // ── Lazy dir creation (never at module load time inside pkg snapshot) ─────────
 function ensureDir(dir) {
@@ -63,7 +129,7 @@ function runBackup(triggeredBy = 'Scheduled') {
         ];
 
         const pgEnv = Object.assign({}, process.env, { PGPASSWORD: env.DB_PASS || '' });
-        const child = spawn('pg_dump', args, { env: pgEnv });
+        const child = spawn(findPgTool('pg_dump'), args, { env: pgEnv });
 
         let stderr = '';
         child.stderr.on('data', d => { stderr += d.toString(); });
@@ -252,7 +318,7 @@ function runFullSiteBackup(triggeredBy = 'Manual') {
         ];
 
         console.log('[SiteBackup] Starting full site backup:', zipName);
-        const pg = spawn('pg_dump', dumpArgs, { env: pgEnv });
+        const pg = spawn(findPgTool('pg_dump'), dumpArgs, { env: pgEnv });
         let pgErr = '';
         pg.stderr.on('data', d => { pgErr += d.toString(); });
 
@@ -405,7 +471,7 @@ function restoreBackup(dumpFilePath, triggeredBy) {
                 dumpFilePath
             ];
 
-            var child = require('child_process').spawn('pg_restore', args, { env: pgEnv });
+            var child = spawn(findPgTool('pg_restore'), args, { env: pgEnv });
             var log = '', errLog = '';
             child.stdout.on('data', function(d) { log    += d.toString(); });
             child.stderr.on('data', function(d) { errLog += d.toString(); });
