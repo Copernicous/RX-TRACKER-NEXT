@@ -1,49 +1,65 @@
 'use strict';
 
-const cron    = require('node-cron');
+const cron      = require('node-cron');
 const { spawn } = require('child_process');
-const path    = require('path');
-const fs      = require('fs');
+const path      = require('path');
+const fs        = require('fs');
 
-// ---- Config ----
-const BACKUP_DIR   = path.join(__dirname, '..', 'backups');
-const MAX_BACKUPS  = parseInt(process.env.BACKUP_RETAIN || '10');   // keep last N
-const BACKUP_LOG   = path.join(BACKUP_DIR, 'backup.log.json');
-const SETTINGS_PATH = path.join(__dirname, '..', 'data', 'settings.json');
-const PROJECT_ROOT  = path.join(__dirname, '..');
+// ── Writable root ─────────────────────────────────────────────────────────────
+// When running as a pkg .exe, __dirname points inside the read-only snapshot.
+// process.execDir is the directory that contains the .exe — always writable.
+// In dev (plain node), execDir === __dirname/../ which equals the project root.
+const IS_PKG     = typeof process.pkg !== 'undefined';
+const WRITABLE_ROOT = IS_PKG
+    ? process.execDir                          // e.g. C:\RX-Tracker\RX-APP
+    : path.join(__dirname, '..');              // dev: project root
 
-// Ensure backup dir exists
-if (!fs.existsSync(BACKUP_DIR)) fs.mkdirSync(BACKUP_DIR, { recursive: true });
+// ── Config ────────────────────────────────────────────────────────────────────
+const BACKUP_DIR    = path.join(WRITABLE_ROOT, 'backups');
+const MAX_BACKUPS   = parseInt(process.env.BACKUP_RETAIN || '10');
+const BACKUP_LOG    = path.join(BACKUP_DIR, 'backup.log.json');
+const SETTINGS_PATH = path.join(WRITABLE_ROOT, 'data', 'settings.json');
+const PROJECT_ROOT  = IS_PKG ? process.execDir : path.join(__dirname, '..');
 
-// ---- Log helpers ----
+// ── Lazy dir creation (never at module load time inside pkg snapshot) ─────────
+function ensureDir(dir) {
+    if (!fs.existsSync(dir)) {
+        try { fs.mkdirSync(dir, { recursive: true }); }
+        catch (e) { console.error('[Backup] Could not create dir:', dir, e.message); }
+    }
+}
+
+// ── Log helpers ───────────────────────────────────────────────────────────────
 function readLog() {
     try { return JSON.parse(fs.readFileSync(BACKUP_LOG, 'utf8')); }
     catch { return []; }
 }
 function writeLog(entries) {
+    ensureDir(BACKUP_DIR);
     fs.writeFileSync(BACKUP_LOG, JSON.stringify(entries, null, 2));
 }
 function appendLog(entry) {
     const entries = readLog();
-    entries.unshift(entry);          // newest first
-    if (entries.length > 100) entries.splice(100); // keep last 100 log entries
+    entries.unshift(entry);
+    if (entries.length > 100) entries.splice(100);
     writeLog(entries);
 }
 
-// ---- pg_dump runner ----
+// ── pg_dump runner ────────────────────────────────────────────────────────────
 function runBackup(triggeredBy = 'Scheduled') {
     return new Promise((resolve) => {
+        ensureDir(BACKUP_DIR);
+
         const ts       = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
         const filename = 'backup_' + ts + '.dump';
         const filepath = path.join(BACKUP_DIR, filename);
 
-        const env = process.env;
+        const env  = process.env;
         const args = [
             '-h', env.DB_HOST || '127.0.0.1',
             '-U', env.DB_USER || 'postgres',
             '-d', env.DB_NAME || 'patient_rx_dev',
-            '-F', 'c',   // custom compressed format
-            '-f', filepath
+            '-F', 'c', '-f', filepath
         ];
 
         const pgEnv = Object.assign({}, process.env, { PGPASSWORD: env.DB_PASS || '' });
@@ -67,10 +83,7 @@ function runBackup(triggeredBy = 'Scheduled') {
             };
 
             appendLog(entry);
-
-            // Prune old backups (keep last MAX_BACKUPS)
             pruneOldBackups();
-
             resolve(entry);
         });
 
@@ -90,26 +103,23 @@ function runBackup(triggeredBy = 'Scheduled') {
     });
 }
 
-// ---- Pruner ----
+// ── Pruner ────────────────────────────────────────────────────────────────────
 function pruneOldBackups() {
     try {
         const files = fs.readdirSync(BACKUP_DIR)
             .filter(f => f.startsWith('backup_') && f.endsWith('.dump'))
             .map(f => ({ name: f, mtime: fs.statSync(path.join(BACKUP_DIR, f)).mtimeMs }))
             .sort((a, b) => b.mtime - a.mtime);
-
         files.slice(MAX_BACKUPS).forEach(f => {
             try { fs.unlinkSync(path.join(BACKUP_DIR, f.name)); } catch {}
         });
     } catch {}
 }
 
-// ---- Sync log with actual files on disk ----
-// Removes log entries whose .dump files no longer exist
+// ── Sync log with actual files on disk ────────────────────────────────────────
 function syncLogWithDisk() {
     const entries = readLog();
     const synced  = entries.filter(e => {
-        // Keep failed entries (no file), keep if file exists
         if (!e.filename) return true;
         return fs.existsSync(path.join(BACKUP_DIR, e.filename));
     });
@@ -117,21 +127,18 @@ function syncLogWithDisk() {
     return synced;
 }
 
-// ---- Delete a specific DB backup ----
+// ── Delete a specific DB backup ───────────────────────────────────────────────
 function deleteBackup(filename) {
-    // Validate: must look like a real backup filename (prevent path traversal)
     if (!filename || !/^backup_[\w\-]+\.dump$/.test(filename)) {
         throw new Error('Invalid backup filename');
     }
     const filepath = path.join(BACKUP_DIR, filename);
-    // Delete file if it exists
     if (fs.existsSync(filepath)) fs.unlinkSync(filepath);
-    // Remove from log
     const entries = readLog();
     writeLog(entries.filter(e => e.filename !== filename));
 }
 
-// ---- Cron scheduler ----
+// ── Cron scheduler ────────────────────────────────────────────────────────────
 let _cronJob = null;
 let _currentSchedule = null;
 
@@ -156,17 +163,14 @@ function startScheduler(cronExpression) {
     console.log('[Backup] Scheduler started with expression:', cronExpression);
 }
 
-// ---- Default schedule from env ----
-const DEFAULT_SCHEDULE = process.env.BACKUP_SCHEDULE || '0 2 * * *'; // daily at 2am
+const DEFAULT_SCHEDULE = process.env.BACKUP_SCHEDULE || '0 2 * * *';
 startScheduler(DEFAULT_SCHEDULE);
 
-// ════════════════════════════════════════════════════════════════════════
-// FULL SITE BACKUP — ZIP of code + fresh DB dump, saved OUTSIDE project
-// Directory is configurable via Settings > Backup Folders
-// ════════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════════════
+// FULL SITE BACKUP
+// ════════════════════════════════════════════════════════════════════════════
 const MAX_SITE_BACKUPS = parseInt(process.env.SITE_BACKUP_RETAIN || '5');
 
-// Dynamic site backup dir — reads from settings.json, falls back to env/default
 function readSettings() {
     try { return JSON.parse(fs.readFileSync(SETTINGS_PATH, 'utf8')); } catch { return {}; }
 }
@@ -175,37 +179,25 @@ function getSiteBackupDir() {
     return s.siteBackupPath || process.env.SITE_BACKUP_DIR || 'C:\\RX-SiteBackups';
 }
 function setSiteBackupDir(newDir) {
+    ensureDir(path.dirname(SETTINGS_PATH));
     const s = readSettings();
     s.siteBackupPath = newDir;
     fs.writeFileSync(SETTINGS_PATH, JSON.stringify(s, null, 2), 'utf8');
-    // Ensure directory exists
-    if (!fs.existsSync(newDir)) {
-        try { fs.mkdirSync(newDir, { recursive: true }); } catch (e) {
-            console.error('[SiteBackup] Could not create dir:', newDir, e.message);
-            throw e;
-        }
-    }
+    ensureDir(newDir);
     console.log('[SiteBackup] Directory updated to:', newDir);
 }
 
-// Ensure current site backup dir exists on startup
-(function() {
-    const dir = getSiteBackupDir();
-    if (!fs.existsSync(dir)) {
-        try { fs.mkdirSync(dir, { recursive: true }); } catch (e) {
-            console.error('[SiteBackup] Could not create dir:', dir, e.message);
-        }
-    }
-})();
-
 function readSiteLog() {
-    try { return JSON.parse(fs.readFileSync(path.join(getSiteBackupDir(), 'site-backup.log.json'), 'utf8')); } catch { return []; }
+    try { return JSON.parse(fs.readFileSync(path.join(getSiteBackupDir(), 'site-backup.log.json'), 'utf8')); }
+    catch { return []; }
 }
 function appendSiteLog(entry) {
+    const dir     = getSiteBackupDir();
+    ensureDir(dir);
     const entries = readSiteLog();
     entries.unshift(entry);
     if (entries.length > 50) entries.splice(50);
-    try { fs.writeFileSync(path.join(getSiteBackupDir(), 'site-backup.log.json'), JSON.stringify(entries, null, 2)); } catch {}
+    try { fs.writeFileSync(path.join(dir, 'site-backup.log.json'), JSON.stringify(entries, null, 2)); } catch {}
 }
 function pruneOldSiteBackups() {
     try {
@@ -218,8 +210,6 @@ function pruneOldSiteBackups() {
         });
     } catch {}
 }
-
-// ---- Sync site log with actual files on disk ----
 function syncSiteLogWithDisk() {
     const entries = readSiteLog();
     const synced  = entries.filter(e => {
@@ -231,8 +221,6 @@ function syncSiteLogWithDisk() {
     }
     return synced;
 }
-
-// ---- Delete a specific site backup ----
 function deleteSiteBackup(filename) {
     if (!filename || !/^RX_SiteBackup_[\w\-]+\.zip$/.test(filename)) {
         throw new Error('Invalid site backup filename');
@@ -246,14 +234,16 @@ function deleteSiteBackup(filename) {
 
 function runFullSiteBackup(triggeredBy = 'Manual') {
     return new Promise((resolve) => {
+        const siteDir  = getSiteBackupDir();
+        ensureDir(siteDir);
+
         const ts       = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
         const zipName  = 'RX_SiteBackup_' + ts + '.zip';
-        const zipPath  = path.join(getSiteBackupDir(), zipName);
+        const zipPath  = path.join(siteDir, zipName);
+        const dbDump   = path.join(siteDir, '_temp_db_' + ts + '.dump');
 
-        // Step 1 — fresh DB dump inside the site backup dir (temp)
-        const dbDump   = path.join(getSiteBackupDir(), '_temp_db_' + ts + '.dump');
-        const env      = process.env;
-        const pgEnv    = Object.assign({}, process.env, { PGPASSWORD: env.DB_PASS || '' });
+        const env    = process.env;
+        const pgEnv  = Object.assign({}, process.env, { PGPASSWORD: env.DB_PASS || '' });
         const dumpArgs = [
             '-h', env.DB_HOST || '127.0.0.1',
             '-U', env.DB_USER || 'postgres',
@@ -282,8 +272,7 @@ function runFullSiteBackup(triggeredBy = 'Manual') {
                 return;
             }
 
-            // Step 2 — Write a temp .ps1 script and run it (avoids all escaping issues)
-            const psFile = path.join(getSiteBackupDir(), '_sitebackup_' + ts + '.ps1');
+            const psFile    = path.join(siteDir, '_sitebackup_' + ts + '.ps1');
             const srcEsc    = PROJECT_ROOT.replace(/\\/g, '\\\\');
             const destEsc   = zipPath.replace(/\\/g, '\\\\');
             const dumpEsc   = dbDump.replace(/\\/g, '\\\\');
@@ -329,13 +318,12 @@ function runFullSiteBackup(triggeredBy = 'Manual') {
                 return;
             }
 
-            const ps = spawn('powershell', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', psFile], {
-                env: process.env
-            });
+            const ps = spawn('powershell',
+                ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', psFile],
+                { env: process.env });
 
-            let psOut = '';
-            let psErrOut = '';
-            ps.stdout.on('data', d => { psOut += d.toString(); });
+            let psOut = '', psErrOut = '';
+            ps.stdout.on('data', d => { psOut    += d.toString(); });
             ps.stderr.on('data', d => { psErrOut += d.toString(); });
 
             ps.on('error', err => {
@@ -349,7 +337,6 @@ function runFullSiteBackup(triggeredBy = 'Manual') {
             ps.on('close', psCode => {
                 let size = 0;
                 try { size = fs.statSync(zipPath).size; } catch {}
-                // Clean temp dump if not cleaned by PS
                 try { if (fs.existsSync(dbDump)) fs.unlinkSync(dbDump); } catch {}
 
                 const success = psCode === 0 && psOut.includes('DONE') && size > 0;
@@ -365,23 +352,21 @@ function runFullSiteBackup(triggeredBy = 'Manual') {
                 };
                 appendSiteLog(entry);
                 if (success) pruneOldSiteBackups();
-                console.log('[SiteBackup]', entry.status, success ? zipName + ' (' + Math.round(size/1024) + ' KB)' : entry.error);
+                console.log('[SiteBackup]', entry.status,
+                    success ? zipName + ' (' + Math.round(size / 1024) + ' KB)' : entry.error);
                 resolve(entry);
             });
         });
     });
 }
 
-// ---- Weekly site backup scheduler (Sundays at 3 AM) ----
+// ── Weekly site backup scheduler ──────────────────────────────────────────────
 let _siteBackupJob = null;
 let _siteBackupSchedule = null;
 
 function startSiteBackupScheduler(cronExpression) {
     if (_siteBackupJob) { _siteBackupJob.stop(); _siteBackupJob = null; }
-    if (!cronExpression || cronExpression === 'off') {
-        _siteBackupSchedule = 'off';
-        return;
-    }
+    if (!cronExpression || cronExpression === 'off') { _siteBackupSchedule = 'off'; return; }
     if (!cron.validate(cronExpression)) return;
     _siteBackupSchedule = cronExpression;
     _siteBackupJob = cron.schedule(cronExpression, () => {
@@ -391,7 +376,7 @@ function startSiteBackupScheduler(cronExpression) {
     console.log('[SiteBackup] Weekly scheduler started:', cronExpression);
 }
 
-const DEFAULT_SITE_SCHEDULE = process.env.SITE_BACKUP_SCHEDULE || '0 3 * * 0'; // Sundays at 3 AM
+const DEFAULT_SITE_SCHEDULE = process.env.SITE_BACKUP_SCHEDULE || '0 3 * * 0';
 startSiteBackupScheduler(DEFAULT_SITE_SCHEDULE);
 
 module.exports = {
@@ -406,7 +391,6 @@ module.exports = {
         maxBackups:    MAX_BACKUPS,
         recentBackups: syncLogWithDisk().slice(0, 20)
     }),
-    // Full site backup exports
     runFullSiteBackup,
     readSiteLog,
     deleteSiteBackup,
@@ -420,4 +404,3 @@ module.exports = {
         recentBackups: syncSiteLogWithDisk().slice(0, 10)
     })
 };
-
