@@ -454,7 +454,7 @@ var allPatients = [];
 
             // Col: DOB
             var tdDob = document.createElement('td');
-            tdDob.textContent = p.dob || '\u2014';
+            tdDob.textContent = window.fmtDate(p.dob) || '\u2014';
             tr.appendChild(tdDob);
 
             // Col: Phone
@@ -464,7 +464,7 @@ var allPatients = [];
 
             // Col: Service Date
             var tdSvc = document.createElement('td');
-            tdSvc.textContent = p.serviceDate || '\u2014';
+            tdSvc.textContent = window.fmtDate(p.serviceDate) || '\u2014';
             tr.appendChild(tdSvc);
 
             // Col: Next Svc Date (serviceDate + 90 days, color-coded)
@@ -795,9 +795,9 @@ var allPatients = [];
         document.getElementById('pPatientCode').value = patient ? patient.patientCode || '' : '';
         document.getElementById('pFirstName').value = patient ? patient.firstName || '' : '';
         document.getElementById('pLastName').value = patient ? patient.lastName || '' : '';
-        document.getElementById('pDob').value = patient ? patient.dob || '' : '';
+        document.getElementById('pDob').value = patient ? window.isoDate(patient.dob) : '';
         document.getElementById('pPhone').value = patient ? patient.phone || '' : '';
-        document.getElementById('pServiceDate').value = patient ? patient.serviceDate || '' : '';
+        document.getElementById('pServiceDate').value = patient ? window.isoDate(patient.serviceDate) : '';
         document.getElementById('pAddress').value = patient ? patient.address || '' : '';
         document.getElementById('pNotes').value = patient ? patient.notes || '' : '';
         document.getElementById('pIsActive').checked = patient ? patient.isActive : true;

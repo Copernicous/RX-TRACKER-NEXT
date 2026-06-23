@@ -1,5 +1,6 @@
 const db = require('../models');
 const { Op } = require('sequelize');
+const { parseDate } = require('../utils/dateUtils');
 
 exports.getAll = async (req, res) => {
     try {
@@ -36,7 +37,14 @@ exports.getOne = async (req, res) => {
 
 exports.create = async (req, res) => {
     try {
-        let { patientCode, ...otherData } = req.body;
+        let { patientCode, dob, serviceDate, ...otherData } = req.body;
+
+        // Normalise dates: accept MM/DD/YYYY, YYYY-MM-DD, or any common format
+        const normDob         = parseDate(dob);
+        const normServiceDate = parseDate(serviceDate);
+        if (dob && !normDob) return res.status(400).json({ error: 'Date of Birth is not a valid date. Use MM/DD/YYYY format.' });
+        otherData.dob         = normDob;
+        otherData.serviceDate = normServiceDate;
 
         // Auto-generate patientCode if not provided
         if (!patientCode || !patientCode.trim()) {
@@ -80,6 +88,18 @@ exports.update = async (req, res) => {
         const patient = await db.Patient.findByPk(req.params.id);
         if (!patient) return res.status(404).json({ message: 'Not found' });
 
+        // Normalise incoming dates (accept MM/DD/YYYY or YYYY-MM-DD)
+        if (req.body.hasOwnProperty('dob')) {
+            const norm = parseDate(req.body.dob);
+            if (req.body.dob && !norm) return res.status(400).json({ error: 'Date of Birth is not a valid date. Use MM/DD/YYYY format.' });
+            req.body.dob = norm;
+        }
+        if (req.body.hasOwnProperty('serviceDate')) {
+            const norm = parseDate(req.body.serviceDate);
+            if (req.body.serviceDate && !norm) return res.status(400).json({ error: 'Service Date is not valid. Use MM/DD/YYYY format.' });
+            req.body.serviceDate = norm || null;
+        }
+
         // Validate uniqueness of updated patientCode if provided and changed
         if (req.body.patientCode && req.body.patientCode.trim() !== patient.patientCode) {
             const newCode = req.body.patientCode.trim();
@@ -95,18 +115,18 @@ exports.update = async (req, res) => {
             req.body.patientCode = newCode;
         }
 
-        // Check if service date is being updated
+        // Check if service date is being updated (90-day rule)
         if (req.body.serviceDate && req.body.serviceDate !== patient.serviceDate) {
             if (patient.serviceDate) {
                 const prevDate = new Date(patient.serviceDate);
                 const newDate = new Date(req.body.serviceDate);
                 const currentDate = new Date();
-                
+
                 const daysDifference = (currentDate.getTime() - prevDate.getTime()) / (1000 * 3600 * 24);
-                
+
                 if (daysDifference < 90) {
-                    return res.status(400).json({ 
-                        error: `A new Service Date can only be assigned every 90 days. Only ${Math.floor(daysDifference)} days have passed.` 
+                    return res.status(400).json({
+                        error: `A new Service Date can only be assigned every 90 days. Only ${Math.floor(daysDifference)} days have passed.`
                     });
                 }
             }

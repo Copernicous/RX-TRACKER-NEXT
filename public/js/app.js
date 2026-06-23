@@ -2,6 +2,31 @@
 // Patient RX - Frontend Application Logic
 // =============================================
 
+// ── Global date helpers ───────────────────────────────────────────────────────
+// fmtDate(val)  → 'MM/DD/YYYY'   for display   (DB stores YYYY-MM-DD)
+// isoDate(val)  → 'YYYY-MM-DD'   for <input type="date"> .value and API calls
+// Both return '' for null/empty/invalid — never throw.
+window.fmtDate = function(val) {
+    if (!val) return '';
+    var s = String(val).trim();
+    // Already YYYY-MM-DD from DB
+    var m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (m) return m[2] + '/' + m[3] + '/' + m[1];
+    // Already MM/DD/YYYY — pass through
+    if (/^\d{1,2}\/\d{1,2}\/\d{4}/.test(s)) return s;
+    return '';
+};
+window.isoDate = function(val) {
+    if (!val) return '';
+    var s = String(val).trim();
+    // Already ISO
+    if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.substring(0, 10);
+    // MM/DD/YYYY → YYYY-MM-DD
+    var m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+    if (m) return m[3] + '-' + m[1].padStart(2,'0') + '-' + m[2].padStart(2,'0');
+    return '';
+};
+
 // ----- Frontend Error Boundary -----
 (function() {
     function sendError(message, source, stack, severity) {

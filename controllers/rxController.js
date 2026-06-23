@@ -1,4 +1,5 @@
 const db = require('../models');
+const { parseDate } = require('../utils/dateUtils');
 
 // ---- helper: save a history snapshot ----
 async function saveHistory(rxId, userId, changeType, snapshot, changedFields, note, transaction) {
@@ -72,15 +73,22 @@ exports.getOne = async (req, res) => {
 exports.create = async (req, res) => {
     const transaction = await db.sequelize.transaction();
     try {
-        const { arrivalDate, serviceDate, medications, ...rxData } = req.body;
+        const { medications, ...rxData } = req.body;
+        let { arrivalDate, serviceDate } = rxData;
 
-        const sDate = new Date(serviceDate);
-        const aDate = new Date(arrivalDate);
+        // Normalise dates: accept MM/DD/YYYY or YYYY-MM-DD
+        arrivalDate = parseDate(arrivalDate);
+        serviceDate = parseDate(serviceDate);
+        rxData.arrivalDate = arrivalDate;
+        rxData.serviceDate = serviceDate;
+
+        const sDate = arrivalDate ? new Date(arrivalDate) : null;
+        const aDate = serviceDate ? new Date(serviceDate) : null;
 
         // LOGIC-01 FIX: Reject NaN/invalid dates before comparison
-        if (!serviceDate || !arrivalDate || isNaN(sDate.getTime()) || isNaN(aDate.getTime())) {
+        if (!arrivalDate || !serviceDate || !sDate || !aDate || isNaN(sDate.getTime()) || isNaN(aDate.getTime())) {
             await transaction.rollback();
-            return res.status(400).json({ error: 'Arrival date and Service Date are required and must be valid dates.' });
+            return res.status(400).json({ error: 'Arrival date and Service Date are required and must be valid dates (MM/DD/YYYY).' });
         }
 
         const limitDate = new Date(sDate);
