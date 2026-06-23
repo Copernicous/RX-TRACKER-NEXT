@@ -1181,17 +1181,17 @@ var allPatients = [];
                 '</div>';
             } else {
                 return '<tr>' +
-                  '<td colspan="5" style="padding:0;border-bottom:2px solid #dee2e6">' +
-                    '<table style="width:100%;border-collapse:collapse;font-size:.82rem">' +
-                      '<tr>' +
-                        '<td style="padding:6px 8px;font-weight:700">#' + rx.id + '</td>' +
-                        '<td style="padding:6px 8px">' + (rx.arrivalDate||'\u2014') + '</td>' +
-                        '<td style="padding:6px 8px">' + (rx.serviceDate||'\u2014') + '</td>' +
-                        '<td style="padding:6px 8px">' + (rx.Pharmacy ? rx.Pharmacy.name : '\u2014') + '</td>' +
-                        '<td style="padding:6px 8px"><span style="background:' + statusColor + ';color:#fff;padding:1px 8px;border-radius:10px;font-size:.72rem">' + statusLabel + '</span></td>' +
+                  '<td colspan="5" style="padding:0;border-bottom:2px solid #dee2e6;background:#ffffff">' +
+                    '<table style="width:100%;border-collapse:collapse;font-size:.82rem;color:#1a2234;background:#ffffff">' +
+                      '<tr style="background:#ffffff">' +
+                        '<td style="padding:6px 8px;font-weight:700;color:#1a2234;background:#ffffff">#' + rx.id + '</td>' +
+                        '<td style="padding:6px 8px;color:#1a2234;background:#ffffff">' + (window.fmtDate(rx.arrivalDate)||'\u2014') + '</td>' +
+                        '<td style="padding:6px 8px;color:#1a2234;background:#ffffff">' + (window.fmtDate(rx.serviceDate)||'\u2014') + '</td>' +
+                        '<td style="padding:6px 8px;color:#1a2234;background:#ffffff">' + (rx.Pharmacy ? rx.Pharmacy.name : '\u2014') + '</td>' +
+                        '<td style="padding:6px 8px;background:#ffffff"><span style="background:' + statusColor + ';color:#fff;padding:1px 8px;border-radius:10px;font-size:.72rem">' + statusLabel + '</span></td>' +
                       '</tr>' +
-                      (actions.length ? '<tr><td colspan="5" style="padding:3px 8px 3px 24px;background:#f8f9fa;font-size:.78rem"><strong>Actions:</strong> ' + actionsHtml + '</td></tr>' : '') +
-                      '<tr><td colspan="5" style="padding:3px 8px 8px 8px"><table style="width:100%;border-collapse:collapse">' + wfHtml + '</table></td></tr>' +
+                      (actions.length ? '<tr><td colspan="5" style="padding:3px 8px 3px 24px;background:#f5f5f5;font-size:.78rem;color:#1a2234"><strong>Actions:</strong> ' + actionsHtml + '</td></tr>' : '') +
+                      '<tr><td colspan="5" style="padding:3px 8px 8px 8px;background:#ffffff"><table style="width:100%;border-collapse:collapse;color:#1a2234">' + wfHtml + '</table></td></tr>' +
                     '</table>' +
                   '</td>' +
                 '</tr>';
@@ -1227,27 +1227,27 @@ var allPatients = [];
 
         // ── CLASSIC LAYOUT ───────────────────────────────────────────────────
         const classicHTML =
-        '<div id="printContentClassic" style="display:none;font-family:Inter,Arial,sans-serif;color:#1a2234;padding:28px">' +
+        '<div id="printContentClassic" style="display:none;font-family:Inter,Arial,sans-serif;color:#1a2234;background:#ffffff;padding:28px;border-radius:8px;margin:12px">' +
           '<div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #1a2234;padding-bottom:12px;margin-bottom:20px">' +
-            '<div><h4 style="margin:0;color:#1a2234">Patient Record</h4><div style="font-size:.8rem;color:#888;margin-top:4px">Printed: ' + printDate + '</div></div>' +
-            '<div style="text-align:right"><div style="font-size:1.1rem;font-weight:700">' + p.firstName + ' ' + p.lastName + ' ' + statusBadge + '</div><div style="color:#888;font-size:.85rem"><code>' + (p.patientCode||'\u2014') + '</code></div></div>' +
+            '<div><h4 style="margin:0;color:#1a2234">Patient Record</h4><div style="font-size:.8rem;color:#666;margin-top:4px">Printed: ' + printDate + '</div></div>' +
+            '<div style="text-align:right"><div style="font-size:1.1rem;font-weight:700;color:#1a2234">' + p.firstName + ' ' + p.lastName + ' ' + statusBadge + '</div><div style="color:#666;font-size:.85rem"><code style="color:#1a2234">' + (p.patientCode||'\u2014') + '</code></div></div>' +
           '</div>' +
-          '<table style="width:100%;border-collapse:collapse;margin-bottom:24px;font-size:.875rem">' +
-            '<tr><td style="width:50%;padding:6px 0"><strong>Date of Birth:</strong> '+(p.dob||'\u2014')+'</td><td style="padding:6px 0"><strong>Phone:</strong> '+(p.phone||'\u2014')+'</td></tr>' +
-            '<tr><td style="padding:6px 0"><strong>Service Date:</strong> '+(p.serviceDate||'\u2014')+'</td><td style="padding:6px 0"><strong>Clinic:</strong> '+clinic+'</td></tr>' +
-            '<tr><td style="padding:6px 0"><strong>Address:</strong> '+(p.address||'\u2014')+'</td><td style="padding:6px 0"><strong>Patient Transport:</strong> '+ptComp+'</td></tr>' +
-            '<tr><td style="padding:6px 0"><strong>Pharmacy Transport:</strong> '+phComp+'</td><td></td></tr>' +
+          '<table style="width:100%;border-collapse:collapse;margin-bottom:24px;font-size:.875rem;color:#1a2234;background:#ffffff">' +
+            '<tr><td style="width:50%;padding:6px 0;color:#1a2234;background:#ffffff"><strong>Date of Birth:</strong> '+(window.fmtDate(p.dob)||'\u2014')+'</td><td style="padding:6px 0;color:#1a2234;background:#ffffff"><strong>Phone:</strong> '+(p.phone||'\u2014')+'</td></tr>' +
+            '<tr><td style="padding:6px 0;color:#1a2234;background:#ffffff"><strong>Service Date:</strong> '+(window.fmtDate(p.serviceDate)||'\u2014')+'</td><td style="padding:6px 0;color:#1a2234;background:#ffffff"><strong>Clinic:</strong> '+clinic+'</td></tr>' +
+            '<tr><td style="padding:6px 0;color:#1a2234;background:#ffffff"><strong>Address:</strong> '+(p.address||'\u2014')+'</td><td style="padding:6px 0;color:#1a2234;background:#ffffff"><strong>Patient Transport:</strong> '+ptComp+'</td></tr>' +
+            '<tr><td style="padding:6px 0;color:#1a2234;background:#ffffff"><strong>Pharmacy Transport:</strong> '+phComp+'</td><td style="background:#ffffff"></td></tr>' +
           '</table>' +
-          (p.notes ? '<div style="background:#f8f9fa;border-left:3px solid #4a90e2;padding:10px 14px;border-radius:4px;margin-bottom:24px;font-size:.85rem"><strong>Notes:</strong><br>' + p.notes.replace(/\n/g,'<br>') + '</div>' : '') +
-          '<h6 style="border-bottom:1px solid #dee2e6;padding-bottom:6px;margin-bottom:12px">RX Records (' + patientRx.length + ')</h6>' +
+          (p.notes ? '<div style="background:#f8f9fa;border-left:3px solid #4a90e2;padding:10px 14px;border-radius:4px;margin-bottom:24px;font-size:.85rem;color:#1a2234"><strong>Notes:</strong><br>' + p.notes.replace(/\n/g,'<br>') + '</div>' : '') +
+          '<h6 style="border-bottom:1px solid #dee2e6;padding-bottom:6px;margin-bottom:12px;color:#1a2234">RX Records (' + patientRx.length + ')</h6>' +
           (patientRx.length ?
-            '<table style="width:100%;border-collapse:collapse;font-size:.82rem">' +
+            '<table style="width:100%;border-collapse:collapse;font-size:.82rem;color:#1a2234;background:#ffffff">' +
             '<thead><tr style="background:#1a2234;color:#fff">' +
-              '<th style="padding:7px 8px">RX #</th><th style="padding:7px 8px">Arrival</th><th style="padding:7px 8px">Service</th><th style="padding:7px 8px">Pharmacy</th><th style="padding:7px 8px">Status</th>' +
+              '<th style="padding:7px 8px;color:#fff">RX #</th><th style="padding:7px 8px;color:#fff">Arrival</th><th style="padding:7px 8px;color:#fff">Service</th><th style="padding:7px 8px;color:#fff">Pharmacy</th><th style="padding:7px 8px;color:#fff">Status</th>' +
             '</tr></thead>' +
-            '<tbody>' + (patientRx.length ? (function(){var _rxc=''; patientRx.forEach(function(rx){_rxc+=buildRxBlock(rx,'classic');}); return _rxc;})() : '<tr><td colspan="5" style="text-align:center;color:#888">No RX records found.</td></tr>') + '</tbody>' +
+            '<tbody>' + (patientRx.length ? (function(){var _rxc=''; patientRx.forEach(function(rx){_rxc+=buildRxBlock(rx,'classic');}); return _rxc;})() : '<tr><td colspan="5" style="text-align:center;color:#888;background:#fff">No RX records found.</td></tr>') + '</tbody>' +
             '</table>'
-          : '<p style="color:#888">No RX records found.</p>') +
+          : '<p style="color:#666">No RX records found.</p>') +
         '</div>';
 
         body.innerHTML = cardHTML + classicHTML;
