@@ -414,5 +414,54 @@ router.get('/version', (req, res) => {
     });
 });
 
+// ── Git commit log (admin only) ───────────────────────────────────────────────
+// Returns last N commits with per-file stats for the changelog page
+router.get('/git-log', auth, adminOnly, (req, res) => {
+    const { execSync } = require('child_process');
+    const IS_PKG = typeof process.pkg !== 'undefined';
+
+    // git is only available in dev mode (not inside server.exe snapshot)
+    if (IS_PKG) {
+        return res.json({ available: false, commits: [], reason: 'Running as compiled exe — git log not available' });
+    }
+
+    try {
+        const limit  = Math.min(parseInt(req.query.n || '30'), 100);
+        const sep    = '----COMMIT----';
+        const raw    = execSync(
+            `git log --format="${sep}%H|%ad|%an|%s" --date=short --stat -${limit}`,
+            { cwd: path.join(__dirname, '..'), encoding: 'utf8', timeout: 8000 }
+        );
+
+        const commits = [];
+        const blocks  = raw.split(sep).filter(b => b.trim());
+
+        for (const block of blocks) {
+            const lines    = block.trim().split('\n');
+            const header   = lines[0].split('|');
+            if (header.length < 4) continue;
+            const [hash, date, author, ...msgParts] = header;
+            const message  = msgParts.join('|');
+
+            // Parse file stats lines (e.g. "  foo/bar.js | 12 ++--")
+            const files = [];
+            for (let i = 1; i < lines.length; i++) {
+                const m = lines[i].match(/^\s+(.+?)\s+\|\s+(\d+)\s*([\+\-]*)/);
+                if (m) {
+                    files.push({ file: m[1].trim(), changes: parseInt(m[2]), diff: m[3] });
+                }
+            }
+            // Summary line (last stat line: "N files changed, X insertions, Y deletions")
+            const summary = lines.find(l => l.includes('changed')) || '';
+
+            commits.push({ hash: hash.trim().substring(0,7), fullHash: hash.trim(), date: date.trim(), author: author.trim(), message: message.trim(), files, summary: summary.trim() });
+        }
+
+        res.json({ available: true, commits });
+    } catch (e) {
+        res.json({ available: false, commits: [], reason: e.message });
+    }
+});
+
 module.exports = router;
 
