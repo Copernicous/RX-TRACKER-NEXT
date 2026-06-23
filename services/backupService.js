@@ -19,7 +19,7 @@ const BACKUP_DIR    = path.join(WRITABLE_ROOT, 'backups');
 const MAX_BACKUPS   = parseInt(process.env.BACKUP_RETAIN || '10');
 const BACKUP_LOG    = path.join(BACKUP_DIR, 'backup.log.json');
 const SETTINGS_PATH = path.join(WRITABLE_ROOT, 'data', 'settings.json');
-const PROJECT_ROOT  = IS_PKG ? process.execDir : path.join(__dirname, '..');
+const PROJECT_ROOT  = IS_PKG ? path.dirname(process.execPath) : path.join(__dirname, '..');
 
 // ── Lazy dir creation (never at module load time inside pkg snapshot) ─────────
 function ensureDir(dir) {
