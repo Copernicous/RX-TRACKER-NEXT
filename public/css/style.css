@@ -798,6 +798,7 @@ body {
     border-color: var(--border) !important;
     color: var(--text-muted) !important;
 }
+}
 
 /* ── Readonly / disabled inputs (display-only fields) ── */
 [data-theme="dark"] .form-control[readonly],
@@ -808,6 +809,26 @@ body {
     color: var(--text-muted) !important;
     border-color: var(--border) !important;
     opacity: 1 !important;
+}
+
+/* ── DK-DATE: Date / time input native picker icon fix ───────────────────────
+   Problem: input[type=date] uses browser-native chrome (calendar icon, spinner).
+   The browser renders that chrome using the OS/page color-scheme.
+   In dark mode our CSS sets a dark background, but the native icon is also
+   dark → invisible.  Telling the browser color-scheme:dark makes it render
+   the icon in white so it's visible on our dark background.
+   In light mode we explicitly set light so it's also correct on any OS.
+─────────────────────────────────────────────────────────────────────────── */
+input[type="date"],
+input[type="time"],
+input[type="datetime-local"] {
+    color-scheme: light;
+}
+
+[data-theme="dark"] input[type="date"],
+[data-theme="dark"] input[type="time"],
+[data-theme="dark"] input[type="datetime-local"] {
+    color-scheme: dark;
 }
 
 /* ── Dropdown menus ── */
