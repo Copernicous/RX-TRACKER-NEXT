@@ -9,6 +9,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ### 🐛 Bug Fixes (post-release)
 
+#### Fix: Date picker calendar icon invisible in dark mode
+**Commit:** `b28b0cc` | **Files changed:** 1 | **Lines:** +20
+- `public/css/style.css` +20 lines — added `DK-DATE` block
+- **Root cause:** `input[type="date"]` browser-native chrome (calendar icon, spin buttons) follows the page `color-scheme`. Our dark theme set a dark input background, but the icon was still rendered dark (default `light` color-scheme) → invisible.
+- **Fix:** added `color-scheme: light` on all date/time inputs globally; `color-scheme: dark` when `[data-theme="dark"]` is set. Applies to all `input[type=date/time/datetime-local]` across every page.
+
 #### Fix: Changelog page stuck on "Loading…" in production
 **Commit:** `7e9f659` | **Files changed:** 2 | **Lines:** +70 / -1
 - `public/assets/marked.min.js` (new, 39 KB) — bundled locally
