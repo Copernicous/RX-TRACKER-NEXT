@@ -1,4 +1,25 @@
+// ── CLI flags — must be first, before any other require ──────────────────────
+// Usage:  server.exe --v   OR   server.exe --version
+// Prints version info and exits without starting the server.
+(function checkCliFlags() {
+    const args = process.argv.slice(2);
+    if (args.includes('--v') || args.includes('--version') || args.includes('-v')) {
+        const pkg  = require('./package.json');
+        const IS_PKG = typeof process.pkg !== 'undefined';
+        console.log('');
+        console.log('  Patient RX System');
+        console.log('  Version  : ' + pkg.version);
+        console.log('  Node.js  : ' + process.version);
+        console.log('  Platform : ' + process.platform + ' ' + process.arch);
+        console.log('  Mode     : ' + (IS_PKG ? 'compiled (server.exe)' : 'node app.js'));
+        console.log('  Built    : 2026-06-23');
+        console.log('');
+        process.exit(0);
+    }
+})();
+
 require('dotenv').config();
+
 
 // ── Crash prevention — keep server alive on unhandled async errors ────────────
 process.on('unhandledRejection', (reason, promise) => {
