@@ -93,6 +93,17 @@
             padding: 0.75rem 1rem;
             font-size: 0.85rem;
         }
+        /* IMPROVE-01: shake animation on wrong password */
+        @keyframes shake {
+            0%,100% { transform: translateX(0); }
+            15%      { transform: translateX(-8px); }
+            30%      { transform: translateX(7px); }
+            45%      { transform: translateX(-6px); }
+            60%      { transform: translateX(5px); }
+            75%      { transform: translateX(-4px); }
+            90%      { transform: translateX(3px); }
+        }
+        .shake-card { animation: shake 0.6s cubic-bezier(.36,.07,.19,.97) both; }
         .input-group-text {
             background: rgba(255,255,255,0.1);
             border: 1px solid rgba(255,255,255,0.2);
@@ -338,6 +349,14 @@
             el.style.border        = '1px solid rgba(220,53,69,.4)';
             el.style.borderRadius  = '8px';
             el.style.padding       = '10px 14px';
+            // IMPROVE-01: shake the card on error
+            var card = document.querySelector('.login-card');
+            if (card) {
+                card.classList.remove('shake-card');
+                void card.offsetWidth; // force reflow to restart animation
+                card.classList.add('shake-card');
+                setTimeout(function() { card.classList.remove('shake-card'); }, 650);
+            }
         }
     </script>
 </body>

@@ -436,6 +436,67 @@ body {
 .btn-success { background: var(--success); border-color: var(--success); }
 .btn-danger { background: var(--danger); border-color: var(--danger); }
 
+/* ── Filter row button alignment ──────────────────────────────────────────
+   Problem:  The global .form-control { padding: 0.5rem 0.9rem } rule
+             inflates inputs to ~39px. Columns containing ONLY buttons (no
+             label above them) are shorter, so buttons appear misaligned.
+   Fix:      Force the button-only flex containers to min-height:39px and
+             make their child buttons fill that height.
+   Covers:   align-items-stretch (patients), align-items-end, gap-1, gap-2
+             (reports.ejs, rx-records.ejs, etc.)
+   Scope:    Tightly scoped to .row.g-2 / .row.align-items-end children only.
+             Does NOT affect navbar, modal footer, or card buttons.
+   ────────────────────────────────────────────────────────────────────────── */
+.row.g-2.align-items-end .d-flex,
+.row.align-items-end .d-flex {
+    min-height: 39px;
+}
+.row.g-2.align-items-end .d-flex.align-items-stretch,
+.row.align-items-end .d-flex.align-items-stretch,
+.row.g-2.align-items-end .d-flex.gap-1,
+.row.g-2.align-items-end .d-flex.gap-2,
+.row.align-items-end .d-flex.gap-1,
+.row.align-items-end .d-flex.gap-2 {
+    min-height: 39px;
+    align-items: stretch;
+}
+.row.g-2.align-items-end .d-flex > .btn,
+.row.align-items-end .d-flex > .btn {
+    height: 100%;
+    min-height: 39px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    white-space: nowrap;
+    padding-top: 0.38rem;
+    padding-bottom: 0.38rem;
+}
+/* Search / primary button — bolder look */
+.row.g-2.align-items-end .d-flex > .btn-primary,
+.row.align-items-end .d-flex > .btn-primary {
+    font-weight: 600;
+    letter-spacing: 0.3px;
+}
+
+/* ── .btn-search — uniform square search button ───────────────────────────
+   Fixed 38px × 38px (matches input height) so the 🔍 icon button looks
+   identical on every filter bar regardless of column width or flex context.
+   ────────────────────────────────────────────────────────────────────────── */
+.btn-search {
+    width: 38px !important;
+    min-width: 38px !important;
+    max-width: 38px !important;
+    height: 38px !important;
+    min-height: 38px !important;
+    padding: 0 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex-shrink: 0 !important;
+    flex-grow: 0 !important;
+    font-size: 0.875rem !important;
+}
+
 /* ---------- Modals ---------- */
 .modal-content {
     background: var(--surface);

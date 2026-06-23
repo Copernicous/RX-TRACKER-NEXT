@@ -84,3 +84,48 @@ exports.testConnection = async () => {
 
 /** Returns true if SMTP is configured (user + pass set) */
 exports.isConfigured = () => !!(process.env.SMTP_USER && process.env.SMTP_PASS);
+
+/**
+ * IMPROVE-04: Send a welcome email to a newly created user.
+ * Fire-and-forget — errors are logged but never thrown (don't break user creation).
+ * @param {Object} opts
+ * @param {string} opts.toEmail    - recipient email
+ * @param {string} opts.firstName  - recipient first name
+ * @param {string} opts.username   - their login username
+ * @param {string} [opts.sysUrl]   - optional system URL shown in the email
+ */
+exports.sendWelcome = async ({ toEmail, firstName, username, sysUrl }) => {
+    if (!exports.isConfigured()) return; // SMTP not set up — skip silently
+    if (!toEmail)                return; // no email address on the user — skip
+    try {
+        const fromName = process.env.SMTP_FROM_NAME || 'Patient RX System';
+        const url      = sysUrl || '';
+        const html = `
+<div style="font-family:'Segoe UI',Arial,sans-serif;max-width:560px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08)">
+  <div style="background:linear-gradient(135deg,#6366f1,#4f46e5);padding:32px 36px;text-align:center">
+    <div style="font-size:2.4rem;margin-bottom:8px">💊</div>
+    <h1 style="color:#fff;font-size:1.4rem;font-weight:700;margin:0">Welcome to Patient RX System</h1>
+  </div>
+  <div style="padding:32px 36px">
+    <p style="font-size:1rem;color:#374151">Hi <strong>${firstName || username}</strong>,</p>
+    <p style="color:#6b7280;line-height:1.6">Your account has been created by an administrator. Here are your login details:</p>
+    <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:16px 20px;margin:20px 0">
+      <div style="margin-bottom:8px"><span style="color:#9ca3af;font-size:.85rem">Username</span><br><strong style="font-size:1.05rem;color:#111827">${username}</strong></div>
+      ${url ? `<div><span style="color:#9ca3af;font-size:.85rem">System URL</span><br><a href="${url}" style="color:#6366f1;font-weight:600">${url}</a></div>` : ''}
+    </div>
+    <p style="color:#6b7280;line-height:1.6">Your administrator will provide your temporary password. Please change it after your first login.</p>
+    <p style="color:#6b7280;font-size:.85rem;margin-top:28px;border-top:1px solid #f3f4f6;padding-top:16px">
+      This message was sent by <strong>${fromName}</strong>. If you did not expect this, please contact your administrator.
+    </p>
+  </div>
+</div>`;
+        await exports.sendEmail({
+            to:      toEmail,
+            subject: `Welcome to ${fromName} — Your account is ready`,
+            html
+        });
+        console.log(`[Email] Welcome email sent to ${toEmail} (user: ${username})`);
+    } catch (err) {
+        console.warn(`[Email] Could not send welcome email to ${toEmail}:`, err.message);
+    }
+};

@@ -23,7 +23,10 @@ const DEFAULTS = {
     smtp_port:     process.env.SMTP_PORT   || '587',
     smtp_user:     process.env.SMTP_USER   || '',
     smtp_pass:     process.env.SMTP_PASS   || '',   // stored encrypted in next iteration; stored plaintext for now
-    smtp_from_name:process.env.SMTP_FROM_NAME || 'Patient RX System'
+    smtp_from_name:process.env.SMTP_FROM_NAME || 'Patient RX System',
+    // Security settings — editable from System Settings > Security card
+    session_timeout_minutes: process.env.SESSION_TIMEOUT_MINUTES || '30',
+    max_failed_logins:       process.env.MAX_FAILED_LOGINS        || '5'
 };
 
 let _cache = { ...DEFAULTS };

@@ -1,43 +1,9 @@
-// reports.js — Extracted from reports.ejs inline script for FortiGate proxy compatibility.
-// External JS files are not rewritten by FortiGate's content rewriter.
-
     var allPatientReport = [];
     var allRxReport = [];
     var allWorkflowActions = [];
     var prSortCol = 'id', prSortDir = 'desc';
     var rrSortCol = 'id', rrSortDir = 'desc';
     var _panelStates = {};
-
-    // ── Pagination state ────────────────────────────────────────────────────────
-    var prPage = 1, prPageSize = 10;
-    var rrPage = 1, rrPageSize = 10;
-
-    function prChangeSize(n) { prPageSize = parseInt(n); prPage = 1; renderPatientReport(); }
-    function rrChangeSize(n) { rrPageSize = parseInt(n); rrPage = 1; renderRxActionReport(); }
-    function prGoPage(p)     { prPage = p; renderPatientReport(); }
-    function rrGoPage(p)     { rrPage = p; renderRxActionReport(); }
-
-    // Smart ellipsis paginator — returns HTML string, FortiGate-safe (no template literals)
-    function buildPagNav(currentPage, totalPages, goFn) {
-        if (totalPages <= 1) return '';
-        var isFirst = currentPage === 1;
-        var isLast  = currentPage >= totalPages;
-        var html = '<li class="page-item' + (isFirst ? ' disabled' : '') + '"><a class="page-link" onclick="' + goFn + '(' + (currentPage - 1) + ')">&laquo;</a></li>';
-        var delta = 2;
-        var lo = Math.max(2, currentPage - delta);
-        var hi = Math.min(totalPages - 1, currentPage + delta);
-        // always page 1
-        html += '<li class="page-item' + (currentPage === 1 ? ' active' : '') + '"><a class="page-link" onclick="' + goFn + '(1)">1</a></li>';
-        if (lo > 2) html += '<li class="page-item disabled"><span class="page-link">&hellip;</span></li>';
-        for (var i = lo; i <= hi; i++) {
-            html += '<li class="page-item' + (i === currentPage ? ' active' : '') + '"><a class="page-link" onclick="' + goFn + '(' + i + ')">' + i + '</a></li>';
-        }
-        if (hi < totalPages - 1) html += '<li class="page-item disabled"><span class="page-link">&hellip;</span></li>';
-        // always last page
-        html += '<li class="page-item' + (currentPage === totalPages ? ' active' : '') + '"><a class="page-link" onclick="' + goFn + '(' + totalPages + ')">' + totalPages + '</a></li>';
-        html += '<li class="page-item' + (isLast ? ' disabled' : '') + '"><a class="page-link" onclick="' + goFn + '(' + (currentPage + 1) + ')">&raquo;</a></li>';
-        return html;
-    }
 
     function togglePanel(panelId, chevronId, stateKey) {
         _panelStates[stateKey] = !_panelStates[stateKey];
@@ -52,7 +18,7 @@
         await loadReportData();
         setupReportExports();
 
-        ['exportPatientCsv','exportRxCsv'].forEach(id => {
+        ['exportPatientCsv','exportPatientXls','exportPatientPdf','exportRxCsv','exportRxXls','exportRxPdf'].forEach(id => {
             const el = document.getElementById(id);
             if (el && typeof window.userPerms !== 'undefined' && !window.userPerms.canExport) el.style.display = 'none';
         });
@@ -63,13 +29,10 @@
         try {
             const tok = localStorage.getItem('token');
             const hdr = { 'Authorization': 'Bearer ' + tok };
-            var _uRptPat = '/api/reports/patients';
-            var _uRptRx  = '/api/reports/rx-actions';
-            var _uRptWa  = '/api/workflow-actions';
             const [patRes, rxRes, wfRes] = await Promise.all([
-                fetch(_uRptPat, { headers: hdr }).then(r => r.json()),
-                fetch(_uRptRx, { headers: hdr }).then(r => r.json()),
-                fetch(_uRptWa, { headers: hdr }).then(r => r.json())
+                fetch(window.rxUrl('/api/reports/patients'),  { headers: hdr }).then(r => r.json()),
+                fetch(window.rxUrl('/api/reports/rx-actions'),{ headers: hdr }).then(r => r.json()),
+                fetch(window.rxUrl('/api/workflow-actions'),  { headers: hdr }).then(r => r.json())
             ]);
             allPatientReport   = Array.isArray(patRes) ? patRes : [];
             allRxReport        = Array.isArray(rxRes)  ? rxRes  : [];
@@ -108,7 +71,9 @@
                 const q = (val || '').toLowerCase().trim();
                 const matches = q ? opts.filter(o => o.toLowerCase().includes(q)) : opts;
                 if (!matches.length) { listEl.classList.remove('open'); return; }
-                var _ach = ''; var _acm = matches.slice(0, 40); for (var _aci = 0; _aci < _acm.length; _aci++) { _ach += '<div class="ac-item">' + escHtml(_acm[_aci]) + '</div>'; } listEl.innerHTML = _ach;
+                listEl.innerHTML = matches.slice(0, 40).map(o =>
+                    `<div class="ac-item">${escHtml(o)}</div>`
+                ).join('');
                 listEl.querySelectorAll('.ac-item').forEach(item => {
                     item.addEventListener('mousedown', e => {
                         e.preventDefault();
@@ -178,36 +143,27 @@
             if (countEl) countEl.textContent = '0 records';
             return;
         }
-        var _ptHtml = ''; var _ptPage = data.slice((prPage-1)*prPageSize, prPage*prPageSize);
-        for (var _pi = 0; _pi < _ptPage.length; _pi++) { var p = _ptPage[_pi]; _ptHtml += (function() {
+        tbody.innerHTML = data.map(p => {
             const statusBadge = p.isActive
                 ? '<span class="badge bg-success">Active</span>'
                 : '<span class="badge bg-secondary">Inactive</span>';
             const dob = p.dob ? new Date(p.dob+'T12:00:00').toLocaleDateString() : '-';
             const svc = p.serviceDate ? new Date(p.serviceDate+'T12:00:00').toLocaleDateString() : '-';
-            return '<tr>' +
-                '<td><span class="badge bg-primary">' + (p.patientCode||'') + '</span></td>' +
-                '<td>' + (p.firstName||'') + '</td>' +
-                '<td>' + (p.lastName||'') + '</td>' +
-                '<td>' + dob + '</td>' +
-                '<td>' + (p.phone||'-') + '</td>' +
-                '<td>' + (p.address||'-') + '</td>' +
-                '<td>' + svc + '</td>' +
-                '<td>' + statusBadge + '</td>' +
-                '<td>' + (p.Clinic&&p.Clinic.name||'-') + '</td>' +
-                '<td>' + (p.PatientTransportCompany&&p.PatientTransportCompany.companyName||'-') + '</td>' +
-                '<td>' + (p.PharmacyTransportCompany&&p.PharmacyTransportCompany.companyName||'-') + '</td>' +
-            '</tr>';
-        })();
-        } tbody.innerHTML = _ptHtml;
-        // Counter and pagination
-        var total = data.length;
-        var pages = Math.ceil(total / prPageSize) || 1;
-        var start = total === 0 ? 0 : (prPage - 1) * prPageSize + 1;
-        var end   = Math.min(prPage * prPageSize, total);
-        if (countEl) countEl.textContent = 'Showing ' + start + '-' + end + ' of ' + total + ' records';
-        var nav = document.getElementById('prPagNav');
-        if (nav) nav.innerHTML = buildPagNav(prPage, pages, 'prGoPage');
+            return `<tr>
+                <td><span class="badge bg-primary">${p.patientCode||''}</span></td>
+                <td>${p.firstName||''}</td>
+                <td>${p.lastName||''}</td>
+                <td>${dob}</td>
+                <td>${p.phone||'-'}</td>
+                <td>${p.address||'-'}</td>
+                <td>${svc}</td>
+                <td>${statusBadge}</td>
+                <td>${p.Clinic&&p.Clinic.name||'-'}</td>
+                <td>${p.PatientTransportCompany&&p.PatientTransportCompany.companyName||'-'}</td>
+                <td>${p.PharmacyTransportCompany&&p.PharmacyTransportCompany.companyName||'-'}</td>
+            </tr>`;
+        }).join('');
+        if (countEl) countEl.textContent = data.length + ' record' + (data.length !== 1 ? 's' : '');
     }
 
     function getNestedVal(obj, path) {
@@ -279,8 +235,7 @@
             if (countEl) countEl.textContent = '0 records';
             return;
         }
-        var _rxHtml = ''; var _rxPage = data.slice((rrPage-1)*rrPageSize, rrPage*rrPageSize);
-        for (var _ri = 0; _ri < _rxPage.length; _ri++) { var r = _rxPage[_ri]; _rxHtml += (function() {
+        tbody.innerHTML = data.map(r => {
             const steps   = r.completedSteps || [];
             const wfTotal = allWorkflowActions.length;
             const done    = steps.length;
@@ -292,32 +247,19 @@
             const phName  = r.Pharmacy ? r.Pharmacy.name : '-';
             const progBadge = pct >= 100
                 ? '<span class="badge bg-success">Complete</span>'
-                : '<span class="badge bg-warning text-dark">' + pct + '%</span>';
-            var stepsHtml = '';
-            if (done > 0) {
-                steps.forEach(function(sid) { var a = allWorkflowActions.find(function(w){return w.id===sid;}); if(a) stepsHtml += '<span class="badge bg-success me-1">' + a.name + '</span>'; });
-            } else { stepsHtml = '-'; }
-            var nextHtml = nextStep ? '<span class="badge bg-warning text-dark">' + nextStep.name + '</span>' : '<span class="badge bg-success">All done</span>';
-            return '<tr>' +
-                '<td><span class="badge bg-primary">RX-' + r.id + '</span></td>' +
-                '<td>' + ptName + '</td>' +
-                '<td><span class="badge bg-info text-dark">' + ptCode + '</span></td>' +
-                '<td>' + phName + '</td>' +
-                '<td>' + svc + '</td>' +
-                '<td>' + stepsHtml + '</td>' +
-                '<td>' + nextHtml + '</td>' +
-                '<td>' + progBadge + '</td>' +
-            '</tr>';
-        })();
-        } tbody.innerHTML = _rxHtml;
-        // Counter and pagination
-        var rxTotal = data.length;
-        var rxPages = Math.ceil(rxTotal / rrPageSize) || 1;
-        var rxStart = rxTotal === 0 ? 0 : (rrPage - 1) * rrPageSize + 1;
-        var rxEnd   = Math.min(rrPage * rrPageSize, rxTotal);
-        if (countEl) countEl.textContent = 'Showing ' + rxStart + '-' + rxEnd + ' of ' + rxTotal + ' records';
-        var rrNav = document.getElementById('rrPagNav');
-        if (rrNav) rrNav.innerHTML = buildPagNav(rrPage, rxPages, 'rrGoPage');
+                : `<span class="badge bg-warning text-dark">${pct}%</span>`;
+            return `<tr>
+                <td><span class="badge bg-primary">RX-${r.id}</span></td>
+                <td>${ptName}</td>
+                <td><span class="badge bg-info text-dark">${ptCode}</span></td>
+                <td>${phName}</td>
+                <td>${svc}</td>
+                <td>${done > 0 ? steps.map(id => { const a = allWorkflowActions.find(w=>w.id===id); return a ? '<span class="badge bg-success me-1">'+a.name+'</span>' : ''; }).join('') : '-'}</td>
+                <td>${nextStep ? '<span class="badge bg-warning text-dark">'+nextStep.name+'</span>' : '<span class="badge bg-success">All done</span>'}</td>
+                <td>${progBadge}</td>
+            </tr>`;
+        }).join('');
+        if (countEl) countEl.textContent = data.length + ' record' + (data.length !== 1 ? 's' : '');
     }
 
     function sortRxReport(col) {
@@ -415,11 +357,101 @@
         const tbl = document.getElementById(tableId);
         if (!tbl) return;
         const win = window.open('', '_blank');
-        win.document.write(`<!DOCTYPE html><html><head>
-    <meta charset="UTF-8">
-    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><title>${title}</title>
-            <link href="/assets/bootstrap.min.css" rel="stylesheet">
-            </head><body class="p-4"><h4>${title}</h4>${tbl.outerHTML}</body></html>`);
+        win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><title>' + title + '</title><link href="/assets/bootstrap.min.css" rel="stylesheet"></head><body class="p-4"><h4>' + title + '</h4>' + tbl.outerHTML + '</body></html>');
         win.document.close();
         win.print();
     }
+
+    // BUG-04: Excel export — HTML table as .xls (opens natively in Excel, no external lib needed)
+    function downloadXls(filename, headers, rows) {
+        var table = '<table><thead><tr>' +
+            headers.map(function(h) { return '<th>' + String(h||'').replace(/</g,'&lt;') + '</th>'; }).join('') +
+            '</tr></thead><tbody>' +
+            rows.map(function(r) {
+                return '<tr>' + r.map(function(v) { return '<td>' + String(v||'').replace(/</g,'&lt;') + '</td>'; }).join('') + '</tr>';
+            }).join('') +
+            '</tbody></table>';
+        var html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="UTF-8"><!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>Report</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]--></head><body>' + table + '</body></html>';
+        var blob = new Blob([html], { type: 'application/vnd.ms-excel;charset=utf-8' });
+        var url  = URL.createObjectURL(blob);
+        var a    = document.createElement('a');
+        a.href = url; a.download = filename;
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
+
+    // Helper: returns filtered patient data (mirrors CSV export filter logic, avoids duplication)
+    function getFilteredPatientData() {
+        var filter     = document.getElementById('patientStatusFilter').value;
+        var dFrom      = document.getElementById('patientDateFrom').value;
+        var dTo        = document.getElementById('patientDateTo').value;
+        var qCode      = getVal('prfPatientCode');
+        var qFirst     = getVal('prfFirstName');
+        var qLast      = getVal('prfLastName');
+        var qPhone     = getVal('prfPhone');
+        var qTransport = getVal('prfTransport');
+        var qClinic    = getVal('prfClinic');
+        return allPatientReport.filter(function(p) {
+            if (filter !== '' && String(p.isActive) !== filter) return false;
+            if (qCode  && !(p.patientCode||'').toLowerCase().includes(qCode))   return false;
+            if (qFirst && !(p.firstName||'').toLowerCase().includes(qFirst))     return false;
+            if (qLast  && !(p.lastName||'').toLowerCase().includes(qLast))       return false;
+            if (qPhone && !(p.phone||'').toLowerCase().includes(qPhone))         return false;
+            if (qClinic && !((p.Clinic&&p.Clinic.name)||'').toLowerCase().includes(qClinic)) return false;
+            if (qTransport) {
+                var pt  = ((p.PatientTransportCompany&&p.PatientTransportCompany.companyName)||'').toLowerCase();
+                var pxt = ((p.PharmacyTransportCompany&&p.PharmacyTransportCompany.companyName)||'').toLowerCase();
+                if (!pt.includes(qTransport) && !pxt.includes(qTransport)) return false;
+            }
+            var svc = p.serviceDate || '';
+            if (dFrom && svc && svc < dFrom) return false;
+            if (dTo   && svc && svc > dTo)   return false;
+            return true;
+        });
+    }
+
+    // BUG-04/05: Wire Excel, PDF, Print buttons — FortiGate-safe (addEventListener only, no inline handlers)
+    document.addEventListener('DOMContentLoaded', function() {
+        // ── Patient tab ──
+        var patXls = document.getElementById('exportPatientXls');
+        if (patXls) patXls.addEventListener('click', function() {
+            var data = getFilteredPatientData();
+            if (!data.length) { showToast('No data to export', 'warning'); return; }
+            var headers = ['Patient ID','First Name','Last Name','DOB','Phone','Address','Service Date','Status','Clinic','Patient Transport','Pharmacy Transport'];
+            var rows = data.map(function(p) {
+                return [p.patientCode||'', p.firstName||'', p.lastName||'', p.dob||'', p.phone||'', p.address||'', p.serviceDate||'',
+                        p.isActive ? 'Active' : 'Inactive',
+                        (p.Clinic && p.Clinic.name) || '',
+                        (p.PatientTransportCompany && p.PatientTransportCompany.companyName) || '',
+                        (p.PharmacyTransportCompany && p.PharmacyTransportCompany.companyName) || ''];
+            });
+            downloadXls('patient_report_' + new Date().toISOString().slice(0,10) + '.xls', headers, rows);
+            showToast('Patient report exported as Excel!', 'success');
+        });
+        var patPdf   = document.getElementById('exportPatientPdf');
+        if (patPdf)   patPdf.addEventListener('click',   function() { printReport('Patient Report', 'patientReportTable'); });
+        var patPrint = document.getElementById('printPatientBtn');
+        if (patPrint) patPrint.addEventListener('click', function() { printReport('Patient Report', 'patientReportTable'); });
+
+        // ── RX tab ──
+        var rxXls = document.getElementById('exportRxXls');
+        if (rxXls) rxXls.addEventListener('click', function() {
+            if (!allRxReport.length) { showToast('No data to export', 'warning'); return; }
+            var headers = ['RX #','Patient','Patient ID','Pharmacy','Service Date','Done Steps','Progress %'];
+            var rows = allRxReport.map(function(r) {
+                var steps = r.completedSteps || [];
+                var pct   = allWorkflowActions.length ? Math.round(steps.length / allWorkflowActions.length * 100) : 0;
+                return ['RX-' + r.id,
+                        r.Patient ? r.Patient.firstName + ' ' + r.Patient.lastName : '',
+                        r.Patient ? r.Patient.patientCode : '',
+                        r.Pharmacy ? r.Pharmacy.name : '',
+                        r.serviceDate || '', steps.length, pct + '%'];
+            });
+            downloadXls('rx_report_' + new Date().toISOString().slice(0,10) + '.xls', headers, rows);
+            showToast('RX report exported as Excel!', 'success');
+        });
+        var rxPdf   = document.getElementById('exportRxPdf');
+        if (rxPdf)   rxPdf.addEventListener('click',   function() { printReport('RX Records Report', 'rxReportTable'); });
+        var rxPrint = document.getElementById('printRxBtn');
+        if (rxPrint) rxPrint.addEventListener('click', function() { printReport('RX Records Report', 'rxReportTable'); });
+    });

@@ -216,7 +216,18 @@ var allPatients = [];
             if (!selected.length) { showToast('Select at least one column.', 'warning'); return; }
             const headers = selected.map(c => c.label);
             const rows    = filteredPatients.map(p => selected.map(c => c.fn(p)));
-            exportToCsv('patients_' + new Date().toISOString().slice(0,10) + '.csv', headers, rows);
+            // IMPROVE-05: include active date range filters in filename
+            const today  = new Date().toISOString().slice(0,10);
+            const svcFrom = (document.getElementById('srchServiceFrom') || {}).value || '';
+            const svcTo   = (document.getElementById('srchServiceTo')   || {}).value || '';
+            const dob     = (document.getElementById('srchDob')         || {}).value || '';
+            let filenamePart = 'patients_';
+            if (svcFrom && svcTo)   { filenamePart += svcFrom + '_to_' + svcTo + '_exported-' + today; }
+            else if (svcFrom)       { filenamePart += 'from-' + svcFrom + '_exported-' + today; }
+            else if (svcTo)         { filenamePart += 'through-' + svcTo + '_exported-' + today; }
+            else if (dob)           { filenamePart += 'dob-' + dob + '_exported-' + today; }
+            else                    { filenamePart += today; }
+            exportToCsv(filenamePart + '.csv', headers, rows);
             bootstrap.Modal.getInstance(document.getElementById('exportColumnsModal')).hide();
             showToast('Exported ' + filteredPatients.length + ' records (' + selected.length + ' columns).', 'success');
         });
@@ -516,38 +527,61 @@ var allPatients = [];
                     tdAct.appendChild(btnRestore);
                 }
             } else {
+                // Shared RX count for badge display on RX, History, and Timeline buttons
+                var rxCount = (p.RXRecords && p.RXRecords.length) || 0;
+
+                // ── Helper: build a count badge pill (only shown when count > 0) ──
+                function makeBadgePill(count, color) {
+                    if (count <= 0) return null;
+                    var pill = document.createElement('span');
+                    pill.className = 'position-absolute top-0 start-100 translate-middle badge rounded-pill';
+                    pill.style.cssText = 'font-size:.55rem;min-width:1.1rem;padding:2px 4px;border:1.5px solid #fff;background:' + color + ';color:#fff;';
+                    pill.textContent = count;
+                    return pill;
+                }
+
                 // RX Records button
                 var btnRx = document.createElement('button');
-                btnRx.className = 'btn btn-sm btn-outline-info me-1';
-                btnRx.title = 'View RX Records';
+                btnRx.className = 'btn btn-sm btn-outline-info me-1 position-relative';
+                var rxTitle = rxCount > 0 ? rxCount + ' RX record' + (rxCount !== 1 ? 's' : '') : 'No RX records';
+                btnRx.title = rxTitle;
                 btnRx.innerHTML = '<i class="fas fa-prescription-bottle-alt"></i>';
                 btnRx.dataset.pid = p.id;
                 btnRx.dataset.pname = encodeURIComponent((p.firstName || '') + ' ' + (p.lastName || ''));
+                var _rxPill = makeBadgePill(rxCount, '#0dcaf0'); if (_rxPill) btnRx.appendChild(_rxPill);
                 btnRx.addEventListener('click', function() { goToRxByEl(this); });
                 tdAct.appendChild(btnRx);
 
                 // RX History button (Previous Service Dates)
                 var btnHist = document.createElement('button');
-                btnHist.className = 'btn btn-sm me-1';
-                btnHist.title = 'Previous Service Dates / RX History';
+                btnHist.className = 'btn btn-sm me-1 position-relative';
+                var histTitle = rxCount > 0 ? rxCount + ' service record' + (rxCount !== 1 ? 's' : '') : 'No history';
+                btnHist.title = histTitle;
                 btnHist.style.cssText = 'border-color:#7c3aed;color:#7c3aed';
                 btnHist.dataset.pid = p.id;
                 btnHist.dataset.pname = (p.firstName || '') + ' ' + (p.lastName || '');
                 var _histIcon = document.createElement('i');
                 _histIcon.className = 'fas fa-calendar-alt';
                 btnHist.appendChild(_histIcon);
+                var _histPill = makeBadgePill(rxCount, '#7c3aed'); if (_histPill) btnHist.appendChild(_histPill);
                 btnHist.addEventListener('mouseenter', function() { this.style.background = 'rgba(124,58,237,.1)'; });
                 btnHist.addEventListener('mouseleave', function() { this.style.background = ''; });
                 btnHist.addEventListener('click', function() { openRxHistory(parseInt(this.dataset.pid), this.dataset.pname); });
                 tdAct.appendChild(btnHist);
 
-                // Timeline button
+                // Timeline button — badge = RX count + notes (total events)
+                var noteCount0 = (p.PatientNotes && p.PatientNotes.length) || 0;
+                var tlCount = rxCount + noteCount0;
                 var btnTl = document.createElement('button');
-                btnTl.className = 'btn btn-sm me-1';
-                btnTl.title = 'View Timeline';
+                btnTl.className = 'btn btn-sm me-1 position-relative';
+                var tlTitle = tlCount > 0 ? tlCount + ' event' + (tlCount !== 1 ? 's' : '') + ' in timeline' : 'No timeline events';
+                btnTl.title = tlTitle;
                 btnTl.style.cssText = 'border-color:#20c9a0;color:#20c9a0';
-                btnTl.innerHTML = '<i class="fas fa-history"></i>';
                 btnTl.dataset.pid = p.id;
+                var _tlIcon = document.createElement('i');
+                _tlIcon.className = 'fas fa-history';
+                btnTl.appendChild(_tlIcon);
+                var _tlPill = makeBadgePill(tlCount, '#20c9a0'); if (_tlPill) btnTl.appendChild(_tlPill);
                 btnTl.addEventListener('mouseenter', function() { this.style.background = 'rgba(32,201,160,.1)'; });
                 btnTl.addEventListener('mouseleave', function() { this.style.background = ''; });
                 btnTl.addEventListener('click', function() { goToTimeline(parseInt(this.dataset.pid)); });
@@ -1216,7 +1250,7 @@ var allPatients = [];
             '</div>' +
           '</div>' +
           '<div style="padding:24px 28px;display:grid;grid-template-columns:1fr 1fr;gap:14px 32px;border-bottom:1px solid #e9ecef">' +
-(function(){ var _fd=''; var _farr=[['📅 Date of Birth',p.dob||'\u2014'],['📞 Phone',p.phone||'\u2014'],['📅 Service Date',p.serviceDate||'\u2014'],['🏥 Clinic',clinic],['🏠 Address',p.address||'\u2014'],['🚐 Patient Transport',ptComp],['💊 Pharmacy Transport',phComp]]; for(var _fi=0;_fi<_farr.length;_fi++){ var r=_farr[_fi]; _fd+='<div><div style="font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#888;margin-bottom:3px">'+r[0]+'</div><div style="font-size:.88rem">'+r[1]+'</div></div>'; } return _fd;})() +
+(function(){ var _fd=''; var _farr=[['📅 Date of Birth',(p.dob?window.fmtDate(p.dob):'\u2014')],['📞 Phone',p.phone||'\u2014'],['📅 Service Date',(p.serviceDate?window.fmtDate(p.serviceDate):'\u2014')],['🏥 Clinic',clinic],['🏠 Address',p.address||'\u2014'],['🚐 Patient Transport',ptComp],['💊 Pharmacy Transport',phComp]]; for(var _fi=0;_fi<_farr.length;_fi++){ var r=_farr[_fi]; _fd+='<div><div style="font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#888;margin-bottom:3px">'+r[0]+'</div><div style="font-size:.88rem">'+r[1]+'</div></div>'; } return _fd;})() +
           '</div>' +
           (p.notes ? '<div style="margin:16px 28px;padding:12px 16px;background:#fffbea;border-left:4px solid #f5a623;border-radius:4px;font-size:.85rem;color:#7a5800"><strong>📝 Notes:</strong><br>' + p.notes.replace(/\n/g,'<br>') + '</div>' : '') +
           '<div style="padding:0 28px 28px">' +

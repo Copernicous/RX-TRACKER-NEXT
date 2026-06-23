@@ -1,4 +1,4 @@
-﻿'use strict';
+'use strict';
 const db        = require('../models');
 const { QueryTypes } = require('sequelize');
 const fs        = require('fs');
@@ -574,16 +574,34 @@ exports.cleanOrphans = async (req, res) => {
     const valid = FK_PAIRS.find(([ct, cc, pt, pc]) =>
         ct === childTable && cc === childCol && pt === parentTable && pc === parentCol);
     if (!valid) return res.status(400).json({ error: 'Unknown FK pair.' });
+
+    // The WHERE clause that identifies orphaned rows in childTable
+    const orphanWhere = `"${childCol}" IS NOT NULL AND NOT EXISTS (SELECT 1 FROM "${parentTable}" p WHERE p."${parentCol}" = "${childTable}"."${childCol}")`;
+
+    const t = await db.sequelize.transaction();
     try {
+        // Before deleting orphaned rows, cascade-delete their own children
+        // (e.g. before deleting orphaned RXRecords, delete their RXHistories/Medications/RXWorkflowTrackings)
+        const grandChildren = FK_CHILDREN[childTable] || [];
+        for (const gc of grandChildren) {
+            if (gc.action === 'cascade' && !gc.via) {
+                await db.sequelize.query(
+                    `DELETE FROM "${gc.table}" WHERE "${gc.col}" IN (SELECT id FROM "${childTable}" WHERE ${orphanWhere})`,
+                    { transaction: t }
+                );
+            }
+        }
+
+        // Now delete the orphaned rows themselves
         const [deleted] = await db.sequelize.query(
-            `DELETE FROM "${childTable}" WHERE "${childCol}" IS NOT NULL
-             AND NOT EXISTS (SELECT 1 FROM "${parentTable}" p WHERE p."${parentCol}" = "${childTable}"."${childCol}")
-             RETURNING id`,
-            { type: QueryTypes.SELECT }
+            `DELETE FROM "${childTable}" WHERE ${orphanWhere} RETURNING id`,
+            { type: QueryTypes.SELECT, transaction: t }
         );
+        await t.commit();
         const count = Array.isArray(deleted) ? deleted.length : 0;
         res.json({ success: true, deleted: count });
     } catch (err) {
+        await t.rollback();
         res.status(500).json({ error: err.message });
     }
 };
@@ -726,16 +744,23 @@ exports.getTableData = async (req, res) => {
 
 // ── FK children map: parent table → child tables that reference it ─────────────
 // action: 'cascade' = delete child rows, 'null' = SET col = NULL
+// IMPORTANT: list grandchildren BEFORE their parents so the delete order is safe
 const FK_CHILDREN = {
     Patients: [
-        { table: 'RXRecords',           col: 'patientId',                  action: 'cascade' },
-        { table: 'PatientNotes',         col: 'patientId',                  action: 'cascade' },
-        { table: 'PatientLocks',         col: 'patientId',                  action: 'cascade' },
+        // Grandchildren of RXRecords must be cleaned BEFORE RXRecords is deleted
+        { table: 'RXHistories',          col: 'rxRecordId',  action: 'cascade', via: 'RXRecords' },
+        { table: 'RXWorkflowTrackings',  col: 'rxRecordId',  action: 'cascade', via: 'RXRecords' },
+        { table: 'Medications',          col: 'rxRecordId',  action: 'cascade', via: 'RXRecords' },
+        // Direct children of Patients
+        { table: 'RXRecords',            col: 'patientId',   action: 'cascade' },
+        { table: 'PatientNotes',         col: 'patientId',   action: 'cascade' },
+        { table: 'PatientLocks',         col: 'patientId',   action: 'cascade' },
     ],
     RXRecords: [
-        { table: 'RXWorkflowTrackings',  col: 'rxRecordId',                 action: 'cascade' },
-        { table: 'Medications',          col: 'rxRecordId',                 action: 'cascade' },
-        { table: 'RXHistories',          col: 'rxRecordId',                 action: 'cascade' },
+        // Children of RXRecords — delete in safe order
+        { table: 'RXHistories',          col: 'rxRecordId',  action: 'cascade' },
+        { table: 'RXWorkflowTrackings',  col: 'rxRecordId',  action: 'cascade' },
+        { table: 'Medications',          col: 'rxRecordId',  action: 'cascade' },
     ],
     Pharmacies: [
         { table: 'RXRecords',            col: 'pharmacyId',                 action: 'null' },
@@ -755,7 +780,13 @@ const FK_CHILDREN = {
     WorkflowActions: [
         { table: 'RXWorkflowTrackings',  col: 'workflowActionId',           action: 'null' },
     ],
+    Users: [
+        // AuditLogs and RXHistories reference userId — SET NULL to allow user deletion
+        { table: 'RXHistories',          col: 'userId',                     action: 'null' },
+        { table: 'AuditLogs',            col: 'userId',                     action: 'null' },
+    ],
 };
+
 
 // POST /api/admin/row-impact — returns count of related records for given IDs
 exports.getRowImpact = async (req, res) => {
@@ -800,11 +831,27 @@ exports.deleteRows = async (req, res) => {
     const results = { deleted: 0, cascaded: {}, nulled: {} };
 
     try {
-        // Handle children first
+        // Handle children first (list is ordered: grandchildren before direct children)
         for (const child of children) {
             if (child.action === 'cascade') {
+                let sql;
+                if (child.via) {
+                    // Grandchild: child.col references child.via table, not the parent directly
+                    // e.g. RXHistories.rxRecordId -> RXRecords (where patientId IN (:ids))
+                    // Find the FK column that links child.via back to tableName
+                    const viaChildren = FK_CHILDREN[tableName] || [];
+                    const viaLink = viaChildren.find(c => c.table === child.via && !c.via);
+                    if (viaLink) {
+                        sql = `DELETE FROM "${child.table}" WHERE "${child.col}" IN (SELECT id FROM "${child.via}" WHERE "${viaLink.col}" IN (:ids))`;
+                    } else {
+                        // Fallback: skip (shouldn't happen with correct FK_CHILDREN config)
+                        continue;
+                    }
+                } else {
+                    sql = `DELETE FROM "${child.table}" WHERE "${child.col}" IN (:ids)`;
+                }
                 const [rows] = await db.sequelize.query(
-                    `DELETE FROM "${child.table}" WHERE "${child.col}" IN (:ids) RETURNING id`,
+                    sql + ' RETURNING id',
                     { type: QueryTypes.SELECT, replacements: { ids: idList }, transaction: t }
                 );
                 results.cascaded[child.table] = Array.isArray(rows) ? rows.length : 0;

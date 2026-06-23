@@ -76,3 +76,86 @@ function sanitizeCsvCell(val) {
     }
     return '"' + s.replace(/"/g, '""') + '"';
 }
+
+// ─── Active Session Heartbeat ─────────────────────────────────────────────────
+// Sends the current page title + URL to the server every 30s so the
+// "Who's Online" dashboard (active-users page) can track logged-in users.
+// Uses the rxUrl() helper from base.js for FortiGate proxy compatibility.
+(function () {
+    function _rxHeartbeat() {
+        var token = localStorage.getItem('rxToken') || localStorage.getItem('token');
+        if (!token) return; // not logged in — skip silently
+        var url = typeof window.rxUrl === 'function' ? window.rxUrl('/api/heartbeat') : '/api/heartbeat';
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + token
+            },
+            body: JSON.stringify({
+                currentPage: document.title.replace(/ - Patient RX System$/, '').trim(),
+                currentUrl:  window.location.pathname
+            }),
+            keepalive: true
+        }).catch(function () {}); // fail silently — non-critical
+    }
+
+    // Fire immediately, then every 30 seconds
+    _rxHeartbeat();
+    setInterval(_rxHeartbeat, 30000);
+})();
+
+// ─── Client-Side Error Logger ─────────────────────────────────────────────────
+// Logs frontend errors to POST /api/errors so developers can review them
+// from the Audit Log → Error Log tab without needing to reproduce the issue.
+//
+// Usage anywhere in the app:
+//   window.logClientError('Network error.', e.message + '\n' + e.stack, 'error');
+//   window.logClientError('Validation failed', 'Missing field: arrivalDate', 'warning');
+//
+// severity: 'error' | 'warning' | 'info'
+window.logClientError = function (message, detail, severity) {
+    try {
+        var token = localStorage.getItem('rxToken') || localStorage.getItem('token');
+        if (!token) return; // not authenticated — skip
+        var url = typeof window.rxUrl === 'function' ? window.rxUrl('/api/errors') : '/api/errors';
+        var stack = detail || '';
+        // Append page context to make the log actionable
+        stack += '\n\nPage: ' + document.title + ' (' + window.location.pathname + ')';
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + token
+            },
+            body: JSON.stringify({
+                message:  message  || 'Unknown client error',
+                stack:    stack,
+                url:      window.location.href,
+                severity: severity || 'error'
+            }),
+            keepalive: true
+        }).catch(function () {}); // never let logging itself crash the app
+    } catch (e) { /* never let logging itself crash the app */ }
+};
+
+// ─── Auto-catch ALL unhandled JS errors + Promise rejections ─────────────────
+// Any crash or unhandled rejection anywhere in the app is now automatically
+// saved to the ErrorLog DB table — no manual try/catch needed.
+(function () {
+    // Uncaught JS errors (syntax errors, null references, etc.)
+    window.addEventListener('error', function (evt) {
+        var msg = evt.message || 'Uncaught JS error';
+        var detail = 'Source: ' + evt.filename + ':' + evt.lineno + ':' + evt.colno;
+        if (evt.error && evt.error.stack) detail += '\n' + evt.error.stack;
+        window.logClientError(msg, detail, 'error');
+    });
+
+    // Unhandled Promise rejections (fetch failures, async errors, etc.)
+    window.addEventListener('unhandledrejection', function (evt) {
+        var reason = evt.reason;
+        var msg = reason instanceof Error ? reason.message : String(reason || 'Unhandled promise rejection');
+        var detail = reason instanceof Error && reason.stack ? reason.stack : '';
+        window.logClientError(msg, detail, 'error');
+    });
+})();

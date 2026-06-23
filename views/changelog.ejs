@@ -109,9 +109,10 @@
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="#" onclick="showTab('gitlog'); return false;" id="tab-gitlog">
+                            <a class="nav-link" href="#" onclick="showTab('gitlog'); return false;" id="tab-gitlog" title="Git commit history — only available when running via node app.js (not server.exe)">
                                 <i class="fas fa-history me-1"></i>Git Commits
                                 <span class="badge bg-secondary ms-1" id="commitCount" style="font-size:.65rem">—</span>
+                                <span class="badge bg-warning text-dark ms-1" style="font-size:.6rem" title="Not available in compiled server.exe">Dev Only</span>
                             </a>
                         </li>
                     </ul>

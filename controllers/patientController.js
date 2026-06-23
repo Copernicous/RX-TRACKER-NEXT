@@ -18,7 +18,14 @@ exports.getAll = async (req, res) => {
                 db.Pharmacy,
                 // Include PatientNotes with only id so the client can show a note count badge
                 // NOTE: alias must differ from the 'notes' text field (case conflict in some JSON parsers)
-                { model: db.PatientNote, as: 'PatientNotes', attributes: ['id'] }
+                { model: db.PatientNote, as: 'PatientNotes', attributes: ['id'] },
+                // Include RXRecords with only id (non-deleted) so the client can show RX/History/Timeline count badges
+                {
+                    model: db.RXRecord,
+                    attributes: ['id'],
+                    where: { [Op.or]: [{ isDeleted: false }, { isDeleted: null }] },
+                    required: false   // LEFT JOIN — patients with 0 RX records still appear
+                }
             ]
         });
         res.json(data);
@@ -191,7 +198,8 @@ exports.delete = async (req, res) => {
         );
         console.log(`[Patient Delete] Patient #${req.params.id} — ${cascadeCount[0]} RX record(s) soft-deleted.`);
 
-        res.status(204).send();
+        // Use res.json() (not res.send()) so auditLogger middleware can intercept and log the delete action
+        res.json({ ok: true, message: 'Patient deleted', id: parseInt(req.params.id) });
     } catch (err) { res.status(500).json({ error: err.message }); }
 };
 

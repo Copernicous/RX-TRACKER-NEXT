@@ -83,7 +83,7 @@
                         <input type="text" class="form-control form-control-sm" id="rxFilterPharmacy" placeholder="Pharmacy name">
                     </div>
                     <div class="col-md-2 d-flex gap-1 align-items-end">
-                        <button class="btn btn-primary btn-sm flex-fill" id="rxFilterBtn"><i class="fas fa-search"></i></button>
+                        <button class="btn btn-primary btn-sm btn-search" id="rxFilterBtn" title="Search"><i class="fas fa-search"></i></button>
                         <button class="btn btn-outline-secondary btn-sm" id="rxClearBtn"><i class="fas fa-times"></i></button>
                     </div>
                 </div>
@@ -468,6 +468,15 @@
             return res.json();
         }).then(function(data) {
             _rxShowBulkResults(data, stepName);
+            // IMPROVE-03: also show a toast summary so users see result even after overlay closes
+            var ok  = data.succeeded || 0;
+            var bad = data.failed    || 0;
+            var sn  = data.action ? data.action.name : stepName;
+            if (bad === 0) {
+                showToast(ok + ' record' + (ok !== 1 ? 's' : '') + ' updated — ' + sn, 'success');
+            } else {
+                showToast(ok + ' updated, ' + bad + ' skipped — ' + sn, 'warning');
+            }
             _rxBulkSel.clear();
             loadRxRecords();
         }).catch(function(err) {
@@ -1361,8 +1370,17 @@
                     showToast(err.error || err.message || 'Save failed.', 'danger');
                 });
             }
-        }).catch(function() {
-            showToast('Network error.', 'danger');
+        }).catch(function(e) {
+            var errMsg = (e && e.message) ? e.message : 'Network error saving RX record.';
+            showToast('Error: ' + errMsg, 'danger');
+            // Log to DB for developer review (Audit Log → Error Log tab)
+            if (typeof window.logClientError === 'function') {
+                window.logClientError(
+                    'RX Save failed: ' + errMsg,
+                    (e && e.stack ? e.stack : '') + '\nBody sent: ' + JSON.stringify(body),
+                    'error'
+                );
+            }
         }).then(function() {
             btn.disabled = false; spinner.classList.add('d-none');
         });
@@ -1511,7 +1529,7 @@
         currentRxId = rxId;
         document.getElementById('workflowBody').innerHTML = '<p class="text-muted text-center py-3">Loading...</p>';
         workflowModalInstance.show();
-        fetchWithAuth(window.rxUrl('/api/rx-records/') + rxId)
+        return fetchWithAuth(window.rxUrl('/api/rx-records/') + rxId)  // BUG-10 FIX: must return the Promise
         .then(function(res) {
             if (!res) return;
             return res.json().then(function(rx) {

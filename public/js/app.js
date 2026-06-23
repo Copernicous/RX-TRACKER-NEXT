@@ -597,14 +597,15 @@ async function fetchWithAuth(url, options = {}) {
         return null;
     }
     // 403 = authenticated but forbidden
-    // silent=true → return quietly (background init/dropdown calls for restricted modules)
-    // silent=false → show toast so the user knows the action was blocked
+    // Show a toast then return null so all callers' `if (!res) return;` guards fire.
+    // (Returning `res` after reading the body via res.clone().json() caused callers that
+    //  tried res.json() again to get "body already read" → caught as "Network error.")
     if (res.status === 403) {
         if (!silent) {
             var body = await res.clone().json().catch(function() { return {}; });
             showToast(body.message || 'Access denied.', 'warning');
         }
-        return res;
+        return null; // BUG-09 FIX: was `return res` — but body already consumed above
     }
     return res;
 }

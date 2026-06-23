@@ -118,12 +118,14 @@
                                 </select>
                             </div>
                             <div class="col-md-2 d-flex gap-2 align-items-end">
-                                <button class="btn btn-primary btn-sm flex-grow-1" onclick="prPage=1;renderPatientReport()"><i class="fas fa-search me-1"></i>Search</button>
+                                <button class="btn btn-primary btn-sm btn-search" onclick="prPage=1;renderPatientReport()" title="Search"><i class="fas fa-search"></i></button>
                                 <button class="btn btn-outline-secondary btn-sm" onclick="clearPatientFilters()" title="Clear"><i class="fas fa-times"></i></button>
                             </div>
                             <div class="col-md-2 d-flex align-items-end gap-2">
-                                <button class="btn btn-outline-success btn-sm flex-grow-1" id="exportPatientCsv"><i class="fas fa-file-csv me-1"></i>Export CSV</button>
-                                <button class="btn btn-outline-secondary btn-sm" title="Print" onclick="printReport('Patient Report','patientReportTable')"><i class="fas fa-print"></i></button>
+                                <button class="btn btn-outline-success btn-sm flex-grow-1" id="exportPatientCsv"><i class="fas fa-file-csv me-1"></i>CSV</button>
+                                <button class="btn btn-outline-primary btn-sm" id="exportPatientXls" title="Export Excel"><i class="fas fa-file-excel me-1"></i>Excel</button>
+                                <button class="btn btn-outline-danger btn-sm" id="exportPatientPdf" title="Export PDF (print)"><i class="fas fa-file-pdf me-1"></i>PDF</button>
+                                <button class="btn btn-outline-secondary btn-sm" title="Print" id="printPatientBtn"><i class="fas fa-print"></i></button>
                             </div>
                         </div>
 
@@ -247,12 +249,14 @@
                                 </select>
                             </div>
                             <div class="col-md-2 d-flex gap-2 align-items-end">
-                                <button class="btn btn-primary btn-sm flex-grow-1" onclick="rrPage=1;renderRxActionReport()"><i class="fas fa-search me-1"></i>Search</button>
+                                <button class="btn btn-primary btn-sm btn-search" onclick="rrPage=1;renderRxActionReport()" title="Search"><i class="fas fa-search"></i></button>
                                 <button class="btn btn-outline-secondary btn-sm" onclick="clearRxFilters()" title="Clear"><i class="fas fa-times"></i></button>
                             </div>
                             <div class="col-md-2 d-flex align-items-end gap-2">
-                                <button class="btn btn-outline-success btn-sm flex-grow-1" id="exportRxCsv"><i class="fas fa-file-csv me-1"></i>Export CSV</button>
-                                <button class="btn btn-outline-secondary btn-sm" title="Print" onclick="printReport('RX Records Report','rxReportTable')"><i class="fas fa-print"></i></button>
+                                <button class="btn btn-outline-success btn-sm flex-grow-1" id="exportRxCsv"><i class="fas fa-file-csv me-1"></i>CSV</button>
+                                <button class="btn btn-outline-primary btn-sm" id="exportRxXls" title="Export Excel"><i class="fas fa-file-excel me-1"></i>Excel</button>
+                                <button class="btn btn-outline-danger btn-sm" id="exportRxPdf" title="Export PDF (print)"><i class="fas fa-file-pdf me-1"></i>PDF</button>
+                                <button class="btn btn-outline-secondary btn-sm" title="Print" id="printRxBtn"><i class="fas fa-print"></i></button>
                             </div>
                         </div>
 
@@ -327,6 +331,57 @@
 </div><!-- /wrapper -->
 
 <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index:1100"></div>
+
+<!-- ── Email Report Modal ─────────────────────────────────────────── -->
+<div class="modal fade" id="emailReportModal" tabindex="-1" aria-labelledby="emailReportModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-md">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="emailReportModalLabel"><i class="fas fa-envelope me-2 text-primary"></i>Send Report by Email</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="emailReportStatus" class="d-none mb-3"></div>
+        <div class="mb-3">
+          <label class="form-label fw-bold">Report Type <span class="text-danger">*</span></label>
+          <select class="form-select" id="emailRptType">
+            <option value="summary">Daily Summary (stats overview)</option>
+            <option value="patients">Patient List</option>
+            <option value="rx-receipts">RX Records</option>
+            <option value="rx-actions">Workflow Actions</option>
+          </select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-bold">Recipient Email <span class="text-danger">*</span></label>
+          <input type="email" class="form-control" id="emailRptTo" placeholder="recipient@example.com">
+          <div class="form-text">Separate multiple addresses with a comma.</div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-bold">Subject (optional)</label>
+          <input type="text" class="form-control" id="emailRptSubject" placeholder="Leave blank for auto subject">
+        </div>
+        <div class="row g-2">
+          <div class="col-6">
+            <label class="form-label fw-bold small">Date From (optional)</label>
+            <input type="date" class="form-control form-control-sm" id="emailRptFrom">
+          </div>
+          <div class="col-6">
+            <label class="form-label fw-bold small">Date To (optional)</label>
+            <input type="date" class="form-control form-control-sm" id="emailRptTo2">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary" id="sendEmailReportBtn">
+          <span id="emailRptSpinner" class="spinner-border spinner-border-sm d-none me-1"></span>
+          <i class="fas fa-paper-plane me-1" id="emailRptIcon"></i>Send Report
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script src="/assets/bootstrap.bundle.min.js"></script>
 <a id="xa-base" href="/login" style="display:none"></a>
 <script src="/js/base.js"></script>

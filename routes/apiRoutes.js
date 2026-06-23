@@ -8,6 +8,7 @@ const backupService = require('../services/backupService');
 const path = require('path');
 const fs   = require('fs');
 const errorLogController = require('../controllers/errorLogController');
+const sessionTracker = require('../services/sessionTracker');
 
 const pharmacyController = require('../controllers/pharmacyController');
 const patientTransportController = require('../controllers/patientTransportController');
@@ -163,9 +164,35 @@ router.post('/auth/logout', auth, async (req, res) => {
             ipAddress: req.ip
         });
     } catch (e) { /* non-fatal */ }
+    // Remove from active sessions tracker immediately
+    if (req.user) sessionTracker.remove(req.user.id);
     res.clearCookie('rxToken', { path: '/', sameSite: 'none', secure: true });  // clear FortiGate-compatible cookie auth
     res.status(200).json({ message: 'Logged out.' });
 });
+
+// ── Active User Sessions (Who's Online) ──────────────────────────────────────
+// POST /api/heartbeat — any authenticated user; updates their session entry
+router.post('/heartbeat', auth, (req, res) => {
+    const { currentPage, currentUrl } = req.body || {};
+    // Capture real IP — x-forwarded-for first (FortiGate/proxy), then direct
+    const ip = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.ip || '—';
+    sessionTracker.upsert(req.user.id, {
+        username:    req.user.username,
+        firstName:   req.user.firstName  || '',
+        lastName:    req.user.lastName   || '',
+        role:        req.user.role       || '',
+        ip,
+        currentPage: currentPage || 'Unknown',
+        currentUrl:  currentUrl  || '/'
+    });
+    res.status(204).end();
+});
+
+// GET /api/active-sessions — role-gated: requires active_users visibility
+router.get('/active-sessions', rbac.requirePermission('active_users', 'read'), (req, res) => {
+    res.json(sessionTracker.getActive());
+});
+
 
 // Global Search
 router.get('/search', searchController.search);

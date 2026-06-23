@@ -33,7 +33,8 @@ const BUILT_IN_DEFAULTS = {
             patient_notes:      { visible: true,  canAdd: true,  canEdit: false, canDelete: true,  canExport: false, canUndo: false },
             users:              { ...full },
             backups:            { ...full },
-            system_settings:    { ...full }
+            system_settings:    { ...full },
+            active_users:       { visible: true,  canAdd: false, canEdit: false, canDelete: false, canExport: false, canUndo: false }
         };
     },
     Supervisor: () => {
@@ -57,7 +58,8 @@ const BUILT_IN_DEFAULTS = {
             patient_notes:      { visible: true,  canAdd: true,  canEdit: false, canDelete: true,  canExport: false, canUndo: false },
             users:              { ...hide },
             backups:            { ...hide },
-            system_settings:    { ...hide }
+            system_settings:    { ...hide },
+            active_users:       { visible: true,  canAdd: false, canEdit: false, canDelete: false, canExport: false, canUndo: false }
         };
     },
     Operator: () => {
@@ -80,7 +82,8 @@ const BUILT_IN_DEFAULTS = {
             patient_notes:      { visible: true,  canAdd: true,  canEdit: false, canDelete: false, canExport: false, canUndo: false },
             users:              { ...hide },
             backups:            { ...hide },
-            system_settings:    { ...hide }
+            system_settings:    { ...hide },
+            active_users:       { ...hide }
         };
     },
     'Read Only': () => {
@@ -102,7 +105,8 @@ const BUILT_IN_DEFAULTS = {
             patient_notes:      { visible: true,  canAdd: false, canEdit: false, canDelete: false, canExport: false, canUndo: false },
             users:              { ...hide },
             backups:            { ...hide },
-            system_settings:    { ...hide }
+            system_settings:    { ...hide },
+            active_users:       { ...hide }
         };
     }
 };

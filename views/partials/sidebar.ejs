@@ -5,10 +5,16 @@
 %>
 <%
   // Build a visible-set from userPerms
-  const UP = locals.userPerms || null;
-  // Returns true if visible (permissive when no perms — JS redirect handles it)
+  const UP      = locals.userPerms || null;
+  const isAdmin = locals.isAdmin || (locals.currentUser && locals.currentUser.role === 'Administrator');
+
+  // Returns true if visible:
+  //   • No UP (no token)     → permissive (JS redirect handles auth)
+  //   • Administrator role   → always visible (bypasses permission checks)
+  //   • Otherwise            → check the module's visible flag
   function sv(key) {
     if (!UP) return true;
+    if (isAdmin) return true;
     const p = UP[key];
     return !!(p && p.visible);
   }
@@ -16,11 +22,11 @@
   const ap = locals.activePage || '';
   const refActive   = ['pharmacies','patient-transport','pharmacy-transport','clinics'].includes(ap);
   const rptActive   = ['reports','audit-log'].includes(ap);
-  const adminActive = ['workflow-actions','medication-catalog','roles','users','system-settings','backups','import'].includes(ap);
+  const adminActive = ['workflow-actions','medication-catalog','roles','users','system-settings','backups','import','active-users'].includes(ap);
 
   const refVisible   = sv('pharmacies') || sv('patient_transport') || sv('pharmacy_transport') || sv('clinics');
   const rptVisible   = sv('reports') || sv('audit_log');
-  const adminVisible = sv('workflow_actions') || sv('medication_catalog') || sv('users') || sv('backups') || sv('system_settings') || sv('import');
+  const adminVisible = sv('workflow_actions') || sv('medication_catalog') || sv('users') || sv('backups') || sv('system_settings') || sv('import') || sv('active_users');
 %>
 <!-- xa-base: FortiGate rewrites <a href> — used by base.js to compute proxy path prefix -->
 <a id="xa-base" href="/login" style="display:none" aria-hidden="true"></a>
@@ -139,6 +145,14 @@
                     <a href="/import"><i class="fas fa-file-import me-2"></i>Data Import</a>
                 </li>
                 <% } %>
+                <% if (!UP || sv('active_users')) { %>
+                <li class="<%= ap === 'active-users' ? 'active' : '' %>">
+                    <a href="/active-users">
+                        <i class="fas fa-users me-2"></i>Who's Online
+                        <span id="sidebarOnlineBadge" style="display:none;margin-left:auto;background:#22c55e;color:#fff;border-radius:20px;padding:1px 7px;font-size:.65rem;font-weight:700;line-height:1.6">0</span>
+                    </a>
+                </li>
+                <% } %>
             </ul>
         </li>
         <% } %>
@@ -173,5 +187,30 @@
             if (el) el.textContent = d.version || '—';
         })
         .catch(function() {});
+})();
+
+// Who's Online badge — polls active sessions count every 30s
+// Hidden automatically for roles without active_users permission (API returns 403)
+(function() {
+    function _loadOnlineBadge() {
+        var token = localStorage.getItem('rxToken') || localStorage.getItem('token');
+        if (!token) return;
+        var url = typeof window.rxUrl === 'function' ? window.rxUrl('/api/active-sessions') : '/api/active-sessions';
+        fetch(url, { headers: { 'Authorization': 'Bearer ' + token } })
+            .then(function(r) {
+                if (!r.ok) return null;
+                return r.json();
+            })
+            .then(function(data) {
+                if (!data) return;
+                var badge = document.getElementById('sidebarOnlineBadge');
+                if (!badge) return;
+                badge.textContent = data.length;
+                badge.style.display = 'inline-block';
+            })
+            .catch(function() {});
+    }
+    _loadOnlineBadge();
+    setInterval(_loadOnlineBadge, 30000);
 })();
 </script>

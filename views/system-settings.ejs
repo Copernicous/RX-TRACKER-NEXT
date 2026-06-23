@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en" data-theme="light">
 <head>
     <meta charset="UTF-8">
@@ -292,7 +292,77 @@
                         </div>
                     </div>
 
-                    <!-- Settings Summary -->
+                    <!-- Security Settings Card (Session Timeout + Max Failed Logins) -->
+                    <div class="glass-card p-4 mb-4 setting-card" style="border-left-color:#f59e0b;">
+                        <div class="d-flex align-items-start gap-3">
+                            <div class="setting-icon" style="background:rgba(245,158,11,.12);color:#f59e0b;">
+                                <i class="fas fa-lock"></i>
+                            </div>
+                            <div class="flex-grow-1">
+                                <div class="d-flex align-items-center gap-2 mb-1">
+                                    <h6 class="mb-0 fw-bold">Security Settings</h6>
+                                    <span class="badge bg-warning text-dark" style="font-size:.7rem;">Admin Only</span>
+                                </div>
+                                <p class="text-muted small mb-3">
+                                    Control how long idle sessions remain active and how many failed login attempts
+                                    are allowed before an account is locked.
+                                </p>
+
+                                <div class="row g-3 mb-3">
+                                    <div class="col-md-5">
+                                        <label class="form-label fw-semibold small" for="sessionTimeoutInput">
+                                            <i class="fas fa-hourglass-half me-1 text-warning"></i>
+                                            Session Timeout
+                                            <span class="text-muted fw-normal">(minutes)</span>
+                                        </label>
+                                        <div class="input-group input-group-sm" style="max-width:200px;">
+                                            <input type="number" class="form-control form-control-sm"
+                                                   id="sessionTimeoutInput"
+                                                   min="1" max="480" step="1"
+                                                   placeholder="30">
+                                            <span class="input-group-text text-muted small">min</span>
+                                        </div>
+                                        <div class="form-text">1 – 480 minutes. Default: 30. Requires server restart to apply.</div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label fw-semibold small" for="maxFailedLoginsInput">
+                                            <i class="fas fa-ban me-1 text-danger"></i>
+                                            Max Failed Logins
+                                            <span class="text-muted fw-normal">(attempts)</span>
+                                        </label>
+                                        <div class="input-group input-group-sm" style="max-width:160px;">
+                                            <input type="number" class="form-control form-control-sm"
+                                                   id="maxFailedLoginsInput"
+                                                   min="1" max="20" step="1"
+                                                   placeholder="5">
+                                            <span class="input-group-text text-muted small">tries</span>
+                                        </div>
+                                        <div class="form-text">1 – 20 attempts. Default: 5. Account locked after N failures.</div>
+                                    </div>
+                                </div>
+
+                                <div class="d-flex align-items-center gap-2 flex-wrap">
+                                    <button class="btn btn-warning btn-sm text-dark" id="saveSecurityBtn">
+                                        <i class="fas fa-save me-1"></i>Save Security Settings
+                                    </button>
+                                    <div class="save-indicator" id="securitySaveOk">
+                                        <i class="fas fa-check-circle"></i> Saved!
+                                    </div>
+                                    <div class="save-indicator text-danger" id="securitySaveErr" style="color:#ef4444!important;">
+                                        <i class="fas fa-times-circle"></i> <span id="securityErrMsg">Error</span>
+                                    </div>
+                                </div>
+
+                                <div class="alert alert-info py-2 small mt-3 mb-0">
+                                    <i class="fas fa-info-circle me-1"></i>
+                                    <strong>Note:</strong> Session Timeout and Max Failed Logins are also configurable
+                                    in the <code>.env</code> file. The UI value overrides the <code>.env</code> value
+                                    and is stored in the database — it persists across server restarts without editing files.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="glass-card p-4 mb-4">
                         <h6 class="fw-bold mb-3"><i class="fas fa-list-alt me-2 text-muted"></i>All Current Settings</h6>
                         <table class="table table-sm table-hover align-middle">

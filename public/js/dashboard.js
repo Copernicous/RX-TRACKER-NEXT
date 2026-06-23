@@ -818,7 +818,26 @@ document.addEventListener('DOMContentLoaded', function() {
         return fetchWithAuth(_api.charts);
     }).then(function(chartRes) {
         if (chartRes && chartRes.ok) {
-            return chartRes.json().then(function(chartData) { renderCharts(chartData); });
+            return chartRes.json().then(function(chartData) {
+                window._lastChartData = chartData;
+                renderCharts(chartData);
+            });
         }
     }).catch(function(e) { console.warn('Charts failed:', e); });
+
+    // ISSUE-03 FIX: Re-render charts on theme toggle so dark/light colors update
+    var _themeBtn = document.getElementById('themeToggle');
+    if (_themeBtn) {
+        _themeBtn.addEventListener('click', function() {
+            setTimeout(function() {
+                if (window._lastChartData) {
+                    var barCanvas   = document.getElementById('patientsBarChart');
+                    var donutCanvas = document.getElementById('rxDonutChart');
+                    if (barCanvas   && Chart.getChart(barCanvas))   Chart.getChart(barCanvas).destroy();
+                    if (donutCanvas && Chart.getChart(donutCanvas)) Chart.getChart(donutCanvas).destroy();
+                    renderCharts(window._lastChartData);
+                }
+            }, 60);
+        });
+    }
 });

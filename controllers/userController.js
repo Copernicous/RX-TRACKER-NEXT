@@ -1,5 +1,6 @@
-﻿const db = require('../models');
+const db = require('../models');
 const bcrypt = require('bcryptjs');
+const emailService = require('../services/emailService'); // IMPROVE-04: welcome email
 
 exports.getAll = async (req, res) => {
     try {
@@ -24,6 +25,13 @@ exports.create = async (req, res) => {
         const passwordHash = await bcrypt.hash(password, 10);
         const data = await db.User.create({ ...otherData, passwordHash });
         res.status(201).json({ id: data.id, username: data.username });
+        // IMPROVE-04: fire-and-forget welcome email (after response sent)
+        emailService.sendWelcome({
+            toEmail:   data.email,
+            firstName: data.firstName,
+            username:  data.username,
+            sysUrl:    process.env.SYS_URL || ''
+        });
     } catch (err) { res.status(400).json({ error: err.message }); }
 };
 

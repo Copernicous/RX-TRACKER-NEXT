@@ -1,27 +1,104 @@
-// ── CLI flags — must be first, before any other require ──────────────────────
+// CLI flags -- must be first, before any other require
 // Usage:  server.exe --v   OR   server.exe --version
 // Prints version info and exits without starting the server.
+// Usage:  server.exe --reset-password <username> <newpassword>
+// Resets the password for the given user and exits. Works without starting the server.
 (function checkCliFlags() {
-    const args = process.argv.slice(2);
-    if (args.includes('--v') || args.includes('--version') || args.includes('-v')) {
-        const pkg  = require('./package.json');
-        const IS_PKG = typeof process.pkg !== 'undefined';
+    var args = process.argv.slice(2);
+
+    // ── --version / --v / -v ──────────────────────────────────────────────────
+    if (args.indexOf('--v') !== -1 || args.indexOf('--version') !== -1 || args.indexOf('-v') !== -1) {
+        var pkg2   = require('./package.json');
+        var IS_PKG = typeof process.pkg !== 'undefined';
+        var b      = new Date();
+        var p      = function(n) { return String(n).padStart(2,'0'); };
+        var bstr   = (b.getMonth()+1)+'/'+p(b.getDate())+'/'+b.getFullYear()+
+                     '  '+p(b.getHours())+':'+p(b.getMinutes())+':'+p(b.getSeconds());
         console.log('');
         console.log('  Patient RX System');
-        console.log('  Version  : ' + pkg.version);
+        console.log('  Version  : ' + pkg2.version);
         console.log('  Node.js  : ' + process.version);
         console.log('  Platform : ' + process.platform + ' ' + process.arch);
         console.log('  Mode     : ' + (IS_PKG ? 'compiled (server.exe)' : 'node app.js'));
-        console.log('  Built    : 2026-06-23');
+        console.log('  Built At : ' + bstr);
         console.log('');
         process.exit(0);
     }
+
+    // ── --reset-password <username> <newpassword> ─────────────────────────────
+    var rpIdx = args.indexOf('--reset-password');
+    if (rpIdx !== -1) {
+        var rpUser = args[rpIdx + 1];
+        var rpPass = args[rpIdx + 2];
+        if (!rpUser || !rpPass) {
+            console.error('\n  Usage: server.exe --reset-password <username> <newpassword>\n');
+            process.exit(1);
+        }
+        // Load .env then reset the password
+        require('dotenv').config();
+        var bcryptRp = require('bcryptjs');
+        var dbRp     = require('./models');
+        dbRp.sequelize.authenticate().then(async function() {
+            var user = await dbRp.User.findOne({ where: { username: rpUser } });
+            if (!user) {
+                console.error('\n  ERROR: User "' + rpUser + '" not found.\n');
+                process.exit(1);
+            }
+            var hash = await bcryptRp.hash(rpPass, 12);
+            await user.update({ passwordHash: hash, failedLoginCount: 0, lockedUntil: null });
+            console.log('\n  ✓ Password for "' + rpUser + '" has been reset successfully.\n');
+            process.exit(0);
+        }).catch(function(err) {
+            console.error('\n  ERROR: ' + err.message + '\n');
+            process.exit(1);
+        });
+        return; // don't continue starting the server
+    }
 })();
+
 
 require('dotenv').config();
 
+// -- Log file setup (LOG_FILE=true in .env enables file logging) ----------------
+var _logStream = null;    // Morgan HTTP access log stream
+var _errStream = null;    // Error log stream
+(function setupLogFiles() {
+    if (process.env.LOG_FILE !== 'true') return;
+    var fs   = require('fs');
+    var path2 = require('path');
+    var IS_PKG = typeof process.pkg !== 'undefined';
+    // Resolve log directory: next to server.exe when compiled, or project root in dev
+    var baseDir = IS_PKG ? path2.dirname(process.execPath) : __dirname;
+    var logDir  = path2.join(baseDir, 'logs');
+    if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
+    // Delete log files older than LOG_RETENTION_DAYS (default 7)
+    var retainDays = parseInt(process.env.LOG_RETENTION_DAYS || '7', 10);
+    var cutoff = Date.now() - retainDays * 86400000;
+    fs.readdirSync(logDir).forEach(function(f) {
+        if (!/\.(log)$/.test(f)) return;
+        var fp = path2.join(logDir, f);
+        try { if (fs.statSync(fp).mtimeMs < cutoff) fs.unlinkSync(fp); } catch(e) {}
+    });
+    // Today's date stamp for file names
+    var d   = new Date();
+    var pad = function(n) { return String(n).padStart(2,'0'); };
+    var stamp = d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate());
+    // Open append streams for today
+    _logStream = fs.createWriteStream(path2.join(logDir, 'access-' + stamp + '.log'), { flags: 'a' });
+    _errStream = fs.createWriteStream(path2.join(logDir, 'error-'  + stamp + '.log'), { flags: 'a' });
+    // Patch console.error so errors also go to file
+    var _origErr = console.error.bind(console);
+    console.error = function() {
+        var line = '[' + new Date().toISOString() + '] ' + Array.from(arguments).join(' ') + '\n';
+        if (_errStream) _errStream.write(line);
+        _origErr.apply(console, arguments);
+    };
+    console.log('[Log] File logging ON -- ' + logDir + '  (retain ' + retainDays + ' days)');
+})();
+// -------------------------------------------------------------------------------
 
-// ── Crash prevention — keep server alive on unhandled async errors ────────────
+
+// -- Crash prevention -- keep server alive on unhandled async errors ------------
 process.on('unhandledRejection', (reason, promise) => {
     console.error('[CRASH PREVENTED] Unhandled Promise Rejection:', reason);
 });
@@ -40,7 +117,7 @@ const db          = require('./models');
 // Start backup scheduler on boot
 require('./services/backupService');
 
-// Daily metrics snapshot scheduler — captures at 00:05 every night
+// Daily metrics snapshot scheduler -- captures at 00:05 every night
 const cron = require('node-cron');
 const { captureSnapshot } = require('./services/snapshotService');
 cron.schedule('5 0 * * *', async () => {
@@ -49,12 +126,12 @@ cron.schedule('5 0 * * *', async () => {
     catch (e) { console.error('[Cron] Snapshot failed:', e.message); }
 }, { timezone: process.env.TZ || 'America/New_York' });
 
-// Settings service — load system config (timezone, etc.) from DB
+// Settings service -- load system config (timezone, etc.) from DB
 const settingsService = require('./services/settingsService');
 
 const app = express();
 
-// 🔒 Trust proxy — 1st hop only (FortiGate). Prevents IP spoofing via forged X-Forwarded-For 🔒
+// [LOCK] Trust proxy -- 1st hop only (FortiGate). Prevents IP spoofing via forged X-Forwarded-For [LOCK]
 app.set('trust proxy', 1);
 
 function isSecureRequest(req) {
@@ -66,7 +143,7 @@ function isSecureRequest(req) {
     return false;
 }
 
-// ── HTTPS redirect (enable with FORCE_HTTPS=true in .env) ────────────────────
+// -- HTTPS redirect (enable with FORCE_HTTPS=true in .env) --------------------
 if (process.env.FORCE_HTTPS === 'true') {
     app.use((req, res, next) => {
         if (isSecureRequest(req)) return next();
@@ -74,15 +151,15 @@ if (process.env.FORCE_HTTPS === 'true') {
     });
 }
 
-// ── Security headers (Helmet) ─────────────────────────────────────────────────
+// -- Security headers (Helmet) -------------------------------------------------
 app.use(helmet({
     contentSecurityPolicy: {
         useDefaults: false,  // Prevent Helmet adding upgrade-insecure-requests by default
         directives: {
             defaultSrc:     ["'self'"],
-            scriptSrc:      ["'self'", "'unsafe-inline'"],   // CDN removed — all JS served locally
+            scriptSrc:      ["'self'", "'unsafe-inline'"],   // CDN removed -- all JS served locally
             scriptSrcAttr:  ["'unsafe-inline'"],             // Required: app uses inline onclick handlers
-            styleSrc:       ["'self'", "'unsafe-inline'"],   // CDN removed — all CSS served locally
+            styleSrc:       ["'self'", "'unsafe-inline'"],   // CDN removed -- all CSS served locally
             fontSrc:        ["'self'", 'data:'],              // allow inline/base64-encoded fonts
             workerSrc:      ["'self'", 'blob:'],              // allow blob workers
             imgSrc:         ["'self'", 'data:', 'blob:'],
@@ -92,7 +169,7 @@ app.use(helmet({
             baseUri:        ["'self'"],
             formAction:     ["'self'"],
             frameAncestors: ["'self'"],
-            // upgradeInsecureRequests intentionally omitted — only add when HTTPS is configured
+            // upgradeInsecureRequests intentionally omitted -- only add when HTTPS is configured
             ...(process.env.FORCE_HTTPS === 'true' ? { upgradeInsecureRequests: [] } : {})
         }
     },
@@ -103,7 +180,7 @@ app.use(helmet({
     crossOriginEmbedderPolicy: false // Allow CDN assets
 }));
 
-// ── Rate limiting — brute-force protection on auth endpoints ──────────────────
+// -- Rate limiting -- brute-force protection on auth endpoints ------------------
 const loginLimiter = rateLimit({
     windowMs:         15 * 60 * 1000,  // 15 minutes
     max:              15,               // max 15 login attempts per IP per window
@@ -113,14 +190,21 @@ const loginLimiter = rateLimit({
     skipSuccessfulRequests: true        // only count failures toward the limit
 });
 
-// Trust FortiGate SSL VPN and reverse proxy chain — allows Express to correctly read
+// Trust FortiGate SSL VPN and reverse proxy chain -- allows Express to correctly read
 // X-Forwarded-For (real client IP) and X-Forwarded-Proto (https) headers.
 
 // Middleware
 const corsOrigin = process.env.APP_ORIGIN || true;
 app.use(cors({ origin: corsOrigin, credentials: true }));
-// CONFIG-01 FIX: Use appropriate Morgan log format per environment
-app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
+// HTTP access logging: debug mode uses verbose 'dev' format; file stream used when LOG_FILE=true
+var _morganFmt = process.env.DEBUG === 'true' ? 'dev' : (process.env.NODE_ENV === 'production' ? 'combined' : 'dev');
+if (_logStream) {
+    // Write to BOTH console AND file
+    app.use(morgan(_morganFmt, { stream: _logStream }));
+    app.use(morgan(_morganFmt));
+} else {
+    app.use(morgan(_morganFmt));
+}
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
@@ -128,7 +212,7 @@ app.use(bodyParser.urlencoded({ extended: true }));
 // EJS templates use this so FortiGate's cached pages redirect to uncached versioned URLs
 const APP_BUILD = Date.now();
 
-// Set EJS as templating engine (we will use simple HTML views with JS, EJS just for layout if needed)
+// Set EJS as templating engine
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
@@ -153,8 +237,8 @@ app.get('/favicon.ico', (req, res) => {
 });
 
 
-// Force UTF-8 charset on all HTML responses — required for FortiGate SSL web access
-// and any reverse proxy that rewrites HTML (prevents â€" garbled characters)
+// Force UTF-8 charset on all HTML responses -- required for FortiGate SSL web access
+// and any reverse proxy that rewrites HTML (prevents a" garbled characters)
 app.use((req, res, next) => {
     const orig = res.setHeader.bind(res);
     res.render = ((origRender) => function(view, options, callback) {
@@ -165,7 +249,7 @@ app.use((req, res, next) => {
 });
 
 // Prevent FortiGate SSL VPN from caching or TRANSFORMING responses.
-// RFC 7234: 'no-transform' tells proxies not to modify the response body —
+// RFC 7234: 'no-transform' tells proxies not to modify the response body --
 // specifically targets FortiGate's behavior of injecting REWRITE() wrappers
 // around URL strings in JavaScript, which breaks JS syntax.
 // 'no-store' prevents FortiGate from caching and serving stale HTML pages.
@@ -196,7 +280,7 @@ apiRoutes._mountPrefix         = '/api';
 webRoutes._mountPrefix         = '/';
 twoFactorRoutes._mountPrefix   = '/api/auth';
 
-// ── Extended rate limiting for sensitive endpoints ───────────────────────────
+// -- Extended rate limiting for sensitive endpoints ---------------------------
 // API key management: 30 requests / 15 min (prevents key enumeration)
 const apiKeyLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, max: 30, standardHeaders: true, legacyHeaders: false,
@@ -225,12 +309,12 @@ app.use('/api/auth',    authRoutes);
 app.use('/api/auth',    twoFactorRoutes);
 app.use('/api/import',  importRoutes);
 app.use('/api',         apiRoutes);
-app.use('/',            webAuth, webRoutes);   // webAuth decodes rxToken cookie → res.locals.userPerms
+app.use('/',            webAuth, webRoutes);   // webAuth decodes rxToken cookie -> res.locals.userPerms
 
 
 
 
-// Error handling middleware — logs to ErrorLog table
+// Error handling middleware -- logs to ErrorLog table
 app.use(async (err, req, res, next) => {
     console.error(err.stack);
     try {
@@ -249,9 +333,9 @@ app.use(async (err, req, res, next) => {
 
 const PORT = process.env.PORT || 3000;
 
-// ── Auto-create database if it doesn't exist ──────────────────────────────────
+// -- Auto-create database if it doesn't exist ----------------------------------
 // Connects to the always-present 'postgres' default database first, then issues
-// CREATE DATABASE. Safe to run on every boot — postgres ignores it if db exists.
+// CREATE DATABASE. Safe to run on every boot -- postgres ignores it if db exists.
 async function ensureDatabase() {
     const { Client } = require('pg');
     const dbName = process.env.DB_NAME || 'patient_rx_dev';
@@ -277,14 +361,14 @@ async function ensureDatabase() {
     } catch (e) {
         console.error(`[DB] Could not auto-create database "${dbName}":`, e.message);
         console.error('[DB] Make sure PostgreSQL is running and DB_USER has CREATEDB privilege.');
-        process.exit(1);   // fatal — nothing works without a database
+        process.exit(1);   // fatal -- nothing works without a database
     } finally {
         await client.end().catch(() => {});
     }
 }
 
 const startServer = async () => {
-    await ensureDatabase();   // ← must succeed before any other DB work
+    await ensureDatabase();   // <- must succeed before any other DB work
 
     try {
         // Automatically ensure permissions column exists in PostgreSQL
@@ -333,13 +417,13 @@ const startServer = async () => {
         await db.sequelize.query('ALTER TABLE "Patients" ADD CONSTRAINT "Patients_patientCode_unique" UNIQUE ("patientCode");');
         console.log('Database verified: Patients.patientCode UNIQUE constraint ready.');
     } catch (e) {
-        // '42P07' = duplicate_table / constraint already exists — safe to ignore
+        // '42P07' = duplicate_table / constraint already exists -- safe to ignore
         if (!e.message.includes('already exists')) {
             console.warn('Startup migration warning (Patients.patientCode unique, non-fatal):', e.message);
         }
     }
 
-    // ─── 2FA & Account Security Migration ────────────────────────────────────
+    // --- 2FA & Account Security Migration ------------------------------------
     try {
         await db.sequelize.query('ALTER TABLE "Users" ADD COLUMN IF NOT EXISTS "twoFactorSecret" TEXT;');
         await db.sequelize.query('ALTER TABLE "Users" ADD COLUMN IF NOT EXISTS "twoFactorEnabled" BOOLEAN DEFAULT FALSE;');
@@ -370,10 +454,31 @@ const startServer = async () => {
             const needsSeed = !role.permissions;
             const needsUpdate = role.permissions && role.permissions.patients !== undefined
                 && !Object.prototype.hasOwnProperty.call(role.permissions.patients || {}, 'canAdd');
-            if ((needsSeed || needsUpdate) && BUILT_IN_DEFAULTS[role.name]) {
-                const perms = BUILT_IN_DEFAULTS[role.name]();
+
+            // Backfill any newly added permission keys that don't exist yet in DB
+            const missingKeys = BUILT_IN_DEFAULTS[role.name]
+                ? Object.keys(BUILT_IN_DEFAULTS[role.name]()).filter(
+                    k => role.permissions && !Object.prototype.hasOwnProperty.call(role.permissions, k)
+                  )
+                : [];
+
+            if ((needsSeed || needsUpdate || missingKeys.length > 0) && BUILT_IN_DEFAULTS[role.name]) {
+                let perms;
+                if (needsSeed || needsUpdate) {
+                    // Full re-seed
+                    perms = BUILT_IN_DEFAULTS[role.name]();
+                } else {
+                    // Surgical patch — only add the missing keys, keep existing ones intact
+                    const defaults = BUILT_IN_DEFAULTS[role.name]();
+                    perms = Object.assign({}, role.permissions);
+                    missingKeys.forEach(k => { perms[k] = defaults[k]; });
+                }
                 await role.update({ permissions: perms });
-                console.log(`[Roles] ${needsSeed ? 'Seeded' : 'Updated'} permissions for built-in role: ${role.name}`);
+                if (missingKeys.length > 0) {
+                    console.log(`[Roles] Patched new permission keys [${missingKeys.join(', ')}] for role: ${role.name}`);
+                } else {
+                    console.log(`[Roles] ${needsSeed ? 'Seeded' : 'Updated'} permissions for built-in role: ${role.name}`);
+                }
             }
         }
         console.log('Database verified: Built-in role permissions seeded.');
@@ -384,7 +489,7 @@ const startServer = async () => {
 
     await db.sequelize.sync();
 
-    // ── Auto-seed Roles + default admin on a brand-new database ──────────────
+    // -- Auto-seed Roles + default admin on a brand-new database --------------
     try {
         const bcrypt = require('bcryptjs');
         const { BUILT_IN_DEFAULTS } = require('./middleware/rbac');
@@ -419,12 +524,12 @@ const startServer = async () => {
                 isActive:     true
             });
             console.log('');
-            console.log('╔══════════════════════════════════════════════╗');
-            console.log('║         FIRST-RUN DEFAULT CREDENTIALS        ║');
-            console.log('║  Username : admin                            ║');
-            console.log('║  Password : admin123                         ║');
-            console.log('║  !! CHANGE THIS PASSWORD AFTER LOGIN !!      ║');
-            console.log('╚══════════════════════════════════════════════╝');
+            console.log('==============================================');
+            console.log('         FIRST-RUN DEFAULT CREDENTIALS        ');
+            console.log('  Username : admin                            ');
+            console.log('  Password : admin123                         ');
+            console.log('  !! CHANGE THIS PASSWORD AFTER LOGIN !!      ');
+            console.log('==============================================');
             console.log('');
         }
     } catch (e) {

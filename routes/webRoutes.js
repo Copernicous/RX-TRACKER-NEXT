@@ -83,6 +83,10 @@ router.get('/backoffice', (req, res) => {
     res.render('backoffice', { title: 'Back Office — Data Control Center', activePage: 'backoffice' });
 });
 
+router.get('/active-users', (req, res) => {
+    res.render('active-users', { title: 'Active Users — Who\'s Online', activePage: 'active-users' });
+});
+
 // Changelog page — reads CHANGELOG.md and renders it
 router.get('/changelog', (req, res) => {
     const fs   = require('fs');

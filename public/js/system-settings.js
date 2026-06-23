@@ -67,6 +67,11 @@ async function loadSettings() {
     renderSettingsTable(currentSettings);
     updateClocks(tz);
     initTwoFaToggle(currentSettings.require_2fa !== 'false');
+    // Security settings
+    var sTimeout = document.getElementById('sessionTimeoutInput');
+    var sMaxFail = document.getElementById('maxFailedLoginsInput');
+    if (sTimeout) sTimeout.value = currentSettings.session_timeout_minutes || '30';
+    if (sMaxFail) sMaxFail.value = currentSettings.max_failed_logins || '5';
 }
 
 function showSaved(id) {
@@ -285,6 +290,49 @@ document.addEventListener('DOMContentLoaded', async () => {
             } else { showToast('Failed to save 2FA setting', 'danger'); }
         } catch(e) { showToast('Network error', 'danger'); }
         finally { btn.disabled = false; btn.innerHTML = '<i class="fas fa-save me-1"></i>Save 2FA Setting'; }
+    });
+
+    // -- Save Security Settings (Session Timeout + Max Failed Logins) --------
+    document.getElementById('saveSecurityBtn')?.addEventListener('click', async () => {
+        var timeout  = parseInt(document.getElementById('sessionTimeoutInput')?.value || '30', 10);
+        var maxFails = parseInt(document.getElementById('maxFailedLoginsInput')?.value || '5',  10);
+        var errEl    = document.getElementById('securityErrMsg');
+        var errBox   = document.getElementById('securitySaveErr');
+        if (isNaN(timeout)  || timeout  < 1  || timeout  > 480) {
+            if (errEl) errEl.textContent = 'Timeout must be 1-480 minutes';
+            if (errBox) errBox.classList.add('visible');
+            setTimeout(() => errBox && errBox.classList.remove('visible'), 3000);
+            return;
+        }
+        if (isNaN(maxFails) || maxFails < 1  || maxFails > 20) {
+            if (errEl) errEl.textContent = 'Max logins must be 1-20';
+            if (errBox) errBox.classList.add('visible');
+            setTimeout(() => errBox && errBox.classList.remove('visible'), 3000);
+            return;
+        }
+        var btn = document.getElementById('saveSecurityBtn');
+        btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Saving...';
+        try {
+            var res = await fetchWithAuth('/api/settings', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    session_timeout_minutes: String(timeout),
+                    max_failed_logins:       String(maxFails)
+                })
+            });
+            if (res && res.ok) {
+                var data = await res.json();
+                currentSettings = data.settings;
+                renderSettingsTable(currentSettings);
+                showSaved('securitySaveOk');
+                showToast('Security settings saved. Restart server to apply session timeout.', 'success');
+            } else {
+                var err = await res.json();
+                showToast(err.error || 'Failed to save security settings', 'danger');
+            }
+        } catch(e) { showToast('Network error: ' + e.message, 'danger'); }
+        finally { btn.disabled = false; btn.innerHTML = '<i class="fas fa-save me-1"></i>Save Security Settings'; }
     });
 
     // ── Email: Provider quick-fill ─────────────────────────────────────────
