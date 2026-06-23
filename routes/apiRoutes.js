@@ -137,6 +137,9 @@ router.get('/dashboard/pending-rx', rbac.requirePermission('dashboard', 'read'),
 router.get('/dashboard/total-rx', rbac.requirePermission('dashboard', 'read'), dashboardController.getTotalRx);
 router.get('/dashboard/charts', rbac.requirePermission('dashboard', 'read'), dashboardController.getChartData);
 router.get('/dashboard/rx-pipeline', rbac.requirePermission('dashboard', 'read'), dashboardController.getRxPipeline);
+router.get('/dashboard/eligibility', rbac.requirePermission('dashboard', 'read'), dashboardController.getEligibilityStats);
+router.get('/dashboard/eligibility-drilldown/:filter', rbac.requirePermission('dashboard', 'read'), dashboardController.getEligibilityDrilldown);
+
 
 // Reports
 router.get('/reports/patients', rbac.requirePermission('reports', 'read'), reportController.getPatientReport);

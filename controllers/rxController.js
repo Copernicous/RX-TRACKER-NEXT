@@ -99,6 +99,45 @@ exports.create = async (req, res) => {
             return res.status(400).json({ error: 'Arrival date must be within 90 days prior to Service Date.' });
         }
 
+        // ── 90-DAY ELIGIBILITY CHECK ──────────────────────────────────────────────
+        // The 90-day window is owned by the PATIENT record's serviceDate field.
+        // That is the canonical clock. We check it directly here rather than
+        // looking at the latest RX record's serviceDate, so that the Patient
+        // record is the single source of truth for cycle management.
+        // bypassEligibility=true allows admins to override (e.g. corrections).
+        if (rxData.patientId && !req.body.bypassEligibility) {
+            const patient = await db.Patient.findByPk(rxData.patientId);
+
+            // ── INACTIVE PATIENT GUARD ────────────────────────────────────────────
+            // Inactive patients cannot receive new RX records under any circumstance.
+            if (patient && patient.isActive === false) {
+                await transaction.rollback();
+                return res.status(400).json({
+                    error: `Cannot create an RX record for an inactive patient (${patient.firstName} ${patient.lastName}). Re-activate the patient first before adding new services.`,
+                    code: 'PATIENT_INACTIVE'
+                });
+            }
+            // ── END INACTIVE GUARD ────────────────────────────────────────────────
+
+            if (patient && patient.serviceDate) {
+                const patSvc    = new Date(patient.serviceDate); patSvc.setHours(0,0,0,0);
+                const patExpiry = new Date(patSvc); patExpiry.setDate(patExpiry.getDate() + 90);
+                const todayChk  = new Date(); todayChk.setHours(0,0,0,0);
+                if (todayChk <= patExpiry) {
+                    const daysLeft = Math.ceil((patExpiry - todayChk) / 864e5);
+                    await transaction.rollback();
+                    return res.status(400).json({
+                        error: `Patient is not yet eligible for a new service. The current 90-day window (started ${patSvc.toLocaleDateString()}) expires on ${patExpiry.toLocaleDateString()} (${daysLeft} day${daysLeft !== 1 ? 's' : ''} remaining). Update the Service Date on the Patient record after the window expires to begin a new cycle.`,
+                        code: 'INELIGIBLE_90_DAY',
+                        eligibleAfter: patExpiry.toISOString().slice(0,10),
+                        daysRemaining: daysLeft,
+                        cycleStarted: patSvc.toISOString().slice(0,10)
+                    });
+                }
+            }
+        }
+        // ── END ELIGIBILITY CHECK ─────────────────────────────────────────────────
+
         const rx = await db.RXRecord.create({ ...rxData, arrivalDate, serviceDate }, { transaction });
 
         if (medications && medications.length > 0) {
@@ -523,6 +562,44 @@ exports.update = async (req, res) => {
                 safeData[field] = (val === '' || val === undefined) ? null : val;
             }
         });
+
+        // ── 90-DAY SERVICE DATE LOCK ──────────────────────────────────────────────
+        // Block changes to serviceDate while the current 90-day window is still active.
+        // This prevents silently resetting the eligibility clock mid-cycle.
+        // bypassEligibility=true allows admin override (e.g., data corrections).
+        if (
+            safeData.serviceDate !== undefined &&
+            before.serviceDate &&
+            !req.body.bypassEligibility
+        ) {
+            const incomingDate  = safeData.serviceDate ? parseDate(safeData.serviceDate) : null;
+            const currentSvcStr = before.serviceDate instanceof Date
+                ? before.serviceDate.toISOString().slice(0, 10)
+                : String(before.serviceDate).slice(0, 10);
+
+            // Only check if the date is actually changing
+            const isChanging = incomingDate && incomingDate !== currentSvcStr;
+            if (isChanging) {
+                const currentSvc    = new Date(before.serviceDate); currentSvc.setHours(0, 0, 0, 0);
+                const windowExpiry  = new Date(currentSvc); windowExpiry.setDate(windowExpiry.getDate() + 90);
+                const todayLock     = new Date(); todayLock.setHours(0, 0, 0, 0);
+
+                if (todayLock <= windowExpiry) {
+                    const daysLeft = Math.ceil((windowExpiry - todayLock) / 864e5);
+                    return res.status(400).json({
+                        error: `The Service Date cannot be changed during an active 90-day window. ` +
+                               `Current window expires on ${windowExpiry.toLocaleDateString()} ` +
+                               `(${daysLeft} day${daysLeft !== 1 ? 's' : ''} remaining). ` +
+                               `Wait until the window expires before updating the service date.`,
+                        code:           'SERVICE_DATE_LOCKED',
+                        windowExpiry:   windowExpiry.toISOString().slice(0, 10),
+                        daysRemaining:  daysLeft,
+                        currentServiceDate: currentSvcStr
+                    });
+                }
+            }
+        }
+        // ── END SERVICE DATE LOCK ─────────────────────────────────────────────────
 
         const [updated] = await db.RXRecord.update(safeData, { where: { id: req.params.id } });
         if (!updated) return res.status(404).json({ message: 'Not found' });

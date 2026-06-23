@@ -8,21 +8,23 @@
 var _api = (function() {
     function _h(id) { var el = document.getElementById(id); return el ? el.href : ''; }
     return {
-        stats:  _h('xa-stats'),
-        charts: _h('xa-charts'),
-        rxp:    _h('xa-rxp'),
-        drill:  _h('xa-drill'),
-        ap:     _h('xa-ap'),
-        ip:     _h('xa-ip'),
-        tr:     _h('xa-tr'),
-        pr:     _h('xa-pr'),
-        nr:     _h('xa-nr'),
-        s2fa:   _h('xa-s2fa'),
-        u2fa:   _h('xa-u2fa'),
-        e2fa:   _h('xa-e2fa'),
-        d2fa:   _h('xa-d2fa'),
-        r2fa:   _h('xa-r2fa'),
-        cpw:    _h('xa-cpw')
+        stats:    _h('xa-stats'),
+        charts:   _h('xa-charts'),
+        rxp:      _h('xa-rxp'),
+        elig:     _h('xa-elig'),
+        drill:    _h('xa-drill'),
+        eligBase: _h('xa-elig-base'),
+        ap:       _h('xa-ap'),
+        ip:       _h('xa-ip'),
+        tr:       _h('xa-tr'),
+        pr:       _h('xa-pr'),
+        nr:       _h('xa-nr'),
+        s2fa:     _h('xa-s2fa'),
+        u2fa:     _h('xa-u2fa'),
+        e2fa:     _h('xa-e2fa'),
+        d2fa:     _h('xa-d2fa'),
+        r2fa:     _h('xa-r2fa'),
+        cpw:      _h('xa-cpw')
     };
 })();
 
@@ -135,6 +137,157 @@ function refreshDashboard() {
         console.warn('Stats refresh error:', e);
     }).then(function() {
         loadRxPipeline();
+    });
+}
+
+// =====================================================================
+// 90-Day Eligibility Widget
+// =====================================================================
+var _eligData = null;
+
+// Count-up animation — FortiGate-safe (no arrow funcs, no const/let)
+function countUp(elId, target, duration) {
+    var el = document.getElementById(elId);
+    if (!el) return;
+    if (target === 0) { el.textContent = '0'; return; }
+    var start   = 0;
+    var steps   = Math.max(1, Math.ceil(duration / 30));
+    var stepVal = Math.ceil(target / steps);
+    var timer   = setInterval(function() {
+        start += stepVal;
+        if (start >= target) { start = target; clearInterval(timer); }
+        el.textContent = start;
+    }, 30);
+}
+
+// Navigate to patients page with a specific eligibility filter pre-applied
+// (still kept as fallback from the drilldown modal's "Open Full Page" button)
+function goEligFilter(filter) {
+    var base = window._patientsUrl || '/patients';
+    window.location.href = base + '?eligFilter=' + filter;
+}
+
+// =====================================================================
+// Eligibility Drilldown — popup same as top stat cards, then full-page link
+// =====================================================================
+function openEligDrilldown(filter) {
+    var titles = {
+        'eligible': 'Eligible Now — 90-Day Window Expired',
+        'expiring': 'Window Expiring ≤ 7 Days',
+        'window':   'In Active 90-Day Window',
+        'none':     'No Service Date Set'
+    };
+    var pageLinks = {
+        'eligible': document.getElementById('xl-elig-eligible'),
+        'expiring': document.getElementById('xl-elig-expiring'),
+        'window':   document.getElementById('xl-elig-window'),
+        'none':     document.getElementById('xl-elig-none')
+    };
+    var icons = {
+        'eligible': 'fa-check-circle',
+        'expiring': 'fa-hourglass-half',
+        'window':   'fa-lock',
+        'none':     'fa-calendar-times'
+    };
+    var colors = {
+        'eligible': '#198754',
+        'expiring': '#dc3545',
+        'window':   '#4a90e2',
+        'none':     '#6c757d'
+    };
+
+    var titleEl = document.getElementById('drilldownTitle');
+    var bodyEl  = document.getElementById('drilldownBody');
+    var fpBtn   = document.getElementById('drilldownFullPageBtn');
+
+    if (titleEl) titleEl.textContent = titles[filter] || '90-Day Eligibility';
+    if (bodyEl)  bodyEl.innerHTML    = '<p class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin me-2"></i>Loading patients...</p>';
+    if (fpBtn) {
+        var plEl = pageLinks[filter];
+        fpBtn.href = plEl ? plEl.href : '/patients';
+        fpBtn.textContent = '';
+        var fpIcon = document.createElement('i');
+        fpIcon.className = 'fas fa-filter me-1';
+        fpBtn.appendChild(fpIcon);
+        fpBtn.appendChild(document.createTextNode('View Full Filter'));
+    }
+
+    drilldownModal.show();
+
+    var apiUrl = (_api.eligBase || '/api/dashboard/eligibility-drilldown/') + filter;
+    fetchWithAuth(apiUrl).then(function(res) {
+        if (!res || !res.ok) throw new Error('API error');
+        return res.json();
+    }).then(function(data) {
+        if (titleEl) titleEl.textContent = (titles[filter] || '90-Day Eligibility') + ' (' + data.length + ')';
+        _renderEligDrilldownTable(filter, data, colors[filter] || '#6c757d', icons[filter] || 'fa-user');
+    }).catch(function() {
+        if (bodyEl) bodyEl.innerHTML = '<p class="text-danger text-center py-4"><i class="fas fa-exclamation-triangle me-1"></i>Could not load eligibility data.</p>';
+    });
+}
+
+function _renderEligDrilldownTable(filter, data, color, icon) {
+    var body = document.getElementById('drilldownBody');
+    if (!data || !data.length) {
+        body.innerHTML = '<p class="text-center text-muted py-4"><i class="fas ' + icon + ' me-2"></i>No patients in this category.</p>';
+        return;
+    }
+
+    var rows = '';
+    for (var i = 0; i < data.length; i++) {
+        var p = data[i];
+
+        // Status badge
+        var badge = '';
+        if (filter === 'eligible') {
+            badge = '<span class="badge" style="background:' + color + '22;color:' + color + ';font-size:.78rem">' +
+                    '<i class="fas fa-check me-1"></i>Overdue ' + (p.daysPastDue || 0) + 'd</span>';
+        } else if (filter === 'expiring') {
+            badge = '<span class="badge" style="background:' + color + '22;color:' + color + ';font-size:.78rem">' +
+                    '<i class="fas fa-hourglass-half me-1"></i>' + (p.daysLeft || 0) + 'd left</span>';
+        } else if (filter === 'window') {
+            badge = '<span class="badge" style="background:' + color + '22;color:' + color + ';font-size:.78rem">' +
+                    '<i class="fas fa-lock me-1"></i>' + (p.daysLeft || 0) + 'd left</span>';
+        } else {
+            badge = '<span class="badge bg-secondary" style="font-size:.78rem">No date</span>';
+        }
+
+        rows += '<tr>' +
+            '<td><code style="color:' + color + '">' + (p.patientCode || p.id) + '</code></td>' +
+            '<td><strong>' + (p.firstName || '') + ' ' + (p.lastName || '') + '</strong></td>' +
+            '<td>' + (p.serviceDate || '&mdash;') + '</td>' +
+            '<td>' + (p.expiryDate  || '&mdash;') + '</td>' +
+            '<td>' + badge + '</td>' +
+            '<td>' + (p.clinicName || '&mdash;') + '</td>' +
+            '</tr>';
+    }
+
+    body.innerHTML =
+        '<div class="table-responsive">' +
+        '<table class="table table-hover table-sm align-middle">' +
+        '<thead><tr style="border-bottom:2px solid ' + color + '44">' +
+        '<th>Patient ID</th><th>Name</th><th>Service Date</th><th>90-Day Expiry</th><th>Status</th><th>Clinic</th>' +
+        '</tr></thead><tbody>' + rows + '</tbody></table></div>' +
+        '<small class="text-muted">' + data.length + ' patient' + (data.length !== 1 ? 's' : '') + '</small>';
+}
+
+function loadEligibility() {
+    var luEl = document.getElementById('eligLastUpdated');
+    if (luEl) luEl.textContent = 'Loading\u2026';
+    if (!_api.elig) return;
+    fetchWithAuth(_api.elig).then(function(res) {
+        if (!res || !res.ok) throw new Error('Failed');
+        return res.json();
+    }).then(function(d) {
+        _eligData = d;
+        // Animate each counter in with count-up effect
+        countUp('eligNowCount',      d.eligibleNow   || 0, 600);
+        countUp('eligExpiringCount', d.expiringIn7   || 0, 600);
+        countUp('eligInWindowCount', d.inWindow      || 0, 600);
+        countUp('eligNoDateCount',   d.noServiceDate || 0, 600);
+        if (luEl) luEl.textContent = 'Updated ' + new Date().toLocaleTimeString();
+    }).catch(function() {
+        if (luEl) luEl.textContent = 'Load failed';
     });
 }
 
@@ -824,6 +977,9 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
     }).catch(function(e) { console.warn('Charts failed:', e); });
+
+    // Load eligibility widget independently
+    loadEligibility();
 
     // ISSUE-03 FIX: Re-render charts on theme toggle so dark/light colors update
     var _themeBtn = document.getElementById('themeToggle');

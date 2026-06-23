@@ -90,7 +90,31 @@ var allPatients = [];
                 applyPatientSearch();
                 showToast('Showing Inactive Patients only', 'info');
             }
+
+            // ── ELIGIBILITY FILTER from dashboard card click ──────────────────────
+            // When user clicks an eligibility card on the dashboard, they arrive here
+            // with ?eligFilter=eligible|expiring|window|none. Apply it automatically.
+            var eligParam = urlParams.get('eligFilter');
+            if (eligParam) {
+                var eligEl = document.getElementById('srchEligibility');
+                if (eligEl) {
+                    eligEl.value = eligParam;
+                    // Expand the advanced filter panel so users can see the active filter
+                    var advRow = document.getElementById('advancedFilterRow');
+                    if (advRow) advRow.style.display = '';
+                    liveFilter();
+                    var labelMap = {
+                        'eligible':  'Eligible Now (window expired)',
+                        'expiring':  'Window expiring within 7 days',
+                        'window':    'In active 90-day window',
+                        'none':      'No service date set'
+                    };
+                    showToast('Filter: ' + (labelMap[eligParam] || eligParam), 'info');
+                }
+            }
+            // ── END ELIGIBILITY FILTER ──────────────────────────────────────────────
         }
+
 
         document.getElementById('addPatientBtn').addEventListener('click', () => openPatientModal(null));
 
@@ -150,7 +174,7 @@ var allPatients = [];
         document.getElementById('searchBtn').addEventListener('click', loadPatients);
         document.getElementById('clearBtn').addEventListener('click', () => {
             ['srchFirstName','srchLastName','srchDob','srchPhone','srchStatus','srchClinic',
-             'srchPatientCode','srchPatientTransport','srchPharmacyTransport','srchServiceFrom','srchServiceTo'
+             'srchPatientCode','srchPatientTransport','srchPharmacyTransport','srchServiceFrom','srchServiceTo','srchEligibility'
             ].forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
             document.getElementById('srchShowDeleted').checked = false;
             updateFilterBadge();
@@ -185,15 +209,30 @@ var allPatients = [];
             document.getElementById('exportModalCount').textContent =
                 'Exporting ' + filteredPatients.length + ' record' + (filteredPatients.length !== 1 ? 's' : '') + ' matching current filters';
             const list = document.getElementById('exportColList');
-            var _ecHtml=''; for(var _eci=0;_eci<EXPORT_COLS.length;_eci++){var c=EXPORT_COLS[_eci]; _ecHtml+=(function(){
-                return '<div class="col-6">' +
+            // Build checkbox HTML WITHOUT inline onchange (inline handlers run in global scope
+            // and cannot access the _exportColState closure variable — that's the bug this fixes)
+            var _ecHtml = '';
+            for (var _eci = 0; _eci < EXPORT_COLS.length; _eci++) {
+                var c = EXPORT_COLS[_eci];
+                _ecHtml +=
+                    '<div class="col-6">' +
                     '<label class="d-flex align-items-center gap-2 p-2 rounded" style="border:1px solid var(--border-color,#dee2e6);cursor:pointer" id="ecWrap_' + c.key + '">' +
-                        '<input type="checkbox" class="form-check-input mt-0" id="ec_' + c.key + '" ' + (_exportColState[c.key] ? 'checked' : '') +
-                            ' onchange="_exportColState[\'' + c.key + '\']=this.checked;updateEcStyle(\'' + c.key + '\')"> ' +
+                        '<input type="checkbox" class="form-check-input mt-0 ec-col-checkbox" id="ec_' + c.key + '" data-col-key="' + c.key + '" ' + (_exportColState[c.key] ? 'checked' : '') + '> ' +
                         '<span class="small">' + c.label + '</span>' +
                     '</label>' +
-                '</div>';
-            })(); } list.innerHTML = _ecHtml;
+                    '</div>';
+            }
+            list.innerHTML = _ecHtml;
+            // Attach change listeners programmatically so they can access the closure
+            var checkboxes = list.querySelectorAll('.ec-col-checkbox');
+            for (var ci = 0; ci < checkboxes.length; ci++) {
+                checkboxes[ci].addEventListener('change', (function(colKey) {
+                    return function() {
+                        _exportColState[colKey] = this.checked;
+                        updateEcStyle(colKey);
+                    };
+                })(checkboxes[ci].getAttribute('data-col-key')));
+            }
             EXPORT_COLS.forEach(c => updateEcStyle(c.key));
             new bootstrap.Modal(document.getElementById('exportColumnsModal')).show();
         }
@@ -210,6 +249,8 @@ var allPatients = [];
                 updateEcStyle(c.key);
             });
         }
+        // Expose to window so the HTML button onclick="setAllExportCols(...)" can reach it
+        window.setAllExportCols = setAllExportCols;
         document.getElementById('exportPatientsCsvBtn').addEventListener('click', openExportModal);
         document.getElementById('doExportBtn').addEventListener('click', () => {
             const selected = EXPORT_COLS.filter(c => _exportColState[c.key]);
@@ -338,6 +379,9 @@ var allPatients = [];
         const rx   = document.getElementById('srchPharmacyTransport')?.value || '';
         const sf   = document.getElementById('srchServiceFrom')?.value || '';
         const st2  = document.getElementById('srchServiceTo')?.value || '';
+        const elig = (document.getElementById('srchEligibility')?.value || '');
+
+        const _todayMs = new Date().setHours(0,0,0,0);
 
         filteredPatients = allPatients.filter(p => {
             if (fn && !(p.firstName||'').toLowerCase().includes(fn)) return false;
@@ -361,6 +405,28 @@ var allPatients = [];
             }
             if (sf && p.serviceDate && p.serviceDate < sf) return false;
             if (st2 && p.serviceDate && p.serviceDate > st2) return false;
+            // ── 90-day eligibility filter ──────────────────────────────────────
+            // Logic MUST match dashboardController.js getEligibilityStats()
+            // Source of truth: patient.serviceDate (not latest RX serviceDate)
+            // daysLeft = days until expiry (negative = already past = eligible)
+            if (elig) {
+                if (!p.serviceDate) {
+                    // 'none' = patient has no serviceDate
+                    if (elig !== 'none') return false;
+                } else {
+                    var _svcMs  = new Date(p.serviceDate).setHours(0,0,0,0);
+                    var _exp90  = _svcMs + 90 * 864e5;
+                    var _dl90   = Math.ceil((_exp90 - _todayMs) / 864e5);
+                    // eligible: window fully expired (daysLeft < 0)
+                    if (elig === 'eligible' && _dl90 >= 0)          return false;
+                    // expiring: 0-7 days remaining (matches backend <=7)
+                    if (elig === 'expiring' && (_dl90 < 0 || _dl90 > 7)) return false;
+                    // window: active window with > 7 days remaining
+                    if (elig === 'window'   && (_dl90 < 0 || _dl90 <= 7)) return false;
+                    // none: handled above - if patient has serviceDate, exclude
+                    if (elig === 'none')                             return false;
+                }
+            }
             return true;
         });
         updateFilterBadge();
@@ -479,6 +545,10 @@ var allPatients = [];
             tr.appendChild(tdSvc);
 
             // Col: Next Svc Date (serviceDate + 90 days, color-coded)
+            // daysLeft < 0  → window EXPIRED = patient ELIGIBLE for new service (green)
+            // daysLeft 0-7  → expiring very soon (orange warning)
+            // daysLeft 8-14 → expiring soon (yellow warning)
+            // daysLeft > 14 → in active window (plain date)
             var tdNext = document.createElement('td');
             if (p.serviceDate) {
                 var _sd   = new Date(p.serviceDate); _sd.setHours(0,0,0,0);
@@ -487,11 +557,14 @@ var allPatients = [];
                 var _dl   = Math.round((_exp - _now) / 864e5);
                 var _es   = _exp.toLocaleDateString();
                 if (_dl < 0) {
-                    tdNext.innerHTML = '<span class="badge bg-danger" title="Expired ' + Math.abs(_dl) + 'd ago"><i class="fas fa-exclamation-circle me-1"></i>Expired</span><small class="d-block text-muted" style="font-size:.7rem">' + _es + '</small>';
+                    // Past 90 days — ELIGIBLE for new service
+                    tdNext.innerHTML = '<span class="badge" style="background:#198754;font-size:.72rem" title="Eligible since ' + _es + ' (' + Math.abs(_dl) + 'd ago)"><i class="fas fa-check-circle me-1"></i>Eligible ✓</span><small class="d-block text-muted" style="font-size:.68rem">Since ' + _es + '</small>';
+                } else if (_dl <= 7) {
+                    tdNext.innerHTML = '<span class="badge bg-danger" style="font-size:.72rem" title="Eligible in ' + _dl + ' days"><i class="fas fa-hourglass-half me-1"></i>' + _dl + 'd left</span><small class="d-block text-muted" style="font-size:.68rem">' + _es + '</small>';
                 } else if (_dl <= 14) {
-                    tdNext.innerHTML = '<span class="badge bg-warning text-dark" title="' + _dl + ' days left"><i class="fas fa-clock me-1"></i>' + _dl + 'd left</span><small class="d-block text-muted" style="font-size:.7rem">' + _es + '</small>';
+                    tdNext.innerHTML = '<span class="badge bg-warning text-dark" style="font-size:.72rem" title="Eligible in ' + _dl + ' days"><i class="fas fa-clock me-1"></i>' + _dl + 'd left</span><small class="d-block text-muted" style="font-size:.68rem">' + _es + '</small>';
                 } else {
-                    tdNext.innerHTML = '<span style="font-size:.87rem">' + _es + '</span>';
+                    tdNext.innerHTML = '<span style="font-size:.87rem;color:var(--text-muted,#6c757d)">' + _es + '</span>';
                 }
             } else {
                 tdNext.innerHTML = '<span class="text-muted">—</span>';
@@ -840,6 +913,42 @@ var allPatients = [];
         document.getElementById('pPharmacyTransport').value = patient ? (patient.pharmacyTransportCompanyId !== null && patient.pharmacyTransportCompanyId !== undefined ? String(patient.pharmacyTransportCompanyId) : '') : '';
         document.getElementById('pClinicId').value = patient ? (patient.clinicId !== null && patient.clinicId !== undefined ? String(patient.clinicId) : '') : '';
         document.getElementById('pPharmacyId').value = patient ? (patient.pharmacyId !== null && patient.pharmacyId !== undefined ? String(patient.pharmacyId) : '') : '';
+
+        // ── 90-DAY SERVICE DATE LOCK UI ───────────────────────────────────────────
+        // When editing a patient whose service date is still within the active 90-day
+        // window, show the amber lock banner and make the date field read-only.
+        // The Patient's serviceDate is the canonical clock for the 90-day cycle.
+        const banner   = document.getElementById('svcDateLockBanner');
+        const lockIcon = document.getElementById('svcDateLockIcon');
+        const svcInput = document.getElementById('pServiceDate');
+        const detail   = document.getElementById('svcDateLockDetail');
+        const isLocked = (function() {
+            if (!patient || !patient.serviceDate) return false;
+            var sd  = new Date(patient.serviceDate); sd.setHours(0,0,0,0);
+            var exp = new Date(sd.getTime() + 90 * 864e5);
+            var now = new Date(); now.setHours(0,0,0,0);
+            return now <= exp;
+        })();
+        if (isLocked && patient && patient.serviceDate) {
+            var sd      = new Date(patient.serviceDate); sd.setHours(0,0,0,0);
+            var exp     = new Date(sd.getTime() + 90 * 864e5);
+            var now     = new Date(); now.setHours(0,0,0,0);
+            var dLeft   = Math.ceil((exp - now) / 864e5);
+            if (banner)   banner.style.display = '';
+            if (lockIcon) lockIcon.style.display = '';
+            if (svcInput) svcInput.setAttribute('readonly', 'readonly');
+            if (detail)   detail.textContent = 'Started: ' + sd.toLocaleDateString() +
+                ' \u2014 Expires: ' + exp.toLocaleDateString() +
+                ' (' + dLeft + ' day' + (dLeft !== 1 ? 's' : '') + ' remaining).' +
+                ' To start a new cycle, update this date after the window expires.';
+        } else {
+            if (banner)   banner.style.display = 'none';
+            if (lockIcon) lockIcon.style.display = 'none';
+            if (svcInput) svcInput.removeAttribute('readonly');
+            if (detail)   detail.textContent = '';
+        }
+        // ── END LOCK UI ───────────────────────────────────────────────────────────
+
         new bootstrap.Modal(document.getElementById('patientModal')).show();
         // Refresh the next-svc-date display for whatever date is loaded
         setTimeout(_updateNextSvcDisplay, 50);
@@ -857,6 +966,7 @@ var allPatients = [];
         // Acquire soft lock if editing an existing patient
         if (id) acquireModalLock(id);
     }
+
 
     async function savePatient() {
         const btn = document.getElementById('savePatientBtn');

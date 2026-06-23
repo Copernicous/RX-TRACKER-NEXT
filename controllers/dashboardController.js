@@ -274,3 +274,157 @@ exports.getRxPipeline = async (req, res) => {
         });
     } catch (error) { res.status(500).json({ error: error.message }); }
 };
+
+// GET /api/dashboard/eligibility
+// Returns 90-day eligibility breakdown for active patients.
+// SOURCE OF TRUTH: patient.serviceDate (canonical 90-day clock).
+// This matches the frontend liveFilter() logic in patients.js.
+exports.getEligibilityStats = async (req, res) => {
+    try {
+        const notDeleted = { [Op.or]: [{ isDeleted: false }, { isDeleted: null }] };
+
+        // Get all active non-deleted patients
+        const patients = await db.Patient.findAll({
+            where: { isActive: true, ...notDeleted },
+            attributes: ['id', 'firstName', 'lastName', 'patientCode', 'serviceDate'],
+            raw: true
+        });
+
+        const today = new Date(); today.setHours(0, 0, 0, 0);
+
+        let eligibleNow    = 0;   // patient.serviceDate window fully expired (daysLeft < 0)
+        let expiringIn7    = 0;   // window expires in 0–7 days
+        let inWindow       = 0;   // window active, > 7 days remaining
+        let noServiceDate  = 0;   // patient has no serviceDate at all
+        const eligibleList = [];
+
+        for (const p of patients) {
+            // ── Canonical source: patient.serviceDate ──────────────────────────
+            // This is the same field the frontend patients.js liveFilter() uses.
+            if (!p.serviceDate) {
+                noServiceDate++;
+                continue;
+            }
+            const svcDay    = new Date(p.serviceDate); svcDay.setHours(0, 0, 0, 0);
+            const expiryDay = new Date(svcDay); expiryDay.setDate(svcDay.getDate() + 90);
+            const daysLeft  = Math.ceil((expiryDay - today) / 864e5);
+
+            if (daysLeft < 0) {
+                // Window fully expired — patient is eligible for a new service
+                eligibleNow++;
+                eligibleList.push({
+                    id:            p.id,
+                    patientCode:   p.patientCode,
+                    name:          (p.firstName || '') + ' ' + (p.lastName || ''),
+                    lastService:   p.serviceDate,
+                    eligibleSince: expiryDay.toISOString().slice(0, 10),
+                    daysPastDue:   Math.abs(daysLeft)
+                });
+            } else if (daysLeft <= 7) {
+                // Window closing soon (0–7 days left)
+                expiringIn7++;
+            } else {
+                // Active window, > 7 days remaining
+                inWindow++;
+            }
+        }
+
+        // Sort eligible list: longest overdue first
+        eligibleList.sort((a, b) => b.daysPastDue - a.daysPastDue);
+
+        res.json({
+            eligibleNow,
+            expiringIn7,
+            inWindow,
+            noServiceDate,
+            total: patients.length,
+            eligibleList: eligibleList.slice(0, 20)
+        });
+    } catch (error) { res.status(500).json({ error: error.message }); }
+};
+
+// GET /api/dashboard/eligibility-drilldown/:filter
+// Returns the full patient list for a specific 90-day eligibility category.
+// Filter values: eligible | expiring | window | none
+// Uses the SAME logic as getEligibilityStats so popup counts match card numbers.
+exports.getEligibilityDrilldown = async (req, res) => {
+    try {
+        const filter     = req.params.filter;  // eligible | expiring | window | none
+        const notDeleted = { [Op.or]: [{ isDeleted: false }, { isDeleted: null }] };
+
+        const patients = await db.Patient.findAll({
+            where: { isActive: true, ...notDeleted },
+            attributes: ['id', 'firstName', 'lastName', 'patientCode', 'serviceDate', 'phone', 'dob'],
+            include: [
+                { model: db.Clinic, attributes: ['name'], required: false },
+                { model: db.Pharmacy, attributes: ['name'], required: false }
+            ],
+            raw: false
+        });
+
+        const today = new Date(); today.setHours(0, 0, 0, 0);
+        const results = [];
+
+        for (const p of patients) {
+            const svcDate = p.serviceDate;
+
+            if (!svcDate) {
+                // 'none' category: no service date on the patient record
+                if (filter === 'none') {
+                    results.push({
+                        id:          p.id,
+                        patientCode: p.patientCode,
+                        firstName:   p.firstName,
+                        lastName:    p.lastName,
+                        phone:       p.phone,
+                        serviceDate: null,
+                        expiryDate:  null,
+                        daysLeft:    null,
+                        status:      'none',
+                        clinicName:  p.Clinic ? p.Clinic.name : null,
+                        pharmacyName: p.Pharmacy ? p.Pharmacy.name : null
+                    });
+                }
+                continue;
+            }
+
+            // Canonical 90-day window calculation
+            const svcDay    = new Date(svcDate); svcDay.setHours(0, 0, 0, 0);
+            const expiryDay = new Date(svcDay); expiryDay.setDate(svcDay.getDate() + 90);
+            const daysLeft  = Math.ceil((expiryDay - today) / 864e5);
+
+            const matches = (
+                (filter === 'eligible' && daysLeft < 0)       ||  // window expired
+                (filter === 'expiring' && daysLeft >= 0 && daysLeft <= 7) ||  // closing soon
+                (filter === 'window'   && daysLeft > 7)        // active, plenty of time
+            );
+
+            if (matches) {
+                results.push({
+                    id:           p.id,
+                    patientCode:  p.patientCode,
+                    firstName:    p.firstName,
+                    lastName:     p.lastName,
+                    phone:        p.phone,
+                    serviceDate:  svcDate,
+                    expiryDate:   expiryDay.toISOString().slice(0, 10),
+                    daysLeft:     daysLeft,
+                    daysPastDue:  daysLeft < 0 ? Math.abs(daysLeft) : 0,
+                    status:       filter,
+                    clinicName:   p.Clinic   ? p.Clinic.name   : null,
+                    pharmacyName: p.Pharmacy ? p.Pharmacy.name : null
+                });
+            }
+        }
+
+        // Sort: eligible → oldest first; expiring → fewest days first; window → most days first; none → alpha
+        results.sort((a, b) => {
+            if (filter === 'eligible') return b.daysPastDue - a.daysPastDue;
+            if (filter === 'expiring') return a.daysLeft   - b.daysLeft;
+            if (filter === 'window')   return b.daysLeft   - a.daysLeft;
+            return (a.lastName || '').localeCompare(b.lastName || '');
+        });
+
+        res.json(results);
+    } catch (error) { res.status(500).json({ error: error.message }); }
+};

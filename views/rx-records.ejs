@@ -1109,12 +1109,15 @@
 
         function renderDropdown(query) {
             var q = query.trim().toLowerCase();
-            var matches = q.length === 0 ? allPatientsList.slice(0, 50) : allPatientsList.filter(function(p) {
+            // Only show ACTIVE patients — inactive patients cannot receive new RX records
+            var activePatients = allPatientsList.filter(function(p) { return p.isActive !== false; });
+            var matches = q.length === 0 ? activePatients.slice(0, 50) : activePatients.filter(function(p) {
                 var name  = (p.firstName + ' ' + p.lastName).toLowerCase();
                 var code  = (p.patientCode || '').toLowerCase();
                 var idStr = String(p.id);
                 return name.indexOf(q) !== -1 || code.indexOf(q) !== -1 || idStr.indexOf(q) !== -1;
             });
+
 
             if (matches.length === 0) {
                 dropdown.innerHTML = '<div class="patient-dropdown-empty">No patients found.</div>';
@@ -1420,7 +1423,14 @@
                     ['Default Pharmacy',   pharmacy.name || '\u2014'],
                     ['Service Date',       rx.serviceDate || '\u2014'],
                     ['Next Service Date',  (function(){ if (!rx.serviceDate) return '\u2014'; var e = new Date(new Date(rx.serviceDate).getTime() + 90*864e5); return e.toLocaleDateString(); })()],
-                    ['Cycle Status',       (function(){ if (!rx.serviceDate) return '\u2014'; var e = new Date(new Date(rx.serviceDate).getTime() + 90*864e5); var d = Math.round((e - new Date()) / 864e5); if (d < 0) return '\u26a0\ufe0f Expired (' + Math.abs(d) + 'd ago)'; if (d <= 14) return '\u23f1\ufe0f Expiring (' + d + 'd left)'; return '\u2705 Active'; })()],
+                    ['Cycle Status',       (function(){
+                        if (!rx.serviceDate) return '\u2014';
+                        var e = new Date(new Date(rx.serviceDate).getTime() + 90*864e5);
+                        var d = Math.round((e - new Date()) / 864e5);
+                        if (d < 0) return '\u26a0\ufe0f Eligible for renewal (' + Math.abs(d) + 'd ago)';
+                        if (d <= 14) return '\u23f1\ufe0f Expiring soon (' + d + 'd left) \u2014 \uD83D\uDD12 Date Locked';
+                        return '\uD83D\uDD12 Active Window (' + d + ' days remaining) \u2014 Date Locked';
+                    })()],
                     ['Patient Transport',  ptComp],
                     ['Pharmacy Transport', phtComp],
                     ['Created',            rx.createdAt ? new Date(rx.createdAt).toLocaleString() : '\u2014']
@@ -1603,6 +1613,26 @@
                     ? '<div class="alert alert-danger py-2 mb-3 d-flex align-items-center justify-content-between flex-wrap gap-2"><div><i class="fas fa-exclamation-triangle me-2"></i><strong>90-Day Window Expired</strong> <span class="ms-2 small">Service date: ' + svcStr + ' \u2014 Expired: ' + expStr + '</span></div>' + resetBtnHtml + '</div>'
                     : '';
 
+                // ── 90-DAY ACTIVE LOCK BANNER ────────────────────────────────────────────
+                // When the window is still running, show a clear visual indicator that the
+                // service date is locked and cannot be changed until the window expires.
+                var daysLeftInWindow = expiryDateR ? Math.ceil((expiryDateR - todayD) / 864e5) : 0;
+                var activeLockBanner = (!isExpired && svcDateR)
+                    ? '<div class="alert py-2 mb-3 d-flex align-items-center gap-3" style="background:rgba(74,144,226,.12);border:1.5px solid rgba(74,144,226,.35);border-radius:8px">' +
+                        '<i class="fas fa-lock" style="color:#4a90e2;font-size:1.1rem;flex-shrink:0"></i>' +
+                        '<div>' +
+                            '<strong style="color:#4a90e2">90-Day Window Active — Service Date Locked</strong>' +
+                            '<div class="small text-muted mt-1">' +
+                                'Service started: <strong>' + svcStr + '</strong> &nbsp;&bull;&nbsp; ' +
+                                'Window expires: <strong>' + expStr + '</strong> &nbsp;&bull;&nbsp; ' +
+                                '<strong>' + daysLeftInWindow + ' day' + (daysLeftInWindow !== 1 ? 's' : '') + ' remaining</strong><br>' +
+                                'The service date cannot be changed while this window is active. After expiry, use <em>Start New Cycle</em> to begin the next 90-day period.' +
+                            '</div>' +
+                        '</div>' +
+                      '</div>'
+                    : '';
+                // ── END LOCK BANNER ──────────────────────────────────────────────────────
+
                 var listHtml = '';
                 for (var idx = 0; idx < allWorkflowActions.length; idx++) {
                     var action = allWorkflowActions[idx];
@@ -1637,7 +1667,7 @@
                     '</div>';
                 }
 
-                var html = expiryBanner + warehouseBanner + '<div class="list-group">' + listHtml + '</div>';
+                var html = expiryBanner + activeLockBanner + warehouseBanner + '<div class="list-group">' + listHtml + '</div>';
                 document.getElementById('workflowBody').innerHTML = html;
 
                 /* Wire Reset Cycle button */

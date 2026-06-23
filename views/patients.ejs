@@ -105,7 +105,17 @@
                             <label class="form-label small fw-bold"><i class="fas fa-calendar me-1"></i>Service Date To</label>
                             <input type="date" class="form-control form-control-sm" id="srchServiceTo" onchange="liveFilter()">
                         </div>
-                        <div class="col-md-3 d-flex align-items-center">
+                        <div class="col-md-3">
+                            <label class="form-label small fw-bold"><i class="fas fa-check-circle me-1 text-success"></i>90-Day Eligibility</label>
+                            <select class="form-select form-select-sm" id="srchEligibility" onchange="liveFilter()">
+                                <option value="">All Patients</option>
+                                <option value="eligible">&#x2705; Eligible Now</option>
+                                <option value="expiring">&#x23F1; Expiring &le;7 Days</option>
+                                <option value="window">&#x1F512; In Active Window</option>
+                                <option value="none">&#x2014; No Service Date</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2 d-flex align-items-center">
                             <div class="form-check form-switch mt-2">
                                 <input class="form-check-input" type="checkbox" id="srchShowDeleted">
                                 <label class="form-check-label small" for="srchShowDeleted">Show Deleted</label>
@@ -198,10 +208,28 @@
                         </div>
                         <div class="col-md-4">
                             <label class="form-label">Service Date</label>
-                            <input type="date" class="form-control" id="pServiceDate" oninput="_updateNextSvcDisplay()">
+                            <div class="input-group">
+                                <span class="input-group-text" id="svcDateLockIcon" title="Locked — active 90-day window"
+                                      style="display:none;background:rgba(234,179,8,.15);border-color:rgba(234,179,8,.4);color:#b45309">
+                                    <i class="fas fa-lock"></i>
+                                </span>
+                                <input type="date" class="form-control" id="pServiceDate" oninput="_updateNextSvcDisplay()">
+                            </div>
                             <div id="pNextSvcDisplay" class="mt-1" style="min-height:1.4rem"></div>
-                            <small class="text-muted"><i class="fas fa-info-circle me-1"></i>This date will auto-fill the Service Date on new RX records for this patient</small>
+                            <div id="svcDateLockBanner" class="mt-2" style="display:none">
+                                <div style="background:rgba(234,179,8,.1);border:1.5px solid rgba(234,179,8,.45);border-radius:8px;padding:.55rem .9rem;font-size:.8rem">
+                                    <div class="d-flex align-items-start gap-2">
+                                        <i class="fas fa-lock mt-1" style="color:#b45309;flex-shrink:0"></i>
+                                        <div>
+                                            <strong style="color:#92400e">Service Date Locked — 90-Day Window Active</strong>
+                                            <div class="text-muted mt-1" id="svcDateLockDetail"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <small class="text-muted mt-1 d-block"><i class="fas fa-info-circle me-1"></i>This date starts the 90-day window and auto-fills new RX records</small>
                         </div>
+
                         <div class="col-12">
                             <label class="form-label">Address</label>
                             <input type="text" class="form-control" id="pAddress">

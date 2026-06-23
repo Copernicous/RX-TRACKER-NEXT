@@ -5,7 +5,161 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ---
 
+## [2.0.11] — 2026-06-23
+
+### 🐛 Bug Fix — Export Column Selector (All/None/Individual) Had No Effect
+**Files changed:** 1 | BUG-17
+
+- **BUG-17** Clicking **All**, **None**, or toggling individual column checkboxes in the "Export CSV" column selector had zero effect — the exported CSV always contained all columns regardless of selection.
+
+  **Root cause — JavaScript scope isolation:**
+  The `_exportColState` object and `updateEcStyle()` / `setAllExportCols()` functions were declared as `let`/`function` inside the `DOMContentLoaded` callback, making them closure-scoped (not global). However:
+  - The column checkboxes used **inline `onchange=`** handlers (e.g. `onchange="_exportColState['x']=this.checked"`)
+  - The "All" / "None" buttons in the EJS used **inline `onclick="setAllExportCols(true)"`**
+
+  Inline HTML event handlers always execute in the **global scope**, meaning they cannot access variables declared inside a function. The assignments to `_exportColState` silently failed (or wrote to a phantom global), and `updateEcStyle` / `setAllExportCols` threw silent `ReferenceError`s. The actual closure-scoped `_exportColState` was never modified, so the export always used the initial state (all columns checked).
+
+  **Fix (`public/js/patients.js`):**
+  1. Removed all inline `onchange=` from checkbox HTML
+  2. After setting `list.innerHTML`, attached `change` event listeners programmatically via `addEventListener` — these closures correctly access `_exportColState`
+  3. Exposed `setAllExportCols` as `window.setAllExportCols` so the EJS button `onclick` handlers can reach it
+
+---
+
+## [2.0.10] — 2026-06-23
+
+
+### ✨ Enhancement — Eligibility Cards Now Show Popup (Same as Top Stat Cards)
+**Files changed:** 4 | FEAT-17
+
+- **FEAT-17** The 4 eligibility cards on the dashboard now behave exactly like the top stat cards (Active Patients, Inactive Patients, etc.) — clicking a card opens a popup first with a detailed patient list, and the popup has a "View Full Filter" button that navigates to the Patients page with the filter pre-applied.
+
+  **Changes:**
+  - `controllers/dashboardController.js` — Added `getEligibilityDrilldown` function. Returns the full patient list for a given eligibility category (`eligible | expiring | window | none`) with computed fields: `serviceDate`, `expiryDate`, `daysLeft`, `daysPastDue`. Uses the same canonical `patient.serviceDate` logic as the card counts (guaranteed match).
+  - `routes/apiRoutes.js` — Added `GET /api/dashboard/eligibility-drilldown/:filter` route.
+  - `views/dashboard.ejs` — Changed all 4 card `onclick` handlers from `goEligFilter()` to `openEligDrilldown()`. Added 4 page-link anchors (`xl-elig-*`) and 1 API-URL anchor (`xa-elig-base`) for FortiGate-safe URL handling.
+  - `public/js/dashboard.js` — Added `openEligDrilldown(filter)` function that reuses the existing drilldown modal. Added `_renderEligDrilldownTable()` that renders an eligibility-specific table (Patient ID, Name, Service Date, 90-Day Expiry, colored status badge, Clinic). The "Open Full Page" button is re-labeled "View Full Filter" and navigates to the Patients page with the filter active.
+
+  **Popup table columns by category:**
+  - **Eligible Now:** overdue days badge (green)
+  - **Expiring ≤7d:** days-left badge (red)
+  - **In Window:** days-left badge (blue)
+  - **No Date:** "No date" grey badge
+
+---
+
+## [2.0.9] — 2026-06-23
+
+
+### 🐛 Bug Fix — Dashboard Eligibility Card Counts Didn't Match Patient Filter Results
+**Files changed:** 2 | BUG-16
+
+- **BUG-16** The numbers shown on the 4 eligibility cards on the dashboard were not consistent with the number of patients shown when clicking through to the patients filter. Two root causes:
+
+  1. **Different source of truth** — The backend (`dashboardController.js`) was using the **latest RX record's `serviceDate`** to determine the 90-day window, while the frontend patient filter (`patients.js`) was using the **patient's own `serviceDate` field**. Both now use `patient.serviceDate` exclusively (the canonical 90-day clock as previously agreed).
+
+  2. **Different thresholds for "Expiring"** — The backend used `<= 7 days`, the frontend used `<= 14 days`. Both are now unified to `<= 7 days`.
+
+  3. **Different definition of "None"** — The backend used "no RX record at all", the frontend used "no serviceDate on the patient record". Both now use "no `patient.serviceDate`".
+
+  **Result:** After this fix, the count on each card will exactly match the number of rows displayed when clicking that card to filter the Patients page.
+
+---
+
+## [2.0.8] — 2026-06-23
+
+
+### ✨ Enhancement — 90-Day Eligibility Dashboard Cards + Patient Filter
+**Files changed:** 4 | FEAT-16
+
+- **FEAT-16** Redesigned the 90-Day Service Eligibility widget on the dashboard and connected it end-to-end with the Patients filter page.
+
+  **Problems fixed:**
+  1. Only the "Eligible Now" card was clickable — the other 3 (Expiring, In Window, No Date) were static with no action.
+  2. No count-up animation on any of the 4 counters (unlike the top stat cards).
+  3. The embedded table list below the cards was an extra click and only showed "Eligible Now" data.
+  4. `srchEligibility` filter dropdown was referenced in `patients.js` logic but the `<select>` element was completely missing from `patients.ejs`.
+
+  **Changes:**
+  - `views/dashboard.ejs` — All 4 eligibility cards now use `glass-card stat-card-clickable card-icon` style matching the top stat cards. Each card shows "View patients →" and navigates directly to the Patients page with the matching filter applied. The embedded table list is removed.
+  - `public/js/dashboard.js` — Added `countUp(elId, target, duration)` animation function. Added `goEligFilter(filter)` navigation function. `loadEligibility()` now animates all 4 counters on load.
+  - `views/patients.ejs` — Added `srchEligibility` dropdown (All / Eligible Now / Expiring ≤7d / In Active Window / No Service Date) to the Advanced Filters panel.
+  - `public/js/patients.js` — Added `?eligFilter=` URL param handler: auto-sets the dropdown, expands the Advanced panel, calls `liveFilter()`, and shows a descriptive toast.
+
+  **User flow:** Dashboard → click any eligibility card → Patients page opens with Advanced filter pre-applied and toast confirmation.
+
+---
+
+## [2.0.7] — 2026-06-23
+
+
+### 🐛 Bug Fix — Inactive Patients Could Receive New RX Records
+**Files changed:** 2 | BUG-15
+
+- **BUG-15** An inactive patient (`isActive = false`) could previously receive new RX records without any warning or block. This violates the business rule that only active patients are eligible for services.
+
+  **Root cause — two gaps, both fixed:**
+
+  1. `controllers/rxController.js` — `create()` fetched the patient for the 90-day check but never verified `patient.isActive`. Added an explicit guard **before** the 90-day check that returns HTTP 400 with code `PATIENT_INACTIVE` and a clear message:
+     > *"Cannot create an RX record for an inactive patient (Name). Re-activate the patient first before adding new services."*
+
+  2. `views/rx-records.ejs` — The patient search dropdown in the "New RX Record" modal filtered on name/code/id but did NOT exclude inactive patients. Inactive patients now never appear in the dropdown results, making selection impossible at the UI level.
+
+  **Defense-in-depth:** Both layers now enforce the rule independently — the UI prevents selection, and the backend rejects any direct API call that bypasses the UI.
+
+---
+
+## [2.0.6] — 2026-06-23
+
+
+### 🔒 Security / Integrity — Service Date Lock During Active 90-Day Window
+**Files changed:** 3 | BUG-14
+
+- **BUG-14** Plugged a data-integrity gap: the **RX record `serviceDate`** field had no protection against edits while a 90-day cycle was active. Any user with edit access could silently change the service date on an existing RX record, which would shift the 90-day eligibility clock forward or backward without restriction.
+
+  **Root cause:** `rxController.update()` accepted `serviceDate` unconditionally (zero guard). The `create()` endpoint and the patient-level `serviceDate` field already had 90-day checks, but the RX record's own edit endpoint did not.
+
+  **Fix — three files:**
+  - `controllers/rxController.js` — Added `SERVICE_DATE_LOCKED` guard to `update()`. If the incoming `serviceDate` differs from the current value **and** today ≤ current serviceDate + 90 days, the request is rejected (HTTP 400) with a clear message:
+    > *"The Service Date cannot be changed during an active 90-day window. Current window expires on [date] ([N] days remaining)."*
+    Returns: `{ code: 'SERVICE_DATE_LOCKED', windowExpiry, daysRemaining, currentServiceDate }`.
+    Admin override available via `bypassEligibility: true` in the request body.
+
+  - `views/rx-records.ejs` — Added a **blue 🔒 "90-Day Window Active — Service Date Locked"** banner inside the Workflow Modal when the RX record is still within the active window. The banner shows: service start date, window expiry date, and days remaining. Updated Cycle Status in the Detail View to display `🔒 Active Window (N days remaining) — Date Locked` (was the misleading `✅ Active`).
+
+  - `views/rx-records.ejs` — Cycle Status now uses four states:
+    - `🔒 Active Window (N days remaining) — Date Locked` (>14 days left)
+    - `⏱️ Expiring soon (N days left) — 🔒 Date Locked` (≤14 days left)
+    - `⚠️ Eligible for renewal (N days ago)` (window has passed)
+    - `—` (no service date on record)
+
+---
+
+## [2.0.5] — 2026-06-23
+
+
+### ✨ New Feature — 90-Day Service Eligibility Enforcement
+**Files changed:** 7 | FEAT-20
+
+- **FEAT-20** Full 90-day cycle eligibility enforcement across backend and frontend.
+
+  **Business Rule:** A patient receives one service period starting on the service date of their first RX record. They are only eligible for a NEW service after 90 days have elapsed from their most recent RX service date.
+
+  **Backend Changes:**
+  - `controllers/rxController.js` — Added 90-day eligibility guard to `create()`. Before creating a new RX record, the system now looks up the patient's most recent active RX record. If today ≤ that record's serviceDate + 90 days, the request is blocked with HTTP 400, returning `code: INELIGIBLE_90_DAY`, the `eligibleAfter` date, and `daysRemaining`. An admin bypass flag (`bypassEligibility: true`) is available in the request body for exceptional cases.
+  - `controllers/dashboardController.js` — Added `getEligibilityStats()` endpoint that computes per-patient eligibility buckets: `eligibleNow` (past 90 days), `expiringIn7` (0–7 days to renewal), `inWindow` (>7 days remaining), `noServiceDate` (no RX yet). Returns a sorted `eligibleList` (top 20 by days overdue).
+  - `routes/apiRoutes.js` — Registered `GET /api/dashboard/eligibility` route with `dashboard.read` RBAC permission.
+
+  **Frontend Changes:**
+  - `public/js/patients.js` — Renamed the misleading **red "Expired" badge** to a clear **green "Eligible ✓" badge** in the Next Svc Date column (past-window = ready for renewal). Split expiring-soon into two tiers: ≤7 days (red/urgent) and 8–14 days (yellow/warning). Added `srchEligibility` filter to `applyPatientSearch()` supporting four modes: Eligible Now, Expiring (≤14d), In Window, No Service Date.
+  - `views/patients.ejs` — Added **90-Day Eligibility** filter dropdown to the advanced search row (clears with other filters).
+  - `views/dashboard.ejs` — Added **90-Day Service Eligibility** widget card between the stat cards and charts. Shows 4 mini-stats with click-to-expand eligible patient table. FortiGate-safe anchor `xa-elig` added to the hidden URL map.
+  - `public/js/dashboard.js` — Added `_api.elig` URL, `loadEligibility()`, `openEligibleList()`, `toggleEligibleList()` functions. Widget loads independently on page load and on manual refresh.
+
+---
+
 ## [2.0.4] — 2026-06-23
+
 
 ### 🐛 Bug Fix — Trash button does nothing on failed backup history entries
 **Files changed:** 3 | BUG-13
