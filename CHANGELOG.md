@@ -5,6 +5,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ---
 
+## [2.0.38] - 2026-06-24
+
+### [BUG-41] Improve patient transport matching and clearer company validation messages
+**Files changed:** 1 | `controllers/importController.js`
+
+- Patient transport and pharmacy transport lookup in import now tolerates hidden whitespace/punctuation variants and token-based matches (for example `Health Transit` style values with non-breaking spaces or spacing differences).
+- Transport validation messages now use the full "not found or inactive" wording for easier triage.
+- Duplicate patient-code error now points to the first line number where that code was first seen.
+- Duplicate patient-code validation behavior remains strict and continues to block import when duplicates are present across valid rows.
+
 ## [2.0.37] - 2026-06-24
 
 ### [BUG-40] Import validation for workflow date windows

@@ -1,24 +1,22 @@
 # Release Notes
 
-## v2.0.37 (2026-06-24)
+## v2.0.38 (2026-06-24)
 
 ### What's New
-- **Patient import validation tightened for workflow windows**
-  - If a service date is provided and workflow dates exist, import now blocks rows where:
-    - first workflow step is before service date, or
-    - any workflow date is more than 90 days after service date.
-  - Service date is still auto-inferred from the earliest workflow date when blank.
-- **Simulation output updated for same validation logic**
-  - `scripts/simulate-patient-workflow-import.js` now reports service-date/window rule failures in the same import flow.
+- **Transport/company matching in patient import is now more tolerant**
+  - Patient and pharmacy transport lookup accepts common hidden/formatting variants when matching import values (spaces, punctuation, non-breaking spaces).
+  - Company validation now returns a single clear message when a value is unresolved or inactive: `"not found or inactive"`.
+- **Duplicate validation unchanged, now more explicit**
+  - Duplicate patient IDs in the import file are still hard-stopped and continue to be reported as a blocking import error, including the line where the original value first appeared.
 
 ### QA & Validation
-- Kept dry-run import simulation tooling in QA for workflow scenarios.
-- Continue validating with `npm run qa:web`:
+- Keep dry-run import simulation tooling in QA for workflow scenarios:
   - same-date scenario
   - +1 day incremental scenario
   - inferred service-date scenario
-- Verify import rejection when workflow steps violate the service-date window.
+- Add a regression check for transport input:
+  - upload a patient CSV with a transport name that does not exist and confirm it reports `"not found or inactive"`.
 
 ### Notes
-- Versioned build is `2.0.37` in `package.json`.
-- Deployment package generated for server delivery: `dist/server-update-2.0.37.zip`.
+- Versioned build is `2.0.38` in `package.json`.
+- Deployment package generated for server delivery: `dist/server-update-2.0.38.zip`.

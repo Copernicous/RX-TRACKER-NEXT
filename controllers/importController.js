@@ -47,6 +47,18 @@ function toDateOnly(raw) {
     return day;
 }
 
+function normalizeTransportToken(value) {
+    return String(value || '')
+        .normalize('NFKD')
+        .replace(/\uFEFF/g, '')
+        .replace(/[\u00A0\t\r\n]/g, ' ')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .replace(/[^a-z0-9\s]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
 function formatDateLabel(dateLike) {
     if (!dateLike) return '(none)';
     const date = new Date(dateLike);
@@ -101,7 +113,14 @@ function normalizeLookupKey(value) {
 }
 
 function isActiveLike(record) {
-    return record && record.isActive !== false;
+    const active = record?.isActive;
+    return active !== false && active !== 0 && active !== '0';
+}
+
+function transportHasTokenMatch(source, queryTokens) {
+    if (!queryTokens.length) return false;
+    const sourceTokens = normalizeTransportToken(source).split(' ').filter(Boolean);
+    return queryTokens.every((token) => sourceTokens.includes(token));
 }
 
 function resolveTransportMatch(rawValue, records) {
@@ -114,8 +133,9 @@ function resolveTransportMatch(rawValue, records) {
     }
 
     const direct = query.toLowerCase();
-    const normalized = normalizeLookupText(query);
-    const compact = normalizeLookupKey(query);
+    const normalized = normalizeTransportToken(query);
+    const compact = normalizeLookupKey(normalized);
+    const queryTokens = normalized.split(' ').filter(Boolean);
 
     const matchesRecord = (record) => {
         const cName = String(record?.companyName || '');
@@ -123,13 +143,15 @@ function resolveTransportMatch(rawValue, records) {
         return (
             (cName && (
                 cName.trim().toLowerCase() === direct ||
-                normalizeLookupText(cName) === normalized ||
-                normalizeLookupKey(cName) === compact
+                normalizeTransportToken(cName) === normalized ||
+                normalizeLookupKey(cName) === compact ||
+                transportHasTokenMatch(cName, queryTokens)
             )) ||
             (cContact && (
                 cContact.trim().toLowerCase() === direct ||
-                normalizeLookupText(cContact) === normalized ||
-                normalizeLookupKey(cContact) === compact
+                normalizeTransportToken(cContact) === normalized ||
+                normalizeLookupKey(cContact) === compact ||
+                transportHasTokenMatch(cContact, queryTokens)
             ))
         );
     };
@@ -319,7 +341,7 @@ exports.importDataset = async (req, res) => {
                     const patientCodeKey = patientCode.toLowerCase();
                     const seenRow = patientCodeFirstRow.get(patientCodeKey);
                     if (seenRow && !rowsWithErrors.has(seenRow)) {
-                        addErr(`Patient ID "${patientCode}" is duplicated in this file`);
+                        addErr(`Patient ID "${patientCode}" is duplicated in this file (also used on line ${seenRow}).`);
                         continue;
                     }
                     patientCodeFirstRow.set(patientCodeKey, rowNum);
@@ -341,7 +363,7 @@ exports.importDataset = async (req, res) => {
                             addErr(`Patient Transport Company "${tcStr}" exists but is marked inactive. Please activate it before importing patients.`);
                             continue;
                         } else {
-                            addErr(`Patient Transport Company "${tcStr}" not found.`);
+                            addErr(`Patient Transport Company "${tcStr}" not found or inactive.`);
                             continue;
                         }
                     }
@@ -356,7 +378,7 @@ exports.importDataset = async (req, res) => {
                             addErr(`Pharmacy Transport Company "${tcStr}" exists but is marked inactive. Please activate it before importing patients.`);
                             continue;
                         } else {
-                            addErr(`Pharmacy Transport Company "${tcStr}" not found.`);
+                            addErr(`Pharmacy Transport Company "${tcStr}" not found or inactive.`);
                             continue;
                         }
                     }
