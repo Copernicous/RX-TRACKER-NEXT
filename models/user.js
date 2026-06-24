@@ -1,4 +1,4 @@
-﻿'use strict';
+'use strict';
 const {
   Model
 } = require('sequelize');
@@ -45,6 +45,10 @@ module.exports = (sequelize, DataTypes) => {
     lockedUntil:      DataTypes.DATE,
     // Token version — increment on password change to invalidate old JWTs
     tokenVersion:     { type: DataTypes.INTEGER, defaultValue: 0 },
+    // MASTER admin flag — grants access to /backoffice (Data Control Center).
+    // ⚠️  This field can ONLY be set via direct SQL on PostgreSQL.
+    // ⚠️  No API endpoint or UI exposes this field. See OPERATIONS_MANUAL for recovery SQL.
+    isMaster:         { type: DataTypes.BOOLEAN, defaultValue: false },
     permissions: {
         type: DataTypes.TEXT,
         get() {

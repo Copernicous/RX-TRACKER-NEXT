@@ -1,4 +1,4 @@
-﻿'use strict';
+'use strict';
 const jwt      = require('jsonwebtoken');
 const db       = require('../models');
 const settings = require('../services/settingsService');
@@ -93,7 +93,18 @@ async function issueFullToken(user, req, res) {
         (BUILT_IN_DEFAULTS[user.Role.name] ? BUILT_IN_DEFAULTS[user.Role.name]() : {});
 
     const token = jwt.sign(
-        { id: user.id, username: user.username, role: user.Role.name, permissions: rolePerms, tv: user.tokenVersion || 0 },
+        {
+            id:          user.id,
+            username:    user.username,
+            firstName:   user.firstName,
+            lastName:    user.lastName,
+            role:        user.Role.name,
+            permissions: rolePerms,
+            tv:          user.tokenVersion || 0,
+            // MASTER admin flag — controls /backoffice access.
+            // Value comes from DB; UI/API never allows changing it.
+            isMaster:    user.isMaster === true
+        },
         process.env.JWT_SECRET,
         { expiresIn: '8h' }
     );
@@ -136,7 +147,8 @@ async function issueFullToken(user, req, res) {
             lastName:    user.lastName,
             role:        user.Role.name,
             roleId:      user.roleId,
-            permissions: rolePerms
+            permissions: rolePerms,
+            isMaster:    user.isMaster === true
         }
     });
 }

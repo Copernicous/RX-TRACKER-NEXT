@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const { requireMaster } = require('../middleware/rbac');
 
 // Root → redirect to login
 router.get('/', (req, res) => res.redirect('/login'));
@@ -79,7 +80,8 @@ router.get('/system-settings', (req, res) => {
     res.render('system-settings', { title: 'System Settings', activePage: 'system-settings' });
 });
 
-router.get('/backoffice', (req, res) => {
+// Back Office — MASTER admin only. isMaster must be true in the DB (set via SQL only).
+router.get('/backoffice', requireMaster, (req, res) => {
     res.render('backoffice', { title: 'Back Office — Data Control Center', activePage: 'backoffice' });
 });
 

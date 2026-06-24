@@ -23,12 +23,15 @@ var viewerMeta    = null;
 // ── Auth Guard ────────────────────────────────────────────────────────────
 (function(){
     var roleId = USER.roleId || USER.role;
-    var isAdmin = roleId === 1 || roleId === 'Administrator';
-    if (!isAdmin) {
+    var isAdmin  = roleId === 1 || roleId === 'Administrator';
+    // isMaster must also be true — set only via direct SQL on PostgreSQL.
+    // Server-side requireMaster is the real gate; this is client-side defence-in-depth.
+    var isMaster = USER.isMaster === true;
+    if (!isAdmin || !isMaster) {
         document.getElementById('deniedWrap').style.display = 'block';
     } else {
         document.getElementById('mainWrap').style.display = 'block';
-        document.getElementById('userBadge').textContent = (USER.firstName || '') + ' \u2014 Administrator';
+        document.getElementById('userBadge').textContent = (USER.firstName || '') + ' \u2014 Master Admin';
         loadStats();
     }
 

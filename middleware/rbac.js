@@ -123,6 +123,33 @@ exports.requireRole = (roles) => {
     };
 };
 
+// ─── requireMaster ───────────────────────────────────────────────────────────
+/**
+ * Guards routes that require the MASTER admin flag (isMaster === true in JWT).
+ *
+ * The isMaster column in the Users table can ONLY be set via direct SQL on
+ * PostgreSQL — no UI or API endpoint exposes this field. This ensures the
+ * backoffice (Data Control Center) is never reachable through a role escalation
+ * attack or a UI misconfiguration.
+ *
+ * Recovery SQL (run in psql or pgAdmin):
+ *   UPDATE "Users" SET "isMaster" = true WHERE "username" = 'your_username';
+ * Then log out and back in to get a new JWT with isMaster: true.
+ */
+exports.requireMaster = (req, res, next) => {
+    // req.user is populated by auth.js (API) or webAuth.js (web pages)
+    if (!req.user || req.user.isMaster !== true) {
+        // For XHR / API requests return JSON; for page requests redirect
+        const wantsJson = req.headers['accept'] && req.headers['accept'].includes('application/json');
+        if (wantsJson || req.path.startsWith('/api/')) {
+            return res.status(403).json({ error: 'Master admin access required. Contact your system administrator.' });
+        }
+        // Web page: redirect to dashboard with a clear message
+        return res.redirect('/dashboard?error=backoffice_restricted');
+    }
+    next();
+};
+
 // ─── requirePermission ───────────────────────────────────────────────────────
 /**
  * requiredAction:

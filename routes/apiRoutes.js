@@ -206,6 +206,17 @@ function adminOnly(req, res, next) {
     next();
 }
 
+// ---- Back-Office / Data Control Center (MASTER admin only) ----
+// masterOnly checks isMaster === true in the JWT.
+// This flag can ONLY be set via direct SQL on PostgreSQL — never via UI or API.
+// Recovery: UPDATE "Users" SET "isMaster" = true WHERE "username" = 'your_username';
+function masterOnly(req, res, next) {
+    if (!req.user || req.user.isMaster !== true) {
+        return res.status(403).json({ error: 'Master admin access required. Contact your system administrator.' });
+    }
+    next();
+}
+
 // ---- DB Restore — multer upload ----
 const multer = require('multer');
 const IS_PKG_ROUTES = typeof process.pkg !== 'undefined';
@@ -407,49 +418,49 @@ router.post('/patient-locks/:patientId/release',  rbac.requirePermission('patien
 router.post('/email-report/test', rbac.requirePermission('reports', 'read'), emailReportController.testConnection);
 router.post('/email-report',      rbac.requirePermission('reports', 'read'), emailReportController.sendReport);
 
-// ---- Back-Office Admin (Administrator only) ----
-router.get('/admin/stats',              adminOnly, adminController.getStats);
-router.get('/admin/schema',             adminOnly, adminController.getSchema);
-router.get('/admin/table-data/:tableName', adminOnly, adminController.getTableData);
-router.post('/admin/row-impact',        adminOnly, adminController.getRowImpact);
-router.delete('/admin/rows',            adminOnly, adminController.deleteRows);
-router.delete('/admin/purge',           adminOnly, adminController.purge);
-router.get('/admin/orphans',            adminOnly, adminController.getOrphans);
-router.delete('/admin/orphans',         adminOnly, adminController.cleanOrphans);
-router.get('/admin/duplicates',         adminOnly, adminController.getDuplicates);
-router.get('/admin/audit-logs',         adminOnly, adminController.getAuditLogs);
+// ---- Back-Office Admin (MASTER admin only) ----
+router.get('/admin/stats',              masterOnly, adminController.getStats);
+router.get('/admin/schema',             masterOnly, adminController.getSchema);
+router.get('/admin/table-data/:tableName', masterOnly, adminController.getTableData);
+router.post('/admin/row-impact',        masterOnly, adminController.getRowImpact);
+router.delete('/admin/rows',            masterOnly, adminController.deleteRows);
+router.delete('/admin/purge',           masterOnly, adminController.purge);
+router.get('/admin/orphans',            masterOnly, adminController.getOrphans);
+router.delete('/admin/orphans',         masterOnly, adminController.cleanOrphans);
+router.get('/admin/duplicates',         masterOnly, adminController.getDuplicates);
+router.get('/admin/audit-logs',         masterOnly, adminController.getAuditLogs);
 // System Settings
-router.get('/admin/settings',           adminOnly, adminController.getSettings);
-router.post('/admin/settings',          adminOnly, adminController.saveSettings);
+router.get('/admin/settings',           masterOnly, adminController.getSettings);
+router.post('/admin/settings',          masterOnly, adminController.saveSettings);
 // Backup Manager
-router.post('/admin/backups',           adminOnly, adminController.createBackup);
-router.get('/admin/backups',            adminOnly, adminController.listBackups);
-router.delete('/admin/backups/:name',   adminOnly, adminController.deleteBackup);
-router.get('/admin/backups/:name/:file',adminOnly, adminController.downloadBackupFile);
+router.post('/admin/backups',           masterOnly, adminController.createBackup);
+router.get('/admin/backups',            masterOnly, adminController.listBackups);
+router.delete('/admin/backups/:name',   masterOnly, adminController.deleteBackup);
+router.get('/admin/backups/:name/:file',masterOnly, adminController.downloadBackupFile);
 // System Health
-router.get('/admin/health',             adminOnly, adminController.getHealth);
+router.get('/admin/health',             masterOnly, adminController.getHealth);
 // Lock Manager
-router.get('/admin/locks',              adminOnly, adminController.getLocks);
-router.delete('/admin/locks/:id',       adminOnly, adminController.releaseLock);
-router.delete('/admin/locks',           adminOnly, adminController.releaseExpiredLocks);
+router.get('/admin/locks',              masterOnly, adminController.getLocks);
+router.delete('/admin/locks/:id',       masterOnly, adminController.releaseLock);
+router.delete('/admin/locks',           masterOnly, adminController.releaseExpiredLocks);
 // User Manager
-router.get('/admin/users',              adminOnly, adminController.getUsers);
-router.patch('/admin/users/:id',        adminOnly, adminController.updateUser);
-router.post('/admin/users/:id/reset-password', adminOnly, adminController.adminResetPassword);
-router.post('/admin/users/:id/unlock',          adminOnly, require('../controllers/twoFactorController').adminUnlock);
-router.delete('/admin/users/:id/reset-2fa',    adminOnly, require('../controllers/twoFactorController').adminReset);
+router.get('/admin/users',              masterOnly, adminController.getUsers);
+router.patch('/admin/users/:id',        masterOnly, adminController.updateUser);
+router.post('/admin/users/:id/reset-password', masterOnly, adminController.adminResetPassword);
+router.post('/admin/users/:id/unlock',          masterOnly, require('../controllers/twoFactorController').adminUnlock);
+router.delete('/admin/users/:id/reset-2fa',    masterOnly, require('../controllers/twoFactorController').adminReset);
 
 
 // Error Log Manager
-router.get('/admin/error-logs',            adminOnly, adminController.getErrorLogs);
-router.patch('/admin/error-logs/resolve',  adminOnly, adminController.resolveErrorLogs);
-router.delete('/admin/error-logs',         adminOnly, adminController.purgeErrorLogs);
+router.get('/admin/error-logs',            masterOnly, adminController.getErrorLogs);
+router.patch('/admin/error-logs/resolve',  masterOnly, adminController.resolveErrorLogs);
+router.delete('/admin/error-logs',         masterOnly, adminController.purgeErrorLogs);
 
 // Daily Metrics Snapshots
-router.get('/admin/snapshots/export',      adminOnly, snapshotController.exportCSV);
-router.get('/admin/snapshots',             adminOnly, snapshotController.getSnapshots);
-router.post('/admin/snapshots/capture',    adminOnly, snapshotController.captureNow);
-router.delete('/admin/snapshots/:date',    adminOnly, snapshotController.deleteSnapshot);
+router.get('/admin/snapshots/export',      masterOnly, snapshotController.exportCSV);
+router.get('/admin/snapshots',             masterOnly, snapshotController.getSnapshots);
+router.post('/admin/snapshots/capture',    masterOnly, snapshotController.captureNow);
+router.delete('/admin/snapshots/:date',    masterOnly, snapshotController.deleteSnapshot);
 
 // ── Version info (public — no auth required) ─────────────────────────────────
 router.get('/version', (req, res) => {

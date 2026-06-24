@@ -431,7 +431,9 @@ const startServer = async () => {
         await db.sequelize.query('ALTER TABLE "Users" ADD COLUMN IF NOT EXISTS "lockedUntil" TIMESTAMP WITH TIME ZONE;');
         await db.sequelize.query('ALTER TABLE "Users" ADD COLUMN IF NOT EXISTS "backupCodes" TEXT;');
         await db.sequelize.query('ALTER TABLE "Users" ADD COLUMN IF NOT EXISTS "tokenVersion" INTEGER DEFAULT 0;');
-        console.log('Database verified: Users 2FA, lockout, backup codes, and tokenVersion columns ready.');
+        // MASTER admin flag — backoffice access. Only settable via direct SQL, never via UI/API.
+        await db.sequelize.query('ALTER TABLE "Users" ADD COLUMN IF NOT EXISTS "isMaster" BOOLEAN DEFAULT false;');
+        console.log('Database verified: Users 2FA, lockout, backup codes, tokenVersion, and isMaster columns ready.');
     } catch (e) {
         console.warn('Startup migration warning (Users 2FA columns, non-fatal):', e.message);
     }
