@@ -245,6 +245,12 @@ app.use(bodyParser.urlencoded({ extended: true }));
 const APP_BUILD = Date.now();
 
 // Set EJS as templating engine
+// IMPORTANT: use app.engine() with an explicit static require() so @yao-pkg/pkg
+// can see 'ejs' as a string literal at compile time and bundle it into server.exe.
+// app.set('view engine','ejs') alone causes a dynamic require(ext) which pkg
+// cannot analyze — resulting in "Cannot find module 'ejs'" at runtime.
+const ejs = require('ejs');
+app.engine('ejs', ejs.renderFile);
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
