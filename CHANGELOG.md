@@ -5,6 +5,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ---
 
+## [2.0.25] — 2026-06-24
+
+### 🐛 Bug Fix — Error Log Export Incomplete (BUG-31)
+**Files changed:** 2
+
+- **`controllers/adminController.js`** — `getErrorLogs` page size was hard-capped at `200`. Export sends `size=9999` but silently received only 200 rows. Fix: when `size >= 9999`, cap is raised to `10000` (export mode detection).
+- **`public/js/backoffice-features.js`** — `exportErrorLogsCSV()`: `stack` and `message` fields contain `\n` newlines. Even inside RFC 4180 quoted CSV fields, some parsers (Excel) split on bare `\n`, causing each stack frame to appear as a new row. Fix: `flattenField()` replaces all `\r\n`, `\n`, `\r` with ` | ` before encoding. Also added `ipAddress` column to the export (was missing).
+
+---
+
 ## [2.0.24] — 2026-06-24
 
 ### ✨ Feature — Site Backup History: Filename + Path Column (FEAT-09b)
