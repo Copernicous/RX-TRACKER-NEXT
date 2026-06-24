@@ -896,7 +896,7 @@ function renderTable() {
     var hdrs = config ? config.headers : cols;
     var thead = document.getElementById('tableHeaders');
     if (thead) {
-        var actionHeader = (p.canEdit || p.canDelete) ? '<th>Actions</th>' : '';
+        var actionHeader = '<th>Actions</th>';
         var _thHtml = '';
         for (var _thi = 0; _thi < hdrs.length; _thi++) {
             var h = hdrs[_thi];
@@ -917,7 +917,7 @@ function renderTable() {
     if (!tbody) return;
     var isSoftDelete = config && config.softDelete;
     if (pageData.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="' + (cols.length + (p.canEdit || p.canDelete ? 1 : 0)) + '" class="text-center text-muted py-4">No records found.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="' + (cols.length + 1) + '" class="text-center text-muted py-4">No records found.</td></tr>';
     } else {
         var _rowsHtml=''; for(var _ri2=0;_ri2<pageData.length;_ri2++){var row=pageData[_ri2]; _rowsHtml+=(function(){
             var isInactive = isSoftDelete && row.isActive === false;
@@ -938,18 +938,19 @@ function renderTable() {
                 return '<td>' + strVal + '</td>';
             })(); } var cells=_cells;
             var actionCell = '';
-            if (p.canEdit || p.canDelete) {
-                if (isSoftDelete && isInactive) {
-                    // Disabled row: show Restore button only
-                    actionCell = '<td>' +
-                        (p.canDelete ? '<button class="btn btn-sm btn-outline-success" onclick="restoreRecord(' + row.id + ')" title="Restore"><i class="fas fa-undo me-1"></i>Restore</button>' : '<span class="text-muted small">Disabled</span>') +
-                        '</td>';
-                } else {
-                    actionCell = '<td>' +
-                        (p.canEdit  ? '<button class="btn btn-sm btn-outline-primary me-1" onclick="editRecord(' + row.id + ')"><i class="fas fa-edit"></i></button>' : '') +
-                        (p.canDelete ? '<button class="btn btn-sm btn-outline-danger" onclick="promptDelete(' + row.id + ')" title="' + (isSoftDelete ? 'Disable' : 'Delete') + '"><i class="fas fa-' + (isSoftDelete ? 'ban' : 'trash') + '"></i></button>' : '') +
-                        '</td>';
-                }
+            if (isSoftDelete && isInactive && (p.canEdit || p.canDelete)) {
+                // Disabled row: show Restore button only
+                actionCell = '<td>' +
+                    (p.canDelete ? '<button class="btn btn-sm btn-outline-success" onclick="restoreRecord(' + row.id + ')" title="Restore"><i class="fas fa-undo me-1"></i>Restore</button>' : '<span class="text-muted small">Disabled</span>') +
+                    '</td>';
+            } else if (p.canEdit || p.canDelete) {
+                actionCell = '<td>' +
+                    (p.canEdit  ? '<button class="btn btn-sm btn-outline-primary me-1" onclick="editRecord(' + row.id + ')"><i class="fas fa-edit"></i></button>' : '') +
+                    (p.canDelete ? '<button class="btn btn-sm btn-outline-danger" onclick="promptDelete(' + row.id + ')" title="' + (isSoftDelete ? 'Disable' : 'Delete') + '"><i class="fas fa-' + (isSoftDelete ? 'ban' : 'trash') + '"></i></button>' : '') +
+                    '</td>';
+            } else {
+                // View Only — no edit or delete rights
+                actionCell = '<td><button class="btn btn-sm btn-outline-info" onclick="editRecord(' + row.id + ')" title="View details"><i class="fas fa-eye"></i></button></td>';
             }
             return '<tr' + rowClass + '>' + cells + actionCell + '</tr>';
         })(); } tbody.innerHTML=_rowsHtml;
@@ -1112,6 +1113,49 @@ function openModal(id) {
 
     var modal = new bootstrap.Modal(document.getElementById('crudModal'));
     modal.show();
+
+    // View-only mode: lock fields + show banner when user cannot edit/add
+    try {
+        var _voUser = JSON.parse(localStorage.getItem('user') || '{}');
+        var _voPerms = _voUser.permissions || {};
+        var _voMap = {
+            '/rx-records':        'rx_records',
+            '/pharmacies':        'pharmacies',
+            '/patient-transport': 'patient_transport',
+            '/pharmacy-transport':'pharmacy_transport',
+            '/clinics':           'clinics',
+            '/workflow-actions':  'workflow_actions',
+            '/medication-catalog':'medication_catalog',
+            '/users':             'users'
+        };
+        var _voRaw = Object.keys(_voMap).find(function(k) { return window.location.pathname.startsWith(k); });
+        var _voModKey = _voRaw ? _voMap[_voRaw] : null;
+        var _voP = _voModKey && _voPerms ? _voPerms[_voModKey] : null;
+        var _voCanEdit = _voP ? (!!_voP.canEdit) : true;
+        var _voCanAdd  = _voP ? (_voP.canAdd !== undefined ? !!_voP.canAdd : !!_voP.canEdit) : true;
+        var _voEditable = id === null ? _voCanAdd : _voCanEdit;
+        var _crudModal = document.getElementById('crudModal');
+        if (_crudModal) {
+            _crudModal.querySelectorAll('input, select, textarea').forEach(function(el) {
+                if (_voEditable) {
+                    el.removeAttribute('readonly'); el.removeAttribute('disabled');
+                } else {
+                    if (el.tagName === 'SELECT' || el.type === 'checkbox') { el.setAttribute('disabled', 'true'); }
+                    else { el.setAttribute('readonly', 'true'); }
+                }
+            });
+            var _crudBanner = document.getElementById('crudViewOnlyBanner');
+            if (!_crudBanner) {
+                _crudBanner = document.createElement('div');
+                _crudBanner.id = 'crudViewOnlyBanner';
+                _crudBanner.className = 'alert alert-info d-flex align-items-center py-2 mb-3';
+                _crudBanner.innerHTML = '<i class="fas fa-eye me-2"></i><span>View Only — you do not have permission to edit these records.</span>';
+                var _crudBody = _crudModal.querySelector('.modal-body');
+                if (_crudBody) _crudBody.insertBefore(_crudBanner, _crudBody.firstChild);
+            }
+            _crudBanner.style.display = _voEditable ? 'none' : '';
+        }
+    } catch(e) {}
 
     // Show the save button only if the user has the right permission for this operation:
     // Adding a new record → requires canAdd
