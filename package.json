@@ -20,6 +20,7 @@
   "nodemonConfig": {
     "watch": [
       "app.js",
+      "package.json",
       "controllers",
       "middleware",
       "models",
