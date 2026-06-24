@@ -113,6 +113,7 @@
                                 <option value="expiring">&#x23F1; Expiring &le;7 Days</option>
                                 <option value="window">&#x1F512; In Active Window</option>
                                 <option value="none">&#x2014; No Service Date</option>
+                                <option value="needsAction">&#x26A0; Needs Action (Expired + Open Workflow)</option>
                             </select>
                         </div>
                         <div class="col-md-2 d-flex align-items-center">
@@ -129,6 +130,7 @@
 
             <!-- Table -->
             <div class="glass-card p-4">
+                <div id="patientsNeedsActionBanner" class="mb-2"></div>
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <h5 class="mb-0">Patient List</h5>
                     <div class="d-flex gap-2">

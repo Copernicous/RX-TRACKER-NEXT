@@ -1,22 +1,33 @@
 # Release Notes
 
-## v2.0.38 (2026-06-24)
+## v2.0.39 (2026-06-24)
 
 ### What's New
-- **Transport/company matching in patient import is now more tolerant**
-  - Patient and pharmacy transport lookup accepts common hidden/formatting variants when matching import values (spaces, punctuation, non-breaking spaces).
-  - Company validation now returns a single clear message when a value is unresolved or inactive: `"not found or inactive"`.
-- **Duplicate validation unchanged, now more explicit**
-  - Duplicate patient IDs in the import file are still hard-stopped and continue to be reported as a blocking import error, including the line where the original value first appeared.
+- 90-day workflow controls now support an explicit `Needs Action` workflow state on the Patient list.
+- A patient is flagged as `Needs Action` when the service date is past 90 days and there is at least one incomplete RX workflow step.
+- Patients can be filtered by `Needs Action`, and a quick banner lets operators jump directly into those records.
+- Existing RX workflow step updates stay editable during the 90+ day window so teams can close out active cycles.
+- New RX cycles (patient reset) remain blocked until the cycle is eligible again unless Backoffice override is used.
+
+### What's included
+- `controllers/patientController.js` - add `needsAction` classification for list responses and include workflow counts.
+- `controllers/rxController.js` - remove hard 90-day block from workflow update/create paths while preserving service-date guard semantics.
+- `public/js/patients.js` - add `needsAction` filter, banner, and filter-chip updates.
+- `views/patients.ejs` - add new eligibility option and inline banner mount point.
+- `CHANGELOG.md` - 2.0.39 entry with file-level detail.
+- `.github/releases/v2.0.39.md` - release notes for GitHub tag body.
+- `.github/RELEASE_NOTES.md` - deployment release summary.
+- `package.json` - version bumped to 2.0.39.
+- `OPERATIONS_MANUAL.md` - version updated to 2.0.39.
+- `dist/server-update-2.0.39.zip` - deployment archive after build.
 
 ### QA & Validation
-- Keep dry-run import simulation tooling in QA for workflow scenarios:
-  - same-date scenario
-  - +1 day incremental scenario
-  - inferred service-date scenario
-- Add a regression check for transport input:
-  - upload a patient CSV with a transport name that does not exist and confirm it reports `"not found or inactive"`.
+- Confirm that patients with incomplete RX workflows after 90 days appear in `Needs Action`.
+- Confirm existing RX workflow entries still allow step transitions during the 90+ period.
+- Confirm service date change remains locked unless backoffice override is enabled.
+- Build and package executable with `npm run build:exe`.
+- Verify deployment zip opens correctly and includes `server.exe`, `.env`, `CHANGELOG.md`, `RX-Manager.bat`, and operation docs.
 
 ### Notes
-- Versioned build is `2.0.38` in `package.json`.
-- Deployment package generated for server delivery: `dist/server-update-2.0.38.zip`.
+- Versioned build is `2.0.39` in `package.json`.
+- Deployment package generated for server delivery: `dist/server-update-2.0.39.zip`.

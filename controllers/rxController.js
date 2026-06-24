@@ -120,22 +120,6 @@ exports.create = async (req, res) => {
             }
             // ── END INACTIVE GUARD ────────────────────────────────────────────────
 
-            if (!isServiceDateOverrideEnabled() && patient && patient.serviceDate) {
-                const patSvc    = new Date(patient.serviceDate); patSvc.setHours(0,0,0,0);
-                const patExpiry = new Date(patSvc); patExpiry.setDate(patExpiry.getDate() + 90);
-                const todayChk  = new Date(); todayChk.setHours(0,0,0,0);
-                if (todayChk <= patExpiry) {
-                    const daysLeft = Math.ceil((patExpiry - todayChk) / 864e5);
-                    await transaction.rollback();
-                    return res.status(400).json({
-                        error: `Patient is not yet eligible for a new service. The current 90-day window (started ${patSvc.toLocaleDateString()}) expires on ${patExpiry.toLocaleDateString()} (${daysLeft} day${daysLeft !== 1 ? 's' : ''} remaining). Update the Service Date on the Patient record after the window expires to begin a new cycle.`,
-                        code: 'INELIGIBLE_90_DAY',
-                        eligibleAfter: patExpiry.toISOString().slice(0,10),
-                        daysRemaining: daysLeft,
-                        cycleStarted: patSvc.toISOString().slice(0,10)
-                    });
-                }
-            }
         }
         // ── END ELIGIBILITY CHECK ─────────────────────────────────────────────────
 
@@ -181,20 +165,6 @@ exports.updateWorkflow = async (req, res) => {
 
         const action = await db.WorkflowAction.findByPk(actionId);
         if (!action) return res.status(404).json({ error: 'Action not found' });
-
-        // ── 90-day window guard ────────────────────────────────────────────
-        if (rx.serviceDate) {
-            const svc    = new Date(rx.serviceDate); svc.setHours(0,0,0,0);
-            const expiry = new Date(svc); expiry.setDate(expiry.getDate() + 90);
-            const today  = new Date(); today.setHours(0,0,0,0);
-            if (today > expiry) {
-                return res.status(400).json({
-                    error: `This RX has exceeded the 90-day window (service date: ${svc.toLocaleDateString()}). Please reset the service date to start a new cycle.`,
-                    code: 'EXPIRED_90_DAYS'
-                });
-            }
-        }
-        // ──────────────────────────────────────────────────────────────────
 
         if (action.sequenceNumber > 1) {
             const prevAction = await db.WorkflowAction.findOne({ where: { sequenceNumber: action.sequenceNumber - 1 } });

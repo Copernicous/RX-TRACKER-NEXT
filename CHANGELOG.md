@@ -5,6 +5,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ---
 
+## [2.0.39] - 2026-06-24
+
+### [BUG-44] 90-Day Needs-Action workflow handling
+**Files changed:** 4 | `controllers/patientController.js`, `controllers/rxController.js`, `public/js/patients.js`, `views/patients.ejs`
+
+- Reworked 90-day controls so existing RX workflow actions are no longer blocked after day 90; service-date locking remains in patient/RX update paths where intended.
+- Added backend `needsAction` classification on `/api/patients` for patients whose service date passed 90 days and whose RX tracker is still incomplete.
+- Added Patient list filtering for **Needs Action (expired + open workflow)** plus an in-list action banner with a one-click filter shortcut.
+- Kept patient and RX service-date overrides/lock checks untouched except where necessary to honor the same 90-day cycle strategy.
+
 ## [2.0.38] - 2026-06-24
 
 ### [BUG-41] Improve patient transport matching and clearer company validation messages

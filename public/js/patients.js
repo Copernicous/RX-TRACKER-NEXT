@@ -47,6 +47,8 @@ var allPatients = [];
                     filteredPatients = [...allPatients];
                     currentPage      = 1;
                     renderPatients();
+                    const needsActionBanner = document.getElementById('patientsNeedsActionBanner');
+                    if (needsActionBanner) needsActionBanner.innerHTML = '';
                     // Show a dismissable filter banner above the table
                     const tableCard = document.querySelector('.glass-card.p-4');
                     if (tableCard && !document.getElementById('norxBanner')) {
@@ -113,7 +115,8 @@ var allPatients = [];
                         'eligible':  'Eligible Now (window expired)',
                         'expiring':  'Window expiring within 7 days',
                         'window':    'In active 90-day window',
-                        'none':      'No service date set'
+                        'none':      'No service date set',
+                        'needsAction': 'Needs Action (expired window + open workflow)'
                     };
                     showToast('Filter: ' + (labelMap[eligParam] || eligParam), 'info');
                 }
@@ -432,6 +435,8 @@ var allPatients = [];
                 if (!p.serviceDate) {
                     // 'none' = patient has no serviceDate
                     if (elig !== 'none') return false;
+                } else if (elig === 'needsAction' && !p.needsAction) {
+                    return false;
                 } else {
                     var _svcMs  = new Date(p.serviceDate).setHours(0,0,0,0);
                     var _exp90  = _svcMs + 90 * 864e5;
@@ -448,8 +453,9 @@ var allPatients = [];
             }
             return true;
         });
+        renderNeedsActionBanner();
         updateFilterBadge();
-        
+
         filteredPatients.sort((a, b) => {
             let valA = a[pSortCol];
             let valB = b[pSortCol];
@@ -779,6 +785,55 @@ var allPatients = [];
     // ── Navigation helpers — all URL building via concatenation + data attributes
     // Avoids putting complex expressions inside template literal onclick attributes,
     // which FortiGate SSL portal mangles when rewriting URLs.
+    function renderNeedsActionBanner() {
+        const container = document.getElementById('patientsNeedsActionBanner');
+        if (!container) return;
+
+        var pending = (Array.isArray(allPatients) ? allPatients : []).filter(function(p) {
+            return !!p.needsAction;
+        });
+
+        if (!pending.length) {
+            container.innerHTML = '';
+            return;
+        }
+
+        const eligValue = (document.getElementById('srchEligibility')?.value || '');
+        const isNeedsActionFilter = eligValue === 'needsAction';
+        const plural = pending.length === 1 ? '' : 's';
+
+        container.innerHTML =
+            isNeedsActionFilter
+                ? (
+                    '<div style="padding:8px 12px;border:1px solid rgba(220,53,69,.25);background:rgba(220,53,69,.06);border-radius:10px;font-size:.85rem;display:flex;align-items:center;justify-content:space-between;gap:10px">' +
+                        '<span><i class="fas fa-filter me-2" style="color:#dc3545"></i>Showing <strong>' + pending.length + '</strong> patient' + plural + ' that require workflow action.</span>' +
+                    '</div>'
+                )
+                : (
+                    '<div style="padding:8px 12px;border:1px solid rgba(255,193,7,.4);background:rgba(255,193,7,.12);border-radius:10px;font-size:.85rem;display:flex;align-items:center;justify-content:space-between;gap:10px">' +
+                        '<span><i class="fas fa-exclamation-triangle me-2 text-warning"></i>There are <strong>' + pending.length + '</strong> patient' + plural + ' past the 90-day window with incomplete RX workflow.</span>' +
+                        '<button type="button" id="showNeedsActionBtn" class="btn btn-sm btn-warning"><i class="fas fa-filter me-1"></i>Show Patients</button>' +
+                    '</div>'
+                );
+
+        const btn = document.getElementById('showNeedsActionBtn');
+        if (!isNeedsActionFilter && btn) {
+            btn.addEventListener('click', function() {
+                var eligEl = document.getElementById('srchEligibility');
+                if (!eligEl) return;
+                eligEl.value = 'needsAction';
+                var advRow = document.getElementById('advancedFilterRow');
+                var chevron = document.getElementById('advancedChevron');
+                if (advRow) {
+                    advRow.style.display = '';
+                    _advancedOpen = true;
+                }
+                if (chevron) chevron.className = 'fas fa-chevron-up ms-1';
+                liveFilter();
+            });
+        }
+    }
+
     function goToRxByEl(el) {
         window.rxNav('/rx-records?patient=' + el.dataset.pid + '&name=' + el.dataset.pname);
     }
@@ -1526,7 +1581,7 @@ var allPatients = [];
     }
 
     function updateFilterBadge() {
-        const advancedIds = ['srchPatientCode','srchPatientTransport','srchPharmacyTransport','srchServiceFrom','srchServiceTo'];
+        const advancedIds = ['srchPatientCode','srchPatientTransport','srchPharmacyTransport','srchServiceFrom','srchServiceTo','srchEligibility'];
         const basicIds    = ['srchFirstName','srchLastName','srchDob','srchPhone'];
         const statusEl    = document.getElementById('srchStatus');
         const clinicEl    = document.getElementById('srchClinic');
@@ -1567,7 +1622,7 @@ var allPatients = [];
             srchPhone: 'Phone', srchStatus: 'Status', srchClinic: 'Clinic',
             srchPatientCode: 'Patient ID', srchPatientTransport: 'Patient Transport',
             srchPharmacyTransport: 'Pharmacy Transport', srchServiceFrom: 'From',
-            srchServiceTo: 'To'
+            srchServiceTo: 'To', srchEligibility: '90-Day Eligibility'
         };
         var _chipIds = [...basicIds, ...advancedIds, 'srchStatus','srchClinic']
             .filter(id => { const el = document.getElementById(id); return el && el.value; });

@@ -62,6 +62,11 @@ const tasks = {
     args: ['qa/smoke-qa.js'],
     env: { QA_HEADLESS: 'true', QA_SLOW_MO: '0' }
   },
+  'smoke-needs-action': {
+    title: 'Run needs-action smoke check',
+    args: ['qa/smoke-qa.js'],
+    env: { QA_HEADLESS: 'true', QA_SLOW_MO: '0', QA_SMOKE_NEEDS_ACTION: 'true' }
+  },
   'smoke-fortigate': {
     title: 'Run FortiGate smoke test',
     args: ['qa/smoke-qa.js'],

@@ -49,9 +49,17 @@ Then choose the QA web dashboard option.
 1. Click `Start QA Site`.
 2. Click `Seed Fake Data`.
 3. Click `Run Smoke Test`.
-4. Review the `Latest Result` cards.
-5. Review logs if a failure appears.
-6. Click `Stop QA Site` when finished.
+4. Click `Run Needs Action Smoke` (optional validation of the needs-action workflow filter).
+5. Review the `Latest Result` cards.
+6. Review logs if a failure appears.
+7. Click `Stop QA Site` when finished.
+
+What the Needs Action smoke task checks:
+
+- seeds a QA patient with service date older than 90 days and an incomplete workflow,
+- validates the `needsAction` filter on Patients,
+- verifies the needs-action banner is present,
+- confirms the seeded patient appears in the filtered list.
 
 ## 90-Day Service Date Blocking Diagram
 

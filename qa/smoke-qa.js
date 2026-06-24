@@ -10,6 +10,7 @@ const results = [];
 const errors = [];
 const skipped = [];
 let page;
+const isNeedsActionSmoke = process.env.QA_SMOKE_NEEDS_ACTION === 'true';
 
 function qaRoute(pathname) {
   const base = config.baseURL.replace(/\/+$/, '');
@@ -30,6 +31,149 @@ function fail(name, detail = '') {
 function skip(name, detail = '') {
   skipped.push({ name, detail });
   console.log('SKIP:', name, detail);
+}
+
+async function upsertOne(model, where, values) {
+  const existing = await model.findOne({ where });
+  if (existing) {
+    await existing.update(values);
+    return existing;
+  }
+  return model.create({ ...where, ...values });
+}
+
+function dateBefore(daysAgo) {
+  const today = new Date();
+  return new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate() - daysAgo)).toISOString().split('T')[0];
+}
+
+async function seedNeedsActionFixture() {
+  if (!isNeedsActionSmoke) return null;
+
+  const db = require('../models');
+  try {
+    await db.sequelize.authenticate();
+    await db.sequelize.sync();
+
+    const adminUser = await db.User.findOne({ where: { username: config.loginUsername } });
+    if (!adminUser) {
+      throw new Error(`QA user "${config.loginUsername}" not found. Run seed command first.`);
+    }
+
+    const pharmacy = await upsertOne(db.Pharmacy, { name: 'QA NeedsAction Pharmacy' }, {
+      address: '101 QA NeedsAction St',
+      phone: '555-0600',
+      contactPerson: 'QA NeedsAction Coordinator',
+      notes: 'Smoke fixture for Needs Action flow',
+      isActive: true
+    });
+
+    const clinic = await upsertOne(db.Clinic, { name: 'QA NeedsAction Clinic' }, {
+      address: '202 QA NeedsAction Ave',
+      phone: '555-0601',
+      contactPerson: 'QA NeedsAction Clinic Lead',
+      notes: 'Smoke fixture for Needs Action flow',
+      isActive: true
+    });
+
+    const patientTransport = await upsertOne(db.PatientTransportCompany, { companyName: 'QA NeedsAction Patient Transport' }, {
+      phone: '555-0602',
+      contactPerson: 'QA NeedsAction Patient Driver',
+      notes: 'Smoke fixture for Needs Action flow',
+      isActive: true
+    });
+
+    const pharmacyTransport = await upsertOne(db.PharmacyTransportCompany, { companyName: 'QA NeedsAction Pharmacy Transport' }, {
+      phone: '555-0603',
+      contactPerson: 'QA NeedsAction Pharmacy Driver',
+      notes: 'Smoke fixture for Needs Action flow',
+      isActive: true
+    });
+
+    const workflowAction = await db.WorkflowAction.findOne({
+      where: { isActive: true },
+      order: [['sequenceNumber', 'ASC']]
+    });
+    if (!workflowAction) {
+      throw new Error('No active workflow actions found. Run seed command first.');
+    }
+
+    const serviceDate = dateBefore(100);
+    const patient = await upsertOne(db.Patient, { firstName: 'QA', lastName: 'NeedsAction' }, {
+      dob: '1979-01-01',
+      address: '303 QA NeedsAction Rd',
+      phone: '555-0604',
+      serviceDate,
+      patientTransportCompanyId: patientTransport.id,
+      pharmacyTransportCompanyId: pharmacyTransport.id,
+      clinicId: clinic.id,
+      pharmacyId: pharmacy.id,
+      notes: 'Needs Action smoke fixture',
+      isActive: true,
+      isDeleted: false,
+      patientCode: 'QA-NA-001',
+      isNonCompanyPatient: false
+    });
+
+    const rx = await upsertOne(db.RXRecord, { patientId: patient.id, serviceDate }, {
+      arrivalDate: serviceDate,
+      pharmacyId: pharmacy.id,
+      patientTransportCompanyId: patientTransport.id,
+      pharmacyTransportCompanyId: pharmacyTransport.id,
+      isDeleted: false,
+      returnedToWarehouse: false,
+      warehouseReturnDate: null,
+      warehouseReturnNote: null
+    });
+
+    await db.RXWorkflowTracking.destroy({ where: { rxRecordId: rx.id } });
+    await db.RXWorkflowTracking.create({
+      rxRecordId: rx.id,
+      workflowActionId: workflowAction.id,
+      completionDate: `${serviceDate}T10:00:00.000Z`,
+      userId: adminUser.id
+    });
+
+    return {
+      patientCode: patient.patientCode,
+      patientName: `${patient.firstName} ${patient.lastName}`,
+      serviceDate
+    };
+  } finally {
+    await db.sequelize.close().catch(() => {});
+  }
+}
+
+async function verifyNeedsActionFlow(fixture) {
+  await page.goto(qaRoute('/patients'), { waitUntil: 'domcontentloaded' });
+  await page.waitForLoadState('networkidle').catch(() => {});
+  await safeClick('#advancedToggleBtn', 'patients advanced filters toggle for needs-action smoke', { wait: 300 });
+
+  const select = page.locator('#srchEligibility');
+  const count = await select.count();
+  if (!count) {
+    fail('needs-action smoke: filter control', 'srchEligibility selector not found');
+    return;
+  }
+
+  await select.selectOption('needsAction');
+  await page.waitForTimeout(700);
+
+  const banner = page.locator('#patientsNeedsActionBanner');
+  const bannerText = await banner.textContent().catch(() => '');
+  if (typeof bannerText === 'string' && /needs action/i.test(bannerText)) {
+    pass('needs-action smoke banner', `found banner: ${bannerText.trim()}`);
+  } else {
+    fail('needs-action smoke banner', `expected needs-action banner text, got: ${bannerText || '[empty]'}`);
+  }
+
+  const patientRow = page.locator(`tbody tr:has-text("${fixture.patientName}")`);
+  const hasPatient = await patientRow.count();
+  if (hasPatient) {
+    pass('needs-action smoke patient appears in filtered list', fixture.patientName);
+  } else {
+    fail('needs-action smoke patient appears in filtered list', `${fixture.patientName} was not found in Needs Action filter.`);
+  }
 }
 
 function findChromeExecutable() {
@@ -91,6 +235,8 @@ async function runSmoke() {
     throw new Error('Chrome was not found. Install Google Chrome or set QA_CHROME_PATH in qa/.env.qa.');
   }
 
+  const fixture = await seedNeedsActionFixture();
+
   const browser = await chromium.launch({
     headless: config.headless,
     slowMo: config.slowMo,
@@ -133,6 +279,12 @@ async function runSmoke() {
     await expectText('Dashboard', 'dashboard loaded');
     await safeClick('#themeToggle', 'dashboard theme toggle', { wait: 200 });
     await safeClick('#sidebarCollapse', 'dashboard sidebar toggle', { wait: 200 });
+
+    if (isNeedsActionSmoke) {
+      await verifyNeedsActionFlow(fixture).catch(err => {
+        fail('needs-action smoke flow', err.message || String(err));
+      });
+    }
 
     const pages = [
       ['/dashboard', 'Dashboard'],

@@ -41,7 +41,8 @@ Recommended order:
 3. Seed QA data.
 4. Optional: run patient import workflow simulation.
 5. Run smoke test.
-6. View status/result/logs.
+6. Optional: run the new Needs-Action smoke check.
+7. View status/result/logs.
 
 The menu also includes a web dashboard option.
 
@@ -62,6 +63,13 @@ http://127.0.0.1:3200
 The dashboard has no password and is intentionally bound to localhost by default. It also uses a temporary browser token for task buttons so random websites cannot easily trigger QA tasks while it is open. Do not expose it through FortiGate or the LAN unless you add real authentication.
 
 The dashboard includes `FortiGate Mode`. Paste the current FortiGate web access URL and click `Run FortiGate Smoke` to test the real proxy path. The URL is used only for that run and is not saved to disk.
+
+The dashboard also includes:
+
+- `Run Needs Action Smoke`: seeds a patient in an expired 90-day cycle with an incomplete RX workflow and verifies:
+  - Needs-action filter applies,
+  - needs-action banner appears,
+  - seeded patient appears in the filtered list.
 
 ## Direct Commands
 

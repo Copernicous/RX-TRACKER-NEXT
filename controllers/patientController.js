@@ -7,9 +7,33 @@ function toUpperName(value) {
     return String(value || '').trim().toUpperCase();
 }
 
+function isWorkflowCycleNeedsAction(serviceDate, rxRecords, totalWorkflowSteps) {
+    if (!serviceDate || !Array.isArray(rxRecords) || totalWorkflowSteps <= 0) {
+        return false;
+    }
+
+    const svcDay = new Date(serviceDate);
+    if (isNaN(svcDay.getTime())) return false;
+    svcDay.setHours(0, 0, 0, 0);
+
+    const svcExpiry = new Date(svcDay);
+    svcExpiry.setDate(svcExpiry.getDate() + 90);
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    if (today <= svcExpiry) return false;
+
+    return rxRecords.some((rx) => {
+        const tracked = Array.isArray(rx.RXWorkflowTrackings) ? rx.RXWorkflowTrackings.length : 0;
+        return tracked < totalWorkflowSteps;
+    });
+}
+
 exports.getAll = async (req, res) => {
     try {
         const whereClause = {};
+        const totalWorkflowSteps = await db.WorkflowAction.count({ where: { isActive: true } });
         if (req.query.includeDeleted !== 'true') {
             // LOGIC-03 FIX: Also include rows where isDeleted IS NULL (legacy records before the column existed)
             whereClause[Op.or] = [{ isDeleted: false }, { isDeleted: null }];
@@ -28,12 +52,25 @@ exports.getAll = async (req, res) => {
                 {
                     model: db.RXRecord,
                     attributes: ['id'],
+                    include: [{
+                        model: db.RXWorkflowTracking,
+                        attributes: ['id']
+                    }],
                     where: { [Op.or]: [{ isDeleted: false }, { isDeleted: null }] },
                     required: false   // LEFT JOIN — patients with 0 RX records still appear
                 }
             ]
         });
-        res.json(data);
+        const rows = data.map((patient) => {
+            const plain = patient.toJSON();
+            plain.needsAction = isWorkflowCycleNeedsAction(
+                plain.serviceDate,
+                plain.RXRecords,
+                totalWorkflowSteps
+            );
+            return plain;
+        });
+        res.json(rows);
     } catch (err) { res.status(500).json({ error: err.message }); }
 };
 
