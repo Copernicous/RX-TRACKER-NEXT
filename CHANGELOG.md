@@ -5,6 +5,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ---
 
+## [2.0.24] — 2026-06-24
+
+### ✨ Feature — Site Backup History: Filename + Path Column (FEAT-09b)
+**Files changed:** 1
+
+- **`views/backups.ejs`** — `renderSiteHistory()` now accepts `backupDir` (passed from `loadSiteStatus()`). Added **File / Path** column between "Triggered By" and "Size" — identical pattern to the DB dump history table. Shows ZIP filename in `font-monospace`; full absolute path below in small muted text. Uses `b.filepath` from log entry if present (all new backups), falls back to `backupDir + filename` for older entries. Failed entries show `—`.
+
+---
+
 ## [2.0.23] — 2026-06-24
 
 ### 🐛 Bug Fix — Nodemon Infinite Restart Loop (BUG-29)
