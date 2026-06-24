@@ -5,6 +5,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ---
 
+## [2.0.28] — 2026-06-24
+
+### 🐛 Bug Fix — Reference data dropdowns empty when module visibility is off (BUG-34)
+**Files changed:** 3 | `routes/apiRoutes.js`, `public/js/patients.js`, `public/js/reports.js`
+
+**Root cause:** The RBAC `visible` flag both hides the nav link **and** blocks the entire API (`GET /api/pharmacies` returns 403 when `visible: false`). When an admin set Reference Data modules to hidden for a role, all form dropdowns (pharmacies, clinics, transport companies, workflow actions, medication catalog) became empty — breaking patient record entry for that role.
+
+**Fix:** Added a new `/api/lookup/:module` endpoint that only requires authentication — no visibility check. Forms that load dropdown data now use `/api/lookup/` instead of the full management endpoints. This decouples "can navigate to the management page" from "can read data to populate selects".
+
+---
+
 ## [2.0.27] — 2026-06-24
 
 ### 🐛 Bug Fix — Read Only sees Edit/Disable/Add New on all unlisted pages (BUG-33)
