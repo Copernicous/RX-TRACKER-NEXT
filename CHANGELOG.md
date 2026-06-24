@@ -5,6 +5,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ---
 
+## [2.0.29] — 2026-06-24
+
+### ✨ Feature — View-only mode for Patients + all CRUD pages (BUG-35 / FEAT-12)
+**Files changed:** 2 | `public/js/patients.js`, `public/js/app.js`
+
+Read Only users had no way to view record details — the Edit button was the only entry point into the modal, and it was hidden when `canEdit=false`. Fixed in two places:
+- **Patients** (`patients.js`): Eye 👁 View button in every row when `canEdit=false`. Modal opens with all fields readonly/disabled, Save hidden, blue "View Only" banner at top.
+- **All CRUD pages** (`app.js`) incl. RX Records, Pharmacies, Clinics, Transport, Workflow/RX Actions: Same pattern — eye icon in Actions column, modal fields locked, View Only banner injected.
+
+---
+
 ## [2.0.28] — 2026-06-24
 
 ### 🐛 Bug Fix — Reference data dropdowns empty when module visibility is off (BUG-34)
