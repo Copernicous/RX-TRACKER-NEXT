@@ -193,9 +193,41 @@ const loginLimiter = rateLimit({
 // Trust FortiGate SSL VPN and reverse proxy chain -- allows Express to correctly read
 // X-Forwarded-For (real client IP) and X-Forwarded-Proto (https) headers.
 
-// Middleware
-const corsOrigin = process.env.APP_ORIGIN || true;
-app.use(cors({ origin: corsOrigin, credentials: true }));
+// SEC-01: CORS — locked to explicit origin allowlist.
+// APP_ORIGIN supports comma-separated values for multi-origin setups.
+// FortiGate origin: https://rx.camperos.net:10443
+// Dev origin:       http://localhost:3000
+// Example .env:     APP_ORIGIN=https://rx.camperos.net:10443,http://192.168.60.21:3000,http://localhost:3000
+(function() {
+    const rawOrigin = process.env.APP_ORIGIN || '';
+    let corsOrigin;
+    if (rawOrigin.trim()) {
+        // Parse comma-separated allowlist
+        const allowed = rawOrigin.split(',').map(function(o) { return o.trim(); }).filter(Boolean);
+        corsOrigin = function(origin, callback) {
+            // Allow same-origin / server-to-server requests (no Origin header)
+            if (!origin) return callback(null, true);
+            if (allowed.indexOf(origin) !== -1) return callback(null, true);
+            callback(new Error('CORS: origin not allowed — ' + origin));
+        };
+    } else if (process.env.NODE_ENV === 'production') {
+        // SEC-04: Fail CLOSED in production — never open credentialed CORS without explicit origin.
+        console.error('');
+        console.error('═══════════════════════════════════════════════════════════');
+        console.error('  FATAL: APP_ORIGIN is not set in production mode.');
+        console.error('  Refusing to start with open CORS (origin: true).');
+        console.error('  Set APP_ORIGIN in .env, e.g.:');
+        console.error('    APP_ORIGIN=https://rx.camperos.net:10443,http://192.168.60.21:3000');
+        console.error('═══════════════════════════════════════════════════════════');
+        console.error('');
+        process.exit(1);
+    } else {
+        // Development / test — warn but allow open (local dev convenience)
+        console.warn('[WARN] APP_ORIGIN not set — CORS is open (development mode only).');
+        corsOrigin = true;
+    }
+    app.use(cors({ origin: corsOrigin, credentials: true }));
+})();
 // HTTP access logging: debug mode uses verbose 'dev' format; file stream used when LOG_FILE=true
 var _morganFmt = process.env.DEBUG === 'true' ? 'dev' : (process.env.NODE_ENV === 'production' ? 'combined' : 'dev');
 if (_logStream) {
@@ -302,7 +334,7 @@ const settingsLimiter = rateLimit({
 app.use('/api/auth/login',          loginLimiter);
 app.use('/api/auth/2fa/setup',      twoFaSetupLimiter);
 app.use('/api/auth/2fa/enable',     twoFaSetupLimiter);
-app.use('/api/keys',                apiKeyLimiter);
+app.use('/api/api-keys',            apiKeyLimiter);  // SEC-05: was '/api/keys' (wrong path — routes are at /api/api-keys)
 app.use('/api/settings',            settingsLimiter);
 
 app.use('/api/auth',    authRoutes);
@@ -512,27 +544,38 @@ const startServer = async () => {
             if (name === 'Administrator') adminRole = role;
         }
 
-        // 2. Ensure a default admin user exists (only if NO users at all)
+        // 2. Ensure a default admin user exists on first-run
+        // SEC-06: Gated behind ALLOW_DEFAULT_SEED=true to prevent accidental credential
+        // creation if the Users table is ever emptied in production (restore, purge, etc.).
+        // Set ALLOW_DEFAULT_SEED=true in .env for fresh installs only. Remove after first login.
         const userCount = await db.User.count();
         if (userCount === 0 && adminRole) {
-            const hash = await bcrypt.hash('admin123', 10);
-            await db.User.create({
-                firstName:    'System',
-                lastName:     'Administrator',
-                username:     'admin',
-                email:        'admin@rxsystem.local',
-                passwordHash: hash,
-                roleId:       adminRole.id,
-                isActive:     true
-            });
-            console.log('');
-            console.log('==============================================');
-            console.log('         FIRST-RUN DEFAULT CREDENTIALS        ');
-            console.log('  Username : admin                            ');
-            console.log('  Password : admin123                         ');
-            console.log('  !! CHANGE THIS PASSWORD AFTER LOGIN !!      ');
-            console.log('==============================================');
-            console.log('');
+            if (process.env.ALLOW_DEFAULT_SEED === 'true') {
+                const hash = await bcrypt.hash('admin123', 10);
+                await db.User.create({
+                    firstName:    'System',
+                    lastName:     'Administrator',
+                    username:     'admin',
+                    email:        'admin@rxsystem.local',
+                    passwordHash: hash,
+                    roleId:       adminRole.id,
+                    isActive:     true,
+                    isMaster:     false   // grant isMaster via SQL after first login
+                });
+                console.log('');
+                console.log('==============================================');
+                console.log('         FIRST-RUN DEFAULT CREDENTIALS        ');
+                console.log('  Username : admin                            ');
+                console.log('  Password : admin123                         ');
+                console.log('  !! CHANGE THIS PASSWORD AFTER LOGIN !!      ');
+                console.log('  !! THEN REMOVE ALLOW_DEFAULT_SEED=true !!   ');
+                console.log('==============================================');
+                console.log('');
+            } else {
+                console.warn('[WARN] SEC-06: Users table is empty but ALLOW_DEFAULT_SEED is not set.');
+                console.warn('[WARN]         No default admin was created. To seed a first-run admin,');
+                console.warn('[WARN]         set ALLOW_DEFAULT_SEED=true in .env and restart.');
+            }
         }
     } catch (e) {
         console.warn('Startup seed warning (non-fatal):', e.message);

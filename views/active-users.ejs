@@ -200,6 +200,7 @@
 <script src="/js/help.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
+    initApp(); // wire up logout, auth guard, theme, session timeout, etc.
 
     // ── Helpers ──────────────────────────────────────────────────────
     function getToken() {

@@ -5,7 +5,121 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ---
 
+## [2.0.17] — 2026-06-24
+
+### 🔒 Security — CORS Fail-Closed in Production (SEC-04)
+**Files changed:** 1 | SEC-04
+
+- **SEC-04** `app.js` — CORS previously fell back to `origin: true` (accept any origin) with only a warning log when `APP_ORIGIN` was unset in production. This is now a hard startup failure.
+  - In `NODE_ENV=production`: if `APP_ORIGIN` is not set, server prints a clear FATAL error and calls `process.exit(1)` — it refuses to start.
+  - In development/test: the previous permissive fallback is kept (warn + open CORS) so local dev is unaffected.
+  - This prevents a future deployment without `APP_ORIGIN` from silently reopening credentialed CORS.
+
+### ✨ Enhancement — API Keys "Not Active" Notice (IMPROVE-07)
+**Files changed:** 1 | IMPROVE-07
+
+- **IMPROVE-07** `views/backoffice.ejs` — Added a prominent amber warning banner at the top of the API Key Management panel.
+  - Makes it clear that `X-API-Key` authentication is **not currently wired into the server middleware**.
+  - Keys can be generated and managed, but cannot authenticate API requests.
+  - Prevents operators from thinking integrations work when they don't.
+  - Planned feature — banner will be removed when API key auth is fully implemented.
+
+### 🔧 Maintenance — package-lock.json Version Sync (MAINT-01)
+**Files changed:** 1 | MAINT-01
+
+- **MAINT-01** `package-lock.json` — Root version entries were still showing `1.0.0` while `package.json` was at `2.0.16`. Ran `npm install --package-lock-only` to sync metadata. Both root entries now correctly show `2.0.17`. No dependency changes.
+
+### 📋 Documentation — Deferred Items Register
+**Files changed:** 1 | DOC-01
+
+- **DOC-01** Created `DEFERRED-ITEMS.txt` — a formal register of the 4 items from the expert security review that were intentionally deferred:
+  - **DEFERRED-01**: JWT in localStorage / JS-readable cookie (requires FortiGate staging)
+  - **DEFERRED-02**: Boot-time schema mutations (requires migration workflow)
+  - **DEFERRED-03**: uuid/Sequelize moderate vuln (monitor only — no forced upgrade)
+  - **DEFERRED-04**: No automated test suite (staged build plan included)
+  - Includes fix approaches, risk levels, file locations, and a recommended quarterly review schedule.
+
+---
+
+## [2.0.16] — 2026-06-23
+
+
+### 🐛 Bug Fix — Logout Button Broken on Who's Online Page
+**Files changed:** 1 | BUG-21
+
+- **BUG-21** The **Logout** button (and also the theme toggle, auth guard, and session timeout) were completely non-functional on the `Who's Online` (`/active-users`) page.
+
+  **Root cause:** Every page in the app that uses `app.js` must call `initApp()` inside its `DOMContentLoaded` handler to wire up the shared UI components (logout, auth, theme, session timeout, global search, notifications, etc.). `active-users.ejs` had its own `DOMContentLoaded` block for the session cards but was missing the `initApp()` call — so `setupLogout()` (and all other app-level setup functions) were never executed.
+
+  **Fix:** Added `initApp()` as the first call inside the `DOMContentLoaded` handler in `views/active-users.ejs`.
+
+---
+
+## [2.0.15] — 2026-06-23
+
+
+### 🐛 Bug Fix — CORS Blocking LAN Users on Production Server
+**Files changed:** 2 | BUG-20
+
+- **BUG-20** Production `server.exe` (at `C:\RX-Tracker\RX-APP\`) threw `CORS: origin not allowed — http://192.168.60.21:3000` for all API requests made by LAN users accessing the app directly by internal IP (not through FortiGate).
+
+  **Root cause:** The new CORS allowlist (SEC-01, v2.0.14) correctly locked origins, but only included `https://rx.camperos.net:10443` (FortiGate) and `http://localhost:3000` (loopback). Users on the local network hitting the server by IP (`192.168.60.21`) send `Origin: http://192.168.60.21:3000` — which was not in the list.
+
+  **Fix:** Added `http://192.168.60.21:3000` to `APP_ORIGIN` in `.env`:
+  ```
+  APP_ORIGIN=https://rx.camperos.net:10443,http://192.168.60.21:3000,http://localhost:3000
+  ```
+
+### ✨ Enhancement — `.env` Auto-Copied to `dist/` on Build
+**Files changed:** 1 | IMPROVE-06
+
+- **IMPROVE-06** `package.json` — `build:exe` script now automatically copies `.env` into `dist/` after compiling `server.exe`.
+  - `dist/` is now a complete, self-contained deployment package: `server.exe` + `.env`
+  - No need to manually remember to update `.env` on the production server separately from the binary
+  - Uses `node -e` for cross-platform compatibility (no `copy`/`cp` OS dependency)
+
+---
+
+## [2.0.14] — 2026-06-23
+
+### 🔒 Security — Expert Review Fixes (SEC-01 through SEC-06)
+**Files changed:** 5 | Based on independent panel security audit
+
+- **SEC-01 — CORS locked to FortiGate origin** (`app.js`)
+  - `APP_ORIGIN` was already set but the code fell back to `origin: true` (reflect any origin) when it was unset, and did not support multiple origins.
+  - Replaced with an explicit allowlist parser that supports comma-separated origins.
+  - `APP_ORIGIN=https://rx.camperos.net:10443,http://localhost:3000` now set in `.env`.
+  - In production, if `APP_ORIGIN` is unset: server logs a loud `[WARN]` but stays open (safe for existing installs). Set the var to activate enforcement.
+  - Browser requests from any other origin are now rejected with a CORS error.
+
+- **SEC-02 — tokenVersion revocation was silently broken** (`middleware/auth.js`) ← *Critical*
+  - `require('./models')` was a wrong relative path — always threw a module error, always caught silently, always allowed through.
+  - Result: password changes never invalidated old sessions. Old tokens remained valid until 8-hour natural expiry.
+  - Fixed: `require('../models')` (correct path). Also split the catch block — programmer/module errors now re-throw and surface; only genuine DB-unavailable errors (ECONNREFUSED, ETIMEDOUT, Sequelize errors) allow through with a console warning.
+
+- **SEC-03 — `isMaster` writable via User create API** (`controllers/userController.js`)
+  - `create()` spread the full `req.body` into `db.User.create()`. Any authenticated Administrator could `POST /api/users` with `"isMaster": true` and bypass the PostgreSQL-only rule.
+  - Fixed: applied the same `USER_ALLOWED_FIELDS` whitelist that `update()` already used.
+  - Security fields now hard-forced on create regardless of request body: `isMaster: false`, `tokenVersion: 0`, `failedLoginCount: 0`, `lockedUntil: null`, `twoFactorEnabled: false`.
+
+- **SEC-05 — API key rate limiter on wrong path** (`app.js`)
+  - Limiter was mounted at `/api/keys` but routes live at `/api/api-keys`. Rate limiting had no effect on API key management endpoints.
+  - Fixed: `app.use('/api/api-keys', apiKeyLimiter)`.
+
+- **SEC-06 — Default `admin/admin123` seed gated** (`app.js`)
+  - Boot code created `admin/admin123` automatically whenever the Users table was empty, regardless of environment.
+  - Dangerous if the table is accidentally emptied in production (restore, purge, failed migration).
+  - Fixed: seed now only runs when `ALLOW_DEFAULT_SEED=true` is set in `.env`.
+  - Default is `ALLOW_DEFAULT_SEED=false`. Set to `true` only for fresh installs, remove after first login.
+  - If table is empty and flag is not set: a clear `[WARN]` is logged instead of silently creating credentials.
+
+- **Deferred — SEC-04: JWT in localStorage / JS-readable cookie** (`views/login.ejs`)
+  - The `setRxTokenCookie()` function uses `window.RX_BASE` to compute a FortiGate-proxy-aware cookie path. Removing this without validating end-to-end through `rx.camperos.net:10443` risks breaking login for all users. Deferred until FortiGate staging validation.
+
+---
+
 ## [2.0.13] — 2026-06-23
+
 
 ### 🔒 Security — MASTER Admin Tier for Backoffice (Data Control Center)
 **Files changed:** 8 | SEC-01

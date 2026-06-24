@@ -1,14 +1,21 @@
 {
   "name": "patient-rx-system",
-  "version": "2.0.13",
+  "version": "2.0.17",
   "description": "Patient RX Delivery Management System",
   "main": "app.js",
   "scripts": {
     "start": "node app.js",
     "dev": "nodemon app.js",
+    "qa:menu": "qa\\qa-menu.bat",
+    "qa:start": "node qa/start-local-qa.js",
+    "qa:seed": "node qa/seed-qa-data.js",
+    "qa:status": "node qa/status.js",
+    "qa:stop": "node qa/stop-local-qa.js",
+    "qa:web": "node qa/web-ui.js",
+    "smoke:qa": "node qa/smoke-qa.js",
     "db:migrate": "sequelize-cli db:migrate",
     "db:seed": "sequelize-cli db:seed:all",
-    "build:exe": "npx --yes @yao-pkg/pkg app.js --target node22-win-x64 --output dist/server.exe --compress GZip"
+    "build:exe": "npx --yes @yao-pkg/pkg app.js --target node22-win-x64 --output dist/server.exe --compress GZip && node -e \"require('fs').copyFileSync('.env','dist/.env');console.log('✓ .env copied to dist/');\""
   },
   "pkg": {
     "targets": [
@@ -72,7 +79,7 @@
   },
   "devDependencies": {
     "nodemon": "^3.1.14",
+    "playwright-core": "^1.61.1",
     "sequelize-cli": "^6.6.5"
   }
 }
-

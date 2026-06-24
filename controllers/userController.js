@@ -23,7 +23,23 @@ exports.create = async (req, res) => {
     try {
         const { password, ...otherData } = req.body;
         const passwordHash = await bcrypt.hash(password, 10);
-        const data = await db.User.create({ ...otherData, passwordHash });
+
+        // SEC-03: Apply the same whitelist as update() — prevents arbitrary column writes.
+        // Critical security fields are hard-forced to safe defaults regardless of request body.
+        const safeData = {};
+        USER_ALLOWED_FIELDS.forEach(field => {
+            if (Object.prototype.hasOwnProperty.call(otherData, field)) safeData[field] = otherData[field];
+        });
+
+        const data = await db.User.create({
+            ...safeData,
+            passwordHash,
+            isMaster:         false,   // ← enforced: NEVER settable via API (PostgreSQL direct only)
+            tokenVersion:     0,
+            failedLoginCount: 0,
+            lockedUntil:      null,
+            twoFactorEnabled: false
+        });
         res.status(201).json({ id: data.id, username: data.username });
         // IMPROVE-04: fire-and-forget welcome email (after response sent)
         emailService.sendWelcome({

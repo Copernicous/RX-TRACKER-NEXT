@@ -4935,3 +4935,23 @@ Startup migration warning (Roles custom columns, non-fatal): password authentica
 [SiteBackup] Weekly scheduler started: 0 3 * * 0
 [DB] Could not auto-create database "patient_rx_dev": password authentication failed for user "postgres"
 [DB] Make sure PostgreSQL is running and DB_USER has CREATEDB privilege.
+◇ injected env (18) from .env // tip: ◈ secrets for agents [www.dotenvx.com]
+[Log] File logging ON -- E:\Documents\Daniely RX\logs  (retain 7 days)
+◇ injected env (0) from .env // tip: ⌘ enable debugging { debug: true }
+[Backup] Scheduler started with expression: 0 2 * * *
+[SiteBackup] Weekly scheduler started: 0 3 * * 0
+[DB] Database "patient_rx_dev" already exists.
+Database verified: Users.permissions column ready.
+Database verified: RXRecords warehouse columns ready.
+Database verified: AuditLogs.previousValue column ready.
+Database verified: Users.notes column ready.
+Database verified: MedicationCatalogs.sortOrder column ready.
+Database verified: Users 2FA, lockout, backup codes, tokenVersion, and isMaster columns ready.
+Database verified: Roles custom columns ready.
+Database verified: Built-in role permissions seeded.
+[Settings] Loaded. Timezone: America/New_York | SMTP: (not set)
+Server is running on port 3000.
+::1 - - [24/Jun/2026:01:58:56 +0000] "GET /api/active-sessions HTTP/1.1" 200 2 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36"
+::1 - - [24/Jun/2026:01:58:56 +0000] "POST /api/heartbeat HTTP/1.1" 204 - "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36"
+::1 - - [24/Jun/2026:01:58:56 +0000] "POST /api/heartbeat HTTP/1.1" 204 - "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36"
+::ffff:127.0.0.1 - - [24/Jun/2026:01:59:04 +0000] "GET /api/version HTTP/1.1" 401 42 "-" "Mozilla/5.0 (Windows NT; Windows NT 10.0; en-US) WindowsPowerShell/5.1.26100.8737"

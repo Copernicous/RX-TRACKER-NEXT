@@ -912,6 +912,21 @@
     </div>
   </div>
 
+  <!-- ⚠️ API Key Auth Disabled Notice -->
+  <div style="display:flex;align-items:flex-start;gap:.75rem;background:rgba(245,158,11,.08);border:1.5px solid rgba(245,158,11,.4);border-radius:12px;padding:1rem 1.25rem;margin-bottom:1.25rem">
+    <i class="fas fa-exclamation-triangle" style="color:#f59e0b;font-size:1rem;margin-top:.15rem;flex-shrink:0"></i>
+    <div>
+      <div style="font-weight:700;font-size:.85rem;color:#f59e0b;margin-bottom:.3rem">API Key Authentication — Not Currently Active</div>
+      <div style="font-size:.78rem;color:var(--text-muted);line-height:1.6">
+        Keys can be <strong>generated and managed</strong> here, but the <code>X-API-Key</code> header is <strong>not yet wired into the authentication middleware</strong>.
+        External requests using an API key will be rejected by JWT auth — they do not bypass it.
+        <br><br>
+        This is a planned feature. Until it is enabled, API keys are <strong>not usable for integrations</strong>.
+        Do not share or use generated keys in production integrations at this time.
+      </div>
+    </div>
+  </div>
+
   <!-- Generate form -->
   <div class="schema-card" id="boGenerateFormCard" style="display:none;border:1.5px dashed rgba(245,158,11,.4);margin-bottom:1rem">
     <div style="font-weight:700;font-size:.9rem;margin-bottom:1rem;color:#f59e0b"><i class="fas fa-plus me-2"></i>Generate New API Key</div>

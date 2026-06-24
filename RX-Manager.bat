@@ -52,6 +52,7 @@ echo   [17] Show Current Configuration
 echo.
 echo   BUILD
 echo   [18] Build Portable EXE (server.exe)
+echo   [20] Deploy EXE to Production (copy dist\ to app root)
 echo.
 echo   [0]  Exit
 echo.
@@ -77,6 +78,7 @@ if /i "%CHOICE%"=="16"  goto :ClearLogs
 if /i "%CHOICE%"=="17"  goto :ShowConfig
 if /i "%CHOICE%"=="18"  goto :BuildEXE
 if /i "%CHOICE%"=="19"  goto :RestoreSiteBackup
+if /i "%CHOICE%"=="20"  goto :DeployEXE
 if /i "%CHOICE%"=="0"   goto :Done
 goto :MainMenu
 
@@ -95,7 +97,13 @@ if "!PORT_IN_USE!"=="1" (
     goto :MainMenu
 )
 if not exist "%APP_DIR%\logs" mkdir "%APP_DIR%\logs"
-start "PatientRX-Server" /MIN cmd /c "cd /d "%APP_DIR%" && node app.js >> "%APP_DIR%\logs\server.log" 2>&1"
+if exist "%APP_DIR%\server.exe" (
+    echo  [Mode] Running as compiled server.exe
+    start "PatientRX-Server" /MIN cmd /c "cd /d "%APP_DIR%" && server.exe >> "%APP_DIR%\logs\server.log" 2>&1"
+) else (
+    echo  [Mode] Running with node app.js
+    start "PatientRX-Server" /MIN cmd /c "cd /d "%APP_DIR%" && node app.js >> "%APP_DIR%\logs\server.log" 2>&1"
+)
 echo  Waiting for server to start...
 timeout /t 4 /nobreak >nul
 call :CheckPort
@@ -611,9 +619,9 @@ if not exist "%APP_DIR%\dist" mkdir "%APP_DIR%\dist"
 cd /d "%APP_DIR%"
 
 echo  Building server.exe with @yao-pkg/pkg...
-echo  (Downloading Node 20 binary if first time - please wait)
+echo  (Downloading Node 22 binary if first time - please wait)
 echo.
-call npx --yes @yao-pkg/pkg app.js --target node22-win-x64 --output dist/server.exe --compress GZip
+call npm run build:exe
 if %ERRORLEVEL% EQU 0 (
     echo.
     echo  ================================================
@@ -621,19 +629,10 @@ if %ERRORLEVEL% EQU 0 (
     echo  ================================================
     echo.
     echo  [OK] Executable: %APP_DIR%\dist\server.exe
+    echo  [OK] Config:      %APP_DIR%\dist\.env  (auto-copied)
     echo.
-    echo  Copy these to the target machine:
-    echo    dist\server.exe     ^<-- the server
-    echo    .env                ^<-- configuration
-    echo    views\              ^<-- HTML templates
-    echo    public\             ^<-- CSS / JS / images
-    echo    data\               ^<-- settings.json
-    echo    migrations\         ^<-- DB schema files
-    echo    seeders\            ^<-- default data
-    echo    RX-Manager.bat      ^<-- management tool
-    echo.
-    echo  On the target machine, run server.exe directly
-    echo  or use RX-Manager.bat option [1] to start it.
+    echo  Use Option [20] to deploy dist\ to the app root.
+    echo  Or copy dist\server.exe + dist\.env to the target machine.
     echo.
     for %%F in ("%APP_DIR%\dist\server.exe") do echo  File size: %%~zF bytes
 ) else (
@@ -650,6 +649,43 @@ echo.
 pause
 goto :MainMenu
 
+:: ================================================
+:DeployEXE
+cls
+echo.
+echo  ================================================
+echo   DEPLOY EXE TO PRODUCTION (app root)
+echo  ================================================
+echo.
+echo  Copies dist\server.exe and dist\.env into the app
+echo  root folder so RX-Manager.bat [1] picks them up.
+echo.
+if not exist "%APP_DIR%\dist\server.exe" (
+    echo  [ERROR] dist\server.exe not found.
+    echo          Run option [18] to build first.
+    echo.
+    pause
+    goto :MainMenu
+)
+echo  Files to copy:
+for %%F in ("%APP_DIR%\dist\server.exe") do echo    server.exe  (%%~zF bytes)
+echo    .env
+echo.
+set /p "CONF=  Deploy now? This will overwrite server.exe and .env in the app root. (Y/N): "
+if /i NOT "%CONF%"=="Y" goto :MainMenu
+echo.
+echo  Stopping server first...
+taskkill /FI "WINDOWTITLE eq PatientRX-Server" /F >nul 2>&1
+taskkill /FI "IMAGENAME eq server.exe" /F >nul 2>&1
+timeout /t 2 /nobreak >nul
+copy /Y "%APP_DIR%\dist\server.exe" "%APP_DIR%\server.exe" >nul
+if exist "%APP_DIR%\dist\.env" copy /Y "%APP_DIR%\dist\.env" "%APP_DIR%\.env" >nul
+echo  [OK] server.exe deployed.
+echo  [OK] .env deployed.
+echo.
+set /p "RST=  Start server now? (Y/N): "
+if /i "%RST%"=="Y" goto :StartServer
+goto :MainMenu
 
 :: ================================================
 :RestoreSiteBackup

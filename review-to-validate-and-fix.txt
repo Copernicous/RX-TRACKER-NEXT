@@ -1,0 +1,421 @@
+Production Code Review - Items To Validate And Fix
+Project: Daniely RX
+Scope: Read-only review findings. No application code was changed.
+
+Context provided:
+- The server is behind a proxy and FortiGate web access, not directly public.
+- Backoffice is intended to be available only to users with isMaster=true.
+- isMaster is intended to be changed only directly in PostgreSQL by query.
+
+Important context impact:
+- The proxy/FortiGate setup lowers direct internet exposure, but it does not remove browser-based risks.
+- If a logged-in user visits another website, that website may still be able to make browser requests to the FortiGate URL if cookies are accepted cross-site.
+- The isMaster design intent is good, but the current User create API appears to allow hidden fields, so the code does not fully enforce the "PostgreSQL query only" rule.
+- Some token-cookie behavior may have been added specifically to survive FortiGate path/header rewriting. Those fixes should be validated through FortiGate before changing production.
+
+===============================================================================
+1. Open credentialed CORS while using cookie authentication
+===============================================================================
+
+Severity:
+- Critical if browser users can reach the FortiGate URL while logged in.
+- Reduced but still important because the server is not directly public.
+
+Files and lines:
+- app.js:197
+  const corsOrigin = process.env.APP_ORIGIN || true;
+
+- app.js:198
+  app.use(cors({ origin: corsOrigin, credentials: true }));
+
+- middleware/auth.js:18
+  // Fallback: rxToken cookie - passes through FortiGate SSL VPN when Bearer header is stripped
+
+- middleware/auth.js:19-20
+  if (!token) {
+      token = getCookie(req.headers.cookie, 'rxToken');
+  }
+
+Why this is risky:
+- `origin: true` reflects any requesting Origin.
+- `credentials: true` allows cookies to be sent/read cross-origin.
+- Because the API accepts `rxToken` from cookies, a malicious page visited by a logged-in user may be able to call authenticated APIs through the user's browser.
+- FortiGate/proxy reduces who can reach the app directly, but the browser is still a bridge when a valid user is logged in.
+
+Recommended solution:
+- Replace the default `true` origin with an explicit allowlist.
+- Fail closed if `APP_ORIGIN` is missing in production.
+- Include only the exact FortiGate portal origin and any internal app origin that is legitimately used.
+
+Example direction:
+- APP_ORIGIN=https://your-fortigate-host.example.com
+- Or support comma-separated origins:
+  - https://your-fortigate-host.example.com
+  - http://internal-host:3000, only if needed
+
+Risk of breaking the app:
+- Medium.
+- If the FortiGate portal origin is not listed exactly, browser API calls may fail.
+- Validate first by logging in through FortiGate and checking common pages: dashboard, patients, RX records, reports, backups.
+
+Harm if not fixed:
+- Potential cross-site request/data exposure for logged-in users.
+- Especially sensitive because patient/RX data and admin endpoints exist behind the same cookie auth.
+
+Safe validation steps:
+- In staging, set APP_ORIGIN to the exact FortiGate web access origin.
+- Confirm responses include only that origin in `Access-Control-Allow-Origin`.
+- Test direct internal access separately if it is still required.
+
+===============================================================================
+2. JWT tokenVersion revocation check is broken and fails open
+===============================================================================
+
+Severity:
+- High.
+
+Files and lines:
+- middleware/auth.js:32-34
+  // tokenVersion check - invalidates JWTs issued before a password change.
+  // Only runs when the JWT contains a 'tv' claim (issued after this feature).
+  if (typeof decoded.tv === 'number') {
+
+- middleware/auth.js:36
+  const db = require('./models');
+
+- middleware/auth.js:41-43
+  } catch (_e) {
+      // If DB is unavailable, allow through (fail-open to avoid lockout during maintenance)
+  }
+
+- controllers/authController.js:103
+  tv:          user.tokenVersion || 0,
+
+- controllers/authController.js:190-191
+  const newVersion  = (user.tokenVersion || 0) + 1;
+  await user.update({ passwordHash: newHash, tokenVersion: newVersion });
+
+Why this is risky:
+- `middleware/auth.js` is inside `middleware`, so `require('./models')` points to `middleware/models`, which does not exist.
+- The catch block swallows the error and allows the request.
+- Result: old JWTs remain valid until natural expiration even after a password change.
+
+Recommended solution:
+- Change the import to `require('../models')`.
+- Consider failing closed for token-version check errors, or return a controlled 503/401 if the DB cannot validate the token.
+- At minimum, do not swallow module/path errors.
+
+Risk of breaking the app:
+- Low to medium.
+- Low if the DB is healthy, because this is the intended behavior.
+- Medium during DB outages because requests may be rejected instead of allowed.
+
+Harm if not fixed:
+- Password changes and admin password resets do not reliably invalidate old sessions.
+- If a token was copied or exposed, it can continue to work until it expires.
+
+Safe validation steps:
+- Log in as a user and save the old token.
+- Change that user's password.
+- Try calling `/api/auth/profile` with the old token.
+- Expected after fix: request is rejected.
+
+===============================================================================
+3. isMaster can be set through User create API despite "SQL only" design
+===============================================================================
+
+Severity:
+- High.
+
+Files and lines:
+- controllers/userController.js:24
+  const { password, ...otherData } = req.body;
+
+- controllers/userController.js:26
+  const data = await db.User.create({ ...otherData, passwordHash });
+
+- models/user.js:48-51
+  // MASTER admin flag - grants access to /backoffice (Data Control Center).
+  // This field can ONLY be set via direct SQL on PostgreSQL.
+  // No API endpoint or UI exposes this field. See OPERATIONS_MANUAL for recovery SQL.
+  isMaster:         { type: DataTypes.BOOLEAN, defaultValue: false },
+
+- routes/apiRoutes.js:210-215
+  // masterOnly checks isMaster === true in the JWT.
+  // This flag can ONLY be set via direct SQL on PostgreSQL - never via UI or API.
+  // Recovery: UPDATE "Users" SET "isMaster" = true WHERE "username" = 'your_username';
+  function masterOnly(req, res, next) {
+      if (!req.user || req.user.isMaster !== true) {
+
+- controllers/authController.js:151
+  isMaster:    user.isMaster === true
+
+Why this is risky:
+- The UI may not expose `isMaster`, but the API accepts arbitrary fields during user creation.
+- An authenticated Administrator, browser console, crafted request, or an XSS/CSRF chain could create a user with `isMaster: true`.
+- This directly conflicts with the PostgreSQL-only rule.
+
+Does the FortiGate/proxy change this finding?
+- It reduces direct outside access, but does not remove the issue.
+- The risky path is authenticated admin/API access, not anonymous public access.
+
+Recommended solution:
+- Use a create whitelist matching the update whitelist.
+- Explicitly ignore or force safe values for protected fields:
+  - isMaster: false
+  - tokenVersion: 0
+  - failedLoginCount: 0
+  - lockedUntil: null
+  - twoFactorSecret: null
+  - twoFactorEnabled: false
+  - backupCodes: null
+  - permissions: null, if permissions are role-based only
+
+Example direction:
+- Build `safeData` from USER_ALLOWED_FIELDS in `create`, same as `update`.
+- Create the user with `{ ...safeData, passwordHash, isMaster: false }`.
+
+Risk of breaking the app:
+- Low.
+- Normal user creation should continue if the UI only sends firstName, lastName, username, email, roleId, isActive, notes, and password.
+- Could break hidden/manual workflows that depended on setting internal columns through the API. Those workflows should not exist for `isMaster`.
+
+Harm if not fixed:
+- Backoffice protection relies on convention instead of enforcement.
+- A crafted admin request can bypass the intended PostgreSQL-only control.
+
+Safe validation steps:
+- Before fix, try creating a test user with JSON including `"isMaster": true`.
+- After fix, repeat the request.
+- Expected after fix: user is created with `isMaster=false`, or the field is rejected.
+
+===============================================================================
+4. Client-side JWT storage weakens HttpOnly cookie protection
+===============================================================================
+
+Severity:
+- High, with FortiGate compatibility caveat.
+
+Files and lines:
+- controllers/authController.js:122-126
+  // Set rxToken cookie so it passes through FortiGate SSL portal...
+  const cookieOptions = {
+      httpOnly: true,
+      path: '/',
+      maxAge: 8 * 60 * 60 * 1000
+  };
+
+- controllers/authController.js:138
+  res.cookie('rxToken', token, cookieOptions);
+
+- views/login.ejs:327-329
+  document.cookie = 'rxToken=' + encodeURIComponent(token) +
+      '; path=' + cookiePath + '; max-age=' + maxAge +
+      '; SameSite=' + sameSite + secure;
+
+- views/login.ejs:333
+  localStorage.setItem('token', data.token);
+
+Why this is risky:
+- The server correctly sets an HttpOnly cookie, which JavaScript cannot read.
+- The login page then writes the same JWT into a JavaScript-readable cookie and `localStorage`.
+- Any XSS anywhere in the app can steal the full JWT.
+
+Does the FortiGate/proxy change this finding?
+- Yes, this may have been added to work around FortiGate path/header rewriting.
+- Do not simply remove it in production without validating FortiGate login and API calls.
+- The risk remains real because token theft impact is high.
+
+Recommended solution:
+- Prefer one server-set HttpOnly cookie only.
+- If FortiGate requires a path-scoped cookie, configure the server or proxy to set/rewrite the HttpOnly cookie path correctly.
+- Consider an environment variable such as COOKIE_PATH if the proxy prefix is stable.
+- If the FortiGate proxy prefix is dynamic per session, validate whether FortiGate can rewrite Set-Cookie Path for HttpOnly cookies.
+- Remove JWT from `localStorage` once all fetches rely on `credentials: include` and server cookie auth.
+
+Risk of breaking the app:
+- Medium to high if changed blindly.
+- The client-side cookie path logic may be compensating for FortiGate web access behavior.
+- Validate through FortiGate before removing client-side token storage.
+
+Harm if not fixed:
+- XSS token theft remains possible.
+- Token theft can bypass password changes until finding 2 is fixed.
+
+Safe validation steps:
+- In staging through FortiGate, remove only `localStorage` usage first and keep cookie flow.
+- Confirm pages still call APIs with `credentials: include`.
+- Then test replacing JS-written cookie with server-set HttpOnly cookie path behavior.
+
+===============================================================================
+5. API key middleware is not mounted and API key limiter path is wrong
+===============================================================================
+
+Severity:
+- Medium.
+
+Files and lines:
+- controllers/apiKeyController.js:121-123
+  exports.authenticateApiKey = async (req, res, next) => {
+      const rawKey = req.headers['x-api-key'];
+      if (!rawKey) return next();  // no key - fall through to JWT auth
+
+- routes/apiRoutes.js:35-36
+  // All API routes require authentication
+  router.use(auth);
+
+- routes/apiRoutes.js:404-407
+  router.get('/api-keys',            adminOnly, apiKeyController.getAll);
+  router.post('/api-keys',           adminOnly, apiKeyController.generate);
+  router.patch('/api-keys/:id/toggle', adminOnly, apiKeyController.toggle);
+  router.delete('/api-keys/:id',     adminOnly, apiKeyController.remove);
+
+- app.js:305
+  app.use('/api/keys',                apiKeyLimiter);
+
+Why this is risky or confusing:
+- The code can generate API keys, but `authenticateApiKey` is not mounted before JWT auth.
+- Requests with `X-API-Key` will still hit the JWT `auth` middleware and be rejected.
+- The rate limiter is mounted at `/api/keys`, but the actual API key management endpoints are `/api/api-keys`.
+
+Does the FortiGate/proxy change this finding?
+- It reduces exposure, but does not change the code behavior.
+- If API keys are not used, this is mostly a misleading/incomplete feature.
+
+Recommended solution:
+- If API keys are intended for integrations:
+  - Mount `authenticateApiKey` before JWT auth.
+  - Decide exactly which endpoints API keys may access.
+  - Add scopes/permissions for API keys instead of treating them as normal users.
+- If API keys are not intended for production:
+  - Disable or hide API key generation UI/routes until implemented.
+- Fix limiter mount to `/api/api-keys`.
+
+Risk of breaking the app:
+- Low for correcting the limiter path.
+- Medium for enabling API key auth, because RBAC currently expects a real user id/role for many routes.
+
+Harm if not fixed:
+- Generated API keys may give a false sense that integrations are secured and working.
+- Admin API key management may not be rate-limited as intended.
+
+Safe validation steps:
+- Create an API key.
+- Call a clearly intended endpoint with `X-API-Key`.
+- Confirm expected allow/deny behavior.
+- Confirm `/api/api-keys` receives rate-limit headers.
+
+===============================================================================
+6. Startup mutates production schema and can seed default admin credentials
+===============================================================================
+
+Severity:
+- Medium.
+
+Files and lines:
+- app.js:370-375
+  const startServer = async () => {
+      await ensureDatabase();
+      try {
+          await db.sequelize.query('ALTER TABLE "Users" ADD COLUMN IF NOT EXISTS "permissions" TEXT;');
+
+- app.js:428-435
+  await db.sequelize.query('ALTER TABLE "Users" ADD COLUMN IF NOT EXISTS "twoFactorSecret" TEXT;');
+  await db.sequelize.query('ALTER TABLE "Users" ADD COLUMN IF NOT EXISTS "twoFactorEnabled" BOOLEAN DEFAULT FALSE;');
+  await db.sequelize.query('ALTER TABLE "Users" ADD COLUMN IF NOT EXISTS "failedLoginCount" INTEGER DEFAULT 0;');
+  await db.sequelize.query('ALTER TABLE "Users" ADD COLUMN IF NOT EXISTS "lockedUntil" TIMESTAMP WITH TIME ZONE;');
+  await db.sequelize.query('ALTER TABLE "Users" ADD COLUMN IF NOT EXISTS "backupCodes" TEXT;');
+  await db.sequelize.query('ALTER TABLE "Users" ADD COLUMN IF NOT EXISTS "tokenVersion" INTEGER DEFAULT 0;');
+  await db.sequelize.query('ALTER TABLE "Users" ADD COLUMN IF NOT EXISTS "isMaster" BOOLEAN DEFAULT false;');
+
+- app.js:515-532
+  const userCount = await db.User.count();
+  if (userCount === 0 && adminRole) {
+      const hash = await bcrypt.hash('admin123', 10);
+      await db.User.create({
+          firstName:    'System',
+          lastName:     'Administrator',
+          username:     'admin',
+          email:        'admin@rxsystem.local',
+          passwordHash: hash,
+          roleId:       adminRole.id,
+          isActive:     true
+      });
+      console.log('  Username : admin');
+      console.log('  Password : admin123');
+
+Why this is risky:
+- Application boot performs schema changes in production.
+- If the Users table is ever empty after a restore, purge, failed migration, or operational mistake, the app creates a default `admin/admin123`.
+- Behind a proxy, this is less exposed to the internet, but still dangerous for internal access.
+
+Recommended solution:
+- Move schema changes to Sequelize migrations only.
+- Gate default admin seeding behind an explicit setup flag, for example:
+  - ALLOW_DEFAULT_ADMIN_SEED=true
+- Or require a one-time setup command instead of doing it on normal server boot.
+- At minimum, log a critical warning and require password reset on first login.
+
+Risk of breaking the app:
+- Medium.
+- Removing startup schema changes can break first-run installs if migrations are not run.
+- Best fix is staged: keep current behavior temporarily, add explicit setup mode, then remove boot migrations after deployment process is updated.
+
+Harm if not fixed:
+- Accidental default credentials in a production-like environment.
+- Uncontrolled schema drift between code, migrations, and actual database.
+
+Safe validation steps:
+- Confirm normal deployment runs `npm run db:migrate`.
+- Test a fresh install with explicit setup flag.
+- Test a normal restart with setup flag disabled and an empty Users table; expected behavior should not silently create default credentials.
+
+===============================================================================
+Additional lower-risk observations
+===============================================================================
+
+1. `npm audit --omit=dev` reported:
+- 2 moderate vulnerabilities from `uuid` through `sequelize`.
+- The suggested `npm audit fix --force` would install a breaking Sequelize version, so do not run it blindly in production.
+
+2. No real test suite was found:
+- package.json has no test script.
+- This increases risk for security fixes because login, FortiGate cookie behavior, and RBAC need manual validation.
+
+===============================================================================
+Suggested fix order
+===============================================================================
+
+1. Fix `middleware/auth.js` tokenVersion import and fail-open behavior.
+   - Low code risk, high security value.
+
+2. Whitelist `controllers/userController.js` create fields and force `isMaster=false`.
+   - Low code risk, directly enforces the PostgreSQL-only isMaster rule.
+
+3. Correct API key limiter path from `/api/keys` to `/api/api-keys`.
+   - Low risk.
+
+4. Lock down CORS to explicit FortiGate/internal origins.
+   - Validate carefully through FortiGate.
+
+5. Redesign token storage so FortiGate still works without JS-readable JWT storage.
+   - Validate carefully; highest chance of breaking proxy login if done too quickly.
+
+6. Move boot schema changes/default admin seeding into explicit setup/migration flow.
+   - Do after deployment process is confirmed.
+
+===============================================================================
+Recommended manual regression checklist after fixes
+===============================================================================
+
+- Login through FortiGate web access.
+- Login through any internal/direct URL that must still be supported.
+- Open dashboard, patients, RX records, reports, backups, system settings.
+- Change a password and confirm the old token no longer works.
+- Create a normal user and confirm `isMaster` remains false.
+- Confirm only direct PostgreSQL update can set `isMaster=true`.
+- Confirm a master user can access Backoffice.
+- Confirm a non-master Administrator cannot access Backoffice.
+- Confirm logout clears auth state.
+- Confirm CORS rejects an unapproved Origin.
+- Confirm no JWT is readable from JavaScript unless an explicitly accepted FortiGate workaround remains.

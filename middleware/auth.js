@@ -33,13 +33,19 @@ module.exports = (req, res, next) => {
         // Only runs when the JWT contains a 'tv' claim (issued after this feature).
         if (typeof decoded.tv === 'number') {
             try {
-                const db = require('./models');
+                const db = require('../models');   // SEC-02: was './models' (broken path — always failed silently)
                 const user = await db.User.findByPk(decoded.id, { attributes: ['tokenVersion'] });
                 if (!user || (user.tokenVersion || 0) !== decoded.tv) {
                     return res.status(401).json({ message: 'Session expired. Please log in again.' });
                 }
             } catch (_e) {
-                // If DB is unavailable, allow through (fail-open to avoid lockout during maintenance)
+                // Only swallow genuine DB-unavailable errors (ECONNREFUSED, ETIMEDOUT, etc.)
+                // Re-throw programmer errors (wrong path, missing module, etc.) so they surface.
+                const isDbError = _e.code === 'ECONNREFUSED' || _e.code === 'ETIMEDOUT' ||
+                    (_e.name && _e.name.includes('Sequelize'));
+                if (!isDbError) throw _e;
+                // DB temporarily unavailable — allow through to avoid full lockout during maintenance
+                console.warn('[Auth] tokenVersion DB check skipped (DB unavailable):', _e.message);
             }
         }
 
