@@ -5,6 +5,21 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ---
 
+## [2.0.21] — 2026-06-24
+
+### 🐛 Bug Fix — Backup Schedule Save Not Updating (BUG-27 + BUG-28)
+**Files changed:** 3 | BUG-27, BUG-28
+
+#### BUG-27 — `POST /api/backups/schedule` silently accepted invalid cron expressions
+- **`services/backupService.js`** — `startScheduler()` and `startSiteBackupScheduler()` now return `{ ok, error }` instead of `void`. On invalid cron expression, they return `{ ok: false, error: 'Invalid cron expression: ...' }` without modifying `_currentSchedule`.
+- **`routes/apiRoutes.js`** — Both `POST /api/backups/schedule` and `POST /api/backups/site/schedule` now check the return value. Invalid expressions get a `400 Bad Request` with the exact error. Previously the API always returned `200 { ok: true }` regardless, so the UI showed a success toast but `loadStatus()` revealed the old schedule — making it appear as if the save "didn't work."
+- **`views/backups.ejs`** — `saveSchedule()` and `saveSiteSchedule()` now parse the `400` error body and show the server error text in the toast (e.g. `"Schedule not saved: Invalid cron expression: xyz"`). On failure, `loadStatus()` is still called so the input field reverts to the current (unchanged) schedule.
+
+#### BUG-28 — Schedule reverts to `.env` default on server restart
+- **`services/backupService.js`** — `startScheduler()` and `startSiteBackupScheduler()` now write the accepted schedule to `data/settings.json` (same file used by `siteBackupPath`). On module load, the persisted value is read first; if absent, falls back to `process.env.BACKUP_SCHEDULE` / `SITE_BACKUP_SCHEDULE`. Disabled state (`off`) is also persisted.
+
+---
+
 ## [2.0.20] — 2026-06-24
 
 ### 🔒 Security / API — `changePassword` Returns 400 Instead of 401 on Wrong Current Password

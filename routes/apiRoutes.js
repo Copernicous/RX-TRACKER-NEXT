@@ -273,8 +273,14 @@ router.post('/backups/run', adminOnly, async (req, res) => {
 
 router.post('/backups/schedule', adminOnly, (req, res) => {
     const { schedule } = req.body;
-    backupService.startScheduler(schedule);
-    res.json({ ok: true, schedule });
+    if (!schedule || typeof schedule !== 'string') {
+        return res.status(400).json({ error: 'schedule is required' });
+    }
+    const result = backupService.startScheduler(schedule.trim());
+    if (!result || !result.ok) {
+        return res.status(400).json({ error: result ? result.error : 'Failed to update schedule' });
+    }
+    res.json({ ok: true, schedule: result.schedule });
 });
 
 router.get('/backups/download/:filename', adminOnly, (req, res) => {
@@ -328,8 +334,14 @@ router.post('/backups/site/run', adminOnly, async (req, res) => {
 
 router.post('/backups/site/schedule', adminOnly, (req, res) => {
     const { schedule } = req.body;
-    backupService.startSiteBackupScheduler(schedule);
-    res.json({ ok: true, schedule });
+    if (!schedule || typeof schedule !== 'string') {
+        return res.status(400).json({ error: 'schedule is required' });
+    }
+    const result = backupService.startSiteBackupScheduler(schedule.trim());
+    if (!result || !result.ok) {
+        return res.status(400).json({ error: result ? result.error : 'Failed to update site schedule' });
+    }
+    res.json({ ok: true, schedule: result.schedule });
 });
 
 router.get('/backups/site/download/:filename', adminOnly, (req, res) => {

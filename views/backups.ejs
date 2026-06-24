@@ -731,8 +731,15 @@ setup.bat</code></pre>
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ schedule })
         });
-        if (!res || !res.ok) { showToast('Failed to update schedule', 'danger'); return; }
-        showToast('Schedule updated: ' + (schedule === 'off' ? 'Disabled' : schedule), 'success');
+        if (!res) { showToast('Request failed (no response)', 'danger'); return; }
+        if (!res.ok) {
+            const body = await res.json().catch(() => ({}));
+            showToast('Schedule not saved: ' + (body.error || 'unknown error'), 'danger');
+            await loadStatus(); // reload to show current (unchanged) schedule
+            return;
+        }
+        const data = await res.json();
+        showToast('Schedule saved: ' + (data.schedule === 'off' ? 'Disabled' : data.schedule), 'success');
         await loadStatus();
     }
 
@@ -862,8 +869,15 @@ setup.bat</code></pre>
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ schedule })
         });
-        if (!res || !res.ok) { showToast('Failed to update site backup schedule', 'danger'); return; }
-        showToast('Site backup schedule: ' + (schedule === 'off' ? 'Disabled' : schedule), 'success');
+        if (!res) { showToast('Request failed (no response)', 'danger'); return; }
+        if (!res.ok) {
+            const body = await res.json().catch(() => ({}));
+            showToast('Site schedule not saved: ' + (body.error || 'unknown error'), 'danger');
+            await loadSiteStatus();
+            return;
+        }
+        const data = await res.json();
+        showToast('Site backup schedule: ' + (data.schedule === 'off' ? 'Disabled' : data.schedule), 'success');
         await loadSiteStatus();
     }
 

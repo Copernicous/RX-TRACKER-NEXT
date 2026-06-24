@@ -225,16 +225,25 @@ function deleteBackupSiteHistoryEntry(id) {
 let _cronJob = null;
 let _currentSchedule = null;
 
+// BUG-27: returns { ok, error } so API route can detect rejection.
+// BUG-28: persists accepted schedule to settings.json for restart survival.
 function startScheduler(cronExpression) {
     if (_cronJob) { _cronJob.stop(); _cronJob = null; }
     if (!cronExpression || cronExpression === 'off') {
         _currentSchedule = 'off';
+        // Persist disabled state
+        try {
+            ensureDir(path.dirname(SETTINGS_PATH));
+            const s = readSettings();
+            s.backupSchedule = 'off';
+            fs.writeFileSync(SETTINGS_PATH, JSON.stringify(s, null, 2), 'utf8');
+        } catch {}
         console.log('[Backup] Scheduler disabled.');
-        return;
+        return { ok: true, schedule: 'off' };
     }
     if (!cron.validate(cronExpression)) {
         console.error('[Backup] Invalid cron expression:', cronExpression);
-        return;
+        return { ok: false, error: 'Invalid cron expression: ' + cronExpression };
     }
     _currentSchedule = cronExpression;
     _cronJob = cron.schedule(cronExpression, () => {
@@ -243,11 +252,21 @@ function startScheduler(cronExpression) {
             console.log('[Backup] Scheduled backup', r.status, r.filename || r.error);
         });
     });
+    // Persist accepted schedule
+    try {
+        ensureDir(path.dirname(SETTINGS_PATH));
+        const s = readSettings();
+        s.backupSchedule = cronExpression;
+        fs.writeFileSync(SETTINGS_PATH, JSON.stringify(s, null, 2), 'utf8');
+    } catch {}
     console.log('[Backup] Scheduler started with expression:', cronExpression);
+    return { ok: true, schedule: cronExpression };
 }
 
 const DEFAULT_SCHEDULE = process.env.BACKUP_SCHEDULE || '0 2 * * *';
-startScheduler(DEFAULT_SCHEDULE);
+// BUG-28: read persisted schedule from settings.json before falling back to .env
+const _persistedSchedule = (() => { try { return readSettings().backupSchedule; } catch { return null; } })();
+startScheduler(_persistedSchedule || DEFAULT_SCHEDULE);
 
 // ════════════════════════════════════════════════════════════════════════════
 // FULL SITE BACKUP
@@ -447,20 +466,41 @@ function runFullSiteBackup(triggeredBy = 'Manual') {
 let _siteBackupJob = null;
 let _siteBackupSchedule = null;
 
+// BUG-27: returns { ok, error }. BUG-28: persists accepted schedule to settings.json.
 function startSiteBackupScheduler(cronExpression) {
     if (_siteBackupJob) { _siteBackupJob.stop(); _siteBackupJob = null; }
-    if (!cronExpression || cronExpression === 'off') { _siteBackupSchedule = 'off'; return; }
-    if (!cron.validate(cronExpression)) return;
+    if (!cronExpression || cronExpression === 'off') {
+        _siteBackupSchedule = 'off';
+        try {
+            ensureDir(path.dirname(SETTINGS_PATH));
+            const s = readSettings();
+            s.siteBackupSchedule = 'off';
+            fs.writeFileSync(SETTINGS_PATH, JSON.stringify(s, null, 2), 'utf8');
+        } catch {}
+        return { ok: true, schedule: 'off' };
+    }
+    if (!cron.validate(cronExpression)) {
+        return { ok: false, error: 'Invalid cron expression: ' + cronExpression };
+    }
     _siteBackupSchedule = cronExpression;
     _siteBackupJob = cron.schedule(cronExpression, () => {
         console.log('[SiteBackup] Running scheduled full site backup...');
         runFullSiteBackup('Scheduled (Weekly)');
     });
+    try {
+        ensureDir(path.dirname(SETTINGS_PATH));
+        const s = readSettings();
+        s.siteBackupSchedule = cronExpression;
+        fs.writeFileSync(SETTINGS_PATH, JSON.stringify(s, null, 2), 'utf8');
+    } catch {}
     console.log('[SiteBackup] Weekly scheduler started:', cronExpression);
+    return { ok: true, schedule: cronExpression };
 }
 
 const DEFAULT_SITE_SCHEDULE = process.env.SITE_BACKUP_SCHEDULE || '0 3 * * 0';
-startSiteBackupScheduler(DEFAULT_SITE_SCHEDULE);
+// BUG-28: read persisted site schedule from settings.json before falling back to .env
+const _persistedSiteSchedule = (() => { try { return readSettings().siteBackupSchedule; } catch { return null; } })();
+startSiteBackupScheduler(_persistedSiteSchedule || DEFAULT_SITE_SCHEDULE);
 
 // ── Restore from a .dump file ─────────────────────────────────────────────────
 // Strategy: DROP the target DB entirely, recreate it empty, then pg_restore.
