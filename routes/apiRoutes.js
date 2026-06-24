@@ -55,7 +55,6 @@ router.use(auth);
 // Decouples "can navigate to the management page" from "can read data for selects".
 // Any authenticated user can call this — hiding a module in the nav/RBAC does NOT
 // break form dropdowns that depend on that reference data.
-const db = require('../models');
 const LOOKUP_MAP = {
     'pharmacies':         { model: db.Pharmacy,                  fields: ['id', 'name',        'address'],       where: { isActive: true } },
     'clinics':            { model: db.Clinic,                    fields: ['id', 'name',        'address'],       where: { isActive: true } },
