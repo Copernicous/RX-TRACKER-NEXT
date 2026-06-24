@@ -5,6 +5,21 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ---
 
+## [2.0.32] — 2026-06-24
+
+### 🐛 Bug Fix — Workflow modal view-only banner + step badges showing 'undefined' (BUG-37 / BUG-38)
+**Files changed:** 3 | `views/rx-records.ejs`, `routes/apiRoutes.js`, `middleware/rbac.js`
+
+**BUG-37** — Workflow Tracking modal had no visual indicator that the user is in view-only mode. Added a blue “View Only — you do not have permission to update workflow steps.” info banner that appears at the top of the step list when `canComplete + canUndo + canWarehouse` are all false (Read Only / restricted roles).
+
+**BUG-38** — Workflow step sequence number badges rendered as “undefined” for all roles. Root cause: `/api/lookup/workflow-actions` only returned `id` and `name`; `sequenceNumber` and `description` were missing. Fixed by adding both fields and sorting by `sequenceNumber ASC`. `medication-catalog` lookup also updated to include `description`.
+
+**UI** — View Details eye button on RX Records table changed from `btn-outline-dark` (invisible on dark theme) to `btn-outline-info` — consistent with eye buttons on Patients and other CRUD pages.
+
+**Role fix** — Test user `read` was incorrectly assigned “Add Only — No export” role instead of “Read Only”. Corrected in DB and session invalidated.
+
+---
+
 ## [2.0.31] — 2026-06-24
 
 ### 🐛 Bug Fix — Workflow status + progress bar hidden on RX Records for restricted roles (BUG-36)
