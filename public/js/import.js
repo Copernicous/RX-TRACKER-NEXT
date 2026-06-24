@@ -1,10 +1,20 @@
 // import.js — Extracted from inline script.
 // FortiGate .map().join() corruption fix applied.
 
-let currentDataset = 'patients';
+    let currentDataset = 'patients';
     let parsedRows  = [];
     let validRows   = [];
     let invalidRows = [];
+
+    const SAMPLE_FILES = {
+        'patients': '/samples/import/patients_import_sample.csv',
+        'pharmacies': '/samples/import/pharmacies_import_sample.csv',
+        'clinics': '/samples/import/clinics_import_sample.csv',
+        'patient-transport': '/samples/import/patient_transport_import_sample.csv',
+        'pharmacy-transport': '/samples/import/pharmacy_transport_import_sample.csv',
+        'workflow-actions': '/samples/import/workflow_actions_import_sample.csv',
+        'users': '/samples/import/users_import_sample.csv'
+    };
 
     const DATASET_SPECS = {
         'patients': {
@@ -22,9 +32,24 @@ let currentDataset = 'patients';
                 { name: 'patientTransportCompany',  req: false, format: 'Contact, Company Name, or ID' },
                 { name: 'pharmacyTransportCompany', req: false, format: 'Contact, Company Name, or ID' },
                 { name: 'notes',    req: false, format: 'Plain Text' },
-                { name: 'isActive', req: false, format: 'true/false (Default: true)' }
+                { name: 'isActive', req: false, format: 'true/false (Default: true)' },
+                { name: 'RX Received Warehouse', req: false, format: 'MM/DD/YYYY (e.g. 06/24/2026)' },
+                { name: 'On Route with Driver', req: false, format: 'MM/DD/YYYY (e.g. 06/24/2026)' },
+                { name: 'Delivered', req: false, format: 'MM/DD/YYYY (e.g. 06/24/2026)' },
+                { name: 'Mark as Received to print log', req: false, format: 'MM/DD/YYYY (e.g. 06/24/2026)' },
+                { name: 'Signed by Pharmacy', req: false, format: 'MM/DD/YYYY (e.g. 06/24/2026)' },
+                { name: 'Archived on local and case close', req: false, format: 'MM/DD/YYYY (e.g. 06/24/2026)' }
             ],
-            dateFields: ['dob','serviceDate'],
+            dateFields: [
+                'dob',
+                'serviceDate',
+                'RX Received Warehouse',
+                'On Route with Driver',
+                'Delivered',
+                'Mark as Received to print log',
+                'Signed by Pharmacy',
+                'Archived on local and case close'
+            ],
             requiredFields: ['firstName','lastName','dob']
         },
         'pharmacies': {
@@ -138,6 +163,7 @@ let currentDataset = 'patients';
 
         document.getElementById('importForm').addEventListener('submit', executeImport);
         document.getElementById('downloadTemplateBtn').addEventListener('click', downloadTemplate);
+        document.getElementById('downloadSampleBtn').addEventListener('click', downloadSample);
         document.getElementById('confirmImportBtn').addEventListener('click', confirmImport);
         document.getElementById('cancelPreviewBtn').addEventListener('click', () => {
             document.getElementById('previewSection').classList.add('d-none');
@@ -394,11 +420,11 @@ let currentDataset = 'patients';
         } else {
             box.className = 'results-box alert alert-success';
             document.getElementById('resultsHeading').textContent = '\u2705 Import Successful!';
-            document.getElementById('resultsSummary').textContent = 'Successfully imported ' + data.successCount + ' rows.';
-            const errSection = document.getElementById('errorsSection');
-            errSection.classList.add('d-none');
-            var dlBtn2 = document.getElementById('downloadFailedBtn');
-            if (dlBtn2) dlBtn2.style.display = 'none';
+        document.getElementById('resultsSummary').textContent = 'Successfully imported ' + data.successCount + ' rows.';
+        const errSection = document.getElementById('errorsSection');
+        errSection.classList.add('d-none');
+        var dlBtn2 = document.getElementById('downloadFailedBtn');
+        if (dlBtn2) dlBtn2.style.display = 'none';
         }
 
         showToast(
@@ -407,6 +433,34 @@ let currentDataset = 'patients';
                 : 'Import complete! ' + data.successCount + ' records added.',
             data.aborted ? 'danger' : 'success'
         );
+    }
+
+    function downloadSample() {
+        const sampleUrl = SAMPLE_FILES[currentDataset];
+        if (!sampleUrl) {
+            showToast('No sample CSV is available for this dataset.', 'warning');
+            return;
+        }
+
+        fetch(sampleUrl)
+            .then(function(r) {
+                if (!r.ok) throw new Error('sample_download_failed');
+                return r.blob();
+            })
+            .then(function(blob) {
+                const url2 = window.URL.createObjectURL(blob);
+                const a = Object.assign(document.createElement('a'), {
+                    href: url2,
+                    download: sampleUrl.split('/').pop()
+                });
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url2);
+            })
+            .catch(function() {
+                showToast('Error downloading sample CSV', 'danger');
+            });
     }
 
     function downloadFailedRows(failedRows) {

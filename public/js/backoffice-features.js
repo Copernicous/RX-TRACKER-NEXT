@@ -14,9 +14,14 @@ function _downloadCSV(filename, cols, rows) {
     var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     var url  = URL.createObjectURL(blob);
     var a    = document.createElement('a');
+    a.style.display = 'none';
     a.href = url; a.download = filename;
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function() {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }, 150);
 }
 
 // BO-03: Cache stores for export
@@ -1367,12 +1372,32 @@ function exportAnalyticsCSV() {
     if (_anlTo)   p.push('to='+encodeURIComponent(_anlTo));
     if (p.length) url += '?' + p.join('&');
     apiFetch(url).then(async function(r) {
-        if (!r.ok) { var d=await r.json(); toast('Export failed: '+(d.error||r.status),'danger'); return; }
+        if (!r) { toast('Session expired. Please log in again.', 'danger'); return; }
+        if (!r.ok) {
+            var errMsg = 'Export failed: ' + r.status;
+            var ctype = (r.headers && r.headers.get) ? (r.headers.get('content-type') || '') : '';
+            if (ctype.indexOf('json') !== -1) {
+                var d = await r.json();
+                if (d && d.error) errMsg = 'Export failed: ' + d.error;
+            } else {
+                var txt = await r.text();
+                if (txt && txt.trim()) errMsg = txt.trim().substring(0, 260);
+            }
+            toast(errMsg, 'danger');
+            return;
+        }
         var blob = await r.blob();
+        if (!blob || !blob.size) { toast('Export returned no data.', 'warning'); return; }
         var a = document.createElement('a');
+        a.style.display = 'none';
         a.href = URL.createObjectURL(blob);
         a.download = 'daily-snapshots-' + (_anlFrom||'all') + '-to-' + (_anlTo||'today') + '.csv';
+        document.body.appendChild(a);
         a.click();
-        URL.revokeObjectURL(a.href);
+        setTimeout(function() {
+            document.body.removeChild(a);
+            URL.revokeObjectURL(a.href);
+        }, 150);
+        toast('Download started.', 'success');
     }).catch(function(e) { toast('Export error: '+e.message,'danger'); });
 }

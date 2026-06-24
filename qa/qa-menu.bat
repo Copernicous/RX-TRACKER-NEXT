@@ -15,7 +15,7 @@ echo Recommended first run:
 echo   1) Install/verify QA dependency
 echo   2) Start local QA site
 echo   3) Seed fake QA data
-echo   4) Run smoke test
+echo   4) Seed additional data (optional)
 echo.
 echo Current default URL: https://localhost:3443
 echo Current default QA DB: patient_rx_qa
@@ -24,26 +24,28 @@ echo [1] Install/verify QA dependency
 echo [2] Start local QA site on HTTPS
 echo [3] Seed fake QA data
 echo [4] Add more fake QA data
-echo [5] Run smoke test - headless/fast
-echo [6] Run smoke test - visible browser
-echo [7] Check QA status
-echo [8] View last smoke result
-echo [9] View QA logs
+echo [5] Run patient import workflow simulation
+echo [6] Run smoke test - headless/fast
+echo [7] Run smoke test - visible browser
+echo [8] Check QA status
+echo [9] View last smoke result
+echo [L] View QA logs
 echo [S] Stop local QA site
 echo [W] Open QA web dashboard
 echo [0] Exit
 echo.
-choice /c 123456789SW0 /n /m "Select an option: "
+choice /c 123456789LSW0 /n /m "Select an option: "
 set choice=%errorlevel%
 
-if "%choice%"=="12" goto end
-if "%choice%"=="11" goto web
-if "%choice%"=="10" goto stop
-if "%choice%"=="9" goto logs
-if "%choice%"=="8" goto result
-if "%choice%"=="7" goto status
-if "%choice%"=="6" goto smoke_visible
-if "%choice%"=="5" goto smoke_headless
+if "%choice%"=="13" goto end
+if "%choice%"=="12" goto web
+if "%choice%"=="11" goto stop
+if "%choice%"=="9" goto result
+if "%choice%"=="8" goto status
+if "%choice%"=="10" goto logs
+if "%choice%"=="6" goto smoke_headless
+if "%choice%"=="7" goto smoke_visible
+if "%choice%"=="5" goto import_sim
 if "%choice%"=="4" goto seed_append
 if "%choice%"=="3" goto seed
 if "%choice%"=="2" goto start
@@ -105,6 +107,20 @@ echo.
 set QA_SEED_APPEND=true
 node qa\seed-qa-data.js
 set QA_SEED_APPEND=
+echo.
+pause
+goto menu
+
+:import_sim
+cls
+echo Running patient import workflow simulation.
+echo.
+echo This prints sample import outcomes for the 3 requested scenarios:
+echo   1) all workflow steps on same date
+echo   2) daily step progression
+echo   3) service date inferred from workflow history
+echo.
+node scripts/simulate-patient-workflow-import.js
 echo.
 pause
 goto menu

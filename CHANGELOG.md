@@ -5,6 +5,32 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ---
 
+## [2.0.35] - 2026-06-24
+
+### UX - New RX prefills patient from context
+**Files changed:** 2 | `views/rx-records.ejs`, `views/patient-timeline.ejs`
+
+When users open RX Records from a patient context (Patient list, timeline, or search result), **New RX** now starts with the patient already selected:
+- The incoming `patient`/`name` context is preserved from RX navigation URLs.
+- New RX form preloads patient name, pharmacy, transport, and service date without requiring manual re-entry.
+- Timeline and patient-entry entry points now send patient context consistently to RX Records links.
+
+## [2.0.34] - 2026-06-24
+
+### ✨ Feature — Patient import + workflow simulation + QA web action (FEAT-16)
+**Files changed:** 9 | `controllers/importController.js`, `controllers/patientController.js`, `public/js/import.js`, `public/js/patients.js`, `qa/README.md`, `qa/qa-menu.bat`, `qa/web/public/index.html`, `qa/web-ui.js`, `public/samples/import/patients_import_sample.csv`, `scripts/simulate-patient-workflow-import.js`
+
+**FEAT-16** — Added workflow-step-aware patient import:
+- Patient CSV import now accepts the headers `RX Received Warehouse`, `On Route with Driver`, `Delivered`, `Mark as Received to print log`, `Signed by Pharmacy`, and `Archived on local and case close`.
+- Any completed step date auto-generates corresponding RX workflow tracking entries in sequence order; all workflow entries and patient creation happen only when required validation passes.
+- If service date is blank but workflow dates are present, service date is inferred from the earliest workflow step date and saved on both patient and RX row.
+- Patient `firstName` / `lastName` are normalized to uppercase during import.
+- Import now supports “all dates on same day”, “daily increment (+1 day)”, and “inferred service date” scenarios for QA verification.
+
+**UX / QA**
+- Added a new QA Web Dashboard action, `Run Import Workflow Simulation`, and menu option so teams can run the three scenarios above from `npm run qa:web` and the QA menu.
+- Added `scripts/simulate-patient-workflow-import.js` as a text-only dry-run harness (no database writes), plus sample CSV files under `public/samples/import/` for import testing.
+
 ## [2.0.33] — 2026-06-24
 
 ### ✨ Feature — Backoffice 90-day service-date overrides + report filter linkage (FEAT-14 / FEAT-15)

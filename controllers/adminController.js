@@ -8,8 +8,6 @@ const bcrypt    = require('bcryptjs');
 const { parseDate } = require('../utils/dateUtils');
 const fileSettings = require('../utils/globalSettings');
 
-const SETTINGS_PATH = fileSettings.SETTINGS_PATH;
-
 function readSettings() {
     return fileSettings.readSettings();
 }
@@ -316,7 +314,7 @@ exports.saveSettings = (req, res) => {
         next.maintenanceMode = next.maintenanceMode === true || next.maintenanceMode === 'true';
         next.serviceDateOverrideEnabled = next.serviceDateOverrideEnabled === true || next.serviceDateOverrideEnabled === 'true';
         if (next.backupPath) { try { fs.mkdirSync(next.backupPath, { recursive: true }); } catch {} }
-        fs.writeFileSync(SETTINGS_PATH, JSON.stringify(next, null, 2), 'utf8');
+        fileSettings.writeSettings(next);
         if (current.serviceDateOverrideEnabled !== next.serviceDateOverrideEnabled) {
             db.AuditLog.create({
                 userId:        req.user ? req.user.id : null,

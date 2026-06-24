@@ -1,0 +1,2 @@
+﻿firstName,lastName,username,email,password,role,notes,isActive
+Import,User,import.user,import.user@example.com,TempPass123!,3,Sample imported user,true

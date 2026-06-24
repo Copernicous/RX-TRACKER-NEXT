@@ -1,6 +1,6 @@
 # Patient RX System — Operations & Developer Manual
 
-Version: 2.0.4 | Last Updated: 2026-06-23
+Version: 2.0.35 | Last Updated: 2026-06-24
 
 ---
 

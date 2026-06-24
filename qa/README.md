@@ -39,8 +39,9 @@ Recommended order:
 1. Install/verify QA dependency.
 2. Start local QA site.
 3. Seed QA data.
-4. Run smoke test.
-5. View status/result/logs.
+4. Optional: run patient import workflow simulation.
+5. Run smoke test.
+6. View status/result/logs.
 
 The menu also includes a web dashboard option.
 
@@ -71,6 +72,7 @@ npm run smoke:qa
 npm run qa:status
 npm run qa:stop
 npm run qa:web
+node scripts/simulate-patient-workflow-import.js
 ```
 
 Visible browser mode:
@@ -87,6 +89,7 @@ npm run smoke:qa
 - `qa/logs/https-proxy.log` - local HTTPS proxy logs.
 - `qa/results/seed-result.json` - IDs of seeded fake data.
 - `qa/results/smoke-report.json` - last smoke test result.
+- `QA web` / `qa-menu.bat` task output - simulation logs when running `simulate-import`.
 - `qa/results/screenshots/` - screenshots for failed smoke runs.
 - `qa/pids/` - process IDs for the local QA backend/proxy.
 - `qa/certs/localhost.pfx` - self-signed localhost certificate generated for QA.

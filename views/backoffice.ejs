@@ -558,7 +558,7 @@
                 <div class="schema-card" style="padding:1rem;display:flex;align-items:center;justify-content:space-between;border-color:rgba(245,158,11,0.28);background:rgba(245,158,11,0.04)">
                     <div>
                         <label style="font-size:0.72rem;color:#fbbf24;text-transform:uppercase;letter-spacing:.07em">Global 90-Day Override</label>
-                        <div style="font-size:0.68rem;color:var(--text-muted);margin-top:0.25rem">Lifts service-date 90-day blocks for all users during import corrections</div>
+                        <div style="font-size:0.68rem;color:var(--text-muted);margin-top:0.25rem">Temporarily lifts all 90-day service-date block checks (patient service date + RX workflows) during import corrections.</div>
                     </div>
                     <label style="position:relative;display:inline-block;width:44px;height:24px;cursor:pointer">
                         <input type="checkbox" id="sServiceDateOverrideEnabled" style="opacity:0;width:0;height:0">
@@ -624,7 +624,7 @@
             <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;flex-wrap:wrap;margin-bottom:0.9rem">
                 <div>
                     <div style="font-size:0.95rem;font-weight:700;color:#fbbf24"><i class="fas fa-calendar-alt me-2"></i>90-Day Service Date Override</div>
-                    <div style="font-size:0.74rem;color:var(--text-muted);margin-top:0.2rem">Emergency Backoffice tool for correcting imported or mis-keyed service dates while the normal 90-day block stays active for users.</div>
+                    <div style="font-size:0.74rem;color:var(--text-muted);margin-top:0.2rem">Emergency Backoffice tool for correcting imported or mis-keyed service dates while the normal 90-day block stays active for users; RX creation and patient service-date edits respect this override.</div>
                 </div>
                 <span style="font-size:0.68rem;color:#fbbf24;border:1px solid rgba(245,158,11,0.35);background:rgba(245,158,11,0.1);border-radius:20px;padding:0.2rem 0.65rem;font-weight:700">MASTER ONLY</span>
             </div>

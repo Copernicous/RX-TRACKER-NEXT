@@ -44,6 +44,10 @@ const tasks = {
     title: 'Start local QA site',
     args: ['qa/start-local-qa.js']
   },
+  'simulate-import': {
+    title: 'Run patient import workflow simulation',
+    args: ['scripts/simulate-patient-workflow-import.js']
+  },
   seed: {
     title: 'Seed fake QA data',
     args: ['qa/seed-qa-data.js']

@@ -3,6 +3,10 @@ const { Op } = require('sequelize');
 const { parseDate } = require('../utils/dateUtils');
 const { isServiceDateOverrideEnabled } = require('../utils/globalSettings');
 
+function toUpperName(value) {
+    return String(value || '').trim().toUpperCase();
+}
+
 exports.getAll = async (req, res) => {
     try {
         const whereClause = {};
@@ -46,6 +50,12 @@ exports.getOne = async (req, res) => {
 exports.create = async (req, res) => {
     try {
         let { patientCode, dob, serviceDate, ...otherData } = req.body;
+        otherData.firstName = toUpperName(otherData.firstName);
+        otherData.lastName = toUpperName(otherData.lastName);
+
+        if (!otherData.firstName || !otherData.lastName) {
+            return res.status(400).json({ error: 'First Name and Last Name are required.' });
+        }
 
         // Normalise dates: accept MM/DD/YYYY, YYYY-MM-DD, or any common format
         const normDob         = parseDate(dob);
@@ -101,6 +111,12 @@ exports.update = async (req, res) => {
             const norm = parseDate(req.body.dob);
             if (req.body.dob && !norm) return res.status(400).json({ error: 'Date of Birth is not a valid date. Use MM/DD/YYYY format.' });
             req.body.dob = norm;
+        }
+        if (req.body.hasOwnProperty('firstName')) {
+            req.body.firstName = toUpperName(req.body.firstName);
+        }
+        if (req.body.hasOwnProperty('lastName')) {
+            req.body.lastName = toUpperName(req.body.lastName);
         }
         if (req.body.hasOwnProperty('serviceDate')) {
             const norm = parseDate(req.body.serviceDate);

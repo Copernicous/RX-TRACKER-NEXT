@@ -3,6 +3,23 @@ const { Op } = require('sequelize');
 const bcrypt = require('bcryptjs');
 const csv = require('csv-parser');
 const { Readable } = require('stream');
+const { parseDate } = require('../utils/dateUtils');
+
+const WORKFLOW_HEADERS = [
+    'rx received warehouse',
+    'on route with driver',
+    'delivered',
+    'mark as received to print log',
+    'signed by pharmacy',
+    'archived on local and case close'
+];
+
+function normalizeImportHeader(value) {
+    return String(value || '')
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, ' ');
+}
 
 // Helper to parse CSV buffer to array of objects
 const parseCsv = (buffer) => {
@@ -18,17 +35,64 @@ const parseCsv = (buffer) => {
 
 // Helper: parse a date string in MM/DD/YYYY or YYYY-MM-DD → returns 'YYYY-MM-DD' or null on failure
 function parseDateField(raw) {
-    if (!raw || !raw.trim()) return null;
-    const v = raw.trim();
-    // MM/DD/YYYY
-    if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(v)) {
-        const [m, d, y] = v.split('/').map(Number);
-        if (m < 1 || m > 12 || d < 1 || d > 31) return null;
-        return `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    if (!raw || !String(raw).trim()) return null;
+    return parseDate(raw);
+}
+
+function toUpperName(value) {
+    return String(value || '').trim().toUpperCase();
+}
+
+function extractWorkflowTracking(row, actionByNormalizedName, actionBySequence, addErr) {
+    const entries = [];
+    const seenActionIds = new Set();
+
+    Object.keys(row).forEach((rawHeader) => {
+        const normalizedHeader = normalizeImportHeader(rawHeader);
+        if (!WORKFLOW_HEADERS.includes(normalizedHeader)) return;
+
+        const headerIndex = WORKFLOW_HEADERS.indexOf(normalizedHeader);
+        const action = actionByNormalizedName.get(normalizedHeader) || actionBySequence.get(headerIndex + 1);
+        if (!action) {
+            addErr(`Unknown workflow step header "${rawHeader}" - no matching workflow action found.`);
+            return;
+        }
+
+        const trimmed = (row[rawHeader] || '').toString().trim();
+        if (!trimmed) return;
+
+        const parsedDate = parseDateField(trimmed);
+        if (!parsedDate) {
+            addErr(`Workflow date for "${rawHeader}" must be in MM/DD/YYYY or YYYY-MM-DD format.`);
+            return;
+        }
+
+        if (seenActionIds.has(action.id)) {
+            addErr(`Duplicate workflow step header mapped to "${action.name}".`);
+            return;
+        }
+        seenActionIds.add(action.id);
+
+        entries.push({
+            workflowActionId: action.id,
+            sequenceNumber: action.sequenceNumber || 0,
+            completionDate: new Date(`${parsedDate}T00:00:00`)
+        });
+    });
+
+    entries.sort((a, b) => {
+        if (a.sequenceNumber !== b.sequenceNumber) return a.sequenceNumber - b.sequenceNumber;
+        return a.completionDate - b.completionDate;
+    });
+
+    for (let i = 1; i < entries.length; i++) {
+        if (entries[i].completionDate < entries[i - 1].completionDate) {
+            addErr('Workflow step dates must be in chronological order (earlier to later sequence).');
+            break;
+        }
     }
-    // YYYY-MM-DD (backwards compat)
-    if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return v;
-    return null;
+
+    return entries;
 }
 
 // GET /api/import/template/:dataset
@@ -37,10 +101,12 @@ exports.getTemplate = (req, res) => {
     let csvContent = '';
     let filename = `template_${dataset}.csv`;
 
-    switch (dataset) {
-        case 'patients':
-            csvContent = 'patientCode,firstName,lastName,dob,phone,address,clinic,serviceDate,patientTransportCompany,pharmacyTransportCompany,notes,isActive\n' +
-                         'PAT-00001,John,Doe,05/15/1985,123-456-7890,"123 Main St, Springfield",Main Clinic,01/01/2026,Health Transit,Pharmacy Express,Allergic to penicillin,true\n';
+        switch (dataset) {
+            case 'patients':
+            csvContent =
+                'patientCode,firstName,lastName,dob,phone,address,clinic,serviceDate,patientTransportCompany,pharmacyTransportCompany,notes,isActive,' +
+                'RX Received Warehouse,On Route with Driver,Delivered,Mark as Received to print log,Signed by Pharmacy,Archived on local and case close\n' +
+                'PAT-00001,John,Doe,05/15/1985,123-456-7890,"123 Main St, Springfield",Main Clinic,01/01/2026,Health Transit,Pharmacy Express,Allergic to penicillin,true,,,,,,\n';
             break;
         case 'clinics':
             csvContent = 'name,address,phone,contactPerson,notes,isActive\n' +
@@ -98,6 +164,17 @@ exports.importDataset = async (req, res) => {
                 const ptCompanies = await db.PatientTransportCompany.findAll({ where: { isActive: true } });
                 const phCompanies = await db.PharmacyTransportCompany.findAll({ where: { isActive: true } });
                 const clinics = await db.Clinic.findAll({ where: { isActive: true } });
+                const workflowActions = await db.WorkflowAction.findAll({
+                    where: { isActive: true },
+                    order: [['sequenceNumber', 'ASC']]
+                });
+                const actionByNormalizedName = new Map();
+                const actionBySequence = new Map();
+                workflowActions.forEach((action) => {
+                    actionByNormalizedName.set(normalizeImportHeader(action.name), action);
+                    actionBySequence.set(action.sequenceNumber, action);
+                });
+
                 const seenPatients = new Set();
                 const seenPatientCodes = new Set();
                 const lastPatient = await db.Patient.findOne({ order: [['id', 'DESC']] });
@@ -111,13 +188,15 @@ exports.importDataset = async (req, res) => {
                     const row = rows[i];
                     const rowNum = i + 2;
                     let { patientCode, firstName, lastName, dob, phone, address, clinic, serviceDate, patientTransportCompany, pharmacyTransportCompany, notes, isActive } = row;
+                    const firstNameCaps = toUpperName(firstName);
+                    const lastNameCaps = toUpperName(lastName);
 
                     const addErr = (msg) => rowErrors.push({ row: rowNum, error: msg, _rawRow: row });
 
-                    if (!firstName || !firstName.trim()) { addErr('First Name is required'); continue; }
-                    if (!lastName || !lastName.trim())   { addErr('Last Name is required'); continue; }
+                    if (!firstNameCaps) { addErr('First Name is required'); continue; }
+                    if (!lastNameCaps)   { addErr('Last Name is required'); continue; }
                     const dobParsed = parseDateField(dob);
-                    if (!dob || !dobParsed) { addErr('DOB is required and must be in MM/DD/YYYY format (e.g. 05/15/1985)'); continue; }
+                    if (!dob || !dobParsed) { addErr('DOB is required and must be in MM/DD/YYYY or YYYY-MM-DD format (e.g. 05/15/1985)'); continue; }
                     dob = dobParsed;
 
                     if (!patientCode || !patientCode.trim()) {
@@ -131,10 +210,10 @@ exports.importDataset = async (req, res) => {
                     seenPatientCodes.add(patientCode.toLowerCase());
                     if (dbPatientCodes.has(patientCode.toLowerCase()))   { addErr(`Patient ID "${patientCode}" already exists in database`); continue; }
 
-                    const uniqueKey = `${firstName.trim().toLowerCase()}|${lastName.trim().toLowerCase()}|${dob.trim()}`;
-                    if (seenPatients.has(uniqueKey))  { addErr(`Patient "${firstName.trim()} ${lastName.trim()}" born on ${dob.trim()} is duplicated in this file`); continue; }
+                    const uniqueKey = `${firstNameCaps.toLowerCase()}|${lastNameCaps.toLowerCase()}|${dob.trim()}`;
+                    if (seenPatients.has(uniqueKey))  { addErr(`Patient "${firstNameCaps} ${lastNameCaps}" born on ${dob.trim()} is duplicated in this file`); continue; }
                     seenPatients.add(uniqueKey);
-                    if (dbPatientKeys.has(uniqueKey)) { addErr(`Patient "${firstName.trim()} ${lastName.trim()}" born on ${dob.trim()} already exists in database`); continue; }
+                    if (dbPatientKeys.has(uniqueKey)) { addErr(`Patient "${firstNameCaps} ${lastNameCaps}" born on ${dob.trim()} already exists in database`); continue; }
 
                     let patientTransportCompanyId = null;
                     if (patientTransportCompany && patientTransportCompany.trim()) {
@@ -171,15 +250,80 @@ exports.importDataset = async (req, res) => {
                     let svcDate = null;
                     if (serviceDate && serviceDate.trim()) {
                         svcDate = parseDateField(serviceDate);
-                        if (!svcDate) { addErr('Service Date must be in MM/DD/YYYY format (e.g. 01/01/2026)'); continue; }
+                        if (!svcDate) { addErr('Service Date must be in MM/DD/YYYY or YYYY-MM-DD format (e.g. 01/01/2026).'); continue; }
                     }
 
-                    validRows.push({ patientCode, firstName: firstName.trim(), lastName: lastName.trim(), dob: dob.trim(), phone: phone ? phone.trim() : null, address: address ? address.trim() : null, serviceDate: svcDate, patientTransportCompanyId, pharmacyTransportCompanyId, clinicId, notes: notes ? notes.trim() : null, isActive: isActive ? isActive.trim().toLowerCase() === 'true' : true });
+                    const workflowTracking = extractWorkflowTracking(row, actionByNormalizedName, actionBySequence, addErr);
+                    const hasWorkflowDates = workflowTracking.length > 0;
+
+                    if (hasWorkflowDates && !svcDate) {
+                        const earliest = workflowTracking.reduce((acc, step) => {
+                            const stepDate = new Date(step.completionDate);
+                            if (!acc || stepDate < acc) return stepDate;
+                            return acc;
+                        }, null);
+                        if (earliest) {
+                            const iso = `${earliest.getFullYear()}-${String(earliest.getMonth() + 1).padStart(2, '0')}-${String(earliest.getDate()).padStart(2, '0')}`;
+                            svcDate = parseDateField(iso);
+                        }
+                    }
+
+                    validRows.push({
+                        patientCode,
+                        firstName: firstNameCaps,
+                        lastName: lastNameCaps,
+                        dob: dob.trim(),
+                        phone: phone ? phone.trim() : null,
+                        address: address ? address.trim() : null,
+                        serviceDate: svcDate,
+                        patientTransportCompanyId,
+                        pharmacyTransportCompanyId,
+                        clinicId,
+                        notes: notes ? notes.trim() : null,
+                        isActive: isActive ? isActive.trim().toLowerCase() === 'true' : true,
+                        workflowTracking
+                    });
                 }
 
                 // ── Phase 2: All-or-nothing — only write if zero errors ──
                 if (rowErrors.length > 0) break;
-                if (validRows.length > 0) { await db.Patient.bulkCreate(validRows); successCount = validRows.length; }
+                if (validRows.length > 0) {
+                    const tx = await db.sequelize.transaction();
+                    try {
+                        const createdPatients = await db.Patient.bulkCreate(validRows.map((rowPayload) => {
+                            const { workflowTracking, ...patientPayload } = rowPayload;
+                            return patientPayload;
+                        }), { transaction: tx });
+
+                        for (let i = 0; i < createdPatients.length; i++) {
+                            const rowPayload = validRows[i];
+                            const patient = createdPatients[i];
+                            const steps = rowPayload.workflowTracking || [];
+                            if (!steps.length) continue;
+
+                            const rx = await db.RXRecord.create({
+                                patientId: patient.id,
+                                serviceDate: rowPayload.serviceDate,
+                                arrivalDate: rowPayload.serviceDate,
+                                patientTransportCompanyId: rowPayload.patientTransportCompanyId,
+                                pharmacyTransportCompanyId: rowPayload.pharmacyTransportCompanyId
+                            }, { transaction: tx });
+
+                            await db.RXWorkflowTracking.bulkCreate(steps.map((step) => ({
+                                rxRecordId: rx.id,
+                                workflowActionId: step.workflowActionId,
+                                completionDate: step.completionDate,
+                                userId: req.user?.id || null
+                            })), { transaction: tx });
+                        }
+
+                        await tx.commit();
+                        successCount = validRows.length;
+                    } catch (err) {
+                        await tx.rollback();
+                        throw err;
+                    }
+                }
                 break;
             }
 

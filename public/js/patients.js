@@ -8,6 +8,10 @@ var allPatients = [];
     var pSortCol = 'id';
     var pSortDir = 'desc';
 
+    function normalizeName(value) {
+        return String(value || '').trim().toUpperCase();
+    }
+
     document.addEventListener('DOMContentLoaded', async () => {
         initApp();
         await loadDropdowns();
@@ -926,8 +930,8 @@ var allPatients = [];
         document.getElementById('patientModalTitle').textContent = id ? 'Edit Patient' : 'Add Patient';
         const patient = id ? allPatients.find(p => p.id === id) : null;
         document.getElementById('pPatientCode').value = patient ? patient.patientCode || '' : '';
-        document.getElementById('pFirstName').value = patient ? patient.firstName || '' : '';
-        document.getElementById('pLastName').value = patient ? patient.lastName || '' : '';
+        document.getElementById('pFirstName').value = patient ? normalizeName(patient.firstName || '') : '';
+        document.getElementById('pLastName').value = patient ? normalizeName(patient.lastName || '') : '';
         document.getElementById('pDob').value = patient ? window.isoDate(patient.dob) : '';
         document.getElementById('pPhone').value = patient ? patient.phone || '' : '';
         document.getElementById('pServiceDate').value = patient ? window.isoDate(patient.serviceDate) : '';
@@ -1032,8 +1036,8 @@ var allPatients = [];
         const patientCodeVal = document.getElementById('pPatientCode').value.trim();
         const body = {
             patientCode: patientCodeVal || undefined,
-            firstName: document.getElementById('pFirstName').value.trim(),
-            lastName: document.getElementById('pLastName').value.trim(),
+            firstName: normalizeName(document.getElementById('pFirstName').value),
+            lastName: normalizeName(document.getElementById('pLastName').value),
             dob: document.getElementById('pDob').value,
             phone: document.getElementById('pPhone').value.trim(),
             serviceDate: document.getElementById('pServiceDate').value || null,

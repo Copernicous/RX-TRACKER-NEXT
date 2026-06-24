@@ -3,10 +3,12 @@
 const fs = require('fs');
 const path = require('path');
 
-const SETTINGS_PATH = path.join(__dirname, '..', 'data', 'settings.json');
+const IS_PKG = typeof process.pkg !== 'undefined';
+const WRITABLE_ROOT = IS_PKG ? path.dirname(process.execPath) : path.join(__dirname, '..');
+const SETTINGS_PATH = path.join(WRITABLE_ROOT, 'data', 'settings.json');
 
 const DEFAULT_SETTINGS = {
-    backupPath: path.join(__dirname, '..', 'backups'),
+    backupPath: path.join(WRITABLE_ROOT, 'backups'),
     backupRetentionDays: 30,
     appName: 'Daniely RX',
     sessionTimeoutMinutes: 60,
@@ -15,13 +17,27 @@ const DEFAULT_SETTINGS = {
     serviceDateOverrideEnabled: false
 };
 
+function ensureSettingsDir() {
+    const dir = path.dirname(SETTINGS_PATH);
+    if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+    }
+}
+
 function readSettings() {
     try {
+        ensureSettingsDir();
         const parsed = JSON.parse(fs.readFileSync(SETTINGS_PATH, 'utf8'));
         return { ...DEFAULT_SETTINGS, ...parsed };
     } catch (e) {
         return { ...DEFAULT_SETTINGS };
     }
+}
+
+function writeSettings(next) {
+    ensureSettingsDir();
+    fs.writeFileSync(SETTINGS_PATH, JSON.stringify(next, null, 2), 'utf8');
+    return next;
 }
 
 function isTruthy(value) {
@@ -39,5 +55,6 @@ module.exports = {
     DEFAULT_SETTINGS,
     SETTINGS_PATH,
     readSettings,
+    writeSettings,
     isServiceDateOverrideEnabled
 };

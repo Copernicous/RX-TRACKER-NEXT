@@ -284,7 +284,7 @@
                     <i class="fas fa-prescription-bottle-alt"></i>
                     <h5>No RX Records Found</h5>
                     <p class="text-muted">This patient has no RX records yet.</p>
-                    <a href="/rx-records" class="btn btn-primary btn-sm mt-2"><i class="fas fa-plus me-1"></i>Add First RX Record</a>
+                    <a href="/rx-records" class="btn btn-primary btn-sm mt-2" id="addFirstRxBtn"><i class="fas fa-plus me-1"></i>Add First RX Record</a>
                 </div>
             </div>
 
@@ -307,6 +307,7 @@ const _ptId = (function() {
     const m = location.pathname.match(/\/patients\/(\d+)\/timeline/);
     return m ? m[1] : null;
 })();
+let _ptName = '';
 
 document.addEventListener('DOMContentLoaded', async () => {
     initApp();
@@ -316,13 +317,26 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
     }
 
-    document.getElementById('viewRxBtn').href = '/rx-records?patient=' + _ptId;
+    const rxBtn = document.getElementById('viewRxBtn');
+    const addFirstRxBtn = document.getElementById('addFirstRxBtn');
+    if (rxBtn) rxBtn.href = '/rx-records?patient=' + _ptId;
+    if (addFirstRxBtn) addFirstRxBtn.href = '/rx-records?patient=' + _ptId;
     document.getElementById('backToPatients').href = '/patients';
 
     try {
         const res = await fetchWithAuth(window.rxUrl('/api/patients/') + _ptId + '/timeline');
         if (!res || !res.ok) throw new Error('Failed to load');
         const data = await res.json();
+        if (data && data.patient && data.patient.id) {
+            _ptName = ((data.patient.firstName || '') + ' ' + (data.patient.lastName || '')).trim();
+            const rxHref = '/rx-records?patient=' + data.patient.id + '&name=' + encodeURIComponent(_ptName);
+            if (rxBtn) rxBtn.href = rxHref;
+            if (addFirstRxBtn) addFirstRxBtn.href = rxHref;
+        } else {
+            const fallback = '/rx-records?patient=' + _ptId;
+            if (rxBtn) rxBtn.href = fallback;
+            if (addFirstRxBtn) addFirstRxBtn.href = fallback;
+        }
         renderTimeline(data);
     } catch(e) {
         document.getElementById('tlLoading').innerHTML =

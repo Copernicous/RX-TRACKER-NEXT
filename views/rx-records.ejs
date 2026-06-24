@@ -598,6 +598,8 @@
     var allPtList          = []; // patient transport companies cache
     var allPhtList         = []; // pharmacy transport companies cache
     var allMedCatalog      = []; // RX action catalog
+    var _rxPrefillPatientId = null;
+    var _rxPrefillPatientName = '';
 
     // Loads all dropdown data needed for the New RX modal and workflow selectors.
     // Returns a Promise so DOMContentLoaded can chain .then(loadRxRecords).
@@ -710,11 +712,26 @@
         var urlParams = new URLSearchParams(window.location.search);
         var patientId   = urlParams.get('patient');
         var patientName = urlParams.get('name');
+        var decodedName = '';
 
         if (patientName) {
-            document.getElementById('rxFilterPatient').value = decodeURIComponent(patientName).trim();
+            try {
+                decodedName = decodeURIComponent(patientName);
+            } catch(e) {
+                decodedName = patientName;
+            }
+        }
+
+        if (patientName) {
+            document.getElementById('rxFilterPatient').value = decodedName.trim();
         } else if (patientId) {
             window._rxPrefilterPatientId = patientId;
+        }
+        if (patientId) {
+            _rxPrefillPatientId = patientId;
+            _rxPrefillPatientName = decodedName.trim();
+        } else if (decodedName) {
+            _rxPrefillPatientName = decodedName.trim();
         }
 
         // Filter bar listeners
@@ -1108,7 +1125,46 @@
         if (dropdown)    dropdown.classList.remove('open');
         if (info)        info.textContent = '';
         addMedicationRow();
+        if (_rxPrefillPatientId || _rxPrefillPatientName) {
+            applyRxPrefillPatient();
+        }
         new bootstrap.Modal(document.getElementById('rxModal')).show();
+    }
+
+    function applyRxPrefillPatient() {
+        if (!_rxPrefillPatientId && !_rxPrefillPatientName) return false;
+        var prefId = _rxPrefillPatientId ? String(_rxPrefillPatientId) : '';
+        var patient = null;
+        if (prefId) {
+            for (var i = 0; i < allPatientsList.length; i++) {
+                if (String(allPatientsList[i].id) === prefId) {
+                    patient = allPatientsList[i];
+                    break;
+                }
+            }
+        }
+        if (!patient && _rxPrefillPatientName) {
+            var target = _rxPrefillPatientName.toLowerCase();
+            for (var j = 0; j < allPatientsList.length; j++) {
+                var _name = ((allPatientsList[j].firstName || '') + ' ' + (allPatientsList[j].lastName || '')).toLowerCase();
+                var _rev = ((allPatientsList[j].lastName || '') + ' ' + (allPatientsList[j].firstName || '')).toLowerCase();
+                if (_name === target || _rev === target) {
+                    patient = allPatientsList[j];
+                    break;
+                }
+            }
+        }
+        if (!patient || typeof window.__rxSetPatientSelection !== 'function') return false;
+
+        window.__rxSetPatientSelection(
+            patient.id,
+            (patient.firstName || '') + ' ' + (patient.lastName || ''),
+            patient.serviceDate || '',
+            patient.patientTransportCompanyId || '',
+            patient.pharmacyTransportCompanyId || '',
+            patient.pharmacyId || ''
+        );
+        return true;
     }
 
     // ---- Patient search picker ----
@@ -1220,6 +1276,7 @@
 
             info.innerHTML = '&#10003; <strong>' + name + '</strong> selected &mdash; info loaded below';
         }
+        window.__rxSetPatientSelection = selectPatient;
         searchInput.addEventListener('focus', function() { renderDropdown(searchInput.value); });
         searchInput.addEventListener('input', function() {
             hiddenInput.value = '';
@@ -1636,7 +1693,7 @@
                         '<i class="fas fa-unlock-alt" style="color:#f59e0b;font-size:1.1rem;flex-shrink:0"></i>' +
                         '<div>' +
                             '<strong style="color:#b45309">Global 90-Day Override Active</strong>' +
-                            '<div class="small text-muted mt-1">Service-date 90-day blocks are currently lifted system-wide from Backoffice Settings.</div>' +
+                        '<div class="small text-muted mt-1">Service-date 90-day checks are currently lifted system-wide from Backoffice Settings (patient service-date and RX workflow checks).</div>' +
                         '</div>' +
                       '</div>'
                     : '';

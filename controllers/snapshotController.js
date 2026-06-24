@@ -46,6 +46,7 @@ exports.captureNow = async (req, res) => {
 exports.exportCSV = async (req, res) => {
     try {
         const { from, to } = req.query;
+        const filename = `daily-snapshots-${from || 'all'}-to-${to || 'today'}.csv`;
         const where = {};
         if (from || to) {
             where.snapshotDate = {};
@@ -57,23 +58,20 @@ exports.exportCSV = async (req, res) => {
             order: [['snapshotDate', 'ASC']],
             raw: true,
         });
-        if (!rows.length) return res.status(404).json({ error: 'No snapshots in range.' });
-
-        const cols = Object.keys(rows[0]).filter(k => k !== 'id');
+        const cols = Object.keys(db.DailySnapshot.rawAttributes).filter(c => c !== 'id' && c !== 'createdAt' && c !== 'updatedAt');
         const header = cols.join(',');
-        const lines  = rows.map(r =>
-            cols.map(c => {
-                const v = r[c];
-                if (v == null) return '';
-                const s = String(v);
-                return s.includes(',') ? `"${s}"` : s;
-            }).join(',')
-        );
-        const csv = [header, ...lines].join('\r\n');
+        const escapeCsv = function(v) {
+            if (v === null || v === undefined) return '';
+            const s = String(v);
+            if (/[",\r\n]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
+            return s;
+        };
+        const lines = rows.map(r => cols.map(c => escapeCsv(r[c])).join(','));
+        const csv = ['\uFEFF' + header, ...lines].join('\r\n');
 
-        const filename = `daily-snapshots-${from || 'all'}-to-${to || 'today'}.csv`;
-        res.setHeader('Content-Type', 'text/csv');
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
         res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        res.setHeader('Content-Length', Buffer.byteLength(csv, 'utf8'));
         res.send(csv);
     } catch (e) { res.status(500).json({ error: e.message }); }
 };
