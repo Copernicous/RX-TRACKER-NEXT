@@ -1017,7 +1017,7 @@
                 var canUnd = td.dataset.canundo === '1';
                 var canWh  = td.dataset.canwh === '1';
                 var b;
-                b = document.createElement('button'); b.className = 'btn btn-sm btn-outline-dark me-1'; b.title = 'View Details'; b.innerHTML = '<i class="fas fa-eye"></i>'; b.dataset.id = rxid; b.addEventListener('click', function() { viewRxDetail(parseInt(this.dataset.id)); }); td.appendChild(b);
+                b = document.createElement('button'); b.className = 'btn btn-sm btn-outline-info me-1'; b.title = 'View Details'; b.innerHTML = '<i class="fas fa-eye"></i>'; b.dataset.id = rxid; b.addEventListener('click', function() { viewRxDetail(parseInt(this.dataset.id)); }); td.appendChild(b);
                 if (isDel) {
                     if (canDel) { b = document.createElement('button'); b.className = 'btn btn-sm btn-outline-success'; b.title = 'Restore'; b.innerHTML = '<i class="fas fa-undo me-1"></i>Restore'; b.dataset.id = rxid; b.addEventListener('click', function() { restoreRx(parseInt(this.dataset.id)); }); td.appendChild(b); }
                     else { var s = document.createElement('span'); s.className = 'text-muted small'; s.textContent = 'Hidden'; td.appendChild(s); }
