@@ -5,7 +5,51 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ---
 
+## [2.0.13] — 2026-06-23
+
+### 🔒 Security — MASTER Admin Tier for Backoffice (Data Control Center)
+**Files changed:** 8 | SEC-01
+
+- **SEC-01** Introduced a new **MASTER admin** security tier that restricts access to the `/backoffice` (Data Control Center) to a single designated account. This tier is enforced entirely server-side and at the database level — no UI or API endpoint can grant or revoke it.
+
+  **Problem:** The `/backoffice` route had **no server-side access guard**. Any authenticated user who knew the URL could load the page. The client-side JS role check (`USER.role === 'Administrator'`) was trivially bypassable via browser DevTools / `localStorage` manipulation. All 22 `/api/admin/*` endpoints also only required the `Administrator` role, not a separate master flag.
+
+  **Solution — `isMaster` database flag:**
+  - A new `isMaster BOOLEAN DEFAULT false` column was added to the `Users` table.
+  - This column **can only be set via direct SQL on PostgreSQL** — no UI panel or API endpoint exposes it.
+  - On every server boot, a startup migration ensures the column exists (`ADD COLUMN IF NOT EXISTS`).
+
+  **Grant / Revoke MASTER access (PostgreSQL only):**
+  ```sql
+  -- Grant:   UPDATE "Users" SET "isMaster" = true  WHERE "username" = 'admin';
+  -- Revoke:  UPDATE "Users" SET "isMaster" = false WHERE "username" = 'admin';
+  -- Verify:  SELECT id, username, "firstName", "lastName", "isMaster" FROM "Users" WHERE "isMaster" = true;
+  ```
+  After running the SQL, the user must **log out and back in** to receive a new JWT containing `isMaster: true`.
+
+  **Files changed:**
+
+  | File | Change |
+  |---|---|
+  | `models/user.js` | Added `isMaster: { type: BOOLEAN, defaultValue: false }` field |
+  | `app.js` | Startup migration: `ALTER TABLE "Users" ADD COLUMN IF NOT EXISTS "isMaster" BOOLEAN DEFAULT false` |
+  | `controllers/authController.js` | `isMaster: user.isMaster === true` added to JWT payload and login response user object |
+  | `middleware/webAuth.js` | Set `req.user = decoded` (was missing — caused requireMaster to always fail on web routes) · Added `res.locals.isMaster = decoded.isMaster === true` |
+  | `middleware/rbac.js` | New `requireMaster` export: checks `req.user.isMaster === true`; redirects web requests to `/dashboard?error=backoffice_restricted`, returns `403 JSON` for API/XHR requests |
+  | `routes/webRoutes.js` | `/backoffice` route now guarded by `requireMaster` middleware (server-side, not client-side) |
+  | `routes/apiRoutes.js` | New `masterOnly` inline guard function; all 22 `/api/admin/*` routes changed from `adminOnly` → `masterOnly` |
+  | `public/js/backoffice.js` | Client-side guard updated to also check `USER.isMaster === true`; badge text changed from "Administrator" → "Master Admin" |
+
+  **Security model:**
+  - `Administrator` role → access to all standard features (users, backups, settings, audit logs, etc.)
+  - `isMaster = true` (DB only) → **additionally** grants access to the Data Control Center (raw table view/purge/schema/health/locks)
+  - Even a full `Administrator` **cannot** reach `/backoffice` or any `/api/admin/*` endpoint without `isMaster` set in the database.
+  - Client-side checks are cosmetic defence-in-depth — every API call independently enforces the flag server-side.
+
+---
+
 ## [2.0.12] — 2026-06-23
+
 
 ### 🐛 Bug Fix — Garbled Text (UTF-8 Encoding Corruption) Throughout RX Records Page
 **Files changed:** 1 | BUG-18
