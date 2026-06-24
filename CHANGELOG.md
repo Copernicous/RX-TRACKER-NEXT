@@ -5,6 +5,23 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ---
 
+## [2.0.22] — 2026-06-24
+
+### ✨ Feature — DB Backup History: Filename + Path Column, and Configurable Dump Directory
+
+**Files changed:** 3 | FEAT-09, FEAT-10
+
+#### FEAT-09 — Filename and full path shown in DB backup history table
+- **`services/backupService.js`** — `runBackup()` now stores `filepath` (full absolute path) in each backup log entry alongside `filename`.
+- **`views/backups.ejs`** — `renderHistory()` accepts a second `backupDir` argument (passed from `loadStatus()`). A new **File / Path** column is added between "Triggered By" and "Size". The filename is displayed in `font-monospace`; below it the full path is shown in a smaller muted style. Failed entries (no file) show a dash.
+
+#### FEAT-10 — DB dump backup folder is now configurable (was fixed at `backups/`)
+- **`services/backupService.js`** — `BACKUP_DIR` constant removed. Replaced with dynamic `getDbBackupDir()` (reads `data/settings.json` → `dbBackupPath`, falls back to `WRITABLE_ROOT/backups`) and `setDbBackupDir()` (persists to `settings.json`, creates the new directory). All internal usages of `BACKUP_DIR` / `BACKUP_LOG` updated to call the function at runtime. `runBackup`, `pruneOldBackups`, `syncLogWithDisk`, `deleteBackup`, `restoreBackup` all use the dynamic path.
+- **`routes/apiRoutes.js`** — `POST /api/backups/config` now accepts `dbBackupDir` (as well as `siteBackupDir`). Either or both can be sent in the same request. `GET /api/backups/download/:filename` updated to use `getDbBackupDir()` instead of the hardcoded `../backups/` path.
+- **`views/backups.ejs`** — Added **Change DB Dump Folder** editor (blue, above the existing site folder editor). `loadBackupConfig()` now also populates the `dbBackupDirInput` field. New `saveDbBackupDir()` JS function posts to `POST /api/backups/config`. Updated DB info card description to say "Folder is configurable" instead of "Kept inside the project folder".
+
+---
+
 ## [2.0.21] — 2026-06-24
 
 ### 🐛 Bug Fix — Backup Schedule Save Not Updating (BUG-27 + BUG-28)

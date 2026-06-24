@@ -183,7 +183,7 @@
                                     <li>Full PostgreSQL database snapshot</li>
                                     <li>Patients, RX records, users, audit logs</li>
                                     <li>Compressed binary — restore with <code>pg_restore</code></li>
-                                    <li>Kept inside the <strong>project folder</strong></li>
+                                    <li>Folder is configurable — defaults to <code>backups/</code></li>
                                     <li>Max <strong id="dbMaxLabel">—</strong> retained automatically</li>
                                 </ul>
                             </div>
@@ -215,13 +215,36 @@
                         </div>
                     </div>
 
+                    <!-- DB Backup Folder Editor -->
+                    <div class="border-top pt-3 mb-3">
+                        <h6 class="fw-semibold small mb-2">
+                            <i class="fas fa-pencil-alt me-1 text-primary"></i>Change DB Dump Folder
+                        </h6>
+                        <p class="text-muted small mb-2">
+                            By default dumps are written to the <code>backups/</code> subfolder next to the executable.
+                            You can redirect them to any path on this server (e.g. a dedicated backup drive).
+                        </p>
+                        <div class="input-group" style="max-width:600px">
+                            <span class="input-group-text"><i class="fas fa-database"></i></span>
+                            <input type="text" class="form-control font-monospace" id="dbBackupDirInput"
+                                   placeholder="e.g. C:\RX-Backups\DB or D:\Backups" style="font-size:.85rem">
+                            <button class="btn btn-primary fw-semibold" onclick="saveDbBackupDir()">
+                                <i class="fas fa-save me-1"></i>Save &amp; Apply
+                            </button>
+                        </div>
+                        <div class="form-text mt-1">
+                            <i class="fas fa-info-circle me-1"></i>
+                            The folder will be created automatically. Existing <code>.dump</code> files in the old folder are <strong>not moved</strong> — move them manually if needed.
+                        </div>
+                    </div>
+
                     <!-- Site Backup Folder Editor -->
                     <div class="border-top pt-3">
                         <h6 class="fw-semibold small mb-2">
                             <i class="fas fa-pencil-alt me-1 text-warning"></i>Change Site Backup Folder
                         </h6>
                         <p class="text-muted small mb-2">
-                            The DB backup folder is fixed inside the project. The site backup folder can be changed to any path on this server (e.g. an external drive or network share).
+                            The site backup folder can be changed to any path on this server (e.g. an external drive or network share).
                         </p>
                         <div class="input-group" style="max-width:600px">
                             <span class="input-group-text"><i class="fas fa-folder"></i></span>
@@ -639,10 +662,10 @@ setup.bat</code></pre>
         document.getElementById('cronInput').value = data.schedule || '';
 
         // History table
-        renderHistory(data.recentBackups);
+        renderHistory(data.recentBackups, data.backupDir);
     }
 
-    function renderHistory(backups) {
+    function renderHistory(backups, backupDir) {
         const el = document.getElementById('historyContent');
         if (!backups.length) {
             el.innerHTML = '<p class="text-center text-muted py-4">No backups recorded yet.</p>';
@@ -651,8 +674,17 @@ setup.bat</code></pre>
         var rows = backups.map(function(b) {
             var icon   = b.status === 'success' ? 'check-circle' : 'times-circle';
             var cls    = b.status === 'success' ? 'status-success' : 'status-failed';
-            var size   = b.size ? (b.size / 1024).toFixed(1) + ' KB' : '\u2014';
-            var dt     = b.timestamp ? new Date(b.timestamp).toLocaleString() : '\u2014';
+            var size   = b.size ? (b.size / 1024).toFixed(1) + ' KB' : '—';
+            var dt     = b.timestamp ? new Date(b.timestamp).toLocaleString() : '—';
+            // Filename + path cell
+            var fullPath = (b.filepath) ? b.filepath
+                         : (b.filename && backupDir) ? backupDir.replace(/[\\/]$/, '') + '\\' + b.filename
+                         : null;
+            var fileCell = b.filename
+                ? '<span class="font-monospace" style="font-size:.78rem;word-break:break-all;" title="' + (fullPath || b.filename) + '">' +
+                  b.filename + '</span>' +
+                  (fullPath ? '<br><small class="text-muted" style="font-size:.72rem;word-break:break-all;">' + fullPath + '</small>' : '')
+                : '<span class="text-muted">—</span>';
             var dlBtn  = (b.status === 'success' && b.filename)
                 ? '<a class="btn btn-sm btn-outline-primary me-1" href="/api/backups/download/' + b.filename + '" title="Download"><i class="fas fa-download"></i></a>'
                 : '';
@@ -662,7 +694,8 @@ setup.bat</code></pre>
             return '<tr class="backup-row">' +
                 '<td><i class="fas fa-' + icon + ' ' + cls + ' me-2"></i><strong class="' + cls + '">' + b.status + '</strong></td>' +
                 '<td><small>' + dt + '</small></td>' +
-                '<td><small class="text-muted">' + (b.triggeredBy || '\u2014') + '</small></td>' +
+                '<td><small class="text-muted">' + (b.triggeredBy || '—') + '</small></td>' +
+                '<td>' + fileCell + '</td>' +
                 '<td><small>' + size + '</small></td>' +
                 '<td>' + (b.error ? '<span class="badge bg-danger" title="' + b.error + '">error</span>' : '') + '</td>' +
                 '<td class="text-nowrap">' + dlBtn + delBtn + '</td>' +
@@ -671,7 +704,7 @@ setup.bat</code></pre>
         el.innerHTML =
             '<div class="table-responsive">' +
             '<table class="table table-sm align-middle">' +
-            '<thead><tr><th>Status</th><th>Timestamp</th><th>Triggered By</th><th>Size</th><th>Error</th><th>Actions</th></tr></thead>' +
+            '<thead><tr><th>Status</th><th>Timestamp</th><th>Triggered By</th><th>File / Path</th><th>Size</th><th>Error</th><th>Actions</th></tr></thead>' +
             '<tbody>' + rows + '</tbody>' +
             '</table></div>';
     }
@@ -908,14 +941,34 @@ setup.bat</code></pre>
         var res = await fetchWithAuth(window.rxUrl('/api/backups/config'));
         if (!res || !res.ok) return;
         var cfg = await res.json();
-        var dbEl   = document.getElementById('dbBackupDirLabel');
-        var siteEl = document.getElementById('siteBackupDirLabelInfo');
-        var inp    = document.getElementById('siteBackupDirInput');
-        var oldLbl = document.getElementById('siteBackupDirLabel');
-        if (dbEl)   dbEl.textContent   = cfg.dbBackupDir   || '\u2014';
-        if (siteEl) siteEl.textContent = cfg.siteBackupDir || '\u2014';
-        if (inp)    inp.value          = cfg.siteBackupDir || '';
-        if (oldLbl) oldLbl.textContent = cfg.siteBackupDir || '\u2014';
+        var dbEl    = document.getElementById('dbBackupDirLabel');
+        var dbInp   = document.getElementById('dbBackupDirInput');
+        var siteEl  = document.getElementById('siteBackupDirLabelInfo');
+        var siteInp = document.getElementById('siteBackupDirInput');
+        var oldLbl  = document.getElementById('siteBackupDirLabel');
+        if (dbEl)    dbEl.textContent    = cfg.dbBackupDir   || '—';
+        if (dbInp)   dbInp.value         = cfg.dbBackupDir   || '';
+        if (siteEl)  siteEl.textContent  = cfg.siteBackupDir || '—';
+        if (siteInp) siteInp.value       = cfg.siteBackupDir || '';
+        if (oldLbl)  oldLbl.textContent  = cfg.siteBackupDir || '—';
+    }
+
+    async function saveDbBackupDir() {
+        var inp = document.getElementById('dbBackupDirInput');
+        if (!inp || !inp.value.trim()) { showToast('Please enter a folder path.', 'warning'); return; }
+        var newDir = inp.value.trim();
+        var res = await fetchWithAuth(window.rxUrl('/api/backups/config'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ dbBackupDir: newDir })
+        });
+        if (!res || !res.ok) {
+            var err = {}; try { err = await res.json(); } catch {}
+            showToast('Failed: ' + (err.error || 'unknown error'), 'danger'); return;
+        }
+        showToast('✅ DB backup folder updated to: ' + newDir, 'success');
+        await loadBackupConfig();
+        await loadStatus();
     }
 
     async function saveSiteBackupDir() {

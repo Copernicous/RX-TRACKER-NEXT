@@ -15,11 +15,31 @@ const WRITABLE_ROOT = IS_PKG
     : path.join(__dirname, '..');              // dev: project root
 
 // ── Config ────────────────────────────────────────────────────────────────────
-const BACKUP_DIR    = path.join(WRITABLE_ROOT, 'backups');
-const MAX_BACKUPS   = parseInt(process.env.BACKUP_RETAIN || '10');
-const BACKUP_LOG    = path.join(BACKUP_DIR, 'backup.log.json');
-const SETTINGS_PATH = path.join(WRITABLE_ROOT, 'data', 'settings.json');
-const PROJECT_ROOT  = IS_PKG ? path.dirname(process.execPath) : path.join(__dirname, '..');
+const DEFAULT_BACKUP_DIR = path.join(WRITABLE_ROOT, 'backups');
+const MAX_BACKUPS        = parseInt(process.env.BACKUP_RETAIN || '10');
+const SETTINGS_PATH      = path.join(WRITABLE_ROOT, 'data', 'settings.json');
+const PROJECT_ROOT       = IS_PKG ? path.dirname(process.execPath) : path.join(__dirname, '..');
+
+// readSettings is used here before its definition below — forward-declare it
+// so getDbBackupDir() is available to log helpers without a circular reference.
+// Full definition is at line ~275 (beside getSiteBackupDir).
+function _readSettingsEarly() {
+    try { return JSON.parse(fs.readFileSync(SETTINGS_PATH, 'utf8')); } catch { return {}; }
+}
+
+// ── DB backup dir (configurable, persisted to settings.json) ──────────────────
+function getDbBackupDir() {
+    const s = _readSettingsEarly();
+    return s.dbBackupPath || DEFAULT_BACKUP_DIR;
+}
+function setDbBackupDir(newDir) {
+    ensureDir(path.dirname(SETTINGS_PATH));
+    const s = _readSettingsEarly();
+    s.dbBackupPath = newDir;
+    fs.writeFileSync(SETTINGS_PATH, JSON.stringify(s, null, 2), 'utf8');
+    ensureDir(newDir);
+    console.log('[Backup] DB backup directory updated to:', newDir);
+}
 
 // ── PostgreSQL tool locator ───────────────────────────────────────────────────
 // Finds pg_dump / pg_restore even when PostgreSQL bin is not in PATH.
@@ -97,12 +117,13 @@ function ensureDir(dir) {
 
 // ── Log helpers ───────────────────────────────────────────────────────────────
 function readLog() {
-    try { return JSON.parse(fs.readFileSync(BACKUP_LOG, 'utf8')); }
+    try { return JSON.parse(fs.readFileSync(path.join(getDbBackupDir(), 'backup.log.json'), 'utf8')); }
     catch { return []; }
 }
 function writeLog(entries) {
-    ensureDir(BACKUP_DIR);
-    fs.writeFileSync(BACKUP_LOG, JSON.stringify(entries, null, 2));
+    const dir = getDbBackupDir();
+    ensureDir(dir);
+    fs.writeFileSync(path.join(dir, 'backup.log.json'), JSON.stringify(entries, null, 2));
 }
 function appendLog(entry) {
     const entries = readLog();
@@ -114,11 +135,12 @@ function appendLog(entry) {
 // ── pg_dump runner ────────────────────────────────────────────────────────────
 function runBackup(triggeredBy = 'Scheduled') {
     return new Promise((resolve) => {
-        ensureDir(BACKUP_DIR);
+        const dir      = getDbBackupDir();
+        ensureDir(dir);
 
         const ts       = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
         const filename = 'backup_' + ts + '.dump';
-        const filepath = path.join(BACKUP_DIR, filename);
+        const filepath = path.join(dir, filename);
 
         const env  = process.env;
         const args = [
@@ -141,6 +163,7 @@ function runBackup(triggeredBy = 'Scheduled') {
             const entry = {
                 id:          Date.now(),
                 filename,
+                filepath:    code === 0 ? filepath : null,
                 timestamp:   new Date().toISOString(),
                 triggeredBy,
                 status:      code === 0 ? 'success' : 'failed',
@@ -172,22 +195,24 @@ function runBackup(triggeredBy = 'Scheduled') {
 // ── Pruner ────────────────────────────────────────────────────────────────────
 function pruneOldBackups() {
     try {
-        const files = fs.readdirSync(BACKUP_DIR)
+        const dir = getDbBackupDir();
+        const files = fs.readdirSync(dir)
             .filter(f => f.startsWith('backup_') && f.endsWith('.dump'))
-            .map(f => ({ name: f, mtime: fs.statSync(path.join(BACKUP_DIR, f)).mtimeMs }))
+            .map(f => ({ name: f, mtime: fs.statSync(path.join(dir, f)).mtimeMs }))
             .sort((a, b) => b.mtime - a.mtime);
         files.slice(MAX_BACKUPS).forEach(f => {
-            try { fs.unlinkSync(path.join(BACKUP_DIR, f.name)); } catch {}
+            try { fs.unlinkSync(path.join(dir, f.name)); } catch {}
         });
     } catch {}
 }
 
 // ── Sync log with actual files on disk ────────────────────────────────────────
 function syncLogWithDisk() {
+    const dir     = getDbBackupDir();
     const entries = readLog();
     const synced  = entries.filter(e => {
         if (!e.filename) return true;
-        return fs.existsSync(path.join(BACKUP_DIR, e.filename));
+        return fs.existsSync(path.join(dir, e.filename));
     });
     if (synced.length !== entries.length) writeLog(synced);
     return synced;
@@ -198,7 +223,7 @@ function deleteBackup(filename) {
     if (!filename || !/^backup_[\w\-]+\.dump$/.test(filename)) {
         throw new Error('Invalid backup filename');
     }
-    const filepath = path.join(BACKUP_DIR, filename);
+    const filepath = path.join(getDbBackupDir(), filename);
     if (fs.existsSync(filepath)) fs.unlinkSync(filepath);
     const entries = readLog();
     writeLog(entries.filter(e => e.filename !== filename));
@@ -512,7 +537,7 @@ startSiteBackupScheduler(_persistedSiteSchedule || DEFAULT_SITE_SCHEDULE);
 function restoreBackup(dumpFilePath, triggeredBy) {
     triggeredBy = triggeredBy || 'Manual restore';
     return new Promise(function(resolve) {
-        ensureDir(BACKUP_DIR);
+        ensureDir(getDbBackupDir());
         var env    = process.env;
         var pgEnv  = Object.assign({}, process.env, { PGPASSWORD: env.DB_PASS || '' });
         var dbName = env.DB_NAME    || 'patient_rx_dev';
@@ -612,10 +637,11 @@ module.exports = {
     deleteBackupHistoryEntry,
     deleteBackupSiteHistoryEntry,
     startScheduler,
-    getDbBackupDir: () => BACKUP_DIR,
+    getDbBackupDir,
+    setDbBackupDir,
     getStatus: () => ({
         schedule:      _currentSchedule || DEFAULT_SCHEDULE,
-        backupDir:     BACKUP_DIR,
+        backupDir:     getDbBackupDir(),
         maxBackups:    MAX_BACKUPS,
         recentBackups: syncLogWithDisk().slice(0, 20)
     }),

@@ -285,7 +285,7 @@ router.post('/backups/schedule', adminOnly, (req, res) => {
 
 router.get('/backups/download/:filename', adminOnly, (req, res) => {
     const filename = path.basename(req.params.filename);
-    const filepath = path.join(__dirname, '..', 'backups', filename);
+    const filepath = path.join(backupService.getDbBackupDir(), filename);
     if (!fs.existsSync(filepath)) return res.status(404).json({ error: 'File not found' });
     res.download(filepath, filename);
 });
@@ -310,13 +310,27 @@ router.get('/backups/config', adminOnly, (req, res) => {
 });
 
 router.post('/backups/config', adminOnly, (req, res) => {
-    const { siteBackupDir } = req.body;
-    if (!siteBackupDir || typeof siteBackupDir !== 'string' || siteBackupDir.trim().length < 3) {
-        return res.status(400).json({ error: 'Invalid directory path' });
-    }
+    const { siteBackupDir, dbBackupDir } = req.body;
+    const result = {};
     try {
-        backupService.setSiteBackupDir(siteBackupDir.trim());
-        res.json({ ok: true, siteBackupDir: siteBackupDir.trim() });
+        if (dbBackupDir !== undefined) {
+            if (typeof dbBackupDir !== 'string' || dbBackupDir.trim().length < 3) {
+                return res.status(400).json({ error: 'Invalid DB backup directory path' });
+            }
+            backupService.setDbBackupDir(dbBackupDir.trim());
+            result.dbBackupDir = dbBackupDir.trim();
+        }
+        if (siteBackupDir !== undefined) {
+            if (typeof siteBackupDir !== 'string' || siteBackupDir.trim().length < 3) {
+                return res.status(400).json({ error: 'Invalid site backup directory path' });
+            }
+            backupService.setSiteBackupDir(siteBackupDir.trim());
+            result.siteBackupDir = siteBackupDir.trim();
+        }
+        if (!dbBackupDir && !siteBackupDir) {
+            return res.status(400).json({ error: 'No directory provided' });
+        }
+        res.json({ ok: true, ...result });
     } catch (e) {
         res.status(500).json({ error: 'Could not set directory: ' + e.message });
     }
