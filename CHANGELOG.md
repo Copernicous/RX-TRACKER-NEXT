@@ -5,7 +5,49 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ---
 
+## [2.0.18] — 2026-06-24
+
+### ✅ QA — Playwright Smoke Test Suite Integrated (DEFERRED-04 CLOSED)
+**Files changed:** 3 | QA-01
+
+- **QA-01** A full browser-based smoke test suite (`qa/` folder) is now part of the development and release workflow. It was authored separately and wired into the project in this release.
+
+  **What the smoke test covers (`qa/smoke-qa.js`):**
+  - HTTPS login through local self-signed proxy
+  - All 18 main pages reachable (dashboard, patients, RX records, reports, audit log, import, pharmacies, transport, clinics, workflow, medication catalog, users, roles, backups, system settings, active users, changelog)
+  - Patients: search for seeded QA patient, add modal, export button, advanced filters
+  - RX Records: search, workflow modal, history modal, clear filters
+  - CRUD pages: seeded fake data visible + add modal clickable (pharmacies, clinics, transport, workflow, medication)
+  - Reports, Backups, System Settings pages load
+  - **Security regression:** Non-isMaster admin blocked from `/backoffice` — will FAIL if the check breaks
+  - Authenticated API dashboard stats respond correctly
+
+  **Additional QA tools:**
+  - `qa/seed-qa-data.js` — idempotent fake data seeder (QA Patient, QA Pharmacy, QA Clinic, etc.) targeting `patient_rx_qa` DB
+  - `qa/start-local-qa.js` — starts backend on port `3001` + HTTPS proxy on `3443`
+  - `qa/stop-local-qa.js` — stops only QA processes (PIDs tracked in `qa/pids/`)
+  - `qa/web-ui.js` — local web control panel at `http://127.0.0.1:3200`
+  - `qa/status.js` — shows ports, PIDs, and last result summary
+  - `qa/view-last-result.js` — prints last smoke report
+  - `qa/qa-menu.bat` — Windows menu for all QA commands
+  - `qa/.env.qa.example` — QA config template
+
+  **FortiGate mode:** Paste the FortiGate web URL into the web dashboard → `Run FortiGate Smoke` — runs the same checks through the real proxy without saving the URL.
+
+  **Safety model:**
+  - Default QA database: `patient_rx_qa` (never the production DB)
+  - Seeder refuses non-QA database names unless `QA_ALLOW_NON_QA_DB=true`
+  - Destructive/heavy actions intentionally skipped (backup restore, delete, purge)
+  - `playwright-core` is a devDependency — NOT bundled in `server.exe`
+
+- **RX-Manager.bat** — Added **Option [21] Launch QA Smoke Test Menu** which opens `qa/qa-menu.bat`, checks that the `qa/` folder exists, and shows first-time setup instructions.
+
+- **DEFERRED-ITEMS.txt** — `DEFERRED-04` (no automated test suite) marked as ✅ RESOLVED with full documentation of what the suite covers.
+
+---
+
 ## [2.0.17] — 2026-06-24
+
 
 ### 🔒 Security — CORS Fail-Closed in Production (SEC-04)
 **Files changed:** 1 | SEC-04

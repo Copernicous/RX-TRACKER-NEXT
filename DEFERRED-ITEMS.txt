@@ -120,11 +120,48 @@ Action plan:
 Current known safe state: app functions correctly despite advisory.
 
 ===============================================================================
-DEFERRED-04 — No automated test suite
+DEFERRED-04 — No automated test suite  ✅ RESOLVED in v2.0.18
 ===============================================================================
 
-Priority: Medium — build incrementally as time allows
-Status: Open. No test script in package.json.
+Priority: CLOSED
+Status: Implemented. See qa\ folder.
+
+Resolution:
+- A full Playwright-based QA smoke test suite was added to the qa\ folder.
+- Tests run through a real Chrome browser against a separate QA database (patient_rx_qa).
+- The production database is never touched during QA runs.
+- playwright-core is installed as a devDependency (not bundled in server.exe).
+
+What the smoke test covers (qa/smoke-qa.js):
+  - HTTPS login through local proxy
+  - Dashboard, all main pages reachable
+  - Patients search, add modal, export button
+  - RX Records search, workflow modal, history modal
+  - CRUD pages (pharmacies, clinics, transport, workflow, medication) show seeded data
+  - Reports, backups, system settings pages load
+  - Non-isMaster admin is blocked from /backoffice (security regression test)
+  - Authenticated API (dashboard stats) responds correctly
+
+Additional tools:
+  - qa/seed-qa-data.js        — seeds stable fake data (QA Patient, QA Pharmacy, etc.)
+  - qa/start-local-qa.js      — starts backend on port 3001 + HTTPS proxy on 3443
+  - qa/web-ui.js              — local web dashboard at http://127.0.0.1:3200
+  - qa/qa-menu.bat            — Windows menu for all QA commands
+  - qa/.env.qa.example        — QA configuration (copy to qa/.env.qa)
+
+FortiGate mode:
+  - From the web dashboard, paste the FortiGate URL and run smoke through the real proxy.
+  - Tests cookie paths, proxy rewriting, and API calls behind FortiGate.
+
+How to run:
+  - RX-Manager.bat → Option [21] → QA Smoke Test Menu
+  - npm run qa:menu
+  - npm run smoke:qa
+
+npm scripts added:
+  qa:menu, qa:start, qa:seed, qa:status, qa:stop, qa:web, smoke:qa
+
+
 
 Background:
 - All authentication, FortiGate cookie, RBAC, and isMaster fixes require manual validation.
