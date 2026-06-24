@@ -1667,7 +1667,11 @@
                     '</div>';
                 }
 
-                var html = expiryBanner + activeLockBanner + warehouseBanner + '<div class="list-group">' + listHtml + '</div>';
+                var viewOnlyBanner = (!canComplete && !canUndo && !canWarehouse)
+                    ? '<div class="alert alert-info d-flex align-items-center py-2 mb-3"><i class="fas fa-eye me-2"></i><span>View Only — you do not have permission to update workflow steps.</span></div>'
+                    : '';
+
+                var html = viewOnlyBanner + expiryBanner + activeLockBanner + warehouseBanner + '<div class="list-group">' + listHtml + '</div>';
                 document.getElementById('workflowBody').innerHTML = html;
 
                 /* Wire Reset Cycle button */

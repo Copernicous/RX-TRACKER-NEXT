@@ -5,6 +5,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ---
 
+## [2.0.31] — 2026-06-24
+
+### 🐛 Bug Fix — Workflow status + progress bar hidden on RX Records for restricted roles (BUG-36)
+**Files changed:** 1 | `views/rx-records.ejs`
+
+`loadRxDropdowns()` loaded pharmacies, transport companies, workflow actions and medication catalog directly from the RBAC-gated full API endpoints. When any of those were `visible:false` for a role, the calls returned 403 and `allWorkflowActions` was empty — causing the workflow status column, progress bar, and all form selectors to be blank. Switched all 5 calls to `/api/lookup/:module` (auth-only, no visibility check), matching the same fix applied to `patients.js` and `reports.js` in BUG-34.
+
+---
+
 ## [2.0.30] — 2026-06-24
 
 ### ✨ Feature — Read Only role can now see Workflow Actions + RX Actions (FEAT-13)
