@@ -1463,7 +1463,8 @@ async function renderRolePermissionsMatrix(containerId) {
         { key: 'medication_catalog', label: 'RX Actions Catalog',           group: 'Settings' },
         { key: 'users',              label: 'User Management',              group: 'Admin-Only' },
         { key: 'backups',            label: 'Backups',                      group: 'Admin-Only' },
-        { key: 'system_settings',    label: 'System Settings',              group: 'Admin-Only' }
+        { key: 'system_settings',    label: 'System Settings',              group: 'Admin-Only' },
+        { key: 'active_users',       label: "Who's Online",                 group: 'Admin-Only' }
     ];
 
     var roles = ['Administrator', 'Supervisor', 'Operator', 'Read Only'];

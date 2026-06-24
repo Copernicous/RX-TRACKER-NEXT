@@ -17,7 +17,8 @@ var MODULE_DEFS = [
     { key: 'medication_catalog', label: 'RX Actions Catalog',    group: 'Settings',  hasUndo: false },
     { key: 'users',              label: 'User Management',       group: 'Admin-Only', hasUndo: false },
     { key: 'backups',            label: 'Backups',               group: 'Admin-Only', hasUndo: false, visibleOnly: true },
-    { key: 'system_settings',   label: 'System Settings',       group: 'Admin-Only', hasUndo: false, visibleOnly: true }
+    { key: 'system_settings',    label: 'System Settings',       group: 'Admin-Only', hasUndo: false, visibleOnly: true },
+    { key: 'active_users',       label: 'Who\'s Online',         group: 'Admin-Only', hasUndo: false, visibleOnly: true }
 ];
 
 var GROUP_COLORS = { Core: '#0d6efd', Admin: '#fd7e14', Settings: '#6c757d', 'Admin-Only': '#dc3545' };
