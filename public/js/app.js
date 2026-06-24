@@ -844,17 +844,22 @@ function getPagePerms() {
         var user = JSON.parse(localStorage.getItem('user'));
         if (!user) return fullAccess;
         var sidebarMapping = {
-            '/dashboard':         'dashboard',
-            '/patients':          'patients',
-            '/rx-records':        'rx_records',
-            '/reports':           'reports',
-            '/import':            'import',
-            '/pharmacies':        'pharmacies',
-            '/patient-transport': 'patient_transport',
-            '/pharmacy-transport':'pharmacy_transport',
-            '/workflow-actions':  'workflow_actions',
-            '/clinics':           'clinics',
-            '/users':             'users'
+            '/dashboard':          'dashboard',
+            '/patients':           'patients',
+            '/rx-records':         'rx_records',
+            '/reports':            'reports',
+            '/import':             'import',
+            '/pharmacies':         'pharmacies',
+            '/patient-transport':  'patient_transport',
+            '/pharmacy-transport': 'pharmacy_transport',
+            '/workflow-actions':   'workflow_actions',
+            '/clinics':            'clinics',
+            '/medication-catalog': 'medication_catalog',
+            '/users':              'users',
+            '/audit-log':          'audit_log',
+            '/backups':            'backups',
+            '/system-settings':    'system_settings',
+            '/active-users':       'active_users'
         };
         var key = sidebarMapping[window.location.pathname];
         if (!key) return fullAccess;
