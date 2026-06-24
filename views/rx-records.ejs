@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en" data-theme="light">
 <head>
     <meta charset="UTF-8">
@@ -604,19 +604,19 @@
         var pRes, phRes, ptRes, rxRes, waRes, catRes;
         return fetchWithAuth(window.rxUrl('/api/patients'), { silent: true }).then(function(r) {
             pRes = r;
-            return fetchWithAuth(window.rxUrl('/api/pharmacies'), { silent: true });
+            return fetchWithAuth(window.rxUrl('/api/lookup/pharmacies'), { silent: true });
         }).then(function(r) {
             phRes = r;
-            return fetchWithAuth(window.rxUrl('/api/patient-transport'), { silent: true });
+            return fetchWithAuth(window.rxUrl('/api/lookup/patient-transport'), { silent: true });
         }).then(function(r) {
             ptRes = r;
-            return fetchWithAuth(window.rxUrl('/api/pharmacy-transport'), { silent: true });
+            return fetchWithAuth(window.rxUrl('/api/lookup/pharmacy-transport'), { silent: true });
         }).then(function(r) {
             rxRes = r;
-            return fetchWithAuth(window.rxUrl('/api/workflow-actions'), { silent: true });
+            return fetchWithAuth(window.rxUrl('/api/lookup/workflow-actions'), { silent: true });
         }).then(function(r) {
             waRes = r;
-            return fetchWithAuth(window.rxUrl('/api/medication-catalog?activeOnly=true'), { silent: true });
+            return fetchWithAuth(window.rxUrl('/api/lookup/medication-catalog'), { silent: true });
         }).then(function(r) {
             catRes = r;
             if (pRes   && pRes.ok)  { return pRes.json();   } return [];
