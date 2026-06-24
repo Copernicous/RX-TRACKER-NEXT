@@ -20,13 +20,13 @@
   }
 
   const ap = locals.activePage || '';
-  const refActive   = ['pharmacies','patient-transport','pharmacy-transport','clinics'].includes(ap);
+  const refActive   = ['pharmacies','patient-transport','pharmacy-transport','clinics','workflow-actions','medication-catalog'].includes(ap);
   const rptActive   = ['reports','audit-log'].includes(ap);
-  const adminActive = ['workflow-actions','medication-catalog','roles','users','system-settings','backups','import','active-users'].includes(ap);
+  const adminActive = ['roles','users','system-settings','backups','import','active-users'].includes(ap);
 
-  const refVisible   = sv('pharmacies') || sv('patient_transport') || sv('pharmacy_transport') || sv('clinics');
+  const refVisible   = sv('pharmacies') || sv('patient_transport') || sv('pharmacy_transport') || sv('clinics') || sv('workflow_actions') || sv('medication_catalog');
   const rptVisible   = sv('reports') || sv('audit_log');
-  const adminVisible = sv('workflow_actions') || sv('medication_catalog') || sv('users') || sv('backups') || sv('system_settings') || sv('import') || sv('active_users');
+  const adminVisible = sv('users') || sv('backups') || sv('system_settings') || sv('import') || sv('active_users');
 %>
 <!-- xa-base: FortiGate rewrites <a href> — used by base.js to compute proxy path prefix -->
 <a id="xa-base" href="/login" style="display:none" aria-hidden="true"></a>
@@ -78,6 +78,16 @@
                     <a href="/clinics"><i class="fas fa-hospital me-2"></i>Clinics</a>
                 </li>
                 <% } %>
+                <% if (!UP || sv('workflow_actions')) { %>
+                <li class="<%= ap === 'workflow-actions' ? 'active' : '' %>">
+                    <a href="/workflow-actions"><i class="fas fa-tasks me-2"></i>Workflow Actions</a>
+                </li>
+                <% } %>
+                <% if (!UP || sv('medication_catalog')) { %>
+                <li class="<%= ap === 'medication-catalog' ? 'active' : '' %>">
+                    <a href="/medication-catalog"><i class="fas fa-clipboard-list me-2"></i>RX Actions</a>
+                </li>
+                <% } %>
             </ul>
         </li>
         <% } %>
@@ -112,16 +122,7 @@
                 <i class="fas fa-cogs me-2"></i>Administration
             </a>
             <ul class="collapse <%= adminActive ? 'show' : '' %> list-unstyled ps-3" id="adminSubmenu">
-                <% if (!UP || sv('workflow_actions')) { %>
-                <li class="<%= ap === 'workflow-actions' ? 'active' : '' %>">
-                    <a href="/workflow-actions"><i class="fas fa-tasks me-2"></i>Workflow Actions</a>
-                </li>
-                <% } %>
-                <% if (!UP || sv('medication_catalog')) { %>
-                <li class="<%= ap === 'medication-catalog' ? 'active' : '' %>">
-                    <a href="/medication-catalog"><i class="fas fa-clipboard-list me-2"></i>RX Actions</a>
-                </li>
-                <% } %>
+
                 <% if (!UP || sv('users')) { %>
                 <li class="<%= ap === 'roles' ? 'active' : '' %>">
                     <a href="/roles"><i class="fas fa-shield-alt me-2"></i>Roles</a>
