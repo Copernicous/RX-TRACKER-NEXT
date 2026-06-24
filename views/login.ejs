@@ -97,16 +97,19 @@
             font-size: 0.85rem;
         }
         /* IMPROVE-01: shake animation on wrong password */
-        @keyframes shake {
-            0%,100% { transform: translateX(0); }
-            15%      { transform: translateX(-8px); }
-            30%      { transform: translateX(7px); }
-            45%      { transform: translateX(-6px); }
-            60%      { transform: translateX(5px); }
-            75%      { transform: translateX(-4px); }
-            90%      { transform: translateX(3px); }
+        @keyframes loginShake {
+            0%,100% { transform: translate3d(0,0,0); }
+            15%      { transform: translate3d(-8px,0,0); }
+            30%      { transform: translate3d(7px,0,0); }
+            45%      { transform: translate3d(-6px,0,0); }
+            60%      { transform: translate3d(5px,0,0); }
+            75%      { transform: translate3d(-4px,0,0); }
+            90%      { transform: translate3d(3px,0,0); }
         }
-        .shake-card { animation: shake 0.6s cubic-bezier(.36,.07,.19,.97) both; }
+        .login-card.shake-card {
+            animation: loginShake 0.6s cubic-bezier(.36,.07,.19,.97) both;
+            will-change: transform;
+        }
         .input-group-text {
             background: rgba(255,255,255,0.1);
             border: 1px solid rgba(255,255,255,0.2);
@@ -234,8 +237,7 @@
             errorMsg.textContent = '';
 
             if (!username || !password) {
-                errorMsg.textContent = 'Please enter both username and password.';
-                errorMsg.classList.remove('d-none');
+                showLoginError(errorMsg, 'Please enter both username and password.');
                 return;
             }
 
@@ -352,6 +354,19 @@
             showError(el, msg);
         }
 
+        function shakeLoginCard() {
+            var card = document.querySelector('.login-card');
+            if (!card) return;
+            if (window._loginShakeTimer) clearTimeout(window._loginShakeTimer);
+            card.classList.remove('shake-card');
+            void card.offsetWidth; // force reflow to restart animation
+            card.classList.add('shake-card');
+            window._loginShakeTimer = setTimeout(function() {
+                card.classList.remove('shake-card');
+                window._loginShakeTimer = null;
+            }, 650);
+        }
+
         function showError(el, msg) {
             el.innerHTML = '<i class="fas fa-exclamation-circle me-1"></i>' + msg;
             el.classList.remove('d-none');
@@ -361,13 +376,7 @@
             el.style.borderRadius  = '8px';
             el.style.padding       = '10px 14px';
             // IMPROVE-01: shake the card on error
-            var card = document.querySelector('.login-card');
-            if (card) {
-                card.classList.remove('shake-card');
-                void card.offsetWidth; // force reflow to restart animation
-                card.classList.add('shake-card');
-                setTimeout(function() { card.classList.remove('shake-card'); }, 650);
-            }
+            shakeLoginCard();
         }
     </script>
 </body>

@@ -184,7 +184,7 @@ exports.changePassword = async (req, res) => {
         if (!user) return res.status(404).json({ message: 'User not found.' });
 
         const valid = await user.validPassword(currentPassword);
-        if (!valid) return res.status(401).json({ message: 'Current password is incorrect.' });
+        if (!valid) return res.status(400).json({ message: 'Current password is incorrect.' });
 
         const newHash     = await bcrypt.hash(newPassword, 12);
         const newVersion  = (user.tokenVersion || 0) + 1;
