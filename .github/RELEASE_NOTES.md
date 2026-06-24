@@ -1,27 +1,25 @@
 # Release Notes
 
-## v2.0.35 (2026-06-24)
+## v2.0.36 (2026-06-24)
 
-### ✨ What's New
-- **RX patient prefill in New RX flow**
-  - Opening RX Records from patient context now keeps patient context in the URL (`patient` + `name`).
-  - New RX modal automatically preselects the patient, pharmacy, transport, and service-date fields.
-  - Timeline and patient list entry points now pass the same context, reducing manual re-entry.
+### What's New
+- **Import template simplification**
+  - Patient import now has one clear CSV template download action.
+  - The template includes headers plus one example row so users can start immediately.
 
-- **Patient import workflow enhancements**
-  - Added support for RX workflow status columns in patient imports.
-  - Completed workflow step dates now auto-populate RX tracking history at import time.
-  - Service date is inferred from workflow dates when blank.
-  - Added text-based import simulation scenarios via QA tooling.
+- **Patient import workflow behavior preserved**
+  - RX workflow date columns continue to auto-create matching RX tracking history entries.
+  - Completed step dates are kept in order and marked as completed.
+  - Patient names are normalized to uppercase during import.
 
-### 🧪 QA & Validation
-- Added import sample files for workflow simulation.
-- Added dry-run import simulator (`scripts/simulate-patient-workflow-import.js`) and QA dashboard/run button for:
+### QA & Validation
+- Kept dry-run import simulation tooling in QA for workflow scenarios.
+- Continue validating with `npm run qa:web`:
   - same-date scenario
-  - incremental-by-1-day scenario
-  - inferred service-date scenario.
-- Text export of validation output added for QA review.
+  - +1 day incremental scenario
+  - inferred service-date scenario
 
-### ℹ️ Notes
-- Versioned build is `2.0.35` in `package.json`.
-- Deployment package generated for server delivery: `dist/server-update-2.0.35-deploy.zip`.
+### Notes
+- Versioned build is `2.0.36` in `package.json`.
+- Deployment package generated for server delivery: `dist/server-update-2.0.36.zip`.
+
