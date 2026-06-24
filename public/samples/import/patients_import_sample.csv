@@ -1,2 +1,0 @@
-﻿patientCode,firstName,lastName,dob,phone,address,clinic,serviceDate,patientTransportCompany,pharmacyTransportCompany,notes,isActive,RX Received Warehouse,On Route with Driver,Delivered,Mark as Received to print log,Signed by Pharmacy,Archived on local and case close
-PAT-90001,JOHN,DOE,03/12/1985,555-0101,"100 Main St, Springfield",06/01/2026,,,Sample import with workflow dates,true,06/01/2026,06/02/2026,06/03/2026,,,

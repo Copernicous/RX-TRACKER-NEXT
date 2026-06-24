@@ -6,20 +6,10 @@
     let validRows   = [];
     let invalidRows = [];
 
-    const SAMPLE_FILES = {
-        'patients': '/samples/import/patients_import_sample.csv',
-        'pharmacies': '/samples/import/pharmacies_import_sample.csv',
-        'clinics': '/samples/import/clinics_import_sample.csv',
-        'patient-transport': '/samples/import/patient_transport_import_sample.csv',
-        'pharmacy-transport': '/samples/import/pharmacy_transport_import_sample.csv',
-        'workflow-actions': '/samples/import/workflow_actions_import_sample.csv',
-        'users': '/samples/import/users_import_sample.csv'
-    };
-
     const DATASET_SPECS = {
         'patients': {
             title: 'Patients Import',
-            desc: 'Import patients with validation. Duplicate patient names matching identical birth dates will be skipped. Transport company columns can use either active company names or database IDs. Patient ID (patientCode) is optional — one will be auto-generated if left blank.',
+            desc: 'Import patients with validation. The template includes headers and an example row you can edit. Duplicate patient names matching identical birth dates will be skipped. Transport company columns can use either active company names or database IDs. Patient ID (patientCode) is optional — one will be auto-generated if left blank.',
             fields: [
                 { name: 'patientCode', req: false, format: 'e.g. PAT-00001 (Auto-generated if blank)' },
                 { name: 'firstName',   req: true,  format: 'Plain Text' },
@@ -163,7 +153,6 @@
 
         document.getElementById('importForm').addEventListener('submit', executeImport);
         document.getElementById('downloadTemplateBtn').addEventListener('click', downloadTemplate);
-        document.getElementById('downloadSampleBtn').addEventListener('click', downloadSample);
         document.getElementById('confirmImportBtn').addEventListener('click', confirmImport);
         document.getElementById('cancelPreviewBtn').addEventListener('click', () => {
             document.getElementById('previewSection').classList.add('d-none');
@@ -433,34 +422,6 @@
                 : 'Import complete! ' + data.successCount + ' records added.',
             data.aborted ? 'danger' : 'success'
         );
-    }
-
-    function downloadSample() {
-        const sampleUrl = SAMPLE_FILES[currentDataset];
-        if (!sampleUrl) {
-            showToast('No sample CSV is available for this dataset.', 'warning');
-            return;
-        }
-
-        fetch(sampleUrl)
-            .then(function(r) {
-                if (!r.ok) throw new Error('sample_download_failed');
-                return r.blob();
-            })
-            .then(function(blob) {
-                const url2 = window.URL.createObjectURL(blob);
-                const a = Object.assign(document.createElement('a'), {
-                    href: url2,
-                    download: sampleUrl.split('/').pop()
-                });
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                window.URL.revokeObjectURL(url2);
-            })
-            .catch(function() {
-                showToast('Error downloading sample CSV', 'danger');
-            });
     }
 
     function downloadFailedRows(failedRows) {

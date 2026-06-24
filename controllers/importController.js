@@ -106,7 +106,7 @@ exports.getTemplate = (req, res) => {
             csvContent =
                 'patientCode,firstName,lastName,dob,phone,address,clinic,serviceDate,patientTransportCompany,pharmacyTransportCompany,notes,isActive,' +
                 'RX Received Warehouse,On Route with Driver,Delivered,Mark as Received to print log,Signed by Pharmacy,Archived on local and case close\n' +
-                'PAT-00001,John,Doe,05/15/1985,123-456-7890,"123 Main St, Springfield",Main Clinic,01/01/2026,Health Transit,Pharmacy Express,Allergic to penicillin,true,,,,,,\n';
+                'PAT-00001,JOHN,DOE,05/15/1985,123-456-7890,"123 Main St, Springfield","Main Clinic",06/01/2026,Health Transit,Pharmacy Express,Allergic to penicillin,true,06/01/2026,06/02/2026,06/03/2026,,,,';
             break;
         case 'clinics':
             csvContent = 'name,address,phone,contactPerson,notes,isActive\n' +

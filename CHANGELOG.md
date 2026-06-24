@@ -5,6 +5,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ---
 
+## [2.0.36] - 2026-06-24
+
+### UX - Import template simplification
+**Files changed:** 3 + 7 removed | `controllers/importController.js`, `public/js/import.js`, `views/import.ejs`, `public/samples/import/*`
+
+- Combined patient sample/template download flow into one "Download CSV Template" action to remove ambiguity.
+- Patient template now includes the header row plus one editable example row (uppercase names), while still validating required fields and workflow date columns.
+- Removed unused import sample CSV assets from `public/samples/import` because the separate download path is no longer exposed.
+
 ## [2.0.35] - 2026-06-24
 
 ### UX - New RX prefills patient from context
