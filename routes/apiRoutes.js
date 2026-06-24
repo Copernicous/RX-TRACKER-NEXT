@@ -32,7 +32,22 @@ const adminController = require('../controllers/adminController');
 const snapshotController = require('../controllers/snapshotController');
 const roleController = require('../controllers/roleController');
 
-// All API routes require authentication
+// ── Public routes (no auth required) — must be declared BEFORE router.use(auth) ──
+router.get('/version', (req, res) => {
+    // Bust require() cache so nodemon restarts always serve the current version.
+    const pkgPath = require.resolve('../package.json');
+    delete require.cache[pkgPath];
+    const pkg = require('../package.json');
+    res.json({
+        version:   pkg.version,
+        name:      pkg.description || 'Patient RX System',
+        node:      process.version,
+        uptime:    Math.floor(process.uptime()),
+        buildDate: new Date().toISOString().slice(0, 10)
+    });
+});
+
+// All remaining API routes require authentication
 router.use(auth);
 
 // Helper mapping for paths to permissions key
@@ -488,21 +503,6 @@ router.get('/admin/snapshots',             masterOnly, snapshotController.getSna
 router.post('/admin/snapshots/capture',    masterOnly, snapshotController.captureNow);
 router.delete('/admin/snapshots/:date',    masterOnly, snapshotController.deleteSnapshot);
 
-// ── Version info (public — no auth required) ─────────────────────────────────
-router.get('/version', (req, res) => {
-    // Bust require() cache so nodemon restarts always serve the current version.
-    // Without this, Node returns the cached package.json from startup even after restart.
-    const pkgPath = require.resolve('../package.json');
-    delete require.cache[pkgPath];
-    const pkg = require('../package.json');
-    res.json({
-        version:   pkg.version,
-        name:      pkg.description || 'Patient RX System',
-        node:      process.version,
-        uptime:    Math.floor(process.uptime()),
-        buildDate: new Date().toISOString().slice(0, 10)
-    });
-});
 
 // ── Git commit log (admin only) ───────────────────────────────────────────────
 // Returns last N commits with per-file stats for the changelog page
