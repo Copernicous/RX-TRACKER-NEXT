@@ -773,18 +773,25 @@ async function exportErrorLogsCSV() {
         var res  = await apiFetch('/api/admin/error-logs?' + params.toString());
         var data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Failed');
-        var cols = ['id','severity','source','message','url','username','resolved','createdAt','stack'];
+        var cols = ['id','severity','source','message','url','username','ipAddress','resolved','createdAt','stack'];
         var rows = (data.rows || []).map(function(r) {
+            // Replace newlines in multi-line fields so each error stays on ONE CSV row.
+            // Stack traces are joined with " | " so the full trace is readable in a single cell.
+            function flattenField(v) {
+                if (v == null) return '';
+                return String(v).replace(/\r\n/g, ' | ').replace(/\n/g, ' | ').replace(/\r/g, ' | ');
+            }
             return {
                 id:        r.id,
                 severity:  r.severity  || '',
                 source:    r.source    || '',
-                message:   r.message   || '',
+                message:   flattenField(r.message),
                 url:       r.url       || '',
                 username:  r.username  || 'System',
+                ipAddress: r.ipAddress || '',
                 resolved:  r.resolved  ? 'Yes' : 'No',
                 createdAt: r.createdAt ? new Date(r.createdAt).toLocaleString() : '',
-                stack:     r.stack     || '',
+                stack:     flattenField(r.stack),
             };
         });
         _downloadCSV('error-logs-' + new Date().toISOString().slice(0,10) + '.csv', cols, rows);

@@ -896,7 +896,9 @@ exports.deleteRows = async (req, res) => {
 // --------------------------------------------------------------------------
 exports.getErrorLogs = async (req, res) => {
     const page     = Math.max(1, parseInt(req.query.page || '1', 10));
-    const pageSize = Math.min(200, Math.max(10, parseInt(req.query.size || '50', 10)));
+    const rawSize  = parseInt(req.query.size || '50', 10);
+    // Allow large exports (size >= 9999 is the export signal) — cap at 10000
+    const pageSize = rawSize >= 9999 ? Math.min(rawSize, 10000) : Math.min(200, Math.max(10, rawSize));
     const offset   = (page - 1) * pageSize;
     const severity = req.query.severity || '';
     const source   = req.query.source   || '';
