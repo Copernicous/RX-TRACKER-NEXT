@@ -31,6 +31,9 @@
             width: 100%;
             max-width: 420px;
             box-shadow: 0 25px 45px rgba(0,0,0,0.3);
+            /* BUG-23 FIX: force GPU compositing layer so backdrop-filter
+               does not block CSS transform animations (shake on wrong password) */
+            transform: translateZ(0);
         }
         .login-card .brand-icon {
             font-size: 3rem;
@@ -182,18 +185,26 @@
     <script>
         // Show timeout message if redirected due to session expiry
         (function() {
-            const params = new URLSearchParams(window.location.search);
-            if (params.get('reason') === 'timeout') {
-                const msg = document.getElementById('errorMsg');
-                if (msg) {
-                    msg.innerHTML = '<i class="fas fa-clock me-1"></i>You were logged out due to 30 minutes of inactivity.';
-                    msg.classList.remove('d-none');
-                    msg.style.background = 'rgba(255,193,7,.15)';
-                    msg.style.color = '#856404';
-                    msg.style.border = '1px solid #ffc107';
-                    msg.style.borderRadius = '8px';
-                    msg.style.padding = '10px 14px';
-                }
+            var params = new URLSearchParams(window.location.search);
+            var reason = params.get('reason');
+            var msg = document.getElementById('errorMsg');
+            if (!msg) return;
+            if (reason === 'timeout') {
+                msg.innerHTML = '<i class="fas fa-clock me-1"></i>You were logged out due to 30 minutes of inactivity.';
+                msg.classList.remove('d-none');
+                msg.style.background = 'rgba(255,193,7,.15)';
+                msg.style.color = '#856404';
+                msg.style.border = '1px solid #ffc107';
+                msg.style.borderRadius = '8px';
+                msg.style.padding = '10px 14px';
+            } else if (reason === 'password-changed') {
+                msg.innerHTML = '<i class="fas fa-key me-1"></i>Password changed successfully. Please log in with your new password.';
+                msg.classList.remove('d-none');
+                msg.style.background = 'rgba(13,110,253,.12)';
+                msg.style.color = '#6ea8fe';
+                msg.style.border = '1px solid rgba(13,110,253,.4)';
+                msg.style.borderRadius = '8px';
+                msg.style.padding = '10px 14px';
             }
         })();
 

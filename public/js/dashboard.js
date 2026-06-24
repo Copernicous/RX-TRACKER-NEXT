@@ -775,13 +775,21 @@ function changePassword() {
     .then(function(res) {
         return res.json().then(function(data) {
             if (res.ok) {
-                okEl.classList.remove('d-none');
-                document.getElementById('cpCurrentPw').value = '';
-                document.getElementById('cpNewPw').value = '';
-                showToast('Password changed! Other sessions signed out.', 'success');
+                // BUG-22 FIX: Immediately log out the current session too.
+                // The server already incremented tokenVersion so the old token
+                // is now invalid. Clear it from the browser and redirect to login.
+                showToast('Password changed! Signing you out now…', 'success');
+                setTimeout(function() {
+                    localStorage.removeItem('token');
+                    localStorage.removeItem('user');
+                    // Expire the JS-writable rxToken cookie
+                    document.cookie = 'rxToken=; path=/; max-age=0; SameSite=Lax';
+                    window.rxNav('/login?reason=password-changed');
+                }, 1200); // brief delay so the toast is visible
             } else { errEl.textContent = data.message || 'Failed.'; errEl.classList.remove('d-none'); }
         });
     }).catch(function() { errEl.textContent = 'Network error.'; errEl.classList.remove('d-none'); });
+
 }
 
 function copySecret() {

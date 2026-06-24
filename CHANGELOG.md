@@ -5,7 +5,58 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ---
 
+## [2.0.19] — 2026-06-24
+
+### 🔒 Security — Password Change No Longer Leaves Current Session Active (BUG-22)
+**Files changed:** 2 | BUG-22
+
+- **BUG-22** After changing password, the user was shown a success toast but the current browser session was **never terminated** — the old JWT remained in localStorage and was still accepted by the server. The user could continue browsing until the next automatic API call (e.g., heartbeat at 30s) happened to fail with 401.
+
+  **Root cause:** `changePassword()` in `public/js/dashboard.js` showed a success message and cleared the input fields, but did NOT clear `localStorage.token`, did NOT remove the `rxToken` cookie, and did NOT redirect to login.
+
+  **Fix (`dashboard.js`):** After a successful password change, a 1.2-second toast is shown then the client immediately:
+  1. Clears `localStorage.token` and `localStorage.user`
+  2. Expires the JS-writable `rxToken` cookie
+  3. Navigates to `/login?reason=password-changed`
+
+  **Fix (`login.ejs`):** Added handler for `?reason=password-changed` that shows a blue informational banner — *"Password changed successfully. Please log in with your new password."* — instead of a red error.
+
+### 🔒 Security — Token Revocation Bypass for Pre-feature Tokens Closed (SEC-05)
+**Files changed:** 1 | SEC-05
+
+- **SEC-05** `middleware/auth.js` — The tokenVersion check had a bypass: tokens issued **before the `tv` claim was added** (v2.0.14) had no `tv` field in the JWT. The old code only checked `if (typeof decoded.tv === 'number')`, so pre-feature tokens skipped the DB check entirely and remained valid indefinitely — even after a password change.
+
+  **Fix:** The DB tokenVersion check now always runs. Logic:
+  - If `dbVersion > 0` (user has changed password at least once) AND the token has no `tv` claim → **reject** (old token, account has been updated).
+  - If the token has a `tv` claim AND it doesn't match `dbVersion` → **reject** (password changed since this token was issued).
+  - If `dbVersion === 0` AND no `tv` claim → **allow** (user has never changed password, feature just landed).
+
+### 🐛 Bug Fix — Login Shake Animation Broken (BUG-23)
+**Files changed:** 1 | BUG-23
+
+- **BUG-23** `views/login.ejs` — The shake animation on wrong password (`shake-card` CSS class + `@keyframes shake`) stopped working because `.login-card` uses `backdrop-filter: blur(20px)`. This is a known Chromium/Edge issue: `backdrop-filter` creates an isolated stacking context that can block CSS `transform` animations on the same element.
+
+  **Fix:** Added `transform: translateZ(0)` to `.login-card` base styles. This forces the browser to promote the element to its own GPU compositing layer *before* the animation starts, which resolves the conflict. The shake animation now works correctly across Chrome, Edge, and Firefox.
+
+### 📦 Build — dist/ Is Now a Complete Deployment Package (IMPROVE-08)
+**Files changed:** 2 | IMPROVE-08
+
+- **IMPROVE-08** Every `npm run build:exe` now produces a `dist/` folder containing all files needed on the production server — not just the binary.
+
+  **`scripts/post-build.js`** (new file) is called at the end of the build and copies:
+  - `server.exe` — production binary (built by pkg)
+  - `.env` — environment configuration
+  - `RX-Manager.bat` — production management menu
+  - `CHANGELOG.md` — what changed in this release
+  - `DEFERRED-ITEMS.txt` — security / tech-debt tracking
+  - `OPERATIONS_MANUAL.md` — admin and recovery procedures
+
+  **`package.json`** `build:exe` script updated to call `node scripts/post-build.js` instead of the inline `copyFileSync` one-liner.
+
+---
+
 ## [2.0.18] — 2026-06-24
+
 
 ### ✅ QA — Playwright Smoke Test Suite Integrated (DEFERRED-04 CLOSED)
 **Files changed:** 3 | QA-01
