@@ -54,6 +54,9 @@ echo   BUILD
 echo   [18] Build Portable EXE (server.exe)
 echo   [20] Deploy EXE to Production (copy dist\ to app root)
 echo.
+echo   QA / SMOKE TEST
+echo   [21] Launch QA Smoke Test Menu
+echo.
 echo   [0]  Exit
 echo.
 set /p "CHOICE=  Select option: "
@@ -79,6 +82,7 @@ if /i "%CHOICE%"=="17"  goto :ShowConfig
 if /i "%CHOICE%"=="18"  goto :BuildEXE
 if /i "%CHOICE%"=="19"  goto :RestoreSiteBackup
 if /i "%CHOICE%"=="20"  goto :DeployEXE
+if /i "%CHOICE%"=="21"  goto :LaunchQA
 if /i "%CHOICE%"=="0"   goto :Done
 goto :MainMenu
 
@@ -893,6 +897,33 @@ for /f "usebackq tokens=1,* delims==" %%A in ("%ENV_FILE%") do (
 )
 set "PGPASSWORD=%DB_PASS%"
 goto :eof
+
+:: ================================================
+:LaunchQA
+cls
+echo.
+echo  ================================================
+echo   QA SMOKE TEST SUITE
+echo  ================================================
+echo.
+echo  Launches the standalone QA smoke test menu.
+echo  Tests run against a SEPARATE QA database (patient_rx_qa).
+echo  The production database is NOT touched.
+echo.
+echo  First time? Choose option [1] in the QA menu to
+echo  install playwright-core (used by the smoke test).
+echo.
+if not exist "%APP_DIR%\qa\qa-menu.bat" (
+    echo  [ERROR] qa\ folder not found in %APP_DIR%
+    echo          Make sure the QA folder was copied alongside the app.
+    echo.
+    pause
+    goto :MainMenu
+)
+echo  Opening QA menu...
+echo.
+call "%APP_DIR%\qa\qa-menu.bat"
+goto :MainMenu
 
 :: ================================================
 :: HELPER: Update one key=value line in .env
