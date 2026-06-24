@@ -5,6 +5,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ---
 
+## [2.0.30] — 2026-06-24
+
+### ✨ Feature — Read Only role can now see Workflow Actions + RX Actions (FEAT-13)
+**Files changed:** 1 | `middleware/rbac.js`
+
+Read Only role defaults changed: `workflow_actions` and `medication_catalog` updated from `{ visible: false }` to `{ visible: true, canEdit: false, canAdd: false, canDelete: false }`. Read Only users can now browse both catalog pages and use the eye-icon view button to inspect each record. No write access. DB role record patched directly to take effect immediately without requiring admin re-save.
+
+---
+
 ## [2.0.29] — 2026-06-24
 
 ### ✨ Feature — View-only mode for Patients + all CRUD pages (BUG-35 / FEAT-12)
