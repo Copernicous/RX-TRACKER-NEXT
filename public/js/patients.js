@@ -690,7 +690,18 @@ var allPatients = [];
                 btnPrint.addEventListener('click', function() { printPatientRecord(parseInt(this.dataset.pid)); });
                 tdAct.appendChild(btnPrint);
 
-                // Edit button
+                // View button (shown when user cannot edit — read-only access to patient details)
+                if (!pp.canEdit) {
+                    var btnView = document.createElement('button');
+                    btnView.className = 'btn btn-sm btn-outline-info me-1';
+                    btnView.title = 'View details';
+                    btnView.innerHTML = '<i class="fas fa-eye"></i>';
+                    btnView.dataset.pid = p.id;
+                    btnView.addEventListener('click', function() { openPatientModal(parseInt(this.dataset.pid)); });
+                    tdAct.appendChild(btnView);
+                }
+
+                // Edit button (shown only when user has canEdit)
                 if (pp.canEdit) {
                     var btnEdit = document.createElement('button');
                     btnEdit.className = 'btn btn-sm btn-outline-primary me-1';
@@ -954,15 +965,43 @@ var allPatients = [];
         setTimeout(_updateNextSvcDisplay, 50);
         // Show/hide save button based on add vs edit permission
         const _saveBtn = document.getElementById('savePatientBtn');
-        if (_saveBtn) {
-            try {
-                const _pu = JSON.parse(localStorage.getItem('user') || '{}');
-                const _pp = (_pu.permissions || {}).patients || {};
-                const _canAddPat  = _pp.canAdd  !== undefined ? !!_pp.canAdd  : !!_pp.canEdit; // fallback
-                const _canEditPat = _pp.canEdit !== undefined ? !!_pp.canEdit : true;
-                _saveBtn.style.display = (id === null ? _canAddPat : _canEditPat) ? '' : 'none';
-            } catch(e) { _saveBtn.style.display = ''; }
-        }
+        try {
+            const _pu = JSON.parse(localStorage.getItem('user') || '{}');
+            const _pp = (_pu.permissions || {}).patients || {};
+            const _canAddPat  = _pp.canAdd  !== undefined ? !!_pp.canAdd  : !!_pp.canEdit;
+            const _canEditPat = _pp.canEdit !== undefined ? !!_pp.canEdit : true;
+            const _isEditable = id === null ? _canAddPat : _canEditPat;
+
+            if (_saveBtn) _saveBtn.style.display = _isEditable ? '' : 'none';
+
+            // Lock / unlock all form inputs for view-only mode
+            const _patModal = document.getElementById('patientModal');
+            if (_patModal) {
+                _patModal.querySelectorAll('input, select, textarea').forEach(function(el) {
+                    if (_isEditable) {
+                        el.removeAttribute('readonly');
+                        el.removeAttribute('disabled');
+                    } else {
+                        if (el.tagName === 'SELECT' || el.type === 'checkbox') {
+                            el.setAttribute('disabled', 'true');
+                        } else {
+                            el.setAttribute('readonly', 'true');
+                        }
+                    }
+                });
+                // Show / hide the view-only banner
+                var _voBanner = document.getElementById('patientViewOnlyBanner');
+                if (!_voBanner) {
+                    _voBanner = document.createElement('div');
+                    _voBanner.id = 'patientViewOnlyBanner';
+                    _voBanner.className = 'alert alert-info d-flex align-items-center py-2 mb-3';
+                    _voBanner.innerHTML = '<i class="fas fa-eye me-2"></i><span>View Only — you do not have permission to edit patient records.</span>';
+                    var _mBody = _patModal.querySelector('.modal-body');
+                    if (_mBody) _mBody.insertBefore(_voBanner, _mBody.firstChild);
+                }
+                _voBanner.style.display = _isEditable ? 'none' : '';
+            }
+        } catch(e) { if (_saveBtn) _saveBtn.style.display = ''; }
         // Acquire soft lock if editing an existing patient
         if (id) acquireModalLock(id);
     }
