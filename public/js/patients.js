@@ -282,10 +282,10 @@ var allPatients = [];
 
     async function loadDropdowns() {
         try {
-        var _uPt = '/api/patient-transport';
-        var _uRx = '/api/pharmacy-transport';
-        var _uCl = '/api/clinics';
-        var _uPh = '/api/pharmacies';
+        var _uPt = '/api/lookup/patient-transport';
+        var _uRx = '/api/lookup/pharmacy-transport';
+        var _uCl = '/api/lookup/clinics';
+        var _uPh = '/api/lookup/pharmacies';
             const [ptRes, rxRes, clRes, phRes] = await Promise.all([
                 fetchWithAuth(_uPt, { silent: true }),
                 fetchWithAuth(_uRx, { silent: true }),
@@ -784,7 +784,7 @@ var allPatients = [];
         _rxHistoryModal.show();
 
         try {
-            var waRes = await fetchWithAuth('/api/workflow-actions', { silent: true });
+            var waRes = await fetchWithAuth('/api/lookup/workflow-actions', { silent: true });
             var rxRes = await fetchWithAuth('/api/rx-records?includeDeleted=false');
             var allWA = (waRes && waRes.ok) ? await waRes.json() : [];
             var allRx = (rxRes && rxRes.ok) ? await rxRes.json() : [];
@@ -1240,7 +1240,7 @@ var allPatients = [];
         modal.show();
 
         var _uPat = '/api/patients/' + id;
-        var _uWa  = '/api/workflow-actions';
+        var _uWa  = '/api/lookup/workflow-actions';
         const pRes  = await fetchWithAuth(_uPat);
         const rxRes = await fetchWithAuth('/api/rx-records?includeDeleted=false');
         const waRes = await fetchWithAuth(_uWa, { silent: true });

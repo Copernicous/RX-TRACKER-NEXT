@@ -32,7 +32,7 @@
             const [patRes, rxRes, wfRes] = await Promise.all([
                 fetch(window.rxUrl('/api/reports/patients'),  { headers: hdr }).then(r => r.json()),
                 fetch(window.rxUrl('/api/reports/rx-actions'),{ headers: hdr }).then(r => r.json()),
-                fetch(window.rxUrl('/api/workflow-actions'),  { headers: hdr }).then(r => r.json())
+                fetch(window.rxUrl('/api/lookup/workflow-actions'),  { headers: hdr }).then(r => r.json())
             ]);
             allPatientReport   = Array.isArray(patRes) ? patRes : [];
             allRxReport        = Array.isArray(rxRes)  ? rxRes  : [];

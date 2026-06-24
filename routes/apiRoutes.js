@@ -50,6 +50,32 @@ router.get('/version', (req, res) => {
 // All remaining API routes require authentication
 router.use(auth);
 
+// ── Lookup endpoint — auth-only, NO visibility check ─────────────────────────
+// Used by forms (patient, RX records, etc.) to populate dropdowns.
+// Decouples "can navigate to the management page" from "can read data for selects".
+// Any authenticated user can call this — hiding a module in the nav/RBAC does NOT
+// break form dropdowns that depend on that reference data.
+const db = require('../models');
+const LOOKUP_MAP = {
+    'pharmacies':         { model: db.Pharmacy,                  fields: ['id', 'name',        'address'],       where: { isActive: true } },
+    'clinics':            { model: db.Clinic,                    fields: ['id', 'name',        'address'],       where: { isActive: true } },
+    'patient-transport':  { model: db.PatientTransportCompany,   fields: ['id', 'companyName', 'contactPerson'], where: { isActive: true } },
+    'pharmacy-transport': { model: db.PharmacyTransportCompany,  fields: ['id', 'companyName', 'contactPerson'], where: { isActive: true } },
+    'workflow-actions':   { model: db.WorkflowAction,            fields: ['id', 'name'],                         where: { isActive: true } },
+    'medication-catalog': { model: db.MedicationCatalog,         fields: ['id', 'name', 'sortOrder'],            where: { isActive: true } },
+};
+router.get('/lookup/:module', async (req, res) => {
+    try {
+        const cfg = LOOKUP_MAP[req.params.module];
+        if (!cfg) return res.status(404).json({ error: 'Unknown lookup module' });
+        const rows = await cfg.model.findAll({ attributes: cfg.fields, where: cfg.where, order: [['id', 'ASC']] });
+        res.json(rows);
+    } catch (e) {
+        console.error('[lookup]', e.message);
+        res.status(500).json({ error: e.message });
+    }
+});
+
 // Helper mapping for paths to permissions key
 const pathMap = {
     '/pharmacies': 'pharmacies',
