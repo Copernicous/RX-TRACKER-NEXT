@@ -5,6 +5,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ---
 
+## [2.0.23] — 2026-06-24
+
+### 🐛 Bug Fix — Nodemon Infinite Restart Loop (BUG-29)
+**Files changed:** 1 | BUG-29
+
+- **`package.json`** — Added `nodemonConfig` block. Root cause: `backupService.js` (BUG-28 fix) now writes to `data/settings.json` on startup to persist schedules. Nodemon watches `.json` files by default, detected the write, restarted the app, which triggered another write — infinite loop.
+
+  **Fix:** `nodemonConfig.watch` restricts watching to source directories only (`app.js`, `controllers/`, `middleware/`, `models/`, `routes/`, `services/`, `views/`, `public/`, `config/`). `nodemonConfig.ignore` explicitly excludes all runtime-written paths: `data/*`, `logs/*`, `backups/*`, `dist/*`, `*.log`, `*.log.json`.
+
+---
+
 ## [2.0.22] — 2026-06-24
 
 ### ✨ Feature — DB Backup History: Filename + Path Column, and Configurable Dump Directory
