@@ -763,16 +763,38 @@ function copyBackupCodes() {
     navigator.clipboard.writeText(codes.join('\n')).then(function() { showToast('Backup codes copied!', 'info'); });
 }
 
+function shakeFeedback(el) {
+    if (!el) return;
+    if (el._shakeTimer) clearTimeout(el._shakeTimer);
+    el.classList.remove('shake-feedback');
+    void el.offsetWidth;
+    el.classList.add('shake-feedback');
+    el._shakeTimer = setTimeout(function() {
+        el.classList.remove('shake-feedback');
+        el._shakeTimer = null;
+    }, 600);
+}
+
+function showChangePasswordError(message) {
+    var errEl = document.getElementById('cpError');
+    var section = document.getElementById('changePwSection');
+    if (!errEl) return;
+    errEl.textContent = message || 'Failed.';
+    errEl.classList.remove('d-none');
+    shakeFeedback(section || errEl);
+}
+
 function changePassword() {
     var current = document.getElementById('cpCurrentPw').value;
     var newPw   = document.getElementById('cpNewPw').value;
     var errEl   = document.getElementById('cpError');
     var okEl    = document.getElementById('cpSuccess');
     errEl.classList.add('d-none'); okEl.classList.add('d-none');
-    if (!current || !newPw) { errEl.textContent = 'Both fields are required.'; errEl.classList.remove('d-none'); return; }
-    if (newPw.length < 8)   { errEl.textContent = 'New password must be at least 8 characters.'; errEl.classList.remove('d-none'); return; }
+    if (!current || !newPw) { showChangePasswordError('Both fields are required.'); return; }
+    if (newPw.length < 8)   { showChangePasswordError('New password must be at least 8 characters.'); return; }
     fetchWithAuth(_api.cpw, { method: 'POST', body: JSON.stringify({ currentPassword: current, newPassword: newPw }) })
     .then(function(res) {
+        if (!res) return;
         return res.json().then(function(data) {
             if (res.ok) {
                 // BUG-22 FIX: Immediately log out the current session too.
@@ -786,9 +808,9 @@ function changePassword() {
                     document.cookie = 'rxToken=; path=/; max-age=0; SameSite=Lax';
                     window.rxNav('/login?reason=password-changed');
                 }, 1200); // brief delay so the toast is visible
-            } else { errEl.textContent = data.message || 'Failed.'; errEl.classList.remove('d-none'); }
+            } else { showChangePasswordError(data.message || 'Failed.'); }
         });
-    }).catch(function() { errEl.textContent = 'Network error.'; errEl.classList.remove('d-none'); });
+    }).catch(function() { showChangePasswordError('Network error.'); });
 
 }
 

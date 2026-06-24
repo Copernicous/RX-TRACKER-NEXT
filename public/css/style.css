@@ -57,6 +57,21 @@ body {
     transition: background var(--transition), color var(--transition);
 }
 
+@keyframes rxShake {
+    0%, 100% { transform: translate3d(0,0,0); }
+    15%      { transform: translate3d(-8px,0,0); }
+    30%      { transform: translate3d(7px,0,0); }
+    45%      { transform: translate3d(-6px,0,0); }
+    60%      { transform: translate3d(5px,0,0); }
+    75%      { transform: translate3d(-4px,0,0); }
+    90%      { transform: translate3d(3px,0,0); }
+}
+
+.shake-feedback {
+    animation: rxShake 0.55s cubic-bezier(.36,.07,.19,.97) both;
+    will-change: transform;
+}
+
 /* ---------- Wrapper ---------- */
 .wrapper {
     display: flex;

@@ -5,6 +5,92 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ---
 
+## [2.0.20] — 2026-06-24
+
+### 🔒 Security / API — `changePassword` Returns 400 Instead of 401 on Wrong Current Password
+**Files changed:** 1 | SEC-07
+
+- **`controllers/authController.js`** — `changePassword()` was returning `401 Unauthorized` when the user supplied an incorrect current password. This was semantically wrong: `401` means the request is unauthenticated (missing/invalid JWT), while `400 Bad Request` is correct for a client input error where the session itself is valid.
+
+  **Impact:** Some `fetchWithAuth()` callers treat 401 as a global "session expired" signal and auto-redirect to login. A wrong current password was incorrectly triggering the session-expired redirect flow in certain browsers/timing conditions.
+
+  **Fix:** Status code changed from `401` → `400`. The error message is unchanged: `"Current password is incorrect."` The frontend `changePassword()` in `dashboard.js` now handles the 400 response correctly via the `showChangePasswordError()` helper (see below).
+
+### 🐛 Bug Fix — Global Shake Animation Utility Added to style.css (BUG-24)
+**Files changed:** 1 | BUG-24
+
+- **`public/css/style.css`** — Page-specific shake animations were defined inline in each EJS view's `<style>` block. This led to duplicated keyframe definitions and inconsistent timing/easing between views. A new unified global shake utility is now available across all pages without inline `<style>` overhead.
+
+  **Added:**
+  ```css
+  @keyframes rxShake {
+      0%, 100% { transform: translate3d(0,0,0); }
+      15%      { transform: translate3d(-8px,0,0); }
+      ...
+  }
+  .shake-feedback {
+      animation: rxShake 0.55s cubic-bezier(.36,.07,.19,.97) both;
+      will-change: transform;
+  }
+  ```
+
+  Using `translate3d()` instead of `translateX()` ensures the animation runs on the GPU compositing layer, resolving the `backdrop-filter` conflict that caused BUG-23.
+
+  **Usage pattern:**
+  ```js
+  shakeFeedback(document.getElementById('someElement'));
+  ```
+
+### 🐛 Bug Fix — Change Password Error Handling Refactored with Shake Feedback (BUG-25)
+**Files changed:** 1 | BUG-25
+
+- **`public/js/dashboard.js`** — The `changePassword()` function had several issues:
+  1. Error display was inline (4 repeated `errEl.textContent = ...; errEl.classList.remove('d-none')` callsites) with no visual feedback beyond text.
+  2. No null-guard on the `fetchWithAuth()` return value (returns `null` on 403/network failure).
+  3. On `401` responses (now `400`), the error message would appear but no shake animation fired.
+
+  **Fix — two new helpers extracted:**
+  ```js
+  function shakeFeedback(el) { ... }     // Generic element shake (uses .shake-feedback class)
+  function showChangePasswordError(msg) { ... }  // Sets #cpError text + calls shakeFeedback()
+  ```
+
+  **`changePassword()` updated:**
+  - All error paths now call `showChangePasswordError()` for consistent shake + message.
+  - Added `if (!res) return;` null-guard at top of `.then()` — prevents `res.json()` TypeError when `fetchWithAuth` returns null on 403/network error.
+  - `.catch()` now calls `showChangePasswordError('Network error.')` instead of bare DOM manipulation.
+
+### 🐛 Bug Fix — Login Shake Animation Scoped and Extracted as Named Function (BUG-26)
+**Files changed:** 1 | BUG-26
+
+- **`views/login.ejs`** — The login shake animation had two related issues introduced in BUG-23's fix:
+  1. `@keyframes shake` was a generic name — it could conflict with the new global `rxShake` keyframe added to `style.css` in BUG-24.
+  2. The shake logic in `showError()` was inline (`classList.remove/add` + bare `setTimeout`) with no mechanism to cancel a previous timer before restarting — rapid failed logins could stack multiple timers.
+
+  **Fix:**
+  - Keyframe renamed: `@keyframes shake` → `@keyframes loginShake`
+  - CSS selector tightened: `.shake-card` → `.login-card.shake-card` (prevents global `.shake-card` from triggering the login animation on other elements)
+  - `shakeLoginCard()` extracted as a named function:
+    ```js
+    function shakeLoginCard() {
+        var card = document.querySelector('.login-card');
+        if (!card) return;
+        if (window._loginShakeTimer) clearTimeout(window._loginShakeTimer);
+        card.classList.remove('shake-card');
+        void card.offsetWidth; // force reflow
+        card.classList.add('shake-card');
+        window._loginShakeTimer = setTimeout(function() {
+            card.classList.remove('shake-card');
+            window._loginShakeTimer = null;
+        }, 650);
+    }
+    ```
+  - `showError()` now calls `shakeLoginCard()` instead of the inline timer block.
+  - Early return error (`username/password empty`) now routed through `showLoginError()` for consistency.
+  - `will-change: transform` added to `.login-card.shake-card` for GPU compositing hint.
+
+---
+
 ## [2.0.19] — 2026-06-24
 
 ### 🔒 Security — Password Change No Longer Leaves Current Session Active (BUG-22)
