@@ -5,6 +5,20 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ---
 
+## [2.0.27] — 2026-06-24
+
+### 🐛 Bug Fix — Read Only sees Edit/Disable/Add New on all unlisted pages (BUG-33)
+**Files changed:** 1 | `public/js/app.js`
+
+`getPagePerms()` URL→permission mapping was missing `/medication-catalog`, `/workflow-actions`, `/audit-log`, `/backups`, `/system-settings`, `/active-users`. Any unmapped path returned `fullAccess` (canEdit + canDelete = true), so Edit and Disable buttons rendered for all roles on those pages. Backend blocked the actual operations but UI was misleading. All 6 paths added to the mapping.
+
+### ✨ Feature — Sidebar nav reorganization: Workflow Actions + RX Actions → Reference Data (FEAT-11)
+**Files changed:** 1 | `views/partials/sidebar.ejs`
+
+Workflow Actions and RX Actions are catalog/lookup tables, not administrative functions. Moved from the **Administration** group to **Reference Data**. Updated `refActive`, `adminActive`, `refVisible`, and `adminVisible` logic so the correct submenu auto-expands on those pages. Administration now contains only: Roles, User Management, System Settings, Backups, Data Import, Who's Online.
+
+---
+
 ## [2.0.26] — 2026-06-24
 
 ### 🐛 Bug Fix — `Cannot find module 'ejs'` in server.exe (BUG-32)
