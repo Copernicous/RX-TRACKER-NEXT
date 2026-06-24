@@ -5,6 +5,19 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ---
 
+## [2.0.40] - 2026-06-24
+
+### [FEAT-17] QA smoke coverage for Needs Action queue
+**Files changed:** 5 | `qa/smoke-qa.js`, `qa/web-ui.js`, `qa/web/public/index.html`, `qa/README.md`, `qa/QA-WEB-MANUAL.md`
+
+- Added a dedicated QA web dashboard smoke task (`Run Needs Action Smoke`) behind a runtime flag (`QA_SMOKE_NEEDS_ACTION`).
+- Smoke run seeds a stable needs-action fixture (expired service date + incomplete workflow) and validates:
+  - Needs-Action filter behavior on `/patients`,
+  - banner visibility,
+  - fixture patient visibility in filtered results.
+- Integrated the new task into `qa/web-ui.js` and dashboard controls so it can be run from `npm run qa:web` without custom scripts.
+- Added concise documentation in QA manuals about the new option and what it validates.
+
 ## [2.0.39] - 2026-06-24
 
 ### [BUG-44] 90-Day Needs-Action workflow handling
