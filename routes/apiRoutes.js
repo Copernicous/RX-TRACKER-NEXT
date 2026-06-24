@@ -490,13 +490,17 @@ router.delete('/admin/snapshots/:date',    masterOnly, snapshotController.delete
 
 // ── Version info (public — no auth required) ─────────────────────────────────
 router.get('/version', (req, res) => {
+    // Bust require() cache so nodemon restarts always serve the current version.
+    // Without this, Node returns the cached package.json from startup even after restart.
+    const pkgPath = require.resolve('../package.json');
+    delete require.cache[pkgPath];
     const pkg = require('../package.json');
     res.json({
         version:   pkg.version,
         name:      pkg.description || 'Patient RX System',
         node:      process.version,
         uptime:    Math.floor(process.uptime()),
-        buildDate: '2026-06-23'
+        buildDate: new Date().toISOString().slice(0, 10)
     });
 });
 
