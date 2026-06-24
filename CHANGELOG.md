@@ -5,6 +5,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ---
 
+## [2.0.26] — 2026-06-24
+
+### 🐛 Bug Fix — `Cannot find module 'ejs'` in server.exe (BUG-32)
+**Files changed:** 1 | `app.js`
+
+**Root cause:** `app.set('view engine', 'ejs')` makes Express call `require(ext)` internally where `ext` is a runtime variable. `@yao-pkg/pkg` cannot statically analyze dynamic `require()` calls — it only bundles modules it sees as **string literals** at compile time. Even with `ejs` listed in `pkg.scripts`, the dynamic path was never resolved inside the snapshot.
+
+**Fix:** Added `const ejs = require('ejs')` and `app.engine('ejs', ejs.renderFile)` before the `app.set('view engine', 'ejs')` call. The static string literal `'ejs'` is now visible to pkg at compile time and is correctly bundled into `server.exe`.
+
+---
+
 ## [2.0.25] — 2026-06-24
 
 ### 🐛 Bug Fix — Error Log Export Incomplete (BUG-31)
