@@ -1,5 +1,4 @@
 ﻿const db = require('../models');
-const { Op } = require('sequelize');
 const bcrypt = require('bcryptjs');
 const csv = require('csv-parser');
 const { Readable } = require('stream');
@@ -37,6 +36,64 @@ const parseCsv = (buffer) => {
 function parseDateField(raw) {
     if (!raw || !String(raw).trim()) return null;
     return parseDate(raw);
+}
+
+function normalizeLookupText(value) {
+    return String(value || '')
+        .trim()
+        .toLowerCase()
+        .normalize('NFKD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9\s]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+function normalizeLookupKey(value) {
+    return normalizeLookupText(value).replace(/\s+/g, '');
+}
+
+function isActiveLike(record) {
+    return record && record.isActive !== false;
+}
+
+function resolveTransportMatch(rawValue, records) {
+    const query = String(rawValue || '').trim();
+    if (!query) return { found: false };
+
+    const exactById = records.find((record) => String(record.id) === query);
+    if (exactById) {
+        return { found: true, company: exactById, active: isActiveLike(exactById) };
+    }
+
+    const direct = query.toLowerCase();
+    const normalized = normalizeLookupText(query);
+    const compact = normalizeLookupKey(query);
+
+    const matchesRecord = (record) => {
+        const cName = String(record?.companyName || '');
+        const cContact = String(record?.contactPerson || '');
+        return (
+            (cName && (
+                cName.trim().toLowerCase() === direct ||
+                normalizeLookupText(cName) === normalized ||
+                normalizeLookupKey(cName) === compact
+            )) ||
+            (cContact && (
+                cContact.trim().toLowerCase() === direct ||
+                normalizeLookupText(cContact) === normalized ||
+                normalizeLookupKey(cContact) === compact
+            ))
+        );
+    };
+
+    const activeMatch = records.find((record) => isActiveLike(record) && matchesRecord(record));
+    if (activeMatch) return { found: true, company: activeMatch, active: true };
+
+    const inactiveMatch = records.find((record) => !isActiveLike(record) && matchesRecord(record));
+    if (inactiveMatch) return { found: true, company: inactiveMatch, active: false };
+
+    return { found: false };
 }
 
 function toUpperName(value) {
@@ -161,8 +218,8 @@ exports.importDataset = async (req, res) => {
 
         switch (dataset) {
             case 'patients': {
-                const ptCompanies = await db.PatientTransportCompany.findAll({ where: { isActive: true } });
-                const phCompanies = await db.PharmacyTransportCompany.findAll({ where: { isActive: true } });
+                const ptCompanies = await db.PatientTransportCompany.findAll();
+                const phCompanies = await db.PharmacyTransportCompany.findAll();
                 const clinics = await db.Clinic.findAll({ where: { isActive: true } });
                 const workflowActions = await db.WorkflowAction.findAll({
                     where: { isActive: true },
@@ -177,6 +234,8 @@ exports.importDataset = async (req, res) => {
 
                 const seenPatients = new Set();
                 const seenPatientCodes = new Set();
+                const patientCodeFirstRow = new Map();
+                const rowsWithErrors = new Set();
                 const lastPatient = await db.Patient.findOne({ order: [['id', 'DESC']] });
                 let baseId = lastPatient ? lastPatient.id : 0;
 
@@ -191,7 +250,11 @@ exports.importDataset = async (req, res) => {
                     const firstNameCaps = toUpperName(firstName);
                     const lastNameCaps = toUpperName(lastName);
 
-                    const addErr = (msg) => rowErrors.push({ row: rowNum, error: msg, _rawRow: row });
+                    const markError = () => rowsWithErrors.add(rowNum);
+                    const addErr = (msg) => {
+                        rowErrors.push({ row: rowNum, error: msg, _rawRow: row });
+                        markError();
+                    };
 
                     if (!firstNameCaps) { addErr('First Name is required'); continue; }
                     if (!lastNameCaps)   { addErr('Last Name is required'); continue; }
@@ -206,7 +269,13 @@ exports.importDataset = async (req, res) => {
                         patientCode = patientCode.trim();
                     }
 
-                    if (seenPatientCodes.has(patientCode.toLowerCase())) { addErr(`Patient ID "${patientCode}" is duplicated in this file`); continue; }
+                    const patientCodeKey = patientCode.toLowerCase();
+                    const seenRow = patientCodeFirstRow.get(patientCodeKey);
+                    if (seenRow && !rowsWithErrors.has(seenRow)) {
+                        addErr(`Patient ID "${patientCode}" is duplicated in this file`);
+                        continue;
+                    }
+                    patientCodeFirstRow.set(patientCodeKey, rowNum);
                     seenPatientCodes.add(patientCode.toLowerCase());
                     if (dbPatientCodes.has(patientCode.toLowerCase()))   { addErr(`Patient ID "${patientCode}" already exists in database`); continue; }
 
@@ -218,25 +287,31 @@ exports.importDataset = async (req, res) => {
                     let patientTransportCompanyId = null;
                     if (patientTransportCompany && patientTransportCompany.trim()) {
                         const tcStr = patientTransportCompany.trim();
-                        const match = ptCompanies.find(c =>
-                            (c.companyName && c.companyName.toLowerCase() === tcStr.toLowerCase()) ||
-                            (c.contactPerson && c.contactPerson.toLowerCase() === tcStr.toLowerCase()) ||
-                            String(c.id) === tcStr
-                        );
-                        if (match) { patientTransportCompanyId = match.id; }
-                        else { addErr(`Patient Transport Company "${tcStr}" not found or inactive`); continue; }
+                        const resolved = resolveTransportMatch(tcStr, ptCompanies);
+                        if (resolved.found && resolved.active) {
+                            patientTransportCompanyId = resolved.company.id;
+                        } else if (resolved.found && !resolved.active) {
+                            addErr(`Patient Transport Company "${tcStr}" exists but is marked inactive. Please activate it before importing patients.`);
+                            continue;
+                        } else {
+                            addErr(`Patient Transport Company "${tcStr}" not found.`);
+                            continue;
+                        }
                     }
 
                     let pharmacyTransportCompanyId = null;
                     if (pharmacyTransportCompany && pharmacyTransportCompany.trim()) {
                         const tcStr = pharmacyTransportCompany.trim();
-                        const match = phCompanies.find(c =>
-                            (c.companyName && c.companyName.toLowerCase() === tcStr.toLowerCase()) ||
-                            (c.contactPerson && c.contactPerson.toLowerCase() === tcStr.toLowerCase()) ||
-                            String(c.id) === tcStr
-                        );
-                        if (match) { pharmacyTransportCompanyId = match.id; }
-                        else { addErr(`Pharmacy Transport Company "${tcStr}" not found or inactive`); continue; }
+                        const resolved = resolveTransportMatch(tcStr, phCompanies);
+                        if (resolved.found && resolved.active) {
+                            pharmacyTransportCompanyId = resolved.company.id;
+                        } else if (resolved.found && !resolved.active) {
+                            addErr(`Pharmacy Transport Company "${tcStr}" exists but is marked inactive. Please activate it before importing patients.`);
+                            continue;
+                        } else {
+                            addErr(`Pharmacy Transport Company "${tcStr}" not found.`);
+                            continue;
+                        }
                     }
 
                     let clinicId = null;
