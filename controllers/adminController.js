@@ -1,16 +1,17 @@
 'use strict';
 const db        = require('../models');
-const { QueryTypes } = require('sequelize');
+const { QueryTypes, Op } = require('sequelize');
 const fs        = require('fs');
 const path      = require('path');
 const os        = require('os');
 const bcrypt    = require('bcryptjs');
+const { parseDate } = require('../utils/dateUtils');
+const fileSettings = require('../utils/globalSettings');
 
-const SETTINGS_PATH = path.join(__dirname, '..', 'data', 'settings.json');
+const SETTINGS_PATH = fileSettings.SETTINGS_PATH;
 
 function readSettings() {
-    try { return JSON.parse(fs.readFileSync(SETTINGS_PATH, 'utf8')); }
-    catch { return { backupPath: path.join(__dirname,'..','backups'), backupRetentionDays: 30, appName: 'Daniely RX', sessionTimeoutMinutes: 60, maxLoginAttempts: 5, maintenanceMode: false }; }
+    return fileSettings.readSettings();
 }
 
 // ── Table definitions with deletion order (dependencies first) ────────────────
@@ -308,12 +309,27 @@ exports.getSettings = (req, res) => {
 
 exports.saveSettings = (req, res) => {
     try {
-        const allowed = ['backupPath','backupRetentionDays','appName','sessionTimeoutMinutes','maxLoginAttempts','maintenanceMode'];
+        const allowed = ['backupPath','backupRetentionDays','appName','sessionTimeoutMinutes','maxLoginAttempts','maintenanceMode','serviceDateOverrideEnabled'];
         const current = readSettings();
         const next    = { ...current };
         for (const key of allowed) if (req.body[key] !== undefined) next[key] = req.body[key];
+        next.maintenanceMode = next.maintenanceMode === true || next.maintenanceMode === 'true';
+        next.serviceDateOverrideEnabled = next.serviceDateOverrideEnabled === true || next.serviceDateOverrideEnabled === 'true';
         if (next.backupPath) { try { fs.mkdirSync(next.backupPath, { recursive: true }); } catch {} }
         fs.writeFileSync(SETTINGS_PATH, JSON.stringify(next, null, 2), 'utf8');
+        if (current.serviceDateOverrideEnabled !== next.serviceDateOverrideEnabled) {
+            db.AuditLog.create({
+                userId:        req.user ? req.user.id : null,
+                date:          new Date().toISOString().split('T')[0],
+                time:          new Date().toTimeString().split(' ')[0],
+                module:        'Backoffice',
+                action:        next.serviceDateOverrideEnabled ? 'Global 90-Day Override Enabled' : 'Global 90-Day Override Disabled',
+                recordId:      null,
+                previousValue: { serviceDateOverrideEnabled: current.serviceDateOverrideEnabled },
+                newValue:      { serviceDateOverrideEnabled: next.serviceDateOverrideEnabled },
+                ipAddress:     req.ip || (req.socket ? req.socket.remoteAddress : 'unknown')
+            }).catch(function() {});
+        }
         res.json({ success: true, settings: next });
     } catch (e) { res.status(500).json({ error: e.message }); }
 };
@@ -481,6 +497,128 @@ exports.releaseExpiredLocks = async (req, res) => {
         const rows = await db.sequelize.query(`DELETE FROM "PatientLocks" WHERE "expiresAt" < NOW() RETURNING id`, { type: QueryTypes.SELECT });
         res.json({ success: true, released: Array.isArray(rows) ? rows.length : 0 });
     } catch (e) { res.status(500).json({ error: e.message }); }
+};
+
+exports.searchPatientsForServiceDateOverride = async (req, res) => {
+    try {
+        const q = String(req.query.q || '').trim();
+        if (q.length < 2) return res.json({ patients: [] });
+
+        const like = { [Op.like]: `%${q}%` };
+        const patients = await db.Patient.findAll({
+            where: {
+                [Op.and]: [
+                    { [Op.or]: [{ isDeleted: false }, { isDeleted: null }] },
+                    {
+                        [Op.or]: [
+                            { firstName: like },
+                            { lastName: like },
+                            { patientCode: like },
+                            { phone: like }
+                        ]
+                    }
+                ]
+            },
+            attributes: ['id', 'patientCode', 'firstName', 'lastName', 'dob', 'phone', 'serviceDate', 'isActive'],
+            include: [{
+                model: db.RXRecord,
+                attributes: ['id', 'serviceDate', 'arrivalDate', 'isDeleted'],
+                where: { [Op.or]: [{ isDeleted: false }, { isDeleted: null }] },
+                required: false
+            }],
+            order: [['lastName', 'ASC'], ['firstName', 'ASC']],
+            limit: 12
+        });
+
+        res.json({ patients });
+    } catch (e) { res.status(500).json({ error: e.message }); }
+};
+
+exports.overridePatientServiceDate = async (req, res) => {
+    const patientId = parseInt(req.params.id, 10);
+    const newServiceDate = parseDate(req.body.serviceDate);
+    const reason = String(req.body.reason || '').trim();
+    const syncMatchingRx = req.body.syncMatchingRx === true || req.body.syncMatchingRx === 'true';
+
+    if (!Number.isFinite(patientId)) return res.status(400).json({ error: 'Invalid patient id.' });
+    if (!newServiceDate) return res.status(400).json({ error: 'New service date is required.' });
+    if (reason.length < 8) return res.status(400).json({ error: 'A reason of at least 8 characters is required.' });
+
+    const t = await db.sequelize.transaction();
+    try {
+        const patient = await db.Patient.findByPk(patientId, { transaction: t, lock: t.LOCK.UPDATE });
+        if (!patient) {
+            await t.rollback();
+            return res.status(404).json({ error: 'Patient not found.' });
+        }
+
+        const oldServiceDate = patient.serviceDate ? String(patient.serviceDate).slice(0, 10) : null;
+        if (oldServiceDate === newServiceDate) {
+            await t.rollback();
+            return res.status(400).json({ error: 'New service date is the same as the current service date.' });
+        }
+
+        patient.serviceDate = newServiceDate;
+        await patient.save({ transaction: t });
+
+        let rxUpdated = 0;
+        if (syncMatchingRx && oldServiceDate) {
+            const result = await db.RXRecord.update(
+                { serviceDate: newServiceDate, arrivalDate: newServiceDate },
+                {
+                    where: {
+                        patientId,
+                        serviceDate: oldServiceDate,
+                        [Op.or]: [{ isDeleted: false }, { isDeleted: null }]
+                    },
+                    transaction: t
+                }
+            );
+            rxUpdated = Array.isArray(result) ? result[0] : result;
+        }
+
+        const label = `${patient.firstName || ''} ${patient.lastName || ''}`.trim() || `Patient #${patient.id}`;
+        await db.AuditLog.create({
+            userId:        req.user ? req.user.id : null,
+            date:          new Date().toISOString().split('T')[0],
+            time:          new Date().toTimeString().split(' ')[0],
+            module:        'Backoffice',
+            action:        '90-Day Service Date Override',
+            recordId:      patient.id,
+            previousValue: {
+                _label: label,
+                patientCode: patient.patientCode,
+                serviceDate: oldServiceDate
+            },
+            newValue: {
+                _label: label,
+                patientCode: patient.patientCode,
+                serviceDate: newServiceDate,
+                reason,
+                syncMatchingRx,
+                rxUpdated
+            },
+            ipAddress:     req.ip || req.socket?.remoteAddress || 'unknown'
+        }, { transaction: t });
+
+        await t.commit();
+
+        res.json({
+            success: true,
+            patient: {
+                id: patient.id,
+                patientCode: patient.patientCode,
+                firstName: patient.firstName,
+                lastName: patient.lastName,
+                oldServiceDate,
+                serviceDate: newServiceDate
+            },
+            rxUpdated
+        });
+    } catch (e) {
+        await t.rollback();
+        res.status(500).json({ error: e.message });
+    }
 };
 
 // ══════════════════════════════════════════════════════════════════════════

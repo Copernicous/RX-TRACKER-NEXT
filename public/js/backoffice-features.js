@@ -84,6 +84,16 @@ function exportHealthCSV() {
 // ══════════════════════════════════════════════════════════════════════════
 var settingsLoaded = false;
 
+function updateBackofficeToggle(cb, toggleId, knobId, onColor, bannerId) {
+    if (!cb) return;
+    var toggle = document.getElementById(toggleId);
+    var knob = document.getElementById(knobId);
+    var banner = bannerId ? document.getElementById(bannerId) : null;
+    if (toggle) toggle.style.background = cb.checked ? onColor : '#334155';
+    if (knob) knob.style.left = cb.checked ? '24px' : '4px';
+    if (banner) banner.style.display = cb.checked ? 'flex' : 'none';
+}
+
 async function loadSettings() {
     try {
         var res  = await apiFetch('/api/admin/settings');
@@ -97,17 +107,18 @@ async function loadSettings() {
         document.getElementById('sMaxLogin').value       = data.maxLoginAttempts || 5;
         var cb = document.getElementById('sMaintenanceMode');
         cb.checked = !!data.maintenanceMode;
-        document.getElementById('sMaintenanceToggle').style.background = cb.checked ? '#6366f1' : '#334155';
-        document.getElementById('sMaintenanceKnob').style.left = cb.checked ? '24px' : '4px';
-        /* BO-10: Show/hide maintenance banner */
+        var svcCb = document.getElementById('sServiceDateOverrideEnabled');
+        if (svcCb) svcCb.checked = !!data.serviceDateOverrideEnabled;
         function _updateMaintBanner() {
-            var banner = document.getElementById('maintModeBanner');
-            if (banner) banner.style.display = cb.checked ? '' : 'none';
-            document.getElementById('sMaintenanceToggle').style.background = cb.checked ? '#6366f1' : '#334155';
-            document.getElementById('sMaintenanceKnob').style.left = cb.checked ? '24px' : '4px';
+            updateBackofficeToggle(cb, 'sMaintenanceToggle', 'sMaintenanceKnob', '#6366f1', 'maintModeBanner');
+        }
+        function _updateSvcOverrideBanner() {
+            updateBackofficeToggle(svcCb, 'sSvcOverrideToggle', 'sSvcOverrideKnob', '#f59e0b', 'svcOverrideGlobalBanner');
         }
         _updateMaintBanner();
+        _updateSvcOverrideBanner();
         cb.addEventListener('change', _updateMaintBanner);
+        if (svcCb) svcCb.addEventListener('change', _updateSvcOverrideBanner);
     } catch(e) { toast('Failed to load settings: ' + e.message, 'danger'); }
 }
 
@@ -121,6 +132,7 @@ async function saveSettings(e) {
             sessionTimeoutMinutes: parseInt(document.getElementById('sSessionTimeout').value, 10),
             maxLoginAttempts:      parseInt(document.getElementById('sMaxLogin').value, 10),
             maintenanceMode:       document.getElementById('sMaintenanceMode').checked,
+            serviceDateOverrideEnabled: document.getElementById('sServiceDateOverrideEnabled').checked
         };
         var res  = await apiFetch('/api/admin/settings', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
         var data = await res.json();
@@ -315,6 +327,177 @@ async function loadHealth() {
 // LOCK MANAGER JS
 // ══════════════════════════════════════════════════════════════════════════
 var locksLoaded = false;
+var svcOverrideResults = [];
+var svcOverrideSelectedPatient = null;
+
+function _svcOverrideEsc(v) {
+    return String(v === null || v === undefined ? '' : v)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+function _svcOverrideFmtDate(v) {
+    if (!v) return 'None';
+    try { return new Date(String(v).slice(0,10) + 'T12:00:00').toLocaleDateString(); }
+    catch(e) { return String(v); }
+}
+
+function _svcOverrideWindowHtml(patient) {
+    if (!patient.serviceDate) {
+        return '<span style="color:#94a3b8">No service date set</span>';
+    }
+    var sd = new Date(String(patient.serviceDate).slice(0,10) + 'T12:00:00');
+    sd.setHours(0,0,0,0);
+    var exp = new Date(sd.getTime() + 90 * 864e5);
+    var now = new Date(); now.setHours(0,0,0,0);
+    var daysLeft = Math.ceil((exp - now) / 864e5);
+    if (daysLeft >= 0) {
+        return '<span style="color:#fbbf24;font-weight:700"><i class="fas fa-lock me-1"></i>Locked - ' + daysLeft + 'd left</span>';
+    }
+    return '<span style="color:#6ee7b7;font-weight:700"><i class="fas fa-check-circle me-1"></i>Expired - eligible</span>';
+}
+
+function _svcOverridePatientName(patient) {
+    return ((patient.firstName || '') + ' ' + (patient.lastName || '')).trim() || ('Patient #' + patient.id);
+}
+
+async function searchSvcOverridePatients() {
+    var qEl = document.getElementById('svcOverrideSearch');
+    var resultsEl = document.getElementById('svcOverrideResults');
+    var btn = document.getElementById('svcOverrideSearchBtn');
+    if (!qEl || !resultsEl) return;
+    var q = qEl.value.trim();
+    svcOverrideSelectedPatient = null;
+    checkSvcOverrideReady();
+    document.getElementById('svcOverrideSelected').style.display = 'none';
+    if (q.length < 2) {
+        resultsEl.innerHTML = '<div style="font-size:0.76rem;color:#fca5a5">Enter at least 2 characters.</div>';
+        return;
+    }
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Search'; }
+    resultsEl.innerHTML = '<div style="font-size:0.78rem;color:var(--text-muted)"><i class="fas fa-spinner fa-spin me-1"></i>Searching patients...</div>';
+    try {
+        var res = await apiFetch('/api/admin/service-date-overrides/patients?q=' + encodeURIComponent(q));
+        var data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Search failed');
+        svcOverrideResults = data.patients || [];
+        renderSvcOverrideResults();
+    } catch(e) {
+        resultsEl.innerHTML = '<div style="font-size:0.76rem;color:#fca5a5">' + _svcOverrideEsc(e.message) + '</div>';
+    } finally {
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-search me-1"></i>Search'; }
+    }
+}
+
+function renderSvcOverrideResults() {
+    var resultsEl = document.getElementById('svcOverrideResults');
+    if (!resultsEl) return;
+    if (!svcOverrideResults.length) {
+        resultsEl.innerHTML = '<div style="font-size:0.76rem;color:var(--text-muted)">No matching active patients found.</div>';
+        return;
+    }
+    var html = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:0.55rem">';
+    for (var i = 0; i < svcOverrideResults.length; i++) {
+        var p = svcOverrideResults[i];
+        var rxCount = p.RXRecords ? p.RXRecords.length : 0;
+        html +=
+            '<button type="button" onclick="selectSvcOverridePatient(' + p.id + ')" style="text-align:left;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:0.75rem;color:var(--text);cursor:pointer">' +
+                '<div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;margin-bottom:0.25rem">' +
+                    '<strong style="font-size:0.84rem">' + _svcOverrideEsc(_svcOverridePatientName(p)) + '</strong>' +
+                    '<code style="font-size:0.68rem;color:#a5b4fc">' + _svcOverrideEsc(p.patientCode || p.id) + '</code>' +
+                '</div>' +
+                '<div style="font-size:0.72rem;color:var(--text-muted);line-height:1.5">' +
+                    'Service: ' + _svcOverrideEsc(_svcOverrideFmtDate(p.serviceDate)) + '<br>' +
+                    'RX records: ' + rxCount + '<br>' +
+                    _svcOverrideWindowHtml(p) +
+                '</div>' +
+            '</button>';
+    }
+    html += '</div>';
+    resultsEl.innerHTML = html;
+}
+
+function selectSvcOverridePatient(id) {
+    svcOverrideSelectedPatient = null;
+    for (var i = 0; i < svcOverrideResults.length; i++) {
+        if (String(svcOverrideResults[i].id) === String(id)) {
+            svcOverrideSelectedPatient = svcOverrideResults[i];
+            break;
+        }
+    }
+    var box = document.getElementById('svcOverrideSelected');
+    if (!box || !svcOverrideSelectedPatient) return;
+    var p = svcOverrideSelectedPatient;
+    box.style.display = '';
+    box.innerHTML =
+        '<div style="border:1px solid rgba(245,158,11,0.3);background:rgba(245,158,11,0.07);border-radius:8px;padding:0.75rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap">' +
+            '<div>' +
+                '<div style="font-weight:700;font-size:0.86rem;color:#fbbf24"><i class="fas fa-user-check me-1"></i>Selected: ' + _svcOverrideEsc(_svcOverridePatientName(p)) + '</div>' +
+                '<div style="font-size:0.74rem;color:var(--text-muted);margin-top:0.2rem">Patient ID: ' + _svcOverrideEsc(p.patientCode || p.id) + ' | Current service date: ' + _svcOverrideEsc(_svcOverrideFmtDate(p.serviceDate)) + ' | ' + _svcOverrideWindowHtml(p) + '</div>' +
+            '</div>' +
+            '<button class="btn-bo btn-bo-outline" onclick="clearSvcOverrideSelection()" style="font-size:0.72rem"><i class="fas fa-times me-1"></i>Clear</button>' +
+        '</div>';
+    checkSvcOverrideReady();
+}
+
+function clearSvcOverrideSelection() {
+    svcOverrideSelectedPatient = null;
+    var box = document.getElementById('svcOverrideSelected');
+    if (box) { box.style.display = 'none'; box.innerHTML = ''; }
+    checkSvcOverrideReady();
+}
+
+function checkSvcOverrideReady() {
+    var btn = document.getElementById('svcOverrideApplyBtn');
+    var dateEl = document.getElementById('svcOverrideDate');
+    var reasonEl = document.getElementById('svcOverrideReason');
+    if (!btn || !dateEl || !reasonEl) return;
+    btn.disabled = !(svcOverrideSelectedPatient && dateEl.value && reasonEl.value.trim().length >= 8);
+}
+
+async function applySvcOverride() {
+    if (!svcOverrideSelectedPatient) { toast('Select a patient first.', 'info'); return; }
+    var dateEl = document.getElementById('svcOverrideDate');
+    var reasonEl = document.getElementById('svcOverrideReason');
+    var syncEl = document.getElementById('svcOverrideSyncRx');
+    var btn = document.getElementById('svcOverrideApplyBtn');
+    var newDate = dateEl ? dateEl.value : '';
+    var reason = reasonEl ? reasonEl.value.trim() : '';
+    var oldDate = svcOverrideSelectedPatient.serviceDate ? String(svcOverrideSelectedPatient.serviceDate).slice(0,10) : 'none';
+    if (!newDate || reason.length < 8) { checkSvcOverrideReady(); return; }
+    if (!confirm('Override 90-day service date for ' + _svcOverridePatientName(svcOverrideSelectedPatient) + ' from ' + oldDate + ' to ' + newDate + '?')) return;
+
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Applying...'; }
+    try {
+        var res = await apiFetch('/api/admin/patients/' + svcOverrideSelectedPatient.id + '/service-date-override', {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({
+                serviceDate: newDate,
+                reason: reason,
+                syncMatchingRx: syncEl ? syncEl.checked : false
+            })
+        });
+        var data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Override failed');
+        toast('\u2713 Service date override applied' + (data.rxUpdated ? ' | RX rows updated: ' + data.rxUpdated : ''), 'success');
+        svcOverrideSelectedPatient.serviceDate = data.patient.serviceDate;
+        svcOverrideSelectedPatient.RXRecords = [];
+        renderSvcOverrideResults();
+        selectSvcOverridePatient(data.patient.id);
+        if (dateEl) dateEl.value = '';
+        if (reasonEl) reasonEl.value = '';
+        if (syncEl) syncEl.checked = false;
+        locksLoaded = false;
+    } catch(e) {
+        toast('Override failed: ' + e.message, 'danger');
+    } finally {
+        if (btn) { btn.innerHTML = '<i class="fas fa-unlock-alt me-1"></i>Override Service Date'; }
+        checkSvcOverrideReady();
+    }
+}
 
 /* BO-07: Format seconds to human-readable duration */
 function _fmtDuration(secs) {

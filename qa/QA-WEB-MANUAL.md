@@ -53,6 +53,34 @@ Then choose the QA web dashboard option.
 5. Review logs if a failure appears.
 6. Click `Stop QA Site` when finished.
 
+## 90-Day Service Date Blocking Diagram
+
+The 90-day rule is based on the patient's `Service Date`. That date starts the patient's active service window.
+
+```text
+Example seeded QA Service Date: 2026-06-24
+
+                 ACTIVE 90-DAY WINDOW / BLOCKED
+                 normal users cannot move Service Date here
+
+2026-06-24      2026-07-24      2026-08-23      2026-09-22      2026-09-23
+Day 0           Day 30          Day 60          Day 90          Day 91
+|---------------|---------------|---------------|---------------|---->
+Service Date                                    Window ends      Normal edits allowed
+starts clock                                    after this day   after this point
+```
+
+Simple rule:
+
+- `Patient.serviceDate` is the source of truth for the patient's 90-day clock.
+- While the window is active, normal patient/RX service-date changes are blocked.
+- A normal new service cycle should start after the window expires.
+- The Backoffice per-patient override changes one selected patient's service date.
+- The Backoffice global override temporarily lifts the service-date 90-day block for all users.
+- The global override does not remove unrelated safeguards like inactive-patient checks, workflow sequence rules, or destructive reset-cycle confirmation.
+
+Use the global override only during import correction, then turn it off again.
+
 ## Seed Fake Data vs Add More Fake Data
 
 `Seed Fake Data` is intentionally idempotent. Pressing it again updates the same baseline QA records instead of creating duplicates. The smoke test depends on these stable records:

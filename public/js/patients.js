@@ -1,4 +1,5 @@
 var allPatients = [];
+    var serviceDateOverrideEnabled = false;
     var filteredPatients = [];
     var currentPage = 1;
     var pageSize = 20;
@@ -10,6 +11,7 @@ var allPatients = [];
     document.addEventListener('DOMContentLoaded', async () => {
         initApp();
         await loadDropdowns();
+        await loadServiceDateOverrideState();
 
         // Page-size selector
         var psSel = document.getElementById('patPageSizeSelect');
@@ -278,6 +280,19 @@ var allPatients = [];
         if (!patPerms.canExport) { const b = document.getElementById('exportPatientsCsvBtn'); if(b) b.classList.add('d-none'); }
         if (!patPerms.canAdd)   { const b = document.getElementById('addPatientBtn');       if(b) b.classList.add('d-none'); }
     });
+
+
+    async function loadServiceDateOverrideState() {
+        try {
+            const res = await fetchWithAuth('/api/service-date-override/status', { silent: true });
+            if (res && res.ok) {
+                const data = await res.json();
+                serviceDateOverrideEnabled = !!data.enabled;
+            }
+        } catch(e) {
+            serviceDateOverrideEnabled = false;
+        }
+    }
 
 
     async function loadDropdowns() {
@@ -934,6 +949,7 @@ var allPatients = [];
         const svcInput = document.getElementById('pServiceDate');
         const detail   = document.getElementById('svcDateLockDetail');
         const isLocked = (function() {
+            if (serviceDateOverrideEnabled) return false;
             if (!patient || !patient.serviceDate) return false;
             var sd  = new Date(patient.serviceDate); sd.setHours(0,0,0,0);
             var exp = new Date(sd.getTime() + 90 * 864e5);
@@ -979,7 +995,9 @@ var allPatients = [];
             if (_patModal) {
                 _patModal.querySelectorAll('input, select, textarea').forEach(function(el) {
                     if (_isEditable) {
-                        el.removeAttribute('readonly');
+                        if (!(el.id === 'pServiceDate' && isLocked)) {
+                            el.removeAttribute('readonly');
+                        }
                         el.removeAttribute('disabled');
                     } else {
                         if (el.tagName === 'SELECT' || el.type === 'checkbox') {
@@ -1565,4 +1583,3 @@ var allPatients = [];
         if (el) el.value = '';
         liveFilter();
     }
-

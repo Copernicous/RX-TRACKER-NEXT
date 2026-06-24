@@ -1,6 +1,7 @@
 const db = require('../models');
 const { Op } = require('sequelize');
 const { parseDate } = require('../utils/dateUtils');
+const { isServiceDateOverrideEnabled } = require('../utils/globalSettings');
 
 exports.getAll = async (req, res) => {
     try {
@@ -123,17 +124,20 @@ exports.update = async (req, res) => {
         }
 
         // Check if service date is being updated (90-day rule)
-        if (req.body.serviceDate && req.body.serviceDate !== patient.serviceDate) {
+        if (!isServiceDateOverrideEnabled() && req.body.serviceDate && req.body.serviceDate !== patient.serviceDate) {
             if (patient.serviceDate) {
                 const prevDate = new Date(patient.serviceDate);
-                const newDate = new Date(req.body.serviceDate);
                 const currentDate = new Date();
+                prevDate.setHours(0, 0, 0, 0);
+                currentDate.setHours(0, 0, 0, 0);
 
-                const daysDifference = (currentDate.getTime() - prevDate.getTime()) / (1000 * 3600 * 24);
+                const windowExpiry = new Date(prevDate);
+                windowExpiry.setDate(windowExpiry.getDate() + 90);
 
-                if (daysDifference < 90) {
+                if (currentDate <= windowExpiry) {
+                    const daysRemaining = Math.ceil((windowExpiry.getTime() - currentDate.getTime()) / (1000 * 3600 * 24));
                     return res.status(400).json({
-                        error: `A new Service Date can only be assigned every 90 days. Only ${Math.floor(daysDifference)} days have passed.`
+                        error: `A new Service Date can only be assigned after the active 90-day window expires on ${windowExpiry.toLocaleDateString()}. ${daysRemaining} day${daysRemaining !== 1 ? 's' : ''} remaining.`
                     });
                 }
             }

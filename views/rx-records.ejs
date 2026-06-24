@@ -378,6 +378,7 @@
 <script src="/js/help.js"></script>
 <script>
     var allRx = [], filteredRx = [], allWorkflowActions = [];
+    var rxServiceDateOverrideEnabled = false;
     /* F10-02: Bulk selection Set */
     var _rxBulkSel = (typeof Set === 'function') ? new Set() : (function(){
         var d = {};
@@ -768,7 +769,9 @@
             }
         });
 
-        loadRxDropdowns().then(function() {
+        loadServiceDateOverrideState().then(function() {
+            return loadRxDropdowns();
+        }).then(function() {
             return loadRxRecords();
         }).then(function() {
             if (patientName || patientId) { rxPage = 1; applyRxFilter(); }
@@ -776,6 +779,17 @@
     });
 
     // Cached option arrays for re-filling selects after patient switch
+
+    function loadServiceDateOverrideState() {
+        return fetchWithAuth('/api/service-date-override/status', { silent: true }).then(function(res) {
+            if (!res || !res.ok) return;
+            return res.json().then(function(data) {
+                rxServiceDateOverrideEnabled = !!data.enabled;
+            });
+        }).catch(function() {
+            rxServiceDateOverrideEnabled = false;
+        });
+    }
 
     // Reset all display fields and hide the info panel (called on modal open)
     function resetRxForm() {
@@ -1617,7 +1631,16 @@
                 // When the window is still running, show a clear visual indicator that the
                 // service date is locked and cannot be changed until the window expires.
                 var daysLeftInWindow = expiryDateR ? Math.ceil((expiryDateR - todayD) / 864e5) : 0;
-                var activeLockBanner = (!isExpired && svcDateR)
+                var globalOverrideBanner = (rxServiceDateOverrideEnabled && !isExpired && svcDateR)
+                    ? '<div class="alert py-2 mb-3 d-flex align-items-center gap-3" style="background:rgba(245,158,11,.12);border:1.5px solid rgba(245,158,11,.35);border-radius:8px">' +
+                        '<i class="fas fa-unlock-alt" style="color:#f59e0b;font-size:1.1rem;flex-shrink:0"></i>' +
+                        '<div>' +
+                            '<strong style="color:#b45309">Global 90-Day Override Active</strong>' +
+                            '<div class="small text-muted mt-1">Service-date 90-day blocks are currently lifted system-wide from Backoffice Settings.</div>' +
+                        '</div>' +
+                      '</div>'
+                    : '';
+                var activeLockBanner = (!rxServiceDateOverrideEnabled && !isExpired && svcDateR)
                     ? '<div class="alert py-2 mb-3 d-flex align-items-center gap-3" style="background:rgba(74,144,226,.12);border:1.5px solid rgba(74,144,226,.35);border-radius:8px">' +
                         '<i class="fas fa-lock" style="color:#4a90e2;font-size:1.1rem;flex-shrink:0"></i>' +
                         '<div>' +
@@ -1671,7 +1694,7 @@
                     ? '<div class="alert alert-info d-flex align-items-center py-2 mb-3"><i class="fas fa-eye me-2"></i><span>View Only — you do not have permission to update workflow steps.</span></div>'
                     : '';
 
-                var html = viewOnlyBanner + expiryBanner + activeLockBanner + warehouseBanner + '<div class="list-group">' + listHtml + '</div>';
+                var html = viewOnlyBanner + expiryBanner + globalOverrideBanner + activeLockBanner + warehouseBanner + '<div class="list-group">' + listHtml + '</div>';
                 document.getElementById('workflowBody').innerHTML = html;
 
                 /* Wire Reset Cycle button */

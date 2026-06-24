@@ -31,6 +31,7 @@ const medicationCatalogController = require('../controllers/medicationCatalogCon
 const adminController = require('../controllers/adminController');
 const snapshotController = require('../controllers/snapshotController');
 const roleController = require('../controllers/roleController');
+const { isServiceDateOverrideEnabled } = require('../utils/globalSettings');
 
 // ── Public routes (no auth required) — must be declared BEFORE router.use(auth) ──
 router.get('/version', (req, res) => {
@@ -74,6 +75,10 @@ router.get('/lookup/:module', async (req, res) => {
         console.error('[lookup]', e.message);
         res.status(500).json({ error: e.message });
     }
+});
+
+router.get('/service-date-override/status', (req, res) => {
+    res.json({ enabled: isServiceDateOverrideEnabled() });
 });
 
 // Helper mapping for paths to permissions key
@@ -510,6 +515,8 @@ router.get('/admin/health',             masterOnly, adminController.getHealth);
 router.get('/admin/locks',              masterOnly, adminController.getLocks);
 router.delete('/admin/locks/:id',       masterOnly, adminController.releaseLock);
 router.delete('/admin/locks',           masterOnly, adminController.releaseExpiredLocks);
+router.get('/admin/service-date-overrides/patients', masterOnly, adminController.searchPatientsForServiceDateOverride);
+router.post('/admin/patients/:id/service-date-override', masterOnly, adminController.overridePatientServiceDate);
 // User Manager
 router.get('/admin/users',              masterOnly, adminController.getUsers);
 router.patch('/admin/users/:id',        masterOnly, adminController.updateUser);
@@ -580,4 +587,3 @@ router.get('/git-log', auth, adminOnly, (req, res) => {
 });
 
 module.exports = router;
-

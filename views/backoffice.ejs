@@ -351,6 +351,14 @@
         </div>
     </div>
 
+    <div id="svcOverrideGlobalBanner" style="display:none;background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.35);border-radius:8px;padding:0.6rem 1rem;margin-bottom:1rem;align-items:center;gap:0.75rem">
+        <i class="fas fa-unlock-alt" style="color:#f59e0b;font-size:1.1rem"></i>
+        <div style="flex:1">
+            <span style="color:#fbbf24;font-weight:700;font-size:0.82rem">GLOBAL 90-DAY OVERRIDE IS ON</span>
+            <span style="color:#94a3b8;font-size:0.75rem;margin-left:0.5rem">Service-date 90-day blocks are lifted for all users. <button onclick="switchTab('settings')" style="background:none;border:none;color:#a5b4fc;cursor:pointer;font-size:0.75rem;padding:0;text-decoration:underline">Go to Settings to disable</button></span>
+        </div>
+    </div>
+
     <!-- Tab Navigation -->
     <div class="tab-nav">
         <button class="tab-btn active" id="tabTables" onclick="switchTab('tables')"><i class="fas fa-table"></i>Tables &amp; Data</button>
@@ -547,6 +555,17 @@
                         <span id="sMaintenanceKnob" style="position:absolute;left:4px;top:4px;width:16px;height:16px;background:#94a3b8;border-radius:50%;transition:.2s"></span>
                     </label>
                 </div>
+                <div class="schema-card" style="padding:1rem;display:flex;align-items:center;justify-content:space-between;border-color:rgba(245,158,11,0.28);background:rgba(245,158,11,0.04)">
+                    <div>
+                        <label style="font-size:0.72rem;color:#fbbf24;text-transform:uppercase;letter-spacing:.07em">Global 90-Day Override</label>
+                        <div style="font-size:0.68rem;color:var(--text-muted);margin-top:0.25rem">Lifts service-date 90-day blocks for all users during import corrections</div>
+                    </div>
+                    <label style="position:relative;display:inline-block;width:44px;height:24px;cursor:pointer">
+                        <input type="checkbox" id="sServiceDateOverrideEnabled" style="opacity:0;width:0;height:0">
+                        <span id="sSvcOverrideToggle" style="position:absolute;inset:0;background:#334155;border-radius:12px;transition:.2s"></span>
+                        <span id="sSvcOverrideKnob" style="position:absolute;left:4px;top:4px;width:16px;height:16px;background:#94a3b8;border-radius:50%;transition:.2s"></span>
+                    </label>
+                </div>
             </div>
             <div style="display:flex;gap:0.75rem;align-items:center">
                 <button type="submit" class="btn-bo btn-bo-primary"><i class="fas fa-save me-1"></i>Save Settings</button>
@@ -599,6 +618,41 @@
                 <button class="btn-bo btn-bo-danger" onclick="releaseExpiredLocks()" style="font-size:0.78rem"><i class="fas fa-broom me-1"></i>Clear Expired</button>
                 <!-- BO-03: Lock export button -->
                 <button class="btn-bo btn-bo-outline" id="locksExportBtn" onclick="exportLocksCSV()" style="display:none;font-size:0.78rem"><i class="fas fa-file-csv me-1"></i>Export CSV</button>
+            </div>
+        </div>
+        <div class="schema-card" style="padding:1rem;margin-bottom:1rem;border-color:rgba(245,158,11,0.35);background:rgba(245,158,11,0.045)">
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;flex-wrap:wrap;margin-bottom:0.9rem">
+                <div>
+                    <div style="font-size:0.95rem;font-weight:700;color:#fbbf24"><i class="fas fa-calendar-alt me-2"></i>90-Day Service Date Override</div>
+                    <div style="font-size:0.74rem;color:var(--text-muted);margin-top:0.2rem">Emergency Backoffice tool for correcting imported or mis-keyed service dates while the normal 90-day block stays active for users.</div>
+                </div>
+                <span style="font-size:0.68rem;color:#fbbf24;border:1px solid rgba(245,158,11,0.35);background:rgba(245,158,11,0.1);border-radius:20px;padding:0.2rem 0.65rem;font-weight:700">MASTER ONLY</span>
+            </div>
+            <div style="display:grid;grid-template-columns:minmax(240px,1.2fr) 180px minmax(260px,1fr);gap:0.65rem;align-items:end">
+                <div>
+                    <label style="font-size:0.7rem;color:var(--text-muted);font-weight:700;text-transform:uppercase;letter-spacing:.06em">Find Patient</label>
+                    <div style="display:flex;gap:0.45rem;margin-top:0.35rem">
+                        <input type="text" id="svcOverrideSearch" class="schema-search" style="margin:0" placeholder="Name, patient ID, or phone" onkeydown="if(event.key==='Enter')searchSvcOverridePatients()">
+                        <button class="btn-bo btn-bo-primary" id="svcOverrideSearchBtn" onclick="searchSvcOverridePatients()"><i class="fas fa-search me-1"></i>Search</button>
+                    </div>
+                </div>
+                <div>
+                    <label style="font-size:0.7rem;color:var(--text-muted);font-weight:700;text-transform:uppercase;letter-spacing:.06em">New Service Date</label>
+                    <input type="date" id="svcOverrideDate" class="schema-search" style="margin:0.35rem 0 0" onchange="checkSvcOverrideReady()">
+                </div>
+                <div>
+                    <label style="font-size:0.7rem;color:var(--text-muted);font-weight:700;text-transform:uppercase;letter-spacing:.06em">Reason</label>
+                    <input type="text" id="svcOverrideReason" class="schema-search" style="margin:0.35rem 0 0" placeholder="Required for audit log" oninput="checkSvcOverrideReady()">
+                </div>
+            </div>
+            <div id="svcOverrideResults" style="margin-top:0.85rem"></div>
+            <div id="svcOverrideSelected" style="display:none;margin-top:0.85rem"></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;margin-top:0.85rem;border-top:1px solid var(--border);padding-top:0.85rem">
+                <label style="display:flex;align-items:flex-start;gap:0.5rem;font-size:0.76rem;color:var(--text-muted);cursor:pointer;max-width:680px">
+                    <input type="checkbox" id="svcOverrideSyncRx" style="margin-top:0.15rem" onchange="checkSvcOverrideReady()">
+                    <span>Also update active RX records whose service date exactly matches the old patient service date. Their arrival date will be set to the new service date too.</span>
+                </label>
+                <button class="btn-bo btn-bo-danger" id="svcOverrideApplyBtn" disabled onclick="applySvcOverride()"><i class="fas fa-unlock-alt me-1"></i>Override Service Date</button>
             </div>
         </div>
         <div id="locksStatus" style="margin-bottom:1rem"></div>

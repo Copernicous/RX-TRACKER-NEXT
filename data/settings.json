@@ -1,4 +1,11 @@
 {
+  "backupPath": "E:\\Documents\\Daniely RX\\backups",
+  "backupRetentionDays": 30,
+  "appName": "Daniely RX",
+  "sessionTimeoutMinutes": 60,
+  "maxLoginAttempts": 5,
+  "maintenanceMode": false,
+  "serviceDateOverrideEnabled": false,
   "backupSchedule": "0 11,16,20 * * *",
   "siteBackupSchedule": "0 3 * * 0"
 }

@@ -1,5 +1,6 @@
 const db = require('../models');
 const { parseDate } = require('../utils/dateUtils');
+const { isServiceDateOverrideEnabled } = require('../utils/globalSettings');
 
 // ---- helper: save a history snapshot ----
 async function saveHistory(rxId, userId, changeType, snapshot, changedFields, note, transaction) {
@@ -119,7 +120,7 @@ exports.create = async (req, res) => {
             }
             // ── END INACTIVE GUARD ────────────────────────────────────────────────
 
-            if (patient && patient.serviceDate) {
+            if (!isServiceDateOverrideEnabled() && patient && patient.serviceDate) {
                 const patSvc    = new Date(patient.serviceDate); patSvc.setHours(0,0,0,0);
                 const patExpiry = new Date(patSvc); patExpiry.setDate(patExpiry.getDate() + 90);
                 const todayChk  = new Date(); todayChk.setHours(0,0,0,0);
@@ -570,7 +571,8 @@ exports.update = async (req, res) => {
         if (
             safeData.serviceDate !== undefined &&
             before.serviceDate &&
-            !req.body.bypassEligibility
+            !req.body.bypassEligibility &&
+            !isServiceDateOverrideEnabled()
         ) {
             const incomingDate  = safeData.serviceDate ? parseDate(safeData.serviceDate) : null;
             const currentSvcStr = before.serviceDate instanceof Date

@@ -47,27 +47,97 @@
 
     // ─── Autocomplete Engine ─────────────────────────────────────────────────────
     function buildAutocompletes() {
-        const uniq = arr => [...new Set(arr.filter(Boolean))].sort((a,b) => a.toString().localeCompare(b.toString()));
+        const uniq = arr => [...new Set(arr
+            .filter(v => v !== null && v !== undefined && String(v).trim() !== '')
+            .map(v => String(v).trim())
+        )].sort((a,b) => a.localeCompare(b));
+
+        function includesValue(value, query) {
+            return !query || String(value || '').toLowerCase().includes(query);
+        }
+
+        function patientTransportNames(p) {
+            return [
+                p.PatientTransportCompany && p.PatientTransportCompany.companyName,
+                p.PharmacyTransportCompany && p.PharmacyTransportCompany.companyName
+            ];
+        }
+
+        function patientMatchesAutocompleteContext(p, skipId) {
+            const filter     = document.getElementById('patientStatusFilter').value;
+            const dFrom      = document.getElementById('patientDateFrom').value;
+            const dTo        = document.getElementById('patientDateTo').value;
+            const qCode      = getVal('prfPatientCode');
+            const qFirst     = getVal('prfFirstName');
+            const qLast      = getVal('prfLastName');
+            const qPhone     = getVal('prfPhone');
+            const qTransport = getVal('prfTransport');
+            const qClinic    = getVal('prfClinic');
+
+            if (filter !== '' && String(p.isActive) !== filter) return false;
+            if (qCode && !includesValue(p.patientCode, qCode)) return false;
+            if (skipId !== 'prfFirstName' && qFirst && !includesValue(p.firstName, qFirst)) return false;
+            if (skipId !== 'prfLastName' && qLast && !includesValue(p.lastName, qLast)) return false;
+            if (qPhone && !includesValue(p.phone, qPhone)) return false;
+            if (skipId !== 'prfClinic' && qClinic && !includesValue(p.Clinic && p.Clinic.name, qClinic)) return false;
+            if (skipId !== 'prfTransport' && qTransport) {
+                const names = patientTransportNames(p).map(v => String(v || '').toLowerCase());
+                if (!names.some(name => name.includes(qTransport))) return false;
+            }
+            const svc = p.serviceDate || '';
+            if (dFrom && svc && svc < dFrom) return false;
+            if (dTo && svc && svc > dTo) return false;
+            return true;
+        }
+
+        function rxMatchesProgress(r, progress) {
+            if (!progress) return true;
+            const steps = r.completedSteps || [];
+            const total = allWorkflowActions.length;
+            if (progress === 'complete') return steps.length >= total && total > 0;
+            if (progress === 'pending') return steps.length < total;
+            return true;
+        }
+
+        function rxMatchesAutocompleteContext(r, skipId) {
+            const qRxId  = getVal('rrfRxId');
+            const qFirst = getVal('rrfFirstName');
+            const qLast  = getVal('rrfLastName');
+            const qCode  = getVal('rrfPatientCode');
+            const qPharm = getVal('rrfPharmacy');
+            const qProg  = document.getElementById('rrfProgress').value;
+            const dFrom  = document.getElementById('rxDateFrom').value;
+            const dTo    = document.getElementById('rxDateTo').value;
+            const patient = r.Patient || {};
+
+            if (qRxId && !String(r.id).includes(qRxId)) return false;
+            if (skipId !== 'rrfFirstName' && qFirst && !includesValue(patient.firstName, qFirst)) return false;
+            if (skipId !== 'rrfLastName' && qLast && !includesValue(patient.lastName, qLast)) return false;
+            if (qCode && !includesValue(patient.patientCode, qCode)) return false;
+            if (skipId !== 'rrfPharmacy' && qPharm && !includesValue(r.Pharmacy && r.Pharmacy.name, qPharm)) return false;
+            const svc = r.serviceDate || '';
+            if (dFrom && svc && svc < dFrom) return false;
+            if (dTo && svc && svc > dTo) return false;
+            return rxMatchesProgress(r, qProg);
+        }
 
         const defs = [
-            { id: 'prfFirstName',  opts: uniq(allPatientReport.map(p => p.firstName)) },
-            { id: 'prfLastName',   opts: uniq(allPatientReport.map(p => p.lastName)) },
-            { id: 'prfClinic',     opts: uniq(allPatientReport.map(p => p.Clinic && p.Clinic.name)) },
-            { id: 'prfTransport',  opts: uniq([
-                ...allPatientReport.map(p => p.PatientTransportCompany  && p.PatientTransportCompany.companyName),
-                ...allPatientReport.map(p => p.PharmacyTransportCompany && p.PharmacyTransportCompany.companyName)
-            ])},
-            { id: 'rrfFirstName',  opts: uniq(allRxReport.map(r => r.Patient && r.Patient.firstName)) },
-            { id: 'rrfLastName',   opts: uniq(allRxReport.map(r => r.Patient && r.Patient.lastName)) },
-            { id: 'rrfPharmacy',   opts: uniq(allRxReport.map(r => r.Pharmacy && r.Pharmacy.name)) }
+            { id: 'prfFirstName', options: () => uniq(allPatientReport.filter(p => patientMatchesAutocompleteContext(p, 'prfFirstName')).map(p => p.firstName)), render: renderPatientReport },
+            { id: 'prfLastName',  options: () => uniq(allPatientReport.filter(p => patientMatchesAutocompleteContext(p, 'prfLastName')).map(p => p.lastName)), render: renderPatientReport },
+            { id: 'prfClinic',    options: () => uniq(allPatientReport.filter(p => patientMatchesAutocompleteContext(p, 'prfClinic')).map(p => p.Clinic && p.Clinic.name)), render: renderPatientReport },
+            { id: 'prfTransport', options: () => uniq(allPatientReport.filter(p => patientMatchesAutocompleteContext(p, 'prfTransport')).flatMap(patientTransportNames)), render: renderPatientReport },
+            { id: 'rrfFirstName', options: () => uniq(allRxReport.filter(r => rxMatchesAutocompleteContext(r, 'rrfFirstName')).map(r => r.Patient && r.Patient.firstName)), render: renderRxActionReport },
+            { id: 'rrfLastName',  options: () => uniq(allRxReport.filter(r => rxMatchesAutocompleteContext(r, 'rrfLastName')).map(r => r.Patient && r.Patient.lastName)), render: renderRxActionReport },
+            { id: 'rrfPharmacy',  options: () => uniq(allRxReport.filter(r => rxMatchesAutocompleteContext(r, 'rrfPharmacy')).map(r => r.Pharmacy && r.Pharmacy.name)), render: renderRxActionReport }
         ];
 
-        defs.forEach(({ id, opts }) => {
+        defs.forEach(({ id, options, render }) => {
             const input  = document.getElementById(id);
             const listEl = document.getElementById('ac-' + id);
-            if (!input || !listEl || !opts.length) return;
+            if (!input || !listEl) return;
 
             function show(val) {
+                const opts = options();
                 const q = (val || '').toLowerCase().trim();
                 const matches = q ? opts.filter(o => o.toLowerCase().includes(q)) : opts;
                 if (!matches.length) { listEl.classList.remove('open'); return; }
@@ -79,7 +149,7 @@
                         e.preventDefault();
                         input.value = item.textContent;
                         listEl.classList.remove('open');
-                        input.dispatchEvent(new Event('input', { bubbles: true }));
+                        if (render) render();
                     });
                 });
                 listEl.classList.add('open');
