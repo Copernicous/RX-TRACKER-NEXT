@@ -1,16 +1,15 @@
 # Release Notes
 
-## v2.0.36 (2026-06-24)
+## v2.0.37 (2026-06-24)
 
 ### What's New
-- **Import template simplification**
-  - Patient import now has one clear CSV template download action.
-  - The template includes headers plus one example row so users can start immediately.
-
-- **Patient import workflow behavior preserved**
-  - RX workflow date columns continue to auto-create matching RX tracking history entries.
-  - Completed step dates are kept in order and marked as completed.
-  - Patient names are normalized to uppercase during import.
+- **Patient import validation tightened for workflow windows**
+  - If a service date is provided and workflow dates exist, import now blocks rows where:
+    - first workflow step is before service date, or
+    - any workflow date is more than 90 days after service date.
+  - Service date is still auto-inferred from the earliest workflow date when blank.
+- **Simulation output updated for same validation logic**
+  - `scripts/simulate-patient-workflow-import.js` now reports service-date/window rule failures in the same import flow.
 
 ### QA & Validation
 - Kept dry-run import simulation tooling in QA for workflow scenarios.
@@ -18,8 +17,8 @@
   - same-date scenario
   - +1 day incremental scenario
   - inferred service-date scenario
+- Verify import rejection when workflow steps violate the service-date window.
 
 ### Notes
-- Versioned build is `2.0.36` in `package.json`.
-- Deployment package generated for server delivery: `dist/server-update-2.0.36.zip`.
-
+- Versioned build is `2.0.37` in `package.json`.
+- Deployment package generated for server delivery: `dist/server-update-2.0.37.zip`.

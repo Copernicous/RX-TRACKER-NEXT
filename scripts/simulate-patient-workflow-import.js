@@ -37,6 +37,14 @@ function formatDateLabel(dateLike) {
     return formatDate(dateLike) || String(dateLike || 'none');
 }
 
+function toDateOnly(raw) {
+    const date = new Date(raw);
+    if (isNaN(date.getTime())) return null;
+    const day = new Date(date);
+    day.setHours(0, 0, 0, 0);
+    return day;
+}
+
 function checkChronologicalSteps(steps) {
     if (steps.length < 2) return null;
     for (let i = 1; i < steps.length; i++) {
@@ -45,6 +53,30 @@ function checkChronologicalSteps(steps) {
         }
     }
     return null;
+}
+
+function validateWorkflowAgainstServiceDate(steps, serviceDate, errors) {
+    if (!serviceDate || !steps.length) return;
+    const sorted = [...steps].sort((a, b) => {
+        if (a.sequenceNumber !== b.sequenceNumber) return a.sequenceNumber - b.sequenceNumber;
+        return new Date(a.completionDate) - new Date(b.completionDate);
+    });
+    const svcDate = toDateOnly(serviceDate);
+    if (!svcDate) return;
+    const firstDate = toDateOnly(sorted[0].completionDate);
+    if (firstDate && firstDate < svcDate) {
+        errors.push(`First workflow step "${sorted[0].name}" (${formatDateLabel(firstDate)}) cannot be before service date (${formatDateLabel(svcDate)}).`);
+    }
+    const expiryDate = new Date(svcDate);
+    expiryDate.setDate(expiryDate.getDate() + 90);
+    const outsideWindow = sorted.find((step) => {
+        const stepDate = toDateOnly(step.completionDate);
+        return stepDate && stepDate > expiryDate;
+    });
+    if (outsideWindow) {
+        const stepDate = toDateOnly(outsideWindow.completionDate);
+        errors.push(`Workflow step "${outsideWindow.name}" (${formatDateLabel(stepDate)}) exceeds service date + 90 days (${formatDateLabel(expiryDate)}).`);
+    }
 }
 
 function simulateImportRow(row) {
@@ -124,6 +156,10 @@ function simulateImportRow(row) {
             serviceDate = isoDate(inferred);
             warnings.push(`Service Date was blank; inferred from earliest workflow date => ${formatDateLabel(serviceDate)}`);
         }
+    }
+
+    if (serviceDate) {
+        validateWorkflowAgainstServiceDate(workflowSteps, serviceDate, errors);
     }
 
     let serviceWindow = null;

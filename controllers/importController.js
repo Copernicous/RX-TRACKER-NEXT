@@ -38,6 +38,53 @@ function parseDateField(raw) {
     return parseDate(raw);
 }
 
+function toDateOnly(raw) {
+    if (!raw) return null;
+    const date = new Date(raw);
+    if (isNaN(date.getTime())) return null;
+    const day = new Date(date);
+    day.setHours(0, 0, 0, 0);
+    return day;
+}
+
+function formatDateLabel(dateLike) {
+    if (!dateLike) return '(none)';
+    const date = new Date(dateLike);
+    if (isNaN(date.getTime())) return '(invalid)';
+    return date.toLocaleDateString();
+}
+
+function validateWorkflowAgainstServiceDate(serviceDate, workflowTracking, addErr) {
+    if (!serviceDate || !workflowTracking.length) return;
+    const svcDate = toDateOnly(serviceDate);
+    if (!svcDate) return;
+
+    const firstStep = workflowTracking.reduce((best, step) => {
+        if (!best) return step;
+        return step.completionDate < best.completionDate ? step : best;
+    }, null);
+    if (!firstStep) return;
+
+    const firstDate = toDateOnly(firstStep.completionDate);
+    if (!firstDate) return;
+
+    if (firstDate < svcDate) {
+        addErr(`First workflow step "${firstStep.name}" (${formatDateLabel(firstDate)}) cannot be before service date (${formatDateLabel(svcDate)}).`);
+    }
+
+    const expiryDate = new Date(svcDate);
+    expiryDate.setDate(expiryDate.getDate() + 90);
+
+    const outsideWindow = workflowTracking.find((step) => {
+        const stepDate = toDateOnly(step.completionDate);
+        return stepDate && stepDate > expiryDate;
+    });
+    if (outsideWindow) {
+        const stepDate = toDateOnly(outsideWindow.completionDate);
+        addErr(`Workflow step "${outsideWindow.name}" (${formatDateLabel(stepDate)}) exceeds service date + 90 days (${formatDateLabel(expiryDate)}).`);
+    }
+}
+
 function normalizeLookupText(value) {
     return String(value || '')
         .trim()
@@ -341,6 +388,8 @@ exports.importDataset = async (req, res) => {
                             const iso = `${earliest.getFullYear()}-${String(earliest.getMonth() + 1).padStart(2, '0')}-${String(earliest.getDate()).padStart(2, '0')}`;
                             svcDate = parseDateField(iso);
                         }
+                    } else if (svcDate) {
+                        validateWorkflowAgainstServiceDate(svcDate, workflowTracking, addErr);
                     }
 
                     validRows.push({

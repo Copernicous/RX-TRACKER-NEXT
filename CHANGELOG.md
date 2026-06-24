@@ -5,6 +5,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ---
 
+## [2.0.37] - 2026-06-24
+
+### [BUG-40] Import validation for workflow date windows
+**Files changed:** 2 | `controllers/importController.js`, `scripts/simulate-patient-workflow-import.js`
+
+- Patient workflow import now enforces service-date rules:
+  - first imported workflow step cannot be before the provided service date,
+  - all imported workflow steps must be within service date + 90 days,
+  - service date still auto-infers from the earliest workflow step when blank.
+- Duplicate transport and patient validation errors from import continue to be handled as hard-stop blockers before any writes, and QA simulation output now reflects the same checks.
+
 ## [2.0.36] - 2026-06-24
 
 ### UX - Import template simplification
