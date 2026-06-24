@@ -807,10 +807,10 @@ setup.bat</code></pre>
         if (ci) ci.value = data.schedule || '0 3 * * 0';
 
         // History
-        renderSiteHistory(data.recentBackups || []);
+        renderSiteHistory(data.recentBackups || [], data.backupDir);
     }
 
-    function renderSiteHistory(backups) {
+    function renderSiteHistory(backups, backupDir) {
         const el = document.getElementById('siteHistoryContent');
         if (!el) return;
         if (!backups.length) {
@@ -820,8 +820,17 @@ setup.bat</code></pre>
         const rows = backups.map(function(b) {
             const icon  = b.status === 'success' ? 'check-circle' : 'times-circle';
             const cls   = b.status === 'success' ? 'status-success' : 'status-failed';
-            const size  = b.size ? (b.size > 1048576 ? (b.size/1048576).toFixed(1) + ' MB' : (b.size/1024).toFixed(1) + ' KB') : '\u2014';
-            const dt    = b.timestamp ? new Date(b.timestamp).toLocaleString() : '\u2014';
+            const size  = b.size ? (b.size > 1048576 ? (b.size/1048576).toFixed(1) + ' MB' : (b.size/1024).toFixed(1) + ' KB') : '—';
+            const dt    = b.timestamp ? new Date(b.timestamp).toLocaleString() : '—';
+            // Filename + path cell
+            const fullPath = b.filepath ? b.filepath
+                           : (b.filename && backupDir) ? backupDir.replace(/[\\/]$/, '') + '\\' + b.filename
+                           : null;
+            const fileCell = b.filename
+                ? '<span class="font-monospace" style="font-size:.78rem;word-break:break-all;" title="' + (fullPath || b.filename) + '">' +
+                  b.filename + '</span>' +
+                  (fullPath ? '<br><small class="text-muted" style="font-size:.72rem;word-break:break-all;">' + fullPath + '</small>' : '')
+                : '<span class="text-muted">—</span>';
             const dl    = (b.status === 'success' && b.filename)
                 ? '<a class="btn btn-sm btn-outline-primary me-1" href="/api/backups/site/download/' + b.filename + '" title="Download ZIP"><i class="fas fa-download me-1"></i>ZIP</a>'
                 : '';
@@ -831,7 +840,8 @@ setup.bat</code></pre>
             return '<tr class="backup-row">' +
                 '<td><i class="fas fa-' + icon + ' ' + cls + ' me-2"></i><strong class="' + cls + '">' + b.status + '</strong></td>' +
                 '<td><small>' + dt + '</small></td>' +
-                '<td><small class="text-muted">' + (b.triggeredBy || '\u2014') + '</small></td>' +
+                '<td><small class="text-muted">' + (b.triggeredBy || '—') + '</small></td>' +
+                '<td>' + fileCell + '</td>' +
                 '<td><small><strong>' + size + '</strong></small></td>' +
                 '<td>' + (b.error ? '<span class="badge bg-danger" title="' + b.error + '">error</span>' : '') + '</td>' +
                 '<td class="text-nowrap">' + dl + delBtn + '</td>' +
@@ -840,7 +850,7 @@ setup.bat</code></pre>
         el.innerHTML =
             '<div class="table-responsive">' +
             '<table class="table table-sm align-middle">' +
-            '<thead><tr><th>Status</th><th>Timestamp</th><th>Triggered By</th><th>Size</th><th>Error</th><th>Actions</th></tr></thead>' +
+            '<thead><tr><th>Status</th><th>Timestamp</th><th>Triggered By</th><th>File / Path</th><th>Size</th><th>Error</th><th>Actions</th></tr></thead>' +
             '<tbody>' + rows + '</tbody>' +
             '</table></div>';
     }
