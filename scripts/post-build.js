@@ -28,8 +28,10 @@ if (!fs.existsSync(distDir)) {
 
 const filesToCopy = [
     '.env',
+    '.env.example',
     'RX-Manager.bat',
     'CHANGELOG.md',
+    'PRODUCTION_RELEASE_CHECKLIST.md',
     'DEFERRED-ITEMS.txt',
     'OPERATIONS_MANUAL.md',
     'install-service.ps1',
@@ -52,9 +54,20 @@ for (const file of filesToCopy) {
     }
 }
 
+const releaseNotesSource = path.join(root, '.github', 'releases', 'v' + packageInfo.version + '.md');
+const releaseNotesTarget = 'RELEASE_NOTES-v' + packageInfo.version + '.md';
+if (fs.existsSync(releaseNotesSource)) {
+    fs.copyFileSync(releaseNotesSource, path.join(distDir, releaseNotesTarget));
+    console.log('✓ ' + releaseNotesTarget + '  →  dist/' + releaseNotesTarget);
+    copied++;
+} else {
+    console.log('⚠ ' + releaseNotesTarget + '  (not found — skipped)');
+    skipped++;
+}
+
 console.log('');
 console.log('dist/ is ready: ' + copied + ' file(s) copied' + (skipped ? ', ' + skipped + ' skipped' : '') + '.');
-const updateFiles = ['server.exe', ...filesToCopy]
+const updateFiles = ['server.exe', ...filesToCopy, releaseNotesTarget]
     .map(file => path.join(distDir, file))
     .filter(file => fs.existsSync(file));
 
@@ -62,7 +75,7 @@ const updateZip = path.join(distDir, 'server-update-' + packageInfo.version + '.
 if (updateFiles.length > 0) {
     fs.rmSync(updateZip, { force: true });
 
-    const expectedEntries = ['server.exe', ...filesToCopy]
+    const expectedEntries = ['server.exe', ...filesToCopy, releaseNotesTarget]
         .filter(file => fs.existsSync(path.join(distDir, file)));
     const psArray = updateFiles
         .map(file => "'" + file.replace(/'/g, "''") + "'")

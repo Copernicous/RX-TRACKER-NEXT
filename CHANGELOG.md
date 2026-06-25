@@ -5,6 +5,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ---
 
+## [2.0.55] - 2026-06-25
+
+### [OPS-55] Production release checklist packaging
+**Files changed:** 6 | `PRODUCTION_RELEASE_CHECKLIST.md`, `.github/releases/v2.0.55.md`, `scripts/post-build.js`, `package.json`, `package-lock.json`, `CHANGELOG.md`
+
+- Added a reusable production release checklist for versioning, GitHub release uploads, production machine upload steps, `.env` verification, and rollback notes.
+- Updated the production post-build package to include `.env.example`, `PRODUCTION_RELEASE_CHECKLIST.md`, and the tag-specific `RELEASE_NOTES-v<version>.md` file in `dist/server-update-<version>.zip`.
+- Kept real `.env` handling local to the build and production machines so secrets remain outside Git.
+- Bumped production package version to `2.0.55`.
+
 ## [2.0.54] - 2026-06-25
 
 ### [FIX-54] GitHub release workflow compatibility
