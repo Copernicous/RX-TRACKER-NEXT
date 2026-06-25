@@ -377,7 +377,7 @@ function checkAuth() {
         return;
     }
     try {
-        const user = JSON.parse(localStorage.getItem('user'));
+        const user = getCurrentAuthUser();
         var el = document.getElementById('userGreeting');
         if (el && user) {
             el.textContent = 'Hello, ' + user.firstName + ' ' + user.lastName;
@@ -403,13 +403,13 @@ function checkAuth() {
             '/system-settings':    'system_settings'
         };
 
-        const role = user.role;
+        const role = user.role || user._tokenRole;
         const permissions = user.permissions || getRoleDefaultPermissions(role);
         // Dashboard is always forced visible — cannot be hidden
         if (permissions.dashboard) permissions.dashboard.visible = true;
         else permissions.dashboard = { visible: true, readOnly: false };
         // For Administrators: force-show admin-only pages regardless of stored permissions
-        if (role === 'Administrator') {
+        if (isAdministratorUser(user)) {
             ['backups','system_settings','audit_log','users','medication_catalog'].forEach(function(k) {
                 if (!permissions[k]) permissions[k] = { visible: true };
                 else permissions[k].visible = true;
@@ -837,12 +837,65 @@ async function refreshTable() {
 // =============================================
 // Permissions helper — returns current-page perms
 // =============================================
-function getPagePerms() {
-    // Full access: returned only when NO stored permission object exists for the module
-    var fullAccess = { visible: true, canAdd: true, canEdit: true, canDelete: true, canExport: true, canUndo: true, canWarehouse: true, canOverrideExpired: true };
+function getFullPageAccess() {
+    return { visible: true, canAdd: true, canEdit: true, canDelete: true, canExport: true, canUndo: true, canWarehouse: true, canOverrideExpired: true };
+}
+
+function decodeJwtPayload(token) {
     try {
-        var user = JSON.parse(localStorage.getItem('user'));
+        if (!token || token.split('.').length < 2) return null;
+        var payload = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+        while (payload.length % 4) payload += '=';
+        return JSON.parse(atob(payload));
+    } catch (e) {
+        return null;
+    }
+}
+
+function getCurrentAuthUser() {
+    var user = null;
+    try { user = JSON.parse(localStorage.getItem('user') || 'null'); } catch (e) { user = null; }
+    var tokenUser = decodeJwtPayload(localStorage.getItem('token'));
+
+    if (!user && tokenUser) {
+        user = {
+            id: tokenUser.id,
+            username: tokenUser.username,
+            firstName: tokenUser.firstName,
+            lastName: tokenUser.lastName,
+            role: tokenUser.role,
+            roleId: tokenUser.roleId,
+            permissions: tokenUser.permissions,
+            isMaster: tokenUser.isMaster
+        };
+    }
+    if (!user) return null;
+
+    if (tokenUser) {
+        user._tokenRole = tokenUser.role;
+        user._tokenRoleId = tokenUser.roleId;
+        if (!user.role && tokenUser.role) user.role = tokenUser.role;
+        if (user.roleId === undefined && tokenUser.roleId !== undefined) user.roleId = tokenUser.roleId;
+        if (!user.permissions && tokenUser.permissions) user.permissions = tokenUser.permissions;
+    }
+    return user;
+}
+
+function isAdministratorUser(user) {
+    if (!user) return false;
+    var role = String(user.role || user.roleName || user._tokenRole || (user.Role && user.Role.name) || '').trim().toLowerCase();
+    var tokenRole = String(user._tokenRole || '').trim().toLowerCase();
+    var roleId = Number(user.roleId !== undefined ? user.roleId : (user._tokenRoleId !== undefined ? user._tokenRoleId : (user.Role && user.Role.id)));
+    return role === 'administrator' || tokenRole === 'administrator' || roleId === 1;
+}
+
+function getPagePerms() {
+    // Full access: returned for Administrator or when NO stored permission object exists for the module
+    var fullAccess = getFullPageAccess();
+    try {
+        var user = getCurrentAuthUser();
         if (!user) return fullAccess;
+        if (isAdministratorUser(user)) return fullAccess;
         var sidebarMapping = {
             '/dashboard':          'dashboard',
             '/patients':           'patients',
@@ -1117,21 +1170,7 @@ function openModal(id) {
 
     // View-only mode: lock fields + show banner when user cannot edit/add
     try {
-        var _voUser = JSON.parse(localStorage.getItem('user') || '{}');
-        var _voPerms = _voUser.permissions || {};
-        var _voMap = {
-            '/rx-records':        'rx_records',
-            '/pharmacies':        'pharmacies',
-            '/patient-transport': 'patient_transport',
-            '/pharmacy-transport':'pharmacy_transport',
-            '/clinics':           'clinics',
-            '/workflow-actions':  'workflow_actions',
-            '/medication-catalog':'medication_catalog',
-            '/users':             'users'
-        };
-        var _voRaw = Object.keys(_voMap).find(function(k) { return window.location.pathname.startsWith(k); });
-        var _voModKey = _voRaw ? _voMap[_voRaw] : null;
-        var _voP = _voModKey && _voPerms ? _voPerms[_voModKey] : null;
+        var _voP = getPagePerms();
         var _voCanEdit = _voP ? (!!_voP.canEdit) : true;
         var _voCanAdd  = _voP ? (_voP.canAdd !== undefined ? !!_voP.canAdd : !!_voP.canEdit) : true;
         var _voEditable = id === null ? _voCanAdd : _voCanEdit;
@@ -1164,22 +1203,7 @@ function openModal(id) {
     var saveCrudBtn = document.getElementById('saveCrudBtn');
     if (saveCrudBtn) {
         try {
-            var _u = JSON.parse(localStorage.getItem('user'));
-            var _perms = _u && (_u.permissions || {});
-            var _sidebarMap = {
-                '/patients':          'patients',
-                '/rx-records':        'rx_records',
-                '/pharmacies':        'pharmacies',
-                '/patient-transport': 'patient_transport',
-                '/pharmacy-transport':'pharmacy_transport',
-                '/clinics':           'clinics',
-                '/workflow-actions':  'workflow_actions',
-                '/medication-catalog':'medication_catalog',
-                '/users':             'users'
-            };
-            var _rawKey = Object.keys(_sidebarMap).find(function(k) { return window.location.pathname.startsWith(k); });
-            var _modKey = _rawKey ? _sidebarMap[_rawKey] : null;
-            var _mp = _modKey && _perms ? _perms[_modKey] : null;
+            var _mp = getPagePerms();
             if (_mp) {
                 var _canAdd  = _mp.canAdd  !== undefined ? !!_mp.canAdd  : !!_mp.canEdit; // fallback for old data
                 var _canEdit = _mp.canEdit !== undefined ? !!_mp.canEdit : false;
@@ -1301,12 +1325,33 @@ function showDuplicateWarning(duplicates, newPatient) {
         var existing = document.getElementById('dupWarnModal');
         if (existing) existing.remove();
 
+        var safeHtml = typeof escHtml === 'function' ? escHtml : function(value) {
+            return String(value == null ? '' : value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#x27;');
+        };
+        function duplicateStatusBadge(patient) {
+            if (patient.isDeleted) {
+                return '<span class="badge bg-secondary">Deleted</span>';
+            }
+            if (patient.isActive === false) {
+                return '<span class="badge bg-warning text-dark">Suspended / Inactive</span>';
+            }
+            return '<span class="badge bg-success">Active</span>';
+        }
+        var hasAlternateState = duplicates.some(function(patient) {
+            return !!patient.isDeleted || patient.isActive === false;
+        });
         var _dups=duplicates; var _dupHtml=''; for(var _di=0;_di<_dups.length;_di++){var d=_dups[_di]; _dupHtml+=(function(){
             return '<tr>' +
-                '<td><code>' + (d.patientCode || '') + '</code></td>' +
-                '<td>' + (d.firstName || '') + ' ' + (d.lastName || '') + '</td>' +
-                '<td>' + (d.dob || '-') + '</td>' +
-                '<td>' + (d.phone || '-') + '</td>' +
+                '<td><code>' + safeHtml(d.patientCode || '') + '</code></td>' +
+                '<td>' + safeHtml((d.firstName || '') + ' ' + (d.lastName || '')) + '</td>' +
+                '<td>' + safeHtml(d.dob || '-') + '</td>' +
+                '<td>' + safeHtml(d.phone || '-') + '</td>' +
+                '<td>' + duplicateStatusBadge(d) + '</td>' +
             '</tr>';
         })(); } var rows=_dupHtml;
 
@@ -1319,11 +1364,12 @@ function showDuplicateWarning(duplicates, newPatient) {
               '</div>' +
               '<div class="modal-body">' +
                 '<p>A patient with the same <strong>name and date of birth</strong> already exists:</p>' +
+                (hasAlternateState ? '<div class="alert alert-warning py-2 small"><i class="fas fa-info-circle me-1"></i>Some matching patients are already in the system but marked deleted or suspended/inactive.</div>' : '') +
                 '<table class="table table-sm table-bordered mb-3">' +
-                  '<thead class="table-light"><tr><th>Patient ID</th><th>Name</th><th>DOB</th><th>Phone</th></tr></thead>' +
+                  '<thead class="table-light"><tr><th>Patient ID</th><th>Name</th><th>DOB</th><th>Phone</th><th>Status</th></tr></thead>' +
                   '<tbody>' + rows + '</tbody>' +
                 '</table>' +
-                '<p class="mb-0 text-muted small">You are trying to create: <strong>' + newPatient.firstName + ' ' + newPatient.lastName + '</strong> (DOB: ' + (newPatient.dob || '') + ')</p>' +
+                '<p class="mb-0 text-muted small">You are trying to create: <strong>' + safeHtml((newPatient.firstName || '') + ' ' + (newPatient.lastName || '')) + '</strong> (DOB: ' + safeHtml(newPatient.dob || '') + ')</p>' +
               '</div>' +
               '<div class="modal-footer">' +
                 '<button class="btn btn-outline-secondary" id="dupCancelBtn"><i class="fas fa-times me-1"></i>Cancel &#8212; Go Back</button>' +
@@ -1674,9 +1720,9 @@ function getPermissionsHTML(existingPermissions) {
 }
 
 function applyReadOnlyRestrictions() {
-    var user = null;
-    try { user = JSON.parse(localStorage.getItem('user')); } catch (e) { return; }
+    var user = getCurrentAuthUser();
     if (!user) return;
+    if (isAdministratorUser(user)) return;
 
     var permissions = user.permissions || getRoleDefaultPermissions(user.role);
     // Dashboard always visible

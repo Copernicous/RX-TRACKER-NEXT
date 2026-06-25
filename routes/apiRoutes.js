@@ -7,6 +7,7 @@ const db = require('../models');
 const backupService = require('../services/backupService');
 const path = require('path');
 const fs   = require('fs');
+const multer = require('multer');
 const errorLogController = require('../controllers/errorLogController');
 const sessionTracker = require('../services/sessionTracker');
 
@@ -31,6 +32,7 @@ const medicationCatalogController = require('../controllers/medicationCatalogCon
 const adminController = require('../controllers/adminController');
 const snapshotController = require('../controllers/snapshotController');
 const roleController = require('../controllers/roleController');
+const documentController = require('../controllers/documentController');
 const { isServiceDateOverrideEnabled } = require('../utils/globalSettings');
 
 // ── Public routes (no auth required) — must be declared BEFORE router.use(auth) ──
@@ -94,6 +96,43 @@ const pathMap = {
     '/medication-catalog': 'medication_catalog'
 };
 
+const DOCUMENT_MAX_MB = parseInt(process.env.DOCUMENT_UPLOAD_MAX_MB || '25', 10);
+const documentUpload = multer({
+    storage: multer.memoryStorage(),
+    limits: {
+        fileSize: Math.max(DOCUMENT_MAX_MB, 1) * 1024 * 1024,
+        files: 10
+    },
+    fileFilter: function(req, file, cb) {
+        const ext = path.extname(file.originalname || '').toLowerCase();
+        const allowedExts = new Set([
+            '.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.tif', '.tiff',
+            '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.csv', '.txt'
+        ]);
+        const allowedMime = (file.mimetype || '').startsWith('image/')
+            || [
+                'application/pdf',
+                'application/msword',
+                'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                'application/vnd.ms-excel',
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                'text/csv',
+                'text/plain'
+            ].includes(file.mimetype);
+        if (!allowedMime && !allowedExts.has(ext)) {
+            return cb(new Error('Only pictures, PDFs, Office files, CSV, and text documents are accepted.'));
+        }
+        cb(null, true);
+    }
+}).array('files', 10);
+
+function handleDocumentUpload(req, res, next) {
+    documentUpload(req, res, function(err) {
+        if (err) return res.status(400).json({ error: err.message });
+        next();
+    });
+}
+
 // Helper function to generate CRUD routes
 // POST (create) uses 'add', PUT (update) uses 'edit' — intentionally separate
 const generateCRUDRoutes = (path, controller, moduleName) => {
@@ -153,6 +192,8 @@ generateCRUDRoutes('/patients', patientController, 'Patients');
 router.get('/patients/:id/notes',           rbac.requirePermission('patients',      'read'), patientNoteController.getNotes);
 router.post('/patients/:id/notes',          rbac.requirePermission('patient_notes', 'add'),  patientNoteController.addNote);
 router.delete('/patients/:id/notes/:noteId',rbac.requirePermission('patients',      'read'), patientNoteController.deleteNote);
+router.get('/patients/:id/documents',       rbac.requirePermission('patients',      'read'), documentController.listPatientDocuments);
+router.post('/patients/:id/documents',      rbac.requirePermission('patients',      'edit'), handleDocumentUpload, documentController.uploadPatientDocuments);
 
 generateCRUDRoutes('/clinics', clinicController, 'Clinics');
 router.put('/clinics/:id/restore', rbac.requirePermission('clinics', 'edit'), auditLogger('Clinics'), clinicController.restore);
@@ -174,7 +215,12 @@ router.post('/rx-records/:id/close-expired-workflow', rbac.requirePermission('rx
 router.put('/rx-records/:id/restore',           rbac.requirePermission('rx_records', 'edit'), auditLogger('RX Records'), rxController.restore);
 // RX History — must be before the generic CRUD block
 router.get('/rx-records/:id/history', rbac.requirePermission('rx_records', 'read'), rxController.getHistory);
+router.get('/rx-records/:id/documents', rbac.requirePermission('rx_records', 'read'), documentController.listRxDocuments);
+router.post('/rx-records/:id/documents', rbac.requirePermission('rx_records', 'edit'), handleDocumentUpload, documentController.uploadRxDocuments);
 generateCRUDRoutes('/rx-records', rxController, 'RX Records');
+
+router.get('/documents/:id/download', documentController.downloadDocument);
+router.delete('/documents/:id', documentController.deleteDocument);
 
 // Dashboard Stats
 router.get('/dashboard/stats', rbac.requirePermission('dashboard', 'read'), dashboardController.getStats);
@@ -266,7 +312,6 @@ function masterOnly(req, res, next) {
 }
 
 // ---- DB Restore — multer upload ----
-const multer = require('multer');
 const IS_PKG_ROUTES = typeof process.pkg !== 'undefined';
 const UPLOAD_DIR    = IS_PKG_ROUTES
     ? path.join(path.dirname(process.execPath), 'backups', 'uploads')

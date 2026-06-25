@@ -5,6 +5,49 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ---
 
+## [2.0.44] - 2026-06-25
+
+### [FEAT-19] Google Drive OAuth setup for document storage
+**Files changed:** 6 | `package.json`, `package-lock.json`, `.gitignore`, `.env.example`, `scripts/setup-google-drive-oauth.js`, `CHANGELOG.md`
+
+- Added `npm run drive:auth` to perform one-time OAuth authorization for a dedicated Google Drive document account.
+- Added Google Drive API client dependency for future patient/RX document upload integration.
+- Added local secret protection for `secrets/`, Google OAuth client JSON, and generated token files.
+- Added Google Drive environment placeholders to `.env.example`.
+- OAuth setup writes Drive credentials to ignored local files and updates `.env` without printing secret values.
+- Fixed Windows OAuth browser launching so query-string parameters are preserved when opening Google's authorization URL.
+
+### [FEAT-21] Patient and RX picture/document uploads
+**Files changed:** 16 | `models/documentattachment.js`, `migrations/20260624130000-create-document-attachments.js`, `controllers/documentController.js`, `services/documentStorageService.js`, `routes/apiRoutes.js`, `models/index.js`, `models/patient.js`, `models/rxrecord.js`, `public/js/documents.js`, `public/js/patients.js`, `views/patients.ejs`, `views/rx-records.ejs`, `.env.example`, `.gitignore`, `OPERATIONS_MANUAL.md`, `CHANGELOG.md`
+
+- Added a `DocumentAttachment` table/model for pictures and documents attached to patient records or RX records.
+- Added authenticated upload/list/download/delete APIs for patient and RX attachments.
+- Added Google Drive upload storage using the existing OAuth `.env` values; when Drive is enabled, uploads fail instead of silently archiving files on the server.
+- Drive folders are organized by patient identity, with RX uploads nested under the matching patient folder.
+- Added a reusable browser document widget for multi-file uploads, Drive/local badges, open/download links, and delete controls.
+- Added the upload area to the Patient modal and RX Record Details modal; new patients must be saved before uploads are available.
+- Restricted uploads to users with Edit permission on the owning Patients/RX Records module; read-only users can view/download only.
+
+## [2.0.43] - 2026-06-25
+
+### [BUG-46] Administrator patient modal incorrectly showed View Only
+**Files changed:** 1 | `public/js/app.js`
+
+- Fixed the shared frontend permission helper so `Administrator` users always receive full page permissions, matching the backend RBAC rule.
+- Updated generic view-only modal and Save-button checks to use the same normalized page permission helper instead of reading stale `localStorage.user.permissions` directly.
+- Prevents the Patients modal from showing `View Only — you do not have permission to edit patient records.` for Administrator sessions after role/permission data changes.
+
+## [2.0.42] - 2026-06-25
+
+### [BUG-45] Duplicate patient warning for existing patient states
+**Files changed:** 5 | `package.json`, `package-lock.json`, `controllers/patientController.js`, `public/js/app.js`, `public/js/patients.js`
+
+- Added duplicate-patient checking to the direct Patients page add flow before a new patient is created.
+- Duplicate checks now normalize patient name and DOB inputs so matching is consistent with stored patient records.
+- Duplicate lookup now includes active, inactive/suspended, and deleted patients so staff can see when the patient already exists in another state.
+- Updated the duplicate warning popup with a Status column showing `Active`, `Suspended / Inactive`, or `Deleted`.
+- Escaped duplicate warning modal content before rendering patient data into HTML.
+
 ## [2.0.41] - 2026-06-24
 
 ### [FEAT-18] Role-based 90-day override and expired RX resolution

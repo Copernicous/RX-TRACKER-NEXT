@@ -17,6 +17,7 @@ module.exports = (sequelize, DataTypes) => {
       RXRecord.hasMany(models.Medication, { foreignKey: 'rxRecordId' });
       RXRecord.hasMany(models.RXWorkflowTracking, { foreignKey: 'rxRecordId' });
       RXRecord.hasMany(models.RXHistory, { foreignKey: 'rxRecordId' });
+      RXRecord.hasMany(models.DocumentAttachment, { foreignKey: 'rxRecordId' });
     }
   }
   RXRecord.init({

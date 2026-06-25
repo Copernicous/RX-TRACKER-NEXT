@@ -25,6 +25,7 @@ const modelFiles = [
   require('./auditlog.js'),
   require('./clinic.js'),
   require('./dailysnapshot.js'),
+  require('./documentattachment.js'),
   require('./errorlog.js'),
   require('./medication.js'),
   require('./medicationcatalog.js'),

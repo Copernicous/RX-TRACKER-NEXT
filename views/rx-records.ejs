@@ -398,6 +398,7 @@
 <script src="/js/base.js"></script>
 <script src="/js/app.js"></script>
 <script src="/js/help.js"></script>
+<script src="/js/documents.js"></script>
 <script>
     var allRx = [], filteredRx = [], allWorkflowActions = [];
     var rxServiceDateOverrideEnabled = false;
@@ -1626,7 +1627,36 @@
                     '<div>' +
                         '<div class="fw-bold mb-2"><i class="fas fa-tasks me-2 text-info"></i>Workflow Checklist</div>' +
                         wfHtml +
+                    '</div>' +
+                    '<div class="mt-3 pt-3 border-top" id="rxDocumentsSection">' +
+                        '<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">' +
+                            '<div>' +
+                                '<div class="fw-bold"><i class="fas fa-paperclip me-2 text-primary"></i>Pictures &amp; Documents</div>' +
+                                '<div class="text-muted small">Upload RX photos, PDFs, delivery documents, or related files.</div>' +
+                            '</div>' +
+                        '</div>' +
+                        '<div id="rxDocUploadWrap" class="input-group input-group-sm mb-2">' +
+                            '<input type="file" class="form-control" id="rxDocFiles" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt">' +
+                            '<button type="button" class="btn btn-outline-primary" id="rxDocUploadBtn"><i class="fas fa-upload me-1"></i>Upload</button>' +
+                        '</div>' +
+                        '<div id="rxDocStatus" class="small mt-2"></div>' +
+                        '<div id="rxDocumentsList" class="mt-2"></div>' +
                     '</div>';
+
+                if (window.rxDocuments) {
+                    var _rxDocPerms = getPagePerms();
+                    window.rxDocuments.bind({
+                        ownerType: 'rx-record',
+                        ownerId: rx.id,
+                        inputEl: 'rxDocFiles',
+                        buttonEl: 'rxDocUploadBtn',
+                        uploadWrapEl: 'rxDocUploadWrap',
+                        statusEl: 'rxDocStatus',
+                        listEl: 'rxDocumentsList',
+                        canUpload: !!_rxDocPerms.canEdit,
+                        canDelete: !!_rxDocPerms.canDelete
+                    });
+                }
             });
         }).catch(function() {
             bodyEl.innerHTML = '<p class="text-danger text-center py-4">Error loading record.</p>';

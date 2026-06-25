@@ -1,6 +1,6 @@
 # Patient RX System — Operations & Developer Manual
 
-Version: 2.0.41 | Last Updated: 2026-06-24
+Version: 2.0.43 | Last Updated: 2026-06-25
 
 ---
 
@@ -239,6 +239,20 @@ SMTP_PORT=587
 SMTP_USER=your@gmail.com
 SMTP_PASS=your-app-password         # Gmail: use App Password, not account password
 SMTP_FROM_NAME=Patient RX System
+
+# ---- Google Drive document storage (optional) ------------------------------
+GOOGLE_DRIVE_ENABLED=false
+GOOGLE_DRIVE_AUTH_MODE=oauth
+GOOGLE_DRIVE_CLIENT_ID=
+GOOGLE_DRIVE_CLIENT_SECRET=
+GOOGLE_DRIVE_REFRESH_TOKEN=
+GOOGLE_DRIVE_ROOT_FOLDER_ID=
+GOOGLE_DRIVE_ROOT_FOLDER_NAME=Daniely RX Documents
+GOOGLE_DRIVE_SCOPE=https://www.googleapis.com/auth/drive.file
+DOCUMENT_UPLOAD_MAX_MB=25
+DOCUMENT_STORAGE_LOCAL_DIR=uploads/documents
+DOCUMENT_STORAGE_REQUIRE_DRIVE=false
+DOCUMENT_STORAGE_ALLOW_LOCAL_FALLBACK=false
 
 # ---- Logging ---------------------------------------------------------------
 LOG_FILE=true                       # true = write logs to files in logs\
@@ -593,6 +607,15 @@ specific roles. The workflow modal enforces these permissions and will show a
 - Accessible from the Timeline button on the patient list row
 - Badge shows combined RX + Notes count; hidden when no events exist
 
+### Patient/RX Document Uploads
+- Patient modal: `Pictures & Documents` appears inside the patient window after a patient is opened
+- RX modal: `Pictures & Documents` appears inside `View Details` for an existing RX record
+- Accepts images, PDF, Office, CSV, and text files; default limit is `DOCUMENT_UPLOAD_MAX_MB`
+- Uses Google Drive when `GOOGLE_DRIVE_ENABLED=true`; uploads fail instead of silently storing locally if Drive is unavailable
+- Drive folders are organized under `Daniely RX Documents/Patients/{patient code - patient name - DOB}`
+- Relative `DOCUMENT_STORAGE_LOCAL_DIR` values resolve beside the app/server.exe folder and are only a development fallback when Drive is disabled
+- Upload/delete requires Edit permission on Patients or RX Records; read-only users can list/open/download
+
 ### CSV Import
 - Bulk patient import via CSV upload (`/import` page)
 - Template download included so users import in the correct column format
@@ -714,9 +737,15 @@ Tokens obtained from `POST /api/auth/login`.
 | POST   | /api/patients                      | Create patient                          |
 | PUT    | /api/patients/:id                  | Update patient                          |
 | DELETE | /api/patients/:id                  | Soft delete patient                     |
+| GET    | /api/patients/:id/documents        | List patient uploads                    |
+| POST   | /api/patients/:id/documents        | Upload patient pictures/documents       |
 | GET    | /api/rx                            | List RX records                         |
 | POST   | /api/rx                            | Create RX record                        |
 | PUT    | /api/rx/:id                        | Update RX record                        |
+| GET    | /api/rx-records/:id/documents      | List RX uploads                         |
+| POST   | /api/rx-records/:id/documents      | Upload RX pictures/documents            |
+| GET    | /api/documents/:id/download        | Open/download an uploaded document      |
+| DELETE | /api/documents/:id                 | Delete an uploaded document             |
 | GET    | /api/workflow/:rxId                | Get workflow steps for an RX record     |
 | POST   | /api/workflow/:rxId/:stepId        | Complete/undo a workflow step           |
 | GET    | /api/reports/:type                 | Generate report                         |
@@ -766,6 +795,10 @@ Tokens obtained from `POST /api/auth/login`.
 - A 403 from the server is the most common cause
 - Check browser console for the actual error response
 - Check Back Office → Error Logs for captured client-side errors
+### Administrator sees a View Only banner on patient or record modals
+- Fixed in v2.0.43: the browser permission helper now treats `Administrator` as full access, matching backend RBAC.
+- If a browser still shows the banner after deploying the fix, force-refresh the page or log out and back in to clear stale `localStorage.user.permissions`.
+- Non-admin users should still be checked through `Administration → Roles` for the relevant module's Add/Edit permissions.
 
 ### Can't delete a Patient/RXRecord from Back Office (FK constraint error)
 - This was fixed in v2.0.1 and v2.0.2

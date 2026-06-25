@@ -1101,8 +1101,48 @@ var allPatients = [];
                 _voBanner.style.display = (_isEditable && !_isOverrideOnly) ? 'none' : '';
             }
         } catch(e) { if (_saveBtn) _saveBtn.style.display = ''; }
+        if (window.rxDocuments) {
+            var _docPerms = getPagePerms();
+            window.rxDocuments.bind({
+                ownerType: 'patient',
+                ownerId: id,
+                inputEl: 'patientDocFiles',
+                buttonEl: 'patientDocUploadBtn',
+                uploadWrapEl: 'patientDocUploadWrap',
+                statusEl: 'patientDocStatus',
+                listEl: 'patientDocumentsList',
+                canUpload: !!(id && _docPerms.canEdit),
+                canDelete: !!_docPerms.canDelete
+            });
+        }
         // Acquire soft lock if editing an existing patient
         if (id) acquireModalLock(id);
+    }
+
+    async function shouldContinuePatientCreate(body) {
+        if (editingPatientId || !body.firstName || !body.lastName || !body.dob) {
+            return true;
+        }
+
+        try {
+            var dupUrl = '/api/patients/check-duplicate?firstName=' + encodeURIComponent(body.firstName) +
+                '&lastName=' + encodeURIComponent(body.lastName) +
+                '&dob=' + encodeURIComponent(body.dob);
+            const dupRes = await fetchWithAuth(dupUrl);
+            if (!dupRes || !dupRes.ok) return true;
+
+            const data = await dupRes.json();
+            const duplicates = Array.isArray(data.duplicates) ? data.duplicates : [];
+            if (!duplicates.length) return true;
+
+            if (typeof showDuplicateWarning === 'function') {
+                return await showDuplicateWarning(duplicates, body);
+            }
+
+            return confirm('A patient with the same name and date of birth already exists. Save anyway?');
+        } catch(e) {
+            return true;
+        }
     }
 
 
@@ -1128,6 +1168,9 @@ var allPatients = [];
             pharmacyId: document.getElementById('pPharmacyId').value || null
         };
         try {
+            const shouldContinue = await shouldContinuePatientCreate(body);
+            if (!shouldContinue) return;
+
             const url = editingPatientId ? '/api/patients/' + editingPatientId : '/api/patients';
             const method = editingPatientId ? 'PUT' : 'POST';
             const res = await fetchWithAuth(url, { method, body: JSON.stringify(body) });

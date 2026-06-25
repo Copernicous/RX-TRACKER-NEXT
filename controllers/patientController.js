@@ -303,15 +303,19 @@ exports.checkDuplicate = async (req, res) => {
         if (!firstName || !lastName || !dob) {
             return res.json({ duplicates: [] });
         }
+        const normalizedFirstName = toUpperName(firstName);
+        const normalizedLastName = toUpperName(lastName);
+        const normalizedDob = parseDate(dob);
+        if (!normalizedFirstName || !normalizedLastName || !normalizedDob) {
+            return res.json({ duplicates: [] });
+        }
         const duplicates = await db.Patient.findAll({
             where: {
-                firstName: { [Op.like]: firstName.trim() },
-                lastName:  { [Op.like]: lastName.trim() },
-                dob:       dob.trim(),
-                // M1 FIX: Match getAll logic — include legacy rows where isDeleted IS NULL
-                [Op.or]: [{ isDeleted: false }, { isDeleted: null }]
+                firstName: normalizedFirstName,
+                lastName:  normalizedLastName,
+                dob:       normalizedDob
             },
-            attributes: ['id', 'patientCode', 'firstName', 'lastName', 'dob', 'phone']
+            attributes: ['id', 'patientCode', 'firstName', 'lastName', 'dob', 'phone', 'isActive', 'isDeleted']
         });
         res.json({ duplicates });
     } catch (err) { res.status(500).json({ error: err.message }); }

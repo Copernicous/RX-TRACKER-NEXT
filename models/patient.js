@@ -15,6 +15,7 @@ module.exports = (sequelize, DataTypes) => {
       Patient.belongsTo(models.Clinic, { foreignKey: 'clinicId' });
       Patient.belongsTo(models.Pharmacy, { foreignKey: 'pharmacyId' });
       Patient.hasMany(models.RXRecord, { foreignKey: 'patientId' });
+      Patient.hasMany(models.DocumentAttachment, { foreignKey: 'patientId' });
       Patient.hasMany(models.PatientNote, { foreignKey: 'patientId', as: 'Notes' });
       Patient.hasMany(models.PatientNote, { foreignKey: 'patientId', as: 'PatientNotes' });
     }
