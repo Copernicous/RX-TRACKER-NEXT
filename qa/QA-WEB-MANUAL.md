@@ -60,6 +60,9 @@ What the Needs Action smoke task checks:
 - validates the `needsAction` filter on Patients,
 - verifies the needs-action banner is present,
 - confirms the seeded patient appears in the filtered list.
+- opens the expired RX workflow modal,
+- verifies the `90-Day Window Expired` banner,
+- verifies the `Close RX Record` option and centered access guidance modal.
 
 ## 90-Day Service Date Blocking Diagram
 
@@ -82,12 +85,23 @@ Simple rule:
 
 - `Patient.serviceDate` is the source of truth for the patient's 90-day clock.
 - While the window is active, normal patient/RX service-date changes are blocked.
+- During the active 90-day window, existing RX workflow steps can keep moving.
+- After the window expires, old-cycle workflow edits require the role permission `canOverrideExpired`.
+- Expired unfinished RX workflows show a centered access message and a `Close RX Record` resolution path.
 - A normal new service cycle should start after the window expires.
 - The Backoffice per-patient override changes one selected patient's service date.
 - The Backoffice global override temporarily lifts the service-date 90-day block for all users.
 - The global override does not remove unrelated safeguards like inactive-patient checks, workflow sequence rules, or destructive reset-cycle confirmation.
 
 Use the global override only during import correction, then turn it off again.
+
+Focused controller-level validation:
+
+```powershell
+npm run test:rx-override
+```
+
+This creates temporary QA records and validates Patient service-date override, RX override permissions, expired RX close behavior, and Undo target order without clicking through the browser.
 
 ## Seed Fake Data vs Add More Fake Data
 

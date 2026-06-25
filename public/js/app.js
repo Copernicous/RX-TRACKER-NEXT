@@ -839,7 +839,7 @@ async function refreshTable() {
 // =============================================
 function getPagePerms() {
     // Full access: returned only when NO stored permission object exists for the module
-    var fullAccess = { visible: true, canAdd: true, canEdit: true, canDelete: true, canExport: true, canUndo: true, canWarehouse: true };
+    var fullAccess = { visible: true, canAdd: true, canEdit: true, canDelete: true, canExport: true, canUndo: true, canWarehouse: true, canOverrideExpired: true };
     try {
         var user = JSON.parse(localStorage.getItem('user'));
         if (!user) return fullAccess;
@@ -877,7 +877,8 @@ function getPagePerms() {
             canDelete:    p.canDelete    !== undefined ? !!p.canDelete    : false,
             canExport:    p.canExport    !== undefined ? !!p.canExport    : false,
             canUndo:      p.canUndo      !== undefined ? !!p.canUndo      : false,
-            canWarehouse: p.canWarehouse !== undefined ? !!p.canWarehouse : !!p.canEdit  // fallback for old data
+            canWarehouse: p.canWarehouse !== undefined ? !!p.canWarehouse : !!p.canEdit,  // fallback for old data
+            canOverrideExpired: p.canOverrideExpired !== undefined ? !!p.canOverrideExpired : false
         };
     } catch (e) { return fullAccess; }
 }

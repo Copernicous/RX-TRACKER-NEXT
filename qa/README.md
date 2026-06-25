@@ -69,7 +69,9 @@ The dashboard also includes:
 - `Run Needs Action Smoke`: seeds a patient in an expired 90-day cycle with an incomplete RX workflow and verifies:
   - Needs-action filter applies,
   - needs-action banner appears,
-  - seeded patient appears in the filtered list.
+  - seeded patient appears in the filtered list,
+  - expired RX workflow banner appears,
+  - `Close RX Record` opens the centered access guidance modal.
 
 ## Direct Commands
 
@@ -80,8 +82,11 @@ npm run smoke:qa
 npm run qa:status
 npm run qa:stop
 npm run qa:web
+npm run test:rx-override
 node scripts/simulate-patient-workflow-import.js
 ```
+
+`npm run test:rx-override` runs focused controller-level scenarios for Patient service-date override, RX 90-day override permissions, expired RX close behavior, and Undo target order.
 
 Visible browser mode:
 

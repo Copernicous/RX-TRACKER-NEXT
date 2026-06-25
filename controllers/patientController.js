@@ -2,6 +2,7 @@ const db = require('../models');
 const { Op } = require('sequelize');
 const { parseDate } = require('../utils/dateUtils');
 const { isServiceDateOverrideEnabled } = require('../utils/globalSettings');
+const { getRequestPermission } = require('../middleware/rbac');
 
 function toUpperName(value) {
     return String(value || '').trim().toUpperCase();
@@ -161,6 +162,20 @@ exports.update = async (req, res) => {
             req.body.serviceDate = norm || null;
         }
 
+        const patientPerm = await getRequestPermission(req, 'patients');
+        const canEditPatient = !!(patientPerm.visible && patientPerm.canEdit);
+        const canOverrideExpired = !!(patientPerm.visible && patientPerm.canOverrideExpired);
+
+        if (!canEditPatient && !canOverrideExpired) {
+            return res.status(403).json({ error: 'Access denied: you cannot edit patient records.' });
+        }
+
+        if (!canEditPatient && canOverrideExpired) {
+            Object.keys(req.body).forEach((field) => {
+                if (field !== 'serviceDate') delete req.body[field];
+            });
+        }
+
         // Validate uniqueness of updated patientCode if provided and changed
         if (req.body.patientCode && req.body.patientCode.trim() !== patient.patientCode) {
             const newCode = req.body.patientCode.trim();
@@ -177,7 +192,9 @@ exports.update = async (req, res) => {
         }
 
         // Check if service date is being updated (90-day rule)
-        if (!isServiceDateOverrideEnabled() && req.body.serviceDate && req.body.serviceDate !== patient.serviceDate) {
+        const hasServiceDateChange = req.body.hasOwnProperty('serviceDate')
+            && String(req.body.serviceDate || '') !== String(patient.serviceDate || '');
+        if (!isServiceDateOverrideEnabled() && !canOverrideExpired && hasServiceDateChange) {
             if (patient.serviceDate) {
                 const prevDate = new Date(patient.serviceDate);
                 const currentDate = new Date();

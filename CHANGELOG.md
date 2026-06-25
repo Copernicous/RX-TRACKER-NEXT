@@ -5,6 +5,23 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ---
 
+## [2.0.41] - 2026-06-24
+
+### [FEAT-18] Role-based 90-day override and expired RX resolution
+**Files changed:** 17 | `app.js`, `package.json`, `package-lock.json`, `middleware/rbac.js`, `controllers/patientController.js`, `controllers/roleController.js`, `controllers/rxController.js`, `routes/apiRoutes.js`, `public/js/app.js`, `public/js/patients.js`, `public/js/roles.js`, `views/roles.ejs`, `views/rx-records.ejs`, `qa/smoke-qa.js`, `qa/README.md`, `qa/QA-WEB-MANUAL.md`, `scripts/test-rx-override-permissions.js`
+
+- Added role permission `canOverrideExpired` so designated users can override 90-day service-date/workflow locks without requiring the global Backoffice override.
+- Extended Roles Management with an `Override` checkbox and startup backfill for existing role permission JSON.
+- Existing RX workflow can continue during the active 90-day window; after expiry, old-cycle workflow date edits require override access.
+- Expired incomplete RX workflows now show a centered access guidance modal and a `Close RX Record` option that completes remaining workflow steps at the 90-day expiry date.
+- Added Needs Action web QA coverage for the expired workflow banner and close-record modal path.
+- Fixed Undo targeting so it follows the visible workflow order (`sequenceNumber`, then `id`) instead of database `createdAt`, preventing the wrong workflow step from being undone.
+- Added `npm run test:rx-override` to validate override permissions, close-record behavior, and undo order against a guarded QA database.
+- Fixed Read Only + `Override` behavior so a role with no Add/Edit permission can still close an expired RX record when override is granted.
+- Fixed the expired RX modal close-button visibility so workflow closure is detected by exact active workflow steps instead of raw completed-row count.
+- Fixed Patient `Override` behavior so authorized users can change a locked service date; override-only users can update `serviceDate` while other patient fields remain locked.
+- Fixed RX Records `Override` behavior so override-only users can resolve expired workflow date locks without requiring full Edit permission.
+
 ## [2.0.40] - 2026-06-24
 
 ### [FEAT-17] QA smoke coverage for Needs Action queue

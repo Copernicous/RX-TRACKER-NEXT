@@ -3,8 +3,8 @@
 // ── Module definitions ────────────────────────────────────────────────────────
 var MODULE_DEFS = [
     { key: 'dashboard',          label: 'Dashboard',             group: 'Core',      hasUndo: false, visibleLocked: true },
-    { key: 'patients',           label: 'Patients',              group: 'Core',      hasUndo: false },
-    { key: 'rx_records',         label: 'RX Records',            group: 'Core',      hasWorkflow: true },
+    { key: 'patients',           label: 'Patients',              group: 'Core',      hasUndo: false, hasOverrideExpired: true },
+    { key: 'rx_records',         label: 'RX Records',            group: 'Core',      hasWorkflow: true, hasOverrideExpired: true },
     { key: 'reports',            label: 'Reports',               group: 'Core',      hasUndo: false },
     { key: 'patient_notes',      label: 'Patient Notes',         group: 'Core',      hasUndo: false, notesOnly: true },
     { key: 'audit_log',          label: 'Audit Log',             group: 'Admin',     hasUndo: false, visibleOnly: true },
@@ -119,6 +119,7 @@ function renderMatrix() {
             badge(perm.canDelete,'trash',      'danger')  +
             badge(perm.canExport,'file-csv',   'info')    +
             (perm.canUndo ? badge(true,'undo','warning') : '') +
+            (perm.canOverrideExpired ? badge(true,'unlock-alt','dark') : '') +
             '</td>';
     }
 
@@ -160,6 +161,7 @@ function renderMatrix() {
         '<span>' + badge(true,'trash','danger') + ' Delete</span>' +
         '<span>' + badge(true,'file-csv','info') + ' Export</span>' +
         '<span>' + badge(true,'undo','warning') + ' Undo</span>' +
+        '<span>' + badge(true,'unlock-alt','dark') + ' Override 90-Day</span>' +
         '<span><span class="badge bg-danger" style="font-size:.62rem"><i class="fas fa-eye-slash"></i></span> Hidden</span>' +
         '<span><span class="badge bg-secondary opacity-25" style="font-size:.62rem"><i class="fas fa-plus-circle"></i></span> Off</span>' +
         '</div>';
@@ -226,29 +228,31 @@ function buildPermEditor(perms) {
     var lastGroup = '';
     var _mHtml = '';
     var dash = '<span class="text-muted">\u2014</span>';
+    var dashCell = '<td class="text-center">' + dash + '</td>';
 
     for (var _mi2 = 0; _mi2 < MODULE_DEFS.length; _mi2++) {
         var m = MODULE_DEFS[_mi2];
-        var p = perms[m.key] || { visible: false, canAdd: false, canEdit: false, canDelete: false, canExport: false, canUndo: false, canWarehouse: false };
+        var p = perms[m.key] || { visible: false, canAdd: false, canEdit: false, canDelete: false, canExport: false, canUndo: false, canWarehouse: false, canOverrideExpired: false };
         if (p.canAdd === undefined) p.canAdd = p.canEdit;
         if (p.canWarehouse === undefined) p.canWarehouse = p.canEdit;
+        if (p.canOverrideExpired === undefined) p.canOverrideExpired = false;
 
         var groupRow = '';
         if (m.group !== lastGroup) {
             lastGroup = m.group;
-            groupRow = '<tr style="background:rgba(255,255,255,.02)"><td colspan="7" class="fw-bold py-1 px-2" style="font-size:.7rem;text-transform:uppercase;color:' + (GROUP_COLORS[m.group] || '#aaa') + '">' + m.group + '</td></tr>';
+            groupRow = '<tr style="background:rgba(255,255,255,.02)"><td colspan="10" class="fw-bold py-1 px-2" style="font-size:.7rem;text-transform:uppercase;color:' + (GROUP_COLORS[m.group] || '#aaa') + '">' + m.group + '</td></tr>';
         }
 
         if (m.visibleLocked) {
-            _mHtml += groupRow + '<tr data-module="' + m.key + '"><td class="ps-3 fw-semibold">' + m.label + ' <span class="badge bg-secondary ms-1" style="font-size:.6rem">Always On</span></td><td class="text-center"><input type="checkbox" class="form-check-input perm-visible" checked disabled></td><td class="text-center">' + dash + '</td><td class="text-center">' + dash + '</td><td class="text-center">' + dash + '</td><td class="text-center">' + dash + '</td><td class="text-center">' + dash + '</td></tr>';
+            _mHtml += groupRow + '<tr data-module="' + m.key + '"><td class="ps-3 fw-semibold">' + m.label + ' <span class="badge bg-secondary ms-1" style="font-size:.6rem">Always On</span></td><td class="text-center"><input type="checkbox" class="form-check-input perm-visible" checked disabled></td>' + dashCell + dashCell + dashCell + dashCell + dashCell + dashCell + dashCell + dashCell + '</tr>';
             continue;
         }
         if (m.visibleOnly) {
-            _mHtml += groupRow + '<tr data-module="' + m.key + '"><td class="ps-3 fw-semibold">' + m.label + ' <span class="badge bg-info ms-1" style="font-size:.6rem">View only</span></td><td class="text-center"><input type="checkbox" class="form-check-input perm-visible" ' + (p.visible ? 'checked' : '') + '></td><td class="text-center">' + dash + '</td><td class="text-center">' + dash + '</td><td class="text-center">' + dash + '</td><td class="text-center">' + dash + '</td><td class="text-center">' + dash + '</td></tr>';
+            _mHtml += groupRow + '<tr data-module="' + m.key + '"><td class="ps-3 fw-semibold">' + m.label + ' <span class="badge bg-info ms-1" style="font-size:.6rem">View only</span></td><td class="text-center"><input type="checkbox" class="form-check-input perm-visible" ' + (p.visible ? 'checked' : '') + '></td>' + dashCell + dashCell + dashCell + dashCell + dashCell + dashCell + dashCell + dashCell + '</tr>';
             continue;
         }
         if (m.notesOnly) {
-            _mHtml += groupRow + '<tr data-module="' + m.key + '" style="background:rgba(255,193,7,.04)"><td class="ps-3 fw-semibold">' + m.label + ' <span class="badge bg-warning text-dark ms-1" style="font-size:.6rem">Per-patient</span></td><td class="text-center"><span class="text-muted" title="Always visible">\u2014</span></td><td class="text-center" title="Can add new notes"><input type="checkbox" class="form-check-input perm-canadd" ' + (p.canAdd ? 'checked' : '') + '></td><td class="text-center" title="Cannot edit existing notes (immutable)"><span class="text-muted">\u2014</span></td><td class="text-center" title="Can delete notes"><input type="checkbox" class="form-check-input perm-candelete" ' + (p.canDelete ? 'checked' : '') + '></td><td class="text-center">' + dash + '</td><td class="text-center">' + dash + '</td></tr>';
+            _mHtml += groupRow + '<tr data-module="' + m.key + '" style="background:rgba(255,193,7,.04)"><td class="ps-3 fw-semibold">' + m.label + ' <span class="badge bg-warning text-dark ms-1" style="font-size:.6rem">Per-patient</span></td><td class="text-center"><span class="text-muted" title="Always visible">\u2014</span></td><td class="text-center" title="Can add new notes"><input type="checkbox" class="form-check-input perm-canadd" ' + (p.canAdd ? 'checked' : '') + '></td><td class="text-center" title="Cannot edit existing notes (immutable)"><span class="text-muted">\u2014</span></td><td class="text-center" title="Can delete notes"><input type="checkbox" class="form-check-input perm-candelete" ' + (p.canDelete ? 'checked' : '') + '></td>' + dashCell + dashCell + dashCell + dashCell + dashCell + '</tr>';
             continue;
         }
 
@@ -259,6 +263,9 @@ function buildPermEditor(perms) {
         var addCell = m.hasWorkflow
             ? '<td class="text-center">' + dash + '</td>'
             : '<td class="text-center"><input type="checkbox" class="form-check-input perm-canadd" ' + (p.canAdd ? 'checked' : '') + '></td>';
+        var overrideCell = m.hasOverrideExpired
+            ? '<td class="text-center" title="Can override 90-day expired locks"><input type="checkbox" class="form-check-input perm-canoverrideexpired" ' + (p.canOverrideExpired ? 'checked' : '') + '></td>'
+            : dashCell;
 
         _mHtml += groupRow +
             '<tr data-module="' + m.key + '">' +
@@ -269,6 +276,7 @@ function buildPermEditor(perms) {
                 '<td class="text-center"><input type="checkbox" class="form-check-input perm-candelete" ' + (p.canDelete ? 'checked' : '') + '></td>' +
                 '<td class="text-center"><input type="checkbox" class="form-check-input perm-canexport" ' + (p.canExport ? 'checked' : '') + '></td>' +
                 workflowCells +
+                overrideCell +
             '</tr>';
     }
     tbody.innerHTML = _mHtml;
@@ -286,7 +294,8 @@ function readPermEditor() {
             canDelete:    cb('.perm-candelete'),
             canExport:    cb('.perm-canexport'),
             canUndo:      cb('.perm-canundo'),
-            canWarehouse: cb('.perm-canwarehouse')
+            canWarehouse: cb('.perm-canwarehouse'),
+            canOverrideExpired: cb('.perm-canoverrideexpired')
         };
     });
     if (perms.dashboard)    { perms.dashboard.visible = true; perms.dashboard.canAdd = false; perms.dashboard.canEdit = false; }

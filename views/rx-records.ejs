@@ -297,6 +297,28 @@
     </div>
 </div>
 
+<!-- Expired Workflow Access Modal -->
+<div class="modal fade" id="expiredAccessModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-lock me-2 text-warning"></i>Access Required</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-2 fw-semibold">Please request access for this transaction to your administrator.</p>
+                <p class="text-muted small mb-0" id="expiredAccessMessage">This RX record is past the 90-day window and old-cycle edits require override access.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-success fw-semibold" id="closeExpiredRxBtn">
+                    <i class="fas fa-check-circle me-1"></i>Close RX Record
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- RX History Modal -->
 <div class="modal fade" id="rxHistoryModal" tabindex="-1">
     <div class="modal-dialog modal-lg modal-dialog-scrollable">
@@ -593,6 +615,8 @@
     var rSortDir = 'desc';
     var medCount = 0;
     var workflowModalInstance = null;
+    var expiredAccessModalInstance = null;
+    var expiredAccessRxId = null;
     var allPatientsList    = []; // for searchable patient picker
     var allPharmaciesList  = []; // pharmacies cache
     var allPtList          = []; // patient transport companies cache
@@ -660,6 +684,10 @@
         initApp();
 
         workflowModalInstance = new bootstrap.Modal(document.getElementById('workflowModal'));
+        expiredAccessModalInstance = new bootstrap.Modal(document.getElementById('expiredAccessModal'));
+        document.getElementById('closeExpiredRxBtn').addEventListener('click', function() {
+            closeExpiredRxRecord(expiredAccessRxId);
+        });
 
         document.getElementById('exportRxListCsvBtn').addEventListener('click', function() {
             if (!filteredRx.length) { showToast('No data to export.', 'warning'); return; }
@@ -1622,12 +1650,12 @@
                 });
 
                 var userRole = '';
-                var rxPerms = { canAdd: false, canEdit: false, canDelete: false, canUndo: false, canWarehouse: false };
+                var rxPerms = { canAdd: false, canEdit: false, canDelete: false, canUndo: false, canWarehouse: false, canOverrideExpired: false };
                 try {
                     var u = JSON.parse(localStorage.getItem('user'));
                     if (u && u.role) userRole = u.role;
                     if (userRole === 'Administrator') {
-                        rxPerms = { canAdd: true, canEdit: true, canDelete: true, canUndo: true, canWarehouse: true };
+                        rxPerms = { canAdd: true, canEdit: true, canDelete: true, canUndo: true, canWarehouse: true, canOverrideExpired: true };
                     } else {
                         var gp = getPagePerms();
                         rxPerms = {
@@ -1635,7 +1663,8 @@
                             canEdit:      !!gp.canEdit,
                             canDelete:    !!gp.canDelete,
                             canUndo:      !!gp.canUndo,
-                            canWarehouse: gp.canWarehouse !== undefined ? !!gp.canWarehouse : !!gp.canEdit
+                            canWarehouse: gp.canWarehouse !== undefined ? !!gp.canWarehouse : !!gp.canEdit,
+                            canOverrideExpired: gp.canOverrideExpired !== undefined ? !!gp.canOverrideExpired : false
                         };
                     }
                 } catch(e) {}
@@ -1644,9 +1673,16 @@
                 var canUndo      = !!rxPerms.canUndo;
                 var canWarehouse = !!rxPerms.canWarehouse;
                 var canEditDate  = !!rxPerms.canEdit;
-                var lastCompletedActionId = completedIds.length > 0 ? rx.RXWorkflowTrackings[rx.RXWorkflowTrackings.length - 1].workflowActionId : null;
+                var canOverrideExpired = !!rxPerms.canOverrideExpired || !!rxServiceDateOverrideEnabled;
+                var lastCompletedActionId = null;
+                for (var lci = 0; lci < allWorkflowActions.length; lci++) {
+                    if (completedMap[allWorkflowActions[lci].id]) {
+                        lastCompletedActionId = allWorkflowActions[lci].id;
+                    }
+                }
 
                 window._workflowRxId = rxId;
+                window._workflowCanOverrideExpired = canOverrideExpired;
 
                 var footer      = document.getElementById('workflowFooter');
                 var warehouseBtn = document.getElementById('returnToWarehouseBtn');
@@ -1671,17 +1707,33 @@
                     warehouseBanner = '<div class="alert alert-warning py-2 mb-3"><i class="fas fa-warehouse me-2"></i><strong>Returned to Warehouse</strong> on ' + retDate + retNote + '</div>';
                 }
 
-                var svcDateR    = rx.serviceDate ? new Date(rx.serviceDate) : null;
+                var cycleServiceDateValue = rx.serviceDate || (rx.Patient && rx.Patient.serviceDate) || '';
+                var svcDateR    = cycleServiceDateValue ? new Date(cycleServiceDateValue) : null;
                 var expiryDateR = svcDateR ? new Date(svcDateR.getTime() + 90 * 864e5) : null;
                 var todayD      = new Date(); todayD.setHours(0,0,0,0);
                 var isExpired   = expiryDateR ? (todayD > expiryDateR) : false;
                 var svcStr      = svcDateR ? svcDateR.toLocaleDateString() : '';
                 var expStr      = expiryDateR ? expiryDateR.toLocaleDateString() : '';
+                var isWorkflowClosed = allWorkflowActions.length > 0;
+                for (var wci = 0; wci < allWorkflowActions.length; wci++) {
+                    if (!completedMap[allWorkflowActions[wci].id]) {
+                        isWorkflowClosed = false;
+                        break;
+                    }
+                }
+                var canCloseExpired = !!(canComplete || canEditDate || canOverrideExpired);
+                var canEditWorkflowDate = !!(canEditDate || (canOverrideExpired && isExpired));
                 var resetBtnHtml = (isExpired && canEditDate)
                     ? '<button class="btn btn-sm btn-danger fw-semibold" id="resetCycleBtn"><i class="fas fa-redo me-1"></i>Start New Cycle</button>'
                     : '';
+                var accessBtnHtml = (isExpired && !canOverrideExpired)
+                    ? '<button class="btn btn-sm btn-outline-warning fw-semibold" id="expiredAccessBtn"><i class="fas fa-key me-1"></i>Request Access</button>'
+                    : '';
+                var closeExpiredBtnHtml = (isExpired && !isWorkflowClosed && canCloseExpired)
+                    ? '<button class="btn btn-sm btn-success fw-semibold" id="closeExpiredInlineBtn"><i class="fas fa-check-circle me-1"></i>Close RX Record</button>'
+                    : '';
                 var expiryBanner = isExpired
-                    ? '<div class="alert alert-danger py-2 mb-3 d-flex align-items-center justify-content-between flex-wrap gap-2"><div><i class="fas fa-exclamation-triangle me-2"></i><strong>90-Day Window Expired</strong> <span class="ms-2 small">Service date: ' + svcStr + ' \u2014 Expired: ' + expStr + '</span></div>' + resetBtnHtml + '</div>'
+                    ? '<div class="alert alert-danger py-2 mb-3 d-flex align-items-center justify-content-between flex-wrap gap-2"><div><i class="fas fa-exclamation-triangle me-2"></i><strong>90-Day Window Expired</strong> <span class="ms-2 small">Service date: ' + svcStr + ' \u2014 Expired: ' + expStr + '</span></div><div class="d-flex gap-2 flex-wrap">' + accessBtnHtml + closeExpiredBtnHtml + resetBtnHtml + '</div></div>'
                     : '';
 
                 // ── 90-DAY ACTIVE LOCK BANNER ────────────────────────────────────────────
@@ -1739,7 +1791,7 @@
                             ' data-done="' + (done ? '1' : '0') + '"' +
                             ' data-canundo="' + (canUndo && action.id === lastCompletedActionId && !alreadyReturned ? '1' : '0') + '"' +
                             ' data-cancomp="' + (stepCanComplete && !isExpired ? '1' : '0') + '"' +
-                            ' data-candate="' + (done && tracking && canEditDate ? '1' : '0') + '"' +
+                            ' data-candate="' + (done && tracking && canEditWorkflowDate && (!isExpired || canOverrideExpired) ? '1' : '0') + '"' +
                             ' data-prevdate="' + prevStepDate + '"' +
                             ' data-nextdate="' + nextStepDate + '"' +
                             ' data-svcdate="' + (svcDateR ? svcDateR.toISOString().slice(0,10) : '') + '">' +
@@ -1747,17 +1799,32 @@
                     '</div>';
                 }
 
-                var viewOnlyBanner = (!canComplete && !canUndo && !canWarehouse)
+                var viewOnlyBanner = (!canComplete && !canUndo && !canWarehouse && !canOverrideExpired)
                     ? '<div class="alert alert-info d-flex align-items-center py-2 mb-3"><i class="fas fa-eye me-2"></i><span>View Only — you do not have permission to update workflow steps.</span></div>'
                     : '';
+                var overrideOnlyBanner = (!canComplete && !canUndo && !canWarehouse && canOverrideExpired)
+                    ? '<div class="alert alert-warning d-flex align-items-center py-2 mb-3"><i class="fas fa-key me-2"></i><span>Override Only — you can resolve expired RX workflow locks and update old-cycle workflow dates.</span></div>'
+                    : '';
 
-                var html = viewOnlyBanner + expiryBanner + globalOverrideBanner + activeLockBanner + warehouseBanner + '<div class="list-group">' + listHtml + '</div>';
+                var html = viewOnlyBanner + overrideOnlyBanner + expiryBanner + globalOverrideBanner + activeLockBanner + warehouseBanner + '<div class="list-group">' + listHtml + '</div>';
                 document.getElementById('workflowBody').innerHTML = html;
 
                 /* Wire Reset Cycle button */
                 var resetBtn = document.getElementById('resetCycleBtn');
                 if (resetBtn) {
                     resetBtn.addEventListener('click', function() { promptResetCycle(rxId); });
+                }
+                var expiredAccessBtn = document.getElementById('expiredAccessBtn');
+                if (expiredAccessBtn) {
+                    expiredAccessBtn.addEventListener('click', function() {
+                        showExpiredAccessModal(rxId, 'This RX record is past the 90-day window. Old-cycle date edits require override access.', canCloseExpired);
+                    });
+                }
+                var closeExpiredInlineBtn = document.getElementById('closeExpiredInlineBtn');
+                if (closeExpiredInlineBtn) {
+                    closeExpiredInlineBtn.addEventListener('click', function() {
+                        showExpiredAccessModal(rxId, 'Closing this RX will mark all remaining workflow steps complete at the 90-day expiry date.', true);
+                    });
                 }
 
                 /* Wire action buttons inside each wf-cell */
@@ -1877,7 +1944,7 @@
         var minVal    = prevDate || '';
         /* Cap max at serviceDate + 90 days */
         var svcMax90  = svcDateStr ? new Date(new Date(svcDateStr).getTime() + 90 * 864e5).toISOString().slice(0,10) : today;
-        var hardMax   = svcMax90 < today ? svcMax90 : today;
+        var hardMax   = window._workflowCanOverrideExpired ? today : (svcMax90 < today ? svcMax90 : today);
         var maxVal    = nextDate ? (nextDate < hardMax ? nextDate : hardMax) : hardMax;
 
         wrap.innerHTML =
@@ -1900,6 +1967,53 @@
         });
     }
 
+    function showExpiredAccessModal(rxId, message, allowClose) {
+        expiredAccessRxId = rxId;
+        var msgEl = document.getElementById('expiredAccessMessage');
+        if (msgEl) msgEl.textContent = message || 'This RX record is past the 90-day window and old-cycle edits require override access.';
+        var closeBtn = document.getElementById('closeExpiredRxBtn');
+        if (closeBtn) {
+            closeBtn.style.display = allowClose ? '' : 'none';
+            closeBtn.disabled = false;
+            closeBtn.innerHTML = '<i class="fas fa-check-circle me-1"></i>Close RX Record';
+        }
+        if (expiredAccessModalInstance) expiredAccessModalInstance.show();
+    }
+
+    function closeExpiredRxRecord(rxId) {
+        if (!rxId) return;
+        var btn = document.getElementById('closeExpiredRxBtn');
+        var inlineBtn = document.getElementById('closeExpiredInlineBtn');
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Closing...';
+        }
+        if (inlineBtn) inlineBtn.disabled = true;
+        fetchWithAuth(window.rxUrl('/api/rx-records/') + rxId + '/close-expired-workflow', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({})
+        }).then(function(res) {
+            if (!res) return;
+            return res.json().then(function(data) {
+                if (res.ok) {
+                    if (expiredAccessModalInstance) expiredAccessModalInstance.hide();
+                    showToast('RX record closed. ' + (data.closedSteps || 0) + ' workflow step(s) completed.', 'success');
+                    return openWorkflow(rxId).then(function() { return loadRxRecords(); });
+                }
+                showToast((data && (data.error || data.message)) || 'Close RX failed.', 'danger');
+            });
+        }).catch(function() {
+            showToast('Network error.', 'danger');
+        }).then(function() {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-check-circle me-1"></i>Close RX Record';
+            }
+            if (inlineBtn) inlineBtn.disabled = false;
+        });
+    }
+
     function updateStepDate(trackingId, rxId, newDateStr, wrap, origText) {
         var saveBtn = document.getElementById('wfDateSave_' + trackingId);
         if (saveBtn) { saveBtn.disabled = true; saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>'; }
@@ -1917,7 +2031,11 @@
                 return openWorkflow(rxId).then(function() { return loadRxRecords(); });
             } else {
                 return res.json().then(function(err) {
-                    showToast(err.error || 'Failed to update date.', 'danger');
+                    if (err && err.code === 'RX_WORKFLOW_DATE_WINDOW_LOCKED') {
+                        showExpiredAccessModal(rxId, err.error || 'This RX workflow date is outside the 90-day window.', true);
+                    } else {
+                        showToast(err.error || 'Failed to update date.', 'danger');
+                    }
                     wrap.innerHTML = '<small class="text-success wf-date-label">' + origText + '</small>';
                     wrap.dataset.editing = '';
                 });

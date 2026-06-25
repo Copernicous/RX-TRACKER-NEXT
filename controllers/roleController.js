@@ -11,7 +11,7 @@ const { BUILT_IN_DEFAULTS } = require('../middleware/rbac');
 function normalizePermissions(perms) {
     if (!perms || typeof perms !== 'object') return perms || null;
     const normalized = {};
-    const actions = ['canAdd', 'canEdit', 'canDelete', 'canExport', 'canUndo', 'canWarehouse'];
+    const actions = ['canAdd', 'canEdit', 'canDelete', 'canExport', 'canUndo', 'canWarehouse', 'canOverrideExpired'];
     for (const [key, mod] of Object.entries(perms)) {
         if (!mod || typeof mod !== 'object') { normalized[key] = mod; continue; }
         const hasAction = actions.some(a => mod[a] === true);

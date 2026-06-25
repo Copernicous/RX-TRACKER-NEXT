@@ -495,27 +495,48 @@ const startServer = async () => {
             const needsUpdate = role.permissions && role.permissions.patients !== undefined
                 && !Object.prototype.hasOwnProperty.call(role.permissions.patients || {}, 'canAdd');
 
+            const defaultsForRole = BUILT_IN_DEFAULTS[role.name] ? BUILT_IN_DEFAULTS[role.name]() : null;
+
             // Backfill any newly added permission keys that don't exist yet in DB
-            const missingKeys = BUILT_IN_DEFAULTS[role.name]
-                ? Object.keys(BUILT_IN_DEFAULTS[role.name]()).filter(
+            const missingKeys = defaultsForRole
+                ? Object.keys(defaultsForRole).filter(
                     k => role.permissions && !Object.prototype.hasOwnProperty.call(role.permissions, k)
                   )
                 : [];
+            const missingActionKeys = [];
+            if (defaultsForRole && role.permissions) {
+                Object.keys(defaultsForRole).forEach(moduleKey => {
+                    const existingModule = role.permissions[moduleKey];
+                    const defaultModule = defaultsForRole[moduleKey];
+                    if (!existingModule || !defaultModule || typeof existingModule !== 'object' || typeof defaultModule !== 'object') return;
+                    Object.keys(defaultModule).forEach(actionKey => {
+                        if (!Object.prototype.hasOwnProperty.call(existingModule, actionKey)) {
+                            missingActionKeys.push(moduleKey + '.' + actionKey);
+                        }
+                    });
+                });
+            }
 
-            if ((needsSeed || needsUpdate || missingKeys.length > 0) && BUILT_IN_DEFAULTS[role.name]) {
+            if ((needsSeed || needsUpdate || missingKeys.length > 0 || missingActionKeys.length > 0) && defaultsForRole) {
                 let perms;
                 if (needsSeed || needsUpdate) {
                     // Full re-seed
-                    perms = BUILT_IN_DEFAULTS[role.name]();
+                    perms = defaultsForRole;
                 } else {
                     // Surgical patch — only add the missing keys, keep existing ones intact
-                    const defaults = BUILT_IN_DEFAULTS[role.name]();
                     perms = Object.assign({}, role.permissions);
-                    missingKeys.forEach(k => { perms[k] = defaults[k]; });
+                    missingKeys.forEach(k => { perms[k] = defaultsForRole[k]; });
+                    missingActionKeys.forEach(k => {
+                        const parts = k.split('.');
+                        const moduleKey = parts[0];
+                        const actionKey = parts[1];
+                        perms[moduleKey] = Object.assign({}, perms[moduleKey]);
+                        perms[moduleKey][actionKey] = defaultsForRole[moduleKey][actionKey];
+                    });
                 }
                 await role.update({ permissions: perms });
-                if (missingKeys.length > 0) {
-                    console.log(`[Roles] Patched new permission keys [${missingKeys.join(', ')}] for role: ${role.name}`);
+                if (missingKeys.length > 0 || missingActionKeys.length > 0) {
+                    console.log(`[Roles] Patched new permission keys [${missingKeys.concat(missingActionKeys).join(', ')}] for role: ${role.name}`);
                 } else {
                     console.log(`[Roles] ${needsSeed ? 'Seeded' : 'Updated'} permissions for built-in role: ${role.name}`);
                 }

@@ -61,7 +61,7 @@ const LOOKUP_MAP = {
     'clinics':            { model: db.Clinic,                    fields: ['id', 'name',        'address'],       where: { isActive: true } },
     'patient-transport':  { model: db.PatientTransportCompany,   fields: ['id', 'companyName', 'contactPerson'], where: { isActive: true } },
     'pharmacy-transport': { model: db.PharmacyTransportCompany,  fields: ['id', 'companyName', 'contactPerson'], where: { isActive: true } },
-    'workflow-actions':   { model: db.WorkflowAction,            fields: ['id', 'name', 'sequenceNumber', 'description'], where: { isActive: true }, order: [['sequenceNumber', 'ASC']] },
+    'workflow-actions':   { model: db.WorkflowAction,            fields: ['id', 'name', 'sequenceNumber', 'description'], where: { isActive: true }, order: [['sequenceNumber', 'ASC'], ['id', 'ASC']] },
     'medication-catalog': { model: db.MedicationCatalog,         fields: ['id', 'name', 'sortOrder', 'description'],      where: { isActive: true } },
 };
 router.get('/lookup/:module', async (req, res) => {
@@ -102,7 +102,8 @@ const generateCRUDRoutes = (path, controller, moduleName) => {
     router.get(path,           rbac.requirePermission(key, 'read'), controller.getAll);
     router.get(`${path}/:id`,  rbac.requirePermission(key, 'read'), controller.getOne);
     router.post(path,          rbac.requirePermission(key, 'add'),  auditLogger(moduleName), controller.create);
-    router.put(`${path}/:id`,  rbac.requirePermission(key, 'edit'), auditLogger(moduleName), controller.update);
+    const updateAction = key === 'patients' ? 'writeOrOverrideExpired' : 'edit';
+    router.put(`${path}/:id`,  rbac.requirePermission(key, updateAction), auditLogger(moduleName), controller.update);
 
     // Users and workflow-actions require Administrator role to delete
     const deleteGuard = (key === 'users' || key === 'workflow_actions')
@@ -166,9 +167,10 @@ router.post('/rx-records/undo-workflow',        rbac.requirePermission('rx_recor
 router.post('/rx-records/workflow',             rbac.requirePermission('rx_records', 'add'),  auditLogger('RX Workflow'), rxController.updateWorkflow);
 // FEAT-10: Bulk workflow step application
 router.post('/rx-records/bulk-workflow',        rbac.requirePermission('rx_records', 'add'),  auditLogger('RX Workflow'), rxController.bulkWorkflow);
-// FEAT-11: Workflow step date override (edit permission required)
-router.put('/rx-records/workflow-date',         rbac.requirePermission('rx_records', 'edit'), auditLogger('RX Workflow'), rxController.updateWorkflowDate);
+// FEAT-11: Workflow step date override (edit permission, or expired-lock override)
+router.put('/rx-records/workflow-date',         rbac.requirePermission('rx_records', 'writeOrOverrideExpired'), auditLogger('RX Workflow'), rxController.updateWorkflowDate);
 router.post('/rx-records/:id/reset-cycle',      rbac.requirePermission('rx_records', 'edit'), auditLogger('RX Records'), rxController.resetRxCycle);
+router.post('/rx-records/:id/close-expired-workflow', rbac.requirePermission('rx_records', 'writeOrOverrideExpired'), auditLogger('RX Workflow'), rxController.closeExpiredWorkflow);
 router.put('/rx-records/:id/restore',           rbac.requirePermission('rx_records', 'edit'), auditLogger('RX Records'), rxController.restore);
 // RX History — must be before the generic CRUD block
 router.get('/rx-records/:id/history', rbac.requirePermission('rx_records', 'read'), rxController.getHistory);

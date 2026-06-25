@@ -1,6 +1,7 @@
 const db = require('../models');
 const { parseDate } = require('../utils/dateUtils');
 const { isServiceDateOverrideEnabled } = require('../utils/globalSettings');
+const { userCanOverrideExpired, getRequestPermission } = require('../middleware/rbac');
 
 // ---- helper: save a history snapshot ----
 async function saveHistory(rxId, userId, changeType, snapshot, changedFields, note, transaction) {
@@ -30,6 +31,10 @@ function diffObjects(before, after, fields) {
 
 const TRACK_FIELDS = ['patientId','pharmacyId','patientTransportCompanyId',
                       'pharmacyTransportCompanyId','arrivalDate','serviceDate'];
+
+function getRxCycleServiceDate(rx) {
+    return rx && (rx.serviceDate || (rx.Patient && rx.Patient.serviceDate) || null);
+}
 
 // GET /api/rx-records
 exports.getAll = async (req, res) => {
@@ -345,7 +350,7 @@ exports.updateWorkflowDate = async (req, res) => {
         if (parsed > now) return res.status(400).json({ error: 'Completion date cannot be in the future.' });
 
         const tracking = await db.RXWorkflowTracking.findByPk(trackingId, {
-            include: [{ model: db.WorkflowAction }, { model: db.RXRecord }]
+            include: [{ model: db.WorkflowAction }, { model: db.RXRecord, include: [db.Patient] }]
         });
         if (!tracking) return res.status(404).json({ error: 'Workflow tracking record not found.' });
 
@@ -359,7 +364,7 @@ exports.updateWorkflowDate = async (req, res) => {
         const allTrackings = await db.RXWorkflowTracking.findAll({
             where: { rxRecordId: rx.id },
             include: [{ model: db.WorkflowAction }],
-            order: [[db.WorkflowAction, 'sequenceNumber', 'ASC']]
+            order: [[db.WorkflowAction, 'sequenceNumber', 'ASC'], [db.WorkflowAction, 'id', 'ASC']]
         });
 
         // Build ordered list: [{seq, name, date}]
@@ -398,16 +403,34 @@ exports.updateWorkflowDate = async (req, res) => {
                 });
             }
         }
+        const rxPerm = await getRequestPermission(req, 'rx_records');
+        const canEditWorkflowDate = !!(rxPerm.visible && rxPerm.canEdit);
+        const canOverrideExpired = isServiceDateOverrideEnabled() || !!(rxPerm.visible && rxPerm.canOverrideExpired);
+        if (!canEditWorkflowDate && !canOverrideExpired) {
+            return res.status(403).json({ error: 'Access denied: you cannot edit workflow dates or override expired RX locks.' });
+        }
+
         // ── Step 1: must be >= serviceDate; all steps: must be <= serviceDate + 90 days ──
-        if (rx.serviceDate) {
-            const svcDay    = new Date(rx.serviceDate); svcDay.setHours(0,0,0,0);
+        const cycleServiceDate = getRxCycleServiceDate(rx);
+        if (cycleServiceDate) {
+            const svcDay    = new Date(cycleServiceDate); svcDay.setHours(0,0,0,0);
             const expiryDay = new Date(svcDay); expiryDay.setDate(expiryDay.getDate() + 90);
             const newDay    = new Date(parsed); newDay.setHours(0,0,0,0);
+            const todayDay  = new Date(); todayDay.setHours(0,0,0,0);
 
             // All steps must be within the 90-day active window
-            if (newDay > expiryDay) {
+            if (!canOverrideExpired && newDay > expiryDay) {
                 return res.status(400).json({
+                    code: 'RX_WORKFLOW_DATE_WINDOW_LOCKED',
+                    windowExpiry: expiryDay.toISOString().slice(0, 10),
                     error: `Date must be within 90 days of service date (${svcDay.toLocaleDateString()} – ${expiryDay.toLocaleDateString()}).`
+                });
+            }
+            if (!canEditWorkflowDate && canOverrideExpired && todayDay <= expiryDay) {
+                return res.status(403).json({
+                    code: 'RX_OVERRIDE_ONLY_ACTIVE_WINDOW',
+                    windowExpiry: expiryDay.toISOString().slice(0, 10),
+                    error: `Override-only access can edit workflow dates only after the 90-day window expires on ${expiryDay.toLocaleDateString()}.`
                 });
             }
 
@@ -449,11 +472,23 @@ exports.undoWorkflow = async (req, res) => {
         const rx = await db.RXRecord.findByPk(rxId);
         if (!rx) return res.status(404).json({ error: 'RX Record not found.' });
 
-        const latestTracking = await db.RXWorkflowTracking.findOne({
+        const completedTrackings = await db.RXWorkflowTracking.findAll({
             where: { rxRecordId: rxId },
-            order: [['createdAt', 'DESC']],
             include: [{ model: db.WorkflowAction }]
         });
+
+        const latestTracking = completedTrackings
+            .filter(t => t.WorkflowAction)
+            .sort((a, b) => {
+                const seqDiff = (b.WorkflowAction.sequenceNumber || 0) - (a.WorkflowAction.sequenceNumber || 0);
+                if (seqDiff) return seqDiff;
+                const actionIdDiff = (b.WorkflowAction.id || 0) - (a.WorkflowAction.id || 0);
+                if (actionIdDiff) return actionIdDiff;
+                const dateDiff = new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+                if (dateDiff) return dateDiff;
+                return (b.id || 0) - (a.id || 0);
+            })[0] || completedTrackings
+            .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())[0];
 
         if (!latestTracking) return res.status(400).json({ error: 'No workflow steps to undo.' });
 
@@ -538,11 +573,12 @@ exports.update = async (req, res) => {
         // Block changes to serviceDate while the current 90-day window is still active.
         // This prevents silently resetting the eligibility clock mid-cycle.
         // bypassEligibility=true allows admin override (e.g., data corrections).
+        const canOverrideExpired = isServiceDateOverrideEnabled() || await userCanOverrideExpired(req, 'rx_records');
         if (
             safeData.serviceDate !== undefined &&
             before.serviceDate &&
             !req.body.bypassEligibility &&
-            !isServiceDateOverrideEnabled()
+            !canOverrideExpired
         ) {
             const incomingDate  = safeData.serviceDate ? parseDate(safeData.serviceDate) : null;
             const currentSvcStr = before.serviceDate instanceof Date
@@ -606,6 +642,94 @@ exports.restore = async (req, res) => {
         await saveHistory(rx.id, req.user?.id, 'Restore', snapshot, null, 'Record restored');
         res.status(200).json({ message: 'Record restored successfully.' });
     } catch (err) { res.status(500).json({ error: err.message }); }
+};
+
+// POST /api/rx-records/:id/close-expired-workflow
+exports.closeExpiredWorkflow = async (req, res) => {
+    const transaction = await db.sequelize.transaction();
+    try {
+        const rx = await db.RXRecord.findByPk(req.params.id, {
+            include: [db.Patient],
+            transaction
+        });
+        if (!rx) {
+            await transaction.rollback();
+            return res.status(404).json({ error: 'RX Record not found.' });
+        }
+        const cycleServiceDate = getRxCycleServiceDate(rx);
+        if (!cycleServiceDate) {
+            await transaction.rollback();
+            return res.status(400).json({ error: 'RX Record has no service date to evaluate.' });
+        }
+
+        const svcDay = new Date(cycleServiceDate); svcDay.setHours(0, 0, 0, 0);
+        const expiryDay = new Date(svcDay); expiryDay.setDate(expiryDay.getDate() + 90);
+        const today = new Date(); today.setHours(0, 0, 0, 0);
+        if (today <= expiryDay) {
+            await transaction.rollback();
+            return res.status(400).json({
+                error: `This RX is still inside the active 90-day window until ${expiryDay.toLocaleDateString()}.`
+            });
+        }
+
+        const actions = await db.WorkflowAction.findAll({
+            where: { isActive: true },
+            order: [['sequenceNumber', 'ASC'], ['id', 'ASC']],
+            transaction
+        });
+        if (!actions.length) {
+            await transaction.rollback();
+            return res.status(400).json({ error: 'No active workflow actions are configured.' });
+        }
+
+        const existingTrackings = await db.RXWorkflowTracking.findAll({
+            where: { rxRecordId: rx.id },
+            transaction
+        });
+        const completedActionIds = new Set(existingTrackings.map(t => t.workflowActionId));
+        const missingActions = actions.filter(action => !completedActionIds.has(action.id));
+
+        if (!missingActions.length) {
+            await transaction.commit();
+            return res.json({ ok: true, closedSteps: 0, message: 'RX workflow is already closed.' });
+        }
+
+        const completionDate = new Date(expiryDay);
+        await db.RXWorkflowTracking.bulkCreate(missingActions.map(action => ({
+            rxRecordId: rx.id,
+            workflowActionId: action.id,
+            completionDate,
+            userId: req.user?.id || null
+        })), { transaction });
+
+        if (rx.returnedToWarehouse) {
+            await rx.update({
+                returnedToWarehouse: false,
+                warehouseReturnDate: null,
+                warehouseReturnNote: null
+            }, { transaction });
+        }
+
+        await saveHistory(
+            rx.id,
+            req.user?.id,
+            'Workflow Closed',
+            rx.toJSON(),
+            null,
+            `Expired RX workflow closed with ${missingActions.length} step(s) completed at ${completionDate.toLocaleDateString()} by ${req.user?.username || 'user'}.`,
+            transaction
+        );
+
+        await transaction.commit();
+        res.json({
+            ok: true,
+            closedSteps: missingActions.length,
+            completionDate: completionDate.toISOString().slice(0, 10)
+        });
+    } catch (err) {
+        await transaction.rollback();
+        res.status(500).json({ error: err.message });
+    }
 };
 
 // GET /api/rx-records/:id/history

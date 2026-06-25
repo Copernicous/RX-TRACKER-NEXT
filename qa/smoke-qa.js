@@ -174,6 +174,45 @@ async function verifyNeedsActionFlow(fixture) {
   } else {
     fail('needs-action smoke patient appears in filtered list', `${fixture.patientName} was not found in Needs Action filter.`);
   }
+
+  await page.goto(qaRoute('/rx-records'), { waitUntil: 'domcontentloaded' });
+  await page.waitForLoadState('networkidle').catch(() => {});
+  await page.fill('#rxFilterPatient', fixture.patientName);
+  await safeClick('#rxFilterBtn', 'needs-action smoke rx search button', { wait: 700 });
+  await page.locator(`tbody:has-text("${fixture.patientName}")`).waitFor({ state: 'visible', timeout: 10000 });
+  await safeClick('button[title="Workflow"]', 'needs-action smoke expired workflow modal opens', { wait: 800 });
+  await expectVisible('#workflowModal.show', 'needs-action smoke workflow modal visible');
+
+  const expiredBanner = page.locator('#workflowModal .alert-danger:has-text("90-Day Window Expired")');
+  if (await expiredBanner.count()) {
+    pass('needs-action smoke expired workflow banner');
+  } else {
+    fail('needs-action smoke expired workflow banner', '90-Day Window Expired banner not found.');
+  }
+
+  const closeButton = page.locator('#closeExpiredInlineBtn');
+  if (await closeButton.count() && await closeButton.isVisible().catch(() => false)) {
+    pass('needs-action smoke close rx record option');
+    await closeButton.click();
+    await expectVisible('#expiredAccessModal.show', 'needs-action smoke close rx modal visible');
+    await expectText('Please request access for this transaction to your administrator.', 'needs-action smoke access guidance text');
+    await expectVisible('#closeExpiredRxBtn', 'needs-action smoke modal close rx option visible');
+    await page.locator('#expiredAccessModal.show .btn-close').click().catch(() => {});
+    await page.waitForTimeout(300);
+  } else {
+    fail('needs-action smoke close rx record option', 'Close RX Record button not visible for expired incomplete workflow.');
+  }
+
+  const requestAccessButton = page.locator('#expiredAccessBtn');
+  if (await requestAccessButton.count() && await requestAccessButton.isVisible().catch(() => false)) {
+    await requestAccessButton.click();
+    await expectVisible('#expiredAccessModal.show', 'needs-action smoke request access modal visible');
+    await page.locator('#expiredAccessModal.show .btn-close').click().catch(() => {});
+    await page.waitForTimeout(300);
+  } else {
+    skip('needs-action smoke request access modal', 'current user has override access or request button is not shown');
+  }
+  await closeModal();
 }
 
 function findChromeExecutable() {

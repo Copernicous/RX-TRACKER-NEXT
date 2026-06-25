@@ -1,6 +1,6 @@
 {
   "name": "patient-rx-system",
-  "version": "2.0.40",
+  "version": "2.0.41",
   "description": "Patient RX Delivery Management System",
   "main": "app.js",
   "scripts": {
@@ -13,6 +13,7 @@
     "qa:stop": "node qa/stop-local-qa.js",
     "qa:web": "node qa/web-ui.js",
     "smoke:qa": "node qa/smoke-qa.js",
+    "test:rx-override": "node scripts/test-rx-override-permissions.js",
     "db:migrate": "sequelize-cli db:migrate",
     "db:seed": "sequelize-cli db:seed:all",
     "build:exe": "npx --yes @yao-pkg/pkg app.js --target node22-win-x64 --output dist/server.exe --compress GZip && node scripts/post-build.js"

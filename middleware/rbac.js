@@ -6,7 +6,7 @@
  * The startup migration in app.js seeds the initial defaults for the 4 built-in roles.
  *
  * Permission object shape per module:
- *   { visible, canAdd, canEdit, canDelete, canExport, canUndo }
+ *   { visible, canAdd, canEdit, canDelete, canExport, canUndo, canWarehouse, canOverrideExpired }
  *
  * canAdd  → can CREATE new records (POST)
  * canEdit → can MODIFY existing records (PUT/PATCH)
@@ -16,11 +16,11 @@
 // ─── Hardcoded seed defaults (used ONLY during startup migration to seed DB) ──
 const BUILT_IN_DEFAULTS = {
     Administrator: () => {
-        const full = { visible: true, canAdd: true, canEdit: true, canDelete: true, canExport: true, canUndo: false };
+        const full = { visible: true, canAdd: true, canEdit: true, canDelete: true, canExport: true, canUndo: false, canOverrideExpired: false };
         return {
             dashboard:          { visible: true,  canAdd: false, canEdit: false, canDelete: false, canExport: true,  canUndo: false },
-            patients:           { ...full },
-            rx_records:         { ...full, canUndo: true, canWarehouse: true },
+            patients:           { ...full, canOverrideExpired: true },
+            rx_records:         { ...full, canUndo: true, canWarehouse: true, canOverrideExpired: true },
             reports:            { visible: true,  canAdd: false, canEdit: false, canDelete: false, canExport: true,  canUndo: false },
             audit_log:          { visible: true,  canAdd: false, canEdit: false, canDelete: false, canExport: false, canUndo: false },
             import:             { ...full },
@@ -38,10 +38,10 @@ const BUILT_IN_DEFAULTS = {
         };
     },
     Supervisor: () => {
-        const full = { visible: true, canAdd: true, canEdit: true, canDelete: true,  canExport: true,  canUndo: false };
-        const add  = { visible: true, canAdd: true, canEdit: true, canDelete: false, canExport: true,  canUndo: false };
-        const view = { visible: true, canAdd: false, canEdit: false, canDelete: false, canExport: true, canUndo: false };
-        const hide = { visible: false, canAdd: false, canEdit: false, canDelete: false, canExport: false, canUndo: false };
+        const full = { visible: true, canAdd: true, canEdit: true, canDelete: true,  canExport: true,  canUndo: false, canOverrideExpired: false };
+        const add  = { visible: true, canAdd: true, canEdit: true, canDelete: false, canExport: true,  canUndo: false, canOverrideExpired: false };
+        const view = { visible: true, canAdd: false, canEdit: false, canDelete: false, canExport: true, canUndo: false, canOverrideExpired: false };
+        const hide = { visible: false, canAdd: false, canEdit: false, canDelete: false, canExport: false, canUndo: false, canOverrideExpired: false };
         return {
             dashboard:          { visible: true,  canAdd: false, canEdit: false, canDelete: false, canExport: true,  canUndo: false },
             patients:           { ...full },
@@ -63,9 +63,9 @@ const BUILT_IN_DEFAULTS = {
         };
     },
     Operator: () => {
-        const addOnly = { visible: true, canAdd: true,  canEdit: false, canDelete: false, canExport: true,  canUndo: false };
-        const view    = { visible: true, canAdd: false, canEdit: false, canDelete: false, canExport: true,  canUndo: false };
-        const hide    = { visible: false, canAdd: false, canEdit: false, canDelete: false, canExport: false, canUndo: false };
+        const addOnly = { visible: true, canAdd: true,  canEdit: false, canDelete: false, canExport: true,  canUndo: false, canOverrideExpired: false };
+        const view    = { visible: true, canAdd: false, canEdit: false, canDelete: false, canExport: true,  canUndo: false, canOverrideExpired: false };
+        const hide    = { visible: false, canAdd: false, canEdit: false, canDelete: false, canExport: false, canUndo: false, canOverrideExpired: false };
         return {
             dashboard:          { visible: true,  canAdd: false, canEdit: false, canDelete: false, canExport: true,  canUndo: false },
             patients:           { ...addOnly },
@@ -87,8 +87,8 @@ const BUILT_IN_DEFAULTS = {
         };
     },
     'Read Only': () => {
-        const view = { visible: true,  canAdd: false, canEdit: false, canDelete: false, canExport: true,  canUndo: false };
-        const hide = { visible: false, canAdd: false, canEdit: false, canDelete: false, canExport: false, canUndo: false };
+        const view = { visible: true,  canAdd: false, canEdit: false, canDelete: false, canExport: true,  canUndo: false, canOverrideExpired: false };
+        const hide = { visible: false, canAdd: false, canEdit: false, canDelete: false, canExport: false, canUndo: false, canOverrideExpired: false };
         return {
             dashboard:          { visible: true,  canAdd: false, canEdit: false, canDelete: false, canExport: true,  canUndo: false },
             patients:           { ...view },
@@ -112,6 +112,53 @@ const BUILT_IN_DEFAULTS = {
 };
 
 exports.BUILT_IN_DEFAULTS = BUILT_IN_DEFAULTS;
+
+function normalizePermission(rawPerm) {
+    return rawPerm ? {
+        visible:            !!rawPerm.visible,
+        canAdd:             rawPerm.canAdd !== undefined ? !!rawPerm.canAdd : !!rawPerm.canEdit,
+        canEdit:            !!rawPerm.canEdit,
+        canDelete:          !!rawPerm.canDelete,
+        canExport:          !!rawPerm.canExport,
+        canUndo:            !!rawPerm.canUndo,
+        canWarehouse:       rawPerm.canWarehouse !== undefined ? !!rawPerm.canWarehouse : !!rawPerm.canEdit,
+        canOverrideExpired: !!rawPerm.canOverrideExpired
+    } : {
+        visible: false, canAdd: false, canEdit: false, canDelete: false,
+        canExport: false, canUndo: false, canWarehouse: false, canOverrideExpired: false
+    };
+}
+
+async function getRequestPermission(req, moduleKey) {
+    if (!req.user) return normalizePermission(null);
+    if (req.user.role === 'Administrator') {
+        return {
+            visible: true, canAdd: true, canEdit: true, canDelete: true,
+            canExport: true, canUndo: true, canWarehouse: true, canOverrideExpired: true
+        };
+    }
+
+    const db = require('../models');
+    const user = await db.User.findByPk(req.user.id, {
+        attributes: ['id'],
+        include: [{ model: db.Role, attributes: ['name', 'permissions'] }]
+    });
+
+    if (!user || !user.Role) return normalizePermission(null);
+
+    const roleName = user.Role.name;
+    const rolePerms = user.Role.permissions ||
+        (BUILT_IN_DEFAULTS[roleName] ? BUILT_IN_DEFAULTS[roleName]() : {});
+
+    return normalizePermission(rolePerms[moduleKey]);
+}
+
+exports.getRequestPermission = getRequestPermission;
+
+exports.userCanOverrideExpired = async (req, moduleKey) => {
+    const perm = await getRequestPermission(req, moduleKey);
+    return !!(perm.visible && perm.canOverrideExpired);
+};
 
 // ─── requireRole ─────────────────────────────────────────────────────────────
 exports.requireRole = (roles) => {
@@ -169,34 +216,7 @@ exports.requirePermission = (moduleKey, requiredAction) => {
             // Dashboard always accessible
             if (moduleKey === 'dashboard') return next();
 
-            // Administrators bypass all permission checks
-            if (req.user.role === 'Administrator') return next();
-
-            // Load user + role + role permissions from DB
-            const db = require('../models');
-            const user = await db.User.findByPk(req.user.id, {
-                attributes: ['id'],
-                include: [{ model: db.Role, attributes: ['name', 'permissions'] }]
-            });
-
-            if (!user || !user.Role) {
-                return res.status(401).json({ message: 'User or role not found' });
-            }
-
-            const roleName = user.Role.name;
-            const rolePerms = user.Role.permissions ||
-                (BUILT_IN_DEFAULTS[roleName] ? BUILT_IN_DEFAULTS[roleName]() : {});
-
-            const rawPerm = rolePerms[moduleKey];
-            const perm = rawPerm ? {
-                visible:      !!rawPerm.visible,
-                canAdd:       rawPerm.canAdd       !== undefined ? !!rawPerm.canAdd       : !!rawPerm.canEdit,
-                canEdit:      !!rawPerm.canEdit,
-                canDelete:    !!rawPerm.canDelete,
-                canExport:    !!rawPerm.canExport,
-                canUndo:      !!rawPerm.canUndo,
-                canWarehouse: rawPerm.canWarehouse !== undefined ? !!rawPerm.canWarehouse : !!rawPerm.canEdit
-            } : { visible: false, canAdd: false, canEdit: false, canDelete: false, canExport: false, canUndo: false, canWarehouse: false };
+            const perm = await getRequestPermission(req, moduleKey);
 
             if (!perm.visible) {
                 return res.status(403).json({ message: `Access denied: ${moduleKey} module is hidden.` });
@@ -206,10 +226,12 @@ exports.requirePermission = (moduleKey, requiredAction) => {
             if (requiredAction === 'add'       && !perm.canAdd)       return res.status(403).json({ message: `Access denied: you cannot add records to ${moduleKey}.` });
             if (requiredAction === 'edit'      && !perm.canEdit)      return res.status(403).json({ message: `Access denied: you cannot edit ${moduleKey}.` });
             if (requiredAction === 'write'     && !perm.canAdd && !perm.canEdit) return res.status(403).json({ message: `Access denied: you cannot write to ${moduleKey}.` });
+            if (requiredAction === 'writeOrOverrideExpired' && !perm.canAdd && !perm.canEdit && !perm.canOverrideExpired) return res.status(403).json({ message: `Access denied: you cannot write to ${moduleKey} or override expired locks.` });
             if (requiredAction === 'delete'    && !perm.canDelete)    return res.status(403).json({ message: `Access denied: you cannot delete from ${moduleKey}.` });
             if (requiredAction === 'export'    && !perm.canExport)    return res.status(403).json({ message: `Access denied: you cannot export ${moduleKey}.` });
             if (requiredAction === 'undo'      && !perm.canUndo)      return res.status(403).json({ message: `Access denied: you cannot undo workflow steps.` });
             if (requiredAction === 'warehouse' && !perm.canWarehouse) return res.status(403).json({ message: `Access denied: you cannot return RX records to warehouse.` });
+            if (requiredAction === 'overrideExpired' && !perm.canOverrideExpired) return res.status(403).json({ message: `Access denied: you cannot override expired 90-day locks.` });
 
             next();
         } catch (e) {

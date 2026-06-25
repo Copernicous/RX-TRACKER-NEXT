@@ -1007,8 +1007,11 @@ var allPatients = [];
         const lockIcon = document.getElementById('svcDateLockIcon');
         const svcInput = document.getElementById('pServiceDate');
         const detail   = document.getElementById('svcDateLockDetail');
+        const patientPagePerms = getPagePerms();
+        const patientCanOverrideExpired = !!patientPagePerms.canOverrideExpired;
+        const canBypassServiceDateLock = patientCanOverrideExpired || !!serviceDateOverrideEnabled;
         const isLocked = (function() {
-            if (serviceDateOverrideEnabled) return false;
+            if (canBypassServiceDateLock) return false;
             if (!patient || !patient.serviceDate) return false;
             var sd  = new Date(patient.serviceDate); sd.setHours(0,0,0,0);
             var exp = new Date(sd.getTime() + 90 * 864e5);
@@ -1041,11 +1044,12 @@ var allPatients = [];
         // Show/hide save button based on add vs edit permission
         const _saveBtn = document.getElementById('savePatientBtn');
         try {
-            const _pu = JSON.parse(localStorage.getItem('user') || '{}');
-            const _pp = (_pu.permissions || {}).patients || {};
+            const _pp = getPagePerms();
             const _canAddPat  = _pp.canAdd  !== undefined ? !!_pp.canAdd  : !!_pp.canEdit;
             const _canEditPat = _pp.canEdit !== undefined ? !!_pp.canEdit : true;
-            const _isEditable = id === null ? _canAddPat : _canEditPat;
+            const _canOverridePat = _pp.canOverrideExpired !== undefined ? !!_pp.canOverrideExpired : false;
+            const _isOverrideOnly = id !== null && !_canEditPat && _canOverridePat;
+            const _isEditable = id === null ? _canAddPat : (_canEditPat || _isOverrideOnly);
 
             if (_saveBtn) _saveBtn.style.display = _isEditable ? '' : 'none';
 
@@ -1053,6 +1057,17 @@ var allPatients = [];
             const _patModal = document.getElementById('patientModal');
             if (_patModal) {
                 _patModal.querySelectorAll('input, select, textarea').forEach(function(el) {
+                    if (_isOverrideOnly) {
+                        if (el.id === 'pServiceDate') {
+                            el.removeAttribute('readonly');
+                            el.removeAttribute('disabled');
+                        } else if (el.tagName === 'SELECT' || el.type === 'checkbox') {
+                            el.setAttribute('disabled', 'true');
+                        } else {
+                            el.setAttribute('readonly', 'true');
+                        }
+                        return;
+                    }
                     if (_isEditable) {
                         if (!(el.id === 'pServiceDate' && isLocked)) {
                             el.removeAttribute('readonly');
@@ -1076,7 +1091,14 @@ var allPatients = [];
                     var _mBody = _patModal.querySelector('.modal-body');
                     if (_mBody) _mBody.insertBefore(_voBanner, _mBody.firstChild);
                 }
-                _voBanner.style.display = _isEditable ? 'none' : '';
+                if (_isOverrideOnly) {
+                    _voBanner.className = 'alert alert-warning d-flex align-items-center py-2 mb-3';
+                    _voBanner.innerHTML = '<i class="fas fa-key me-2"></i><span>Override Only — you can update the Service Date for this patient, but other patient fields remain locked.</span>';
+                } else {
+                    _voBanner.className = 'alert alert-info d-flex align-items-center py-2 mb-3';
+                    _voBanner.innerHTML = '<i class="fas fa-eye me-2"></i><span>View Only — you do not have permission to edit patient records.</span>';
+                }
+                _voBanner.style.display = (_isEditable && !_isOverrideOnly) ? 'none' : '';
             }
         } catch(e) { if (_saveBtn) _saveBtn.style.display = ''; }
         // Acquire soft lock if editing an existing patient
