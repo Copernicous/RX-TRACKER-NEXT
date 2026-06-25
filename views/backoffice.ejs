@@ -250,6 +250,22 @@
         .logdash-table td { padding:0.5rem 0.65rem; border-bottom:1px solid rgba(255,255,255,0.04); vertical-align:top; }
         .logdash-table tr:last-child td { border-bottom:none; }
         .logdash-path { font-family:monospace; color:#a5b4fc; max-width:280px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .logdash-pager { display:flex; align-items:center; justify-content:space-between; gap:0.75rem; flex-wrap:wrap; padding:0.7rem 0.85rem; border-bottom:1px solid var(--border); background:rgba(255,255,255,0.025); }
+        .logdash-pager.compact { padding:0 0 0.65rem; border-bottom:none; background:transparent; }
+        .logdash-pager-controls { display:flex; align-items:center; gap:0.45rem; flex-wrap:wrap; }
+        .logdash-pager-select { background:var(--surface-2); border:1px solid var(--border); color:var(--text); border-radius:7px; padding:0.32rem 0.5rem; font-size:0.74rem; }
+        .logdash-pager-btn { background:var(--surface-2); border:1px solid var(--border); color:var(--text); border-radius:7px; padding:0.32rem 0.55rem; font-size:0.74rem; cursor:pointer; }
+        .logdash-pager-btn:disabled { opacity:0.45; cursor:not-allowed; }
+        .logdash-filter-help { margin-top:0.65rem; display:flex; flex-wrap:wrap; gap:0.45rem; align-items:center; }
+        .logdash-filter-tag { display:inline-flex; align-items:center; gap:0.3rem; border:1px solid var(--border); border-radius:999px; padding:0.22rem 0.55rem; color:var(--text-muted); font-size:0.7rem; background:rgba(255,255,255,0.025); }
+        .logdash-collapse-btn { background:transparent; border:1px solid var(--border); color:var(--text-muted); border-radius:999px; padding:0.25rem 0.6rem; font-size:0.7rem; cursor:pointer; }
+        .logdash-collapse-btn:hover { color:var(--text); border-color:#6366f1; }
+        .logdash-chart { min-height:260px; }
+        .logdash-score { display:flex; align-items:center; gap:1rem; }
+        .logdash-score-num { width:86px; height:86px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:1.6rem; font-weight:900; border:6px solid rgba(99,102,241,0.25); background:rgba(255,255,255,0.025); }
+        .logdash-source-table { width:100%; border-collapse:collapse; font-size:0.74rem; }
+        .logdash-source-table td { padding:0.32rem 0; border-bottom:1px solid rgba(255,255,255,0.04); }
+        .logdash-source-table tr:last-child td { border-bottom:none; }
         @media (max-width: 900px) { .logdash-two-col { grid-template-columns:1fr; } .tab-nav { flex-wrap:wrap; } .tab-btn { flex:1 1 140px; } }
 
         /* ── Schema Panel ── */
@@ -841,14 +857,19 @@
                     <option value="week">Last 7 days</option>
                     <option value="all">All available</option>
                 </select>
-                <input type="text" id="logdashUser" class="schema-search" style="margin:0" placeholder="User / username" oninput="logdashDebounce()">
-                <input type="text" id="logdashPath" class="schema-search" style="margin:0" placeholder="Page / path" oninput="logdashDebounce()">
-                <input type="text" id="logdashIp" class="schema-search" style="margin:0" placeholder="IP address" oninput="logdashDebounce()">
+                <input type="text" id="logdashUser" class="schema-search" style="margin:0" placeholder="User / username" list="logdashUserOptions" autocomplete="off" oninput="logdashDebounce()">
+                <input type="text" id="logdashRole" class="schema-search" style="margin:0" placeholder="Role" list="logdashRoleOptions" autocomplete="off" oninput="logdashDebounce()">
+                <input type="text" id="logdashPath" class="schema-search" style="margin:0" placeholder="Page / path / URL" list="logdashPathOptions" autocomplete="off" oninput="logdashDebounce()">
+                <input type="text" id="logdashIp" class="schema-search" style="margin:0" placeholder="IP address" list="logdashIpOptions" autocomplete="off" oninput="logdashDebounce()">
+                <input type="text" id="logdashBrowser" class="schema-search" style="margin:0" placeholder="Browser / device" list="logdashBrowserOptions" autocomplete="off" oninput="logdashDebounce()">
                 <select id="logdashStatusFilter" class="schema-search" style="margin:0" onchange="logdashDebounce()">
                     <option value="">Any status</option>
                     <option value="200">200 OK</option>
+                    <option value="201">201 Created</option>
                     <option value="204">204 No Content</option>
+                    <option value="301">301 Moved</option>
                     <option value="302">302 Redirect</option>
+                    <option value="304">304 Cached</option>
                     <option value="400">400 Bad Request</option>
                     <option value="401">401 Login Required</option>
                     <option value="403">403 Forbidden</option>
@@ -856,13 +877,72 @@
                     <option value="409">409 Conflict</option>
                     <option value="429">429 Rate Limited</option>
                     <option value="500">500 Server Error</option>
+                    <option value="502">502 Bad Gateway</option>
+                    <option value="503">503 Unavailable</option>
+                    <option value="504">504 Timeout</option>
                 </select>
+                <input type="text" id="logdashSource" class="schema-search" style="margin:0" placeholder="Log source / file" list="logdashSourceOptions" autocomplete="off" oninput="logdashDebounce()">
+                <input type="text" id="logdashMethod" class="schema-search" style="margin:0" placeholder="HTTP method" list="logdashMethodOptions" autocomplete="off" oninput="logdashDebounce()">
+                <input type="text" id="logdashSeverity" class="schema-search" style="margin:0" placeholder="Severity" list="logdashSeverityOptions" autocomplete="off" oninput="logdashDebounce()">
+                <input type="text" id="logdashLogType" class="schema-search" style="margin:0" placeholder="Log type" list="logdashTypeOptions" autocomplete="off" oninput="logdashDebounce()">
                 <input type="text" id="logdashSearch" class="schema-search" style="margin:0" placeholder="Search all signals" oninput="logdashDebounce()">
+            </div>
+            <datalist id="logdashUserOptions"></datalist>
+            <datalist id="logdashRoleOptions"></datalist>
+            <datalist id="logdashPathOptions"></datalist>
+            <datalist id="logdashIpOptions"></datalist>
+            <datalist id="logdashBrowserOptions"></datalist>
+            <datalist id="logdashSourceOptions"></datalist>
+            <datalist id="logdashMethodOptions"></datalist>
+            <datalist id="logdashSeverityOptions"></datalist>
+            <datalist id="logdashTypeOptions"></datalist>
+            <div class="logdash-filter-help">
+                <span class="logdash-filter-tag"><i class="fas fa-mouse-pointer"></i> Page: user, role, browser, page, IP, status</span>
+                <span class="logdash-filter-tag"><i class="fas fa-bug"></i> Error logs: source, severity, browser, URL</span>
+                <span class="logdash-filter-tag"><i class="fas fa-server"></i> Server logs: source/file, method, type, severity, status</span>
             </div>
             <div id="logdashStatus" class="logdash-muted" style="margin-top:0.65rem">Open this tab to load operational analysis.</div>
         </div>
 
         <div id="logdashKpis" class="logdash-grid"></div>
+
+        <div class="logdash-two-col">
+            <div class="logdash-panel">
+                <div class="logdash-panel-head">
+                    <div class="logdash-panel-title"><i class="fas fa-chart-area me-1" style="color:#10b981"></i>Traffic Over Time</div>
+                    <span class="logdash-muted">Page visits + error trend</span>
+                </div>
+                <div class="logdash-panel-body logdash-chart">
+                    <canvas id="logdashTrafficChart" height="115"></canvas>
+                </div>
+            </div>
+            <div class="logdash-panel">
+                <div class="logdash-panel-head">
+                    <div class="logdash-panel-title"><i class="fas fa-chart-pie me-1" style="color:#a5b4fc"></i>HTTP Status Mix</div>
+                    <span class="logdash-muted">What the site is returning</span>
+                </div>
+                <div class="logdash-panel-body logdash-chart">
+                    <canvas id="logdashStatusChart" height="115"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="logdash-two-col">
+            <div class="logdash-panel">
+                <div class="logdash-panel-head">
+                    <div class="logdash-panel-title"><i class="fas fa-shield-alt me-1" style="color:#fbbf24"></i>Stability &amp; Risk</div>
+                    <span class="logdash-muted">Fast operational read</span>
+                </div>
+                <div class="logdash-panel-body" id="logdashStability"></div>
+            </div>
+            <div class="logdash-panel">
+                <div class="logdash-panel-head">
+                    <div class="logdash-panel-title"><i class="fas fa-network-wired me-1" style="color:#06b6d4"></i>Traffic Variables</div>
+                    <span class="logdash-muted">Users, IPs, browsers, paths</span>
+                </div>
+                <div class="logdash-panel-body" id="logdashTrafficVariables"></div>
+            </div>
+        </div>
 
         <div class="logdash-two-col">
             <div class="logdash-panel">
@@ -1493,6 +1573,9 @@
 <!-- ═══════════════════════════════════════════════════════════════════════ -->
 <a id="xa-base" href="/login" style="display:none"></a>
 <script src="/js/base.js"></script>
+<script>
+    window.BACKOFFICE_USER = <%- JSON.stringify(locals.currentUser || null) %>;
+</script>
 <script src="/js/backoffice.js?v=<%= encodeURIComponent(locals.appVersion || String(locals.appBuild || 'dev')) %>"></script>
 <script src="/js/backoffice-features.js?v=<%= encodeURIComponent(locals.appVersion || String(locals.appBuild || 'dev')) %>"></script>
 </body>

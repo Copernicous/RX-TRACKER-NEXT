@@ -67,9 +67,15 @@ function normalizeFilters(input) {
         range: String(input.range || 'day').toLowerCase(),
         hours: parsePositiveInt(input.hours, 24, 1, 24 * 31),
         user: String(input.user || '').trim().slice(0, 80),
+        role: String(input.role || '').trim().slice(0, 80),
         ip: String(input.ip || '').trim().slice(0, 80),
+        browser: String(input.browser || '').trim().slice(0, 80),
         status: String(input.status || '').trim().slice(0, 10),
         path: String(input.path || '').trim().slice(0, 160),
+        source: String(input.source || '').trim().slice(0, 120),
+        method: String(input.method || '').trim().slice(0, 12).toUpperCase(),
+        severity: String(input.severity || '').trim().slice(0, 20).toLowerCase(),
+        logType: String(input.logType || '').trim().slice(0, 40).toLowerCase(),
         search: String(input.search || '').trim().slice(0, 160),
         limit: parsePositiveInt(input.limit, 75, 20, 250)
     };
@@ -108,6 +114,26 @@ function topEntries(counter, limit) {
         .slice(0, limit || 10);
 }
 
+function timelineBucket(date, range) {
+    const bucket = new Date(date);
+    const key = String(range || 'day').toLowerCase();
+    if (key === 'live' || key === 'hour') {
+        bucket.setSeconds(0, 0);
+    } else if (key === 'week' || key === 'all') {
+        bucket.setHours(0, 0, 0, 0);
+    } else {
+        bucket.setMinutes(0, 0, 0);
+    }
+    return bucket.toISOString();
+}
+
+function timelineBucketSql(range) {
+    const key = String(range || 'day').toLowerCase();
+    if (key === 'live' || key === 'hour') return `date_trunc('minute', v."visitedAt")`;
+    if (key === 'week' || key === 'all') return `date_trunc('day', v."visitedAt")`;
+    return `date_trunc('hour', v."visitedAt")`;
+}
+
 function toInt(value) {
     const parsed = parseInt(value, 10);
     return Number.isFinite(parsed) ? parsed : 0;
@@ -130,6 +156,37 @@ function addLikeFilter(where, replacements, column, value, name) {
     replacements[name] = '%' + value + '%';
 }
 
+function addBrowserFilter(where, replacements, column, value, name) {
+    if (!value) return;
+    const parts = String(value)
+        .split(/[\/,]+/)
+        .map(part => part.trim())
+        .filter(Boolean)
+        .slice(0, 4);
+    if (!parts.length) return;
+    where.push(parts.map((_part, index) => column + ' ILIKE :' + name + index).join(' AND '));
+    parts.forEach((part, index) => {
+        replacements[name + index] = '%' + part + '%';
+    });
+}
+
+function uniqueList(values, limit) {
+    const seen = new Set();
+    const out = [];
+    (values || []).forEach(value => {
+        const label = String(value || '').trim();
+        const key = label.toLowerCase();
+        if (!label || key === '(unknown)' || seen.has(key)) return;
+        seen.add(key);
+        out.push(label);
+    });
+    return out.slice(0, limit || 40);
+}
+
+function labelsFromRows(rows) {
+    return (rows || []).map(row => row && row.label);
+}
+
 function buildPageWhere(since, filters) {
     const where = ['v."visitedAt" >= :since'];
     const replacements = { since: since.toISOString() };
@@ -142,7 +199,9 @@ function buildPageWhere(since, filters) {
         )`);
         replacements.user = '%' + filters.user + '%';
     }
+    addLikeFilter(where, replacements, 'v."roleSnapshot"', filters.role, 'role');
     addLikeFilter(where, replacements, 'v."ipAddress"', filters.ip, 'ip');
+    addBrowserFilter(where, replacements, 'v."userAgent"', filters.browser, 'browser');
     if (filters.status) {
         where.push('v."statusCode" = :status');
         replacements.status = toInt(filters.status);
@@ -158,6 +217,7 @@ function buildPageWhere(since, filters) {
             OR v."pageTitle" ILIKE :search
             OR v."pagePath" ILIKE :search
             OR v."ipAddress" ILIKE :search
+            OR v."userAgent" ILIKE :search
         )`);
         replacements.search = '%' + filters.search + '%';
     }
@@ -216,6 +276,17 @@ async function readPageActivity(since, filters) {
         LIMIT 10
     `, { type: QueryTypes.SELECT, replacements });
 
+    const topRoles = await db.sequelize.query(`
+        SELECT COALESCE(NULLIF(v."roleSnapshot", ''), '(unknown)') AS label,
+               COUNT(*)::int AS value
+        FROM "UserActivityLogs" v
+        LEFT JOIN "Users" u ON u.id = v."userId"
+        WHERE ${whereSql}
+        GROUP BY label
+        ORDER BY value DESC
+        LIMIT 10
+    `, { type: QueryTypes.SELECT, replacements });
+
     const topStatuses = await db.sequelize.query(`
         SELECT COALESCE(v."statusCode", 0)::int AS label,
                COUNT(*)::int AS value
@@ -238,6 +309,35 @@ async function readPageActivity(since, filters) {
 
     const browsers = Object.create(null);
     browserRows.forEach(row => inc(browsers, browserLabel(row.userAgent)));
+
+    const topIps = await db.sequelize.query(`
+        SELECT COALESCE(NULLIF(v."ipAddress", ''), '(unknown)') AS label,
+               COUNT(*)::int AS value
+        FROM "UserActivityLogs" v
+        LEFT JOIN "Users" u ON u.id = v."userId"
+        WHERE ${whereSql}
+        GROUP BY label
+        ORDER BY value DESC
+        LIMIT 10
+    `, { type: QueryTypes.SELECT, replacements });
+
+    const bucketExpr = timelineBucketSql(filters.range);
+    const timeline = await db.sequelize.query(`
+        SELECT ${bucketExpr} AS bucket,
+               COUNT(*)::int AS total,
+               SUM(CASE WHEN COALESCE(v."statusCode", 0) BETWEEN 200 AND 299 THEN 1 ELSE 0 END)::int AS ok,
+               SUM(CASE WHEN COALESCE(v."statusCode", 0) BETWEEN 300 AND 399 THEN 1 ELSE 0 END)::int AS redirects,
+               SUM(CASE WHEN COALESCE(v."statusCode", 0) BETWEEN 400 AND 499 THEN 1 ELSE 0 END)::int AS client_errors,
+               SUM(CASE WHEN COALESCE(v."statusCode", 0) >= 500 THEN 1 ELSE 0 END)::int AS server_errors,
+               SUM(CASE WHEN COALESCE(v."statusCode", 0) = 401 THEN 1 ELSE 0 END)::int AS unauthorized,
+               SUM(CASE WHEN COALESCE(v."statusCode", 0) = 403 THEN 1 ELSE 0 END)::int AS forbidden
+        FROM "UserActivityLogs" v
+        LEFT JOIN "Users" u ON u.id = v."userId"
+        WHERE ${whereSql}
+        GROUP BY bucket
+        ORDER BY bucket ASC
+        LIMIT 500
+    `, { type: QueryTypes.SELECT, replacements });
 
     const recentVisits = await db.sequelize.query(`
         SELECT v.id, v."userId", v."usernameSnapshot", v."roleSnapshot",
@@ -267,8 +367,20 @@ async function readPageActivity(since, filters) {
     return {
         available: true,
         totals,
+        timeline: timeline.map(row => ({
+            bucket: row.bucket,
+            total: toInt(row.total),
+            ok: toInt(row.ok),
+            redirects: toInt(row.redirects),
+            clientErrors: toInt(row.client_errors),
+            serverErrors: toInt(row.server_errors),
+            unauthorized: toInt(row.unauthorized),
+            forbidden: toInt(row.forbidden)
+        })),
         topPages,
         topUsers,
+        topRoles,
+        topIps,
         topStatuses: statusDetails,
         topBrowsers: topEntries(browsers, 10),
         recentVisits: recentVisits.map(row => ({
@@ -299,8 +411,23 @@ function buildAuditWhere(since, filters) {
         )`);
         replacements.user = '%' + filters.user + '%';
     }
+    if (filters.role) {
+        where.push(`EXISTS (
+            SELECT 1 FROM "Roles" r
+            WHERE r.id = u."roleId" AND r."name" ILIKE :auditRole
+        )`);
+        replacements.auditRole = '%' + filters.role + '%';
+    }
     if (filters.search) {
-        where.push('(al."action" ILIKE :search OR al."module" ILIKE :search OR al."ipAddress" ILIKE :search)');
+        where.push(`(
+            al."action" ILIKE :search
+            OR al."module" ILIKE :search
+            OR al."ipAddress" ILIKE :search
+            OR EXISTS (
+                SELECT 1 FROM "Roles" r
+                WHERE r.id = u."roleId" AND r."name" ILIKE :search
+            )
+        )`);
         replacements.search = '%' + filters.search + '%';
     }
     if (filters.ip) {
@@ -357,8 +484,8 @@ async function readAuditSummary(since, filters) {
         LEFT JOIN "Users" u ON u.id = al."userId"
         WHERE ${whereSql}
         ORDER BY al."createdAt" DESC
-        LIMIT 40
-    `, { type: QueryTypes.SELECT, replacements });
+        LIMIT :auditLimit
+    `, { type: QueryTypes.SELECT, replacements: Object.assign({}, replacements, { auditLimit: filters.limit }) });
 
     return {
         available: true,
@@ -381,16 +508,38 @@ function buildErrorWhere(since, filters) {
         )`);
         replacements.errUser = '%' + filters.user + '%';
     }
+    if (filters.role) {
+        where.push(`EXISTS (
+            SELECT 1 FROM "Roles" r
+            WHERE r.id = u."roleId" AND r."name" ILIKE :errRole
+        )`);
+        replacements.errRole = '%' + filters.role + '%';
+    }
     if (filters.ip) {
         where.push('el."ipAddress" ILIKE :errIp');
         replacements.errIp = '%' + filters.ip + '%';
     }
+    addBrowserFilter(where, replacements, 'el."userAgent"', filters.browser, 'errBrowser');
     if (filters.path) {
         where.push('el."url" ILIKE :errPath');
         replacements.errPath = '%' + filters.path + '%';
     }
+    if (filters.source) {
+        where.push('el."source"::text ILIKE :errSource');
+        replacements.errSource = '%' + filters.source + '%';
+    }
+    if (filters.severity) {
+        where.push('el."severity"::text = :errSeverity');
+        replacements.errSeverity = filters.severity;
+    }
     if (filters.search) {
-        where.push('(el."message" ILIKE :errSearch OR el."url" ILIKE :errSearch OR el."severity"::text ILIKE :errSearch OR el."source"::text ILIKE :errSearch)');
+        where.push(`(
+            el."message" ILIKE :errSearch
+            OR el."url" ILIKE :errSearch
+            OR el."severity"::text ILIKE :errSearch
+            OR el."source"::text ILIKE :errSearch
+            OR el."userAgent" ILIKE :errSearch
+        )`);
         replacements.errSearch = '%' + filters.search + '%';
     }
 
@@ -461,8 +610,8 @@ async function readErrorSummary(since, filters) {
         LEFT JOIN "Users" u ON u.id = el."userId"
         WHERE ${whereSql}
         ORDER BY el."createdAt" DESC
-        LIMIT 30
-    `, { type: QueryTypes.SELECT, replacements });
+        LIMIT :errorLimit
+    `, { type: QueryTypes.SELECT, replacements: Object.assign({}, replacements, { errorLimit: filters.limit }) });
 
     return {
         available: true,
@@ -659,6 +808,9 @@ async function scanLogFiles(since, filters) {
     const byStatus = Object.create(null);
     const byPath = Object.create(null);
     const byType = Object.create(null);
+    const bySource = Object.create(null);
+    const byMethod = Object.create(null);
+    const timeline = Object.create(null);
     const recentEvents = [];
     const filesRead = [];
 
@@ -672,6 +824,10 @@ async function scanLogFiles(since, filters) {
             if (!event || event.timestamp < since) return;
             if (filters.status && String(event.status || '') !== filters.status) return;
             if (filters.path && (!event.path || event.path.toLowerCase().indexOf(filters.path.toLowerCase()) === -1)) return;
+            if (filters.source && event.source.toLowerCase().indexOf(filters.source.toLowerCase()) === -1) return;
+            if (filters.method && event.method !== filters.method) return;
+            if (filters.severity && event.severity !== filters.severity) return;
+            if (filters.logType && event.type !== filters.logType) return;
             if (filters.search) {
                 const needle = filters.search.toLowerCase();
                 const haystack = [event.source, event.type, event.severity, event.method, event.path, String(event.status || '')].join(' ').toLowerCase();
@@ -686,8 +842,20 @@ async function scanLogFiles(since, filters) {
             if (event.status >= 400 && event.status < 500) totals.clientErrors++;
 
             inc(byType, event.type);
+            inc(bySource, event.source);
+            if (event.method) inc(byMethod, event.method);
             if (event.status) inc(byStatus, event.status);
             if (event.path) inc(byPath, event.path);
+
+            const bucket = timelineBucket(event.timestamp, filters.range);
+            if (!timeline[bucket]) {
+                timeline[bucket] = { bucket, total: 0, info: 0, warnings: 0, errors: 0, http: 0 };
+            }
+            timeline[bucket].total++;
+            if (event.severity === 'error') timeline[bucket].errors++;
+            else if (event.severity === 'warning') timeline[bucket].warnings++;
+            else timeline[bucket].info++;
+            if (event.type === 'http') timeline[bucket].http++;
 
             recentEvents.push({
                 timestamp: event.timestamp.toISOString(),
@@ -709,10 +877,16 @@ async function scanLogFiles(since, filters) {
         missingPaths: listed.missing,
         filesRead,
         totals,
+        timeline: Object.keys(timeline)
+            .sort()
+            .map(key => timeline[key])
+            .slice(-500),
         topStatuses: topEntries(byStatus, 10).map(row => Object.assign({}, row, { info: statusInfo(row.label) })),
         topPaths: topEntries(byPath, 10),
         topTypes: topEntries(byType, 10),
-        recentEvents: recentEvents.slice(0, 50)
+        topSources: topEntries(bySource, 10),
+        topMethods: topEntries(byMethod, 10),
+        recentEvents: recentEvents.slice(0, filters.limit)
     };
 }
 
@@ -815,6 +989,131 @@ function buildInsights(summary) {
     return insights.slice(0, 10);
 }
 
+function buildStabilitySummary(summary) {
+    const pageTotals = (summary.pageActivity && summary.pageActivity.totals) || {};
+    const errorTotals = summary.errors || {};
+    const logTotals = (summary.logs && summary.logs.totals) || {};
+    const statusRows = []
+        .concat((summary.pageActivity && summary.pageActivity.topStatuses) || [])
+        .concat((summary.logs && summary.logs.topStatuses) || []);
+    const statusCounts = Object.create(null);
+
+    statusRows.forEach(row => {
+        const code = String(row.label || row.code || '');
+        statusCounts[code] = (statusCounts[code] || 0) + toInt(row.value);
+    });
+
+    let score = 100;
+    score -= toInt(pageTotals.serverErrors) * 12;
+    score -= toInt(pageTotals.clientErrors) * 2;
+    score -= toInt(errorTotals.unresolved) * 2;
+    score -= toInt(logTotals.serverErrors) * 5;
+    score -= toInt(logTotals.errors);
+    score -= toInt(pageTotals.unauthorized);
+    score -= toInt(pageTotals.forbidden) * 2;
+    score = Math.max(0, Math.min(100, score));
+
+    const dangerousStatuses = [401, 403, 404, 409, 429, 500, 502, 503, 504].map(code => ({
+        code,
+        count: toInt(statusCounts[String(code)]),
+        info: statusInfo(code)
+    })).filter(item => item.count > 0);
+
+    return {
+        score,
+        level: score >= 85 ? 'good' : (score >= 65 ? 'warning' : 'danger'),
+        label: score >= 85 ? 'Stable' : (score >= 65 ? 'Needs Review' : 'High Risk'),
+        dangerousStatuses,
+        signals: [
+            { label: 'Page 500 errors', value: toInt(pageTotals.serverErrors), level: toInt(pageTotals.serverErrors) ? 'danger' : 'good' },
+            { label: 'Page 4xx client blocks', value: toInt(pageTotals.clientErrors), level: toInt(pageTotals.clientErrors) ? 'warning' : 'good' },
+            { label: 'Unresolved app errors', value: toInt(errorTotals.unresolved), level: toInt(errorTotals.unresolved) ? 'danger' : 'good' },
+            { label: 'Server-log errors', value: toInt(logTotals.errors), level: toInt(logTotals.errors) ? 'danger' : 'good' },
+            { label: '401 login/session events', value: toInt(pageTotals.unauthorized), level: toInt(pageTotals.unauthorized) ? 'warning' : 'good' },
+            { label: '403 role blocks', value: toInt(pageTotals.forbidden), level: toInt(pageTotals.forbidden) ? 'warning' : 'good' }
+        ]
+    };
+}
+
+function buildFilterOptions(summary) {
+    const page = summary.pageActivity || {};
+    const audit = summary.audit || {};
+    const errors = summary.errors || {};
+    const logs = summary.logs || {};
+    const visits = page.recentVisits || [];
+    const auditEvents = audit.recentEvents || [];
+    const errorEvents = errors.recentErrors || [];
+    const serverEvents = logs.recentEvents || [];
+    const statusCodes = labelsFromRows(page.topStatuses || [])
+        .concat(labelsFromRows(logs.topStatuses || []))
+        .concat(visits.map(row => row.statusCode))
+        .concat(serverEvents.map(row => row.status));
+
+    return {
+        users: uniqueList(
+            labelsFromRows(page.topUsers || [])
+                .concat(visits.map(row => row.username))
+                .concat(auditEvents.map(row => row.username))
+                .concat(errorEvents.map(row => row.username)),
+            50
+        ),
+        roles: uniqueList(
+            labelsFromRows(page.topRoles || [])
+                .concat(visits.map(row => row.role)),
+            30
+        ),
+        pages: uniqueList(
+            labelsFromRows(page.topPages || [])
+                .concat(visits.map(row => row.pagePath))
+                .concat(visits.map(row => row.pageTitle))
+                .concat(labelsFromRows(logs.topPaths || []))
+                .concat(labelsFromRows(errors.topUrls || []))
+                .concat(serverEvents.map(row => row.path)),
+            80
+        ),
+        ips: uniqueList(
+            labelsFromRows(page.topIps || [])
+                .concat(visits.map(row => row.ipAddress))
+                .concat(auditEvents.map(row => row.ipAddress))
+                .concat(errorEvents.map(row => row.ipAddress)),
+            60
+        ),
+        browsers: uniqueList(
+            labelsFromRows(page.topBrowsers || [])
+                .concat(visits.map(row => row.browser)),
+            30
+        ),
+        statuses: uniqueList(statusCodes.map(code => {
+            const info = statusInfo(code);
+            return info.code ? String(info.code) + ' ' + info.label : '';
+        }), 30),
+        sources: uniqueList(
+            labelsFromRows(logs.topSources || [])
+                .concat(errorEvents.map(row => row.source))
+                .concat(serverEvents.map(row => row.source))
+                .concat(['backend', 'frontend']),
+            50
+        ),
+        methods: uniqueList(
+            labelsFromRows(logs.topMethods || [])
+                .concat(serverEvents.map(row => row.method))
+                .concat(['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD']),
+            20
+        ),
+        severities: uniqueList(
+            labelsFromRows(errors.topSeverities || [])
+                .concat(serverEvents.map(row => row.severity))
+                .concat(['error', 'warning', 'info']),
+            20
+        ),
+        logTypes: uniqueList(
+            labelsFromRows(logs.topTypes || [])
+                .concat(serverEvents.map(row => row.type)),
+            30
+        )
+    };
+}
+
 async function buildLogDashboardSummary(rawFilters) {
     const filters = normalizeFilters(rawFilters || {});
     const since = buildSinceDate(filters.range, filters.hours);
@@ -834,7 +1133,9 @@ async function buildLogDashboardSummary(rawFilters) {
         errors,
         logs
     };
+    summary.filterOptions = buildFilterOptions(summary);
     summary.insights = buildInsights(summary);
+    summary.stability = buildStabilitySummary(summary);
     return summary;
 }
 

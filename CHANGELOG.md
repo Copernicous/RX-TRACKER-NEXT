@@ -5,6 +5,50 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ---
 
+## [2.0.52] - 2026-06-25
+
+### [UX-12] Collapsible HTTP status meaning guide
+**Files changed:** 5 | `public/js/backoffice-features.js`, `views/backoffice.ejs`, `package.json`, `package-lock.json`, `CHANGELOG.md`
+
+- Made the Back Office Log Dashboard `HTTP Status Meaning` section collapsed by default so the page stays compact.
+- Added a short quick-reference preview with common status chips and a `Show all` / `Hide details` toggle for the full 16-status explanation list.
+- Verified in Chrome that the collapsed view shows no long detail rows and expanding reveals all HTTP status explanations.
+- Bumped production package version to `2.0.52`.
+
+## [2.0.51] - 2026-06-25
+
+### [UX-11] Back Office Log Dashboard autocomplete and richer filters
+**Files changed:** 6 | `services/logDashboardService.js`, `views/backoffice.ejs`, `public/js/backoffice-features.js`, `package.json`, `package-lock.json`, `CHANGELOG.md`
+
+- Added autocomplete-backed filter fields for user, role, page/path, IP, browser/device, log source/file, HTTP method, severity, and log type.
+- Restored richer Page Activity context from the older RX Log screen by adding role and browser filtering plus visible top-role and page-IP summaries.
+- Added real backend filtering for role, browser, error-log source/severity, and server-log source, method, severity, and type so the new filters affect the dashboard data.
+- Added Log Sources and HTTP Methods summaries inside Server Log Signals to make server-log analysis more useful than raw charts alone.
+- Verified `/api/admin/log-dashboard` with the new filter parameters returns 200, serves autocomplete option lists, and the Back Office page renders the datalist-driven filters.
+- Bumped production package version to `2.0.51`.
+
+## [2.0.50] - 2026-06-25
+
+### [UX-10] Back Office Log Dashboard pagination controls
+**Files changed:** 6 | `public/js/backoffice-features.js`, `services/logDashboardService.js`, `views/backoffice.ejs`, `package.json`, `package-lock.json`, `CHANGELOG.md`
+
+- Added top-of-section pagination controls and selectable row counts for Recent Page Visits, Audit Activity, Error Activity, and Recent Server Events.
+- Added 10, 20, 50, 100, and 250 row-size options so master admins can review operational activity without a long uncontrolled page.
+- Expanded the Log Dashboard API recent-row slices to support up to 250 rows for page visits, audit events, error events, and server-log events.
+- Verified `/api/admin/log-dashboard?limit=250` returns 200 and the Back Office Log Dashboard renders four pagers with Recent Page Visits switching to 10 rows correctly.
+- Bumped production package version to `2.0.50`.
+
+## [2.0.49] - 2026-06-25
+
+### [FIX-50] Back Office Log Dashboard auth and full analysis restore
+**Files changed:** 7 | `services/logDashboardService.js`, `views/backoffice.ejs`, `public/js/backoffice.js`, `public/js/backoffice-features.js`, `package.json`, `package-lock.json`, `CHANGELOG.md`
+
+- Fixed Back Office loading for cookie-authenticated master admins by injecting the server-authenticated user into the page instead of depending only on stale `localStorage`.
+- Fixed Back Office API calls so they no longer send `Authorization: Bearer null`, allowing the FortiGate-compatible `rxToken` cookie fallback to work correctly.
+- Restored richer RX Log Dashboard analysis with traffic-over-time charts, HTTP status mix chart, stability/risk scoring, dangerous-status focus, top IPs, browsers, server paths, log sources, and files scanned.
+- Verified the Log Dashboard tab in Chrome with `/api/admin/log-dashboard` returning 200 and charts rendering.
+- Bumped production package version to `2.0.49`.
+
 ## [2.0.48] - 2026-06-25
 
 ### [FEAT-25] Back Office RX Log Dashboard integration

@@ -2,7 +2,7 @@
 var _EMPTY_JOIN = '';
 
 var TOKEN = localStorage.getItem('token');
-var USER  = JSON.parse(localStorage.getItem('user') || '{}');
+var USER  = window.BACKOFFICE_USER || JSON.parse(localStorage.getItem('user') || '{}');
 
 var tableMeta    = [];
 var tableCounts  = {};
@@ -55,7 +55,8 @@ var viewerMeta    = null;
 // ── apiFetch helper ────────────────────────────────────────────────────────
 async function apiFetch(url, opts) {
     if (!opts) opts = {};
-    var headers = Object.assign({ 'Authorization': 'Bearer ' + TOKEN }, opts.headers || {});
+    var headers = Object.assign({}, opts.headers || {});
+    if (TOKEN) headers.Authorization = 'Bearer ' + TOKEN;
     var res = await fetch(window.rxUrl ? window.rxUrl(url) : url, Object.assign({}, opts, { headers: headers, credentials: 'include' }));
     if (res.status === 401) { if (window.rxNav) window.rxNav('/login'); else window.location.href = '/login'; return res; }
     if (res.status === 403) {
