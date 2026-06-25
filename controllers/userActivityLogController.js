@@ -31,7 +31,10 @@ function buildWhere(query) {
     if (role) where.roleSnapshot = role;
     if (pagePath) where.pagePath = pagePath;
     if (pageTitle) where.pageTitle = { [Op.like]: `%${pageTitle}%` };
-    if (statusCode) where.statusCode = parseInt(statusCode, 10);
+    if (statusCode) {
+        const parsedStatus = parseInt(statusCode, 10);
+        if (Number.isFinite(parsedStatus)) where.statusCode = parsedStatus;
+    }
     if (ipAddress) where.ipAddress = { [Op.like]: `%${ipAddress}%` };
     if (browser) where.userAgent = { [Op.like]: `%${browser}%` };
     if (dateFrom || dateTo) {

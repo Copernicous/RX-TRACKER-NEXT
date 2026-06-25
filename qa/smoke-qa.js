@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const { chromium } = require('playwright-core');
 const { readConfig, ensureQaDirectories } = require('./lib/qa-env');
+const packageInfo = require('../package.json');
 
 const config = readConfig();
 ensureQaDirectories(config);
@@ -10,7 +11,8 @@ const results = [];
 const errors = [];
 const skipped = [];
 let page;
-const isNeedsActionSmoke = process.env.QA_SMOKE_NEEDS_ACTION === 'true';
+let smokeAppVersion = null;
+const isNeedsActionSmoke = config.smokeNeedsAction;
 
 function qaRoute(pathname) {
   const base = config.baseURL.replace(/\/+$/, '');
@@ -268,6 +270,21 @@ async function expectVisible(selector, name) {
   pass(name);
 }
 
+async function verifyAppVersion(context) {
+  const res = await context.request.get(qaRoute('/api/version'), { ignoreHTTPSErrors: true });
+  if (!res.ok()) {
+    fail('app version endpoint', String(res.status()));
+    return;
+  }
+  const data = await res.json();
+  smokeAppVersion = data.version || null;
+  if (smokeAppVersion === packageInfo.version) {
+    pass('app version matches package.json', smokeAppVersion);
+  } else {
+    fail('app version matches package.json', `api=${smokeAppVersion || '(blank)'} package=${packageInfo.version}`);
+  }
+}
+
 async function runSmoke() {
   const chrome = findChromeExecutable();
   if (!chrome) {
@@ -291,6 +308,7 @@ async function runSmoke() {
     });
 
     page = await context.newPage();
+    await verifyAppVersion(context);
     page.on('pageerror', e => errors.push('PAGEERROR: ' + e.message));
     page.on('console', msg => {
       if (msg.type() === 'error') errors.push('CONSOLE: ' + msg.text());
@@ -442,6 +460,9 @@ function writeSummary() {
     generatedAt: new Date().toISOString(),
     baseURL: config.baseURL,
     database: config.dbName,
+    packageVersion: packageInfo.version,
+    appVersion: smokeAppVersion,
+    smokeNeedsAction: config.smokeNeedsAction,
     passed: results.filter(r => r.status === 'PASS').length,
     failed,
     skipped,

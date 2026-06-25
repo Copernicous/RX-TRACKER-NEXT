@@ -329,6 +329,7 @@
             <i class="fas fa-calendar-day" style="font-size:.65rem;opacity:.6"></i>
             <span id="boLiveDateText"></span>
         </span>
+        <span id="boVersionBadge" class="badge-admin" title="Application version">v<%= locals.appVersion || '—' %></span>
         <span class="badge-admin" id="userBadge">Loading...</span>
         <button class="btn-bo btn-bo-outline" onclick="loadStats()" id="refreshBtn"><i class="fas fa-sync-alt"></i></button>
         <a href="/dashboard" class="btn-bo btn-bo-outline"><i class="fas fa-arrow-left me-1"></i>Back</a>
@@ -1353,7 +1354,7 @@
 <!-- ═══════════════════════════════════════════════════════════════════════ -->
 <a id="xa-base" href="/login" style="display:none"></a>
 <script src="/js/base.js"></script>
-<script src="/js/backoffice.js"></script>
-<script src="/js/backoffice-features.js"></script>
+<script src="/js/backoffice.js?v=<%= encodeURIComponent(locals.appVersion || String(locals.appBuild || 'dev')) %>"></script>
+<script src="/js/backoffice-features.js?v=<%= encodeURIComponent(locals.appVersion || String(locals.appBuild || 'dev')) %>"></script>
 </body>
 </html>

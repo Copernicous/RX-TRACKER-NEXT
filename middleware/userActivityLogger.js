@@ -40,6 +40,17 @@ function normalizePagePath(pathname) {
         .replace(/\/+$/, '') || '/';
 }
 
+function sanitizeReferrer(rawReferrer) {
+    if (!rawReferrer) return null;
+    const withoutQuery = String(rawReferrer).split('?')[0];
+    try {
+        const parsed = new URL(withoutQuery, 'http://local');
+        return normalizePagePath(parsed.pathname).substring(0, 2000);
+    } catch (_e) {
+        return normalizePagePath(withoutQuery).substring(0, 2000);
+    }
+}
+
 function getPageTitle(pathname) {
     for (const [pattern, title] of PAGE_TITLES) {
         if (pattern.test(pathname)) return title;
@@ -81,7 +92,7 @@ module.exports = function userActivityLogger(req, res, next) {
             visitedAt: new Date(),
             ipAddress: getClientIp(req),
             userAgent: (req.headers['user-agent'] || '').substring(0, 2000),
-            referrer: (req.headers.referer || req.headers.referrer || '').split('?')[0].substring(0, 2000) || null,
+            referrer: sanitizeReferrer(req.headers.referer || req.headers.referrer),
             statusCode: res.statusCode || null
         }).catch(err => {
             console.warn('[UserActivityLogger] Unable to save page visit:', err.message);

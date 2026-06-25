@@ -254,16 +254,40 @@ function paEsc(value) {
 
 function statusDescription(statusCode) {
     const map = {
-        200: 'OK - page loaded successfully',
+        200: 'OK - page loaded normally',
+        201: 'Created - new record/resource created',
+        204: 'No Content - success, no body returned',
         301: 'Moved Permanently - redirect',
-        302: 'Found - redirect',
+        302: 'Found - temporary redirect',
         304: 'Not Modified - cached response',
-        401: 'Login required or session expired',
-        403: 'Blocked by permissions',
-        404: 'Page not found',
-        500: 'Server error'
+        400: 'Bad Request - invalid request',
+        401: 'Unauthorized - login/session required',
+        403: 'Forbidden - role lacks access',
+        404: 'Not Found - page/route missing',
+        409: 'Conflict - duplicate or conflicting state',
+        429: 'Too Many Requests - rate limit',
+        500: 'Server Error - backend failed'
     };
     return map[statusCode] || 'HTTP status ' + (statusCode || '-');
+}
+
+function statusShortLabel(statusCode) {
+    const map = {
+        200: 'OK',
+        201: 'Created',
+        204: 'No Content',
+        301: 'Moved',
+        302: 'Redirect',
+        304: 'Cached',
+        400: 'Bad Request',
+        401: 'Login',
+        403: 'Forbidden',
+        404: 'Missing',
+        409: 'Conflict',
+        429: 'Rate Limit',
+        500: 'Server Error'
+    };
+    return map[statusCode] || '';
 }
 
 function statusBadge(statusCode) {
@@ -273,7 +297,17 @@ function statusBadge(statusCode) {
     else if (code >= 300 && code < 400) cls = 'bg-info text-dark';
     else if (code === 401 || code === 403) cls = 'bg-warning text-dark';
     else if (code >= 400) cls = 'bg-danger text-white';
-    return '<span class="status-pill ' + cls + '" title="' + paEsc(statusDescription(code)) + '">' + (Number.isFinite(code) ? code : '-') + '</span>';
+    var description = statusDescription(code);
+    if (!Number.isFinite(code)) {
+        return '<span class="status-pill ' + cls + '" title="' + paEsc(description) + '">-</span>';
+    }
+    var label = statusShortLabel(code);
+    var href = 'https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/' + code;
+    return '<a class="status-pill ' + cls + '" href="' + href + '" target="_blank" rel="noopener noreferrer" title="' + paEsc(description) + '" aria-label="' + paEsc(description) + '">' +
+        '<span>' + code + '</span>' +
+        (label ? '<span class="status-label">' + paEsc(label) + '</span>' : '') +
+        '<i class="fas fa-circle-info" style="font-size:.65rem"></i>' +
+        '</a>';
 }
 
 function summarizeUserAgent(userAgent) {

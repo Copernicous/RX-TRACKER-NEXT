@@ -49,6 +49,7 @@ function readConfig() {
     loginPassword: process.env.QA_LOGIN_PASSWORD || 'admin',
     headless: bool(process.env.QA_HEADLESS, true),
     slowMo: number(process.env.QA_SLOW_MO, 0),
+    smokeNeedsAction: bool(process.env.QA_SMOKE_NEEDS_ACTION, false),
     chromePath: process.env.QA_CHROME_PATH || '',
     allowNonQaDb: bool(process.env.QA_ALLOW_NON_QA_DB, false),
     pfxPassphrase: process.env.QA_PFX_PASSPHRASE || 'daniely-rx-local-qa',

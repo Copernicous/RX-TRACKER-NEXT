@@ -203,3 +203,5 @@ QA_LOGIN_PASSWORD=admin
 ```
 
 The seeder creates or updates that QA login in the QA database.
+
+Set `QA_SMOKE_NEEDS_ACTION=true` to run the optional Needs Action workflow smoke path from the command line. The QA web dashboard sets this automatically for `Run Needs Action Smoke`.

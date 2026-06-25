@@ -96,6 +96,13 @@ $env:QA_SLOW_MO='300'
 npm run smoke:qa
 ```
 
+Needs Action smoke mode:
+
+```powershell
+$env:QA_SMOKE_NEEDS_ACTION='true'
+npm run smoke:qa
+```
+
 ## Files Created By QA
 
 - `qa/logs/backend.log` - local QA backend logs.

@@ -25,7 +25,14 @@
         #activityTable td,#activityTable th { vertical-align:middle; font-size:.82rem; }
         .chk { width:15px; height:15px; cursor:pointer; }
         .stat-pill { background:rgba(13,110,253,.1); color:#0d6efd; border-radius:20px; padding:2px 10px; font-size:.78rem; font-weight:600; }
-        .status-pill { border-radius:20px; padding:2px 9px; font-family:monospace; font-size:.78rem; font-weight:700; }
+        .status-pill { border-radius:20px; padding:2px 9px; font-family:monospace; font-size:.78rem; font-weight:700; display:inline-flex; align-items:center; gap:4px; text-decoration:none; }
+        .status-pill:hover { filter:brightness(.96); text-decoration:none; }
+        .status-label { font-family:Inter,Arial,sans-serif; font-size:.68rem; font-weight:700; letter-spacing:.01em; }
+        .http-status-guide { border:1px solid var(--border-color,#dee2e6); border-radius:10px; padding:.55rem .7rem; background:rgba(13,110,253,.035); }
+        .http-status-guide summary { cursor:pointer; user-select:none; }
+        .http-status-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:.35rem .75rem; margin-top:.55rem; }
+        .http-status-grid a { color:inherit; text-decoration:none; }
+        .http-status-grid a:hover { color:#0d6efd; text-decoration:underline; }
         .ua-cell,.ref-cell { max-width:260px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     </style>
 </head>
@@ -213,10 +220,14 @@
                             <select class="form-select form-select-sm" id="paStatus">
                                 <option value="">All Status</option>
                                 <option value="200">200 OK</option>
+                                <option value="204">204 No Content</option>
                                 <option value="302">302 Redirect</option>
+                                <option value="400">400 Bad Request</option>
                                 <option value="401">401 Login Required</option>
                                 <option value="403">403 Blocked</option>
                                 <option value="404">404 Not Found</option>
+                                <option value="409">409 Conflict</option>
+                                <option value="429">429 Rate Limit</option>
                                 <option value="500">500 Server Error</option>
                             </select>
                         </div>
@@ -254,8 +265,23 @@
                     </div>
                     <div class="small text-muted mt-2">
                         <i class="fas fa-info-circle me-1"></i>Stores page path only. Query strings and patient timeline IDs are removed before saving.
-                        Status guide: 200 OK, 302 redirect, 401 login required, 403 blocked, 404 missing page, 500 server error.
+                        Click any status number in the table for the full HTTP reference.
                     </div>
+                    <details class="http-status-guide small mt-2">
+                        <summary class="fw-semibold"><i class="fas fa-circle-question me-1 text-primary"></i>HTTP status quick guide</summary>
+                        <div class="http-status-grid">
+                            <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/200" target="_blank" rel="noopener noreferrer"><strong>200 OK</strong> — page loaded normally</a>
+                            <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/204" target="_blank" rel="noopener noreferrer"><strong>204 No Content</strong> — success, no body returned</a>
+                            <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/302" target="_blank" rel="noopener noreferrer"><strong>302 Redirect</strong> — browser was sent elsewhere</a>
+                            <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/400" target="_blank" rel="noopener noreferrer"><strong>400 Bad Request</strong> — invalid request</a>
+                            <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/401" target="_blank" rel="noopener noreferrer"><strong>401 Unauthorized</strong> — login/session required</a>
+                            <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/403" target="_blank" rel="noopener noreferrer"><strong>403 Forbidden</strong> — role lacks access</a>
+                            <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/404" target="_blank" rel="noopener noreferrer"><strong>404 Not Found</strong> — page/route missing</a>
+                            <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/409" target="_blank" rel="noopener noreferrer"><strong>409 Conflict</strong> — duplicate/conflicting state</a>
+                            <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/429" target="_blank" rel="noopener noreferrer"><strong>429 Too Many Requests</strong> — rate limit</a>
+                            <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/500" target="_blank" rel="noopener noreferrer"><strong>500 Server Error</strong> — backend failed</a>
+                        </div>
+                    </details>
                 </div>
 
                 <div class="glass-card p-4">

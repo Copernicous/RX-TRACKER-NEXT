@@ -5,6 +5,36 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ---
 
+## [2.0.47] - 2026-06-25
+
+### [UX-09] Page Activity HTTP status explanations
+**Files changed:** 5 | `views/audit-log.ejs`, `public/js/audit-log.js`, `package.json`, `package-lock.json`, `CHANGELOG.md`
+
+- Added an expandable HTTP status quick guide to the Page Activity filters with short explanations for 200, 204, 302, 400, 401, 403, 404, 409, 429, and 500.
+- Made each Page Activity status badge show a short label, hover explanation, and direct MDN reference link from the status number.
+- Added common status codes to the Page Activity status filter so 204, 400, 409, and 429 can be isolated quickly.
+- Bumped production package version to `2.0.47`.
+
+### [QA-10] Smoke and Back Office version alignment
+**Files changed:** 8 | `app.js`, `views/backoffice.ejs`, `qa/lib/qa-env.js`, `qa/smoke-qa.js`, `qa/.env.qa.example`, `qa/README.md`, `qa/QA-WEB-MANUAL.md`, `CHANGELOG.md`
+
+- Added `QA_SMOKE_NEEDS_ACTION=false` to the QA environment template after reviewing the smoke runner.
+- Routed the toggle through the shared QA config object and included the active mode in `smoke-report.json`.
+- Added a smoke-test version assertion that compares `/api/version` against `package.json` and records both values in `smoke-report.json`.
+- Added the application version badge and versioned script cache keys to Back Office.
+- Documented the command-line way to run the optional Needs Action workflow smoke path.
+
+## [2.0.46] - 2026-06-25
+
+### [FEAT-24] RX Log page-visit activity tracking
+**Files changed:** 12 | `models/useractivitylog.js`, `migrations/20260625120000-create-user-activity-logs.js`, `middleware/userActivityLogger.js`, `controllers/userActivityLogController.js`, `models/index.js`, `app.js`, `routes/apiRoutes.js`, `views/audit-log.ejs`, `public/js/audit-log.js`, `package.json`, `package-lock.json`, `CHANGELOG.md`
+
+- Added a `UserActivityLog` model and migration to record authenticated web page visits with user ID, username/role snapshot, sanitized page path/title, timestamp, IP address, browser/user agent, referrer, and HTTP status code.
+- Added web-only activity logging after `webAuth`, excluding API/static/download traffic and stripping query strings plus patient timeline IDs before saving.
+- Added authenticated `/api/user-activity-logs` endpoints with user, role, page, status, date, IP, browser, and free-text filters.
+- Added a new `Page Activity` tab to the RX Log/Audit dashboard with status-code explanations, pagination, filter controls, and CSV export.
+- Bumped production package version to `2.0.46`.
+
 ## [2.0.45] - 2026-06-25
 
 ### [BUG-49] Patient modal permission refresh from server profile

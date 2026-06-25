@@ -113,6 +113,7 @@ const path        = require('path');
 const helmet      = require('helmet');
 const rateLimit   = require('express-rate-limit');
 const db          = require('./models');
+const packageInfo = require('./package.json');
 
 // Start backup scheduler on boot
 require('./services/backupService');
@@ -257,8 +258,12 @@ app.set('views', path.join(__dirname, 'views'));
 // Disable EJS view cache even in production
 app.set('view cache', false);
 
-// Expose APP_BUILD to all EJS templates
-app.use(function(req, res, next) { res.locals.appBuild = APP_BUILD; next(); });
+// Expose build/version info to all EJS templates
+app.use(function(req, res, next) {
+    res.locals.appBuild = APP_BUILD;
+    res.locals.appVersion = packageInfo.version;
+    next();
+});
 
 // Serve a small favicon explicitly to prevent proxy/browser favicon errors.
 app.get('/favicon.ico', (req, res) => {

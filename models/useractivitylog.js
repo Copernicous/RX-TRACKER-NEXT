@@ -17,7 +17,7 @@ module.exports = (sequelize, DataTypes) => {
     pageUrl: DataTypes.TEXT,
     pagePath: DataTypes.STRING,
     pageTitle: DataTypes.STRING,
-    visitedAt: DataTypes.DATE,
+    visitedAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
     ipAddress: DataTypes.STRING,
     userAgent: DataTypes.TEXT,
     referrer: DataTypes.TEXT,
