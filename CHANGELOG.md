@@ -7,6 +7,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [2.0.45] - 2026-06-25
 
+### [BUG-49] Patient modal permission refresh from server profile
+**Files changed:** 3 | `public/js/app.js`, `public/js/patients.js`, `views/patients.ejs`
+
+- Added server-authenticated user data to the Patients page so modal permissions do not depend only on stale browser `localStorage`.
+- Patients now refresh `/api/auth/profile` on page load and update the browser user permission cache from the current database role.
+- Patients page API calls now prefer the server auth cookie when server-authenticated page data exists, preventing stale browser JWTs from overriding the current session.
+- Fixed the Patient modal banner hide logic to use `d-none` plus `display:none !important`, because Bootstrap `d-flex` was overriding plain inline `display: none`.
+- Exposed patient soft-lock helpers to the global modal code to prevent `acquireModalLock is not defined` while opening the Patient modal.
+- Bumped Patients page script cache keys to `2.0.45-patperm3` so browsers fetch the corrected permission logic immediately.
+- Prevents the `View Only — you do not have permission to edit patient records.` banner from persisting after an Administrator/Supervisor role or permissions are corrected.
+
 ### [UX-08] Responsive web design safety layer
 **Files changed:** 5 | `public/css/style.css`, `public/js/app.js`, `scripts/post-build.js`, `package.json`, `package-lock.json`
 

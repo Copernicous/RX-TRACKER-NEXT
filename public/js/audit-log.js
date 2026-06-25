@@ -7,6 +7,10 @@ var _uAlUsers    = '/api/audit-logs/users';
 var _uAlModules  = '/api/audit-logs/modules';
 var _uAlBulkDel  = '/api/audit-logs';
 var _uAlRotate   = '/api/audit-logs/rotate';
+var _uPageAct    = '/api/user-activity-logs';
+var _uPageUsers  = '/api/user-activity-logs/users';
+var _uPageRoles  = '/api/user-activity-logs/roles';
+var _uPagePages  = '/api/user-activity-logs/pages';
 var _uErrBulkRes = '/api/errors/bulk-resolve';
 var _uErrBulkDel = '/api/errors/bulk-delete';
 var _uErrDel     = '/api/errors';
@@ -51,6 +55,11 @@ let currentLogs = [];
 let selectedIds = new Set();
 let isAdmin     = false;
 let logsMap     = {};
+let activityPage = 1;
+let activityPageSize = 10;
+let activityTotal = 0;
+let currentActivityLogs = [];
+let activityLoaded = false;
 
 // Filter panel toggle
 var _auditAdvOpen = false;
@@ -60,6 +69,33 @@ function toggleAuditAdv() {
     _auditAdvOpen = !_auditAdvOpen;
     if (el) el.style.display = _auditAdvOpen ? '' : 'none';
     if (ch) ch.className    = _auditAdvOpen ? 'fas fa-chevron-up ms-1' : 'fas fa-chevron-down ms-1';
+}
+
+var _activityAdvOpen = false;
+function toggleActivityAdv() {
+    var el = document.getElementById('activityAdvPanel');
+    var ch = document.getElementById('activityAdvChevron');
+    _activityAdvOpen = !_activityAdvOpen;
+    if (el) el.style.display = _activityAdvOpen ? '' : 'none';
+    if (ch) ch.className = _activityAdvOpen ? 'fas fa-chevron-up ms-1' : 'fas fa-chevron-down ms-1';
+}
+
+function showAuditTab() {
+    document.getElementById('auditTabPane').style.display = '';
+    document.getElementById('activityTabPane').style.display = 'none';
+    document.getElementById('auditTabBtn').classList.add('active');
+    document.getElementById('activityTabBtn').classList.remove('active');
+}
+
+function showActivityTab() {
+    document.getElementById('auditTabPane').style.display = 'none';
+    document.getElementById('activityTabPane').style.display = '';
+    document.getElementById('auditTabBtn').classList.remove('active');
+    document.getElementById('activityTabBtn').classList.add('active');
+    if (!activityLoaded) {
+        activityLoaded = true;
+        loadActivityPage();
+    }
 }
 
 // Init
@@ -75,12 +111,19 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
     } catch(e) {}
     await Promise.allSettled([loadUserFilter(), loadModuleFilter(), loadActionFilter()]);
+    await Promise.allSettled([loadActivityUserFilter(), loadActivityRoleFilter(), loadActivityPageFilter()]);
     await loadPage();
+    document.getElementById('auditTabBtn').addEventListener('click', showAuditTab);
+    document.getElementById('activityTabBtn').addEventListener('click', showActivityTab);
     document.getElementById('searchBtn').addEventListener('click', function() { currentPage = 1; loadPage(); });
     document.getElementById('clearBtn').addEventListener('click', clearFilters);
     document.getElementById('exportBtn').addEventListener('click', exportAll);
     document.getElementById('pgSize').addEventListener('change', function(e) { pageSize = parseInt(e.target.value); currentPage = 1; loadPage(); });
     document.getElementById('selAll').addEventListener('change', function(e) { toggleAll(e.target.checked); });
+    document.getElementById('paSearchBtn').addEventListener('click', function() { activityPage = 1; loadActivityPage(); });
+    document.getElementById('paClearBtn').addEventListener('click', clearActivityFilters);
+    document.getElementById('paExportBtn').addEventListener('click', exportActivity);
+    document.getElementById('paSize').addEventListener('change', function(e) { activityPageSize = parseInt(e.target.value); activityPage = 1; loadActivityPage(); });
     if (isAdmin) {
         document.getElementById('delSelBtn').addEventListener('click', deleteSelected);
         document.getElementById('rotateBtn').addEventListener('click', rotateLogs);
@@ -129,6 +172,273 @@ async function loadActionFilter() {
     });
 }
 
+
+async function loadActivityUserFilter() {
+    var res = await fetchWithAuth(_uPageUsers);
+    if (!res || !res.ok) return;
+    var users = await res.json();
+    var sel = document.getElementById('paUser');
+    (users || []).forEach(function(username) {
+        var opt = document.createElement('option');
+        opt.value = username;
+        opt.textContent = username;
+        sel.appendChild(opt);
+    });
+}
+
+async function loadActivityRoleFilter() {
+    var res = await fetchWithAuth(_uPageRoles);
+    if (!res || !res.ok) return;
+    var roles = await res.json();
+    var sel = document.getElementById('paRole');
+    (roles || []).forEach(function(role) {
+        var opt = document.createElement('option');
+        opt.value = role;
+        opt.textContent = role;
+        sel.appendChild(opt);
+    });
+}
+
+async function loadActivityPageFilter() {
+    var res = await fetchWithAuth(_uPagePages);
+    if (!res || !res.ok) return;
+    var pages = await res.json();
+    var sel = document.getElementById('paPage');
+    (pages || []).forEach(function(page) {
+        var opt = document.createElement('option');
+        opt.value = page.pagePath;
+        opt.textContent = (page.pageTitle || page.pagePath) + ' (' + page.pagePath + ')';
+        sel.appendChild(opt);
+    });
+}
+
+function buildActivityParams(forExport) {
+    const p = new URLSearchParams();
+    const username = document.getElementById('paUser').value;
+    const role     = document.getElementById('paRole').value;
+    const pagePath = document.getElementById('paPage').value;
+    const status   = document.getElementById('paStatus').value;
+    const from     = document.getElementById('paFrom').value;
+    const to       = document.getElementById('paTo').value;
+    const ip       = document.getElementById('paIp').value.trim();
+    const browser  = document.getElementById('paBrowser').value.trim();
+    const search   = document.getElementById('paSearch').value.trim();
+
+    if (username) p.set('username', username);
+    if (role)     p.set('role', role);
+    if (pagePath) p.set('pagePath', pagePath);
+    if (status)   p.set('statusCode', status);
+    if (from)     p.set('dateFrom', from);
+    if (to)       p.set('dateTo', to);
+    if (ip)       p.set('ipAddress', ip);
+    if (browser)  p.set('browser', browser);
+    if (search)   p.set('search', search);
+
+    if (forExport) {
+        p.set('exportAll', 'true');
+    } else {
+        p.set('limit', activityPageSize);
+        p.set('offset', (activityPage - 1) * activityPageSize);
+    }
+    return p;
+}
+
+function paEsc(value) {
+    return String(value == null ? '' : value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
+function statusDescription(statusCode) {
+    const map = {
+        200: 'OK - page loaded successfully',
+        301: 'Moved Permanently - redirect',
+        302: 'Found - redirect',
+        304: 'Not Modified - cached response',
+        401: 'Login required or session expired',
+        403: 'Blocked by permissions',
+        404: 'Page not found',
+        500: 'Server error'
+    };
+    return map[statusCode] || 'HTTP status ' + (statusCode || '-');
+}
+
+function statusBadge(statusCode) {
+    var code = parseInt(statusCode, 10);
+    var cls = 'bg-secondary text-white';
+    if (code >= 200 && code < 300) cls = 'bg-success text-white';
+    else if (code >= 300 && code < 400) cls = 'bg-info text-dark';
+    else if (code === 401 || code === 403) cls = 'bg-warning text-dark';
+    else if (code >= 400) cls = 'bg-danger text-white';
+    return '<span class="status-pill ' + cls + '" title="' + paEsc(statusDescription(code)) + '">' + (Number.isFinite(code) ? code : '-') + '</span>';
+}
+
+function summarizeUserAgent(userAgent) {
+    var ua = userAgent || '';
+    if (!ua) return '';
+    var browser = 'Browser';
+    if (/Edg\//.test(ua)) browser = 'Edge';
+    else if (/Chrome\//.test(ua)) browser = 'Chrome';
+    else if (/Firefox\//.test(ua)) browser = 'Firefox';
+    else if (/Safari\//.test(ua)) browser = 'Safari';
+    else if (/MSIE|Trident/.test(ua)) browser = 'Internet Explorer';
+
+    var platform = '';
+    if (/Windows/i.test(ua)) platform = 'Windows';
+    else if (/Macintosh|Mac OS/i.test(ua)) platform = 'Mac';
+    else if (/iPhone|iPad/i.test(ua)) platform = 'iOS';
+    else if (/Android/i.test(ua)) platform = 'Android';
+    else if (/Linux/i.test(ua)) platform = 'Linux';
+
+    return platform ? browser + ' / ' + platform : browser;
+}
+
+async function loadActivityPage() {
+    var body = document.getElementById('paBody');
+    body.innerHTML = '<tr><td colspan="9" class="text-center py-5 text-muted"><i class="fas fa-spinner fa-spin me-2"></i>Loading...</td></tr>';
+
+    try {
+        var url = _uPageAct + '?' + buildActivityParams(false).toString();
+        var res = await fetchWithAuth(url);
+        if (!res || !res.ok) {
+            body.innerHTML = '<tr><td colspan="9" class="text-center text-danger py-4">Failed to load page activity.</td></tr>';
+            return;
+        }
+        var json = await res.json();
+        currentActivityLogs = json.data || [];
+        activityTotal = json.total || 0;
+        document.getElementById('paTotalBadge').textContent = activityTotal.toLocaleString() + ' total';
+        renderActivityTable();
+        renderActivityPagination();
+    } catch(e) {
+        body.innerHTML = '<tr><td colspan="9" class="text-center text-danger py-4">Error: ' + paEsc(e.message) + '</td></tr>';
+    }
+}
+
+function renderActivityTable() {
+    var body = document.getElementById('paBody');
+    if (!currentActivityLogs.length) {
+        body.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-5">No page activity found for the selected filters.</td></tr>';
+        document.getElementById('paInfo').textContent = 'No results';
+        document.getElementById('paNav').innerHTML = '';
+        return;
+    }
+
+    var html = '';
+    currentActivityLogs.forEach(function(log) {
+        var dt = new Date(log.visitedAt || log.createdAt);
+        var dateStr = isNaN(dt) ? '-' : dt.toLocaleDateString('en-US', { year:'2-digit', month:'2-digit', day:'2-digit' });
+        var timeStr = isNaN(dt) ? '' : dt.toLocaleTimeString('en-US', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+        var userText = log.usernameSnapshot || (log.User ? log.User.username : '') || 'Unknown';
+        var uaShort = summarizeUserAgent(log.userAgent);
+        var userAgent = log.userAgent || '';
+        var referrer = log.referrer || '';
+
+        html += '<tr>' +
+            '<td><span class="fw-semibold">' + paEsc(dateStr) + '</span><br><small class="text-muted">' + paEsc(timeStr) + '</small></td>' +
+            '<td><span class="fw-semibold">' + paEsc(userText) + '</span></td>' +
+            '<td><span class="badge bg-light text-dark border">' + paEsc(log.roleSnapshot || '-') + '</span></td>' +
+            '<td><span class="fw-semibold">' + paEsc(log.pageTitle || '-') + '</span></td>' +
+            '<td><code class="small">' + paEsc(log.pagePath || log.pageUrl || '-') + '</code></td>' +
+            '<td>' + statusBadge(log.statusCode) + '</td>' +
+            '<td><small class="text-muted font-monospace">' + paEsc(log.ipAddress || '-') + '</small></td>' +
+            '<td class="ua-cell" title="' + paEsc(userAgent) + '"><small>' + paEsc(uaShort || userAgent || '-') + '</small></td>' +
+            '<td class="ref-cell" title="' + paEsc(referrer) + '"><small class="text-muted">' + paEsc(referrer || '-') + '</small></td>' +
+            '</tr>';
+    });
+    body.innerHTML = html;
+}
+
+function renderActivityPagination() {
+    var pages = Math.ceil(activityTotal / activityPageSize) || 1;
+    var start = activityTotal === 0 ? 0 : Math.min((activityPage - 1) * activityPageSize + 1, activityTotal);
+    var end = Math.min(activityPage * activityPageSize, activityTotal);
+
+    document.getElementById('paInfo').textContent = 'Showing ' + start.toLocaleString() + '-' + end.toLocaleString() + ' of ' + activityTotal.toLocaleString() + ' visits';
+
+    var nav = document.getElementById('paNav');
+    var isFirst = activityPage === 1;
+    var isLast = activityPage >= pages;
+    var html = '<li class="page-item' + (isFirst ? ' disabled' : '') + '"><a class="page-link" data-pa-pg="' + (activityPage - 1) + '">&laquo;</a></li>';
+    var delta = 2;
+    var lo = Math.max(2, activityPage - delta);
+    var hi = Math.min(pages - 1, activityPage + delta);
+
+    html += '<li class="page-item' + (activityPage === 1 ? ' active' : '') + '"><a class="page-link" data-pa-pg="1">1</a></li>';
+    if (lo > 2) html += '<li class="page-item disabled"><span class="page-link">&hellip;</span></li>';
+    for (var i = lo; i <= hi; i++) {
+        html += '<li class="page-item' + (i === activityPage ? ' active' : '') + '"><a class="page-link" data-pa-pg="' + i + '">' + i + '</a></li>';
+    }
+    if (hi < pages - 1) html += '<li class="page-item disabled"><span class="page-link">&hellip;</span></li>';
+    if (pages > 1) {
+        html += '<li class="page-item' + (activityPage === pages ? ' active' : '') + '"><a class="page-link" data-pa-pg="' + pages + '">' + pages + '</a></li>';
+    }
+    html += '<li class="page-item' + (isLast ? ' disabled' : '') + '"><a class="page-link" data-pa-pg="' + (activityPage + 1) + '">&raquo;</a></li>';
+    nav.innerHTML = html;
+}
+
+function goActivityPage(page) {
+    var pages = Math.ceil(activityTotal / activityPageSize) || 1;
+    if (page < 1 || page > pages) return;
+    activityPage = page;
+    loadActivityPage();
+}
+
+function clearActivityFilters() {
+    ['paUser','paRole','paPage','paStatus'].forEach(function(id) { document.getElementById(id).value = ''; });
+    ['paFrom','paTo','paIp','paBrowser','paSearch'].forEach(function(id) { document.getElementById(id).value = ''; });
+    activityPage = 1;
+    loadActivityPage();
+}
+
+async function exportActivity() {
+    var btn = document.getElementById('paExportBtn');
+    btn.disabled = true;
+    var orig = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Exporting';
+    try {
+        var url = _uPageAct + '?' + buildActivityParams(true).toString();
+        var res = await fetchWithAuth(url);
+        if (!res || !res.ok) { showToast('Page activity export failed.', 'danger'); return; }
+        var json = await res.json();
+        var rows = json.data || [];
+        if (!rows.length) { showToast('No page activity to export.', 'warning'); return; }
+
+        var headers = ['ID','Visited At','Username','Role','Page','Path','Status Code','IP Address','Browser/User Agent','Referrer'];
+        var csvRows = rows.map(function(log) {
+            return [
+                log.id,
+                log.visitedAt ? new Date(log.visitedAt).toLocaleString() : '',
+                log.usernameSnapshot || '',
+                log.roleSnapshot || '',
+                log.pageTitle || '',
+                log.pagePath || log.pageUrl || '',
+                log.statusCode || '',
+                log.ipAddress || '',
+                log.userAgent || '',
+                log.referrer || ''
+            ];
+        });
+        var csv = [headers].concat(csvRows)
+            .map(function(row) { return row.map(function(value) { return '"' + String(value == null ? '' : value).replace(/"/g,'""') + '"'; }).join(','); })
+            .join('\n');
+        var blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+        var a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'page_activity_' + new Date().toISOString().split('T')[0] + '.csv';
+        a.click();
+        URL.revokeObjectURL(a.href);
+        showToast('Exported ' + rows.length.toLocaleString() + ' page visits.', 'success');
+    } catch(e) {
+        showToast('Page activity export error: ' + e.message, 'danger');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = orig;
+    }
+}
 
 // ── Build query params ────────────────────────────────────────────────────────
 function buildParams(forExport) {
@@ -763,5 +1073,6 @@ function exportErrors() {
         el = e.target.closest('[data-unresolve]');  if (el) { unresolveError(parseInt(el.dataset.unresolve)); return; }
         el = e.target.closest('[data-resolve]');    if (el) { resolveError(parseInt(el.dataset.resolve)); return; }
         // Pagination
+        el = e.target.closest('[data-pa-pg]'); if (el) { e.preventDefault(); goActivityPage(parseInt(el.dataset.paPg)); return; }
         el = e.target.closest('[data-pg]'); if (el) { e.preventDefault(); goPage(parseInt(el.dataset.pg)); return; }
     });

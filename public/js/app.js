@@ -410,7 +410,9 @@ function setupGlobalSearch() {
 // ----- Auth Guard -----
 function checkAuth() {
     var token = localStorage.getItem('token');
-    if (!token) {
+    var serverUser = null;
+    try { serverUser = window.__RX_AUTH_USER || null; } catch (e) { serverUser = null; }
+    if (!token && !serverUser) {
         window.rxNav('/login');
         return;
     }
@@ -620,10 +622,16 @@ async function fetchWithAuth(url, options = {}) {
     const silent = !!options.silent;
     const fetchOptions = Object.assign({}, options);
     delete fetchOptions.silent; // don't forward to fetch()
+    var serverUser = null;
+    try { serverUser = window.__RX_AUTH_USER || null; } catch (e) { serverUser = null; }
     const headers = Object.assign({
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + token
+        'Content-Type': 'application/json'
     }, fetchOptions.headers || {});
+    if (token && !serverUser) {
+        headers.Authorization = 'Bearer ' + token;
+    } else if (serverUser && headers.Authorization) {
+        delete headers.Authorization;
+    }
 
     var res = await fetch(url, Object.assign({}, fetchOptions, { headers, credentials: fetchOptions.credentials || 'include' }));
 
@@ -891,6 +899,17 @@ function decodeJwtPayload(token) {
 }
 
 function getCurrentAuthUser() {
+    var serverUser = null;
+    try { serverUser = window.__RX_AUTH_USER || null; } catch (e) { serverUser = null; }
+    if (serverUser) {
+        if (!serverUser.permissions) {
+            try { serverUser.permissions = window.__RX_AUTH_PERMS || serverUser.permissions; } catch (e) {}
+        }
+        if (!serverUser.role && serverUser.Role && serverUser.Role.name) serverUser.role = serverUser.Role.name;
+        if (serverUser.roleId === undefined && serverUser.Role && serverUser.Role.id !== undefined) serverUser.roleId = serverUser.Role.id;
+        return serverUser;
+    }
+
     var user = null;
     try { user = JSON.parse(localStorage.getItem('user') || 'null'); } catch (e) { user = null; }
     var tokenUser = decodeJwtPayload(localStorage.getItem('token'));

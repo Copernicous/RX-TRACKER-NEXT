@@ -22,8 +22,11 @@
         .data-cell  { max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-family:monospace; font-size:.76rem; color:#666; cursor:pointer; }
         .admin-zone { border:2px solid rgba(220,53,69,.25); border-radius:10px; padding:.9rem 1rem; background:rgba(220,53,69,.03); margin-bottom:1rem; }
         #auditTable td,#auditTable th { vertical-align:middle; font-size:.82rem; }
+        #activityTable td,#activityTable th { vertical-align:middle; font-size:.82rem; }
         .chk { width:15px; height:15px; cursor:pointer; }
         .stat-pill { background:rgba(13,110,253,.1); color:#0d6efd; border-radius:20px; padding:2px 10px; font-size:.78rem; font-weight:600; }
+        .status-pill { border-radius:20px; padding:2px 9px; font-family:monospace; font-size:.78rem; font-weight:700; }
+        .ua-cell,.ref-cell { max-width:260px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     </style>
 </head>
 <body>
@@ -43,6 +46,20 @@
         </nav>
 
         <div class="container-fluid px-4">
+            <ul class="nav nav-pills mb-3 gap-2" id="auditTabs">
+                <li class="nav-item">
+                    <button class="nav-link active" id="auditTabBtn" type="button">
+                        <i class="fas fa-list me-1"></i>Change Audit
+                    </button>
+                </li>
+                <li class="nav-item">
+                    <button class="nav-link" id="activityTabBtn" type="button">
+                        <i class="fas fa-mouse-pointer me-1"></i>Page Activity
+                    </button>
+                </li>
+            </ul>
+
+            <div id="auditTabPane">
 
             <!-- Filters -->
             <div class="filter-card">
@@ -166,6 +183,123 @@
                     </table>
                 </div>
 
+            </div>
+
+            </div>
+
+            <div id="activityTabPane" style="display:none">
+                <div class="filter-card">
+                    <div class="d-flex align-items-center justify-content-between mb-2 flex-wrap gap-2">
+                        <span class="fw-bold small text-muted text-uppercase" style="letter-spacing:.05em"><i class="fas fa-filter me-1"></i>Page Activity Filters</span>
+                        <button class="btn btn-link btn-sm text-muted p-0" onclick="toggleActivityAdv()" style="font-size:.78rem;text-decoration:none">
+                            <i class="fas fa-sliders-h me-1"></i>Advanced <i class="fas fa-chevron-down ms-1" id="activityAdvChevron"></i>
+                        </button>
+                    </div>
+                    <div class="row g-2 align-items-end">
+                        <div class="col-sm-6 col-md-2">
+                            <label class="form-label small fw-semibold mb-1"><i class="fas fa-user me-1 text-primary"></i>User</label>
+                            <select class="form-select form-select-sm" id="paUser"><option value="">All Users</option></select>
+                        </div>
+                        <div class="col-sm-6 col-md-2">
+                            <label class="form-label small fw-semibold mb-1"><i class="fas fa-user-tag me-1 text-primary"></i>Role</label>
+                            <select class="form-select form-select-sm" id="paRole"><option value="">All Roles</option></select>
+                        </div>
+                        <div class="col-sm-6 col-md-3">
+                            <label class="form-label small fw-semibold mb-1"><i class="fas fa-window-maximize me-1 text-primary"></i>Page</label>
+                            <select class="form-select form-select-sm" id="paPage"><option value="">All Pages</option></select>
+                        </div>
+                        <div class="col-sm-6 col-md-2">
+                            <label class="form-label small fw-semibold mb-1"><i class="fas fa-signal me-1 text-primary"></i>Status</label>
+                            <select class="form-select form-select-sm" id="paStatus">
+                                <option value="">All Status</option>
+                                <option value="200">200 OK</option>
+                                <option value="302">302 Redirect</option>
+                                <option value="401">401 Login Required</option>
+                                <option value="403">403 Blocked</option>
+                                <option value="404">404 Not Found</option>
+                                <option value="500">500 Server Error</option>
+                            </select>
+                        </div>
+                        <div class="col-sm-6 col-md-3">
+                            <div class="d-flex gap-1">
+                                <button class="btn btn-primary btn-sm" id="paSearchBtn" title="Search"><i class="fas fa-search"></i></button>
+                                <button class="btn btn-outline-secondary btn-sm" id="paClearBtn" title="Clear"><i class="fas fa-times"></i></button>
+                                <button class="btn btn-success btn-sm" id="paExportBtn" title="Export CSV"><i class="fas fa-file-csv me-1"></i>Export</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="activityAdvPanel" style="display:none;border-top:1px solid var(--border-color,#dee2e6);margin-top:10px;padding-top:10px">
+                        <div class="row g-2 align-items-end">
+                            <div class="col-sm-6 col-md-2">
+                                <label class="form-label small fw-semibold mb-1"><i class="fas fa-calendar me-1"></i>Date From</label>
+                                <input type="date" class="form-control form-control-sm" id="paFrom">
+                            </div>
+                            <div class="col-sm-6 col-md-2">
+                                <label class="form-label small fw-semibold mb-1"><i class="fas fa-calendar me-1"></i>Date To</label>
+                                <input type="date" class="form-control form-control-sm" id="paTo">
+                            </div>
+                            <div class="col-sm-6 col-md-2">
+                                <label class="form-label small fw-semibold mb-1"><i class="fas fa-network-wired me-1"></i>IP</label>
+                                <input type="text" class="form-control form-control-sm" id="paIp" placeholder="IP address">
+                            </div>
+                            <div class="col-sm-6 col-md-3">
+                                <label class="form-label small fw-semibold mb-1"><i class="fas fa-globe me-1"></i>Browser</label>
+                                <input type="text" class="form-control form-control-sm" id="paBrowser" placeholder="Chrome, Edge, Firefox...">
+                            </div>
+                            <div class="col-sm-6 col-md-3">
+                                <label class="form-label small fw-semibold mb-1"><i class="fas fa-search me-1"></i>Search</label>
+                                <input type="text" class="form-control form-control-sm" id="paSearch" placeholder="user, page, IP, browser">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="small text-muted mt-2">
+                        <i class="fas fa-info-circle me-1"></i>Stores page path only. Query strings and patient timeline IDs are removed before saving.
+                        Status guide: 200 OK, 302 redirect, 401 login required, 403 blocked, 404 missing page, 500 server error.
+                    </div>
+                </div>
+
+                <div class="glass-card p-4">
+                    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                        <div class="d-flex align-items-center gap-2">
+                            <h5 class="mb-0"><i class="fas fa-chart-line me-2"></i>Page Activity</h5>
+                            <span class="stat-pill" id="paTotalBadge">0 total</span>
+                        </div>
+                        <div class="d-flex align-items-center gap-2">
+                            <label class="small text-muted mb-0">Show</label>
+                            <select class="form-select form-select-sm" style="width:auto" id="paSize">
+                                <option value="10" selected>10</option>
+                                <option value="20">20</option>
+                                <option value="50">50</option>
+                                <option value="100">100</option>
+                            </select>
+                            <label class="small text-muted mb-0">per page</label>
+                        </div>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+                        <small class="text-muted" id="paInfo">&mdash;</small>
+                        <nav><ul class="pagination pagination-sm mb-0" id="paNav"></ul></nav>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-hover" id="activityTable">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Date &amp; Time</th>
+                                    <th>User</th>
+                                    <th>Role</th>
+                                    <th>Page</th>
+                                    <th>Path</th>
+                                    <th>Status</th>
+                                    <th>IP</th>
+                                    <th>Browser / Agent</th>
+                                    <th>Referrer</th>
+                                </tr>
+                            </thead>
+                            <tbody id="paBody">
+                                <tr><td colspan="9" class="text-center py-5 text-muted"><i class="fas fa-spinner fa-spin me-2"></i>Loading...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
 
         </div>

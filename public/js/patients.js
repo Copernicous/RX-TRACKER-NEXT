@@ -24,6 +24,19 @@ var allPatients = [];
     }
 
     function patientCurrentUserIsAdmin() {
+        var serverUser = null;
+        try { serverUser = window.__RX_AUTH_USER || null; } catch (e) { serverUser = null; }
+        if (serverUser) {
+            var serverRole = String(
+                serverUser.role || serverUser.roleName || (serverUser.Role && serverUser.Role.name) || ''
+            ).trim().toLowerCase();
+            var serverRoleId = Number(
+                serverUser.roleId !== undefined ? serverUser.roleId :
+                (serverUser.Role && serverUser.Role.id !== undefined ? serverUser.Role.id : NaN)
+            );
+            return serverRole === 'administrator' || serverRoleId === 1;
+        }
+
         var user = null;
         try { user = JSON.parse(localStorage.getItem('user') || 'null'); } catch (e) { user = null; }
         var tokenUser = patientDecodeJwtPayload(localStorage.getItem('token'));
@@ -50,8 +63,43 @@ var allPatients = [];
         return patientCurrentUserIsAdmin() ? patientFullPageAccess() : getPagePerms();
     }
 
+    async function refreshPatientAuthProfile() {
+        try {
+            var profileUrl = typeof window.rxUrl === 'function' ? window.rxUrl('/api/auth/profile') : '/api/auth/profile';
+            const profileHeaders = { 'Content-Type': 'application/json' };
+            const res = await fetch(profileUrl, {
+                method: 'GET',
+                credentials: 'include',
+                headers: profileHeaders
+            });
+            if (!res || !res.ok) return;
+
+            const profile = await res.json();
+            const role = profile.Role || {};
+            const permissions = role.permissions || profile.permissions || {};
+            const freshUser = {
+                id: profile.id,
+                username: profile.username,
+                firstName: profile.firstName,
+                lastName: profile.lastName,
+                role: role.name || profile.role,
+                roleId: profile.roleId || role.id,
+                permissions: permissions,
+                isMaster: profile.isMaster === true
+            };
+
+            window.__RX_AUTH_USER = freshUser;
+            window.__RX_AUTH_PERMS = permissions;
+            localStorage.setItem('user', JSON.stringify(freshUser));
+        } catch (e) {
+            // Keep existing auth state if the profile refresh fails.
+        }
+    }
+
     document.addEventListener('DOMContentLoaded', async () => {
         initApp();
+        await refreshPatientAuthProfile();
+        if (typeof checkAuth === 'function') checkAuth();
         await loadDropdowns();
         await loadServiceDateOverrideState();
 
@@ -209,6 +257,9 @@ var allPatients = [];
         banner.classList.remove('d-none');
         names.textContent = others.map(v => v.name).join(', ');
     }
+
+    window.acquireModalLock = acquireModalLock;
+    window.releaseModalLock = releaseModalLock;
 
     // Hook into modal lifecycle
     const patientModal = document.getElementById('patientModal');
@@ -1136,7 +1187,13 @@ var allPatients = [];
                     _voBanner.className = 'alert alert-info d-flex align-items-center py-2 mb-3';
                     _voBanner.innerHTML = '<i class="fas fa-eye me-2"></i><span>View Only — you do not have permission to edit patient records.</span>';
                 }
-                _voBanner.style.display = (_isEditable && !_isOverrideOnly) ? 'none' : '';
+                const _hidePermissionBanner = _isEditable && !_isOverrideOnly;
+                _voBanner.classList.toggle('d-none', _hidePermissionBanner);
+                if (_hidePermissionBanner) {
+                    _voBanner.style.setProperty('display', 'none', 'important');
+                } else {
+                    _voBanner.style.removeProperty('display');
+                }
             }
         } catch(e) { if (_saveBtn) _saveBtn.style.display = ''; }
         if (window.rxDocuments) {

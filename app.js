@@ -309,6 +309,7 @@ const apiRoutes          = require('./routes/apiRoutes');
 const importRoutes       = require('./routes/importRoutes');
 const webRoutes          = require('./routes/webRoutes');
 const webAuth            = require('./middleware/webAuth');
+const userActivityLogger = require('./middleware/userActivityLogger');
 const twoFactorRoutes    = require('./routes/twoFactorRoutes');
 
 // Tag each sub-router with its mount prefix so routeInspector can read it
@@ -347,7 +348,7 @@ app.use('/api/auth',    authRoutes);
 app.use('/api/auth',    twoFactorRoutes);
 app.use('/api/import',  importRoutes);
 app.use('/api',         apiRoutes);
-app.use('/',            webAuth, webRoutes);   // webAuth decodes rxToken cookie -> res.locals.userPerms
+app.use('/',            webAuth, userActivityLogger, webRoutes);   // webAuth decodes rxToken cookie -> res.locals.userPerms
 
 
 

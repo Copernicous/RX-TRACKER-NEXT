@@ -21,6 +21,7 @@ const rxController = require('../controllers/rxController');
 const dashboardController = require('../controllers/dashboardController');
 const reportController = require('../controllers/reportController');
 const auditLogController = require('../controllers/auditLogController');
+const userActivityLogController = require('../controllers/userActivityLogController');
 const clinicController = require('../controllers/clinicController');
 const patientNoteController = require('../controllers/patientNoteController');
 const searchController = require('../controllers/searchController');
@@ -248,6 +249,10 @@ router.get('/audit-logs/actions',      rbac.requirePermission('audit_log', 'read
 router.delete('/audit-logs/:id',       rbac.requireRole(['Administrator']),           auditLogController.deleteOne);
 router.delete('/audit-logs',           rbac.requireRole(['Administrator']),           auditLogController.bulkDelete);
 router.post('/audit-logs/rotate',      rbac.requireRole(['Administrator']),           auditLogController.rotate);
+router.get('/user-activity-logs',       rbac.requirePermission('audit_log', 'read'),  userActivityLogController.getAll);
+router.get('/user-activity-logs/users', rbac.requirePermission('audit_log', 'read'),  userActivityLogController.getUsers);
+router.get('/user-activity-logs/roles', rbac.requirePermission('audit_log', 'read'),  userActivityLogController.getRoles);
+router.get('/user-activity-logs/pages', rbac.requirePermission('audit_log', 'read'),  userActivityLogController.getPages);
 
 // Logout tracking (user-triggered, auth required)
 router.post('/auth/logout', auth, async (req, res) => {
