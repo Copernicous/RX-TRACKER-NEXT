@@ -513,7 +513,7 @@ async function loadPage() {
         if (res.status === 401 || res.status === 403) { window.rxNav('/login'); return; }
         if (!res.ok) {
             const err = await res.json().catch(() => ({}));
-            showBody(`<tr><td colspan="10" class="text-center text-danger py-4"><i class="fas fa-exclamation-triangle me-2"></i>${err.message || err.error || 'Failed to load.'}</td></tr>`);
+            showBody('<tr><td colspan="10" class="text-center text-danger py-4"><i class="fas fa-exclamation-triangle me-2"></i>' + (err.message || err.error || 'Failed to load.') + '</td></tr>');
             return;
         }
         const text = await res.text();
@@ -539,7 +539,7 @@ async function loadPage() {
         renderTable();
         renderPagination();
     } catch(e) {
-        showBody(`<tr><td colspan="10" class="text-center text-danger py-4">Error: ${e.message}</td></tr>`);
+        showBody('<tr><td colspan="10" class="text-center text-danger py-4">Error: ' + e.message + '</td></tr>');
     }
 }
 
@@ -740,13 +740,12 @@ function showDetail(id) {
 
     // Summary bar
     const user = log.User ? (log.User.firstName + ' ' + log.User.lastName + ' <small class="text-muted">('+log.User.username+')</small>') : 'System';
-    document.getElementById('detailSummary').innerHTML = `
-        <span class="badge bg-${aColor} fs-6 px-3 py-2">${log.action || '-'}</span>
-        <span><i class="fas fa-layer-group me-1 text-muted"></i><strong>${log.module || '-'}</strong></span>
-        <span><i class="fas fa-user me-1 text-muted"></i>${user}</span>
-        <span><i class="fas fa-clock me-1 text-muted"></i>${new Date(log.createdAt).toLocaleString()}</span>
-        <span class="ms-auto font-monospace small text-muted"><i class="fas fa-network-wired me-1"></i>${log.ipAddress || '-'}</span>
-    `;
+    document.getElementById('detailSummary').innerHTML =
+        '<span class="badge bg-' + aColor + ' fs-6 px-3 py-2">' + (log.action || '-') + '</span>' +
+        '<span><i class="fas fa-layer-group me-1 text-muted"></i><strong>' + (log.module || '-') + '</strong></span>' +
+        '<span><i class="fas fa-user me-1 text-muted"></i>' + user + '</span>' +
+        '<span><i class="fas fa-clock me-1 text-muted"></i>' + new Date(log.createdAt).toLocaleString() + '</span>' +
+        '<span class="ms-auto font-monospace small text-muted"><i class="fas fa-network-wired me-1"></i>' + (log.ipAddress || '-') + '</span>';
 
     // Parse values
     let oldObj = null, newObj = null;
@@ -787,53 +786,52 @@ function showDetail(id) {
 
     // Changed fields table
     if (changed.length) {
-        html += `
-        <div class="mb-3">
-            <div class="d-flex align-items-center gap-2 mb-2">
-                <span class="badge bg-warning text-dark"><i class="fas fa-exchange-alt me-1"></i>${changed.length} Field${changed.length>1?'s':''} Changed</span>
-            </div>
-            <div class="table-responsive">
-            <table class="table table-sm mb-0" style="border:1px solid var(--border);border-radius:8px;overflow:hidden">
-                <thead style="background:var(--bg)">
-                    <tr><th style="width:28%">Field</th><th style="width:36%"><i class="fas fa-minus-circle text-danger me-1"></i>Before</th><th style="width:36%"><i class="fas fa-plus-circle text-success me-1"></i>After</th></tr>
-                </thead>
-                <tbody>
-                ${(function(){var _rc=''; changed.forEach(function(k){                    const ov = oldObj ? oldObj[k] : undefined;
-                    const nv = newObj ? newObj[k] : undefined;
-                    const lbl = FIELD_LABELS[k] || k.replace(/([A-Z])/g,' $1').replace(/^./,s=>s.toUpperCase());
-                    _rc += '<tr>' +
-                        '<td class="fw-semibold text-muted small" style="text-transform:uppercase;letter-spacing:.04em">' + lbl + '</td>' +
-                        '<td style="background:rgba(220,53,69,0.06)">' + (ov !== undefined ? formatVal(k,ov) : '<span class="text-muted fst-italic">\u2014</span>') + '</td>' +
-                        '<td style="background:rgba(25,135,84,0.06)">' + (nv !== undefined ? formatVal(k,nv) : '<span class="text-muted fst-italic">\u2014</span>') + '</td>' +
-                    '</tr>';
-                }); return _rc;})()}
-                </tbody>
-            </table>
-            </div>
-        </div>`;
+        var changedRows = '';
+        changed.forEach(function(k) {
+            const ov = oldObj ? oldObj[k] : undefined;
+            const nv = newObj ? newObj[k] : undefined;
+            const lbl = FIELD_LABELS[k] || k.replace(/([A-Z])/g,' $1').replace(/^./, function(s) { return s.toUpperCase(); });
+            changedRows += '<tr>' +
+                '<td class="fw-semibold text-muted small" style="text-transform:uppercase;letter-spacing:.04em">' + lbl + '</td>' +
+                '<td style="background:rgba(220,53,69,0.06)">' + (ov !== undefined ? formatVal(k,ov) : '<span class="text-muted fst-italic">&mdash;</span>') + '</td>' +
+                '<td style="background:rgba(25,135,84,0.06)">' + (nv !== undefined ? formatVal(k,nv) : '<span class="text-muted fst-italic">&mdash;</span>') + '</td>' +
+            '</tr>';
+        });
+        html += '<div class="mb-3">' +
+            '<div class="d-flex align-items-center gap-2 mb-2">' +
+                '<span class="badge bg-warning text-dark"><i class="fas fa-exchange-alt me-1"></i>' + changed.length + ' Field' + (changed.length > 1 ? 's' : '') + ' Changed</span>' +
+            '</div>' +
+            '<div class="table-responsive">' +
+            '<table class="table table-sm mb-0" style="border:1px solid var(--border);border-radius:8px;overflow:hidden">' +
+                '<thead style="background:var(--bg)">' +
+                    '<tr><th style="width:28%">Field</th><th style="width:36%"><i class="fas fa-minus-circle text-danger me-1"></i>Before</th><th style="width:36%"><i class="fas fa-plus-circle text-success me-1"></i>After</th></tr>' +
+                '</thead>' +
+                '<tbody>' + changedRows + '</tbody>' +
+            '</table>' +
+            '</div>' +
+        '</div>';
     }
 
     // Unchanged fields (collapsed)
     if (unchanged.length) {
-        html += `
-        <details class="mt-2">
-            <summary class="text-muted small" style="cursor:pointer;user-select:none">
-                <i class="fas fa-chevron-right me-1"></i>${unchanged.length} Unchanged field${unchanged.length>1?'s':''}
-            </summary>
-            <div class="table-responsive mt-2">
-            <table class="table table-sm table-hover mb-0" style="border:1px solid var(--border);border-radius:8px;overflow:hidden;opacity:.7">
-                <thead style="background:var(--bg)"><tr><th style="width:28%">Field</th><th>Value</th></tr></thead>
-                <tbody>
-                ${(function(){var _ru=''; unchanged.forEach(function(k){                    const val = newObj ? newObj[k] : (oldObj ? oldObj[k] : undefined);
-                    const lbl = FIELD_LABELS[k] || k.replace(/([A-Z])/g,' $1').replace(/^./,s=>s.toUpperCase());
-                    _ru += '<tr><td class="fw-semibold text-muted small" style="text-transform:uppercase;letter-spacing:.04em">' + lbl + '</td><td>' + formatVal(k,val) + '</td></tr>';
-                }); return _ru;})()}}
-                </tbody>
-            </table>
-            </div>
-        </details>`;
+        var unchangedRows = '';
+        unchanged.forEach(function(k) {
+            const val = newObj ? newObj[k] : (oldObj ? oldObj[k] : undefined);
+            const lbl = FIELD_LABELS[k] || k.replace(/([A-Z])/g,' $1').replace(/^./, function(s) { return s.toUpperCase(); });
+            unchangedRows += '<tr><td class="fw-semibold text-muted small" style="text-transform:uppercase;letter-spacing:.04em">' + lbl + '</td><td>' + formatVal(k,val) + '</td></tr>';
+        });
+        html += '<details class="mt-2">' +
+            '<summary class="text-muted small" style="cursor:pointer;user-select:none">' +
+                '<i class="fas fa-chevron-right me-1"></i>' + unchanged.length + ' Unchanged field' + (unchanged.length > 1 ? 's' : '') +
+            '</summary>' +
+            '<div class="table-responsive mt-2">' +
+            '<table class="table table-sm table-hover mb-0" style="border:1px solid var(--border);border-radius:8px;overflow:hidden;opacity:.7">' +
+                '<thead style="background:var(--bg)"><tr><th style="width:28%">Field</th><th>Value</th></tr></thead>' +
+                '<tbody>' + unchangedRows + '</tbody>' +
+            '</table>' +
+            '</div>' +
+        '</details>';
     }
-
     diffDiv.innerHTML = html;
     new bootstrap.Modal(document.getElementById('detailModal')).show();
 }

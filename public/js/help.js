@@ -322,7 +322,7 @@ var HELP_SECTIONS = [
     '.help-ftr{padding:10px 16px;border-top:1px solid var(--border-color,#e5e7eb);',
       'font-size:.72rem;color:var(--text-muted,#94a3b8);flex-shrink:0;',
       'display:flex;align-items:center;justify-content:space-between;}'
-  ].join('');
+  ].join('\n');
   document.head.appendChild(s);
 })();
 

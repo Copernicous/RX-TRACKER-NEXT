@@ -1437,29 +1437,27 @@ function boPillClick(pill, filter) {
 }
 
 function boRenderEndpointRow(ep) {
-    const m = ep.method.toLowerCase();
-    const pathHtml = ep.path.replace(/:([a-zA-Z]+)/g, '<span style="color:#f59e0b">:$1</span>');
-    const queryHtml = ep.query ? `<span style="color:#8b949e">${ep.query}</span>` : '';
-    const bodyHtml  = ep.body  ? `<span class="text-muted small ms-2" style="font-size:.7rem">Body: <code style="color:#22c55e">${ep.body}</code></span>` : '';
-    const permHtml  = `<span class="perm-badge ${ep.admin ? 'admin' : ''}">${ep.admin ? '🔒 ' + ep.perm : ep.perm}</span>`;
-    const newBadge  = ep.inManifest === false ? '<span class="badge bg-info ms-1" style="font-size:.65rem">NEW</span>' : '';
-    return `
-        <div class="endpoint-row ${m}">
-            <div class="d-flex align-items-start gap-2">
-                <span class="method-badge ${m}">${ep.method}</span>
-                <div class="flex-grow-1">
-                    <span class="endpoint-path">${ep.path}${queryHtml}</span>
-                    ${newBadge}
-                    ${bodyHtml}
-                    <div class="text-muted small mt-1">${ep.desc} &nbsp; ${permHtml}</div>
-                </div>
-                <button class="btn btn-xs btn-outline-secondary ms-auto bo-copy-endpoint-btn"
-                    style="font-size:.7rem;padding:2px 8px;flex-shrink:0;"
-                    data-ep="${ep.method} ${window.location.origin}${ep.path}${ep.query || ''}">Copy URL</button>
-            </div>
-        </div>`;
+    var methodClass = ep.method.toLowerCase();
+    var queryHtml = ep.query ? '<span style="color:#8b949e">' + ep.query + '</span>' : '';
+    var bodyHtml  = ep.body  ? '<span class="text-muted small ms-2" style="font-size:.7rem">Body: <code style="color:#22c55e">' + ep.body + '</code></span>' : '';
+    var permHtml  = '<span class="perm-badge ' + (ep.admin ? 'admin' : '') + '">' + (ep.admin ? '<i class="fas fa-lock me-1"></i>' + ep.perm : ep.perm) + '</span>';
+    var newBadge  = ep.inManifest === false ? '<span class="badge bg-info ms-1" style="font-size:.65rem">NEW</span>' : '';
+    var copyUrl   = ep.method + ' ' + window.location.origin + ep.path + (ep.query || '');
+    return '<div class="endpoint-row ' + methodClass + '">' +
+        '<div class="d-flex align-items-start gap-2">' +
+            '<span class="method-badge ' + methodClass + '">' + ep.method + '</span>' +
+            '<div class="flex-grow-1">' +
+                '<span class="endpoint-path">' + ep.path + queryHtml + '</span>' +
+                newBadge +
+                bodyHtml +
+                '<div class="text-muted small mt-1">' + ep.desc + ' &nbsp; ' + permHtml + '</div>' +
+            '</div>' +
+            '<button class="btn btn-xs btn-outline-secondary ms-auto bo-copy-endpoint-btn" ' +
+                'style="font-size:.7rem;padding:2px 8px;flex-shrink:0;" ' +
+                'data-ep="' + copyUrl + '">Copy URL</button>' +
+        '</div>' +
+    '</div>';
 }
-
 function boRenderApiRef(filter, sections) {
     var container = document.getElementById('boApiEndpointsList');
     if (!container || !sections) return;
@@ -1468,18 +1466,22 @@ function boRenderApiRef(filter, sections) {
         container.innerHTML = '<p class="text-muted small">No endpoints in this category.</p>';
         return;
     }
-    container.innerHTML = toRender.map(function(sec) {
-        return `<div class="mb-3">
-            <div class="section-divider">
-                <span style="color:${sec.color};font-size:.85rem">●</span>
-                &nbsp;${sec.label}
-                <span class="ms-2 text-muted" style="font-size:.65rem;font-weight:400">
-                    (${sec.endpoints.length} endpoint${sec.endpoints.length !== 1 ? 's' : ''})
-                </span>
-            </div>
-            ${(function(){ var _ep=''; sec.endpoints.forEach(function(ep){ _ep += boRenderEndpointRow(ep); }); return _ep; })()}
-        </div>`;
-    }).join('');
+    var html = '';
+    toRender.forEach(function(sec) {
+        var endpointsHtml = '';
+        sec.endpoints.forEach(function(ep) { endpointsHtml += boRenderEndpointRow(ep); });
+        html += '<div class="mb-3">' +
+            '<div class="section-divider">' +
+                '<span style="color:' + sec.color + ';font-size:.85rem">&bull;</span>' +
+                '&nbsp;' + sec.label +
+                '<span class="ms-2 text-muted" style="font-size:.65rem;font-weight:400">' +
+                    '(' + sec.endpoints.length + ' endpoint' + (sec.endpoints.length !== 1 ? 's' : '') + ')' +
+                '</span>' +
+            '</div>' +
+            endpointsHtml +
+        '</div>';
+    });
+    container.innerHTML = html;
 
     container.querySelectorAll('.bo-copy-endpoint-btn').forEach(function(btn) {
         btn.addEventListener('click', function() {
@@ -1490,7 +1492,6 @@ function boRenderApiRef(filter, sections) {
         });
     });
 }
-
 function boRebuildPills(sections) {
     var pillsDiv = document.getElementById('boApiFilterPills');
     if (!pillsDiv) return;

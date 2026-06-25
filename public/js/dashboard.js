@@ -699,9 +699,11 @@ function enable2FA() {
                     var grid    = document.getElementById('twoFABackupCodesGrid');
                     var section = document.getElementById('twoFABackupCodesSection');
                     if (grid && section) {
-                        grid.innerHTML = data.backupCodes.map(function(c) {
-                            return '<div style="font-family:monospace;font-size:.85rem;background:rgba(255,255,255,.07);border-radius:6px;padding:6px 8px;text-align:center;letter-spacing:.08em">' + c + '</div>';
-                        }).join('');
+                        var backupCodesHtml = '';
+                        data.backupCodes.forEach(function(c) {
+                            backupCodesHtml += '<div style="font-family:monospace;font-size:.85rem;background:rgba(255,255,255,.07);border-radius:6px;padding:6px 8px;text-align:center;letter-spacing:.08em">' + c + '</div>';
+                        });
+                        grid.innerHTML = backupCodesHtml;
                         section.classList.remove('d-none');
                         window._backupCodesArr = data.backupCodes;
                     }
@@ -743,9 +745,11 @@ function regenerateBackupCodes() {
                 var grid    = document.getElementById('twoFABackupCodesGrid');
                 var section = document.getElementById('twoFABackupCodesSection');
                 if (grid && section) {
-                    grid.innerHTML = data.backupCodes.map(function(c) {
-                        return '<div style="font-family:monospace;font-size:.85rem;background:rgba(255,255,255,.07);border-radius:6px;padding:6px 8px;text-align:center;letter-spacing:.08em">' + c + '</div>';
-                    }).join('');
+                    var backupCodesHtml = '';
+                    data.backupCodes.forEach(function(c) {
+                        backupCodesHtml += '<div style="font-family:monospace;font-size:.85rem;background:rgba(255,255,255,.07);border-radius:6px;padding:6px 8px;text-align:center;letter-spacing:.08em">' + c + '</div>';
+                    });
+                    grid.innerHTML = backupCodesHtml;
                     section.classList.remove('d-none');
                     window._backupCodesArr = data.backupCodes;
                 }

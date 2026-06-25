@@ -671,7 +671,8 @@ setup.bat</code></pre>
             el.innerHTML = '<p class="text-center text-muted py-4">No backups recorded yet.</p>';
             return;
         }
-        var rows = backups.map(function(b) {
+        var rows = '';
+        backups.forEach(function(b) {
             var icon   = b.status === 'success' ? 'check-circle' : 'times-circle';
             var cls    = b.status === 'success' ? 'status-success' : 'status-failed';
             var size   = b.size ? (b.size / 1024).toFixed(1) + ' KB' : '—';
@@ -691,7 +692,7 @@ setup.bat</code></pre>
             var fn = b.filename ? b.filename.replace(/'/g,'') : '';
             var delBtn = '<button class="btn btn-sm btn-outline-danger" title="Delete" onclick="deleteBackupEntry(\'' + fn + '\', ' + (b.id || 0) + ')">' +
                          '<i class="fas fa-trash-alt"></i></button>';
-            return '<tr class="backup-row">' +
+            rows += '<tr class="backup-row">' +
                 '<td><i class="fas fa-' + icon + ' ' + cls + ' me-2"></i><strong class="' + cls + '">' + b.status + '</strong></td>' +
                 '<td><small>' + dt + '</small></td>' +
                 '<td><small class="text-muted">' + (b.triggeredBy || '—') + '</small></td>' +
@@ -700,7 +701,7 @@ setup.bat</code></pre>
                 '<td>' + (b.error ? '<span class="badge bg-danger" title="' + b.error + '">error</span>' : '') + '</td>' +
                 '<td class="text-nowrap">' + dlBtn + delBtn + '</td>' +
                 '</tr>';
-        }).join('');
+        });
         el.innerHTML =
             '<div class="table-responsive">' +
             '<table class="table table-sm align-middle">' +
@@ -817,7 +818,8 @@ setup.bat</code></pre>
             el.innerHTML = '<p class="text-center text-muted py-3 small">No site backups yet. Click "Create Full Site Backup Now" to generate the first one.</p>';
             return;
         }
-        const rows = backups.map(function(b) {
+        var rows = '';
+        backups.forEach(function(b) {
             const icon  = b.status === 'success' ? 'check-circle' : 'times-circle';
             const cls   = b.status === 'success' ? 'status-success' : 'status-failed';
             const size  = b.size ? (b.size > 1048576 ? (b.size/1048576).toFixed(1) + ' MB' : (b.size/1024).toFixed(1) + ' KB') : '—';
@@ -837,7 +839,7 @@ setup.bat</code></pre>
             const fn = b.filename ? b.filename.replace(/'/g,'') : '';
             const delBtn = '<button class="btn btn-sm btn-outline-danger" title="Delete ZIP and history entry" onclick="deleteSiteBackupEntry(\'' + fn + '\', ' + (b.id || 0) + ')">' +
                            '<i class="fas fa-trash-alt"></i></button>';
-            return '<tr class="backup-row">' +
+            rows += '<tr class="backup-row">' +
                 '<td><i class="fas fa-' + icon + ' ' + cls + ' me-2"></i><strong class="' + cls + '">' + b.status + '</strong></td>' +
                 '<td><small>' + dt + '</small></td>' +
                 '<td><small class="text-muted">' + (b.triggeredBy || '—') + '</small></td>' +
@@ -846,7 +848,7 @@ setup.bat</code></pre>
                 '<td>' + (b.error ? '<span class="badge bg-danger" title="' + b.error + '">error</span>' : '') + '</td>' +
                 '<td class="text-nowrap">' + dl + delBtn + '</td>' +
                 '</tr>';
-        }).join('');
+        });
         el.innerHTML =
             '<div class="table-responsive">' +
             '<table class="table table-sm align-middle">' +

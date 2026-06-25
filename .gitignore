@@ -23,6 +23,7 @@ server.log
 pids/
 *.pid
 *.seed
+qa/fortigate-chrome-profile/
 
 # Build output
 dist/

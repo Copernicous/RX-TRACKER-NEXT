@@ -5,6 +5,18 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ---
 
+## [2.0.53] - 2026-06-25
+
+### [HOTFIX] Fortigate proxy script rewrite compatibility
+**Files changed:** 16 | `.gitignore`, `public/js/patients.js`, `public/js/reports.js`, `public/js/audit-log.js`, `public/js/backoffice.js`, `public/js/dashboard.js`, `public/js/help.js`, `views/patients.ejs`, `views/reports.ejs`, `views/backups.ejs`, `views/changelog.ejs`, `views/patient-timeline.ejs`, `views/rx-records.ejs`, `package.json`, `package-lock.json`, `CHANGELOG.md`
+
+- Replaced Fortigate-sensitive template-literal and `.map(...).join('')` HTML renderers on the production-breaking Patients and Reports pages.
+- Built Patients alert banners with DOM nodes instead of conditional `innerHTML` assignments that SSL-VPN rewriting can corrupt.
+- Added restart-based cache tokens to Patients and Reports scripts so the Fortigate portal pulls fresh JavaScript after deployment.
+- Verified the production portal failures were limited to `/patients` and `/reports` before the hotfix package was prepared.
+- Verified the developer target through Fortigate end-to-end after adding the developer LAN origin to the local `APP_ORIGIN` allowlist.
+- Ignored the local Fortigate Chrome profile used for proxy QA so browser cache/session files do not enter source control.
+
 ## [2.0.52] - 2026-06-25
 
 ### [UX-12] Collapsible HTTP status meaning guide

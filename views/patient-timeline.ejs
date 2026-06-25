@@ -361,10 +361,12 @@ function renderTimeline({ patient, rxRecords, workflowActions }) {
 
     const twrap = document.getElementById('tlTransportWrap');
     if (patient.PatientTransportCompany) {
-        twrap.innerHTML += `<span class="badge rounded-pill" style="background:rgba(255,255,255,.15);font-size:.73rem"><i class="fas fa-ambulance me-1"></i>${patient.PatientTransportCompany.companyName || patient.PatientTransportCompany.contactPerson}</span>`;
+        twrap.innerHTML += '<span class="badge rounded-pill" style="background:rgba(255,255,255,.15);font-size:.73rem"><i class="fas fa-ambulance me-1"></i>' +
+            (patient.PatientTransportCompany.companyName || patient.PatientTransportCompany.contactPerson) + '</span>';
     }
     if (patient.PharmacyTransportCompany) {
-        twrap.innerHTML += `<span class="badge rounded-pill" style="background:rgba(255,255,255,.15);font-size:.73rem"><i class="fas fa-truck me-1"></i>${patient.PharmacyTransportCompany.companyName || patient.PharmacyTransportCompany.contactPerson}</span>`;
+        twrap.innerHTML += '<span class="badge rounded-pill" style="background:rgba(255,255,255,.15);font-size:.73rem"><i class="fas fa-truck me-1"></i>' +
+            (patient.PharmacyTransportCompany.companyName || patient.PharmacyTransportCompany.contactPerson) + '</span>';
     }
 
     // Stats
@@ -373,12 +375,11 @@ function renderTimeline({ patient, rxRecords, workflowActions }) {
     const inProg    = rxRecords.filter(r => r.completedSteps.length > 0 && r.completedSteps.length < workflowActions.length).length;
     const notStart  = rxRecords.filter(r => r.completedSteps.length === 0).length;
 
-    document.getElementById('tlStatPills').innerHTML = `
-        <div class="tl-stat-pill"><div class="num">${total}</div><div class="lbl">Total RX</div></div>
-        <div class="tl-stat-pill"><div class="num" style="color:#a8d5b5">${completed}</div><div class="lbl">Complete</div></div>
-        <div class="tl-stat-pill"><div class="num" style="color:#ffc878">${inProg}</div><div class="lbl">In Progress</div></div>
-        <div class="tl-stat-pill"><div class="num" style="color:#b0b8c8">${notStart}</div><div class="lbl">Not Started</div></div>
-    `;
+    document.getElementById('tlStatPills').innerHTML =
+        '<div class="tl-stat-pill"><div class="num">' + total + '</div><div class="lbl">Total RX</div></div>' +
+        '<div class="tl-stat-pill"><div class="num" style="color:#a8d5b5">' + completed + '</div><div class="lbl">Complete</div></div>' +
+        '<div class="tl-stat-pill"><div class="num" style="color:#ffc878">' + inProg + '</div><div class="lbl">In Progress</div></div>' +
+        '<div class="tl-stat-pill"><div class="num" style="color:#b0b8c8">' + notStart + '</div><div class="lbl">Not Started</div></div>';
     document.getElementById('tlHero').style.display = '';
 
     if (!rxRecords.length) {
@@ -403,14 +404,15 @@ function renderTimeline({ patient, rxRecords, workflowActions }) {
         (rx.RXWorkflowTrackings || []).forEach(t => { trackingMap[t.workflowActionId] = t; });
 
         // Mini step dots
-        const miniDots = workflowActions.map(a => {
+        var miniDots = '';
+        workflowActions.forEach(function(a) {
             const t = trackingMap[a.id];
             const doneClass = t ? 'done' : '';
             const tip = t
-                ? `${a.name} — ✓ ${formatDate(t.completionDate)} ${t.User ? 'by ' + t.User.firstName + ' ' + t.User.lastName : ''}`
-                : `${a.name} — Pending`;
-            return `<div class="tl-step-dot ${doneClass}" title="${tip}"></div>`;
-        }).join('');
+                ? a.name + ' - done ' + formatDate(t.completionDate) + ' ' + (t.User ? 'by ' + t.User.firstName + ' ' + t.User.lastName : '')
+                : a.name + ' - Pending';
+            miniDots += '<div class="tl-step-dot ' + doneClass + '" title="' + tip + '"></div>';
+        });
 
         // Pharmacy
         const pharmacy = rx.Pharmacy ? rx.Pharmacy.name : '—';
@@ -421,106 +423,102 @@ function renderTimeline({ patient, rxRecords, workflowActions }) {
         // Status badge
         const pct = totalSteps > 0 ? Math.round((completedCount / totalSteps) * 100) : 0;
         const statusBadge = isComplete
-            ? `<span class="badge bg-success"><i class="fas fa-check me-1"></i>Complete</span>`
+            ? '<span class="badge bg-success"><i class="fas fa-check me-1"></i>Complete</span>'
             : completedCount > 0
-                ? `<span class="badge" style="background:#fd7e14"><i class="fas fa-spinner me-1"></i>${pct}%</span>`
-                : `<span class="badge bg-secondary"><i class="fas fa-clock me-1"></i>Not Started</span>`;
+                ? '<span class="badge" style="background:#fd7e14"><i class="fas fa-spinner me-1"></i>' + pct + '%</span>'
+                : '<span class="badge bg-secondary"><i class="fas fa-clock me-1"></i>Not Started</span>';
 
         // Medications
         const meds = (rx.Medications || []);
-        const medChips = meds.length
-            ? meds.map(m => `<span class="med-chip"><i class="fas fa-pills"></i>${m.name || 'Medication'}</span>`).join(' ')
-            : '<span class="text-muted small">No medications recorded</span>';
+        var medChips = '';
+        if (meds.length) {
+            meds.forEach(function(m) {
+                medChips += '<span class="med-chip"><i class="fas fa-pills"></i>' + (m.name || 'Medication') + '</span> ';
+            });
+        } else {
+            medChips = '<span class="text-muted small">No medications recorded</span>';
+        }
 
         // Workflow step rows
-        const wfRows = workflowActions.map((a, si) => {
+        var wfRows = '';
+        workflowActions.forEach(function(a, si) {
             const t = trackingMap[a.id];
             const done = !!t;
-            return `
-                <div class="wf-step">
-                    <div class="wf-step-icon ${done ? 'done' : 'pending'}">
-                        ${done ? '<i class="fas fa-check"></i>' : '<i class="fas fa-circle" style="font-size:.35rem"></i>'}
-                    </div>
-                    <div class="flex-grow-1">
-                        <div class="d-flex justify-content-between align-items-start gap-2">
-                            <span class="small fw-semibold" style="${done ? '' : 'color:var(--text-muted,#6c757d)'}">${si+1}. ${a.name}</span>
-                            ${done
-                                ? `<span class="text-success small" style="white-space:nowrap"><i class="fas fa-calendar-check me-1"></i>${formatDate(t.completionDate)}</span>`
-                                : `<span class="text-muted small">Pending</span>`
-                            }
-                        </div>
-                        ${done && t.User ? `<div class="text-muted" style="font-size:.72rem"><i class="fas fa-user me-1"></i>Completed by ${t.User.firstName} ${t.User.lastName}</div>` : ''}
-                    </div>
-                </div>`;
-        }).join('');
+            wfRows += '<div class="wf-step">' +
+                '<div class="wf-step-icon ' + (done ? 'done' : 'pending') + '">' +
+                    (done ? '<i class="fas fa-check"></i>' : '<i class="fas fa-circle" style="font-size:.35rem"></i>') +
+                '</div>' +
+                '<div class="flex-grow-1">' +
+                    '<div class="d-flex justify-content-between align-items-start gap-2">' +
+                        '<span class="small fw-semibold" style="' + (done ? '' : 'color:var(--text-muted,#6c757d)') + '">' + (si + 1) + '. ' + a.name + '</span>' +
+                        (done
+                            ? '<span class="text-success small" style="white-space:nowrap"><i class="fas fa-calendar-check me-1"></i>' + formatDate(t.completionDate) + '</span>'
+                            : '<span class="text-muted small">Pending</span>') +
+                    '</div>' +
+                    (done && t.User ? '<div class="text-muted" style="font-size:.72rem"><i class="fas fa-user me-1"></i>Completed by ' + t.User.firstName + ' ' + t.User.lastName + '</div>' : '') +
+                '</div>' +
+            '</div>';
+        });
 
         const entryId = 'tlEntry_' + rx.id;
         const bodyId  = 'tlBody_'  + rx.id;
 
-        const html = `
-        <div class="tl-entry" id="${entryId}">
-            <div class="tl-dot ${dotClass}">${dotIcon}</div>
-            <div class="tl-card">
-                <div class="tl-card-header" data-tl-toggle="${bodyId}">
-                    <div class="d-flex align-items-center gap-3 flex-grow-1 flex-wrap">
-                        <div class="tl-date-badge">
-                            <i class="fas fa-calendar-alt me-1"></i>${rx.serviceDate ? formatDate(rx.serviceDate) : 'No service date'}
-                        </div>
-                        <div>
-                            <div class="fw-semibold small" style="font-size:.85rem">
-                                RX #${rx.id} &nbsp;·&nbsp; <i class="fas fa-clinic-medical me-1 text-primary"></i>${pharmacy}
-                            </div>
-                            <div class="d-flex gap-1 mt-1">
-                                ${miniDots}
-                            </div>
-                        </div>
-                    </div>
-                    <div class="d-flex align-items-center gap-2 flex-shrink-0">
-                        ${statusBadge}
-                        <span class="text-muted small">${completedCount}/${totalSteps} steps</span>
-                        <i class="fas fa-chevron-down text-muted tl-chevron" style="transition:transform .2s;font-size:.8rem"></i>
-                    </div>
-                </div>
-                <div class="tl-body" id="${bodyId}">
-                    <div class="row g-0">
-                        <!-- Left: Details -->
-                        <div class="col-md-5 p-3" style="border-right:1px solid var(--border-color,#dee2e6)">
-                            <div class="fw-bold small text-muted text-uppercase mb-2" style="letter-spacing:.05em"><i class="fas fa-info-circle me-1"></i>Record Details</div>
-                            <table class="w-100" style="font-size:.82rem">
-                                <tr><td class="text-muted pe-3 py-1" style="white-space:nowrap">Arrival Date</td><td class="fw-semibold">${rx.arrivalDate ? formatDate(rx.arrivalDate) : '—'}</td></tr>
-                                <tr><td class="text-muted pe-3 py-1">Service Date</td><td class="fw-semibold">${rx.serviceDate ? formatDate(rx.serviceDate) : '—'}</td></tr>
-                                <tr><td class="text-muted pe-3 py-1">Pharmacy</td><td class="fw-semibold">${pharmacy}</td></tr>
-                                ${ptrans ? `<tr><td class="text-muted pe-3 py-1">Patient Transport</td><td class="fw-semibold">${ptrans}</td></tr>` : ''}
-                                ${rxtrans ? `<tr><td class="text-muted pe-3 py-1">RX Transport</td><td class="fw-semibold">${rxtrans}</td></tr>` : ''}
-                            </table>
-                            <div class="mt-3">
-                                <div class="fw-bold small text-muted text-uppercase mb-2" style="letter-spacing:.05em"><i class="fas fa-pills me-1"></i>Medications</div>
-                                <div class="d-flex flex-wrap gap-1">${medChips}</div>
-                            </div>
-                            <div class="mt-3 d-flex gap-2">
-                                <a href="/rx-records?rx=${rx.id}" class="btn btn-outline-primary btn-sm" style="font-size:.75rem"><i class="fas fa-external-link-alt me-1"></i>Open in RX Records</a>
-                            </div>
-                        </div>
-                        <!-- Right: Workflow steps -->
-                        <div class="col-md-7 p-3">
-                            <div class="fw-bold small text-muted text-uppercase mb-2" style="letter-spacing:.05em"><i class="fas fa-tasks me-1"></i>Workflow Progress</div>
-                            <!-- Progress bar -->
-                            <div class="mb-3">
-                                <div class="d-flex justify-content-between small mb-1">
-                                    <span class="text-muted">${completedCount} of ${totalSteps} steps complete</span>
-                                    <span class="fw-semibold">${pct}%</span>
-                                </div>
-                                <div class="progress" style="height:6px;border-radius:4px">
-                                    <div class="progress-bar ${isComplete ? 'bg-success' : 'bg-primary'}" style="width:${pct}%;transition:width .6s"></div>
-                                </div>
-                            </div>
-                            <!-- Step rows -->
-                            <div>${wfRows}</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>`;
+        var ptransRow = ptrans ? '<tr><td class="text-muted pe-3 py-1">Patient Transport</td><td class="fw-semibold">' + ptrans + '</td></tr>' : '';
+        var rxtransRow = rxtrans ? '<tr><td class="text-muted pe-3 py-1">RX Transport</td><td class="fw-semibold">' + rxtrans + '</td></tr>' : '';
+        var progressClass = isComplete ? 'bg-success' : 'bg-primary';
+        var html = '<div class="tl-entry" id="' + entryId + '">' +
+            '<div class="tl-dot ' + dotClass + '">' + dotIcon + '</div>' +
+            '<div class="tl-card">' +
+                '<div class="tl-card-header" data-tl-toggle="' + bodyId + '">' +
+                    '<div class="d-flex align-items-center gap-3 flex-grow-1 flex-wrap">' +
+                        '<div class="tl-date-badge"><i class="fas fa-calendar-alt me-1"></i>' + (rx.serviceDate ? formatDate(rx.serviceDate) : 'No service date') + '</div>' +
+                        '<div>' +
+                            '<div class="fw-semibold small" style="font-size:.85rem">RX #' + rx.id + ' &nbsp;&middot;&nbsp; <i class="fas fa-clinic-medical me-1 text-primary"></i>' + pharmacy + '</div>' +
+                            '<div class="d-flex gap-1 mt-1">' + miniDots + '</div>' +
+                        '</div>' +
+                    '</div>' +
+                    '<div class="d-flex align-items-center gap-2 flex-shrink-0">' +
+                        statusBadge +
+                        '<span class="text-muted small">' + completedCount + '/' + totalSteps + ' steps</span>' +
+                        '<i class="fas fa-chevron-down text-muted tl-chevron" style="transition:transform .2s;font-size:.8rem"></i>' +
+                    '</div>' +
+                '</div>' +
+                '<div class="tl-body" id="' + bodyId + '">' +
+                    '<div class="row g-0">' +
+                        '<div class="col-md-5 p-3" style="border-right:1px solid var(--border-color,#dee2e6)">' +
+                            '<div class="fw-bold small text-muted text-uppercase mb-2" style="letter-spacing:.05em"><i class="fas fa-info-circle me-1"></i>Record Details</div>' +
+                            '<table class="w-100" style="font-size:.82rem">' +
+                                '<tr><td class="text-muted pe-3 py-1" style="white-space:nowrap">Arrival Date</td><td class="fw-semibold">' + (rx.arrivalDate ? formatDate(rx.arrivalDate) : '&mdash;') + '</td></tr>' +
+                                '<tr><td class="text-muted pe-3 py-1">Service Date</td><td class="fw-semibold">' + (rx.serviceDate ? formatDate(rx.serviceDate) : '&mdash;') + '</td></tr>' +
+                                '<tr><td class="text-muted pe-3 py-1">Pharmacy</td><td class="fw-semibold">' + pharmacy + '</td></tr>' +
+                                ptransRow +
+                                rxtransRow +
+                            '</table>' +
+                            '<div class="mt-3">' +
+                                '<div class="fw-bold small text-muted text-uppercase mb-2" style="letter-spacing:.05em"><i class="fas fa-pills me-1"></i>Medications</div>' +
+                                '<div class="d-flex flex-wrap gap-1">' + medChips + '</div>' +
+                            '</div>' +
+                            '<div class="mt-3 d-flex gap-2">' +
+                                '<a href="/rx-records?rx=' + rx.id + '" class="btn btn-outline-primary btn-sm" style="font-size:.75rem"><i class="fas fa-external-link-alt me-1"></i>Open in RX Records</a>' +
+                            '</div>' +
+                        '</div>' +
+                        '<div class="col-md-7 p-3">' +
+                            '<div class="fw-bold small text-muted text-uppercase mb-2" style="letter-spacing:.05em"><i class="fas fa-tasks me-1"></i>Workflow Progress</div>' +
+                            '<div class="mb-3">' +
+                                '<div class="d-flex justify-content-between small mb-1">' +
+                                    '<span class="text-muted">' + completedCount + ' of ' + totalSteps + ' steps complete</span>' +
+                                    '<span class="fw-semibold">' + pct + '%</span>' +
+                                '</div>' +
+                                '<div class="progress" style="height:6px;border-radius:4px">' +
+                                    '<div class="progress-bar ' + progressClass + '" style="width:' + pct + '%;transition:width .6s"></div>' +
+                                '</div>' +
+                            '</div>' +
+                            '<div>' + wfRows + '</div>' +
+                        '</div>' +
+                    '</div>' +
+                '</div>' +
+            '</div>' +
+        '</div>';
         list.insertAdjacentHTML('beforeend', html);
     });
 

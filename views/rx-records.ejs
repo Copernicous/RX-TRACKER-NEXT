@@ -2220,13 +2220,15 @@
                     if (h.changedFields) {
                         var fields = JSON.parse(h.changedFields);
                         if (fields.length) {
+                            var fieldRowsHtml = '';
+                            fields.forEach(function(f) {
+                                fieldRowsHtml += '<tr><td class="fw-bold">' + f.field + '</td>' +
+                                    '<td class="text-danger">'  + (f.from || '\u2014') + '</td>' +
+                                    '<td class="text-success">' + (f.to   || '\u2014') + '</td></tr>';
+                            });
                             changedHtml = '<table class="table table-sm table-bordered mt-2" style="font-size:0.8rem">' +
                                 '<thead><tr><th>Field</th><th>Before</th><th>After</th></tr></thead><tbody>' +
-                                fields.map(function(f) {
-                                    return '<tr><td class="fw-bold">' + f.field + '</td>' +
-                                           '<td class="text-danger">'  + (f.from || '\u2014') + '</td>' +
-                                           '<td class="text-success">' + (f.to   || '\u2014') + '</td></tr>';
-                                }).join('') +
+                                fieldRowsHtml +
                                 '</tbody></table>';
                         }
                     }
@@ -2325,7 +2327,8 @@
         var _svcAnchor = rx.serviceDate ? new Date(rx.serviceDate) : null;
 
         // Build workflow checklist for card
-        const stepsCardHtml = allWorkflowActions.map(function(wa, i) {
+        var stepsCardHtml = '';
+        allWorkflowActions.forEach(function(wa, i) {
             var tracking   = trackings.find(function(t) { return t.workflowActionId === wa.id; });
             var done       = !!tracking;
             var dateStr    = done && tracking.completionDate ? new Date(tracking.completionDate).toLocaleDateString() : '';
@@ -2351,16 +2354,17 @@
             }
             var lagHtml = (done && lagStr) ? '<span style="font-size:.68rem;color:#6c757d;margin-left:4px">(' + lagStr + ')</span>' : '';
             var badge   = done ? '<span style="margin-left:auto;font-size:.7rem;color:#198754;background:#19875415;padding:2px 8px;border-radius:10px">&#10003; ' + dateStr + '</span>' + lagHtml : '';
-            return '<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid #f0f0f0">' +
+            stepsCardHtml += '<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid #f0f0f0">' +
                    '<i class="fas ' + icon + '" style="color:' + color + ';font-size:1rem;flex-shrink:0"></i>' +
                    '<span style="' + label + ';font-size:.87rem">' + wa.name + '</span>' +
                    badge +
                    '</div>';
-        }).join('');
+        });
 
 
         // Build workflow steps for classic
-        const stepsClassicHtml = allWorkflowActions.map(function(wa, i) {
+        var stepsClassicHtml = '';
+        allWorkflowActions.forEach(function(wa, i) {
             var tracking  = trackings.find(function(t) { return t.workflowActionId === wa.id; });
             var done      = !!tracking;
             var dateStr   = done && tracking.completionDate ? new Date(tracking.completionDate).toLocaleDateString() : '&mdash;';
@@ -2386,13 +2390,13 @@
             var statusTd  = done
                 ? '<td style="padding:5px 8px;border-bottom:1px solid #dee2e6;text-align:center;color:#198754;font-weight:600">&#10003;</td>'
                 : '<td style="padding:5px 8px;border-bottom:1px solid #dee2e6;text-align:center;color:#aaa">&#8212;</td>';
-            return '<tr>' +
+            stepsClassicHtml += '<tr>' +
                    '<td style="padding:5px 8px;border-bottom:1px solid #dee2e6">' + (i+1) + '. ' + wa.name + '</td>' +
                    '<td style="padding:5px 8px;border-bottom:1px solid #dee2e6;text-align:center;color:#555;font-size:.85rem">' + dateStr + '</td>' +
                    lagTd +
                    statusTd +
                    '</tr>';
-        }).join('');
+        });
         const statusColor = pct >= 100 ? '#198754' : pct >= 50 ? '#fd7e14' : '#6c757d';
         const statusLabel = pct >= 100 ? 'Completed' : pct > 0 ? 'In Progress' : 'Not Started';
 

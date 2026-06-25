@@ -134,14 +134,32 @@ var allPatients = [];
                     currentPage      = 1;
                     renderPatients();
                     const needsActionBanner = document.getElementById('patientsNeedsActionBanner');
-                    if (needsActionBanner) needsActionBanner.innerHTML = '';
+                    if (needsActionBanner) needsActionBanner.textContent = '';
                     // Show a dismissable filter banner above the table
                     const tableCard = document.querySelector('.glass-card.p-4');
                     if (tableCard && !document.getElementById('norxBanner')) {
                         const banner = document.createElement('div');
                         banner.id = 'norxBanner';
                         banner.style.cssText = 'background:rgba(155,89,182,.09);border:1px solid rgba(155,89,182,.3);border-radius:10px;padding:.6rem 1rem;display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;font-size:.85rem';
-                        banner.innerHTML = '<span><i class="fas fa-user-slash me-2" style="color:#9b59b6"></i><strong>Filtered:</strong> Showing only active patients with no RX records (' + allPatients.length + ' record' + (allPatients.length !== 1 ? 's' : '') + ')</span><a href="/patients" class="btn btn-sm btn-outline-secondary" style="font-size:.75rem"><i class="fas fa-times me-1"></i>Clear Filter</a>';
+                        const message = document.createElement('span');
+                        const icon = document.createElement('i');
+                        icon.className = 'fas fa-user-slash me-2';
+                        icon.style.color = '#9b59b6';
+                        message.appendChild(icon);
+                        const label = document.createElement('strong');
+                        label.textContent = 'Filtered:';
+                        message.appendChild(label);
+                        message.appendChild(document.createTextNode(' Showing only active patients with no RX records (' + allPatients.length + ' record' + (allPatients.length !== 1 ? 's' : '') + ')'));
+                        const clearLink = document.createElement('a');
+                        clearLink.href = '/patients';
+                        clearLink.className = 'btn btn-sm btn-outline-secondary';
+                        clearLink.style.fontSize = '.75rem';
+                        const clearIcon = document.createElement('i');
+                        clearIcon.className = 'fas fa-times me-1';
+                        clearLink.appendChild(clearIcon);
+                        clearLink.appendChild(document.createTextNode('Clear Filter'));
+                        banner.appendChild(message);
+                        banner.appendChild(clearLink);
                         tableCard.insertBefore(banner, tableCard.firstChild);
                     }
                     showToast('Showing Active Patients with No RX Records (' + allPatients.length + ')', 'info');
@@ -891,19 +909,60 @@ var allPatients = [];
         const isNeedsActionFilter = eligValue === 'needsAction';
         const plural = pending.length === 1 ? '' : 's';
 
-        container.innerHTML =
-            isNeedsActionFilter
-                ? (
-                    '<div style="padding:8px 12px;border:1px solid rgba(220,53,69,.25);background:rgba(220,53,69,.06);border-radius:10px;font-size:.85rem;display:flex;align-items:center;justify-content:space-between;gap:10px">' +
-                        '<span><i class="fas fa-filter me-2" style="color:#dc3545"></i>Showing <strong>' + pending.length + '</strong> patient' + plural + ' that require workflow action.</span>' +
-                    '</div>'
-                )
-                : (
-                    '<div style="padding:8px 12px;border:1px solid rgba(255,193,7,.4);background:rgba(255,193,7,.12);border-radius:10px;font-size:.85rem;display:flex;align-items:center;justify-content:space-between;gap:10px">' +
-                        '<span><i class="fas fa-exclamation-triangle me-2 text-warning"></i>There are <strong>' + pending.length + '</strong> patient' + plural + ' past the 90-day window with incomplete RX workflow.</span>' +
-                        '<button type="button" id="showNeedsActionBtn" class="btn btn-sm btn-warning"><i class="fas fa-filter me-1"></i>Show Patients</button>' +
-                    '</div>'
-                );
+        container.textContent = '';
+
+        var banner = document.createElement('div');
+        banner.style.padding = '8px 12px';
+        banner.style.borderRadius = '10px';
+        banner.style.fontSize = '.85rem';
+        banner.style.display = 'flex';
+        banner.style.alignItems = 'center';
+        banner.style.justifyContent = 'space-between';
+        banner.style.gap = '10px';
+        banner.style.border = isNeedsActionFilter
+            ? '1px solid rgba(220,53,69,.25)'
+            : '1px solid rgba(255,193,7,.4)';
+        banner.style.background = isNeedsActionFilter
+            ? 'rgba(220,53,69,.06)'
+            : 'rgba(255,193,7,.12)';
+
+        var message = document.createElement('span');
+        var icon = document.createElement('i');
+        icon.className = isNeedsActionFilter
+            ? 'fas fa-filter me-2'
+            : 'fas fa-exclamation-triangle me-2 text-warning';
+        if (isNeedsActionFilter) icon.style.color = '#dc3545';
+        message.appendChild(icon);
+
+        if (isNeedsActionFilter) {
+            message.appendChild(document.createTextNode('Showing '));
+            var strong = document.createElement('strong');
+            strong.textContent = String(pending.length);
+            message.appendChild(strong);
+            message.appendChild(document.createTextNode(' patient' + plural + ' that require workflow action.'));
+        } else {
+            message.appendChild(document.createTextNode('There are '));
+            var count = document.createElement('strong');
+            count.textContent = String(pending.length);
+            message.appendChild(count);
+            message.appendChild(document.createTextNode(' patient' + plural + ' past the 90-day window with incomplete RX workflow.'));
+        }
+
+        banner.appendChild(message);
+
+        if (!isNeedsActionFilter) {
+            var showBtn = document.createElement('button');
+            showBtn.type = 'button';
+            showBtn.id = 'showNeedsActionBtn';
+            showBtn.className = 'btn btn-sm btn-warning';
+            var btnIcon = document.createElement('i');
+            btnIcon.className = 'fas fa-filter me-1';
+            showBtn.appendChild(btnIcon);
+            showBtn.appendChild(document.createTextNode('Show Patients'));
+            banner.appendChild(showBtn);
+        }
+
+        container.appendChild(banner);
 
         const btn = document.getElementById('showNeedsActionBtn');
         if (!isNeedsActionFilter && btn) {

@@ -179,7 +179,7 @@
         } catch {}
 
         // Render markdown changelog
-        var raw = `<%- markdown.replace(/\\/g,'\\\\').replace(/`/g,'\\`').replace(/\${/g,'\\${') %>`;
+        var raw = <%- JSON.stringify(markdown || '') %>;
         if (raw.trim()) {
             document.getElementById('changelogContent').innerHTML = marked.parse(raw);
         } else {
@@ -238,11 +238,12 @@
             var cleanMsg = c.message.replace(/^(feat|fix|perf|build|chore|refactor|docs|style|test)(\([^)]+\))?:\s*/i, '');
             var maxChg   = Math.max.apply(null, c.files.map(function(f){ return f.changes || 0; }).concat([1]));
 
-            var filesHtml = c.files.map(function(f) {
+            var filesHtml = '';
+            c.files.forEach(function(f) {
                 var pct  = Math.min(100, Math.round((f.changes / maxChg) * 100));
                 var adds = (f.diff.match(/\+/g) || []).length;
                 var dels = (f.diff.match(/-/g)  || []).length;
-                return '<div class="file-row">' +
+                filesHtml += '<div class="file-row">' +
                     '<i class="fas fa-file-code text-muted me-2" style="font-size:.7rem;min-width:12px"></i>' +
                     '<span class="file-name">' + f.file + '</span>' +
                     '<span class="file-changes text-success me-1">+' + adds + '</span>' +
@@ -250,7 +251,7 @@
                     '<div class="diff-bar"><div class="diff-fill" style="width:' + pct + '%"></div></div>' +
                     '<span class="file-changes ms-1">' + f.changes + ' changes</span>' +
                 '</div>';
-            }).join('');
+            });
 
             if (c.summary) filesHtml += '<div class="commit-summary">' + c.summary + '</div>';
 

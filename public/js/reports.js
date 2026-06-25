@@ -141,9 +141,11 @@
                 const q = (val || '').toLowerCase().trim();
                 const matches = q ? opts.filter(o => o.toLowerCase().includes(q)) : opts;
                 if (!matches.length) { listEl.classList.remove('open'); return; }
-                listEl.innerHTML = matches.slice(0, 40).map(o =>
-                    `<div class="ac-item">${escHtml(o)}</div>`
-                ).join('');
+                var listHtml = '';
+                matches.slice(0, 40).forEach(function(o) {
+                    listHtml += '<div class="ac-item">' + escHtml(o) + '</div>';
+                });
+                listEl.innerHTML = listHtml;
                 listEl.querySelectorAll('.ac-item').forEach(item => {
                     item.addEventListener('mousedown', e => {
                         e.preventDefault();
@@ -213,26 +215,28 @@
             if (countEl) countEl.textContent = '0 records';
             return;
         }
-        tbody.innerHTML = data.map(p => {
+        var patientRowsHtml = '';
+        data.forEach(function(p) {
             const statusBadge = p.isActive
                 ? '<span class="badge bg-success">Active</span>'
                 : '<span class="badge bg-secondary">Inactive</span>';
             const dob = p.dob ? new Date(p.dob+'T12:00:00').toLocaleDateString() : '-';
             const svc = p.serviceDate ? new Date(p.serviceDate+'T12:00:00').toLocaleDateString() : '-';
-            return `<tr>
-                <td><span class="badge bg-primary">${p.patientCode||''}</span></td>
-                <td>${p.firstName||''}</td>
-                <td>${p.lastName||''}</td>
-                <td>${dob}</td>
-                <td>${p.phone||'-'}</td>
-                <td>${p.address||'-'}</td>
-                <td>${svc}</td>
-                <td>${statusBadge}</td>
-                <td>${p.Clinic&&p.Clinic.name||'-'}</td>
-                <td>${p.PatientTransportCompany&&p.PatientTransportCompany.companyName||'-'}</td>
-                <td>${p.PharmacyTransportCompany&&p.PharmacyTransportCompany.companyName||'-'}</td>
-            </tr>`;
-        }).join('');
+            patientRowsHtml += '<tr>' +
+                '<td><span class="badge bg-primary">' + (p.patientCode || '') + '</span></td>' +
+                '<td>' + (p.firstName || '') + '</td>' +
+                '<td>' + (p.lastName || '') + '</td>' +
+                '<td>' + dob + '</td>' +
+                '<td>' + (p.phone || '-') + '</td>' +
+                '<td>' + (p.address || '-') + '</td>' +
+                '<td>' + svc + '</td>' +
+                '<td>' + statusBadge + '</td>' +
+                '<td>' + ((p.Clinic && p.Clinic.name) || '-') + '</td>' +
+                '<td>' + ((p.PatientTransportCompany && p.PatientTransportCompany.companyName) || '-') + '</td>' +
+                '<td>' + ((p.PharmacyTransportCompany && p.PharmacyTransportCompany.companyName) || '-') + '</td>' +
+            '</tr>';
+        });
+        tbody.innerHTML = patientRowsHtml;
         if (countEl) countEl.textContent = data.length + ' record' + (data.length !== 1 ? 's' : '');
     }
 
@@ -305,7 +309,8 @@
             if (countEl) countEl.textContent = '0 records';
             return;
         }
-        tbody.innerHTML = data.map(r => {
+        var rxRowsHtml = '';
+        data.forEach(function(r) {
             const steps   = r.completedSteps || [];
             const wfTotal = allWorkflowActions.length;
             const done    = steps.length;
@@ -317,18 +322,28 @@
             const phName  = r.Pharmacy ? r.Pharmacy.name : '-';
             const progBadge = pct >= 100
                 ? '<span class="badge bg-success">Complete</span>'
-                : `<span class="badge bg-warning text-dark">${pct}%</span>`;
-            return `<tr>
-                <td><span class="badge bg-primary">RX-${r.id}</span></td>
-                <td>${ptName}</td>
-                <td><span class="badge bg-info text-dark">${ptCode}</span></td>
-                <td>${phName}</td>
-                <td>${svc}</td>
-                <td>${done > 0 ? steps.map(id => { const a = allWorkflowActions.find(w=>w.id===id); return a ? '<span class="badge bg-success me-1">'+a.name+'</span>' : ''; }).join('') : '-'}</td>
-                <td>${nextStep ? '<span class="badge bg-warning text-dark">'+nextStep.name+'</span>' : '<span class="badge bg-success">All done</span>'}</td>
-                <td>${progBadge}</td>
-            </tr>`;
-        }).join('');
+                : '<span class="badge bg-warning text-dark">' + pct + '%</span>';
+            var doneStepsHtml = '';
+            if (done > 0) {
+                steps.forEach(function(id) {
+                    const action = allWorkflowActions.find(w => w.id === id);
+                    if (action) doneStepsHtml += '<span class="badge bg-success me-1">' + action.name + '</span>';
+                });
+            } else {
+                doneStepsHtml = '-';
+            }
+            rxRowsHtml += '<tr>' +
+                '<td><span class="badge bg-primary">RX-' + r.id + '</span></td>' +
+                '<td>' + ptName + '</td>' +
+                '<td><span class="badge bg-info text-dark">' + ptCode + '</span></td>' +
+                '<td>' + phName + '</td>' +
+                '<td>' + svc + '</td>' +
+                '<td>' + doneStepsHtml + '</td>' +
+                '<td>' + (nextStep ? '<span class="badge bg-warning text-dark">' + nextStep.name + '</span>' : '<span class="badge bg-success">All done</span>') + '</td>' +
+                '<td>' + progBadge + '</td>' +
+            '</tr>';
+        });
+        tbody.innerHTML = rxRowsHtml;
         if (countEl) countEl.textContent = data.length + ' record' + (data.length !== 1 ? 's' : '');
     }
 
@@ -434,13 +449,19 @@
 
     // BUG-04: Excel export — HTML table as .xls (opens natively in Excel, no external lib needed)
     function downloadXls(filename, headers, rows) {
-        var table = '<table><thead><tr>' +
-            headers.map(function(h) { return '<th>' + String(h||'').replace(/</g,'&lt;') + '</th>'; }).join('') +
-            '</tr></thead><tbody>' +
-            rows.map(function(r) {
-                return '<tr>' + r.map(function(v) { return '<td>' + String(v||'').replace(/</g,'&lt;') + '</td>'; }).join('') + '</tr>';
-            }).join('') +
-            '</tbody></table>';
+        var headerHtml = '';
+        headers.forEach(function(h) {
+            headerHtml += '<th>' + String(h || '').replace(/</g,'&lt;') + '</th>';
+        });
+        var bodyHtml = '';
+        rows.forEach(function(r) {
+            var rowHtml = '';
+            r.forEach(function(v) {
+                rowHtml += '<td>' + String(v || '').replace(/</g,'&lt;') + '</td>';
+            });
+            bodyHtml += '<tr>' + rowHtml + '</tr>';
+        });
+        var table = '<table><thead><tr>' + headerHtml + '</tr></thead><tbody>' + bodyHtml + '</tbody></table>';
         var html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="UTF-8"><!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>Report</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]--></head><body>' + table + '</body></html>';
         var blob = new Blob([html], { type: 'application/vnd.ms-excel;charset=utf-8' });
         var url  = URL.createObjectURL(blob);

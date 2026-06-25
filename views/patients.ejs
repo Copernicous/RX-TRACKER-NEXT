@@ -464,11 +464,11 @@ window.__RX_AUTH_USER = <%- JSON.stringify(locals.currentUser || null).replace(/
 window.__RX_AUTH_PERMS = <%- JSON.stringify(locals.userPerms || null).replace(/</g, '\\u003c') %>;
 </script>
 <script src="/js/base.js"></script>
-<script src="/js/app.js?v=2.0.45-patperm3"></script>
+<script src="/js/app.js?v=<%= encodeURIComponent(String(locals.appBuild || 'dev')) %>"></script>
 <script src="/js/help.js"></script>
 <script src="/js/documents.js"></script>
 
 <!-- patients.js moved to external file for FortiGate SSL portal compatibility -->
-<script src="/js/patients.js?v=2.0.45-patperm3"></script>
+<script src="/js/patients.js?v=<%= encodeURIComponent(String(locals.appBuild || 'dev')) %>"></script>
 </body>
 </html>
