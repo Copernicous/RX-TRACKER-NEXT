@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Resolve release notes file
         id: release_notes
@@ -30,17 +30,17 @@ jobs:
             BODY_FILE="$DEFAULT_NOTES"
           else
             BODY_FILE="/tmp/release-notes.md"
-            cat <<'EOF' > "$BODY_FILE"
-            ## Release Notes
-            Auto-generated release body unavailable. Add notes file at `.github/releases/<tag>.md`
-            or update `.github/RELEASE_NOTES.md`.
-            EOF
+            printf '%s\n' \
+              "## Release Notes" \
+              "Auto-generated release body unavailable. Add notes file at \`.github/releases/<tag>.md\`" \
+              "or update \`.github/RELEASE_NOTES.md\`." \
+              > "$BODY_FILE"
           fi
 
           echo "body_file=$BODY_FILE" >> "$GITHUB_OUTPUT"
 
       - name: Publish release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ github.ref_name }}
           name: ${{ github.ref_name }}

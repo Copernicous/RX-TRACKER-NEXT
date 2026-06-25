@@ -5,6 +5,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ---
 
+## [2.0.54] - 2026-06-25
+
+### [FIX-54] GitHub release workflow compatibility
+**Files changed:** 5 | `.github/workflows/release-notes-from-file.yml`, `.github/releases/v2.0.54.md`, `package.json`, `package-lock.json`, `CHANGELOG.md`
+
+- Fixed the release-notes fallback script so Bash no longer parses an indented heredoc and exits with code `2`.
+- Updated the release workflow to Node 24-compatible GitHub Actions majors for checkout and release publishing.
+- Added tag-specific release notes for `v2.0.54` so the GitHub Release body is resolved directly.
+- Bumped production package version to `2.0.54`.
+
 ## [2.0.53] - 2026-06-25
 
 ### [HOTFIX] Fortigate proxy script rewrite compatibility
