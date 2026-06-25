@@ -9,6 +9,8 @@
  *   CHANGELOG.md        — version history / what changed
  *   DEFERRED-ITEMS.txt  — security / tech-debt tracking
  *   OPERATIONS_MANUAL.md — admin and recovery procedures
+ *   install-service.ps1 — Windows Service installer
+ *   uninstall-service.ps1 — Windows Service remover
  */
 
 'use strict';
@@ -28,6 +30,8 @@ const filesToCopy = [
     'CHANGELOG.md',
     'DEFERRED-ITEMS.txt',
     'OPERATIONS_MANUAL.md',
+    'install-service.ps1',
+    'uninstall-service.ps1',
 ];
 
 let copied = 0;

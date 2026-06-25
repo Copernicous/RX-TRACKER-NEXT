@@ -405,7 +405,7 @@ cd "path\to\dist"
 The installer:
 1. Downloads NSSM to `parent-of-dist\nssm\` (one-time)
 2. Registers `server.exe` as Windows Service `PatientRXSystem`
-3. Reads `.env` and injects all variables into the service environment
+3. Reads `.env` from the same folder as `server.exe` (fallback: parent folder) and injects all variables into the service environment
 4. Configures auto-restart with 60-second throttle (max 3 restarts)
 5. Writes stdout/stderr to `parent-of-dist\logs\` with daily rotation
 6. Starts the service immediately
@@ -1267,7 +1267,7 @@ cd "path\to\dist"
 The installer:
 1. Downloads NSSM to `parent-of-dist\nssm\` (one-time)
 2. Registers `server.exe` as Windows Service `PatientRXSystem`
-3. Reads `.env` and injects all variables into the service environment
+3. Reads `.env` from the same folder as `server.exe` (fallback: parent folder) and injects all variables into the service environment
 4. Configures auto-restart with 60-second throttle (max 3 restarts)
 5. Writes stdout/stderr to `parent-of-dist\logs\` with daily rotation
 6. Starts the service immediately

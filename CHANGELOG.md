@@ -21,6 +21,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 - Fixed the expired RX modal close-button visibility so workflow closure is detected by exact active workflow steps instead of raw completed-row count.
 - Fixed Patient `Override` behavior so authorized users can change a locked service date; override-only users can update `serviceDate` while other patient fields remain locked.
 - Fixed RX Records `Override` behavior so override-only users can resolve expired workflow date locks without requiring full Edit permission.
+- Added Windows Service installer/remover scripts to the release package and fixed service install to load `.env` from the same folder as `server.exe`.
 
 ## [2.0.40] - 2026-06-24
 
