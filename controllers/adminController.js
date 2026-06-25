@@ -7,6 +7,7 @@ const os        = require('os');
 const bcrypt    = require('bcryptjs');
 const { parseDate } = require('../utils/dateUtils');
 const fileSettings = require('../utils/globalSettings');
+const logDashboardService = require('../services/logDashboardService');
 
 function readSettings() {
     return fileSettings.readSettings();
@@ -463,6 +464,13 @@ exports.getHealth = async (req, res) => {
 };
 
 // ══════════════════════════════════════════════════════════════════════════
+exports.getLogDashboard = async (req, res) => {
+    try {
+        const summary = await logDashboardService.buildLogDashboardSummary(req.query || {});
+        res.json(summary);
+    } catch (e) { res.status(500).json({ error: e.message }); }
+};
+
 // LOCK MANAGER
 // ══════════════════════════════════════════════════════════════════════════
 exports.getLocks = async (req, res) => {

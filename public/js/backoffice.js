@@ -636,9 +636,9 @@ async function executePurge() {
 // TAB SWITCHER
 // ══════════════════════════════════════════════════════════════════════════
 function switchTab(tab) {
-    var tabs  = ['tables','schema','orphans','dupes','audit','settings','backups','health','locks','users','apikeys','errlog','analytics'];
-    var ids   = { tables:'tablesContent', schema:'schemaContent', orphans:'orphanContent', dupes:'dupesContent', audit:'auditContent', settings:'settingsContent', backups:'backupsContent', health:'healthContent', locks:'locksContent', users:'usersContent', apikeys:'apiKeysContent', errlog:'errlogContent', analytics:'analyticsContent' };
-    var btns  = { tables:'tabTables', schema:'tabSchema', orphans:'tabOrphans', dupes:'tabDupes', audit:'tabAudit', settings:'tabSettings', backups:'tabBackups', health:'tabHealth', locks:'tabLocks', users:'tabUsers', apikeys:'tabApiKeys', errlog:'tabErrlog', analytics:'tabAnalytics' };
+    var tabs  = ['tables','schema','orphans','dupes','audit','settings','backups','health','locks','users','apikeys','errlog','logdash','analytics'];
+    var ids   = { tables:'tablesContent', schema:'schemaContent', orphans:'orphanContent', dupes:'dupesContent', audit:'auditContent', settings:'settingsContent', backups:'backupsContent', health:'healthContent', locks:'locksContent', users:'usersContent', apikeys:'apiKeysContent', errlog:'errlogContent', logdash:'logdashContent', analytics:'analyticsContent' };
+    var btns  = { tables:'tabTables', schema:'tabSchema', orphans:'tabOrphans', dupes:'tabDupes', audit:'tabAudit', settings:'tabSettings', backups:'tabBackups', health:'tabHealth', locks:'tabLocks', users:'tabUsers', apikeys:'tabApiKeys', errlog:'tabErrlog', logdash:'tabLogdash', analytics:'tabAnalytics' };
     tabs.forEach(function(t) {
         document.getElementById(btns[t]).classList.toggle('active', t === tab);
         var el = document.getElementById(ids[t]);
@@ -656,6 +656,7 @@ function switchTab(tab) {
     if (tab === 'users'     && !usersLoaded)     loadUsers();
     if (tab === 'apikeys'   && !boApiKeysLoaded) boLoadApiKeys();
     if (tab === 'errlog'    && !errlogLoaded)    loadErrorLogs(1);
+    if (tab === 'logdash'   && !logdashLoaded)   loadLogDashboard();
     if (tab === 'analytics' && !analyticsLoaded) loadAnalytics();
     /* BO-04: Stop health countdown when leaving health tab */
     if (tab !== 'health' && typeof stopHealthCountdown === 'function') stopHealthCountdown();

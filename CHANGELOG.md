@@ -5,6 +5,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ---
 
+## [2.0.48] - 2026-06-25
+
+### [FEAT-25] Back Office RX Log Dashboard integration
+**Files changed:** 9 | `services/logDashboardService.js`, `controllers/adminController.js`, `routes/apiRoutes.js`, `views/backoffice.ejs`, `public/js/backoffice.js`, `public/js/backoffice-features.js`, `package.json`, `package-lock.json`, `CHANGELOG.md`
+
+- Ported the standalone RX log analysis dashboard into Back Office as a new master-admin `Log Dashboard` tab.
+- Added `/api/admin/log-dashboard` to summarize page activity, audit activity, error logs, safe server-log signals, operational insights, and HTTP status explanations.
+- Added filters for range, user, page/path, IP, HTTP status, and free-text search, plus CSV export from the Back Office tab.
+- Shows real page visits from `UserActivityLogs` without patient identifiers or query-string details, with status badges linking to MDN status references.
+- Bumped production package version to `2.0.48`.
+
 ## [2.0.47] - 2026-06-25
 
 ### [UX-09] Page Activity HTTP status explanations

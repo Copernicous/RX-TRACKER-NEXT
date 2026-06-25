@@ -220,6 +220,38 @@
         .tab-btn.active { background:var(--surface); color:var(--text); box-shadow:0 1px 8px rgba(0,0,0,0.3); }
         .tab-btn i { margin-right:0.4rem; }
 
+        /* Log Dashboard */
+        .logdash-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(155px,1fr)); gap:0.65rem; margin-bottom:1rem; }
+        .logdash-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:0.95rem; }
+        .logdash-card .logdash-label { font-size:0.66rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.07em; margin-bottom:0.4rem; }
+        .logdash-card .logdash-value { font-size:1.5rem; font-weight:800; line-height:1; }
+        .logdash-panel { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; margin-bottom:1rem; }
+        .logdash-panel-head { padding:0.75rem 0.95rem; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; gap:0.75rem; flex-wrap:wrap; }
+        .logdash-panel-title { font-size:0.8rem; font-weight:700; color:var(--text); text-transform:uppercase; letter-spacing:0.06em; }
+        .logdash-panel-body { padding:0.9rem; }
+        .logdash-two-col { display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
+        .logdash-list { display:flex; flex-direction:column; gap:0.5rem; }
+        .logdash-row { display:flex; align-items:center; justify-content:space-between; gap:0.75rem; border-bottom:1px solid rgba(255,255,255,0.045); padding:0.45rem 0; font-size:0.78rem; }
+        .logdash-row:last-child { border-bottom:none; }
+        .logdash-muted { color:var(--text-muted); font-size:0.74rem; }
+        .logdash-bar { height:7px; background:rgba(99,102,241,0.15); border-radius:999px; overflow:hidden; min-width:80px; }
+        .logdash-bar > span { display:block; height:100%; background:#6366f1; border-radius:999px; }
+        .logdash-insight { border:1px solid var(--border); border-left:3px solid #6366f1; background:rgba(255,255,255,0.025); border-radius:9px; padding:0.7rem 0.8rem; margin-bottom:0.55rem; }
+        .logdash-insight.good { border-left-color:#10b981; }
+        .logdash-insight.warning { border-left-color:#f59e0b; }
+        .logdash-insight.danger { border-left-color:#ef4444; }
+        .logdash-chip { display:inline-flex; align-items:center; gap:0.3rem; border-radius:999px; padding:0.18rem 0.48rem; font-size:0.68rem; font-weight:700; border:1px solid var(--border); white-space:nowrap; }
+        .logdash-chip.good { background:rgba(16,185,129,0.12); border-color:rgba(16,185,129,0.28); color:#6ee7b7; }
+        .logdash-chip.info { background:rgba(99,102,241,0.12); border-color:rgba(99,102,241,0.28); color:#a5b4fc; }
+        .logdash-chip.warning { background:rgba(245,158,11,0.12); border-color:rgba(245,158,11,0.28); color:#fbbf24; }
+        .logdash-chip.danger { background:rgba(239,68,68,0.12); border-color:rgba(239,68,68,0.28); color:#fca5a5; }
+        .logdash-table { width:100%; border-collapse:collapse; font-size:0.76rem; }
+        .logdash-table th { color:var(--text-muted); text-transform:uppercase; letter-spacing:0.06em; font-size:0.64rem; font-weight:700; background:var(--surface-2); border-bottom:1px solid var(--border); padding:0.5rem 0.65rem; text-align:left; }
+        .logdash-table td { padding:0.5rem 0.65rem; border-bottom:1px solid rgba(255,255,255,0.04); vertical-align:top; }
+        .logdash-table tr:last-child td { border-bottom:none; }
+        .logdash-path { font-family:monospace; color:#a5b4fc; max-width:280px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        @media (max-width: 900px) { .logdash-two-col { grid-template-columns:1fr; } .tab-nav { flex-wrap:wrap; } .tab-btn { flex:1 1 140px; } }
+
         /* ── Schema Panel ── */
         .schema-wrap { display:none; }
         .schema-wrap.show { display:block; }
@@ -374,6 +406,7 @@
         <button class="tab-btn" id="tabUsers" onclick="switchTab('users')"><i class="fas fa-user-shield"></i>Users</button>
         <button class="tab-btn" id="tabApiKeys" onclick="switchTab('apikeys')"><i class="fas fa-key"></i>API Keys</button>
         <button class="tab-btn" id="tabErrlog" onclick="switchTab('errlog')"><i class="fas fa-bug"></i>Error Logs</button>
+        <button class="tab-btn" id="tabLogdash" onclick="switchTab('logdash')"><i class="fas fa-chart-pie"></i>Log Dashboard</button>
         <button class="tab-btn" id="tabAnalytics" onclick="switchTab('analytics')"><i class="fas fa-chart-line"></i>Analytics</button>
     </div>
 
@@ -784,6 +817,112 @@
         </div>
     </div>
 
+
+    <!-- Log Dashboard Panel -->
+    <div id="logdashContent" class="schema-wrap">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:0.75rem">
+            <div>
+                <div style="font-size:1rem;font-weight:700"><i class="fas fa-chart-pie me-1" style="color:#a5b4fc"></i>RX Log Dashboard</div>
+                <div style="font-size:0.75rem;color:var(--text-muted)">Operational page activity, stability signals, errors, audit events, and HTTP status explanations.</div>
+            </div>
+            <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
+                <button class="btn-bo btn-bo-outline" onclick="loadLogDashboard()"><i class="fas fa-sync-alt me-1"></i>Refresh</button>
+                <button class="btn-bo btn-bo-outline" id="logdashExportBtn" onclick="exportLogDashboardCSV()" style="display:none"><i class="fas fa-file-csv me-1"></i>Export CSV</button>
+            </div>
+        </div>
+
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:0.875rem;margin-bottom:1rem">
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:0.5rem">
+                <select id="logdashRange" class="schema-search" style="margin:0" onchange="logdashDebounce()">
+                    <option value="live">Last 15 min</option>
+                    <option value="hour">Last hour</option>
+                    <option value="day" selected>Last 24 hours</option>
+                    <option value="today">Today</option>
+                    <option value="week">Last 7 days</option>
+                    <option value="all">All available</option>
+                </select>
+                <input type="text" id="logdashUser" class="schema-search" style="margin:0" placeholder="User / username" oninput="logdashDebounce()">
+                <input type="text" id="logdashPath" class="schema-search" style="margin:0" placeholder="Page / path" oninput="logdashDebounce()">
+                <input type="text" id="logdashIp" class="schema-search" style="margin:0" placeholder="IP address" oninput="logdashDebounce()">
+                <select id="logdashStatusFilter" class="schema-search" style="margin:0" onchange="logdashDebounce()">
+                    <option value="">Any status</option>
+                    <option value="200">200 OK</option>
+                    <option value="204">204 No Content</option>
+                    <option value="302">302 Redirect</option>
+                    <option value="400">400 Bad Request</option>
+                    <option value="401">401 Login Required</option>
+                    <option value="403">403 Forbidden</option>
+                    <option value="404">404 Not Found</option>
+                    <option value="409">409 Conflict</option>
+                    <option value="429">429 Rate Limited</option>
+                    <option value="500">500 Server Error</option>
+                </select>
+                <input type="text" id="logdashSearch" class="schema-search" style="margin:0" placeholder="Search all signals" oninput="logdashDebounce()">
+            </div>
+            <div id="logdashStatus" class="logdash-muted" style="margin-top:0.65rem">Open this tab to load operational analysis.</div>
+        </div>
+
+        <div id="logdashKpis" class="logdash-grid"></div>
+
+        <div class="logdash-two-col">
+            <div class="logdash-panel">
+                <div class="logdash-panel-head">
+                    <div class="logdash-panel-title"><i class="fas fa-lightbulb me-1" style="color:#fbbf24"></i>What Needs Attention</div>
+                </div>
+                <div class="logdash-panel-body" id="logdashInsights">
+                    <p style="color:var(--text-muted);margin:0">Loading insights...</p>
+                </div>
+            </div>
+            <div class="logdash-panel">
+                <div class="logdash-panel-head">
+                    <div class="logdash-panel-title"><i class="fas fa-question-circle me-1" style="color:#a5b4fc"></i>HTTP Status Meaning</div>
+                </div>
+                <div class="logdash-panel-body" id="logdashStatusGuide">
+                    <p style="color:var(--text-muted);margin:0">Loading status guide...</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="logdash-two-col">
+            <div class="logdash-panel">
+                <div class="logdash-panel-head">
+                    <div class="logdash-panel-title"><i class="fas fa-mouse-pointer me-1" style="color:#10b981"></i>Real Page Activity</div>
+                    <span class="logdash-muted">From UserActivityLogs</span>
+                </div>
+                <div class="logdash-panel-body" id="logdashPageActivity"></div>
+            </div>
+            <div class="logdash-panel">
+                <div class="logdash-panel-head">
+                    <div class="logdash-panel-title"><i class="fas fa-server me-1" style="color:#ef4444"></i>Server Log Signals</div>
+                    <span class="logdash-muted">Safe summaries only</span>
+                </div>
+                <div class="logdash-panel-body" id="logdashServerSignals"></div>
+            </div>
+        </div>
+
+        <div class="logdash-panel">
+            <div class="logdash-panel-head">
+                <div class="logdash-panel-title"><i class="fas fa-history me-1" style="color:#a5b4fc"></i>Recent Page Visits</div>
+                <span class="logdash-muted">Patient identifiers and query strings are not shown</span>
+            </div>
+            <div id="logdashRecentVisits" style="overflow:auto"></div>
+        </div>
+
+        <div class="logdash-two-col">
+            <div class="logdash-panel">
+                <div class="logdash-panel-head">
+                    <div class="logdash-panel-title"><i class="fas fa-clipboard-list me-1" style="color:#06b6d4"></i>Audit Activity</div>
+                </div>
+                <div class="logdash-panel-body" id="logdashAuditActivity"></div>
+            </div>
+            <div class="logdash-panel">
+                <div class="logdash-panel-head">
+                    <div class="logdash-panel-title"><i class="fas fa-bug me-1" style="color:#fca5a5"></i>Error Activity</div>
+                </div>
+                <div class="logdash-panel-body" id="logdashErrorActivity"></div>
+            </div>
+        </div>
+    </div>
 
     <!-- ══ Analytics Panel ══ -->
     <div id="analyticsContent" class="schema-wrap">

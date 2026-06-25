@@ -329,6 +329,356 @@ async function loadHealth() {
 }
 
 // ══════════════════════════════════════════════════════════════════════════
+// LOG DASHBOARD JS
+var logdashLoaded = false;
+var _logdashData = null;
+var _logdashDebTimer = null;
+
+function _logdashEsc(v) {
+    if (typeof escHtml === 'function') return escHtml(v);
+    return String(v === null || v === undefined ? '' : v)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function _logdashNum(v) {
+    var n = parseInt(v || 0, 10);
+    if (!isFinite(n)) n = 0;
+    return n.toLocaleString();
+}
+
+function _logdashFmtDate(v) {
+    if (!v) return '\u2014';
+    try { return new Date(v).toLocaleString(); }
+    catch(e) { return String(v); }
+}
+
+function _logdashChip(level, text, title) {
+    return '<span class="logdash-chip ' + _logdashEsc(level || 'info') + '" title="' + _logdashEsc(title || '') + '">' + _logdashEsc(text || '') + '</span>';
+}
+
+function _logdashStatusChip(code, info) {
+    if (!code) return _logdashChip('info', 'N/A', 'No HTTP status was recorded.');
+    info = info || {};
+    var label = code + ' ' + (info.label || '');
+    var href = info.reference || ('https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/' + code);
+    return '<a class="logdash-chip ' + _logdashEsc(info.level || 'info') + '" href="' + _logdashEsc(href) + '" target="_blank" rel="noopener" title="' + _logdashEsc((info.meaning || '') + ' ' + (info.action || '')) + '">' + _logdashEsc(label) + '</a>';
+}
+
+function _logdashGet(id) {
+    return document.getElementById(id);
+}
+
+function _logdashParams() {
+    var p = [];
+    function add(id, name) {
+        var el = _logdashGet(id);
+        if (el && el.value) p.push(name + '=' + encodeURIComponent(el.value));
+    }
+    add('logdashRange', 'range');
+    add('logdashUser', 'user');
+    add('logdashPath', 'path');
+    add('logdashIp', 'ip');
+    add('logdashStatusFilter', 'status');
+    add('logdashSearch', 'search');
+    return p.join('&');
+}
+
+function logdashDebounce() {
+    clearTimeout(_logdashDebTimer);
+    _logdashDebTimer = setTimeout(function() { loadLogDashboard(); }, 450);
+}
+
+async function loadLogDashboard() {
+    var statusEl = _logdashGet('logdashStatus');
+    var exportBtn = _logdashGet('logdashExportBtn');
+    if (exportBtn) exportBtn.style.display = 'none';
+    if (statusEl) statusEl.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Analyzing activity, errors, audit events, and log files...';
+    ['logdashKpis','logdashInsights','logdashStatusGuide','logdashPageActivity','logdashServerSignals','logdashRecentVisits','logdashAuditActivity','logdashErrorActivity'].forEach(function(id) {
+        var el = _logdashGet(id);
+        if (el) el.innerHTML = '<p style="color:var(--text-muted);padding:1rem;margin:0"><i class="fas fa-spinner fa-spin me-2"></i>Loading...</p>';
+    });
+
+    try {
+        var qs = _logdashParams();
+        var res = await apiFetch('/api/admin/log-dashboard' + (qs ? '?' + qs : ''));
+        var data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Failed to load log dashboard');
+        _logdashData = data;
+        logdashLoaded = true;
+        renderLogDashboard(data);
+        if (exportBtn) exportBtn.style.display = '';
+        if (statusEl) statusEl.textContent = 'Updated ' + _logdashFmtDate(data.generatedAt) + ' | Since ' + _logdashFmtDate(data.filters && data.filters.since);
+    } catch(e) {
+        if (statusEl) statusEl.textContent = 'Unable to load log dashboard: ' + e.message;
+        var err = '<p style="color:#fca5a5;padding:1rem;margin:0">' + _logdashEsc(e.message) + '</p>';
+        ['logdashKpis','logdashInsights','logdashStatusGuide','logdashPageActivity','logdashServerSignals','logdashRecentVisits','logdashAuditActivity','logdashErrorActivity'].forEach(function(id) {
+            var el = _logdashGet(id);
+            if (el) el.innerHTML = err;
+        });
+    }
+}
+
+function renderLogDashboard(data) {
+    var page = data.pageActivity || {};
+    var totals = page.totals || {};
+    var errors = data.errors || {};
+    var audit = data.audit || {};
+    var logs = data.logs || {};
+    var logTotals = logs.totals || {};
+
+    var kpis = [
+        { label:'Page Visits', value:totals.total || 0, color:'#10b981' },
+        { label:'Unique Users', value:totals.uniqueUsers || 0, color:'#a5b4fc' },
+        { label:'403 Blocks', value:totals.forbidden || 0, color:'#fbbf24' },
+        { label:'500 Page Errors', value:totals.serverErrors || 0, color:'#ef4444' },
+        { label:'Unresolved Errors', value:errors.unresolved || 0, color:'#fca5a5' },
+        { label:'Audit Events', value:audit.total || 0, color:'#06b6d4' },
+        { label:'Server Signals', value:logTotals.events || 0, color:'#c7d2fe' }
+    ];
+    var kpiHtml = '';
+    kpis.forEach(function(k) {
+        kpiHtml += '<div class="logdash-card"><div class="logdash-label">' + _logdashEsc(k.label) + '</div><div class="logdash-value" style="color:' + k.color + '">' + _logdashNum(k.value) + '</div></div>';
+    });
+    _logdashGet('logdashKpis').innerHTML = kpiHtml;
+
+    renderLogDashboardInsights(data.insights || []);
+    renderLogDashboardStatusGuide(data.statusGuide || []);
+    renderLogDashboardPageActivity(page);
+    renderLogDashboardServerSignals(logs);
+    renderLogDashboardRecentVisits(page.recentVisits || []);
+    renderLogDashboardAudit(audit);
+    renderLogDashboardErrors(errors);
+}
+
+function renderLogDashboardInsights(insights) {
+    var el = _logdashGet('logdashInsights');
+    if (!insights.length) {
+        el.innerHTML = '<p style="color:var(--text-muted);margin:0">No operational insights available for this window.</p>';
+        return;
+    }
+    var html = '';
+    insights.forEach(function(item) {
+        html += '<div class="logdash-insight ' + _logdashEsc(item.level || 'info') + '">' +
+            '<div style="font-weight:700;font-size:0.82rem;margin-bottom:0.25rem">' + _logdashEsc(item.title) + '</div>' +
+            '<div class="logdash-muted" style="margin-bottom:0.35rem">' + _logdashEsc(item.detail) + '</div>' +
+            '<div style="font-size:0.74rem;color:#c7d2fe">' + _logdashEsc(item.action) + '</div>' +
+        '</div>';
+    });
+    el.innerHTML = html;
+}
+
+function renderLogDashboardStatusGuide(rows) {
+    var el = _logdashGet('logdashStatusGuide');
+    var html = '<div class="logdash-list">';
+    rows.forEach(function(info) {
+        html += '<div class="logdash-row" style="align-items:flex-start">' +
+            '<div>' + _logdashStatusChip(info.code, info) +
+                '<div class="logdash-muted" style="margin-top:0.3rem">' + _logdashEsc(info.meaning) + '</div>' +
+                '<div style="font-size:0.72rem;color:#c7d2fe;margin-top:0.18rem">' + _logdashEsc(info.action) + '</div>' +
+            '</div>' +
+        '</div>';
+    });
+    html += '</div>';
+    el.innerHTML = html;
+}
+
+function _logdashTopList(title, rows, statusMode) {
+    rows = rows || [];
+    if (!rows.length) return '<div><div class="logdash-panel-title" style="margin-bottom:0.5rem">' + _logdashEsc(title) + '</div><p class="logdash-muted">No data.</p></div>';
+    var max = parseInt(rows[0].value || 1, 10);
+    if (!max) max = 1;
+    var html = '<div><div class="logdash-panel-title" style="margin-bottom:0.5rem">' + _logdashEsc(title) + '</div><div class="logdash-list">';
+    rows.forEach(function(row) {
+        var pct = Math.max(4, Math.round((parseInt(row.value || 0, 10) / max) * 100));
+        var label = statusMode ? _logdashStatusChip(row.label, row.info) : _logdashEsc(row.label);
+        html += '<div class="logdash-row">' +
+            '<div style="min-width:0;overflow:hidden;text-overflow:ellipsis">' + label + '</div>' +
+            '<div style="display:flex;align-items:center;gap:0.5rem;min-width:130px;justify-content:flex-end">' +
+                '<div class="logdash-bar"><span style="width:' + pct + '%"></span></div>' +
+                '<strong>' + _logdashNum(row.value) + '</strong>' +
+            '</div>' +
+        '</div>';
+    });
+    html += '</div></div>';
+    return html;
+}
+
+function renderLogDashboardPageActivity(page) {
+    var el = _logdashGet('logdashPageActivity');
+    if (!page.available) {
+        el.innerHTML = '<p style="color:#fbbf24;margin:0">' + _logdashEsc(page.note || 'Page activity is not available.') + '</p>';
+        return;
+    }
+    el.innerHTML =
+        '<div class="logdash-two-col" style="margin-bottom:1rem">' +
+            _logdashTopList('Top Pages', page.topPages || [], false) +
+            _logdashTopList('Top Users', page.topUsers || [], false) +
+        '</div>' +
+        '<div class="logdash-two-col">' +
+            _logdashTopList('HTTP Statuses', page.topStatuses || [], true) +
+            _logdashTopList('Browsers', page.topBrowsers || [], false) +
+        '</div>';
+}
+
+function renderLogDashboardServerSignals(logs) {
+    var el = _logdashGet('logdashServerSignals');
+    var totals = logs.totals || {};
+    var files = logs.filesRead || [];
+    var fileText = files.length ? files.length + ' log file(s) scanned' : 'No readable .log files found';
+    var html = '<div class="logdash-grid" style="grid-template-columns:repeat(auto-fill,minmax(115px,1fr));margin-bottom:0.75rem">' +
+        '<div class="logdash-card"><div class="logdash-label">Events</div><div class="logdash-value">' + _logdashNum(totals.events) + '</div></div>' +
+        '<div class="logdash-card"><div class="logdash-label">HTTP</div><div class="logdash-value">' + _logdashNum(totals.http) + '</div></div>' +
+        '<div class="logdash-card"><div class="logdash-label">Warnings</div><div class="logdash-value" style="color:#fbbf24">' + _logdashNum(totals.warnings) + '</div></div>' +
+        '<div class="logdash-card"><div class="logdash-label">Errors</div><div class="logdash-value" style="color:#fca5a5">' + _logdashNum(totals.errors) + '</div></div>' +
+    '</div><div class="logdash-muted" style="margin-bottom:0.75rem">' + _logdashEsc(fileText) + '</div>';
+    html += '<div class="logdash-two-col">' + _logdashTopList('Log Types', logs.topTypes || [], false) + _logdashTopList('Log Statuses', logs.topStatuses || [], true) + '</div>';
+    el.innerHTML = html;
+}
+
+function renderLogDashboardRecentVisits(rows) {
+    var el = _logdashGet('logdashRecentVisits');
+    if (!rows.length) {
+        el.innerHTML = '<p style="color:var(--text-muted);padding:1rem;margin:0">No recent page visits match the filters.</p>';
+        return;
+    }
+    var html = '<table class="logdash-table"><thead><tr>' +
+        '<th>Time</th><th>User</th><th>Role</th><th>Page</th><th>Status</th><th>IP</th><th>Browser</th><th>Referrer</th>' +
+    '</tr></thead><tbody>';
+    rows.forEach(function(row) {
+        html += '<tr>' +
+            '<td>' + _logdashEsc(_logdashFmtDate(row.visitedAt)) + '</td>' +
+            '<td>' + _logdashEsc(row.username || '') + '</td>' +
+            '<td>' + _logdashEsc(row.role || '') + '</td>' +
+            '<td><div>' + _logdashEsc(row.pageTitle || '') + '</div><div class="logdash-path">' + _logdashEsc(row.pagePath || '') + '</div></td>' +
+            '<td>' + _logdashStatusChip(row.statusCode, row.statusInfo) + '</td>' +
+            '<td>' + _logdashEsc(row.ipAddress || '') + '</td>' +
+            '<td>' + _logdashEsc(row.browser || '') + '</td>' +
+            '<td class="logdash-path">' + _logdashEsc(row.referrer || '') + '</td>' +
+        '</tr>';
+    });
+    html += '</tbody></table>';
+    el.innerHTML = html;
+}
+
+function renderLogDashboardAudit(audit) {
+    var el = _logdashGet('logdashAuditActivity');
+    if (!audit.available) {
+        el.innerHTML = '<p style="color:#fbbf24;margin:0">AuditLogs table is not available.</p>';
+        return;
+    }
+    var recent = audit.recentEvents || [];
+    var html = '<div class="logdash-grid" style="grid-template-columns:repeat(auto-fill,minmax(120px,1fr));margin-bottom:0.75rem">' +
+        '<div class="logdash-card"><div class="logdash-label">Events</div><div class="logdash-value">' + _logdashNum(audit.total) + '</div></div>' +
+        '<div class="logdash-card"><div class="logdash-label">Users</div><div class="logdash-value">' + _logdashNum(audit.uniqueUsers) + '</div></div>' +
+    '</div><div class="logdash-two-col" style="margin-bottom:0.75rem">' + _logdashTopList('Actions', audit.topActions || [], false) + _logdashTopList('Modules', audit.topModules || [], false) + '</div>';
+    if (recent.length) {
+        html += '<div class="logdash-list">';
+        recent.slice(0, 8).forEach(function(row) {
+            html += '<div class="logdash-row"><div><strong>' + _logdashEsc(row.action || '') + '</strong> <span class="logdash-muted">' + _logdashEsc(row.module || '') + '</span><div class="logdash-muted">' + _logdashEsc(row.username || '') + ' | ' + _logdashEsc(_logdashFmtDate(row.createdAt)) + '</div></div></div>';
+        });
+        html += '</div>';
+    }
+    el.innerHTML = html;
+}
+
+function renderLogDashboardErrors(errors) {
+    var el = _logdashGet('logdashErrorActivity');
+    if (!errors.available) {
+        el.innerHTML = '<p style="color:#fbbf24;margin:0">ErrorLogs table is not available.</p>';
+        return;
+    }
+    var recent = errors.recentErrors || [];
+    var html = '<div class="logdash-grid" style="grid-template-columns:repeat(auto-fill,minmax(110px,1fr));margin-bottom:0.75rem">' +
+        '<div class="logdash-card"><div class="logdash-label">Total</div><div class="logdash-value">' + _logdashNum(errors.total) + '</div></div>' +
+        '<div class="logdash-card"><div class="logdash-label">Unresolved</div><div class="logdash-value" style="color:#fca5a5">' + _logdashNum(errors.unresolved) + '</div></div>' +
+        '<div class="logdash-card"><div class="logdash-label">Backend</div><div class="logdash-value">' + _logdashNum(errors.backend) + '</div></div>' +
+        '<div class="logdash-card"><div class="logdash-label">Frontend</div><div class="logdash-value">' + _logdashNum(errors.frontend) + '</div></div>' +
+    '</div><div class="logdash-two-col" style="margin-bottom:0.75rem">' + _logdashTopList('Severities', errors.topSeverities || [], false) + _logdashTopList('URLs', errors.topUrls || [], false) + '</div>';
+    if (recent.length) {
+        html += '<div class="logdash-list">';
+        recent.slice(0, 8).forEach(function(row) {
+            var level = row.severity === 'error' ? 'danger' : (row.severity === 'warning' ? 'warning' : 'info');
+            html += '<div class="logdash-row"><div><span class="logdash-chip ' + level + '">' + _logdashEsc(row.severity || '') + '</span> <strong>' + _logdashEsc(row.source || '') + '</strong><div class="logdash-muted">' + _logdashEsc(row.message || '') + '</div><div class="logdash-path">' + _logdashEsc(row.url || '') + '</div></div><div class="logdash-muted">' + _logdashEsc(_logdashFmtDate(row.createdAt)) + '</div></div>';
+        });
+        html += '</div>';
+    }
+    el.innerHTML = html;
+}
+
+function exportLogDashboardCSV() {
+    if (!_logdashData) { toast('Load the Log Dashboard first.', 'info'); return; }
+    var rows = [];
+    var page = _logdashData.pageActivity || {};
+    (page.recentVisits || []).forEach(function(v) {
+        rows.push({
+            type: 'page_visit',
+            timestamp: _logdashFmtDate(v.visitedAt),
+            user: v.username || '',
+            role: v.role || '',
+            path: v.pagePath || '',
+            title: v.pageTitle || '',
+            status: v.statusCode || '',
+            statusMeaning: v.statusInfo ? v.statusInfo.label : '',
+            ip: v.ipAddress || '',
+            browser: v.browser || '',
+            detail: ''
+        });
+    });
+    ((_logdashData.audit || {}).recentEvents || []).forEach(function(a) {
+        rows.push({
+            type: 'audit',
+            timestamp: _logdashFmtDate(a.createdAt),
+            user: a.username || '',
+            role: '',
+            path: '',
+            title: a.module || '',
+            status: '',
+            statusMeaning: '',
+            ip: a.ipAddress || '',
+            browser: '',
+            detail: (a.action || '') + ' #' + (a.recordId || '')
+        });
+    });
+    ((_logdashData.errors || {}).recentErrors || []).forEach(function(e) {
+        rows.push({
+            type: 'error',
+            timestamp: _logdashFmtDate(e.createdAt),
+            user: e.username || '',
+            role: '',
+            path: e.url || '',
+            title: e.source || '',
+            status: '',
+            statusMeaning: '',
+            ip: e.ipAddress || '',
+            browser: '',
+            detail: (e.severity || '') + ': ' + (e.message || '')
+        });
+    });
+    ((_logdashData.logs || {}).recentEvents || []).forEach(function(l) {
+        rows.push({
+            type: 'server_log',
+            timestamp: _logdashFmtDate(l.timestamp),
+            user: '',
+            role: '',
+            path: l.path || '',
+            title: l.source || '',
+            status: l.status || '',
+            statusMeaning: l.statusInfo ? l.statusInfo.label : '',
+            ip: '',
+            browser: '',
+            detail: l.type || ''
+        });
+    });
+    if (!rows.length) { toast('No Log Dashboard rows to export.', 'info'); return; }
+    _downloadCSV('rx-log-dashboard-' + new Date().toISOString().slice(0,10) + '.csv',
+        ['type','timestamp','user','role','path','title','status','statusMeaning','ip','browser','detail'], rows);
+    toast('\u2713 Exported Log Dashboard CSV', 'success');
+}
+
 // LOCK MANAGER JS
 // ══════════════════════════════════════════════════════════════════════════
 var locksLoaded = false;

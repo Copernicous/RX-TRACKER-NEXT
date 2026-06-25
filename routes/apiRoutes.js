@@ -563,6 +563,7 @@ router.delete('/admin/backups/:name',   masterOnly, adminController.deleteBackup
 router.get('/admin/backups/:name/:file',masterOnly, adminController.downloadBackupFile);
 // System Health
 router.get('/admin/health',             masterOnly, adminController.getHealth);
+router.get('/admin/log-dashboard',      masterOnly, adminController.getLogDashboard);
 // Lock Manager
 router.get('/admin/locks',              masterOnly, adminController.getLocks);
 router.delete('/admin/locks/:id',       masterOnly, adminController.releaseLock);
