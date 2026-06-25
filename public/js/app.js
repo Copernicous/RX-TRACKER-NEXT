@@ -137,12 +137,50 @@ function setupNavDate() {
 function setupSidebar() {
     var btn = document.getElementById('sidebarCollapse');
     if (!btn) return;
+    var sidebar = document.getElementById('sidebar');
+    var content = document.getElementById('content');
+    if (!sidebar || !content) return;
+
+    function isMobileLayout() {
+        return window.matchMedia('(max-width: 768px)').matches;
+    }
+
+    function closeMobileSidebar() {
+        if (!isMobileLayout()) return;
+        sidebar.classList.remove('active');
+        document.body.classList.remove('sidebar-mobile-open');
+        content.classList.remove('sidebar-hidden');
+    }
+
+    function syncMobileOverlay() {
+        var isMobile = isMobileLayout();
+        var mobileOpen = isMobile && sidebar.classList.contains('active');
+        document.body.classList.toggle('sidebar-mobile-open', mobileOpen);
+        if (isMobile) content.classList.remove('sidebar-hidden');
+    }
+
     btn.addEventListener('click', function() {
-        var sidebar = document.getElementById('sidebar');
-        var content = document.getElementById('content');
         sidebar.classList.toggle('active');
-        content.classList.toggle('sidebar-hidden');
+        if (isMobileLayout()) {
+            content.classList.remove('sidebar-hidden');
+        } else {
+            content.classList.toggle('sidebar-hidden');
+        }
+        syncMobileOverlay();
     });
+
+    document.addEventListener('click', function(e) {
+        if (!isMobileLayout() || !sidebar.classList.contains('active')) return;
+        if (sidebar.contains(e.target) || btn.contains(e.target)) return;
+        closeMobileSidebar();
+    });
+
+    sidebar.querySelectorAll('a[href]:not([data-bs-toggle="collapse"])').forEach(function(link) {
+        link.addEventListener('click', closeMobileSidebar);
+    });
+
+    window.addEventListener('resize', syncMobileOverlay);
+    syncMobileOverlay();
 }
 
 // ----- Dark/Light Theme -----
@@ -886,6 +924,10 @@ function isAdministratorUser(user) {
     var role = String(user.role || user.roleName || user._tokenRole || (user.Role && user.Role.name) || '').trim().toLowerCase();
     var tokenRole = String(user._tokenRole || '').trim().toLowerCase();
     var roleId = Number(user.roleId !== undefined ? user.roleId : (user._tokenRoleId !== undefined ? user._tokenRoleId : (user.Role && user.Role.id)));
+    var tokenRoleId = Number(user._tokenRoleId);
+    if (user._tokenRole !== undefined || user._tokenRoleId !== undefined) {
+        return tokenRole === 'administrator' || tokenRoleId === 1;
+    }
     return role === 'administrator' || tokenRole === 'administrator' || roleId === 1;
 }
 

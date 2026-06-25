@@ -14,11 +14,13 @@
  */
 
 'use strict';
+const { execFileSync } = require('child_process');
 const fs   = require('fs');
 const path = require('path');
 
 const root    = path.join(__dirname, '..');
 const distDir = path.join(root, 'dist');
+const packageInfo = require(path.join(root, 'package.json'));
 
 if (!fs.existsSync(distDir)) {
     fs.mkdirSync(distDir, { recursive: true });
@@ -52,4 +54,47 @@ for (const file of filesToCopy) {
 
 console.log('');
 console.log('dist/ is ready: ' + copied + ' file(s) copied' + (skipped ? ', ' + skipped + ' skipped' : '') + '.');
+const updateFiles = ['server.exe', ...filesToCopy]
+    .map(file => path.join(distDir, file))
+    .filter(file => fs.existsSync(file));
+
+const updateZip = path.join(distDir, 'server-update-' + packageInfo.version + '.zip');
+if (updateFiles.length > 0) {
+    fs.rmSync(updateZip, { force: true });
+
+    const expectedEntries = ['server.exe', ...filesToCopy]
+        .filter(file => fs.existsSync(path.join(distDir, file)));
+    const psArray = updateFiles
+        .map(file => "'" + file.replace(/'/g, "''") + "'")
+        .join(',');
+    const psExpected = expectedEntries
+        .map(file => "'" + file.replace(/'/g, "''") + "'")
+        .join(',');
+    const psDestination = updateZip.replace(/'/g, "''");
+    const command = [
+        "$ErrorActionPreference = 'Stop'",
+        "$files = @(" + psArray + ")",
+        "$expected = @(" + psExpected + ")",
+        "$destination = '" + psDestination + "'",
+        "Add-Type -AssemblyName System.IO.Compression.FileSystem",
+        "for ($attempt = 1; $attempt -le 8; $attempt++) {",
+        "  try {",
+        "    if (Test-Path -LiteralPath $destination) { Remove-Item -LiteralPath $destination -Force }",
+        "    Compress-Archive -LiteralPath $files -DestinationPath $destination -CompressionLevel Optimal -Force",
+        "    $zip = [System.IO.Compression.ZipFile]::OpenRead($destination)",
+        "    try { $names = @($zip.Entries | ForEach-Object { $_.FullName }) } finally { $zip.Dispose() }",
+        "    foreach ($entry in $expected) { if ($names -notcontains $entry) { throw \"Zip missing $entry\" } }",
+        "    break",
+        "  } catch {",
+        "    if ($attempt -ge 8) { throw }",
+        "    Start-Sleep -Milliseconds (500 * $attempt)",
+        "  }",
+        "}"
+    ].join('; ');
+
+    execFileSync('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', command], {
+        stdio: 'inherit'
+    });
+    console.log('✓ server-update-' + packageInfo.version + '.zip  →  dist/server-update-' + packageInfo.version + '.zip');
+}
 console.log('Deploy the entire dist\\ folder to the production server.');

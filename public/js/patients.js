@@ -12,6 +12,44 @@ var allPatients = [];
         return String(value || '').trim().toUpperCase();
     }
 
+    function patientDecodeJwtPayload(token) {
+        try {
+            if (!token || token.split('.').length < 2) return null;
+            var payload = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+            while (payload.length % 4) payload += '=';
+            return JSON.parse(atob(payload));
+        } catch (e) {
+            return null;
+        }
+    }
+
+    function patientCurrentUserIsAdmin() {
+        var user = null;
+        try { user = JSON.parse(localStorage.getItem('user') || 'null'); } catch (e) { user = null; }
+        var tokenUser = patientDecodeJwtPayload(localStorage.getItem('token'));
+        var userRole = String(
+            (user && (user.role || user.roleName || (user.Role && user.Role.name))) || ''
+        ).trim().toLowerCase();
+        var tokenRole = String((tokenUser && tokenUser.role) || '').trim().toLowerCase();
+        var userRoleId = Number(
+            user && user.roleId !== undefined ? user.roleId :
+            (user && user.Role && user.Role.id !== undefined ? user.Role.id : NaN)
+        );
+        var tokenRoleId = Number(tokenUser && tokenUser.roleId !== undefined ? tokenUser.roleId : NaN);
+        if (tokenUser && (tokenRole || !isNaN(tokenRoleId))) {
+            return tokenRole === 'administrator' || tokenRoleId === 1;
+        }
+        return userRole === 'administrator' || tokenRole === 'administrator' || userRoleId === 1 || tokenRoleId === 1;
+    }
+
+    function patientFullPageAccess() {
+        return { visible: true, canAdd: true, canEdit: true, canDelete: true, canExport: true, canUndo: true, canWarehouse: true, canOverrideExpired: true };
+    }
+
+    function getPatientModalPerms() {
+        return patientCurrentUserIsAdmin() ? patientFullPageAccess() : getPagePerms();
+    }
+
     document.addEventListener('DOMContentLoaded', async () => {
         initApp();
         await loadDropdowns();
@@ -283,7 +321,7 @@ var allPatients = [];
         });
 
         // Apply permissions to top-level buttons
-        const patPerms = getPagePerms();
+        const patPerms = getPatientModalPerms();
         if (!patPerms.canExport) { const b = document.getElementById('exportPatientsCsvBtn'); if(b) b.classList.add('d-none'); }
         if (!patPerms.canAdd)   { const b = document.getElementById('addPatientBtn');       if(b) b.classList.add('d-none'); }
     });
@@ -517,7 +555,7 @@ var allPatients = [];
             return;
         }
 
-        var pp = getPagePerms();
+        var pp = getPatientModalPerms();
 
         // ---- Build rows using DOM API to avoid FortiGate rewriting inline event attrs ----
         tbody.innerHTML = '';
@@ -1007,7 +1045,7 @@ var allPatients = [];
         const lockIcon = document.getElementById('svcDateLockIcon');
         const svcInput = document.getElementById('pServiceDate');
         const detail   = document.getElementById('svcDateLockDetail');
-        const patientPagePerms = getPagePerms();
+        const patientPagePerms = getPatientModalPerms();
         const patientCanOverrideExpired = !!patientPagePerms.canOverrideExpired;
         const canBypassServiceDateLock = patientCanOverrideExpired || !!serviceDateOverrideEnabled;
         const isLocked = (function() {
@@ -1044,7 +1082,7 @@ var allPatients = [];
         // Show/hide save button based on add vs edit permission
         const _saveBtn = document.getElementById('savePatientBtn');
         try {
-            const _pp = getPagePerms();
+            const _pp = getPatientModalPerms();
             const _canAddPat  = _pp.canAdd  !== undefined ? !!_pp.canAdd  : !!_pp.canEdit;
             const _canEditPat = _pp.canEdit !== undefined ? !!_pp.canEdit : true;
             const _canOverridePat = _pp.canOverrideExpired !== undefined ? !!_pp.canOverrideExpired : false;
@@ -1102,7 +1140,7 @@ var allPatients = [];
             }
         } catch(e) { if (_saveBtn) _saveBtn.style.display = ''; }
         if (window.rxDocuments) {
-            var _docPerms = getPagePerms();
+            var _docPerms = getPatientModalPerms();
             window.rxDocuments.bind({
                 ownerType: 'patient',
                 ownerId: id,

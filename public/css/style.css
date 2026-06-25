@@ -617,12 +617,305 @@ body {
 @media (max-width: 768px) {
     #sidebar {
         transform: translateX(calc(-1 * var(--sidebar-w)));
+        z-index: 1050;
     }
     #sidebar.active {
         transform: translateX(0);
     }
     #content {
         margin-left: 0;
+    }
+}
+
+/* ---------- Responsive Web Design safe layer ----------
+   Additive only: preserves desktop sizing while improving tablet/phone use. */
+img,
+svg,
+canvas,
+video {
+    max-width: 100%;
+}
+
+.table-responsive {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+body.sidebar-mobile-open {
+    overflow: hidden;
+}
+
+body.sidebar-mobile-open::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 1040;
+    background: rgba(10, 14, 26, 0.48);
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+}
+
+@media (max-width: 1200px) {
+    .container-fluid {
+        padding-left: 1.25rem !important;
+        padding-right: 1.25rem !important;
+    }
+}
+
+@media (max-width: 992px) {
+    .navbar {
+        padding-left: 1rem !important;
+        padding-right: 1rem !important;
+    }
+
+    .glass-card.p-4 {
+        padding: 1.25rem !important;
+    }
+
+    .table-responsive > .table {
+        min-width: 760px;
+    }
+}
+
+@media (max-width: 768px) {
+    #sidebar {
+        width: min(var(--sidebar-w), 86vw);
+        min-width: min(var(--sidebar-w), 86vw);
+        max-width: 320px;
+    }
+
+    #content,
+    #content.sidebar-hidden {
+        width: 100%;
+        margin-left: 0 !important;
+    }
+
+    .navbar {
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.55rem;
+        padding: 0.65rem 0.85rem !important;
+    }
+
+    .navbar > .fw-bold.fs-5 {
+        flex: 1 1 auto;
+        min-width: 0;
+        max-width: calc(100% - 4rem);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-size: 1rem !important;
+    }
+
+    .navbar .ms-auto {
+        width: 100%;
+        margin-left: 0 !important;
+        justify-content: flex-end;
+        flex-wrap: wrap;
+        gap: 0.5rem !important;
+    }
+
+    #globalSearchWrapper {
+        order: -1;
+        width: 100%;
+        display: block !important;
+    }
+
+    #globalSearchWrapper .input-group {
+        width: 100% !important;
+    }
+
+    #globalSearchDropdown {
+        min-width: 0 !important;
+        width: 100% !important;
+        max-width: calc(100vw - 1.7rem);
+    }
+
+    #userGreeting {
+        display: none !important;
+    }
+
+    .container-fluid {
+        padding-left: 0.85rem !important;
+        padding-right: 0.85rem !important;
+    }
+
+    .glass-card.p-3,
+    .glass-card.p-4 {
+        padding: 1rem !important;
+    }
+
+    .glass-card > .d-flex.justify-content-between,
+    .glass-card > div > .d-flex.justify-content-between,
+    #rxPagBar {
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        align-items: flex-start !important;
+    }
+
+    .glass-card > .d-flex.justify-content-between > .d-flex,
+    .glass-card > div > .d-flex.justify-content-between > .d-flex,
+    #rxPagBar > .d-flex {
+        flex-wrap: wrap;
+    }
+
+    .row.g-2.align-items-end .d-flex,
+    .row.align-items-end .d-flex {
+        min-height: 0;
+        flex-wrap: wrap;
+    }
+
+    .row.g-2.align-items-end .d-flex > .btn,
+    .row.align-items-end .d-flex > .btn {
+        min-height: 38px;
+    }
+
+    .row.g-2.align-items-end .d-flex > .btn:not(.btn-search),
+    .row.align-items-end .d-flex > .btn:not(.btn-search) {
+        flex: 1 1 auto;
+    }
+
+    .pagination {
+        flex-wrap: wrap;
+        gap: 0.25rem;
+    }
+
+    .pagination .page-link {
+        padding: 0.35rem 0.55rem;
+    }
+
+    .modal-dialog,
+    .modal-dialog.modal-lg,
+    .modal-dialog.modal-xl {
+        max-width: calc(100vw - 1rem) !important;
+        margin: 0.5rem auto !important;
+    }
+
+    .modal-content {
+        max-height: calc(100dvh - 1rem);
+        border-radius: 14px !important;
+    }
+
+    .modal-header {
+        padding: 0.85rem 1rem !important;
+    }
+
+    .modal-header .modal-title {
+        font-size: 0.98rem !important;
+        line-height: 1.3 !important;
+    }
+
+    .modal-body {
+        padding: 1rem !important;
+        overflow-y: auto;
+    }
+
+    .modal-footer {
+        padding: 0.85rem 1rem !important;
+        flex-wrap: wrap;
+        justify-content: stretch !important;
+    }
+
+    .modal-footer .btn {
+        flex: 1 1 auto;
+        min-width: 120px;
+    }
+}
+
+@media (max-width: 576px) {
+    body {
+        font-size: 0.86rem;
+    }
+
+    .navbar > .fw-bold.fs-5 {
+        max-width: calc(100% - 3.25rem);
+    }
+
+    #navLiveDate {
+        padding: 0.25rem 0.45rem !important;
+    }
+
+    #navLiveDateText {
+        display: none !important;
+    }
+
+    .navbar .btn-sm {
+        padding: 0.35rem 0.55rem;
+    }
+
+    .container-fluid {
+        padding-left: 0.65rem !important;
+        padding-right: 0.65rem !important;
+    }
+
+    .glass-card {
+        border-radius: 10px;
+    }
+
+    .glass-card.p-3,
+    .glass-card.p-4 {
+        padding: 0.85rem !important;
+    }
+
+    .btn-search {
+        width: 100% !important;
+        max-width: none !important;
+        min-width: 0 !important;
+    }
+
+    .row.g-2.align-items-end .d-flex > .btn,
+    .row.align-items-end .d-flex > .btn {
+        width: 100%;
+    }
+
+    .table-responsive > .table {
+        min-width: 680px;
+    }
+
+    #patientDocUploadWrap,
+    #rxDocUploadWrap {
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.5rem;
+    }
+
+    #patientDocUploadWrap > .form-control,
+    #patientDocUploadWrap > .btn,
+    #rxDocUploadWrap > .form-control,
+    #rxDocUploadWrap > .btn {
+        width: 100%;
+        border-radius: var(--radius-sm) !important;
+    }
+
+    :where(#patientDocumentsList, #rxDocumentsList) .list-group-item {
+        align-items: flex-start !important;
+        flex-wrap: wrap;
+    }
+
+    :where(#patientDocumentsList, #rxDocumentsList) .list-group-item .flex-grow-1 {
+        flex-basis: calc(100% - 32px);
+    }
+
+    :where(#patientDocumentsList, #rxDocumentsList) .list-group-item > .btn {
+        flex: 1 1 calc(33.333% - 0.5rem);
+    }
+
+    .modal-footer .btn {
+        width: 100%;
+        min-width: 0;
+    }
+}
+
+@media (max-width: 380px) {
+    .navbar .ms-auto {
+        justify-content: stretch;
+    }
+
+    .navbar .ms-auto > .btn,
+    #globalSearchWrapper {
+        flex: 1 1 auto;
     }
 }
 
@@ -873,7 +1166,6 @@ body {
     background-color: var(--surface-2) !important;
     border-color: var(--border) !important;
     color: var(--text-muted) !important;
-}
 }
 
 /* ── Readonly / disabled inputs (display-only fields) ── */

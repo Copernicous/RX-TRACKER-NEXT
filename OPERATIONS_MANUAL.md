@@ -797,7 +797,9 @@ Tokens obtained from `POST /api/auth/login`.
 - Check Back Office → Error Logs for captured client-side errors
 ### Administrator sees a View Only banner on patient or record modals
 - Fixed in v2.0.43: the browser permission helper now treats `Administrator` as full access, matching backend RBAC.
-- If a browser still shows the banner after deploying the fix, force-refresh the page or log out and back in to clear stale `localStorage.user.permissions`.
+- Fixed again in BUG-47: the helper also recognizes stale auth objects by JWT role, `Role.name`, and `roleId: 1`.
+- Fixed again in BUG-48: the Patient modal now has its own direct Administrator guard before showing the View Only banner.
+- If a browser still shows the banner after deploying the fix, restart the app and force-refresh the page; log out and back in if the session token predates the deployment.
 - Non-admin users should still be checked through `Administration → Roles` for the relevant module's Add/Edit permissions.
 
 ### Can't delete a Patient/RXRecord from Back Office (FK constraint error)

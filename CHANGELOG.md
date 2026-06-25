@@ -5,6 +5,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ---
 
+## [2.0.45] - 2026-06-25
+
+### [UX-08] Responsive web design safety layer
+**Files changed:** 5 | `public/css/style.css`, `public/js/app.js`, `scripts/post-build.js`, `package.json`, `package-lock.json`
+
+- Added tablet and phone responsive rules for the main navbar, content spacing, glass cards, filter rows, tables, pagination, modals, and document upload controls.
+- Preserved desktop layout behavior while making tables horizontally scrollable on narrow screens instead of forcing page-wide overflow.
+- Improved the mobile sidebar with an overlay, outside-click close behavior, and automatic close when a normal sidebar link is selected.
+- Made patient/RX document upload controls and attachment rows stack cleanly on small screens.
+- Updated the production post-build step to create `dist/server-update-<version>.zip` automatically.
+
 ## [2.0.44] - 2026-06-25
 
 ### [FEAT-19] Google Drive OAuth setup for document storage
@@ -27,6 +38,21 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 - Added a reusable browser document widget for multi-file uploads, Drive/local badges, open/download links, and delete controls.
 - Added the upload area to the Patient modal and RX Record Details modal; new patients must be saved before uploads are available.
 - Restricted uploads to users with Edit permission on the owning Patients/RX Records module; read-only users can view/download only.
+
+### [BUG-47] Administrator still saw patient View Only banner with stale auth data
+**Files changed:** 2 | `public/js/app.js`, `views/patients.ejs`
+
+- Hardened the shared browser permission helper to identify Administrator sessions from the stored user object, JWT payload, `Role.name`, or `roleId: 1`.
+- Updated auth/page-permission checks to use the normalized current user helper instead of relying only on `localStorage.user.role`.
+- Added a Patients page script cache-buster so browsers stop reusing the older modal permission logic after deployment.
+- Prevents stale browser auth data from keeping the Patients modal in read-only mode after an Administrator account or role permissions are corrected.
+
+### [BUG-48] Patient modal direct Administrator permission guard
+**Files changed:** 2 | `public/js/patients.js`, `views/patients.ejs`
+
+- Added a Patient-page-specific Administrator guard that checks stored user data, JWT role, `Role.name`, and `roleId: 1` before applying modal view-only restrictions.
+- Updated Patient list/modal permission checks to use the same direct guard so an Administrator cannot be locked into the `View Only` state by stale frontend permission JSON.
+- Bumped Patients page script cache keys again so browsers fetch the corrected modal code immediately after restart/deploy.
 
 ## [2.0.43] - 2026-06-25
 
