@@ -1,5 +1,15 @@
 [
   {
+    "id": 1782399600745,
+    "filename": "backup_2026-06-25T15-00-00.dump",
+    "filepath": "E:\\Documents\\Daniely RX\\backups\\backup_2026-06-25T15-00-00.dump",
+    "timestamp": "2026-06-25T15:00:00.745Z",
+    "triggeredBy": "Scheduled",
+    "status": "success",
+    "size": 87203,
+    "error": null
+  },
+  {
     "id": 1782345600490,
     "filename": "backup_2026-06-25T00-00-00.dump",
     "filepath": "E:\\Documents\\Daniely RX\\backups\\backup_2026-06-25T00-00-00.dump",
