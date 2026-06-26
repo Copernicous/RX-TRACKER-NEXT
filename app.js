@@ -66,9 +66,9 @@ var _errStream = null;    // Error log stream
     if (process.env.LOG_FILE !== 'true') return;
     var fs   = require('fs');
     var path2 = require('path');
-    var IS_PKG = typeof process.pkg !== 'undefined';
-    // Resolve log directory: next to server.exe when compiled, or project root in dev
-    var baseDir = IS_PKG ? path2.dirname(process.execPath) : __dirname;
+    var runtimePaths = require('./utils/runtimePaths');
+    // Resolve log directory: next to server.exe by default, or APP_WRITABLE_ROOT for staging/test copies.
+    var baseDir = runtimePaths.getWritableRoot();
     var logDir  = path2.join(baseDir, 'logs');
     if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
     // Delete log files older than LOG_RETENTION_DAYS (default 7)

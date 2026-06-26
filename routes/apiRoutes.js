@@ -10,6 +10,7 @@ const fs   = require('fs');
 const multer = require('multer');
 const errorLogController = require('../controllers/errorLogController');
 const sessionTracker = require('../services/sessionTracker');
+const { getWritableRoot } = require('../utils/runtimePaths');
 
 const pharmacyController = require('../controllers/pharmacyController');
 const patientTransportController = require('../controllers/patientTransportController');
@@ -317,10 +318,7 @@ function masterOnly(req, res, next) {
 }
 
 // ---- DB Restore — multer upload ----
-const IS_PKG_ROUTES = typeof process.pkg !== 'undefined';
-const UPLOAD_DIR    = IS_PKG_ROUTES
-    ? path.join(path.dirname(process.execPath), 'backups', 'uploads')
-    : path.join(__dirname, '..', 'backups', 'uploads');
+const UPLOAD_DIR = path.join(getWritableRoot(), 'backups', 'uploads');
 
 const restoreUpload = multer({
     storage: multer.diskStorage({
