@@ -42,6 +42,7 @@ function summarizeRxRecord(rx) {
     const plain = typeof rx.toJSON === 'function' ? rx.toJSON() : rx;
     return {
         id: plain.id,
+        patientServiceDateCycleId: plain.patientServiceDateCycleId || null,
         serviceDate: dateOnly(plain.serviceDate),
         arrivalDate: dateOnly(plain.arrivalDate),
         pharmacyName: plain.Pharmacy ? plain.Pharmacy.name : null,
@@ -85,14 +86,40 @@ async function findRelatedRxRecords(patientIds, serviceDates, options) {
     const cleanDates = Array.from(new Set((serviceDates || []).map(dateOnly).filter(Boolean)));
     if (!cleanPatientIds.length || !cleanDates.length || !db.RXRecord) return [];
 
+    let cycleIds = [];
+    if (db.PatientServiceDateCycle) {
+        const cycleOptions = {
+            where: {
+                patientId: { [Op.in]: cleanPatientIds },
+                serviceDate: { [Op.in]: cleanDates }
+            },
+            attributes: ['id']
+        };
+        if (options && options.transaction) cycleOptions.transaction = options.transaction;
+        const cycles = await db.PatientServiceDateCycle.findAll(cycleOptions);
+        cycleIds = cycles.map(cycle => cycle.id);
+    }
+
+    const relatedWhere = [
+        {
+            patientId: { [Op.in]: cleanPatientIds },
+            serviceDate: { [Op.in]: cleanDates }
+        }
+    ];
+    if (cycleIds.length) {
+        relatedWhere.push({ patientServiceDateCycleId: { [Op.in]: cycleIds } });
+    }
+
     const queryOptions = {
         where: {
-            patientId: { [Op.in]: cleanPatientIds },
-            serviceDate: { [Op.in]: cleanDates },
-            [Op.or]: [{ isDeleted: false }, { isDeleted: null }]
+            [Op.and]: [
+                { [Op.or]: relatedWhere },
+                { [Op.or]: [{ isDeleted: false }, { isDeleted: null }] }
+            ]
         },
-        attributes: ['id', 'patientId', 'arrivalDate', 'serviceDate', 'pharmacyId', 'returnedToWarehouse'],
+        attributes: ['id', 'patientId', 'patientServiceDateCycleId', 'arrivalDate', 'serviceDate', 'pharmacyId', 'returnedToWarehouse'],
         include: [
+            { model: db.PatientServiceDateCycle, attributes: ['id', 'patientId', 'serviceDate'], required: false },
             { model: db.Pharmacy, attributes: ['id', 'name'], required: false },
             { model: db.RXWorkflowTracking, attributes: ['id', 'workflowActionId'], required: false }
         ],
@@ -112,7 +139,10 @@ async function buildRxServiceSnapshot(row, options) {
     const rxByPatientAndDate = new Map();
     rxRows.forEach((rx) => {
         const plain = typeof rx.toJSON === 'function' ? rx.toJSON() : rx;
-        const key = serviceDateKey(plain.patientId, dateOnly(plain.serviceDate));
+        const cycle = plain.PatientServiceDateCycle || null;
+        const key = cycle
+            ? serviceDateKey(cycle.patientId || plain.patientId, dateOnly(cycle.serviceDate))
+            : serviceDateKey(plain.patientId, dateOnly(plain.serviceDate));
         const list = rxByPatientAndDate.get(key) || [];
         list.push(summarizeRxRecord(plain));
         rxByPatientAndDate.set(key, list);
@@ -145,7 +175,10 @@ async function attachRelatedRxServiceRecords(historyRows, options) {
     const rxByPatientAndDate = new Map();
     rxRows.forEach((rx) => {
         const plain = typeof rx.toJSON === 'function' ? rx.toJSON() : rx;
-        const key = serviceDateKey(plain.patientId, dateOnly(plain.serviceDate));
+        const cycle = plain.PatientServiceDateCycle || null;
+        const key = cycle
+            ? serviceDateKey(cycle.patientId || plain.patientId, dateOnly(cycle.serviceDate))
+            : serviceDateKey(plain.patientId, dateOnly(plain.serviceDate));
         const list = rxByPatientAndDate.get(key) || [];
         list.push(summarizeRxRecord(plain));
         rxByPatientAndDate.set(key, list);

@@ -84,6 +84,7 @@ router.get('/lookup/:module', async (req, res) => {
 router.get('/service-date-override/status', (req, res) => {
     res.json({ enabled: isServiceDateOverrideEnabled() });
 });
+router.get('/session-config', settingsController.getSessionConfig);
 
 // Helper mapping for paths to permissions key
 const pathMap = {

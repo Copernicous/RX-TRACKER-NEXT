@@ -88,6 +88,7 @@ function sanitizeCsvCell(val) {
         var url = typeof window.rxUrl === 'function' ? window.rxUrl('/api/heartbeat') : '/api/heartbeat';
         fetch(url, {
             method: 'POST',
+            credentials: 'include',
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': 'Bearer ' + token

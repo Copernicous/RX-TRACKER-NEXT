@@ -7,9 +7,45 @@ const {
     attachRelatedRxServiceRecords,
     recordPatientServiceDateChange
 } = require('../services/patientServiceDateHistoryService');
+const {
+    syncPatientServiceDateCycles
+} = require('../services/patientServiceDateCycleService');
 
 function toUpperName(value) {
     return String(value || '').trim().toUpperCase();
+}
+
+function summarizeServiceDateCycle(cycle) {
+    const plain = typeof cycle.toJSON === 'function' ? cycle.toJSON() : cycle;
+    const rxRecords = Array.isArray(plain.RXRecords) ? plain.RXRecords : [];
+    return {
+        id: plain.id,
+        patientId: plain.patientId,
+        serviceDate: plain.serviceDate,
+        status: plain.status,
+        startedAt: plain.startedAt,
+        endedAt: plain.endedAt,
+        rxCount: rxRecords.length,
+        rxRecordIds: rxRecords.map(rx => rx.id)
+    };
+}
+
+async function loadPatientServiceDateCycles(patient, options) {
+    options = options || {};
+    await syncPatientServiceDateCycles(patient, options);
+    const queryOptions = {
+        where: { patientId: patient.id },
+        include: [{
+            model: db.RXRecord,
+            attributes: ['id', 'patientServiceDateCycleId', 'serviceDate'],
+            where: { [Op.or]: [{ isDeleted: false }, { isDeleted: null }] },
+            required: false
+        }],
+        order: [['serviceDate', 'DESC'], ['id', 'DESC']]
+    };
+    if (options.transaction) queryOptions.transaction = options.transaction;
+    const cycles = await db.PatientServiceDateCycle.findAll(queryOptions);
+    return cycles.map(summarizeServiceDateCycle);
 }
 
 function isWorkflowCycleNeedsAction(serviceDate, rxRecords, totalWorkflowSteps) {
@@ -133,6 +169,10 @@ exports.create = async (req, res) => {
         }
 
         const data = await db.Patient.create({ ...otherData, patientCode });
+        await syncPatientServiceDateCycles(data, {
+            userId: req.user?.id || null,
+            source: 'Patient Create'
+        });
         await recordPatientServiceDateChange({
             patientId: data.id,
             previousServiceDate: null,
@@ -244,6 +284,10 @@ exports.update = async (req, res) => {
         await patient.save();
 
         if (hasServiceDateChange) {
+            await syncPatientServiceDateCycles(patient, {
+                userId: req.user?.id || null,
+                source: (!canEditPatient && canOverrideExpired) ? 'Patient Override' : 'Patient Update'
+            });
             await recordPatientServiceDateChange({
                 patientId: patient.id,
                 previousServiceDate,
@@ -375,10 +419,16 @@ exports.getTimeline = async (req, res) => {
         });
         if (!patient) return res.status(404).json({ message: 'Patient not found' });
 
+        const serviceDateCycles = await loadPatientServiceDateCycles(patient, {
+            userId: req.user?.id || null,
+            source: 'Timeline Review'
+        });
+
         const rxRecords = await db.RXRecord.findAll({
             // LOGIC-02 FIX: Exclude soft-deleted RX records from the timeline
             where: { patientId: req.params.id, isDeleted: false },
             include: [
+                { model: db.PatientServiceDateCycle },
                 { model: db.Pharmacy },
                 { model: db.PatientTransportCompany },
                 { model: db.PharmacyTransportCompany },
@@ -418,7 +468,8 @@ exports.getTimeline = async (req, res) => {
                 return plain;
             }),
             workflowActions: allWorkflowActions.map(a => a.toJSON()),
-            serviceDateHistory: enrichedServiceDateHistory
+            serviceDateHistory: enrichedServiceDateHistory,
+            serviceDateCycles
         });
     } catch (err) { res.status(500).json({ error: err.message }); }
 };

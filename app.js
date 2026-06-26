@@ -572,6 +572,71 @@ const startServer = async () => {
 
     await db.sequelize.sync();
 
+    // Ensure patient service-date cycles exist and RX records are linked to them.
+    // This is the real Patient -> Service Date Cycle -> RX Records relationship.
+    try {
+        await db.sequelize.query(`
+            CREATE TABLE IF NOT EXISTS "PatientServiceDateCycles" (
+                "id" SERIAL PRIMARY KEY,
+                "patientId" INTEGER NOT NULL,
+                "serviceDate" DATE NOT NULL,
+                "status" VARCHAR(20) NOT NULL DEFAULT 'historical',
+                "source" VARCHAR(60) NOT NULL DEFAULT 'Patient Service Date',
+                "startedAt" TIMESTAMP WITH TIME ZONE,
+                "endedAt" TIMESTAMP WITH TIME ZONE,
+                "createdByUserId" INTEGER,
+                "metadata" JSON,
+                "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+                "updatedAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+            );
+        `);
+        await db.sequelize.query('CREATE UNIQUE INDEX IF NOT EXISTS "uq_patient_service_date_cycles_patient_date" ON "PatientServiceDateCycles" ("patientId", "serviceDate");');
+        await db.sequelize.query('CREATE INDEX IF NOT EXISTS "idx_patient_service_date_cycles_patient" ON "PatientServiceDateCycles" ("patientId");');
+        await db.sequelize.query('CREATE INDEX IF NOT EXISTS "idx_patient_service_date_cycles_status" ON "PatientServiceDateCycles" ("patientId", "status");');
+        await db.sequelize.query('ALTER TABLE "RXRecords" ADD COLUMN IF NOT EXISTS "patientServiceDateCycleId" INTEGER;');
+        await db.sequelize.query('CREATE INDEX IF NOT EXISTS "idx_rxrecords_patient_service_date_cycle" ON "RXRecords" ("patientServiceDateCycleId");');
+        await db.sequelize.query(`
+            INSERT INTO "PatientServiceDateCycles"
+                ("patientId", "serviceDate", "status", "source", "startedAt", "endedAt", "metadata", "createdAt", "updatedAt")
+            SELECT
+                x."patientId",
+                x."serviceDate",
+                CASE WHEN p."serviceDate" = x."serviceDate" THEN 'active' ELSE 'historical' END,
+                'Startup Backfill',
+                x."serviceDate"::timestamp with time zone,
+                CASE WHEN p."serviceDate" = x."serviceDate" THEN NULL ELSE (x."serviceDate"::timestamp with time zone + INTERVAL '90 days') END,
+                '{"backfilled":true}'::json,
+                NOW(),
+                NOW()
+            FROM (
+                SELECT "id" AS "patientId", "serviceDate" FROM "Patients" WHERE "serviceDate" IS NOT NULL
+                UNION
+                SELECT "patientId", "serviceDate" FROM "RXRecords" WHERE "patientId" IS NOT NULL AND "serviceDate" IS NOT NULL
+            ) x
+            JOIN "Patients" p ON p."id" = x."patientId"
+            ON CONFLICT ("patientId", "serviceDate") DO NOTHING;
+        `);
+        await db.sequelize.query(`
+            UPDATE "PatientServiceDateCycles" c
+            SET "status" = CASE WHEN p."serviceDate" = c."serviceDate" THEN 'active' ELSE 'historical' END,
+                "endedAt" = CASE WHEN p."serviceDate" = c."serviceDate" THEN NULL ELSE (c."serviceDate"::timestamp with time zone + INTERVAL '90 days') END,
+                "updatedAt" = NOW()
+            FROM "Patients" p
+            WHERE p."id" = c."patientId";
+        `);
+        await db.sequelize.query(`
+            UPDATE "RXRecords" r
+            SET "patientServiceDateCycleId" = c."id"
+            FROM "PatientServiceDateCycles" c
+            WHERE r."patientId" = c."patientId"
+              AND r."serviceDate" = c."serviceDate"
+              AND (r."patientServiceDateCycleId" IS NULL OR r."patientServiceDateCycleId" <> c."id");
+        `);
+        console.log('Database verified: PatientServiceDateCycles ready and RXRecords linked.');
+    } catch (e) {
+        console.warn('Startup migration warning (PatientServiceDateCycles, non-fatal):', e.message);
+    }
+
     // Ensure patient service-date history exists on environments that do not run
     // sequelize-cli migrations manually.
     try {
