@@ -3,6 +3,9 @@ const { Op } = require('sequelize');
 const { parseDate } = require('../utils/dateUtils');
 const { isServiceDateOverrideEnabled } = require('../utils/globalSettings');
 const { getRequestPermission } = require('../middleware/rbac');
+const {
+    recordPatientServiceDateChange
+} = require('../services/patientServiceDateHistoryService');
 
 function toUpperName(value) {
     return String(value || '').trim().toUpperCase();
@@ -129,6 +132,14 @@ exports.create = async (req, res) => {
         }
 
         const data = await db.Patient.create({ ...otherData, patientCode });
+        await recordPatientServiceDateChange({
+            patientId: data.id,
+            previousServiceDate: null,
+            newServiceDate: data.serviceDate,
+            userId: req.user?.id || null,
+            changeSource: 'Patient Create',
+            reason: 'Patient created with initial service date.'
+        });
         res.status(201).json(data);
     } catch (err) {
         // H1 FIX: Catch DB-level unique constraint violation (race condition fallback)
@@ -143,6 +154,7 @@ exports.update = async (req, res) => {
     try {
         const patient = await db.Patient.findByPk(req.params.id);
         if (!patient) return res.status(404).json({ message: 'Not found' });
+        const previousServiceDate = patient.serviceDate;
 
         // Normalise incoming dates (accept MM/DD/YYYY or YYYY-MM-DD)
         if (req.body.hasOwnProperty('dob')) {
@@ -229,6 +241,17 @@ exports.update = async (req, res) => {
             }
         });
         await patient.save();
+
+        if (hasServiceDateChange) {
+            await recordPatientServiceDateChange({
+                patientId: patient.id,
+                previousServiceDate,
+                newServiceDate: patient.serviceDate,
+                userId: req.user?.id || null,
+                changeSource: (!canEditPatient && canOverrideExpired) ? 'Patient Override' : 'Patient Update',
+                reason: 'Patient record service date changed.'
+            });
+        }
 
         // Cascade: if isActive was explicitly changed, sync RX records accordingly
         if (req.body.hasOwnProperty('isActive')) {
@@ -321,6 +344,28 @@ exports.checkDuplicate = async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 };
 
+// GET /api/patients/:id/service-date-history
+exports.getServiceDateHistory = async (req, res) => {
+    try {
+        const patient = await db.Patient.findByPk(req.params.id, { attributes: ['id'] });
+        if (!patient) return res.status(404).json({ message: 'Patient not found' });
+
+        const history = await db.PatientServiceDateHistory.findAll({
+            where: { patientId: req.params.id },
+            include: [{
+                model: db.User,
+                as: 'ChangedBy',
+                attributes: ['firstName', 'lastName', 'username']
+            }],
+            order: [['createdAt', 'DESC'], ['id', 'DESC']]
+        });
+
+        res.json(history);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+};
+
 // GET /api/patients/:id/timeline
 exports.getTimeline = async (req, res) => {
     try {
@@ -352,6 +397,16 @@ exports.getTimeline = async (req, res) => {
             order: [['sequenceNumber', 'ASC']]
         });
 
+        const serviceDateHistory = await db.PatientServiceDateHistory.findAll({
+            where: { patientId: req.params.id },
+            include: [{
+                model: db.User,
+                as: 'ChangedBy',
+                attributes: ['firstName', 'lastName', 'username']
+            }],
+            order: [['createdAt', 'DESC'], ['id', 'DESC']]
+        });
+
         res.json({
             patient: patient.toJSON(),
             rxRecords: rxRecords.map(rx => {
@@ -359,7 +414,8 @@ exports.getTimeline = async (req, res) => {
                 plain.completedSteps = (plain.RXWorkflowTrackings || []).map(t => t.workflowActionId);
                 return plain;
             }),
-            workflowActions: allWorkflowActions.map(a => a.toJSON())
+            workflowActions: allWorkflowActions.map(a => a.toJSON()),
+            serviceDateHistory: serviceDateHistory.map(row => row.toJSON())
         });
     } catch (err) { res.status(500).json({ error: err.message }); }
 };

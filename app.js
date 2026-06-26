@@ -572,6 +572,46 @@ const startServer = async () => {
 
     await db.sequelize.sync();
 
+    // Ensure patient service-date history exists on environments that do not run
+    // sequelize-cli migrations manually.
+    try {
+        await db.sequelize.query(`
+            CREATE TABLE IF NOT EXISTS "PatientServiceDateHistories" (
+                "id" SERIAL PRIMARY KEY,
+                "patientId" INTEGER NOT NULL,
+                "previousServiceDate" DATE,
+                "newServiceDate" DATE,
+                "changedByUserId" INTEGER,
+                "changeSource" VARCHAR(60) NOT NULL DEFAULT 'Patient Update',
+                "reason" TEXT,
+                "metadata" JSON,
+                "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+                "updatedAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+            );
+        `);
+        await db.sequelize.query('CREATE INDEX IF NOT EXISTS "idx_patient_service_date_histories_patient" ON "PatientServiceDateHistories" ("patientId");');
+        await db.sequelize.query('CREATE INDEX IF NOT EXISTS "idx_patient_service_date_histories_patient_created" ON "PatientServiceDateHistories" ("patientId", "createdAt");');
+        await db.sequelize.query('CREATE INDEX IF NOT EXISTS "idx_patient_service_date_histories_new_date" ON "PatientServiceDateHistories" ("newServiceDate");');
+        await db.sequelize.query(`
+            INSERT INTO "PatientServiceDateHistories"
+                ("patientId", "previousServiceDate", "newServiceDate", "changedByUserId", "changeSource", "reason", "createdAt", "updatedAt")
+            SELECT
+                p."id", NULL, p."serviceDate", NULL, 'System Backfill',
+                'Existing patient service date captured when history tracking was enabled.',
+                NOW(), NOW()
+            FROM "Patients" p
+            WHERE p."serviceDate" IS NOT NULL
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM "PatientServiceDateHistories" h
+                  WHERE h."patientId" = p."id"
+              );
+        `);
+        console.log('Database verified: PatientServiceDateHistories table ready.');
+    } catch (e) {
+        console.warn('Startup migration warning (PatientServiceDateHistories, non-fatal):', e.message);
+    }
+
     // -- Auto-seed Roles + default admin on a brand-new database --------------
     try {
         const bcrypt = require('bcryptjs');

@@ -185,6 +185,7 @@ router.put('/workflow-actions/:id/restore', rbac.requireRole(['Administrator']),
 // Otherwise Express matches 'check-duplicate' as :id and hits patientController.getOne instead.
 router.get('/patients/check-duplicate', rbac.requirePermission('patients', 'read'), patientController.checkDuplicate);
 router.get('/patients/:id/timeline',    rbac.requirePermission('patients', 'read'), patientController.getTimeline);
+router.get('/patients/:id/service-date-history', rbac.requirePermission('patients', 'read'), patientController.getServiceDateHistory);
 router.put('/patients/:id/restore',     rbac.requirePermission('patients', 'edit'), auditLogger('Patients'), patientController.restore);
 generateCRUDRoutes('/patients', patientController, 'Patients');
 

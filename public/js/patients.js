@@ -12,6 +12,123 @@ var allPatients = [];
         return String(value || '').trim().toUpperCase();
     }
 
+    function patientEscapeHtml(value) {
+        if (typeof escHtml === 'function') return escHtml(value);
+        return String(value == null ? '' : value)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#x27;');
+    }
+
+    function serviceDateHistoryActor(row) {
+        var user = row && row.ChangedBy ? row.ChangedBy : null;
+        if (!user) return 'System';
+        return (user.firstName || user.lastName)
+            ? ((user.firstName || '') + ' ' + (user.lastName || '')).trim()
+            : (user.username || 'User');
+    }
+
+    function serviceDateHistoryTimestamp(row) {
+        if (!row || !row.createdAt) return '';
+        try {
+            return new Date(row.createdAt).toLocaleString('en-US', {
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        } catch(e) {
+            return String(row.createdAt || '');
+        }
+    }
+
+    function serviceDateHistoryChangeLabel(row) {
+        var from = window.fmtDate(row.previousServiceDate) || 'None';
+        var to = window.fmtDate(row.newServiceDate) || 'None';
+        if (!row.previousServiceDate && row.newServiceDate) {
+            return 'Initial service date: ' + to;
+        }
+        if (row.previousServiceDate && !row.newServiceDate) {
+            return 'Removed service date: ' + from;
+        }
+        return from + ' -> ' + to;
+    }
+
+    function renderPatientServiceDateHistory(rows) {
+        var section = document.getElementById('patientServiceDateHistorySection');
+        var list = document.getElementById('patientServiceDateHistoryList');
+        var count = document.getElementById('patientServiceDateHistoryCount');
+        if (!section || !list) return;
+
+        rows = Array.isArray(rows) ? rows : [];
+        section.style.display = '';
+        if (count) count.textContent = rows.length + ' entr' + (rows.length === 1 ? 'y' : 'ies');
+
+        if (!rows.length) {
+            list.innerHTML =
+                '<div class="text-muted small py-2">' +
+                    '<i class="fas fa-info-circle me-1"></i>No patient service date history recorded yet.' +
+                '</div>';
+            return;
+        }
+
+        var html = '';
+        rows.forEach(function(row) {
+            var source = patientEscapeHtml(row.changeSource || 'Patient Update');
+            var reason = patientEscapeHtml(row.reason || '');
+            var actor = patientEscapeHtml(serviceDateHistoryActor(row));
+            var when = patientEscapeHtml(serviceDateHistoryTimestamp(row));
+            var change = patientEscapeHtml(serviceDateHistoryChangeLabel(row));
+
+            html +=
+                '<div style="border:1px solid var(--border-color,#dee2e6);border-radius:8px;padding:.6rem .75rem;margin-bottom:.55rem;background:rgba(74,144,226,.035)">' +
+                    '<div class="d-flex justify-content-between align-items-start gap-2 flex-wrap">' +
+                        '<div style="min-width:0">' +
+                            '<div class="fw-semibold small"><i class="fas fa-calendar-check me-1 text-primary"></i>' + change + '</div>' +
+                            '<div class="text-muted" style="font-size:.75rem"><i class="fas fa-user me-1"></i>' + actor + (when ? ' - ' + when : '') + '</div>' +
+                        '</div>' +
+                        '<span class="badge bg-secondary" style="font-size:.68rem">' + source + '</span>' +
+                    '</div>' +
+                    (reason ? '<div class="small mt-2" style="color:var(--text-muted,#6c757d)"><i class="fas fa-comment-alt me-1"></i>' + reason + '</div>' : '') +
+                '</div>';
+        });
+
+        list.innerHTML = html;
+    }
+
+    async function loadPatientServiceDateHistory(patientId) {
+        var section = document.getElementById('patientServiceDateHistorySection');
+        var list = document.getElementById('patientServiceDateHistoryList');
+        var count = document.getElementById('patientServiceDateHistoryCount');
+        if (!section || !list) return;
+
+        if (!patientId) {
+            section.style.display = 'none';
+            list.innerHTML = '';
+            if (count) count.textContent = '';
+            return;
+        }
+
+        section.style.display = '';
+        list.innerHTML = '<div class="text-muted small py-2"><i class="fas fa-spinner fa-spin me-1"></i>Loading service date history...</div>';
+        if (count) count.textContent = '';
+
+        try {
+            var url = typeof window.rxUrl === 'function'
+                ? window.rxUrl('/api/patients/' + patientId + '/service-date-history')
+                : '/api/patients/' + patientId + '/service-date-history';
+            var res = await fetchWithAuth(url, { silent: true });
+            if (!res || !res.ok) throw new Error('Failed to load history');
+            var rows = await res.json();
+            renderPatientServiceDateHistory(rows);
+        } catch(e) {
+            list.innerHTML = '<div class="text-danger small py-2"><i class="fas fa-exclamation-triangle me-1"></i>Could not load service date history.</div>';
+        }
+    }
+
     function patientDecodeJwtPayload(token) {
         try {
             if (!token || token.split('.').length < 2) return null;
@@ -1146,6 +1263,7 @@ var allPatients = [];
         document.getElementById('pPharmacyTransport').value = patient ? (patient.pharmacyTransportCompanyId !== null && patient.pharmacyTransportCompanyId !== undefined ? String(patient.pharmacyTransportCompanyId) : '') : '';
         document.getElementById('pClinicId').value = patient ? (patient.clinicId !== null && patient.clinicId !== undefined ? String(patient.clinicId) : '') : '';
         document.getElementById('pPharmacyId').value = patient ? (patient.pharmacyId !== null && patient.pharmacyId !== undefined ? String(patient.pharmacyId) : '') : '';
+        loadPatientServiceDateHistory(id);
 
         // ── 90-DAY SERVICE DATE LOCK UI ───────────────────────────────────────────
         // When editing a patient whose service date is still within the active 90-day
