@@ -1,6 +1,7 @@
 'use strict';
 
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const dotenv = require('dotenv');
 
@@ -19,6 +20,42 @@ function boolEnv(value) {
 
 function resolveFromRoot(value) {
     return path.isAbsolute(value) ? value : path.resolve(rootDir, value);
+}
+
+function isPrivateIpv4(value) {
+    const parts = String(value || '').split('.').map(Number);
+    if (parts.length !== 4 || parts.some(part => !Number.isInteger(part) || part < 0 || part > 255)) return false;
+    if (parts[0] === 10) return true;
+    if (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) return true;
+    if (parts[0] === 192 && parts[1] === 168) return true;
+    return false;
+}
+
+function stagingLanOrigins(port) {
+    const origins = new Set([
+        'http://localhost:' + port,
+        'http://127.0.0.1:' + port
+    ]);
+
+    Object.values(os.networkInterfaces()).forEach((entries) => {
+        (entries || []).forEach((entry) => {
+            if (entry.family !== 'IPv4' || entry.internal || !isPrivateIpv4(entry.address)) return;
+            origins.add('http://' + entry.address + ':' + port);
+        });
+    });
+
+    return Array.from(origins);
+}
+
+function appendStagingLanOrigins() {
+    const port = process.env.PORT || '3100';
+    const current = String(process.env.APP_ORIGIN || '')
+        .split(',')
+        .map(origin => origin.trim())
+        .filter(Boolean);
+    const origins = new Set(current);
+    stagingLanOrigins(port).forEach(origin => origins.add(origin));
+    process.env.APP_ORIGIN = Array.from(origins).join(',');
 }
 
 function loadStagingEnv() {
@@ -43,6 +80,8 @@ function loadStagingEnv() {
         process.env.BACKUP_SCHEDULE = 'off';
         process.env.SITE_BACKUP_SCHEDULE = 'off';
     }
+
+    appendStagingLanOrigins();
 
     return {
         rootDir,
