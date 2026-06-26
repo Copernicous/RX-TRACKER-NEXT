@@ -5,6 +5,18 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ---
 
+## [2.0.58] - 2026-06-26
+
+### [RELEASE-58] Service date history, staging workflow, and print/export promotion
+**Files changed:** 36 | staging workflow docs/config, patient service date history model/migration/service, patient/RX timeline views, runtime path helpers, production packaging metadata
+
+- Added the staging workflow and branch-safe staging runtime configuration so new ideas can be tested separately before development and production promotion.
+- Added patient service date history tracking with related RX service records while preserving the existing 90-day service-date behavior.
+- Added print/export actions for patient timeline history, service-date related RX records, and patient RX history previous service date cycles.
+- Fixed RX Records detail printing so the details modal closes before opening the print preview, avoiding stacked modal/backdrop behavior.
+- Clarified patient timeline service-date history wording: full-history print/export buttons are now separate from per-row related RX print/CSV actions.
+- Bumped production package version to `2.0.58`.
+
 ## [2.0.57] - 2026-06-26
 
 ### [HOTFIX-57] Production Google Drive document upload transport
