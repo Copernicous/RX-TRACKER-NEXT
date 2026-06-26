@@ -258,10 +258,26 @@ app.set('views', path.join(__dirname, 'views'));
 // Disable EJS view cache even in production
 app.set('view cache', false);
 
-// Expose build/version info to all EJS templates
+function getAppEnvironment() {
+    return String(process.env.APP_ENV || process.env.APP_INSTANCE || process.env.NODE_ENV || '').trim();
+}
+
+function isStagingEnvironment() {
+    const markers = [
+        process.env.APP_ENV,
+        process.env.APP_INSTANCE,
+        process.env.DB_NAME,
+        process.env.APP_WRITABLE_ROOT
+    ].filter(Boolean).join(' ');
+    return /\bstaging\b|\bstage\b/i.test(markers);
+}
+
+// Expose build/version/environment info to all EJS templates
 app.use(function(req, res, next) {
     res.locals.appBuild = APP_BUILD;
     res.locals.appVersion = packageInfo.version;
+    res.locals.appEnvironment = getAppEnvironment();
+    res.locals.isStaging = isStagingEnvironment();
     next();
 });
 

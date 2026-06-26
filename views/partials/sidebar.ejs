@@ -30,8 +30,19 @@
 %>
 <!-- xa-base: FortiGate rewrites <a href> — used by base.js to compute proxy path prefix -->
 <a id="xa-base" href="/login" style="display:none" aria-hidden="true"></a>
-<nav id="sidebar">
-    <div class="sidebar-header"><i class="fas fa-pills me-2"></i>Patient RX</div>
+<% if (locals.isStaging) { %>
+<script>
+    document.documentElement.classList.add('rx-staging-env');
+    if (document.body) document.body.classList.add('rx-staging-env');
+</script>
+<% } %>
+<nav id="sidebar" class="<%= locals.isStaging ? 'rx-staging-sidebar' : '' %>">
+    <div class="sidebar-header">
+        <span><i class="fas fa-pills me-2"></i>Patient RX</span>
+        <% if (locals.isStaging) { %>
+            <span class="rx-staging-sidebar-badge">STAGING</span>
+        <% } %>
+    </div>
     <ul class="list-unstyled components">
 
         <li class="<%= ap === 'dashboard' ? 'active' : '' %>">
