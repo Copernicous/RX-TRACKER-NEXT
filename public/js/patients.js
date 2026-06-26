@@ -57,6 +57,39 @@ var allPatients = [];
         return from + ' -> ' + to;
     }
 
+    function serviceDateHistoryRxBadge(rx) {
+        var label = 'RX #' + patientEscapeHtml(rx.id);
+        var detail = [];
+        if (rx.serviceDate) detail.push('Svc ' + (window.fmtDate(rx.serviceDate) || rx.serviceDate));
+        if (rx.pharmacyName) detail.push(rx.pharmacyName);
+        if (rx.workflowStepCount) detail.push(rx.workflowStepCount + ' step' + (rx.workflowStepCount === 1 ? '' : 's'));
+        return '<span class="badge bg-light text-dark border me-1 mb-1" title="' + patientEscapeHtml(detail.join(' | ')) + '">' + label + '</span>';
+    }
+
+    function serviceDateHistoryRxGroup(label, records, count) {
+        records = Array.isArray(records) ? records : [];
+        count = Number(count || records.length || 0);
+        if (!count) return '';
+        var shown = records.slice(0, 6).map(serviceDateHistoryRxBadge).join('');
+        if (count > records.length || count > 6) {
+            shown += '<span class="badge bg-light text-muted border me-1 mb-1">+' + patientEscapeHtml(count - Math.min(records.length, 6)) + ' more</span>';
+        }
+        return '<div class="mt-1"><span class="text-muted me-1">' + patientEscapeHtml(label) + ':</span> ' + shown + '</div>';
+    }
+
+    function renderServiceDateRelatedRx(row) {
+        var related = row && row.relatedRxRecords ? row.relatedRxRecords : null;
+        if (!related || !related.totalRxCount) return '';
+        var html = '';
+        html += serviceDateHistoryRxGroup('Previous service RX', related.previousRxRecords, related.previousRxCount);
+        html += serviceDateHistoryRxGroup('New service RX', related.newRxRecords, related.newRxCount);
+        if (!html) return '';
+        return '<div class="small mt-2" style="color:var(--text-muted,#6c757d)">' +
+            '<i class="fas fa-prescription-bottle-alt me-1"></i>Related RX service records' +
+            html +
+        '</div>';
+    }
+
     function renderPatientServiceDateHistory(rows) {
         var section = document.getElementById('patientServiceDateHistorySection');
         var list = document.getElementById('patientServiceDateHistoryList');
@@ -82,6 +115,7 @@ var allPatients = [];
             var actor = patientEscapeHtml(serviceDateHistoryActor(row));
             var when = patientEscapeHtml(serviceDateHistoryTimestamp(row));
             var change = patientEscapeHtml(serviceDateHistoryChangeLabel(row));
+            var relatedRx = renderServiceDateRelatedRx(row);
 
             html +=
                 '<div style="border:1px solid var(--border-color,#dee2e6);border-radius:8px;padding:.6rem .75rem;margin-bottom:.55rem;background:rgba(74,144,226,.035)">' +
@@ -93,6 +127,7 @@ var allPatients = [];
                         '<span class="badge bg-secondary" style="font-size:.68rem">' + source + '</span>' +
                     '</div>' +
                     (reason ? '<div class="small mt-2" style="color:var(--text-muted,#6c757d)"><i class="fas fa-comment-alt me-1"></i>' + reason + '</div>' : '') +
+                    relatedRx +
                 '</div>';
         });
 

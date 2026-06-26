@@ -4,6 +4,7 @@ const { parseDate } = require('../utils/dateUtils');
 const { isServiceDateOverrideEnabled } = require('../utils/globalSettings');
 const { getRequestPermission } = require('../middleware/rbac');
 const {
+    attachRelatedRxServiceRecords,
     recordPatientServiceDateChange
 } = require('../services/patientServiceDateHistoryService');
 
@@ -360,7 +361,7 @@ exports.getServiceDateHistory = async (req, res) => {
             order: [['createdAt', 'DESC'], ['id', 'DESC']]
         });
 
-        res.json(history);
+        res.json(await attachRelatedRxServiceRecords(history));
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -407,6 +408,8 @@ exports.getTimeline = async (req, res) => {
             order: [['createdAt', 'DESC'], ['id', 'DESC']]
         });
 
+        const enrichedServiceDateHistory = await attachRelatedRxServiceRecords(serviceDateHistory);
+
         res.json({
             patient: patient.toJSON(),
             rxRecords: rxRecords.map(rx => {
@@ -415,7 +418,7 @@ exports.getTimeline = async (req, res) => {
                 return plain;
             }),
             workflowActions: allWorkflowActions.map(a => a.toJSON()),
-            serviceDateHistory: serviceDateHistory.map(row => row.toJSON())
+            serviceDateHistory: enrichedServiceDateHistory
         });
     } catch (err) { res.status(500).json({ error: err.message }); }
 };

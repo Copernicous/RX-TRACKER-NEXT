@@ -396,6 +396,38 @@ function serviceDateHistoryChange(row) {
     return '<span class="svc-history-date-pill">' + tlEscapeHtml(from) + '</span><i class="fas fa-arrow-right text-muted"></i><span class="svc-history-date-pill">' + tlEscapeHtml(to) + '</span>';
 }
 
+function serviceDateHistoryRxBadge(rx) {
+    var detail = [];
+    if (rx.serviceDate) detail.push('Svc ' + (formatDate(rx.serviceDate) || rx.serviceDate));
+    if (rx.pharmacyName) detail.push(rx.pharmacyName);
+    if (rx.workflowStepCount) detail.push(rx.workflowStepCount + ' step' + (rx.workflowStepCount === 1 ? '' : 's'));
+    return '<span class="badge bg-light text-dark border me-1 mb-1" title="' + tlEscapeHtml(detail.join(' | ')) + '">RX #' + tlEscapeHtml(rx.id) + '</span>';
+}
+
+function serviceDateHistoryRxGroup(label, records, count) {
+    records = Array.isArray(records) ? records : [];
+    count = Number(count || records.length || 0);
+    if (!count) return '';
+    var shown = records.slice(0, 6).map(serviceDateHistoryRxBadge).join('');
+    if (count > records.length || count > 6) {
+        shown += '<span class="badge bg-light text-muted border me-1 mb-1">+' + tlEscapeHtml(count - Math.min(records.length, 6)) + ' more</span>';
+    }
+    return '<div class="mt-1"><span class="text-muted me-1">' + tlEscapeHtml(label) + ':</span> ' + shown + '</div>';
+}
+
+function renderServiceDateRelatedRx(row) {
+    var related = row && row.relatedRxRecords ? row.relatedRxRecords : null;
+    if (!related || !related.totalRxCount) return '';
+    var html = '';
+    html += serviceDateHistoryRxGroup('Previous service RX', related.previousRxRecords, related.previousRxCount);
+    html += serviceDateHistoryRxGroup('New service RX', related.newRxRecords, related.newRxCount);
+    if (!html) return '';
+    return '<div class="text-muted mt-2 small">' +
+        '<i class="fas fa-prescription-bottle-alt me-1"></i>Related RX service records' +
+        html +
+    '</div>';
+}
+
 function renderServiceDateHistory(history) {
     history = Array.isArray(history) ? history : [];
     const wrap = document.getElementById('tlServiceDateHistory');
@@ -420,6 +452,7 @@ function renderServiceDateHistory(history) {
         var reason = tlEscapeHtml(row.reason || '');
         var actor = tlEscapeHtml(serviceDateHistoryActor(row));
         var when = tlEscapeHtml(serviceDateHistoryTimestamp(row));
+        var relatedRx = renderServiceDateRelatedRx(row);
         html +=
             '<div class="svc-history-row">' +
                 '<div>' +
@@ -429,6 +462,7 @@ function renderServiceDateHistory(history) {
                 '<div>' +
                     '<div class="svc-history-change">' + serviceDateHistoryChange(row) + '</div>' +
                     (reason ? '<div class="text-muted mt-1 small"><i class="fas fa-comment-alt me-1"></i>' + reason + '</div>' : '') +
+                    relatedRx +
                 '</div>' +
                 '<div class="text-muted small"><i class="fas fa-user me-1"></i>' + actor + '</div>' +
             '</div>';
