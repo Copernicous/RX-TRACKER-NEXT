@@ -8,6 +8,7 @@ const {
     recordPatientServiceDateChange
 } = require('../services/patientServiceDateHistoryService');
 const {
+    buildPatientContextSnapshot,
     syncPatientServiceDateCycles
 } = require('../services/patientServiceDateCycleService');
 
@@ -25,9 +26,32 @@ function summarizeServiceDateCycle(cycle) {
         status: plain.status,
         startedAt: plain.startedAt,
         endedAt: plain.endedAt,
+        metadata: plain.metadata || null,
         rxCount: rxRecords.length,
         rxRecordIds: rxRecords.map(rx => rx.id)
     };
+}
+
+function idsEqual(left, right) {
+    const clean = value => value === '' || value === undefined || value === null ? null : String(value);
+    return clean(left) === clean(right);
+}
+
+function patientContextFieldsChanged(patient, payload) {
+    return ['clinicId', 'pharmacyId', 'patientTransportCompanyId', 'pharmacyTransportCompanyId']
+        .some(field => payload.hasOwnProperty(field) && !idsEqual(payload[field], patient[field]));
+}
+
+function patientContextChangedFields(previousContext, nextContext) {
+    const comparable = snapshot => ({
+        clinic: snapshot && snapshot.clinic ? snapshot.clinic : null,
+        defaultPharmacy: snapshot && snapshot.defaultPharmacy ? snapshot.defaultPharmacy : null,
+        patientTransport: snapshot && snapshot.patientTransport ? snapshot.patientTransport : null,
+        pharmacyTransport: snapshot && snapshot.pharmacyTransport ? snapshot.pharmacyTransport : null
+    });
+    const previous = comparable(previousContext);
+    const next = comparable(nextContext);
+    return Object.keys(previous).filter(key => JSON.stringify(previous[key]) !== JSON.stringify(next[key]));
 }
 
 async function loadPatientServiceDateCycles(patient, options) {
@@ -171,6 +195,10 @@ exports.create = async (req, res) => {
         const data = await db.Patient.create({ ...otherData, patientCode });
         await syncPatientServiceDateCycles(data, {
             userId: req.user?.id || null,
+            source: 'Patient Create',
+            contextChangeReason: 'Initial patient clinic/pharmacy/transport defaults captured.'
+        });
+        const newPatientContext = await buildPatientContextSnapshot(data, {
             source: 'Patient Create'
         });
         await recordPatientServiceDateChange({
@@ -179,7 +207,14 @@ exports.create = async (req, res) => {
             newServiceDate: data.serviceDate,
             userId: req.user?.id || null,
             changeSource: 'Patient Create',
-            reason: 'Patient created with initial service date.'
+            reason: 'Patient created with initial service date.',
+            metadata: {
+                patientContextChange: {
+                    previous: null,
+                    next: newPatientContext,
+                    changedFields: patientContextChangedFields(null, newPatientContext)
+                }
+            }
         });
         res.status(201).json(data);
     } catch (err) {
@@ -196,6 +231,9 @@ exports.update = async (req, res) => {
         const patient = await db.Patient.findByPk(req.params.id);
         if (!patient) return res.status(404).json({ message: 'Not found' });
         const previousServiceDate = patient.serviceDate;
+        const previousPatientContext = await buildPatientContextSnapshot(patient, {
+            source: 'Before Patient Update'
+        });
 
         // Normalise incoming dates (accept MM/DD/YYYY or YYYY-MM-DD)
         if (req.body.hasOwnProperty('dob')) {
@@ -247,6 +285,7 @@ exports.update = async (req, res) => {
         // Check if service date is being updated (90-day rule)
         const hasServiceDateChange = req.body.hasOwnProperty('serviceDate')
             && String(req.body.serviceDate || '') !== String(patient.serviceDate || '');
+        const hasPatientContextChange = patientContextFieldsChanged(patient, req.body);
         if (!isServiceDateOverrideEnabled() && !canOverrideExpired && hasServiceDateChange) {
             if (patient.serviceDate) {
                 const prevDate = new Date(patient.serviceDate);
@@ -283,9 +322,19 @@ exports.update = async (req, res) => {
         });
         await patient.save();
 
-        if (hasServiceDateChange) {
+        if (hasServiceDateChange || hasPatientContextChange) {
             await syncPatientServiceDateCycles(patient, {
                 userId: req.user?.id || null,
+                source: (!canEditPatient && canOverrideExpired) ? 'Patient Override' : 'Patient Update',
+                previousPatientContext,
+                contextChangeReason: hasServiceDateChange
+                    ? 'Patient service date changed; clinic/pharmacy/transport defaults captured for the active cycle.'
+                    : 'Patient clinic/pharmacy/transport defaults changed during this service date cycle.'
+            });
+        }
+
+        if (hasServiceDateChange) {
+            const nextPatientContext = await buildPatientContextSnapshot(patient, {
                 source: (!canEditPatient && canOverrideExpired) ? 'Patient Override' : 'Patient Update'
             });
             await recordPatientServiceDateChange({
@@ -294,7 +343,14 @@ exports.update = async (req, res) => {
                 newServiceDate: patient.serviceDate,
                 userId: req.user?.id || null,
                 changeSource: (!canEditPatient && canOverrideExpired) ? 'Patient Override' : 'Patient Update',
-                reason: 'Patient record service date changed.'
+                reason: 'Patient record service date changed.',
+                metadata: {
+                    patientContextChange: {
+                        previous: previousPatientContext,
+                        next: nextPatientContext,
+                        changedFields: patientContextChangedFields(previousPatientContext, nextPatientContext)
+                    }
+                }
             });
         }
 
@@ -415,7 +471,7 @@ exports.getServiceDateHistory = async (req, res) => {
 exports.getTimeline = async (req, res) => {
     try {
         const patient = await db.Patient.findByPk(req.params.id, {
-            include: [db.PatientTransportCompany, db.PharmacyTransportCompany, db.Clinic]
+            include: [db.PatientTransportCompany, db.PharmacyTransportCompany, db.Clinic, db.Pharmacy]
         });
         if (!patient) return res.status(404).json({ message: 'Patient not found' });
 

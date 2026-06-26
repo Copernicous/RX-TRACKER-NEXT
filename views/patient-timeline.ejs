@@ -237,8 +237,39 @@
             color: #fff;
             border-color: #1a3a5c;
         }
+        .svc-cycle-context {
+            border: 1px solid var(--border-color, #dee2e6);
+            border-radius: 8px;
+            background: rgba(26,58,92,.035);
+            padding: .75rem;
+        }
+        .svc-context-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(130px, 1fr));
+            gap: .65rem;
+        }
+        .svc-context-item {
+            border: 1px solid rgba(74,144,226,.16);
+            border-radius: 6px;
+            padding: .55rem .65rem;
+            background: var(--card-bg, #fff);
+            min-width: 0;
+        }
+        .svc-context-label {
+            color: var(--text-muted, #6c757d);
+            font-size: .66rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .04em;
+        }
+        .svc-context-value {
+            font-size: .82rem;
+            font-weight: 700;
+            overflow-wrap: anywhere;
+        }
         @media (max-width: 768px) {
             .svc-history-row { grid-template-columns: 1fr; }
+            .svc-context-grid { grid-template-columns: 1fr; }
         }
 
         [data-theme="dark"] .tl-card  { background: #1e2533; border-color: #2e3a4e; }
@@ -333,6 +364,7 @@
                         <small class="text-muted" id="tlServiceDateCycleCount"></small>
                     </div>
                     <div class="d-flex align-items-center gap-2 flex-wrap" id="tlServiceDateCycleButtons"></div>
+                    <div id="tlServiceDateCycleContext" class="mt-3"></div>
                 </div>
             </div>
 
@@ -462,6 +494,64 @@ function renderServiceDateRelatedRx(row) {
     '</div>';
 }
 
+function tlContextSnapshot(rowOrCycle) {
+    var metadata = rowOrCycle && rowOrCycle.metadata ? rowOrCycle.metadata : {};
+    if (metadata.patientContext) return metadata.patientContext;
+    if (metadata.patientContextChange && metadata.patientContextChange.next) return metadata.patientContextChange.next;
+    return null;
+}
+
+function tlContextEntityLabel(entity) {
+    if (!entity) return 'Not captured';
+    return entity.label || entity.name || entity.companyName || entity.contactPerson || ('ID ' + entity.id);
+}
+
+function tlContextSummaryText(context) {
+    if (!context) return 'Not captured';
+    return [
+        'Clinic: ' + tlContextEntityLabel(context.clinic),
+        'Default Pharmacy: ' + tlContextEntityLabel(context.defaultPharmacy),
+        'Patient Transport: ' + tlContextEntityLabel(context.patientTransport),
+        'Pharmacy Transport: ' + tlContextEntityLabel(context.pharmacyTransport)
+    ].join(' | ');
+}
+
+function tlContextGridHtml(context) {
+    if (!context) {
+        return '<div class="text-muted small"><i class="fas fa-info-circle me-1"></i>No clinic/pharmacy/transport snapshot captured for this cycle yet.</div>';
+    }
+    var items = [
+        ['Clinic', context.clinic],
+        ['Default Pharmacy', context.defaultPharmacy],
+        ['Patient Transport', context.patientTransport],
+        ['Pharmacy Transport', context.pharmacyTransport]
+    ];
+    return '<div class="svc-context-grid">' + items.map(function(item) {
+        return '<div class="svc-context-item">' +
+            '<div class="svc-context-label">' + tlEscapeHtml(item[0]) + '</div>' +
+            '<div class="svc-context-value">' + tlEscapeHtml(tlContextEntityLabel(item[1])) + '</div>' +
+        '</div>';
+    }).join('') + '</div>' +
+    (context.capturedAt ? '<div class="text-muted mt-2" style="font-size:.72rem"><i class="fas fa-clock me-1"></i>Captured ' + tlEscapeHtml(serviceDateHistoryTimestamp({ createdAt: context.capturedAt })) + '</div>' : '');
+}
+
+function serviceDateContextChange(row) {
+    var change = row && row.metadata && row.metadata.patientContextChange ? row.metadata.patientContextChange : null;
+    if (!change) return '';
+    var fields = Array.isArray(change.changedFields) ? change.changedFields : [];
+    if (!fields.length) return '';
+    var labels = {
+        clinic: 'Clinic',
+        defaultPharmacy: 'Default Pharmacy',
+        patientTransport: 'Patient Transport',
+        pharmacyTransport: 'Pharmacy Transport'
+    };
+    return '<div class="text-muted mt-2 small">' +
+        '<i class="fas fa-clipboard-list me-1"></i>Cycle defaults changed: ' +
+        fields.map(function(field) { return tlEscapeHtml(labels[field] || field); }).join(', ') +
+    '</div>';
+}
+
 function tlAssetUrl(path) {
     return typeof window.rxUrl === 'function' ? window.rxUrl(path) : path;
 }
@@ -574,6 +664,34 @@ function renderServiceDateCycles(cycles) {
         '</button>';
     });
     list.innerHTML = html;
+    renderServiceDateCycleContext(cycles);
+}
+
+function renderServiceDateCycleContext(cycles) {
+    var target = document.getElementById('tlServiceDateCycleContext');
+    if (!target) return;
+    cycles = Array.isArray(cycles) ? cycles : [];
+    var selectedCycles = _selectedCycleId === 'all'
+        ? cycles
+        : cycles.filter(function(cycle) { return String(cycle.id) === String(_selectedCycleId); });
+    if (!selectedCycles.length) {
+        target.innerHTML = '';
+        return;
+    }
+
+    var html = selectedCycles.map(function(cycle) {
+        var context = tlContextSnapshot(cycle);
+        var title = formatDate(cycle.serviceDate) || cycle.serviceDate || 'Service Date';
+        var status = String(cycle.status || '').toLowerCase() === 'active' ? 'Active' : 'History';
+        return '<div class="svc-cycle-context mb-2">' +
+            '<div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">' +
+                '<div class="fw-bold small"><i class="fas fa-clipboard-check me-1 text-primary"></i>' + tlEscapeHtml(title) + ' captured defaults</div>' +
+                '<span class="badge ' + (status === 'Active' ? 'bg-primary' : 'bg-secondary') + '">' + status + '</span>' +
+            '</div>' +
+            tlContextGridHtml(context) +
+        '</div>';
+    }).join('');
+    target.innerHTML = html;
 }
 
 function tlResolveRelated(records) {
@@ -728,18 +846,22 @@ function tlServiceHistoryPrintBlock(history) {
     if (!history.length) return '';
     var rows = history.map(function(row) {
         var related = row.relatedRxRecords || {};
+        var context = row && row.metadata && row.metadata.patientContextChange
+            ? row.metadata.patientContextChange.next
+            : tlContextSnapshot(row);
         return '<tr>' +
             '<td style="padding:6px 8px;border-bottom:1px solid #e5e7eb">' + tlEscapeHtml(row.changeSource || '') + '</td>' +
             '<td style="padding:6px 8px;border-bottom:1px solid #e5e7eb">' + tlEscapeHtml(formatDate(row.previousServiceDate) || 'None') + '</td>' +
             '<td style="padding:6px 8px;border-bottom:1px solid #e5e7eb">' + tlEscapeHtml(formatDate(row.newServiceDate) || 'None') + '</td>' +
             '<td style="padding:6px 8px;border-bottom:1px solid #e5e7eb">' + tlEscapeHtml(serviceDateHistoryActor(row)) + '</td>' +
             '<td style="padding:6px 8px;border-bottom:1px solid #e5e7eb">' + tlEscapeHtml(serviceDateHistoryTimestamp(row)) + '</td>' +
+            '<td style="padding:6px 8px;border-bottom:1px solid #e5e7eb">' + tlEscapeHtml(tlContextSummaryText(context)) + '</td>' +
             '<td style="padding:6px 8px;border-bottom:1px solid #e5e7eb;text-align:center">' + tlEscapeHtml(related.totalRxCount || 0) + '</td>' +
         '</tr>';
     }).join('');
     return '<h4 style="margin:6px 0 8px">Patient Service Date History</h4>' +
         '<table style="width:100%;border-collapse:collapse;font-size:.84rem;margin-bottom:16px">' +
-        '<thead><tr style="background:#1a2234;color:#fff"><th style="padding:7px 8px;text-align:left">Source</th><th style="padding:7px 8px;text-align:left">Previous</th><th style="padding:7px 8px;text-align:left">New</th><th style="padding:7px 8px;text-align:left">Changed By</th><th style="padding:7px 8px;text-align:left">When</th><th style="padding:7px 8px;text-align:center">RX</th></tr></thead>' +
+        '<thead><tr style="background:#1a2234;color:#fff"><th style="padding:7px 8px;text-align:left">Source</th><th style="padding:7px 8px;text-align:left">Previous</th><th style="padding:7px 8px;text-align:left">New</th><th style="padding:7px 8px;text-align:left">Changed By</th><th style="padding:7px 8px;text-align:left">When</th><th style="padding:7px 8px;text-align:left">Captured Defaults</th><th style="padding:7px 8px;text-align:center">RX</th></tr></thead>' +
         '<tbody>' + rows + '</tbody></table>';
 }
 
@@ -779,9 +901,12 @@ function exportFullServiceDateHistory() {
         if (typeof showToast === 'function') showToast('No service date history to export.', 'warning');
         return;
     }
-    var headers = ['Source', 'Previous Service Date', 'New Service Date', 'Changed By', 'Changed At', 'Reason', 'Related RX Count'];
+    var headers = ['Source', 'Previous Service Date', 'New Service Date', 'Changed By', 'Changed At', 'Reason', 'Captured Defaults', 'Related RX Count'];
     var rows = _serviceDateHistoryRows.map(function(row) {
         var related = row.relatedRxRecords || {};
+        var context = row && row.metadata && row.metadata.patientContextChange
+            ? row.metadata.patientContextChange.next
+            : tlContextSnapshot(row);
         return [
             row.changeSource || '',
             row.previousServiceDate || '',
@@ -789,6 +914,7 @@ function exportFullServiceDateHistory() {
             serviceDateHistoryActor(row),
             serviceDateHistoryTimestamp(row),
             row.reason || '',
+            tlContextSummaryText(context),
             related.totalRxCount || 0
         ];
     });
@@ -802,10 +928,13 @@ function printPatientTimeline() {
 
 function exportPatientTimelineCsv() {
     if (!_timelineData) return;
-    var headers = ['Section', 'Item', 'RX ID', 'Service Date', 'Arrival Date', 'Pharmacy', 'Workflow', 'Status', 'Source', 'Changed By', 'Changed At', 'Reason'];
+    var headers = ['Section', 'Item', 'RX ID', 'Service Date', 'Arrival Date', 'Pharmacy', 'Workflow', 'Status', 'Source', 'Changed By', 'Changed At', 'Reason', 'Captured Defaults'];
     var rows = [];
     _serviceDateHistoryRows.forEach(function(row) {
         var related = row.relatedRxRecords || {};
+        var context = row && row.metadata && row.metadata.patientContextChange
+            ? row.metadata.patientContextChange.next
+            : tlContextSnapshot(row);
         rows.push([
             'Service Date History',
             formatDate(row.previousServiceDate) + ' -> ' + formatDate(row.newServiceDate),
@@ -818,7 +947,8 @@ function exportPatientTimelineCsv() {
             row.changeSource || '',
             serviceDateHistoryActor(row),
             serviceDateHistoryTimestamp(row),
-            row.reason || ''
+            row.reason || '',
+            tlContextSummaryText(context)
         ]);
     });
     tlVisibleRxRecords().forEach(function(rx) {
@@ -835,7 +965,8 @@ function exportPatientTimelineCsv() {
             '',
             '',
             '',
-            tlRxMedicationText(rx)
+            tlRxMedicationText(rx),
+            ''
         ]);
     });
     exportToCsv('patient-timeline-' + tlFilePart(tlPatientLabel()) + '.csv', headers, rows);
@@ -867,6 +998,7 @@ function renderServiceDateHistory(history) {
         var actor = tlEscapeHtml(serviceDateHistoryActor(row));
         var when = tlEscapeHtml(serviceDateHistoryTimestamp(row));
         var relatedRx = renderServiceDateRelatedRx(row);
+        var contextChange = serviceDateContextChange(row);
         var related = row.relatedRxRecords || {};
         var actions = related.totalRxCount
             ? '<div class="mt-2">' +
@@ -886,6 +1018,7 @@ function renderServiceDateHistory(history) {
                 '<div>' +
                     '<div class="svc-history-change">' + serviceDateHistoryChange(row) + '</div>' +
                     (reason ? '<div class="text-muted mt-1 small"><i class="fas fa-comment-alt me-1"></i>' + reason + '</div>' : '') +
+                    contextChange +
                     relatedRx +
                 '</div>' +
                 '<div class="text-muted small">' +
