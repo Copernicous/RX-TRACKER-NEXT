@@ -196,9 +196,41 @@
         .tl-body { display: none; }
         .tl-body.open { display: block; }
 
+        .svc-history-row {
+            display: grid;
+            grid-template-columns: minmax(140px, 180px) 1fr minmax(120px, 180px);
+            gap: .75rem;
+            padding: .75rem 0;
+            border-bottom: 1px solid var(--border-color, #dee2e6);
+            align-items: center;
+        }
+        .svc-history-row:last-child { border-bottom: none; }
+        .svc-history-change {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: .45rem;
+            font-size: .88rem;
+            font-weight: 700;
+        }
+        .svc-history-date-pill {
+            display: inline-flex;
+            align-items: center;
+            min-height: 26px;
+            padding: 2px 9px;
+            border-radius: 6px;
+            background: rgba(74,144,226,.09);
+            color: #1a3a5c;
+            border: 1px solid rgba(74,144,226,.18);
+        }
+        @media (max-width: 768px) {
+            .svc-history-row { grid-template-columns: 1fr; }
+        }
+
         [data-theme="dark"] .tl-card  { background: #1e2533; border-color: #2e3a4e; }
         [data-theme="dark"] .tl-card-header.open { border-bottom-color: #2e3a4e; }
         [data-theme="dark"] .wf-step  { border-bottom-color: #2e3a4e; }
+        [data-theme="dark"] .svc-history-date-pill { color: #cfe5ff; }
     </style>
 </head>
 <body>
@@ -266,10 +298,26 @@
             </div>
 
             <!-- Timeline container -->
+            <div id="tlServiceDateHistory" style="display:none">
+                <div class="glass-card p-3 mb-4">
+                    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
+                        <h5 class="mb-0 fw-bold"><i class="fas fa-calendar-alt me-2 text-primary"></i>Patient Service Date History</h5>
+                        <div class="d-flex align-items-center gap-2 flex-wrap">
+                            <button type="button" class="btn btn-sm btn-outline-secondary" id="printServiceHistoryBtn" title="Print the full service date history section"><i class="fas fa-print me-1"></i>Print Full History</button>
+                            <button type="button" class="btn btn-sm btn-outline-success" id="exportServiceHistoryBtn" title="Export the full service date history CSV"><i class="fas fa-file-csv me-1"></i>Export History CSV</button>
+                            <small class="text-muted" id="tlServiceDateHistoryCount"></small>
+                        </div>
+                    </div>
+                    <div id="tlServiceDateHistoryList"></div>
+                </div>
+            </div>
+
             <div id="tlContainer" style="display:none">
                 <div class="d-flex align-items-center justify-content-between mb-3">
                     <h5 class="mb-0 fw-bold"><i class="fas fa-history me-2 text-primary"></i>RX Record History</h5>
                     <div class="d-flex gap-2">
+                        <button class="btn btn-sm btn-outline-primary" id="printTimelineBtn"><i class="fas fa-print me-1"></i>Print Timeline</button>
+                        <button class="btn btn-sm btn-outline-success" id="exportTimelineCsvBtn"><i class="fas fa-file-csv me-1"></i>Export CSV</button>
                         <button class="btn btn-sm btn-outline-secondary" id="expandAllBtn"><i class="fas fa-expand-alt me-1"></i>Expand All</button>
                         <button class="btn btn-sm btn-outline-secondary" id="collapseAllBtn"><i class="fas fa-compress-alt me-1"></i>Collapse All</button>
                         <a id="viewRxBtn" class="btn btn-sm btn-primary" href="#"><i class="fas fa-prescription me-1"></i>View in RX Records</a>
@@ -308,6 +356,454 @@ const _ptId = (function() {
     return m ? m[1] : null;
 })();
 let _ptName = '';
+let _timelineData = null;
+let _serviceDateHistoryRows = [];
+
+function tlEscapeHtml(value) {
+    if (typeof escHtml === 'function') return escHtml(value);
+    return String(value == null ? '' : value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#x27;');
+}
+
+function serviceDateHistoryActor(row) {
+    var user = row && row.ChangedBy ? row.ChangedBy : null;
+    if (!user) return 'System';
+    return (user.firstName || user.lastName)
+        ? ((user.firstName || '') + ' ' + (user.lastName || '')).trim()
+        : (user.username || 'User');
+}
+
+function serviceDateHistoryTimestamp(row) {
+    if (!row || !row.createdAt) return '';
+    try {
+        return new Date(row.createdAt).toLocaleString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    } catch(e) {
+        return String(row.createdAt || '');
+    }
+}
+
+function serviceDateHistoryChange(row) {
+    var from = formatDate(row.previousServiceDate) || 'None';
+    var to = formatDate(row.newServiceDate) || 'None';
+    if (!row.previousServiceDate && row.newServiceDate) {
+        return '<span class="svc-history-date-pill">' + tlEscapeHtml(to) + '</span>';
+    }
+    if (row.previousServiceDate && !row.newServiceDate) {
+        return '<span class="svc-history-date-pill">' + tlEscapeHtml(from) + '</span><span class="text-muted">removed</span>';
+    }
+    return '<span class="svc-history-date-pill">' + tlEscapeHtml(from) + '</span><i class="fas fa-arrow-right text-muted"></i><span class="svc-history-date-pill">' + tlEscapeHtml(to) + '</span>';
+}
+
+function serviceDateHistoryRxBadge(rx) {
+    var detail = [];
+    if (rx.serviceDate) detail.push('Svc ' + (formatDate(rx.serviceDate) || rx.serviceDate));
+    if (rx.pharmacyName) detail.push(rx.pharmacyName);
+    if (rx.workflowStepCount) detail.push(rx.workflowStepCount + ' step' + (rx.workflowStepCount === 1 ? '' : 's'));
+    return '<span class="badge bg-light text-dark border me-1 mb-1" title="' + tlEscapeHtml(detail.join(' | ')) + '">RX #' + tlEscapeHtml(rx.id) + '</span>';
+}
+
+function serviceDateHistoryRxGroup(label, records, count) {
+    records = Array.isArray(records) ? records : [];
+    count = Number(count || records.length || 0);
+    if (!count) return '';
+    var shown = records.slice(0, 6).map(serviceDateHistoryRxBadge).join('');
+    if (count > records.length || count > 6) {
+        shown += '<span class="badge bg-light text-muted border me-1 mb-1">+' + tlEscapeHtml(count - Math.min(records.length, 6)) + ' more</span>';
+    }
+    return '<div class="mt-1"><span class="text-muted me-1">' + tlEscapeHtml(label) + ':</span> ' + shown + '</div>';
+}
+
+function renderServiceDateRelatedRx(row) {
+    var related = row && row.relatedRxRecords ? row.relatedRxRecords : null;
+    if (!related || !related.totalRxCount) return '';
+    var html = '';
+    html += serviceDateHistoryRxGroup('Previous service RX', related.previousRxRecords, related.previousRxCount);
+    html += serviceDateHistoryRxGroup('New service RX', related.newRxRecords, related.newRxCount);
+    if (!html) return '';
+    return '<div class="text-muted mt-2 small">' +
+        '<i class="fas fa-prescription-bottle-alt me-1"></i>Related RX service records' +
+        html +
+    '</div>';
+}
+
+function tlAssetUrl(path) {
+    return typeof window.rxUrl === 'function' ? window.rxUrl(path) : path;
+}
+
+function tlFilePart(value) {
+    return String(value || 'patient')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .slice(0, 60) || 'patient';
+}
+
+function tlPatientLabel() {
+    var patient = _timelineData && _timelineData.patient ? _timelineData.patient : {};
+    return ((patient.firstName || '') + ' ' + (patient.lastName || '')).trim() || ('Patient #' + (_ptId || ''));
+}
+
+function tlRxById(id) {
+    var list = _timelineData && Array.isArray(_timelineData.rxRecords) ? _timelineData.rxRecords : [];
+    id = Number(id);
+    for (var i = 0; i < list.length; i++) {
+        if (Number(list[i].id) === id) return list[i];
+    }
+    return null;
+}
+
+function tlRxPharmacy(rx) {
+    return (rx && rx.Pharmacy && rx.Pharmacy.name) || (rx && rx.pharmacyName) || 'None';
+}
+
+function tlRxMedicationText(rx) {
+    var meds = rx && Array.isArray(rx.Medications) ? rx.Medications : [];
+    if (!meds.length) return 'None recorded';
+    return meds.map(function(m) {
+        return m.name || 'Medication';
+    }).join(', ');
+}
+
+function tlRxStatus(rx) {
+    var actions = _timelineData && Array.isArray(_timelineData.workflowActions) ? _timelineData.workflowActions : [];
+    var trackings = rx && Array.isArray(rx.RXWorkflowTrackings) ? rx.RXWorkflowTrackings : [];
+    var total = actions.length || Number(rx && rx.workflowStepCount) || 0;
+    var done = trackings.length || Number(rx && rx.workflowStepCount) || 0;
+    var pct = total > 0 ? Math.round((done / total) * 100) : 0;
+    var label = total > 0 && done >= total ? 'Complete' : done > 0 ? 'In Progress' : 'Not Started';
+    return { done: done, total: total, pct: pct, label: label };
+}
+
+function tlResolveRelated(records) {
+    var seen = {};
+    return (Array.isArray(records) ? records : []).map(function(row) {
+        var full = tlRxById(row.id) || row;
+        return full;
+    }).filter(function(rx) {
+        if (!rx || seen[rx.id]) return false;
+        seen[rx.id] = true;
+        return true;
+    });
+}
+
+function tlRelatedGroups(row) {
+    var related = row && row.relatedRxRecords ? row.relatedRxRecords : {};
+    var groups = [];
+    var previous = tlResolveRelated(related.previousRxRecords);
+    var next = tlResolveRelated(related.newRxRecords);
+    if (previous.length) groups.push({ label: 'Previous service RX', records: previous });
+    if (next.length) groups.push({ label: 'New service RX', records: next });
+    return groups;
+}
+
+function tlWorkflowTable(rx) {
+    var actions = _timelineData && Array.isArray(_timelineData.workflowActions) ? _timelineData.workflowActions : [];
+    var trackings = {};
+    (rx.RXWorkflowTrackings || []).forEach(function(t) { trackings[t.workflowActionId] = t; });
+    if (!actions.length) {
+        var status = tlRxStatus(rx);
+        return '<div style="color:#667085;font-size:.85rem">Workflow steps recorded: ' + tlEscapeHtml(status.done) + '</div>';
+    }
+    var rows = actions.map(function(action, index) {
+        var tracking = trackings[action.id];
+        var done = !!tracking;
+        var date = done && tracking.completionDate ? formatDate(tracking.completionDate) : 'Pending';
+        var by = done && tracking.User ? (' by ' + ((tracking.User.firstName || '') + ' ' + (tracking.User.lastName || '')).trim()) : '';
+        return '<tr>' +
+            '<td style="padding:6px 8px;border-bottom:1px solid #e5e7eb">' + (index + 1) + '. ' + tlEscapeHtml(action.name || 'Step') + '</td>' +
+            '<td style="padding:6px 8px;border-bottom:1px solid #e5e7eb">' + tlEscapeHtml(date) + tlEscapeHtml(by) + '</td>' +
+            '<td style="padding:6px 8px;border-bottom:1px solid #e5e7eb;color:' + (done ? '#198754' : '#667085') + ';font-weight:700">' + (done ? 'Done' : 'Pending') + '</td>' +
+        '</tr>';
+    }).join('');
+    return '<table style="width:100%;border-collapse:collapse;font-size:.84rem;margin-top:8px">' +
+        '<thead><tr style="background:#1a2234;color:#fff"><th style="padding:7px 8px;text-align:left">Step</th><th style="padding:7px 8px;text-align:left">Date / User</th><th style="padding:7px 8px;text-align:left">Status</th></tr></thead>' +
+        '<tbody>' + rows + '</tbody></table>';
+}
+
+function tlRxPrintCard(rx, groupLabel) {
+    var status = tlRxStatus(rx);
+    var statusColor = status.label === 'Complete' ? '#198754' : status.done > 0 ? '#fd7e14' : '#6c757d';
+    return '<div style="border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;margin:14px 0;background:#fff">' +
+        '<div style="background:#1a2234;color:#fff;padding:10px 14px;display:flex;justify-content:space-between;gap:10px;align-items:center">' +
+            '<div><strong>' + tlEscapeHtml(groupLabel || 'RX Record') + ' #' + tlEscapeHtml(rx.id) + '</strong></div>' +
+            '<span style="background:' + statusColor + ';color:#fff;padding:3px 10px;border-radius:12px;font-size:.76rem;font-weight:700">' + tlEscapeHtml(status.label) + '</span>' +
+        '</div>' +
+        '<div style="padding:12px 14px">' +
+            '<div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;font-size:.86rem">' +
+                '<div><div style="color:#667085;font-size:.68rem;text-transform:uppercase;font-weight:700">Service Date</div><strong>' + tlEscapeHtml(rx.serviceDate ? formatDate(rx.serviceDate) : 'None') + '</strong></div>' +
+                '<div><div style="color:#667085;font-size:.68rem;text-transform:uppercase;font-weight:700">Arrival Date</div><strong>' + tlEscapeHtml(rx.arrivalDate ? formatDate(rx.arrivalDate) : 'None') + '</strong></div>' +
+                '<div><div style="color:#667085;font-size:.68rem;text-transform:uppercase;font-weight:700">Pharmacy</div><strong>' + tlEscapeHtml(tlRxPharmacy(rx)) + '</strong></div>' +
+                '<div><div style="color:#667085;font-size:.68rem;text-transform:uppercase;font-weight:700">Workflow</div><strong>' + status.done + '/' + status.total + ' (' + status.pct + '%)</strong></div>' +
+            '</div>' +
+            '<div style="margin-top:10px;font-size:.84rem"><span style="color:#667085;font-weight:700">Medications:</span> ' + tlEscapeHtml(tlRxMedicationText(rx)) + '</div>' +
+            tlWorkflowTable(rx) +
+        '</div>' +
+    '</div>';
+}
+
+function tlOpenPrint(title, subtitle, bodyHtml) {
+    var cssUrl = tlAssetUrl('/assets/inter.css').replace(/"/g, '%22');
+    var win = window.open('', '_blank', 'width=980,height=760');
+    if (!win) {
+        if (typeof showToast === 'function') showToast('Popup blocked. Allow popups to print.', 'warning');
+        return;
+    }
+    win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8">' +
+        '<title>' + tlEscapeHtml(title) + '</title>' +
+        '<style>@import url("' + cssUrl + '");*{box-sizing:border-box}body{font-family:Inter,Arial,sans-serif;color:#1a2234;background:#f4f6f8;padding:28px}.sheet{max-width:960px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 8px 30px rgba(0,0,0,.08)}.head{background:linear-gradient(135deg,#1a2234,#2c3e6b);color:#fff;padding:20px 26px}.content{padding:22px 26px}@media print{@page{margin:15mm;size:A4 portrait}body{background:#fff;padding:0}.sheet{box-shadow:none;border-radius:0}.head{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style>' +
+        '</head><body><div class="sheet"><div class="head"><h2 style="margin:0">' + tlEscapeHtml(title) + '</h2><div style="opacity:.8;margin-top:4px">' + tlEscapeHtml(subtitle || '') + '</div></div><div class="content">' + bodyHtml + '</div></div>' +
+        '<script>window.onload=function(){setTimeout(function(){window.print();},100);};<\/script></body></html>');
+    win.document.close();
+    win.focus();
+}
+
+function tlPrintRxGroups(title, groups, historyRow, includeHistory) {
+    var patient = _timelineData && _timelineData.patient ? _timelineData.patient : {};
+    var total = groups.reduce(function(sum, group) { return sum + group.records.length; }, 0);
+    if (!total) {
+        if (typeof showToast === 'function') showToast('No related RX records to print.', 'warning');
+        return;
+    }
+    var body = '<div style="display:flex;justify-content:space-between;gap:12px;margin-bottom:16px;font-size:.9rem">' +
+        '<div><strong>Patient:</strong> ' + tlEscapeHtml(tlPatientLabel()) + '</div>' +
+        '<div><strong>Patient ID:</strong> ' + tlEscapeHtml(patient.patientCode || patient.id || _ptId || '') + '</div>' +
+        '<div><strong>Generated:</strong> ' + tlEscapeHtml(new Date().toLocaleString()) + '</div>' +
+    '</div>';
+
+    if (historyRow) {
+        body += '<div style="border-left:4px solid #4a90e2;background:#f3f8ff;padding:10px 12px;border-radius:8px;margin-bottom:14px;font-size:.88rem">' +
+            '<div><strong>Service date change:</strong> ' + serviceDateHistoryChange(historyRow).replace(/<[^>]*>/g, ' ') + '</div>' +
+            '<div><strong>Source:</strong> ' + tlEscapeHtml(historyRow.changeSource || '') + ' &nbsp; <strong>Changed by:</strong> ' + tlEscapeHtml(serviceDateHistoryActor(historyRow)) + '</div>' +
+            (historyRow.reason ? '<div><strong>Reason:</strong> ' + tlEscapeHtml(historyRow.reason) + '</div>' : '') +
+        '</div>';
+    }
+
+    if (includeHistory) {
+        body += tlServiceHistoryPrintBlock(_serviceDateHistoryRows);
+    }
+
+    groups.forEach(function(group) {
+        body += '<h4 style="margin:18px 0 8px">' + tlEscapeHtml(group.label) + ' (' + group.records.length + ')</h4>';
+        group.records.forEach(function(rx) {
+            body += tlRxPrintCard(rx, 'RX');
+        });
+    });
+
+    tlOpenPrint(title, 'Patient RX - ' + tlPatientLabel(), body);
+}
+
+function tlExportRxGroups(filename, groups, historyRow) {
+    var total = groups.reduce(function(sum, group) { return sum + group.records.length; }, 0);
+    if (!total) {
+        if (typeof showToast === 'function') showToast('No related RX records to export.', 'warning');
+        return;
+    }
+    var headers = ['Group', 'RX ID', 'Service Date', 'Arrival Date', 'Pharmacy', 'Workflow', 'Status', 'Medications', 'History Source', 'History Change'];
+    var historyChange = historyRow ? (formatDate(historyRow.previousServiceDate) + ' -> ' + formatDate(historyRow.newServiceDate)) : '';
+    var rows = [];
+    groups.forEach(function(group) {
+        group.records.forEach(function(rx) {
+            var status = tlRxStatus(rx);
+            rows.push([
+                group.label,
+                rx.id,
+                rx.serviceDate || '',
+                rx.arrivalDate || '',
+                tlRxPharmacy(rx),
+                status.done + '/' + status.total + ' (' + status.pct + '%)',
+                status.label,
+                tlRxMedicationText(rx),
+                historyRow ? (historyRow.changeSource || '') : '',
+                historyChange
+            ]);
+        });
+    });
+    exportToCsv(filename, headers, rows);
+}
+
+function tlServiceHistoryPrintBlock(history) {
+    history = Array.isArray(history) ? history : [];
+    if (!history.length) return '';
+    var rows = history.map(function(row) {
+        var related = row.relatedRxRecords || {};
+        return '<tr>' +
+            '<td style="padding:6px 8px;border-bottom:1px solid #e5e7eb">' + tlEscapeHtml(row.changeSource || '') + '</td>' +
+            '<td style="padding:6px 8px;border-bottom:1px solid #e5e7eb">' + tlEscapeHtml(formatDate(row.previousServiceDate) || 'None') + '</td>' +
+            '<td style="padding:6px 8px;border-bottom:1px solid #e5e7eb">' + tlEscapeHtml(formatDate(row.newServiceDate) || 'None') + '</td>' +
+            '<td style="padding:6px 8px;border-bottom:1px solid #e5e7eb">' + tlEscapeHtml(serviceDateHistoryActor(row)) + '</td>' +
+            '<td style="padding:6px 8px;border-bottom:1px solid #e5e7eb">' + tlEscapeHtml(serviceDateHistoryTimestamp(row)) + '</td>' +
+            '<td style="padding:6px 8px;border-bottom:1px solid #e5e7eb;text-align:center">' + tlEscapeHtml(related.totalRxCount || 0) + '</td>' +
+        '</tr>';
+    }).join('');
+    return '<h4 style="margin:6px 0 8px">Patient Service Date History</h4>' +
+        '<table style="width:100%;border-collapse:collapse;font-size:.84rem;margin-bottom:16px">' +
+        '<thead><tr style="background:#1a2234;color:#fff"><th style="padding:7px 8px;text-align:left">Source</th><th style="padding:7px 8px;text-align:left">Previous</th><th style="padding:7px 8px;text-align:left">New</th><th style="padding:7px 8px;text-align:left">Changed By</th><th style="padding:7px 8px;text-align:left">When</th><th style="padding:7px 8px;text-align:center">RX</th></tr></thead>' +
+        '<tbody>' + rows + '</tbody></table>';
+}
+
+function printServiceHistoryEntry(index) {
+    var row = _serviceDateHistoryRows[index];
+    if (!row) return;
+    tlPrintRxGroups('Service Date Related RX Records', tlRelatedGroups(row), row, false);
+}
+
+function exportServiceHistoryEntry(index) {
+    var row = _serviceDateHistoryRows[index];
+    if (!row) return;
+    var name = tlFilePart(tlPatientLabel());
+    var date = (row.newServiceDate || row.previousServiceDate || new Date().toISOString().slice(0, 10));
+    tlExportRxGroups('service-date-rx-' + name + '-' + date + '.csv', tlRelatedGroups(row), row);
+}
+
+function printFullServiceDateHistory() {
+    var groups = [];
+    _serviceDateHistoryRows.forEach(function(row) {
+        tlRelatedGroups(row).forEach(function(group) {
+            groups.push({
+                label: (row.newServiceDate || row.previousServiceDate || 'Service Date') + ' - ' + group.label,
+                records: group.records
+            });
+        });
+    });
+    if (!groups.length) {
+        tlOpenPrint('Patient Service Date History', 'Patient RX - ' + tlPatientLabel(), tlServiceHistoryPrintBlock(_serviceDateHistoryRows));
+        return;
+    }
+    tlPrintRxGroups('Patient Service Date History', groups, null, true);
+}
+
+function exportFullServiceDateHistory() {
+    if (!_serviceDateHistoryRows.length) {
+        if (typeof showToast === 'function') showToast('No service date history to export.', 'warning');
+        return;
+    }
+    var headers = ['Source', 'Previous Service Date', 'New Service Date', 'Changed By', 'Changed At', 'Reason', 'Related RX Count'];
+    var rows = _serviceDateHistoryRows.map(function(row) {
+        var related = row.relatedRxRecords || {};
+        return [
+            row.changeSource || '',
+            row.previousServiceDate || '',
+            row.newServiceDate || '',
+            serviceDateHistoryActor(row),
+            serviceDateHistoryTimestamp(row),
+            row.reason || '',
+            related.totalRxCount || 0
+        ];
+    });
+    exportToCsv('patient-service-date-history-' + tlFilePart(tlPatientLabel()) + '.csv', headers, rows);
+}
+
+function printPatientTimeline() {
+    var records = _timelineData && Array.isArray(_timelineData.rxRecords) ? _timelineData.rxRecords : [];
+    tlPrintRxGroups('Patient Timeline', [{ label: 'RX Record History', records: records }], null, true);
+}
+
+function exportPatientTimelineCsv() {
+    if (!_timelineData) return;
+    var headers = ['Section', 'Item', 'RX ID', 'Service Date', 'Arrival Date', 'Pharmacy', 'Workflow', 'Status', 'Source', 'Changed By', 'Changed At', 'Reason'];
+    var rows = [];
+    _serviceDateHistoryRows.forEach(function(row) {
+        var related = row.relatedRxRecords || {};
+        rows.push([
+            'Service Date History',
+            formatDate(row.previousServiceDate) + ' -> ' + formatDate(row.newServiceDate),
+            '',
+            row.newServiceDate || '',
+            '',
+            '',
+            related.totalRxCount ? related.totalRxCount + ' related RX' : '0 related RX',
+            '',
+            row.changeSource || '',
+            serviceDateHistoryActor(row),
+            serviceDateHistoryTimestamp(row),
+            row.reason || ''
+        ]);
+    });
+    (_timelineData.rxRecords || []).forEach(function(rx) {
+        var status = tlRxStatus(rx);
+        rows.push([
+            'RX Record History',
+            'RX #' + rx.id,
+            rx.id,
+            rx.serviceDate || '',
+            rx.arrivalDate || '',
+            tlRxPharmacy(rx),
+            status.done + '/' + status.total + ' (' + status.pct + '%)',
+            status.label,
+            '',
+            '',
+            '',
+            tlRxMedicationText(rx)
+        ]);
+    });
+    exportToCsv('patient-timeline-' + tlFilePart(tlPatientLabel()) + '.csv', headers, rows);
+}
+
+function renderServiceDateHistory(history) {
+    history = Array.isArray(history) ? history : [];
+    _serviceDateHistoryRows = history;
+    const wrap = document.getElementById('tlServiceDateHistory');
+    const list = document.getElementById('tlServiceDateHistoryList');
+    const count = document.getElementById('tlServiceDateHistoryCount');
+    if (!wrap || !list) return;
+
+    wrap.style.display = '';
+    if (count) count.textContent = history.length + ' entr' + (history.length === 1 ? 'y' : 'ies');
+
+    if (!history.length) {
+        list.innerHTML =
+            '<div class="text-muted small py-2">' +
+                '<i class="fas fa-info-circle me-1"></i>No patient service date history recorded yet.' +
+            '</div>';
+        return;
+    }
+
+    var html = '';
+    history.forEach(function(row, index) {
+        var source = tlEscapeHtml(row.changeSource || 'Patient Update');
+        var reason = tlEscapeHtml(row.reason || '');
+        var actor = tlEscapeHtml(serviceDateHistoryActor(row));
+        var when = tlEscapeHtml(serviceDateHistoryTimestamp(row));
+        var relatedRx = renderServiceDateRelatedRx(row);
+        var related = row.relatedRxRecords || {};
+        var actions = related.totalRxCount
+            ? '<div class="mt-2">' +
+                '<div class="text-muted text-uppercase fw-bold mb-1" style="font-size:.62rem;letter-spacing:.06em">Related RX</div>' +
+                '<div class="d-flex gap-1 flex-wrap">' +
+                    '<button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2" data-svc-history-print="' + index + '" title="Print related RX for this service date"><i class="fas fa-print me-1"></i>Print RX</button>' +
+                    '<button type="button" class="btn btn-sm btn-outline-success py-0 px-2" data-svc-history-export="' + index + '" title="Export related RX CSV for this service date"><i class="fas fa-file-csv me-1"></i>CSV RX</button>' +
+                '</div>' +
+            '</div>'
+            : '';
+        html +=
+            '<div class="svc-history-row">' +
+                '<div>' +
+                    '<span class="badge bg-secondary">' + source + '</span>' +
+                    '<div class="text-muted mt-1" style="font-size:.75rem">' + when + '</div>' +
+                '</div>' +
+                '<div>' +
+                    '<div class="svc-history-change">' + serviceDateHistoryChange(row) + '</div>' +
+                    (reason ? '<div class="text-muted mt-1 small"><i class="fas fa-comment-alt me-1"></i>' + reason + '</div>' : '') +
+                    relatedRx +
+                '</div>' +
+                '<div class="text-muted small">' +
+                    '<div class="d-flex align-items-center gap-1 flex-wrap"><i class="fas fa-user me-1"></i><span>Changed by ' + actor + '</span></div>' +
+                    actions +
+                '</div>' +
+            '</div>';
+    });
+    list.innerHTML = html;
+}
 
 document.addEventListener('DOMContentLoaded', async () => {
     initApp();
@@ -322,6 +818,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (rxBtn) rxBtn.href = '/rx-records?patient=' + _ptId;
     if (addFirstRxBtn) addFirstRxBtn.href = '/rx-records?patient=' + _ptId;
     document.getElementById('backToPatients').href = '/patients';
+    var printTimelineBtn = document.getElementById('printTimelineBtn');
+    var exportTimelineBtn = document.getElementById('exportTimelineCsvBtn');
+    var printSvcHistoryBtn = document.getElementById('printServiceHistoryBtn');
+    var exportSvcHistoryBtn = document.getElementById('exportServiceHistoryBtn');
+    if (printTimelineBtn) printTimelineBtn.addEventListener('click', printPatientTimeline);
+    if (exportTimelineBtn) exportTimelineBtn.addEventListener('click', exportPatientTimelineCsv);
+    if (printSvcHistoryBtn) printSvcHistoryBtn.addEventListener('click', printFullServiceDateHistory);
+    if (exportSvcHistoryBtn) exportSvcHistoryBtn.addEventListener('click', exportFullServiceDateHistory);
 
     try {
         const res = await fetchWithAuth(window.rxUrl('/api/patients/') + _ptId + '/timeline');
@@ -344,8 +848,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 });
 
-function renderTimeline({ patient, rxRecords, workflowActions }) {
+function renderTimeline({ patient, rxRecords, workflowActions, serviceDateHistory }) {
     document.getElementById('tlLoading').style.display = 'none';
+    rxRecords = Array.isArray(rxRecords) ? rxRecords : [];
+    workflowActions = Array.isArray(workflowActions) ? workflowActions : [];
+    const serviceHistory = Array.isArray(serviceDateHistory) ? serviceDateHistory : [];
+    _timelineData = { patient: patient || {}, rxRecords: rxRecords, workflowActions: workflowActions, serviceDateHistory: serviceHistory };
 
     // ── Hero card ──────────────────────────────────────────────────────────
     document.getElementById('tlPatientName').textContent =
@@ -379,8 +887,10 @@ function renderTimeline({ patient, rxRecords, workflowActions }) {
         '<div class="tl-stat-pill"><div class="num">' + total + '</div><div class="lbl">Total RX</div></div>' +
         '<div class="tl-stat-pill"><div class="num" style="color:#a8d5b5">' + completed + '</div><div class="lbl">Complete</div></div>' +
         '<div class="tl-stat-pill"><div class="num" style="color:#ffc878">' + inProg + '</div><div class="lbl">In Progress</div></div>' +
-        '<div class="tl-stat-pill"><div class="num" style="color:#b0b8c8">' + notStart + '</div><div class="lbl">Not Started</div></div>';
+        '<div class="tl-stat-pill"><div class="num" style="color:#b0b8c8">' + notStart + '</div><div class="lbl">Not Started</div></div>' +
+        '<div class="tl-stat-pill"><div class="num" style="color:#ffd38a">' + serviceHistory.length + '</div><div class="lbl">Svc Dates</div></div>';
     document.getElementById('tlHero').style.display = '';
+    renderServiceDateHistory(serviceHistory);
 
     if (!rxRecords.length) {
         document.getElementById('tlEmpty').style.display = '';
@@ -639,6 +1149,18 @@ function formatDate(d) {
 
     // Event delegation for patient-timeline
     document.addEventListener('click', function(e) {
+        var printSvc = e.target.closest('[data-svc-history-print]');
+        if (printSvc) {
+            e.preventDefault();
+            printServiceHistoryEntry(parseInt(printSvc.dataset.svcHistoryPrint, 10));
+            return;
+        }
+        var exportSvc = e.target.closest('[data-svc-history-export]');
+        if (exportSvc) {
+            e.preventDefault();
+            exportServiceHistoryEntry(parseInt(exportSvc.dataset.svcHistoryExport, 10));
+            return;
+        }
         var el = e.target.closest('[data-tl-toggle]');
         if (el) toggleTlCard(el.dataset.tlToggle, el);
     });

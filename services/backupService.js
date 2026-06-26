@@ -4,21 +4,18 @@ const cron      = require('node-cron');
 const { spawn, spawnSync } = require('child_process');
 const path      = require('path');
 const fs        = require('fs');
+const { getAppRoot, getWritableRoot } = require('../utils/runtimePaths');
 
 // ── Writable root ─────────────────────────────────────────────────────────────
-// When running as a pkg .exe, __dirname points inside the read-only snapshot.
-// path.dirname(process.execPath) gives the real folder containing server.exe.
-// In dev (plain node), process.execPath is the node binary so we fall back to __dirname/../.
-const IS_PKG        = typeof process.pkg !== 'undefined';
-const WRITABLE_ROOT = IS_PKG
-    ? path.dirname(process.execPath)           // dir containing server.exe  e.g. C:\RX-Tracker\RX-APP
-    : path.join(__dirname, '..');              // dev: project root
+// Defaults to the app/exe folder. Staging/test copies can set APP_WRITABLE_ROOT
+// so backups, settings, logs, and local uploads never mix with production data.
+const WRITABLE_ROOT = getWritableRoot();
 
 // ── Config ────────────────────────────────────────────────────────────────────
 const DEFAULT_BACKUP_DIR = path.join(WRITABLE_ROOT, 'backups');
 const MAX_BACKUPS        = parseInt(process.env.BACKUP_RETAIN || '10');
 const SETTINGS_PATH      = path.join(WRITABLE_ROOT, 'data', 'settings.json');
-const PROJECT_ROOT       = IS_PKG ? path.dirname(process.execPath) : path.join(__dirname, '..');
+const PROJECT_ROOT       = getAppRoot();
 
 // readSettings is used here before its definition below — forward-declare it
 // so getDbBackupDir() is available to log helpers without a circular reference.

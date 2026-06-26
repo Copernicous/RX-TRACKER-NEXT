@@ -32,6 +32,7 @@ const modelFiles = [
   require('./patient.js'),
   require('./patientlock.js'),
   require('./patientnote.js'),
+  require('./patientservicedatehistory.js'),
   require('./patienttransportcompany.js'),
   require('./pharmacy.js'),
   require('./pharmacytransportcompany.js'),

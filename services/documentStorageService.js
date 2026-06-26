@@ -4,10 +4,10 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { Readable } = require('stream');
+const { getWritableRoot, resolveMaybeWritable } = require('../utils/runtimePaths');
 
-const IS_PKG = typeof process.pkg !== 'undefined';
-const APP_ROOT = IS_PKG ? path.dirname(process.execPath) : path.join(__dirname, '..');
-const DEFAULT_LOCAL_DIR = path.join(APP_ROOT, 'uploads', 'documents');
+const WRITABLE_ROOT = getWritableRoot();
+const DEFAULT_LOCAL_DIR = path.join(WRITABLE_ROOT, 'uploads', 'documents');
 const DRIVE_API_BASE = 'https://www.googleapis.com/drive/v3';
 const DRIVE_UPLOAD_BASE = 'https://www.googleapis.com/upload/drive/v3';
 
@@ -240,9 +240,7 @@ async function uploadToDrive(file, ownerType, ownerId, owner) {
 function getLocalBaseDir() {
     const configured = process.env.DOCUMENT_STORAGE_LOCAL_DIR;
     if (!configured) return DEFAULT_LOCAL_DIR;
-    return path.isAbsolute(configured)
-        ? configured
-        : path.resolve(APP_ROOT, configured);
+    return resolveMaybeWritable(configured);
 }
 
 async function uploadToLocal(file, ownerType, ownerId) {

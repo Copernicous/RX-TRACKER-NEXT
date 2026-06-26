@@ -66,9 +66,9 @@ var _errStream = null;    // Error log stream
     if (process.env.LOG_FILE !== 'true') return;
     var fs   = require('fs');
     var path2 = require('path');
-    var IS_PKG = typeof process.pkg !== 'undefined';
-    // Resolve log directory: next to server.exe when compiled, or project root in dev
-    var baseDir = IS_PKG ? path2.dirname(process.execPath) : __dirname;
+    var runtimePaths = require('./utils/runtimePaths');
+    // Resolve log directory: next to server.exe by default, or APP_WRITABLE_ROOT for staging/test copies.
+    var baseDir = runtimePaths.getWritableRoot();
     var logDir  = path2.join(baseDir, 'logs');
     if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
     // Delete log files older than LOG_RETENTION_DAYS (default 7)
@@ -258,10 +258,26 @@ app.set('views', path.join(__dirname, 'views'));
 // Disable EJS view cache even in production
 app.set('view cache', false);
 
-// Expose build/version info to all EJS templates
+function getAppEnvironment() {
+    return String(process.env.APP_ENV || process.env.APP_INSTANCE || process.env.NODE_ENV || '').trim();
+}
+
+function isStagingEnvironment() {
+    const markers = [
+        process.env.APP_ENV,
+        process.env.APP_INSTANCE,
+        process.env.DB_NAME,
+        process.env.APP_WRITABLE_ROOT
+    ].filter(Boolean).join(' ');
+    return /\bstaging\b|\bstage\b/i.test(markers);
+}
+
+// Expose build/version/environment info to all EJS templates
 app.use(function(req, res, next) {
     res.locals.appBuild = APP_BUILD;
     res.locals.appVersion = packageInfo.version;
+    res.locals.appEnvironment = getAppEnvironment();
+    res.locals.isStaging = isStagingEnvironment();
     next();
 });
 
@@ -555,6 +571,46 @@ const startServer = async () => {
     }
 
     await db.sequelize.sync();
+
+    // Ensure patient service-date history exists on environments that do not run
+    // sequelize-cli migrations manually.
+    try {
+        await db.sequelize.query(`
+            CREATE TABLE IF NOT EXISTS "PatientServiceDateHistories" (
+                "id" SERIAL PRIMARY KEY,
+                "patientId" INTEGER NOT NULL,
+                "previousServiceDate" DATE,
+                "newServiceDate" DATE,
+                "changedByUserId" INTEGER,
+                "changeSource" VARCHAR(60) NOT NULL DEFAULT 'Patient Update',
+                "reason" TEXT,
+                "metadata" JSON,
+                "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+                "updatedAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+            );
+        `);
+        await db.sequelize.query('CREATE INDEX IF NOT EXISTS "idx_patient_service_date_histories_patient" ON "PatientServiceDateHistories" ("patientId");');
+        await db.sequelize.query('CREATE INDEX IF NOT EXISTS "idx_patient_service_date_histories_patient_created" ON "PatientServiceDateHistories" ("patientId", "createdAt");');
+        await db.sequelize.query('CREATE INDEX IF NOT EXISTS "idx_patient_service_date_histories_new_date" ON "PatientServiceDateHistories" ("newServiceDate");');
+        await db.sequelize.query(`
+            INSERT INTO "PatientServiceDateHistories"
+                ("patientId", "previousServiceDate", "newServiceDate", "changedByUserId", "changeSource", "reason", "createdAt", "updatedAt")
+            SELECT
+                p."id", NULL, p."serviceDate", NULL, 'System Backfill',
+                'Existing patient service date captured when history tracking was enabled.',
+                NOW(), NOW()
+            FROM "Patients" p
+            WHERE p."serviceDate" IS NOT NULL
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM "PatientServiceDateHistories" h
+                  WHERE h."patientId" = p."id"
+              );
+        `);
+        console.log('Database verified: PatientServiceDateHistories table ready.');
+    } catch (e) {
+        console.warn('Startup migration warning (PatientServiceDateHistories, non-fatal):', e.message);
+    }
 
     // -- Auto-seed Roles + default admin on a brand-new database --------------
     try {
