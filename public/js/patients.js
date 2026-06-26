@@ -455,6 +455,26 @@ var allPatients = [];
         document.getElementById('confirmDeleteBtn').addEventListener('click', deletePatient);
         document.getElementById('deleteConfirmInput').addEventListener('input', checkDeleteConfirmation);
 
+        var rxHistPrintAllBtn = document.getElementById('rxHistoryPrintAllBtn');
+        var rxHistExportAllBtn = document.getElementById('rxHistoryExportAllBtn');
+        if (rxHistPrintAllBtn) rxHistPrintAllBtn.addEventListener('click', printRxHistoryAll);
+        if (rxHistExportAllBtn) rxHistExportAllBtn.addEventListener('click', exportRxHistoryAll);
+
+        document.addEventListener('click', function(e) {
+            var printBtn = e.target.closest('[data-rxhist-print]');
+            if (printBtn) {
+                e.preventDefault();
+                printRxHistoryCycle(parseInt(printBtn.dataset.rxhistPrint, 10));
+                return;
+            }
+
+            var exportBtn = e.target.closest('[data-rxhist-export]');
+            if (exportBtn) {
+                e.preventDefault();
+                exportRxHistoryCycle(parseInt(exportBtn.dataset.rxhistExport, 10));
+            }
+        });
+
         // ── Export with Column Selector ─────────────────────────────────────────
         const EXPORT_COLS = [
             { key: 'patientCode',  label: 'Patient ID',        fn: p => p.patientCode || p.id },
@@ -1157,6 +1177,160 @@ var allPatients = [];
 
     // ── RX History Modal — Previous Service Dates ─────────────────────────────
     var _rxHistoryModal = null;
+    var _rxHistoryContext = null;
+
+    function rxHistoryAssetUrl(path) {
+        return typeof window.rxUrl === 'function' ? window.rxUrl(path) : path;
+    }
+
+    function rxHistoryFilePart(value) {
+        return String(value || 'patient')
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '')
+            .slice(0, 60) || 'patient';
+    }
+
+    function rxHistoryFindRx(rxId) {
+        var rows = _rxHistoryContext && Array.isArray(_rxHistoryContext.rxRecords) ? _rxHistoryContext.rxRecords : [];
+        rxId = Number(rxId);
+        for (var i = 0; i < rows.length; i++) {
+            if (Number(rows[i].id) === rxId) return rows[i];
+        }
+        return null;
+    }
+
+    function rxHistoryWorkflowStatus(rx) {
+        var actions = _rxHistoryContext && Array.isArray(_rxHistoryContext.workflowActions) ? _rxHistoryContext.workflowActions : [];
+        var done = rx && Array.isArray(rx.RXWorkflowTrackings) ? rx.RXWorkflowTrackings.length : 0;
+        var total = actions.length;
+        var pct = total > 0 ? Math.round((done / total) * 100) : 0;
+        var label = total > 0 && done >= total ? 'Complete' : done > 0 ? 'In Progress' : 'Not Started';
+        return { done: done, total: total, pct: pct, label: label };
+    }
+
+    function rxHistoryMedicationText(rx) {
+        var meds = rx && Array.isArray(rx.Medications) ? rx.Medications : [];
+        if (!meds.length) return 'None recorded';
+        return meds.map(function(m) { return m.name || 'Medication'; }).join(', ');
+    }
+
+    function rxHistoryWorkflowTable(rx) {
+        var actions = _rxHistoryContext && Array.isArray(_rxHistoryContext.workflowActions) ? _rxHistoryContext.workflowActions : [];
+        var trackings = {};
+        (rx.RXWorkflowTrackings || []).forEach(function(t) { trackings[t.workflowActionId] = t; });
+        if (!actions.length) {
+            var status = rxHistoryWorkflowStatus(rx);
+            return '<div style="color:#667085;font-size:.85rem">Workflow steps recorded: ' + patientEscapeHtml(status.done) + '</div>';
+        }
+        var rows = actions.map(function(action, index) {
+            var tracking = trackings[action.id];
+            var done = !!tracking;
+            var date = done && tracking.completionDate ? window.fmtDate(tracking.completionDate) : 'Pending';
+            var by = done && tracking.User ? (' by ' + ((tracking.User.firstName || '') + ' ' + (tracking.User.lastName || '')).trim()) : '';
+            return '<tr>' +
+                '<td style="padding:6px 8px;border-bottom:1px solid #e5e7eb">' + (index + 1) + '. ' + patientEscapeHtml(action.name || 'Step') + '</td>' +
+                '<td style="padding:6px 8px;border-bottom:1px solid #e5e7eb">' + patientEscapeHtml(date) + patientEscapeHtml(by) + '</td>' +
+                '<td style="padding:6px 8px;border-bottom:1px solid #e5e7eb;color:' + (done ? '#198754' : '#667085') + ';font-weight:700">' + (done ? 'Done' : 'Pending') + '</td>' +
+            '</tr>';
+        }).join('');
+        return '<table style="width:100%;border-collapse:collapse;font-size:.84rem;margin-top:8px">' +
+            '<thead><tr style="background:#1a2234;color:#fff"><th style="padding:7px 8px;text-align:left">Step</th><th style="padding:7px 8px;text-align:left">Date / User</th><th style="padding:7px 8px;text-align:left">Status</th></tr></thead>' +
+            '<tbody>' + rows + '</tbody></table>';
+    }
+
+    function rxHistoryPrintCard(rx) {
+        var status = rxHistoryWorkflowStatus(rx);
+        var statusColor = status.label === 'Complete' ? '#198754' : status.done > 0 ? '#fd7e14' : '#6c757d';
+        var svcDate = rx.serviceDate || '';
+        var expDate = svcDate ? new Date(new Date(svcDate).getTime() + 90 * 864e5) : null;
+        var pharmacy = rx.Pharmacy ? rx.Pharmacy.name : 'None';
+        return '<div style="border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;margin:14px 0;background:#fff">' +
+            '<div style="background:#1a2234;color:#fff;padding:10px 14px;display:flex;justify-content:space-between;gap:10px;align-items:center">' +
+                '<div><strong>RX #' + patientEscapeHtml(rx.id) + '</strong></div>' +
+                '<span style="background:' + statusColor + ';color:#fff;padding:3px 10px;border-radius:12px;font-size:.76rem;font-weight:700">' + patientEscapeHtml(status.label) + '</span>' +
+            '</div>' +
+            '<div style="padding:12px 14px">' +
+                '<div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;font-size:.86rem">' +
+                    '<div><div style="color:#667085;font-size:.68rem;text-transform:uppercase;font-weight:700">Service Date</div><strong>' + patientEscapeHtml(svcDate ? window.fmtDate(svcDate) : 'None') + '</strong></div>' +
+                    '<div><div style="color:#667085;font-size:.68rem;text-transform:uppercase;font-weight:700">Next Available</div><strong>' + patientEscapeHtml(expDate ? expDate.toLocaleDateString() : 'None') + '</strong></div>' +
+                    '<div><div style="color:#667085;font-size:.68rem;text-transform:uppercase;font-weight:700">Pharmacy</div><strong>' + patientEscapeHtml(pharmacy) + '</strong></div>' +
+                    '<div><div style="color:#667085;font-size:.68rem;text-transform:uppercase;font-weight:700">Workflow</div><strong>' + status.done + '/' + status.total + ' (' + status.pct + '%)</strong></div>' +
+                '</div>' +
+                '<div style="margin-top:10px;font-size:.84rem"><span style="color:#667085;font-weight:700">Medications:</span> ' + patientEscapeHtml(rxHistoryMedicationText(rx)) + '</div>' +
+                rxHistoryWorkflowTable(rx) +
+            '</div>' +
+        '</div>';
+    }
+
+    function rxHistoryOpenPrint(title, records) {
+        if (!records.length) {
+            if (typeof showToast === 'function') showToast('No RX history to print.', 'warning');
+            return;
+        }
+        var patientName = (_rxHistoryContext && _rxHistoryContext.patientName) || 'Patient';
+        var cssUrl = rxHistoryAssetUrl('/assets/inter.css').replace(/"/g, '%22');
+        var cards = records.map(rxHistoryPrintCard).join('');
+        var win = window.open('', '_blank', 'width=980,height=760');
+        if (!win) {
+            if (typeof showToast === 'function') showToast('Popup blocked. Allow popups to print.', 'warning');
+            return;
+        }
+        win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8">' +
+            '<title>' + patientEscapeHtml(title) + '</title>' +
+            '<style>@import url("' + cssUrl + '");*{box-sizing:border-box}body{font-family:Inter,Arial,sans-serif;color:#1a2234;background:#f4f6f8;padding:28px}.sheet{max-width:960px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 8px 30px rgba(0,0,0,.08)}.head{background:linear-gradient(135deg,#1a2234,#2c3e6b);color:#fff;padding:20px 26px}.content{padding:22px 26px}@media print{@page{margin:15mm;size:A4 portrait}body{background:#fff;padding:0}.sheet{box-shadow:none;border-radius:0}.head{-webkit-print-color-adjust:exact;print-color-adjust:exact}}</style>' +
+            '</head><body><div class="sheet"><div class="head"><h2 style="margin:0">' + patientEscapeHtml(title) + '</h2><div style="opacity:.8;margin-top:4px">' + patientEscapeHtml(patientName) + ' - Generated ' + patientEscapeHtml(new Date().toLocaleString()) + '</div></div><div class="content">' + cards + '</div></div>' +
+            '<script>window.onload=function(){setTimeout(function(){window.print();},100);};<\/script></body></html>');
+        win.document.close();
+        win.focus();
+    }
+
+    function rxHistoryExportRecords(filename, records) {
+        if (!records.length) {
+            if (typeof showToast === 'function') showToast('No RX history to export.', 'warning');
+            return;
+        }
+        var headers = ['RX ID', 'Service Date', 'Next Available', 'Arrival Date', 'Pharmacy', 'Workflow', 'Status', 'Medications'];
+        var rows = records.map(function(rx) {
+            var status = rxHistoryWorkflowStatus(rx);
+            var expDate = rx.serviceDate ? new Date(new Date(rx.serviceDate).getTime() + 90 * 864e5) : null;
+            return [
+                rx.id,
+                rx.serviceDate || '',
+                expDate ? expDate.toISOString().slice(0, 10) : '',
+                rx.arrivalDate || '',
+                rx.Pharmacy ? rx.Pharmacy.name : '',
+                status.done + '/' + status.total + ' (' + status.pct + '%)',
+                status.label,
+                rxHistoryMedicationText(rx)
+            ];
+        });
+        exportToCsv(filename, headers, rows);
+    }
+
+    function printRxHistoryCycle(rxId) {
+        var rx = rxHistoryFindRx(rxId);
+        if (!rx) return;
+        rxHistoryOpenPrint('RX Service Date History - RX #' + rx.id, [rx]);
+    }
+
+    function exportRxHistoryCycle(rxId) {
+        var rx = rxHistoryFindRx(rxId);
+        if (!rx) return;
+        var patientName = rxHistoryFilePart((_rxHistoryContext && _rxHistoryContext.patientName) || 'patient');
+        rxHistoryExportRecords('rx-service-history-' + patientName + '-rx-' + rx.id + '.csv', [rx]);
+    }
+
+    function printRxHistoryAll() {
+        var records = _rxHistoryContext && Array.isArray(_rxHistoryContext.rxRecords) ? _rxHistoryContext.rxRecords : [];
+        rxHistoryOpenPrint('RX Previous Service Dates', records);
+    }
+
+    function exportRxHistoryAll() {
+        var records = _rxHistoryContext && Array.isArray(_rxHistoryContext.rxRecords) ? _rxHistoryContext.rxRecords : [];
+        var patientName = rxHistoryFilePart((_rxHistoryContext && _rxHistoryContext.patientName) || 'patient');
+        rxHistoryExportRecords('rx-service-history-' + patientName + '.csv', records);
+    }
 
     async function openRxHistory(patientId, patientName) {
         var nameEl  = document.getElementById('rxHistoryPatientName');
@@ -1180,6 +1354,12 @@ var allPatients = [];
                 var da = a.serviceDate || '', db = b.serviceDate || '';
                 return da < db ? 1 : da > db ? -1 : 0;
             });
+            _rxHistoryContext = {
+                patientId: patientId,
+                patientName: patientName || ('Patient #' + patientId),
+                workflowActions: allWA,
+                rxRecords: patRx
+            };
 
             if (countEl) countEl.textContent = patRx.length + ' RX cycle' + (patRx.length !== 1 ? 's' : '') + ' found';
 
@@ -1216,7 +1396,11 @@ var allPatients = [];
                 html += '<span style="font-weight:700"><i class="fas fa-prescription-bottle-alt me-2 text-primary"></i>RX #' + rx.id;
                 if (isNewest) html += ' <span style="background:#4a90e2;color:#fff;font-size:.65rem;padding:2px 8px;border-radius:10px;margin-left:6px">Current</span>';
                 html += '</span>';
+                html += '<div class="d-flex align-items-center gap-2 flex-wrap">';
                 html += '<span style="background:' + cycleBg + ';color:#fff;font-size:.72rem;padding:2px 10px;border-radius:12px;font-weight:600">' + cycleLabel + '</span>';
+                html += '<button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2" data-rxhist-print="' + rx.id + '" title="Print this service date cycle"><i class="fas fa-print"></i></button>';
+                html += '<button type="button" class="btn btn-sm btn-outline-success py-0 px-2" data-rxhist-export="' + rx.id + '" title="Export this service date cycle CSV"><i class="fas fa-file-csv"></i></button>';
+                html += '</div>';
                 html += '</div>';
 
                 // Info grid
