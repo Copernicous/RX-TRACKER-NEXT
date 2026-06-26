@@ -2,6 +2,11 @@ const db = require('../models');
 const { parseDate } = require('../utils/dateUtils');
 const { isServiceDateOverrideEnabled } = require('../utils/globalSettings');
 const { userCanOverrideExpired, getRequestPermission } = require('../middleware/rbac');
+const {
+    dateOnly,
+    ensureCycleForRx,
+    serviceDateMatches
+} = require('../services/patientServiceDateCycleService');
 
 // ---- helper: save a history snapshot ----
 async function saveHistory(rxId, userId, changeType, snapshot, changedFields, note, transaction) {
@@ -29,11 +34,51 @@ function diffObjects(before, after, fields) {
     return changes;
 }
 
-const TRACK_FIELDS = ['patientId','pharmacyId','patientTransportCompanyId',
+const TRACK_FIELDS = ['patientId','patientServiceDateCycleId','pharmacyId','patientTransportCompanyId',
                       'pharmacyTransportCompanyId','arrivalDate','serviceDate'];
 
 function getRxCycleServiceDate(rx) {
-    return rx && (rx.serviceDate || (rx.Patient && rx.Patient.serviceDate) || null);
+    return rx && (
+        (rx.PatientServiceDateCycle && rx.PatientServiceDateCycle.serviceDate) ||
+        rx.serviceDate ||
+        (rx.Patient && rx.Patient.serviceDate) ||
+        null
+    );
+}
+
+function getWorkflowWindowBlock(rx) {
+    const serviceDate = dateOnly(getRxCycleServiceDate(rx));
+    if (!serviceDate) {
+        return {
+            error: 'This RX has no Service Date. Set the patient Service Date and create a new RX record before adding workflow steps.',
+            code: 'RX_SERVICE_DATE_REQUIRED'
+        };
+    }
+
+    const svcDay = new Date(serviceDate);
+    if (isNaN(svcDay.getTime())) {
+        return {
+            error: 'This RX has an invalid Service Date. Correct the service date before adding workflow steps.',
+            code: 'RX_SERVICE_DATE_INVALID'
+        };
+    }
+
+    svcDay.setHours(0, 0, 0, 0);
+    const expiryDay = new Date(svcDay);
+    expiryDay.setDate(expiryDay.getDate() + 90);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    if (today > expiryDay) {
+        return {
+            error: `The 90-day window for this RX expired on ${expiryDay.toLocaleDateString()}. Start a new patient Service Date and create a new RX record for the new cycle.`,
+            code: 'RX_WORKFLOW_WINDOW_EXPIRED',
+            serviceDate,
+            windowExpiry: expiryDay.toISOString().slice(0, 10)
+        };
+    }
+
+    return null;
 }
 
 // GET /api/rx-records
@@ -46,6 +91,7 @@ exports.getAll = async (req, res) => {
             where,
             include: [
                 { model: db.Patient },
+                { model: db.PatientServiceDateCycle },
                 { model: db.Pharmacy },
                 { model: db.PatientTransportCompany },
                 { model: db.PharmacyTransportCompany },
@@ -68,7 +114,7 @@ exports.getAll = async (req, res) => {
 exports.getOne = async (req, res) => {
     try {
         const data = await db.RXRecord.findByPk(req.params.id, {
-            include: [db.Patient, db.Pharmacy, db.Medication, db.RXWorkflowTracking]
+            include: [db.Patient, db.PatientServiceDateCycle, db.Pharmacy, db.Medication, db.RXWorkflowTracking]
         });
         if (!data) return res.status(404).json({ message: 'Not found' });
         res.json(data);
@@ -88,19 +134,19 @@ exports.create = async (req, res) => {
         rxData.arrivalDate = arrivalDate;
         rxData.serviceDate = serviceDate;
 
-        const sDate = arrivalDate ? new Date(arrivalDate) : null;
-        const aDate = serviceDate ? new Date(serviceDate) : null;
+        const arrivalDay = arrivalDate ? new Date(arrivalDate) : null;
+        const serviceDay = serviceDate ? new Date(serviceDate) : null;
 
         // LOGIC-01 FIX: Reject NaN/invalid dates before comparison
-        if (!arrivalDate || !serviceDate || !sDate || !aDate || isNaN(sDate.getTime()) || isNaN(aDate.getTime())) {
+        if (!arrivalDate || !serviceDate || !arrivalDay || !serviceDay || isNaN(arrivalDay.getTime()) || isNaN(serviceDay.getTime())) {
             await transaction.rollback();
             return res.status(400).json({ error: 'Arrival date and Service Date are required and must be valid dates (MM/DD/YYYY).' });
         }
 
-        const limitDate = new Date(sDate);
+        const limitDate = new Date(serviceDay);
         limitDate.setDate(limitDate.getDate() - 90);
 
-        if (aDate > sDate || aDate < limitDate) {
+        if (arrivalDay > serviceDay || arrivalDay < limitDate) {
             await transaction.rollback();
             return res.status(400).json({ error: 'Arrival date must be within 90 days prior to Service Date.' });
         }
@@ -127,6 +173,75 @@ exports.create = async (req, res) => {
 
         }
         // ── END ELIGIBILITY CHECK ─────────────────────────────────────────────────
+
+        // New RX records belong to the patient's active service-date cycle.
+        // Older service dates stay available for review/history, not normal creation.
+        if (rxData.patientId) {
+            const patient = await db.Patient.findByPk(rxData.patientId, { transaction });
+            if (!patient) {
+                await transaction.rollback();
+                return res.status(400).json({ error: 'Patient not found.', code: 'PATIENT_NOT_FOUND' });
+            }
+
+            if (patient.isActive === false) {
+                await transaction.rollback();
+                return res.status(400).json({
+                    error: `Cannot create an RX record for an inactive patient (${patient.firstName} ${patient.lastName}). Re-activate the patient first before adding new services.`,
+                    code: 'PATIENT_INACTIVE'
+                });
+            }
+
+            const rxPerm = await getRequestPermission(req, 'rx_records');
+            const canOverrideExpired = isServiceDateOverrideEnabled() || !!(rxPerm.visible && rxPerm.canOverrideExpired);
+            const bypassRequested = req.body.bypassEligibility === true || req.body.bypassEligibility === 'true';
+            const bypassAllowed = bypassRequested && canOverrideExpired;
+            const activeServiceDate = dateOnly(patient.serviceDate);
+
+            if (!activeServiceDate && !bypassAllowed) {
+                await transaction.rollback();
+                return res.status(400).json({
+                    error: 'This patient has no active Service Date. Set the patient Service Date before creating an RX record.',
+                    code: 'PATIENT_SERVICE_DATE_REQUIRED'
+                });
+            }
+
+            if (!bypassAllowed && !serviceDateMatches(serviceDate, activeServiceDate)) {
+                await transaction.rollback();
+                return res.status(400).json({
+                    error: 'New RX records must use the patient active Service Date. Older service dates are available for review only.',
+                    code: 'RX_SERVICE_DATE_NOT_ACTIVE'
+                });
+            }
+
+            const cycleDate = bypassAllowed ? serviceDate : activeServiceDate;
+            const cycleStart = new Date(cycleDate);
+            cycleStart.setHours(0, 0, 0, 0);
+            const cycleExpiry = new Date(cycleStart);
+            cycleExpiry.setDate(cycleExpiry.getDate() + 90);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            if (!bypassAllowed && today > cycleExpiry) {
+                await transaction.rollback();
+                return res.status(400).json({
+                    error: `The active Service Date expired on ${cycleExpiry.toLocaleDateString()}. Start a new patient Service Date before creating a new RX record.`,
+                    code: 'PATIENT_SERVICE_DATE_EXPIRED',
+                    serviceDate: activeServiceDate,
+                    windowExpiry: cycleExpiry.toISOString().slice(0, 10)
+                });
+            }
+
+            serviceDate = cycleDate;
+            arrivalDate = serviceDate;
+            rxData.serviceDate = serviceDate;
+            rxData.arrivalDate = arrivalDate;
+            const cycle = await ensureCycleForRx(patient, serviceDate, {
+                transaction,
+                userId: req.user?.id || null,
+                source: 'RX Create'
+            });
+            if (cycle) rxData.patientServiceDateCycleId = cycle.id;
+        }
 
         const rx = await db.RXRecord.create({ ...rxData, arrivalDate, serviceDate }, { transaction });
 
@@ -165,8 +280,11 @@ exports.create = async (req, res) => {
 exports.updateWorkflow = async (req, res) => {
     try {
         const { rxId, actionId } = req.body;
-        const rx = await db.RXRecord.findByPk(rxId);
+        const rx = await db.RXRecord.findByPk(rxId, { include: [db.PatientServiceDateCycle, db.Patient] });
         if (!rx) return res.status(404).json({ error: 'RX not found' });
+
+        const windowBlock = getWorkflowWindowBlock(rx);
+        if (windowBlock) return res.status(400).json(windowBlock);
 
         const action = await db.WorkflowAction.findByPk(actionId);
         if (!action) return res.status(404).json({ error: 'Action not found' });
@@ -247,7 +365,7 @@ exports.bulkWorkflow = async (req, res) => {
             }
 
             try {
-                var rx = await db.RXRecord.findByPk(rxId);
+                var rx = await db.RXRecord.findByPk(rxId, { include: [db.PatientServiceDateCycle, db.Patient] });
                 if (!rx) {
                     results.push({ rxId: rxId, ok: false, error: 'Record not found.' });
                     failed++;
@@ -255,6 +373,17 @@ exports.bulkWorkflow = async (req, res) => {
                 }
                 if (rx.isDeleted) {
                     results.push({ rxId: rxId, ok: false, error: 'Record is hidden.' });
+                    failed++;
+                    continue;
+                }
+                var windowBlock = getWorkflowWindowBlock(rx);
+                if (windowBlock) {
+                    results.push({
+                        rxId: rxId,
+                        ok: false,
+                        code: windowBlock.code,
+                        error: windowBlock.error
+                    });
                     failed++;
                     continue;
                 }
@@ -609,6 +738,19 @@ exports.update = async (req, res) => {
         }
         // ── END SERVICE DATE LOCK ─────────────────────────────────────────────────
 
+        const nextPatientId = safeData.patientId !== undefined ? safeData.patientId : before.patientId;
+        const nextServiceDate = safeData.serviceDate !== undefined ? parseDate(safeData.serviceDate) : dateOnly(before.serviceDate);
+        if (nextPatientId && nextServiceDate) {
+            const patient = await db.Patient.findByPk(nextPatientId);
+            if (patient) {
+                const cycle = await ensureCycleForRx(patient, nextServiceDate, {
+                    userId: req.user?.id || null,
+                    source: 'RX Update'
+                });
+                if (cycle) safeData.patientServiceDateCycleId = cycle.id;
+            }
+        }
+
         const [updated] = await db.RXRecord.update(safeData, { where: { id: req.params.id } });
         if (!updated) return res.status(404).json({ message: 'Not found' });
 
@@ -649,7 +791,7 @@ exports.closeExpiredWorkflow = async (req, res) => {
     const transaction = await db.sequelize.transaction();
     try {
         const rx = await db.RXRecord.findByPk(req.params.id, {
-            include: [db.Patient],
+            include: [db.Patient, db.PatientServiceDateCycle],
             transaction
         });
         if (!rx) {
@@ -744,65 +886,12 @@ exports.getHistory = async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 };
 
-// POST /api/rx-records/:id/reset-cycle  (New cycle after 90 days)
-// Allowed only when today > serviceDate + 90 days.
-// Clears all workflow trackings and warehouse flags, sets new serviceDate.
+// POST /api/rx-records/:id/reset-cycle
+// Legacy endpoint kept only to fail safely. New service cycles are created from
+// the patient service date, then new RX records are linked to that cycle.
 exports.resetRxCycle = async (req, res) => {
-    try {
-        const rx = await db.RXRecord.findByPk(req.params.id);
-        if (!rx) return res.status(404).json({ error: 'RX Record not found.' });
-
-        const { newServiceDate } = req.body;
-        if (!newServiceDate) return res.status(400).json({ error: 'newServiceDate is required.' });
-
-        const newSvc = new Date(newServiceDate);
-        if (isNaN(newSvc.getTime())) return res.status(400).json({ error: 'Invalid date format.' });
-
-        // Only allow reset if 90-day window has PASSED
-        if (rx.serviceDate) {
-            const oldSvc    = new Date(rx.serviceDate); oldSvc.setHours(0,0,0,0);
-            const oldExpiry = new Date(oldSvc); oldExpiry.setDate(oldExpiry.getDate() + 90);
-            const today     = new Date(); today.setHours(0,0,0,0);
-            if (today <= oldExpiry) {
-                return res.status(400).json({
-                    error: `Cannot reset: the 90-day window has not yet expired (expires ${oldExpiry.toLocaleDateString()}).`
-                });
-            }
-        }
-
-        // New service date must not be in the future
-        const todayCheck = new Date(); todayCheck.setHours(23,59,59,999);
-        if (newSvc > todayCheck) {
-            return res.status(400).json({ error: 'New service date cannot be in the future.' });
-        }
-
-        const snapshot = rx.toJSON();
-
-        // Delete all workflow trackings for this record
-        const deletedCount = await db.RXWorkflowTracking.destroy({
-            where: { rxRecordId: rx.id }
-        });
-
-        // Reset warehouse flags and set new service date
-        await rx.update({
-            serviceDate:          newSvc,
-            arrivalDate:          newSvc,           // keep in sync per business logic
-            returnedToWarehouse:  false,
-            warehouseReturnDate:  null,
-            warehouseReturnNote:  null
-        });
-
-        await saveHistory(
-            rx.id,
-            req.user?.id,
-            'Cycle Reset',
-            snapshot,
-            null,
-            `New RX cycle started. Service date set to ${newSvc.toLocaleDateString()}. ${deletedCount} workflow tracking record(s) cleared. Performed by ${req.user?.username || 'user'}.`
-        );
-
-        res.json({ ok: true, newServiceDate: newSvc, trackingsCleared: deletedCount });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
+    return res.status(410).json({
+        code: 'RX_CYCLE_RESET_DISABLED',
+        error: 'RX cycle reset is disabled to preserve workflow history. Update the patient service date from the patient profile, then create a new RX record for the new 90-day cycle. Existing RX records remain linked to their original service-date cycle.'
+    });
 };

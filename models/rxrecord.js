@@ -11,6 +11,7 @@ module.exports = (sequelize, DataTypes) => {
      */
     static associate(models) {
       RXRecord.belongsTo(models.Patient, { foreignKey: 'patientId' });
+      RXRecord.belongsTo(models.PatientServiceDateCycle, { foreignKey: 'patientServiceDateCycleId' });
       RXRecord.belongsTo(models.Pharmacy, { foreignKey: 'pharmacyId' });
       RXRecord.belongsTo(models.PatientTransportCompany, { foreignKey: 'patientTransportCompanyId' });
       RXRecord.belongsTo(models.PharmacyTransportCompany, { foreignKey: 'pharmacyTransportCompanyId' });
@@ -22,6 +23,7 @@ module.exports = (sequelize, DataTypes) => {
   }
   RXRecord.init({
     patientId: DataTypes.INTEGER,
+    patientServiceDateCycleId: { type: DataTypes.INTEGER, allowNull: true },
     arrivalDate: DataTypes.DATEONLY,
     serviceDate: DataTypes.DATEONLY,
     pharmacyId: DataTypes.INTEGER,

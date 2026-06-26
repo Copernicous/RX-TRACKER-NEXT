@@ -223,6 +223,7 @@ Use this path for bigger decisions, risky changes, new workflows, or anything th
 
    ```powershell
    npm run staging:check
+   npm run staging:import-smoke
    npm run staging:start
    ```
 
@@ -272,12 +273,29 @@ Because upload problems can appear only after deployment or environment changes,
 
 If the browser shows an error like `Unexpected token '<'` or `A dynamic import callback was not specified`, treat it as a release blocker until the upload path is tested and fixed in staging.
 
+## Import Guard Smoke Test
+
+Run this before promoting staging changes that touch patients, RX records, workflow steps, service dates, or cycles:
+
+```powershell
+npm run staging:import-smoke
+```
+
+The test uses the real staging import API. It imports a bad CSV with workflow dates before service date, workflow dates beyond service date + 90 days, and workflow dates out of order. That bad file must abort with zero database writes. Then it imports a valid CSV and confirms RX workflow rows are linked to the correct service-date cycle.
+
+The script only creates temporary `STG-IMP-GUARD-*` rows and removes them before it finishes. Staging must be running first:
+
+```powershell
+npm run staging:start
+```
+
 ## Promotion Checklist
 
 Before merging `staging` into `develop`:
 
 - `git status --short` is clean except ignored/local runtime files.
 - `npm run staging:check` passes.
+- `npm run staging:import-smoke` passes when import/service-date logic was touched.
 - Staging preview opens at `http://localhost:3100`.
 - Staging has the visible staging marker.
 - Critical manual checks pass.

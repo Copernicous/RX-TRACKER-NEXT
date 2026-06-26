@@ -223,6 +223,20 @@
             color: #1a3a5c;
             border: 1px solid rgba(74,144,226,.18);
         }
+        .svc-cycle-btn {
+            min-height: 34px;
+            border-radius: 6px;
+            font-size: .78rem;
+        }
+        .svc-cycle-btn .count {
+            font-size: .7rem;
+            opacity: .75;
+        }
+        .svc-cycle-btn.active-filter {
+            background: #1a3a5c;
+            color: #fff;
+            border-color: #1a3a5c;
+        }
         @media (max-width: 768px) {
             .svc-history-row { grid-template-columns: 1fr; }
         }
@@ -312,9 +326,19 @@
                 </div>
             </div>
 
+            <div id="tlServiceDateCycles" style="display:none">
+                <div class="glass-card p-3 mb-4">
+                    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
+                        <h5 class="mb-0 fw-bold"><i class="fas fa-layer-group me-2 text-primary"></i>Service Date RX Records</h5>
+                        <small class="text-muted" id="tlServiceDateCycleCount"></small>
+                    </div>
+                    <div class="d-flex align-items-center gap-2 flex-wrap" id="tlServiceDateCycleButtons"></div>
+                </div>
+            </div>
+
             <div id="tlContainer" style="display:none">
                 <div class="d-flex align-items-center justify-content-between mb-3">
-                    <h5 class="mb-0 fw-bold"><i class="fas fa-history me-2 text-primary"></i>RX Record History</h5>
+                    <h5 class="mb-0 fw-bold"><i class="fas fa-history me-2 text-primary"></i><span id="tlRxHistoryTitle">RX Record History</span></h5>
                     <div class="d-flex gap-2">
                         <button class="btn btn-sm btn-outline-primary" id="printTimelineBtn"><i class="fas fa-print me-1"></i>Print Timeline</button>
                         <button class="btn btn-sm btn-outline-success" id="exportTimelineCsvBtn"><i class="fas fa-file-csv me-1"></i>Export CSV</button>
@@ -358,6 +382,8 @@ const _ptId = (function() {
 let _ptName = '';
 let _timelineData = null;
 let _serviceDateHistoryRows = [];
+let _serviceDateCycles = [];
+let _selectedCycleId = 'all';
 
 function tlEscapeHtml(value) {
     if (typeof escHtml === 'function') return escHtml(value);
@@ -482,6 +508,72 @@ function tlRxStatus(rx) {
     var pct = total > 0 ? Math.round((done / total) * 100) : 0;
     var label = total > 0 && done >= total ? 'Complete' : done > 0 ? 'In Progress' : 'Not Started';
     return { done: done, total: total, pct: pct, label: label };
+}
+
+function tlCycleById(id) {
+    id = Number(id);
+    for (var i = 0; i < _serviceDateCycles.length; i++) {
+        if (Number(_serviceDateCycles[i].id) === id) return _serviceDateCycles[i];
+    }
+    return null;
+}
+
+function tlRxMatchesCycle(rx, cycle) {
+    if (!rx || !cycle) return false;
+    if (Number(rx.patientServiceDateCycleId || 0) === Number(cycle.id)) return true;
+    if (rx.PatientServiceDateCycle && Number(rx.PatientServiceDateCycle.id || 0) === Number(cycle.id)) return true;
+    return String(rx.serviceDate || '').slice(0, 10) === String(cycle.serviceDate || '').slice(0, 10);
+}
+
+function tlVisibleRxRecords() {
+    var records = _timelineData && Array.isArray(_timelineData.rxRecords) ? _timelineData.rxRecords : [];
+    if (_selectedCycleId === 'all') return records;
+    var cycle = tlCycleById(_selectedCycleId);
+    if (!cycle) return records;
+    return records.filter(function(rx) { return tlRxMatchesCycle(rx, cycle); });
+}
+
+function tlSelectedCycleLabel() {
+    if (_selectedCycleId === 'all') return 'RX Record History';
+    var cycle = tlCycleById(_selectedCycleId);
+    if (!cycle) return 'RX Record History';
+    var label = formatDate(cycle.serviceDate) || cycle.serviceDate || 'Service Date';
+    return 'RX Record History - ' + label;
+}
+
+function renderServiceDateCycles(cycles) {
+    cycles = Array.isArray(cycles) ? cycles : [];
+    _serviceDateCycles = cycles;
+    var wrap = document.getElementById('tlServiceDateCycles');
+    var list = document.getElementById('tlServiceDateCycleButtons');
+    var count = document.getElementById('tlServiceDateCycleCount');
+    if (!wrap || !list) return;
+    if (!cycles.length) {
+        wrap.style.display = 'none';
+        return;
+    }
+    if (_selectedCycleId !== 'all' && !tlCycleById(_selectedCycleId)) {
+        _selectedCycleId = 'all';
+    }
+    wrap.style.display = '';
+    if (count) count.textContent = cycles.length + ' cycle' + (cycles.length === 1 ? '' : 's');
+    var totalRx = _timelineData && Array.isArray(_timelineData.rxRecords) ? _timelineData.rxRecords.length : 0;
+    var html = '<button type="button" class="btn btn-sm btn-outline-secondary svc-cycle-btn ' +
+        (_selectedCycleId === 'all' ? 'active-filter' : '') +
+        '" data-cycle-filter="all"><i class="fas fa-list me-1"></i>All service dates <span class="count ms-1">' + totalRx + ' RX</span></button>';
+    cycles.forEach(function(cycle) {
+        var isActive = String(cycle.status || '').toLowerCase() === 'active';
+        var isSelected = String(_selectedCycleId) === String(cycle.id);
+        var statusClass = isActive ? 'bg-primary' : 'bg-secondary';
+        html += '<button type="button" class="btn btn-sm btn-outline-secondary svc-cycle-btn ' +
+            (isSelected ? 'active-filter' : '') +
+            '" data-cycle-filter="' + tlEscapeHtml(cycle.id) + '">' +
+            '<i class="fas fa-calendar-day me-1"></i>' + tlEscapeHtml(formatDate(cycle.serviceDate) || cycle.serviceDate || 'No date') +
+            ' <span class="badge ' + statusClass + ' ms-1">' + tlEscapeHtml(isActive ? 'Active' : 'History') + '</span>' +
+            ' <span class="count ms-1">' + tlEscapeHtml(cycle.rxCount || 0) + ' RX</span>' +
+        '</button>';
+    });
+    list.innerHTML = html;
 }
 
 function tlResolveRelated(records) {
@@ -704,8 +796,8 @@ function exportFullServiceDateHistory() {
 }
 
 function printPatientTimeline() {
-    var records = _timelineData && Array.isArray(_timelineData.rxRecords) ? _timelineData.rxRecords : [];
-    tlPrintRxGroups('Patient Timeline', [{ label: 'RX Record History', records: records }], null, true);
+    var records = tlVisibleRxRecords();
+    tlPrintRxGroups('Patient Timeline', [{ label: tlSelectedCycleLabel(), records: records }], null, true);
 }
 
 function exportPatientTimelineCsv() {
@@ -729,7 +821,7 @@ function exportPatientTimelineCsv() {
             row.reason || ''
         ]);
     });
-    (_timelineData.rxRecords || []).forEach(function(rx) {
+    tlVisibleRxRecords().forEach(function(rx) {
         var status = tlRxStatus(rx);
         rows.push([
             'RX Record History',
@@ -848,12 +940,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 });
 
-function renderTimeline({ patient, rxRecords, workflowActions, serviceDateHistory }) {
+function renderTimeline({ patient, rxRecords, workflowActions, serviceDateHistory, serviceDateCycles }) {
     document.getElementById('tlLoading').style.display = 'none';
     rxRecords = Array.isArray(rxRecords) ? rxRecords : [];
+    rxRecords.forEach(function(rx) { if (!Array.isArray(rx.completedSteps)) rx.completedSteps = []; });
     workflowActions = Array.isArray(workflowActions) ? workflowActions : [];
     const serviceHistory = Array.isArray(serviceDateHistory) ? serviceDateHistory : [];
-    _timelineData = { patient: patient || {}, rxRecords: rxRecords, workflowActions: workflowActions, serviceDateHistory: serviceHistory };
+    const serviceCycles = Array.isArray(serviceDateCycles) ? serviceDateCycles : [];
+    _timelineData = { patient: patient || {}, rxRecords: rxRecords, workflowActions: workflowActions, serviceDateHistory: serviceHistory, serviceDateCycles: serviceCycles };
+    renderServiceDateCycles(serviceCycles);
+    const visibleRxRecords = tlVisibleRxRecords();
+    document.getElementById('tlEmpty').style.display = 'none';
+    document.getElementById('tlContainer').style.display = 'none';
 
     // ── Hero card ──────────────────────────────────────────────────────────
     document.getElementById('tlPatientName').textContent =
@@ -868,6 +966,7 @@ function renderTimeline({ patient, rxRecords, workflowActions, serviceDateHistor
     }
 
     const twrap = document.getElementById('tlTransportWrap');
+    twrap.innerHTML = '';
     if (patient.PatientTransportCompany) {
         twrap.innerHTML += '<span class="badge rounded-pill" style="background:rgba(255,255,255,.15);font-size:.73rem"><i class="fas fa-ambulance me-1"></i>' +
             (patient.PatientTransportCompany.companyName || patient.PatientTransportCompany.contactPerson) + '</span>';
@@ -878,21 +977,23 @@ function renderTimeline({ patient, rxRecords, workflowActions, serviceDateHistor
     }
 
     // Stats
-    const total     = rxRecords.length;
-    const completed = rxRecords.filter(r => r.completedSteps.length === workflowActions.length && workflowActions.length > 0).length;
-    const inProg    = rxRecords.filter(r => r.completedSteps.length > 0 && r.completedSteps.length < workflowActions.length).length;
-    const notStart  = rxRecords.filter(r => r.completedSteps.length === 0).length;
+    const total     = visibleRxRecords.length;
+    const completed = visibleRxRecords.filter(r => r.completedSteps.length === workflowActions.length && workflowActions.length > 0).length;
+    const inProg    = visibleRxRecords.filter(r => r.completedSteps.length > 0 && r.completedSteps.length < workflowActions.length).length;
+    const notStart  = visibleRxRecords.filter(r => r.completedSteps.length === 0).length;
 
     document.getElementById('tlStatPills').innerHTML =
         '<div class="tl-stat-pill"><div class="num">' + total + '</div><div class="lbl">Total RX</div></div>' +
         '<div class="tl-stat-pill"><div class="num" style="color:#a8d5b5">' + completed + '</div><div class="lbl">Complete</div></div>' +
         '<div class="tl-stat-pill"><div class="num" style="color:#ffc878">' + inProg + '</div><div class="lbl">In Progress</div></div>' +
         '<div class="tl-stat-pill"><div class="num" style="color:#b0b8c8">' + notStart + '</div><div class="lbl">Not Started</div></div>' +
-        '<div class="tl-stat-pill"><div class="num" style="color:#ffd38a">' + serviceHistory.length + '</div><div class="lbl">Svc Dates</div></div>';
+        '<div class="tl-stat-pill"><div class="num" style="color:#ffd38a">' + serviceCycles.length + '</div><div class="lbl">Svc Dates</div></div>';
     document.getElementById('tlHero').style.display = '';
     renderServiceDateHistory(serviceHistory);
+    var titleEl = document.getElementById('tlRxHistoryTitle');
+    if (titleEl) titleEl.textContent = tlSelectedCycleLabel();
 
-    if (!rxRecords.length) {
+    if (!visibleRxRecords.length) {
         document.getElementById('tlEmpty').style.display = '';
         return;
     }
@@ -901,7 +1002,7 @@ function renderTimeline({ patient, rxRecords, workflowActions, serviceDateHistor
     const list = document.getElementById('tlList');
     list.innerHTML = '';
 
-    rxRecords.forEach((rx, idx) => {
+    visibleRxRecords.forEach((rx, idx) => {
         const completedCount = rx.completedSteps.length;
         const totalSteps     = workflowActions.length;
         const isComplete     = totalSteps > 0 && completedCount === totalSteps;
@@ -1035,20 +1136,20 @@ function renderTimeline({ patient, rxRecords, workflowActions, serviceDateHistor
     document.getElementById('tlContainer').style.display = '';
 
     // Expand / Collapse All
-    document.getElementById('expandAllBtn').addEventListener('click', () => {
+    document.getElementById('expandAllBtn').onclick = () => {
         document.querySelectorAll('.tl-body').forEach(b => {
             b.classList.add('open');
             const h = b.previousElementSibling;
             if (h) { h.classList.add('open'); const ch = h.querySelector('.tl-chevron'); if(ch) ch.style.transform='rotate(180deg)'; }
         });
-    });
-    document.getElementById('collapseAllBtn').addEventListener('click', () => {
+    };
+    document.getElementById('collapseAllBtn').onclick = () => {
         document.querySelectorAll('.tl-body').forEach(b => {
             b.classList.remove('open');
             const h = b.previousElementSibling;
             if (h) { h.classList.remove('open'); const ch = h.querySelector('.tl-chevron'); if(ch) ch.style.transform=''; }
         });
-    });
+    };
 }
 
 function toggleTlCard(bodyId, headerEl) {
@@ -1149,6 +1250,13 @@ function formatDate(d) {
 
     // Event delegation for patient-timeline
     document.addEventListener('click', function(e) {
+        var cycleBtn = e.target.closest('[data-cycle-filter]');
+        if (cycleBtn) {
+            e.preventDefault();
+            _selectedCycleId = cycleBtn.dataset.cycleFilter || 'all';
+            if (_timelineData) renderTimeline(_timelineData);
+            return;
+        }
         var printSvc = e.target.closest('[data-svc-history-print]');
         if (printSvc) {
             e.preventDefault();

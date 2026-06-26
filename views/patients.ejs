@@ -135,6 +135,7 @@
                     <h5 class="mb-0">Patient List</h5>
                     <div class="d-flex gap-2">
                         <button class="btn btn-outline-success btn-sm" id="exportPatientsCsvBtn"><i class="fas fa-file-csv me-1"></i>Export CSV <i class="fas fa-caret-down ms-1" style="opacity:.6"></i></button>
+                        <button class="btn btn-outline-success btn-sm" id="addPatientRxBtn"><i class="fas fa-prescription-bottle-alt me-1"></i>Add Patient + RX</button>
                         <button class="btn btn-success btn-sm" id="addPatientBtn"><i class="fas fa-plus me-1"></i>Add Patient</button>
                     </div>
                 </div>
@@ -318,6 +319,10 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-success" id="savePatientAddRxBtn">
+                    <span id="savePatientAddRxSpinner" class="spinner-border spinner-border-sm me-1 d-none"></span>
+                    <i class="fas fa-prescription-bottle-alt me-1"></i>Save &amp; Add RX
+                </button>
                 <button type="button" class="btn btn-primary" id="savePatientBtn">
                     <span id="savePatientSpinner" class="spinner-border spinner-border-sm me-1 d-none"></span>Save
                 </button>

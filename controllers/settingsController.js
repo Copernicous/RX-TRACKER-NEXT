@@ -12,6 +12,16 @@ exports.getTimezones = (req, res) => {
     res.json(settings.KNOWN_TIMEZONES);
 };
 
+// GET /api/session-config - authenticated users can read non-sensitive session timing.
+exports.getSessionConfig = (req, res) => {
+    const rawMinutes = parseInt(settings.get('session_timeout_minutes') || process.env.SESSION_TIMEOUT_MINUTES || '30', 10);
+    const sessionTimeoutMinutes = Number.isFinite(rawMinutes) ? Math.min(Math.max(rawMinutes, 5), 480) : 30;
+    res.json({
+        sessionTimeoutMinutes,
+        warningSeconds: 120
+    });
+};
+
 // GET /api/settings/email-status — returns SMTP config without password, + configured flag
 exports.getEmailStatus = (req, res) => {
     res.json({

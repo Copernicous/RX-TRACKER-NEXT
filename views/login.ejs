@@ -244,7 +244,7 @@
             var msg = document.getElementById('errorMsg');
             if (!msg) return;
             if (reason === 'timeout') {
-                msg.innerHTML = '<i class="fas fa-clock me-1"></i>You were logged out due to 30 minutes of inactivity.';
+                msg.innerHTML = '<i class="fas fa-clock me-1"></i>You were logged out due to inactivity.';
                 msg.className = 'mb-3 login-notice login-notice-timeout';
             } else if (reason === 'password-changed') {
                 msg.innerHTML = '<i class="fas fa-key me-1"></i>Password changed successfully. Please log in with your new password.';

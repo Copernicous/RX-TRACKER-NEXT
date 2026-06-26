@@ -5,6 +5,8 @@ var allPatients = [];
     var pageSize = 20;
     var editingPatientId = null;
     var deletingPatientId = null;
+    var patientModalOriginalServiceDate = '';
+    var patientModalCanUseAddRxShortcut = false;
     var pSortCol = 'id';
     var pSortDir = 'desc';
 
@@ -215,6 +217,52 @@ var allPatients = [];
         return patientCurrentUserIsAdmin() ? patientFullPageAccess() : getPagePerms();
     }
 
+    function canAddRxAfterPatientCreate() {
+        if (patientCurrentUserIsAdmin()) return true;
+        var user = null;
+        try {
+            user = typeof getCurrentAuthUser === 'function'
+                ? getCurrentAuthUser()
+                : JSON.parse(localStorage.getItem('user') || '{}');
+        } catch(e) {
+            user = null;
+        }
+        var perms = (user && user.permissions) ? user.permissions : {};
+        var rxPerms = perms.rx_records;
+        if (!rxPerms) return true;
+        if (rxPerms.visible === false) return false;
+        return rxPerms.canAdd !== undefined ? !!rxPerms.canAdd : !!rxPerms.canEdit;
+    }
+
+    function patientServiceDateChangedForAddRx() {
+        if (!editingPatientId) return true;
+        var svcInput = document.getElementById('pServiceDate');
+        var nextServiceDate = svcInput ? (svcInput.value || '') : '';
+        return !!nextServiceDate && nextServiceDate !== patientModalOriginalServiceDate;
+    }
+
+    function updateSaveAddRxButtonState() {
+        var btn = document.getElementById('savePatientAddRxBtn');
+        if (!btn) return;
+
+        var svcInput = document.getElementById('pServiceDate');
+        var canUse = patientModalCanUseAddRxShortcut && canAddRxAfterPatientCreate();
+        if (editingPatientId) {
+            canUse = canUse &&
+                patientServiceDateChangedForAddRx() &&
+                svcInput &&
+                !svcInput.disabled &&
+                !svcInput.readOnly;
+            btn.title = canUse
+                ? 'Save this service date and continue to a new RX record.'
+                : 'Change the service date to continue directly to a new RX record.';
+        } else {
+            btn.title = 'Create this patient and continue to a new RX record.';
+        }
+
+        btn.style.display = canUse ? '' : 'none';
+    }
+
     async function refreshPatientAuthProfile() {
         try {
             var profileUrl = typeof window.rxUrl === 'function' ? window.rxUrl('/api/auth/profile') : '/api/auth/profile';
@@ -382,6 +430,12 @@ var allPatients = [];
 
 
         document.getElementById('addPatientBtn').addEventListener('click', () => openPatientModal(null));
+        var addPatientRxBtn = document.getElementById('addPatientRxBtn');
+        if (addPatientRxBtn) {
+            addPatientRxBtn.addEventListener('click', function() {
+                openPatientModal(null, { focusAddRx: true });
+            });
+        }
 
     // ── Patient modal soft-lock ───────────────────────────────────────────────
     let _modalLockPatientId = null;
@@ -452,6 +506,17 @@ var allPatients = [];
         document.getElementById('srchClinic').addEventListener('change', applyPatientSearch);
 
         document.getElementById('savePatientBtn').addEventListener('click', savePatient);
+        var savePatientAddRxBtn = document.getElementById('savePatientAddRxBtn');
+        if (savePatientAddRxBtn) {
+            savePatientAddRxBtn.addEventListener('click', function() {
+                savePatient({ addRxAfterSave: true });
+            });
+        }
+        var serviceDateInput = document.getElementById('pServiceDate');
+        if (serviceDateInput) {
+            serviceDateInput.addEventListener('input', updateSaveAddRxButtonState);
+            serviceDateInput.addEventListener('change', updateSaveAddRxButtonState);
+        }
         document.getElementById('confirmDeleteBtn').addEventListener('click', deletePatient);
         document.getElementById('deleteConfirmInput').addEventListener('input', checkDeleteConfirmation);
 
@@ -565,6 +630,10 @@ var allPatients = [];
         const patPerms = getPatientModalPerms();
         if (!patPerms.canExport) { const b = document.getElementById('exportPatientsCsvBtn'); if(b) b.classList.add('d-none'); }
         if (!patPerms.canAdd)   { const b = document.getElementById('addPatientBtn');       if(b) b.classList.add('d-none'); }
+        if (!patPerms.canAdd || !canAddRxAfterPatientCreate()) {
+            const b = document.getElementById('addPatientRxBtn');
+            if (b) b.classList.add('d-none');
+        }
     });
 
 
@@ -1464,10 +1533,13 @@ var allPatients = [];
         el.innerHTML = html;
     }
 
-    function openPatientModal(id) {
+    function openPatientModal(id, options) {
+        options = options || {};
         editingPatientId = id;
         document.getElementById('patientModalTitle').textContent = id ? 'Edit Patient' : 'Add Patient';
         const patient = id ? allPatients.find(p => p.id === id) : null;
+        patientModalOriginalServiceDate = patient ? (window.isoDate(patient.serviceDate) || '') : '';
+        patientModalCanUseAddRxShortcut = false;
         document.getElementById('pPatientCode').value = patient ? patient.patientCode || '' : '';
         document.getElementById('pFirstName').value = patient ? normalizeName(patient.firstName || '') : '';
         document.getElementById('pLastName').value = patient ? normalizeName(patient.lastName || '') : '';
@@ -1528,6 +1600,7 @@ var allPatients = [];
         setTimeout(_updateNextSvcDisplay, 50);
         // Show/hide save button based on add vs edit permission
         const _saveBtn = document.getElementById('savePatientBtn');
+        const _saveAddRxBtn = document.getElementById('savePatientAddRxBtn');
         try {
             const _pp = getPatientModalPerms();
             const _canAddPat  = _pp.canAdd  !== undefined ? !!_pp.canAdd  : !!_pp.canEdit;
@@ -1537,6 +1610,9 @@ var allPatients = [];
             const _isEditable = id === null ? _canAddPat : (_canEditPat || _isOverrideOnly);
 
             if (_saveBtn) _saveBtn.style.display = _isEditable ? '' : 'none';
+            patientModalCanUseAddRxShortcut = id === null
+                ? (_canAddPat && canAddRxAfterPatientCreate())
+                : (_isEditable && canAddRxAfterPatientCreate());
 
             // Lock / unlock all form inputs for view-only mode
             const _patModal = document.getElementById('patientModal');
@@ -1591,7 +1667,17 @@ var allPatients = [];
                     _voBanner.style.removeProperty('display');
                 }
             }
-        } catch(e) { if (_saveBtn) _saveBtn.style.display = ''; }
+        } catch(e) {
+            if (_saveBtn) _saveBtn.style.display = '';
+            patientModalCanUseAddRxShortcut = canAddRxAfterPatientCreate();
+        }
+        updateSaveAddRxButtonState();
+        if (!id && options.focusAddRx) {
+            setTimeout(function() {
+                var addRxBtn = document.getElementById('savePatientAddRxBtn');
+                if (addRxBtn && addRxBtn.style.display !== 'none') addRxBtn.focus();
+            }, 150);
+        }
         if (window.rxDocuments) {
             var _docPerms = getPatientModalPerms();
             window.rxDocuments.bind({
@@ -1637,10 +1723,30 @@ var allPatients = [];
     }
 
 
-    async function savePatient() {
+    async function savePatient(options) {
+        options = options || {};
+        const addRxAfterSave = options.addRxAfterSave === true || options.addRxAfterCreate === true;
         const btn = document.getElementById('savePatientBtn');
         const spinner = document.getElementById('savePatientSpinner');
-        btn.disabled = true; spinner.classList.remove('d-none');
+        const addRxBtn = document.getElementById('savePatientAddRxBtn');
+        const addRxSpinner = document.getElementById('savePatientAddRxSpinner');
+        const editingIdAtSave = editingPatientId;
+        const serviceDateChangedForRx = !!editingIdAtSave && patientServiceDateChangedForAddRx();
+        if (addRxAfterSave && !canAddRxAfterPatientCreate()) {
+            showToast('You do not have permission to add RX records.', 'warning');
+            return;
+        }
+        if (addRxAfterSave && editingIdAtSave && !serviceDateChangedForRx) {
+            showToast('Change the service date before adding a new RX for this patient.', 'warning');
+            return;
+        }
+        btn.disabled = true;
+        if (addRxBtn) addRxBtn.disabled = true;
+        if (addRxAfterSave && addRxSpinner) {
+            addRxSpinner.classList.remove('d-none');
+        } else {
+            spinner.classList.remove('d-none');
+        }
         const patientCodeVal = document.getElementById('pPatientCode').value.trim();
         const body = {
             patientCode: patientCodeVal || undefined,
@@ -1667,15 +1773,33 @@ var allPatients = [];
             const res = await fetchWithAuth(url, { method, body: JSON.stringify(body) });
             if (!res) return;
             if (res.ok) {
+                let savedPatient = null;
+                try { savedPatient = await res.json(); } catch(e) {}
                 bootstrap.Modal.getInstance(document.getElementById('patientModal')).hide();
+                const wasCreating = !editingIdAtSave;
                 showToast(editingPatientId ? 'Patient updated!' : 'Patient created!', 'success');
                 await loadPatients();
+                if (addRxAfterSave && (wasCreating || serviceDateChangedForRx) && savedPatient && savedPatient.id) {
+                    const first = savedPatient.firstName || body.firstName || '';
+                    const last = savedPatient.lastName || body.lastName || '';
+                    const fullName = (first + ' ' + last).trim();
+                    const rxPath = '/rx-records?patient=' + encodeURIComponent(savedPatient.id) +
+                        '&name=' + encodeURIComponent(fullName) +
+                        '&addRx=1';
+                    if (typeof window.rxNav === 'function') window.rxNav(rxPath);
+                    else window.location.href = rxPath;
+                }
             } else {
                 const err = await res.json();
                 showToast(err.error || err.message || 'Save failed.', 'danger');
             }
         } catch(e) { showToast('Network error.', 'danger'); }
-        finally { btn.disabled = false; spinner.classList.add('d-none'); }
+        finally {
+            btn.disabled = false;
+            if (addRxBtn) addRxBtn.disabled = false;
+            spinner.classList.add('d-none');
+            if (addRxSpinner) addRxSpinner.classList.add('d-none');
+        }
     }
 
     function promptDeletePatient(id) {

@@ -532,9 +532,46 @@ function setupLogout() {
 
 // ----- Session Timeout (30 min idle, 2 min warning) -----
 function setupSessionTimeout() {
-    const IDLE_MS    = 30 * 60 * 1000; // 30 minutes
-    const WARN_MS    = 28 * 60 * 1000; // warn at 28 minutes (2 min before)
-    let idleTimer, warnTimer;
+    let IDLE_MS    = 30 * 60 * 1000; // default until /api/session-config loads
+    let WARN_MS    = 28 * 60 * 1000;
+    let WARN_SECONDS = 120;
+    let idleTimer, warnTimer, countdownTimer;
+    const ACTIVITY_KEY = 'rxLastActivityAt';
+
+    function markActivity() {
+        try { localStorage.setItem(ACTIVITY_KEY, String(Date.now())); } catch(e) {}
+    }
+
+    function lastActivityAt() {
+        var raw = 0;
+        try { raw = parseInt(localStorage.getItem(ACTIVITY_KEY) || '0', 10); } catch(e) { raw = 0; }
+        return Number.isFinite(raw) && raw > 0 ? raw : Date.now();
+    }
+
+    function applySessionTiming(minutes, warningSeconds) {
+        var cleanMinutes = parseInt(minutes, 10);
+        var cleanWarning = parseInt(warningSeconds, 10);
+        if (!Number.isFinite(cleanMinutes)) cleanMinutes = 30;
+        if (!Number.isFinite(cleanWarning)) cleanWarning = 120;
+        cleanMinutes = Math.min(Math.max(cleanMinutes, 5), 480);
+        cleanWarning = Math.min(Math.max(cleanWarning, 30), Math.max(cleanMinutes * 60 - 30, 30));
+        IDLE_MS = cleanMinutes * 60 * 1000;
+        WARN_SECONDS = cleanWarning;
+        WARN_MS = Math.max(IDLE_MS - (WARN_SECONDS * 1000), 1000);
+        resetTimers(true);
+    }
+
+    function loadSessionTiming() {
+        fetchWithAuth(window.rxUrl('/api/session-config'), { silent: true })
+            .then(function(res) {
+                if (!res || !res.ok) return null;
+                return res.json();
+            })
+            .then(function(data) {
+                if (data) applySessionTiming(data.sessionTimeoutMinutes, data.warningSeconds);
+            })
+            .catch(function() {});
+    }
 
     // Inject warning modal once
     if (!document.getElementById('sessionWarnModal')) {
@@ -566,10 +603,15 @@ function setupSessionTimeout() {
     }
 
     async function performLogout() {
+        if (Date.now() - lastActivityAt() < IDLE_MS - 1000) {
+            resetTimers(true);
+            return;
+        }
         try {
             var token = localStorage.getItem('token');
             if (token) await fetch(window.rxUrl('/api/auth/logout'), {
                 method: 'POST',
+                credentials: 'include',
                 headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' }
             });
         } catch(e) {}
@@ -579,10 +621,15 @@ function setupSessionTimeout() {
     }
 
     function showWarning() {
+        if (Date.now() - lastActivityAt() < WARN_MS - 1000) {
+            resetTimers(true);
+            return;
+        }
         var modalEl = document.getElementById('sessionWarnModal');
         if (!modalEl) return;
-        let secsLeft = 120;
+        let secsLeft = WARN_SECONDS;
         var cd = document.getElementById('sessionCountdown');
+        if (countdownTimer) clearInterval(countdownTimer);
         var tick = setInterval(function() {
             secsLeft--;
             var m = Math.floor(secsLeft / 60);
@@ -590,6 +637,7 @@ function setupSessionTimeout() {
             if (cd) cd.textContent = m + ':' + String(s).padStart(2, '0');
             if (secsLeft <= 0) { clearInterval(tick); performLogout(); }
         }, 1000);
+        countdownTimer = tick;
         // Store tick so we can clear it on 'Stay'
         modalEl.dataset.tick = tick;
         const modal = new bootstrap.Modal(modalEl);
@@ -598,9 +646,19 @@ function setupSessionTimeout() {
         modalEl.addEventListener('hidden.bs.modal', function() { clearInterval(parseInt(modalEl.dataset.tick)); }, { once: true });
     }
 
-    function resetTimers() {
+    function resetTimers(skipMark) {
         clearTimeout(idleTimer);
         clearTimeout(warnTimer);
+        if (!skipMark) markActivity();
+        if (countdownTimer) {
+            clearInterval(countdownTimer);
+            countdownTimer = null;
+        }
+        try {
+            var modalEl = document.getElementById('sessionWarnModal');
+            var openModal = modalEl ? bootstrap.Modal.getInstance(modalEl) : null;
+            if (openModal) openModal.hide();
+        } catch(e) {}
         // Don't reset if on login page
         if (!localStorage.getItem('token')) return;
         warnTimer = setTimeout(showWarning,  WARN_MS);
@@ -609,10 +667,12 @@ function setupSessionTimeout() {
 
     // Reset on any user activity
     ['mousemove','mousedown','keydown','scroll','touchstart','click'].forEach(function(evt) {
-        document.addEventListener(evt, resetTimers, { passive: true });
+        document.addEventListener(evt, function() { resetTimers(false); }, { passive: true });
     });
 
-    resetTimers(); // start
+    markActivity();
+    resetTimers(true); // start
+    loadSessionTiming();
 }
 
 // ----- Authenticated Fetch -----
