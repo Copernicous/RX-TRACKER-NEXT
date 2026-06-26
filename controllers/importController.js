@@ -46,11 +46,19 @@ function parseDateField(raw) {
 
 function toDateOnly(raw) {
     if (!raw) return null;
-    const date = new Date(raw);
-    if (isNaN(date.getTime())) return null;
-    const day = new Date(date);
-    day.setHours(0, 0, 0, 0);
-    return day;
+    if (typeof raw === 'string') {
+        const iso = parseDateField(raw);
+        if (!iso) return null;
+        const [year, month, day] = iso.split('-').map(Number);
+        return new Date(year, month - 1, day);
+    }
+    if (raw instanceof Date && !isNaN(raw.getTime())) {
+        return new Date(raw.getFullYear(), raw.getMonth(), raw.getDate());
+    }
+    const parsed = parseDateField(raw);
+    if (!parsed) return null;
+    const [year, month, day] = parsed.split('-').map(Number);
+    return new Date(year, month - 1, day);
 }
 
 function normalizeTransportToken(value) {
@@ -67,9 +75,9 @@ function normalizeTransportToken(value) {
 
 function formatDateLabel(dateLike) {
     if (!dateLike) return '(none)';
-    const date = new Date(dateLike);
-    if (isNaN(date.getTime())) return '(invalid)';
-    return date.toLocaleDateString();
+    const date = toDateOnly(dateLike);
+    if (!date) return '(invalid)';
+    return `${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear()}`;
 }
 
 function validateWorkflowAgainstServiceDate(serviceDate, workflowTracking, addErr) {

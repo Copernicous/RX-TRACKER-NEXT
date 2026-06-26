@@ -13,6 +13,7 @@
     "qa:stop": "node qa/stop-local-qa.js",
     "qa:web": "node qa/web-ui.js",
     "staging:check": "node scripts/check-staging-config.js",
+    "staging:import-smoke": "node scripts/smoke-staging-import-guard.js",
     "staging:start": "node scripts/start-staging.js",
     "smoke:qa": "node qa/smoke-qa.js",
     "test:rx-override": "node scripts/test-rx-override-permissions.js",
