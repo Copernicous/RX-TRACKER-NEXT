@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const tls = require('tls');
 const { spawn, spawnSync } = require('child_process');
 const {
   readConfig,
@@ -38,7 +39,18 @@ function startDetached(command, args, options, logFile) {
 
 function ensureCertificate(config) {
   const pfxPath = path.join(config.certDir, 'localhost.pfx');
-  if (fs.existsSync(pfxPath)) return pfxPath;
+  if (fs.existsSync(pfxPath)) {
+    try {
+      tls.createSecureContext({
+        pfx: fs.readFileSync(pfxPath),
+        passphrase: config.pfxPassphrase
+      });
+      return pfxPath;
+    } catch {
+      console.log('Existing local HTTPS certificate does not match the QA passphrase; recreating it...');
+      fs.rmSync(pfxPath, { force: true });
+    }
+  }
 
   console.log('Creating local self-signed HTTPS certificate for localhost...');
   const escapedPfx = pfxPath.replace(/'/g, "''");

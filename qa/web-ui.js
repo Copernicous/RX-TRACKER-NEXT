@@ -282,7 +282,7 @@ app.get('/manual', (req, res) => {
 });
 
 app.listen(webPort, webHost, () => {
-  console.log('Daniely RX QA Web Dashboard');
+  console.log('Patient RX QA Web Dashboard');
   console.log('---------------------------');
   console.log(`Open: http://${webHost}:${webPort}`);
   console.log(`QA site: ${config.baseURL}`);

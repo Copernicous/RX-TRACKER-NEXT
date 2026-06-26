@@ -1,4 +1,4 @@
-# Daniely RX — Agent Rules
+# Patient RX — Agent Rules
 
 ## Template Sync Policy
 
@@ -30,15 +30,15 @@
 
 ### Workflow when checking uncommitted changes
 
-1. Run `git status` and `git diff` in Daniely RX
+1. Run `git status` and `git diff` in Patient RX
 2. For each changed file, determine: core framework or domain-specific?
 3. Apply core framework fixes to the matching template file
-4. Add a CHANGELOG entry in Daniely RX with full file-level detail
+4. Add a CHANGELOG entry in Patient RX with full file-level detail
 5. Add a matching (condensed) entry to the template CHANGELOG `[2.0.x]` section
 6. Update `OPERATIONS_MANUAL.md` in the template if the fix affects documented behavior
 7. Then commit both projects
 
 ### Version numbering
-- Daniely RX uses explicit semver: `[2.0.20]`, `[2.0.21]`, etc.
+- Patient RX uses explicit semver: `[2.0.20]`, `[2.0.21]`, etc.
 - Template CHANGELOG consolidates under `[2.0.x]` — no per-fix version numbers needed
 - OPERATIONS_MANUAL.md version header = latest RX version applied

@@ -1,5 +1,5 @@
 Deferred Items — Future Analysis Required
-Project: Daniely RX
+Project: Patient RX
 Created: 2026-06-24
 Status: These items require staged testing, architectural planning, or are low-urgency monitoring tasks.
         They were intentionally deferred and should be revisited before each major release.

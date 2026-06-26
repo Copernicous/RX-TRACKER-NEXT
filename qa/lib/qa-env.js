@@ -52,7 +52,7 @@ function readConfig() {
     smokeNeedsAction: bool(process.env.QA_SMOKE_NEEDS_ACTION, false),
     chromePath: process.env.QA_CHROME_PATH || '',
     allowNonQaDb: bool(process.env.QA_ALLOW_NON_QA_DB, false),
-    pfxPassphrase: process.env.QA_PFX_PASSPHRASE || 'daniely-rx-local-qa',
+    pfxPassphrase: process.env.QA_PFX_PASSPHRASE || 'patient-rx-local-qa',
     pidsDir: path.join(qaDir, 'pids'),
     logsDir: path.join(qaDir, 'logs'),
     resultsDir: path.join(qaDir, 'results'),

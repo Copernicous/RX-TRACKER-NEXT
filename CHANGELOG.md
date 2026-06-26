@@ -5,6 +5,20 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ---
 
+## [2.0.56] - 2026-06-26
+
+### [HOTFIX-56] Patient RX rename and document upload response handling
+**Files changed:** 30 | `public/js/documents.js`, `controllers/twoFactorController.js`, `services/documentStorageService.js`, `utils/globalSettings.js`, `views/backoffice.ejs`, `data/settings.json`, `.env.example`, `scripts/setup-google-drive-oauth.js`, `fix_encoding.js`, `qa/smoke-qa.js`, `qa/start-local-qa.js`, QA labels/docs, operations docs, release metadata
+
+- Renamed remaining `Daniely RX` product/default labels to `Patient RX`, including app defaults, 2FA issuer fallback, Backoffice placeholders, Google Drive folder defaults, QA labels, and operations documentation.
+- Fixed document upload/list frontend handling so proxy HTML responses no longer surface as raw `Unexpected token '<'` JSON parser errors.
+- Made document upload/list/delete/download URLs proxy-aware through `window.rxUrl(...)`, improving FortiGate compatibility for patient and RX document attachments.
+- Updated the real production `.env` on the build machine to use `GOOGLE_DRIVE_ROOT_FOLDER_NAME="Patient RX Documents"` while preserving the configured Drive folder ID behavior.
+- Hardened QA startup so an existing local HTTPS certificate is recreated if the QA passphrase changes.
+- Fixed Needs Action smoke-test setup to seed the selected QA database, accept the current workflow-action banner text, and click the workflow button in the intended RX row.
+- Verified the normal smoke path, Needs Action smoke path, RX override permission scenarios, and a focused patient document upload/list API cycle.
+- Bumped production package version to `2.0.56`.
+
 ## [2.0.55] - 2026-06-25
 
 ### [OPS-55] Production release checklist packaging

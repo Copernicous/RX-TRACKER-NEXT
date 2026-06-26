@@ -70,7 +70,7 @@ to the internet.
 ## 3. File Tree
 
 ```
-Daniely RX\                         <- Project root (source)
+Patient RX\                         <- Project root (source)
   app.js                            <- Entry point. CLI flags, middleware, routes.
   package.json                      <- Dependencies, build script, pkg config
   .env                              <- Runtime config (never commit to git)
@@ -247,7 +247,7 @@ GOOGLE_DRIVE_CLIENT_ID=
 GOOGLE_DRIVE_CLIENT_SECRET=
 GOOGLE_DRIVE_REFRESH_TOKEN=
 GOOGLE_DRIVE_ROOT_FOLDER_ID=
-GOOGLE_DRIVE_ROOT_FOLDER_NAME=Daniely RX Documents
+GOOGLE_DRIVE_ROOT_FOLDER_NAME=Patient RX Documents
 GOOGLE_DRIVE_SCOPE=https://www.googleapis.com/auth/drive.file
 DOCUMENT_UPLOAD_MAX_MB=25
 DOCUMENT_STORAGE_LOCAL_DIR=uploads/documents
@@ -612,7 +612,7 @@ specific roles. The workflow modal enforces these permissions and will show a
 - RX modal: `Pictures & Documents` appears inside `View Details` for an existing RX record
 - Accepts images, PDF, Office, CSV, and text files; default limit is `DOCUMENT_UPLOAD_MAX_MB`
 - Uses Google Drive when `GOOGLE_DRIVE_ENABLED=true`; uploads fail instead of silently storing locally if Drive is unavailable
-- Drive folders are organized under `Daniely RX Documents/Patients/{patient code - patient name - DOB}`
+- Drive folders are organized under `Patient RX Documents/Patients/{patient code - patient name - DOB}`
 - Relative `DOCUMENT_STORAGE_LOCAL_DIR` values resolve beside the app/server.exe folder and are only a development fallback when Drive is disabled
 - Upload/delete requires Edit permission on Patients or RX Records; read-only users can list/open/download
 
@@ -993,7 +993,7 @@ to the internet.
 ## 3. File Tree
 
 ```
-Daniely RX\                         <- Project root (source)
+Patient RX\                         <- Project root (source)
   app.js                            <- Entry point. CLI flags, middleware, routes.
   package.json                      <- Dependencies, build script, pkg config
   .env                              <- Runtime config (never commit to git)

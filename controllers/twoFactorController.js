@@ -7,7 +7,7 @@ const jwt       = require('jsonwebtoken');
 const db        = require('../models');
 const { issueFullToken } = require('./authController');
 
-const APP_NAME = process.env.APP_NAME || 'Daniely RX';
+const APP_NAME = process.env.APP_NAME || 'Patient RX';
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 function _auditLog(userId, action, ip) {

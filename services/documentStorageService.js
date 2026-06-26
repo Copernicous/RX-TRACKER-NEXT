@@ -92,7 +92,7 @@ function rxFolderName(rx) {
 }
 
 async function ensureDriveOwnerFolder(drive, ownerType, ownerId, owner) {
-    const rootName = process.env.GOOGLE_DRIVE_ROOT_FOLDER_NAME || 'Daniely RX Documents';
+    const rootName = process.env.GOOGLE_DRIVE_ROOT_FOLDER_NAME || 'Patient RX Documents';
     const rootId = process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID
         || await findOrCreateFolder(drive, rootName, null);
     const patientsId = await findOrCreateFolder(drive, 'Patients', rootId);

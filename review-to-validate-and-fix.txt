@@ -1,5 +1,5 @@
 Production Code Review - Items To Validate And Fix
-Project: Daniely RX
+Project: Patient RX
 Scope: Read-only review findings. No application code was changed.
 
 Context provided:

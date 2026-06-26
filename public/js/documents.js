@@ -20,11 +20,17 @@
         return token ? { 'Authorization': 'Bearer ' + token } : {};
     }
 
+    function toAppUrl(path) {
+        if (/^https?:\/\//i.test(String(path || ''))) return path;
+        if (typeof window.rxUrl === 'function') return window.rxUrl(path);
+        return path;
+    }
+
     function rawFetch(url, options) {
         options = options || {};
         options.credentials = options.credentials || 'include';
         options.headers = Object.assign({}, getAuthHeaders(), options.headers || {});
-        return fetch(url, options).then(function(res) {
+        return fetch(toAppUrl(url), options).then(function(res) {
             if (res.status === 401) {
                 localStorage.removeItem('token');
                 localStorage.removeItem('user');
@@ -36,6 +42,23 @@
                 return null;
             }
             return res;
+        });
+    }
+
+    function readJson(res, fallbackMessage) {
+        if (!res) return Promise.resolve(null);
+        return res.text().then(function(text) {
+            var trimmed = String(text || '').trim();
+            if (!trimmed) return null;
+            var contentType = (res.headers.get('content-type') || '').toLowerCase();
+            if (contentType.indexOf('application/json') === -1 && trimmed.charAt(0) === '<') {
+                throw new Error(fallbackMessage || 'The server returned an HTML page instead of JSON. Please refresh the page and try again.');
+            }
+            try {
+                return JSON.parse(trimmed);
+            } catch (err) {
+                throw new Error(fallbackMessage || 'The server returned an invalid response. Please refresh the page and try again.');
+            }
         });
     }
 
@@ -95,7 +118,7 @@
                     '<div class="fw-semibold text-truncate">' + escapeHtml(doc.originalName) + provider + '</div>' +
                     '<div class="text-muted small">' + formatBytes(doc.sizeBytes) + (date ? ' &middot; ' + escapeHtml(date) : '') + by + '</div>' +
                 '</div>' +
-                '<a class="btn btn-sm btn-outline-primary" target="_blank" rel="noopener" href="' + doc.downloadUrl + '" title="Open / download"><i class="fas fa-download"></i></a>';
+                '<a class="btn btn-sm btn-outline-primary" target="_blank" rel="noopener" href="' + escapeHtml(toAppUrl(doc.downloadUrl)) + '" title="Open / download"><i class="fas fa-download"></i></a>';
             if (doc.driveWebViewLink) {
                 html += '<a class="btn btn-sm btn-outline-success" target="_blank" rel="noopener" href="' + escapeHtml(doc.driveWebViewLink) + '" title="Open in Google Drive"><i class="fab fa-google-drive"></i></a>';
             }
@@ -124,7 +147,7 @@
         return rawFetch(endpoint(options.ownerType, options.ownerId))
             .then(function(res) {
                 if (!res || !res.ok) throw new Error('Could not load documents.');
-                return res.json();
+                return readJson(res, 'Could not load documents. Please refresh the page and try again.');
             })
             .then(function(docs) {
                 renderList(options, docs);
@@ -160,11 +183,11 @@
         }).then(function(res) {
             if (!res) return null;
             if (!res.ok) {
-                return res.json().catch(function() { return {}; }).then(function(err) {
+                return readJson(res, 'Upload failed. Please refresh the page and try again.').catch(function() { return {}; }).then(function(err) {
                     throw new Error(err.error || err.message || 'Upload failed.');
                 });
             }
-            return res.json();
+            return readJson(res, 'Upload finished, but the server returned an unexpected response. Please refresh the document list.');
         }).then(function() {
             inputEl.value = '';
             setStatus(statusEl, 'Uploaded successfully.', 'success');

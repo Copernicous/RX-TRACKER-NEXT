@@ -16,7 +16,7 @@ const AUTH_URL_FILE = process.env.GOOGLE_DRIVE_AUTH_URL_FILE
 const ENV_FILE = process.env.GOOGLE_DRIVE_ENV_FILE
     || path.join(ROOT_DIR, '.env');
 const ROOT_FOLDER_NAME = process.env.GOOGLE_DRIVE_ROOT_FOLDER_NAME
-    || 'Daniely RX Documents';
+    || 'Patient RX Documents';
 const SCOPES = ['https://www.googleapis.com/auth/drive.file'];
 
 function readClientConfig() {
@@ -146,7 +146,7 @@ function waitForOAuthCode(oauth2Client, redirectUrl, authUrl) {
             }
 
             res.writeHead(200, { 'Content-Type': 'text/html' });
-            res.end('<h2>Google Drive authorization complete.</h2><p>You can close this tab and return to Daniely RX.</p>');
+            res.end('<h2>Google Drive authorization complete.</h2><p>You can close this tab and return to Patient RX.</p>');
             cleanup();
             resolve(code);
         });

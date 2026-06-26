@@ -1,4 +1,4 @@
-# Daniely RX QA Smoke Test
+# Patient RX QA Smoke Test
 
 This folder contains standalone QA tooling. These scripts are not part of the production app runtime; they only run when you execute the QA commands.
 

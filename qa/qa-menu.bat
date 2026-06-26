@@ -5,7 +5,7 @@ cd /d "%~dp0\.."
 :menu
 cls
 echo ================================================================
-echo Daniely RX - QA Smoke Test Menu
+echo Patient RX - QA Smoke Test Menu
 echo ================================================================
 echo.
 echo This menu runs standalone QA scripts from the qa\ folder.

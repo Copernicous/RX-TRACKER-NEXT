@@ -1,5 +1,5 @@
 Pending Items To Fix
-Project: Daniely RX
+Project: Patient RX
 Status after mitigation review: partially mitigated, not fully production-clean yet.
 
 This file lists only the remaining open or partially open items from the latest review.

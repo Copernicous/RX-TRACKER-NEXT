@@ -1,5 +1,7 @@
 const fs = require('fs');
-const file = 'e:/Documents/Daniely RX/views/reports.ejs';
+const path = require('path');
+
+const file = path.join(__dirname, 'views', 'reports.ejs');
 
 // Read raw bytes
 const buf = fs.readFileSync(file);

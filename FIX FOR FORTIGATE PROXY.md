@@ -258,7 +258,7 @@ Via proxy: https://rx.camperos.net:10443/proxy/…/js/roles.js  (may be rewritte
 
 ### Step 4: Check syntax locally
 ```powershell
-node --check "e:\Documents\Daniely RX\public\js\roles.js"
+node --check "e:\Documents\Patient RX\public\js\roles.js"
 # Output: nothing = PASS, error message = FAIL
 ```
 

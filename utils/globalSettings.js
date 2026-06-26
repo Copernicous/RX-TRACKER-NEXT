@@ -10,7 +10,7 @@ const SETTINGS_PATH = path.join(WRITABLE_ROOT, 'data', 'settings.json');
 const DEFAULT_SETTINGS = {
     backupPath: path.join(WRITABLE_ROOT, 'backups'),
     backupRetentionDays: 30,
-    appName: 'Daniely RX',
+    appName: 'Patient RX',
     sessionTimeoutMinutes: 60,
     maxLoginAttempts: 5,
     maintenanceMode: false,

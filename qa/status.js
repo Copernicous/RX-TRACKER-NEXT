@@ -68,7 +68,7 @@ async function main() {
   const httpsOpen = await checkPort(config.httpsPort);
   const statusCode = await requestStatus(config.baseURL);
 
-  console.log('Daniely RX QA status');
+  console.log('Patient RX QA status');
   console.log('--------------------');
   console.log(`QA URL:          ${config.baseURL}`);
   console.log(`QA database:     ${config.dbName}`);

@@ -1,4 +1,4 @@
-# Daniely RX QA Web Dashboard Manual
+# Patient RX QA Web Dashboard Manual
 
 ## Purpose
 

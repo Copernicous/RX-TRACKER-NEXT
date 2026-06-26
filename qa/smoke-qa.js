@@ -1,11 +1,12 @@
 const fs = require('fs');
 const path = require('path');
 const { chromium } = require('playwright-core');
-const { readConfig, ensureQaDirectories } = require('./lib/qa-env');
+const { readConfig, ensureQaDirectories, applyRuntimeEnv } = require('./lib/qa-env');
 const packageInfo = require('../package.json');
 
 const config = readConfig();
 ensureQaDirectories(config);
+applyRuntimeEnv(config);
 
 const results = [];
 const errors = [];
@@ -163,7 +164,7 @@ async function verifyNeedsActionFlow(fixture) {
 
   const banner = page.locator('#patientsNeedsActionBanner');
   const bannerText = await banner.textContent().catch(() => '');
-  if (typeof bannerText === 'string' && /needs action/i.test(bannerText)) {
+  if (typeof bannerText === 'string' && /(needs action|workflow action)/i.test(bannerText)) {
     pass('needs-action smoke banner', `found banner: ${bannerText.trim()}`);
   } else {
     fail('needs-action smoke banner', `expected needs-action banner text, got: ${bannerText || '[empty]'}`);
@@ -181,8 +182,11 @@ async function verifyNeedsActionFlow(fixture) {
   await page.waitForLoadState('networkidle').catch(() => {});
   await page.fill('#rxFilterPatient', fixture.patientName);
   await safeClick('#rxFilterBtn', 'needs-action smoke rx search button', { wait: 700 });
-  await page.locator(`tbody:has-text("${fixture.patientName}")`).waitFor({ state: 'visible', timeout: 10000 });
-  await safeClick('button[title="Workflow"]', 'needs-action smoke expired workflow modal opens', { wait: 800 });
+  const rxRow = page.locator(`tbody tr:has-text("${fixture.patientName}")`).first();
+  await rxRow.waitFor({ state: 'visible', timeout: 10000 });
+  await rxRow.locator('button[title="Workflow"]').first().click({ timeout: 5000 });
+  await page.waitForTimeout(800);
+  pass('needs-action smoke expired workflow modal opens');
   await expectVisible('#workflowModal.show', 'needs-action smoke workflow modal visible');
 
   const expiredBanner = page.locator('#workflowModal .alert-danger:has-text("90-Day Window Expired")');
