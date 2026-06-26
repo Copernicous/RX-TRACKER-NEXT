@@ -6,6 +6,9 @@ const { parseDate } = require('../utils/dateUtils');
 const {
     bulkRecordPatientServiceDateChanges
 } = require('../services/patientServiceDateHistoryService');
+const {
+    syncPatientServiceDateCycles
+} = require('../services/patientServiceDateCycleService');
 
 const WORKFLOW_HEADERS = [
     'rx received warehouse',
@@ -180,15 +183,15 @@ function extractWorkflowTracking(row, actionByNormalizedName, actionBySequence, 
         const normalizedHeader = normalizeImportHeader(rawHeader);
         if (!WORKFLOW_HEADERS.includes(normalizedHeader)) return;
 
+        const trimmed = (row[rawHeader] || '').toString().trim();
+        if (!trimmed) return;
+
         const headerIndex = WORKFLOW_HEADERS.indexOf(normalizedHeader);
         const action = actionByNormalizedName.get(normalizedHeader) || actionBySequence.get(headerIndex + 1);
         if (!action) {
             addErr(`Unknown workflow step header "${rawHeader}" - no matching workflow action found.`);
             return;
         }
-
-        const trimmed = (row[rawHeader] || '').toString().trim();
-        if (!trimmed) return;
 
         const parsedDate = parseDateField(trimmed);
         if (!parsedDate) {
@@ -413,7 +416,8 @@ exports.importDataset = async (req, res) => {
                             const iso = `${earliest.getFullYear()}-${String(earliest.getMonth() + 1).padStart(2, '0')}-${String(earliest.getDate()).padStart(2, '0')}`;
                             svcDate = parseDateField(iso);
                         }
-                    } else if (svcDate) {
+                    }
+                    if (hasWorkflowDates && svcDate) {
                         validateWorkflowAgainstServiceDate(svcDate, workflowTracking, addErr);
                     }
 
@@ -448,22 +452,28 @@ exports.importDataset = async (req, res) => {
                             const rowPayload = validRows[i];
                             const patient = createdPatients[i];
                             const steps = rowPayload.workflowTracking || [];
-                            if (!steps.length) continue;
+                            if (steps.length) {
+                                const rx = await db.RXRecord.create({
+                                    patientId: patient.id,
+                                    serviceDate: rowPayload.serviceDate,
+                                    arrivalDate: rowPayload.serviceDate,
+                                    patientTransportCompanyId: rowPayload.patientTransportCompanyId,
+                                    pharmacyTransportCompanyId: rowPayload.pharmacyTransportCompanyId
+                                }, { transaction: tx });
 
-                            const rx = await db.RXRecord.create({
-                                patientId: patient.id,
-                                serviceDate: rowPayload.serviceDate,
-                                arrivalDate: rowPayload.serviceDate,
-                                patientTransportCompanyId: rowPayload.patientTransportCompanyId,
-                                pharmacyTransportCompanyId: rowPayload.pharmacyTransportCompanyId
-                            }, { transaction: tx });
+                                await db.RXWorkflowTracking.bulkCreate(steps.map((step) => ({
+                                    rxRecordId: rx.id,
+                                    workflowActionId: step.workflowActionId,
+                                    completionDate: step.completionDate,
+                                    userId: req.user?.id || null
+                                })), { transaction: tx });
+                            }
 
-                            await db.RXWorkflowTracking.bulkCreate(steps.map((step) => ({
-                                rxRecordId: rx.id,
-                                workflowActionId: step.workflowActionId,
-                                completionDate: step.completionDate,
-                                userId: req.user?.id || null
-                            })), { transaction: tx });
+                            await syncPatientServiceDateCycles(patient, {
+                                transaction: tx,
+                                userId: req.user?.id || null,
+                                source: 'Patient Import'
+                            });
                         }
 
                         await tx.commit();

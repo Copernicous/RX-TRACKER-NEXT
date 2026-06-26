@@ -46,6 +46,41 @@ function getRxCycleServiceDate(rx) {
     );
 }
 
+function getWorkflowWindowBlock(rx) {
+    const serviceDate = dateOnly(getRxCycleServiceDate(rx));
+    if (!serviceDate) {
+        return {
+            error: 'This RX has no Service Date. Set the patient Service Date and create a new RX record before adding workflow steps.',
+            code: 'RX_SERVICE_DATE_REQUIRED'
+        };
+    }
+
+    const svcDay = new Date(serviceDate);
+    if (isNaN(svcDay.getTime())) {
+        return {
+            error: 'This RX has an invalid Service Date. Correct the service date before adding workflow steps.',
+            code: 'RX_SERVICE_DATE_INVALID'
+        };
+    }
+
+    svcDay.setHours(0, 0, 0, 0);
+    const expiryDay = new Date(svcDay);
+    expiryDay.setDate(expiryDay.getDate() + 90);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    if (today > expiryDay) {
+        return {
+            error: `The 90-day window for this RX expired on ${expiryDay.toLocaleDateString()}. Start a new patient Service Date and create a new RX record for the new cycle.`,
+            code: 'RX_WORKFLOW_WINDOW_EXPIRED',
+            serviceDate,
+            windowExpiry: expiryDay.toISOString().slice(0, 10)
+        };
+    }
+
+    return null;
+}
+
 // GET /api/rx-records
 exports.getAll = async (req, res) => {
     try {
@@ -245,8 +280,11 @@ exports.create = async (req, res) => {
 exports.updateWorkflow = async (req, res) => {
     try {
         const { rxId, actionId } = req.body;
-        const rx = await db.RXRecord.findByPk(rxId);
+        const rx = await db.RXRecord.findByPk(rxId, { include: [db.PatientServiceDateCycle, db.Patient] });
         if (!rx) return res.status(404).json({ error: 'RX not found' });
+
+        const windowBlock = getWorkflowWindowBlock(rx);
+        if (windowBlock) return res.status(400).json(windowBlock);
 
         const action = await db.WorkflowAction.findByPk(actionId);
         if (!action) return res.status(404).json({ error: 'Action not found' });
@@ -327,7 +365,7 @@ exports.bulkWorkflow = async (req, res) => {
             }
 
             try {
-                var rx = await db.RXRecord.findByPk(rxId);
+                var rx = await db.RXRecord.findByPk(rxId, { include: [db.PatientServiceDateCycle, db.Patient] });
                 if (!rx) {
                     results.push({ rxId: rxId, ok: false, error: 'Record not found.' });
                     failed++;
@@ -335,6 +373,17 @@ exports.bulkWorkflow = async (req, res) => {
                 }
                 if (rx.isDeleted) {
                     results.push({ rxId: rxId, ok: false, error: 'Record is hidden.' });
+                    failed++;
+                    continue;
+                }
+                var windowBlock = getWorkflowWindowBlock(rx);
+                if (windowBlock) {
+                    results.push({
+                        rxId: rxId,
+                        ok: false,
+                        code: windowBlock.code,
+                        error: windowBlock.error
+                    });
                     failed++;
                     continue;
                 }
