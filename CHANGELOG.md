@@ -5,6 +5,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ---
 
+## [2.0.57] - 2026-06-26
+
+### [HOTFIX-57] Production Google Drive document upload transport
+**Files changed:** 4 | `services/documentStorageService.js`, `package.json`, `package-lock.json`, `.github/releases/v2.0.57.md`
+
+- Replaced the production document-storage Google Drive runtime path with direct Drive REST calls using Node.js built-in `fetch`.
+- Avoided the packaged-executable `gaxios`/`node-fetch` dynamic import path that caused `A dynamic import callback was not specified` during document uploads.
+- Preserved the existing Drive folder structure, `GOOGLE_DRIVE_ROOT_FOLDER_ID` behavior, database attachment records, local-storage fallback behavior, and Drive delete/download support.
+- Added a Drive download stream conversion so Google Drive files can still be opened from the compiled `server.exe`.
+- Verified the Drive upload/download/delete cycle with mocked Google endpoints and bumped production package version to `2.0.57`.
+
 ## [2.0.56] - 2026-06-26
 
 ### [HOTFIX-56] Patient RX rename and document upload response handling
