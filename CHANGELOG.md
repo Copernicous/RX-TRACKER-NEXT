@@ -5,6 +5,19 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ---
 
+## [2.0.59] - 2026-06-26
+
+### [RELEASE-59] Service date cycle context auditing
+**Files changed:** 30 | service date cycle model/migration/service, patient/RX controllers, importer guard, timeline/profile views, session heartbeat handling, staging smoke tests, release metadata
+
+- Added service date cycles so each RX record can stay linked to the service-date period where it was created or imported.
+- Preserved historical workflow/RX records when starting a new 90-day cycle instead of clearing records from previous cycles.
+- Added importer protections and smoke coverage for old patients, expired service dates, and RX records with out-of-range service dates.
+- Captured clinic, default pharmacy, patient transport, and pharmacy transport snapshots per service date cycle, including audit metadata when those defaults change.
+- Added timeline/profile display, print, and export coverage for captured cycle defaults and related RX records.
+- Added heartbeat/session handling improvements for the sudden logout workflow and verified the staged cycle-context smoke tests.
+- Bumped production package version to `2.0.59`.
+
 ## [2.0.58] - 2026-06-26
 
 ### [RELEASE-58] Service date history, staging workflow, and print/export promotion
