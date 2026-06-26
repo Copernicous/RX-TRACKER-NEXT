@@ -8,6 +8,9 @@ const bcrypt    = require('bcryptjs');
 const { parseDate } = require('../utils/dateUtils');
 const fileSettings = require('../utils/globalSettings');
 const logDashboardService = require('../services/logDashboardService');
+const {
+    recordPatientServiceDateChange
+} = require('../services/patientServiceDateHistoryService');
 
 function readSettings() {
     return fileSettings.readSettings();
@@ -53,6 +56,14 @@ const TABLE_META = [
         icon: 'fas fa-sticky-note',
         color: '#eab308',
         description: 'Free-text notes attached to patient profiles',
+        dependsOn: ['Patients']
+    },
+    {
+        key: 'PatientServiceDateHistories',
+        label: 'Patient Service Date Histories',
+        icon: 'fas fa-calendar-alt',
+        color: '#7c3aed',
+        description: 'Patient-level service date changes over time',
         dependsOn: ['Patients']
     },
     {
@@ -258,6 +269,9 @@ exports.purge = async (req, res) => {
         if (tables.includes('Patients')) {
             if (!tables.includes('PatientNotes')) {
                 await db.sequelize.query('DELETE FROM "PatientNotes" WHERE "patientId" IN (SELECT id FROM "Patients")', { transaction: t });
+            }
+            if (!tables.includes('PatientServiceDateHistories')) {
+                await db.sequelize.query('DELETE FROM "PatientServiceDateHistories" WHERE "patientId" IN (SELECT id FROM "Patients")', { transaction: t });
             }
             if (!tables.includes('PatientLocks')) {
                 await db.sequelize.query('DELETE FROM "PatientLocks" WHERE "patientId" IN (SELECT id FROM "Patients")', { transaction: t });
@@ -609,6 +623,19 @@ exports.overridePatientServiceDate = async (req, res) => {
 
         await t.commit();
 
+        await recordPatientServiceDateChange({
+            patientId: patient.id,
+            previousServiceDate: oldServiceDate,
+            newServiceDate,
+            userId: req.user?.id || null,
+            changeSource: 'Backoffice Override',
+            reason,
+            metadata: {
+                syncMatchingRx,
+                rxUpdated
+            }
+        });
+
         res.json({
             success: true,
             patient: {
@@ -678,6 +705,8 @@ const FK_PAIRS = [
     ['Medications',         'rxRecordId',                 'RXRecords',                'id'],
     ['RXHistories',         'rxRecordId',                 'RXRecords',                'id'],
     ['PatientNotes',        'patientId',                  'Patients',                 'id'],
+    ['PatientServiceDateHistories', 'patientId',          'Patients',                 'id'],
+    ['PatientServiceDateHistories', 'changedByUserId',    'Users',                    'id'],
     ['PatientLocks',        'patientId',                  'Patients',                 'id'],
     ['RXRecords',           'pharmacyId',                 'Pharmacies',               'id'],
     ['RXRecords',           'pharmacyTransportCompanyId', 'PharmacyTransportCompanies','id'],
@@ -898,6 +927,7 @@ const FK_CHILDREN = {
         // Direct children of Patients
         { table: 'RXRecords',            col: 'patientId',   action: 'cascade' },
         { table: 'PatientNotes',         col: 'patientId',   action: 'cascade' },
+        { table: 'PatientServiceDateHistories', col: 'patientId', action: 'cascade' },
         { table: 'PatientLocks',         col: 'patientId',   action: 'cascade' },
     ],
     RXRecords: [
@@ -927,6 +957,7 @@ const FK_CHILDREN = {
     Users: [
         // AuditLogs and RXHistories reference userId — SET NULL to allow user deletion
         { table: 'RXHistories',          col: 'userId',                     action: 'null' },
+        { table: 'PatientServiceDateHistories', col: 'changedByUserId',     action: 'null' },
         { table: 'AuditLogs',            col: 'userId',                     action: 'null' },
     ],
 };

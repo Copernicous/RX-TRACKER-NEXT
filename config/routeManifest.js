@@ -26,6 +26,7 @@ module.exports = {
     'GET /api/patients/:id':                        { category:'patients', desc:'Get a single patient by ID.',                                         perm:'patients: read',   admin:false },
     'GET /api/patients/check-duplicate':            { category:'patients', desc:'Check for a duplicate patient. Query: ?firstName=&lastName=&dob=',    perm:'patients: read',   admin:false, query:'?firstName=John&lastName=Doe&dob=1985-03-15' },
     'GET /api/patients/:id/timeline':               { category:'patients', desc:'Get the full RX delivery timeline for a patient.',                    perm:'patients: read',   admin:false },
+    'GET /api/patients/:id/service-date-history':   { category:'patients', desc:'Get patient-level service date history.',                             perm:'patients: read',   admin:false },
     'GET /api/patients/:id/notes':                  { category:'patients', desc:'Get all clinical notes for a patient.',                               perm:'patients: read',   admin:false },
     'POST /api/patients':                           { category:'patients', desc:'Create a new patient record.',                                        perm:'patients: write',  admin:false },
     'POST /api/patients/:id/notes':                 { category:'patients', desc:'Add a clinical note to a patient.',                                   perm:'patients: write',  admin:false },

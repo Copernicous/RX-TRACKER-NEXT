@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const db = require('../models');
 const { QueryTypes } = require('sequelize');
+const { getAppRoot, getWritableRoot } = require('../utils/runtimePaths');
 
 const HTTP_METHODS = new Set(['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD']);
 
@@ -646,8 +647,8 @@ function configuredLogPaths() {
         });
     }
 
-    const appRoot = path.join(__dirname, '..');
-    const runDir = process.pkg ? path.dirname(process.execPath) : appRoot;
+    const appRoot = getAppRoot();
+    const runDir = getWritableRoot();
     const candidates = [
         path.join(runDir, 'logs'),
         path.join(appRoot, 'logs'),

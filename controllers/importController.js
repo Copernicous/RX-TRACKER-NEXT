@@ -3,6 +3,9 @@ const bcrypt = require('bcryptjs');
 const csv = require('csv-parser');
 const { Readable } = require('stream');
 const { parseDate } = require('../utils/dateUtils');
+const {
+    bulkRecordPatientServiceDateChanges
+} = require('../services/patientServiceDateHistoryService');
 
 const WORKFLOW_HEADERS = [
     'rx received warehouse',
@@ -465,6 +468,15 @@ exports.importDataset = async (req, res) => {
 
                         await tx.commit();
                         successCount = validRows.length;
+                        await bulkRecordPatientServiceDateChanges(createdPatients.map((patient, i) => ({
+                            patientId: patient.id,
+                            previousServiceDate: null,
+                            newServiceDate: validRows[i].serviceDate
+                        })), {
+                            userId: req.user?.id || null,
+                            changeSource: 'Patient Import',
+                            reason: 'Imported patient service date.'
+                        });
                     } catch (err) {
                         await tx.rollback();
                         throw err;

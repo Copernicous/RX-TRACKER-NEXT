@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="light">
+<html lang="en" data-theme="light" class="<%= locals.isStaging ? 'rx-staging-env' : '' %>">
 <head>
     <meta charset="UTF-8">
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
@@ -21,6 +21,35 @@
             align-items: center;
             justify-content: center;
             font-family: 'Inter', sans-serif;
+        }
+        body.rx-staging-env {
+            background: linear-gradient(135deg, #3b0a45, #86198f 48%, #7c2d12);
+        }
+        .rx-staging-login-banner {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1200;
+            min-height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #f59e0b;
+            color: #2b0a1d;
+            font-size: 0.78rem;
+            font-weight: 900;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            box-shadow: 0 8px 22px rgba(0,0,0,0.24);
+        }
+        body.rx-staging-env .login-card {
+            border-color: rgba(251,146,60,0.48);
+            box-shadow: 0 25px 55px rgba(59,10,69,0.44), 0 0 0 1px rgba(251,146,60,0.22);
+        }
+        body.rx-staging-env .login-card .brand-icon,
+        body.rx-staging-env .btn-login {
+            background: linear-gradient(135deg, #f59e0b, #c026d3);
         }
         .login-card {
             background: rgba(255,255,255,0.08);
@@ -136,7 +165,10 @@
         }
     </style>
 </head>
-<body>
+<body class="<%= locals.isStaging ? 'rx-staging-env' : '' %>">
+    <% if (locals.isStaging) { %>
+    <div class="rx-staging-login-banner">Staging Environment</div>
+    <% } %>
     <div class="login-card">
         <div class="text-center mb-4">
             <div class="brand-icon mb-2">

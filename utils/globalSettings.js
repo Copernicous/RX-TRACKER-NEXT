@@ -2,9 +2,9 @@
 
 const fs = require('fs');
 const path = require('path');
+const { getWritableRoot } = require('./runtimePaths');
 
-const IS_PKG = typeof process.pkg !== 'undefined';
-const WRITABLE_ROOT = IS_PKG ? path.dirname(process.execPath) : path.join(__dirname, '..');
+const WRITABLE_ROOT = getWritableRoot();
 const SETTINGS_PATH = path.join(WRITABLE_ROOT, 'data', 'settings.json');
 
 const DEFAULT_SETTINGS = {

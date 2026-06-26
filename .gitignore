@@ -7,6 +7,7 @@ yarn-error.log*
 # Environment files
 .env
 .env.local
+.env.staging
 .env.*.local
 
 # Local secrets / OAuth credentials
@@ -24,6 +25,7 @@ pids/
 *.pid
 *.seed
 qa/fortigate-chrome-profile/
+staging/runtime/
 
 # Build output
 dist/

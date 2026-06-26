@@ -10,6 +10,7 @@ const fs   = require('fs');
 const multer = require('multer');
 const errorLogController = require('../controllers/errorLogController');
 const sessionTracker = require('../services/sessionTracker');
+const { getWritableRoot } = require('../utils/runtimePaths');
 
 const pharmacyController = require('../controllers/pharmacyController');
 const patientTransportController = require('../controllers/patientTransportController');
@@ -184,6 +185,7 @@ router.put('/workflow-actions/:id/restore', rbac.requireRole(['Administrator']),
 // Otherwise Express matches 'check-duplicate' as :id and hits patientController.getOne instead.
 router.get('/patients/check-duplicate', rbac.requirePermission('patients', 'read'), patientController.checkDuplicate);
 router.get('/patients/:id/timeline',    rbac.requirePermission('patients', 'read'), patientController.getTimeline);
+router.get('/patients/:id/service-date-history', rbac.requirePermission('patients', 'read'), patientController.getServiceDateHistory);
 router.put('/patients/:id/restore',     rbac.requirePermission('patients', 'edit'), auditLogger('Patients'), patientController.restore);
 generateCRUDRoutes('/patients', patientController, 'Patients');
 
@@ -317,10 +319,7 @@ function masterOnly(req, res, next) {
 }
 
 // ---- DB Restore — multer upload ----
-const IS_PKG_ROUTES = typeof process.pkg !== 'undefined';
-const UPLOAD_DIR    = IS_PKG_ROUTES
-    ? path.join(path.dirname(process.execPath), 'backups', 'uploads')
-    : path.join(__dirname, '..', 'backups', 'uploads');
+const UPLOAD_DIR = path.join(getWritableRoot(), 'backups', 'uploads');
 
 const restoreUpload = multer({
     storage: multer.diskStorage({

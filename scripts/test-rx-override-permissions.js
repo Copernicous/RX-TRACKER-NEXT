@@ -289,7 +289,11 @@ async function cleanup() {
     await db.Medication.destroy({ where: { rxRecordId: rxIds } }).catch(() => {});
     await db.RXRecord.destroy({ where: { id: rxIds } }).catch(() => {});
   }
-  if (created.patients.length) await db.Patient.destroy({ where: { id: created.patients.map(row => row.id) } }).catch(() => {});
+  const patientIds = created.patients.map(row => row.id);
+  if (patientIds.length && db.PatientServiceDateHistory) {
+    await db.PatientServiceDateHistory.destroy({ where: { patientId: patientIds } }).catch(() => {});
+  }
+  if (patientIds.length) await db.Patient.destroy({ where: { id: patientIds } }).catch(() => {});
   if (created.users.length) await db.User.destroy({ where: { id: created.users.map(row => row.id) } }).catch(() => {});
   if (created.roles.length) await db.Role.destroy({ where: { id: created.roles.map(row => row.id) } }).catch(() => {});
   if (created.workflowActions.length) await db.WorkflowAction.destroy({ where: { id: created.workflowActions.map(row => row.id) } }).catch(() => {});
