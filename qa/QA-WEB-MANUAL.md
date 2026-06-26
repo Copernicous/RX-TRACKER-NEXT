@@ -91,7 +91,7 @@ Simple rule:
 - A normal new service cycle should start after the window expires.
 - The Backoffice per-patient override changes one selected patient's service date.
 - The Backoffice global override temporarily lifts the service-date 90-day block for all users.
-- The global override does not remove unrelated safeguards like inactive-patient checks, workflow sequence rules, or destructive reset-cycle confirmation.
+- The global override does not remove unrelated safeguards like inactive-patient checks, workflow sequence rules, or the disabled RX reset-cycle endpoint.
 
 Use the global override only during import correction, then turn it off again.
 

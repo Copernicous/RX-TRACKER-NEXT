@@ -334,7 +334,7 @@ When users open RX Records from a patient context (Patient list, timeline, or se
 **FEAT-15** — Added Backoffice 90-day service-date override tools for import correction:
 - Per-patient override lets a master Backoffice user select one patient, set the corrected service date, optionally sync matching active RX records, and write an audit entry.
 - Global override in Backoffice Settings temporarily lifts service-date 90-day blocks for all users while old/imported data is being corrected. It is saved in `data/settings.json`, defaults to `false`, and writes audit events when toggled.
-- Patient and RX service-date guards now read shared global settings from `utils/globalSettings.js`; inactive-patient checks, workflow sequence rules, and destructive reset-cycle confirmation remain in place.
+- Patient and RX service-date guards now read shared global settings from `utils/globalSettings.js`; inactive-patient checks, workflow sequence rules, and legacy reset-cycle safeguards remain in place.
 - Patient and RX UI now query `/api/service-date-override/status` so lock banners/readonly states match the active override mode.
 
 **Rule clarity** — Patient service-date blocking is now consistent at the boundary: Day 90 remains blocked, Day 91 is allowed. Added a blocking-date timeline diagram to the QA manual to explain the service-date clock and the override behavior.

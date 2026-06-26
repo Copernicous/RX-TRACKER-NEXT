@@ -837,77 +837,12 @@ exports.getHistory = async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 };
 
-// POST /api/rx-records/:id/reset-cycle  (New cycle after 90 days)
-// Allowed only when today > serviceDate + 90 days.
-// Clears all workflow trackings and warehouse flags, sets new serviceDate.
+// POST /api/rx-records/:id/reset-cycle
+// Legacy endpoint kept only to fail safely. New service cycles are created from
+// the patient service date, then new RX records are linked to that cycle.
 exports.resetRxCycle = async (req, res) => {
-    try {
-        const rx = await db.RXRecord.findByPk(req.params.id);
-        if (!rx) return res.status(404).json({ error: 'RX Record not found.' });
-
-        const { newServiceDate } = req.body;
-        if (!newServiceDate) return res.status(400).json({ error: 'newServiceDate is required.' });
-
-        const newSvc = new Date(newServiceDate);
-        if (isNaN(newSvc.getTime())) return res.status(400).json({ error: 'Invalid date format.' });
-
-        // Only allow reset if 90-day window has PASSED
-        if (rx.serviceDate) {
-            const oldSvc    = new Date(rx.serviceDate); oldSvc.setHours(0,0,0,0);
-            const oldExpiry = new Date(oldSvc); oldExpiry.setDate(oldExpiry.getDate() + 90);
-            const today     = new Date(); today.setHours(0,0,0,0);
-            if (today <= oldExpiry) {
-                return res.status(400).json({
-                    error: `Cannot reset: the 90-day window has not yet expired (expires ${oldExpiry.toLocaleDateString()}).`
-                });
-            }
-        }
-
-        // New service date must not be in the future
-        const todayCheck = new Date(); todayCheck.setHours(23,59,59,999);
-        if (newSvc > todayCheck) {
-            return res.status(400).json({ error: 'New service date cannot be in the future.' });
-        }
-
-        const snapshot = rx.toJSON();
-
-        // Delete all workflow trackings for this record
-        const deletedCount = await db.RXWorkflowTracking.destroy({
-            where: { rxRecordId: rx.id }
-        });
-
-        let resetCycle = null;
-        if (rx.patientId) {
-            const patient = await db.Patient.findByPk(rx.patientId);
-            if (patient) {
-                resetCycle = await ensureCycleForRx(patient, newSvc, {
-                    userId: req.user?.id || null,
-                    source: 'RX Cycle Reset'
-                });
-            }
-        }
-
-        // Reset warehouse flags and set new service date
-        await rx.update({
-            serviceDate:          newSvc,
-            arrivalDate:          newSvc,           // keep in sync per business logic
-            patientServiceDateCycleId: resetCycle ? resetCycle.id : rx.patientServiceDateCycleId,
-            returnedToWarehouse:  false,
-            warehouseReturnDate:  null,
-            warehouseReturnNote:  null
-        });
-
-        await saveHistory(
-            rx.id,
-            req.user?.id,
-            'Cycle Reset',
-            snapshot,
-            null,
-            `New RX cycle started. Service date set to ${newSvc.toLocaleDateString()}. ${deletedCount} workflow tracking record(s) cleared. Performed by ${req.user?.username || 'user'}.`
-        );
-
-        res.json({ ok: true, newServiceDate: newSvc, trackingsCleared: deletedCount });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
+    return res.status(410).json({
+        code: 'RX_CYCLE_RESET_DISABLED',
+        error: 'RX cycle reset is disabled to preserve workflow history. Update the patient service date from the patient profile, then create a new RX record for the new 90-day cycle. Existing RX records remain linked to their original service-date cycle.'
+    });
 };

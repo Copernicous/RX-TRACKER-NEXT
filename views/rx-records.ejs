@@ -1776,9 +1776,6 @@
                 }
                 var canCloseExpired = !!(canComplete || canEditDate || canOverrideExpired);
                 var canEditWorkflowDate = !!(canEditDate || (canOverrideExpired && isExpired));
-                var resetBtnHtml = (isExpired && canEditDate)
-                    ? '<button class="btn btn-sm btn-danger fw-semibold" id="resetCycleBtn"><i class="fas fa-redo me-1"></i>Start New Cycle</button>'
-                    : '';
                 var accessBtnHtml = (isExpired && !canOverrideExpired)
                     ? '<button class="btn btn-sm btn-outline-warning fw-semibold" id="expiredAccessBtn"><i class="fas fa-key me-1"></i>Request Access</button>'
                     : '';
@@ -1786,7 +1783,7 @@
                     ? '<button class="btn btn-sm btn-success fw-semibold" id="closeExpiredInlineBtn"><i class="fas fa-check-circle me-1"></i>Close RX Record</button>'
                     : '';
                 var expiryBanner = isExpired
-                    ? '<div class="alert alert-danger py-2 mb-3 d-flex align-items-center justify-content-between flex-wrap gap-2"><div><i class="fas fa-exclamation-triangle me-2"></i><strong>90-Day Window Expired</strong> <span class="ms-2 small">Service date: ' + svcStr + ' \u2014 Expired: ' + expStr + '</span></div><div class="d-flex gap-2 flex-wrap">' + accessBtnHtml + closeExpiredBtnHtml + resetBtnHtml + '</div></div>'
+                    ? '<div class="alert alert-danger py-2 mb-3 d-flex align-items-center justify-content-between flex-wrap gap-2"><div><i class="fas fa-exclamation-triangle me-2"></i><strong>90-Day Window Expired</strong> <span class="ms-2 small">Service date: ' + svcStr + ' \u2014 Expired: ' + expStr + '</span><div class="small mt-1">To begin the next 90-day period, update the patient service date from the patient profile, then create a new RX record. This RX stays linked to its original service-date cycle.</div></div><div class="d-flex gap-2 flex-wrap">' + accessBtnHtml + closeExpiredBtnHtml + '</div></div>'
                     : '';
 
                 // ── 90-DAY ACTIVE LOCK BANNER ────────────────────────────────────────────
@@ -1811,7 +1808,7 @@
                                 'Service started: <strong>' + svcStr + '</strong> &nbsp;&bull;&nbsp; ' +
                                 'Window expires: <strong>' + expStr + '</strong> &nbsp;&bull;&nbsp; ' +
                                 '<strong>' + daysLeftInWindow + ' day' + (daysLeftInWindow !== 1 ? 's' : '') + ' remaining</strong><br>' +
-                                'The service date cannot be changed while this window is active. After expiry, use <em>Start New Cycle</em> to begin the next 90-day period.' +
+                                'The service date cannot be changed while this window is active. After expiry, update the patient service date from the patient profile, then create a new RX record. Existing RX records stay in history.' +
                             '</div>' +
                         '</div>' +
                       '</div>'
@@ -1862,11 +1859,6 @@
                 var html = viewOnlyBanner + overrideOnlyBanner + expiryBanner + globalOverrideBanner + activeLockBanner + warehouseBanner + '<div class="list-group">' + listHtml + '</div>';
                 document.getElementById('workflowBody').innerHTML = html;
 
-                /* Wire Reset Cycle button */
-                var resetBtn = document.getElementById('resetCycleBtn');
-                if (resetBtn) {
-                    resetBtn.addEventListener('click', function() { promptResetCycle(rxId); });
-                }
                 var expiredAccessBtn = document.getElementById('expiredAccessBtn');
                 if (expiredAccessBtn) {
                     expiredAccessBtn.addEventListener('click', function() {
@@ -2103,64 +2095,10 @@
     }
 
     /* ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
-       Prompt user to pick a new service date, then reset the RX cycle
+       Legacy reset helper kept as a safe no-op for stale handlers
        ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ */
     function promptResetCycle(rxId) {
-        /* Build a simple inline modal-free prompt inside workflowBody */
-        var body = document.getElementById('workflowBody');
-        var today = new Date().toISOString().slice(0,10);
-
-        var existing = document.getElementById('resetCycleForm');
-        if (existing) { existing.remove(); }
-
-        var form = document.createElement('div');
-        form.id = 'resetCycleForm';
-        form.className = 'alert alert-warning mt-3 p-3';
-        form.innerHTML =
-            '<strong><i class="fas fa-redo me-2"></i>Start New 90-Day Cycle</strong>' +
-            '<p class="small mb-2 mt-1">This will <strong>clear all workflow progress</strong> for this RX and start a fresh cycle with the new service date.</p>' +
-            '<div class="d-flex align-items-center gap-2 flex-wrap">' +
-            '<label class="mb-0 small fw-semibold">New Service Date:</label>' +
-            '<input type="date" class="form-control form-control-sm" id="resetCycleDateInput" style="width:160px" max="' + today + '">' +
-            '<button class="btn btn-sm btn-danger fw-semibold" id="resetCycleConfirmBtn"><i class="fas fa-check me-1"></i>Confirm Reset</button>' +
-            '<button class="btn btn-sm btn-outline-secondary" id="resetCycleCancelBtn">Cancel</button>' +
-            '</div>';
-        body.appendChild(form);
-
-        document.getElementById('resetCycleCancelBtn').addEventListener('click', function() { form.remove(); });
-        document.getElementById('resetCycleConfirmBtn').addEventListener('click', function() {
-            var _btn = this;
-            var inp = document.getElementById('resetCycleDateInput');
-            if (!inp || !inp.value) { showToast('Please select a new service date.', 'warning'); return; }
-            var confirmMsg = 'Are you sure? This will DELETE all workflow tracking for this RX record and start a new cycle.\n\nNew service date: ' + inp.value;
-            if (!confirm(confirmMsg)) return;
-            _btn.disabled = true;
-            _btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-            fetchWithAuth(window.rxUrl('/api/rx-records/') + rxId + '/reset-cycle', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ newServiceDate: inp.value })
-            }).then(function(res) {
-                if (!res) { _btn.disabled = false; _btn.innerHTML = '<i class="fas fa-check me-1"></i>Confirm Reset'; return; }
-                if (res.ok) {
-                    return res.json().then(function(data) {
-                        showToast('New cycle started. ' + data.trackingsCleared + ' tracking record(s) cleared.', 'success');
-                        form.remove();
-                        return openWorkflow(rxId).then(function() { return loadRxRecords(); });
-                    });
-                } else {
-                    return res.json().then(function(err) {
-                        showToast(err.error || 'Reset failed.', 'danger');
-                        _btn.disabled = false;
-                        _btn.innerHTML = '<i class="fas fa-check me-1"></i>Confirm Reset';
-                    });
-                }
-            }).catch(function() {
-                showToast('Network error.', 'danger');
-                _btn.disabled = false;
-                _btn.innerHTML = '<i class="fas fa-check me-1"></i>Confirm Reset';
-            });
-        });
+        showToast('To start a new service cycle, update the patient service date from the patient profile, then create a new RX record. Existing RX records stay unchanged.', 'info');
     }
 
     function returnToWarehouse() {
