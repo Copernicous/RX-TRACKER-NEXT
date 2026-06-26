@@ -279,11 +279,14 @@ Run this before promoting staging changes that touch patients, RX records, workf
 
 ```powershell
 npm run staging:import-smoke
+npm run staging:cycle-context-smoke
 ```
 
 The test uses the real staging import API. It imports a bad CSV with workflow dates before service date, workflow dates beyond service date + 90 days, and workflow dates out of order. That bad file must abort with zero database writes. Then it imports a valid CSV and confirms RX workflow rows are linked to the correct service-date cycle.
 
-The script only creates temporary `STG-IMP-GUARD-*` rows and removes them before it finishes. Staging must be running first:
+The cycle context smoke creates a temporary patient, changes service date plus clinic/default pharmacy/transports, and confirms the old service-date cycle keeps the old captured defaults while the new cycle captures the new defaults.
+
+The scripts only create temporary `STG-IMP-GUARD-*` and `STG-CYCLE-CTX-*` rows and remove them before they finish. The import smoke uses the real staging HTTP API, so staging must be running first:
 
 ```powershell
 npm run staging:start
@@ -296,6 +299,7 @@ Before merging `staging` into `develop`:
 - `git status --short` is clean except ignored/local runtime files.
 - `npm run staging:check` passes.
 - `npm run staging:import-smoke` passes when import/service-date logic was touched.
+- `npm run staging:cycle-context-smoke` passes when patient cycle context/auditing logic was touched.
 - Staging preview opens at `http://localhost:3100`.
 - Staging has the visible staging marker.
 - Critical manual checks pass.
