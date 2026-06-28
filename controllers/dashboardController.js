@@ -154,13 +154,20 @@ exports.getPendingRx = async (req, res) => {
             ],
             order: [['serviceDate', 'DESC']]
         });
-        const pending = allRx.filter(rx => (rx.RXWorkflowTrackings || []).length < totalWorkflowSteps);
+        const pending = allRx
+            .filter(rx => (rx.RXWorkflowTrackings || []).length < totalWorkflowSteps)
+            .map(rx => {
+                const plain = rx.toJSON();
+                plain.workflowStepTotal = totalWorkflowSteps;
+                return plain;
+            });
         res.json(pending);
     } catch (error) { res.status(500).json({ error: error.message }); }
 };
 
 exports.getTotalRx = async (req, res) => {
     try {
+        const totalWorkflowSteps = await db.WorkflowAction.count({ where: { isActive: true } });
         const allRx = await db.RXRecord.findAll({
             where: { isDeleted: false },   // exclude soft-deleted
             include: [
@@ -170,7 +177,11 @@ exports.getTotalRx = async (req, res) => {
             ],
             order: [['serviceDate', 'DESC']]
         });
-        res.json(allRx);
+        res.json(allRx.map(rx => {
+            const plain = rx.toJSON();
+            plain.workflowStepTotal = totalWorkflowSteps;
+            return plain;
+        }));
     } catch (error) { res.status(500).json({ error: error.message }); }
 };
 

@@ -5,6 +5,18 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ---
 
+## [2.0.60] - 2026-06-28
+
+### [RELEASE-60] Dashboard drilldowns and patient filter refinement
+**Files changed:** 9 | dashboard controller/UI, patient filters, RX Records filters, release metadata
+
+- Fixed the Dashboard Pending Deliveries full-page link so it opens RX Records with the pending workflow filter applied.
+- Added RX Records Workflow Status filtering and sorting for Pending, Not Started, In Progress, and Completed workflow states.
+- Added Patient Management filters for missing clinic, default pharmacy, patient transport, and pharmacy transport information.
+- Added cascading Patient Management relationship filters so Clinic, Default Pharmacy, Patient Transport, and Pharmacy Transport options narrow to related patients.
+- Fixed Dashboard RX drilldown workflow progress bars so partial workflows no longer render as fully complete.
+- Bumped production package version to `2.0.60`.
+
 ## [2.0.59] - 2026-06-26
 
 ### [RELEASE-59] Service date cycle context auditing
