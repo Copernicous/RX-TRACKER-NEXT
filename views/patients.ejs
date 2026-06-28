@@ -59,17 +59,26 @@
                         <input type="text" class="form-control form-control-sm" id="srchPhone" placeholder="Phone" oninput="liveFilter()">
                     </div>
                     <div class="col-md-2">
-                        <label class="form-label small fw-bold">Status</label>
-                        <select class="form-select form-select-sm" id="srchStatus" onchange="liveFilter()">
-                            <option value="">All</option>
-                            <option value="true">Active</option>
-                            <option value="false">Inactive</option>
+                        <label class="form-label small fw-bold"><i class="fas fa-check-circle me-1 text-success"></i>90-Day Eligibility</label>
+                        <select class="form-select form-select-sm" id="srchEligibility" onchange="liveFilter()">
+                            <option value="">All Patients</option>
+                            <option value="eligible">&#x2705; Eligible Now</option>
+                            <option value="expiring">&#x23F1; Expiring &le;7 Days</option>
+                            <option value="window">&#x1F512; In Active Window</option>
+                            <option value="none">&#x2014; No Service Date</option>
+                            <option value="needsAction">&#x26A0; Needs Action (Expired + Open Workflow)</option>
                         </select>
                     </div>
                     <div class="col-md-2">
-                        <label class="form-label small fw-bold"><i class="fas fa-hospital me-1"></i>Clinic</label>
-                        <select class="form-select form-select-sm" id="srchClinic" onchange="liveFilter()">
-                            <option value="">All Clinics</option>
+                        <label class="form-label small fw-bold"><i class="fas fa-exclamation-circle me-1 text-warning"></i>Missing Info</label>
+                        <select class="form-select form-select-sm" id="srchMissingInfo" onchange="liveFilter()">
+                            <option value="">Any Information Status</option>
+                            <option value="any">Missing Any Required Default</option>
+                            <option value="all">Missing Clinic, Pharmacy &amp; Transports</option>
+                            <option value="clinic">Missing Clinic</option>
+                            <option value="pharmacy">Missing Pharmacy</option>
+                            <option value="patientTransport">Missing Patient Transport</option>
+                            <option value="pharmacyTransport">Missing Pharmacy Transport</option>
                         </select>
                     </div>
                     <div class="col-md-2 d-flex gap-2 align-items-stretch">
@@ -103,6 +112,20 @@
                                 <option value="">All Pharmacies</option>
                             </select>
                         </div>
+                        <div class="col-md-3">
+                            <label class="form-label small fw-bold"><i class="fas fa-hospital me-1"></i>Clinic</label>
+                            <select class="form-select form-select-sm" id="srchClinic" onchange="liveFilter()">
+                                <option value="">All Clinics</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small fw-bold">Status</label>
+                            <select class="form-select form-select-sm" id="srchStatus" onchange="liveFilter()">
+                                <option value="">All</option>
+                                <option value="true">Active</option>
+                                <option value="false">Inactive</option>
+                            </select>
+                        </div>
                         <div class="col-md-2">
                             <label class="form-label small fw-bold"><i class="fas fa-calendar me-1"></i>Service Date From</label>
                             <input type="date" class="form-control form-control-sm" id="srchServiceFrom" onchange="liveFilter()">
@@ -110,29 +133,6 @@
                         <div class="col-md-2">
                             <label class="form-label small fw-bold"><i class="fas fa-calendar me-1"></i>Service Date To</label>
                             <input type="date" class="form-control form-control-sm" id="srchServiceTo" onchange="liveFilter()">
-                        </div>
-                        <div class="col-md-3">
-                            <label class="form-label small fw-bold"><i class="fas fa-check-circle me-1 text-success"></i>90-Day Eligibility</label>
-                            <select class="form-select form-select-sm" id="srchEligibility" onchange="liveFilter()">
-                                <option value="">All Patients</option>
-                                <option value="eligible">&#x2705; Eligible Now</option>
-                                <option value="expiring">&#x23F1; Expiring &le;7 Days</option>
-                                <option value="window">&#x1F512; In Active Window</option>
-                                <option value="none">&#x2014; No Service Date</option>
-                                <option value="needsAction">&#x26A0; Needs Action (Expired + Open Workflow)</option>
-                            </select>
-                        </div>
-                        <div class="col-md-3">
-                            <label class="form-label small fw-bold"><i class="fas fa-exclamation-circle me-1 text-warning"></i>Missing Info</label>
-                            <select class="form-select form-select-sm" id="srchMissingInfo" onchange="liveFilter()">
-                                <option value="">Any Information Status</option>
-                                <option value="any">Missing Any Required Default</option>
-                                <option value="all">Missing Clinic, Pharmacy &amp; Transports</option>
-                                <option value="clinic">Missing Clinic</option>
-                                <option value="pharmacy">Missing Pharmacy</option>
-                                <option value="patientTransport">Missing Patient Transport</option>
-                                <option value="pharmacyTransport">Missing Pharmacy Transport</option>
-                            </select>
                         </div>
                         <div class="col-md-2 d-flex align-items-center">
                             <div class="form-check form-switch mt-2">
@@ -161,8 +161,8 @@
                     <div class="d-flex align-items-center gap-2">
                         <label class="small text-muted mb-0">Show</label>
                         <select class="form-select form-select-sm" style="width:auto" id="patPageSizeSelect">
-                            <option value="10">10</option>
-                            <option value="20" selected>20</option>
+                            <option value="10" selected>10</option>
+                            <option value="20">20</option>
                             <option value="50">50</option>
                             <option value="100">100</option>
                         </select>

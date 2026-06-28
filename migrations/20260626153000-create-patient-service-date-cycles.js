@@ -1,93 +1,113 @@
 'use strict';
 
+async function hasTable(queryInterface, tableName) {
+  const tables = await queryInterface.showAllTables();
+  return tables.some((entry) => {
+    if (typeof entry === 'string') return entry === tableName;
+    return entry.tableName === tableName || entry.table_name === tableName || entry.name === tableName;
+  });
+}
+
+async function addIndexIfMissing(queryInterface, tableName, fields, options) {
+  const indexes = await queryInterface.showIndex(tableName).catch(() => []);
+  if (!indexes.some((index) => index.name === options.name)) {
+    await queryInterface.addIndex(tableName, fields, options);
+  }
+}
+
 /** @type {import('sequelize-cli').Migration} */
 module.exports = {
   async up(queryInterface, Sequelize) {
-    await queryInterface.createTable('PatientServiceDateCycles', {
-      id: {
-        allowNull: false,
-        autoIncrement: true,
-        primaryKey: true,
-        type: Sequelize.INTEGER
-      },
-      patientId: {
-        allowNull: false,
-        type: Sequelize.INTEGER,
-        references: {
-          model: 'Patients',
-          key: 'id'
+    if (!await hasTable(queryInterface, 'PatientServiceDateCycles')) {
+      await queryInterface.createTable('PatientServiceDateCycles', {
+        id: {
+          allowNull: false,
+          autoIncrement: true,
+          primaryKey: true,
+          type: Sequelize.INTEGER
         },
-        onUpdate: 'CASCADE',
-        onDelete: 'CASCADE'
-      },
-      serviceDate: {
-        allowNull: false,
-        type: Sequelize.DATEONLY
-      },
-      status: {
-        allowNull: false,
-        type: Sequelize.STRING(20),
-        defaultValue: 'historical'
-      },
-      source: {
-        allowNull: false,
-        type: Sequelize.STRING(60),
-        defaultValue: 'Patient Service Date'
-      },
-      startedAt: {
-        allowNull: true,
-        type: Sequelize.DATE
-      },
-      endedAt: {
-        allowNull: true,
-        type: Sequelize.DATE
-      },
-      createdByUserId: {
-        allowNull: true,
-        type: Sequelize.INTEGER,
-        references: {
-          model: 'Users',
-          key: 'id'
+        patientId: {
+          allowNull: false,
+          type: Sequelize.INTEGER,
+          references: {
+            model: 'Patients',
+            key: 'id'
+          },
+          onUpdate: 'CASCADE',
+          onDelete: 'CASCADE'
         },
-        onUpdate: 'CASCADE',
-        onDelete: 'SET NULL'
-      },
-      metadata: {
-        allowNull: true,
-        type: Sequelize.JSON
-      },
-      createdAt: {
-        allowNull: false,
-        type: Sequelize.DATE
-      },
-      updatedAt: {
-        allowNull: false,
-        type: Sequelize.DATE
-      }
-    });
+        serviceDate: {
+          allowNull: false,
+          type: Sequelize.DATEONLY
+        },
+        status: {
+          allowNull: false,
+          type: Sequelize.STRING(20),
+          defaultValue: 'historical'
+        },
+        source: {
+          allowNull: false,
+          type: Sequelize.STRING(60),
+          defaultValue: 'Patient Service Date'
+        },
+        startedAt: {
+          allowNull: true,
+          type: Sequelize.DATE
+        },
+        endedAt: {
+          allowNull: true,
+          type: Sequelize.DATE
+        },
+        createdByUserId: {
+          allowNull: true,
+          type: Sequelize.INTEGER,
+          references: {
+            model: 'Users',
+            key: 'id'
+          },
+          onUpdate: 'CASCADE',
+          onDelete: 'SET NULL'
+        },
+        metadata: {
+          allowNull: true,
+          type: Sequelize.JSON
+        },
+        createdAt: {
+          allowNull: false,
+          type: Sequelize.DATE
+        },
+        updatedAt: {
+          allowNull: false,
+          type: Sequelize.DATE
+        }
+      });
+    }
 
-    await queryInterface.addIndex('PatientServiceDateCycles', ['patientId'], {
+    await addIndexIfMissing(queryInterface, 'PatientServiceDateCycles', ['patientId'], {
       name: 'idx_patient_service_date_cycles_patient'
     });
-    await queryInterface.addIndex('PatientServiceDateCycles', ['patientId', 'status'], {
+    await addIndexIfMissing(queryInterface, 'PatientServiceDateCycles', ['patientId', 'status'], {
       name: 'idx_patient_service_date_cycles_status'
     });
-    await queryInterface.addIndex('PatientServiceDateCycles', ['patientId', 'serviceDate'], {
+    await addIndexIfMissing(queryInterface, 'PatientServiceDateCycles', ['patientId', 'serviceDate'], {
       unique: true,
       name: 'uq_patient_service_date_cycles_patient_date'
     });
 
-    await queryInterface.addColumn('RXRecords', 'patientServiceDateCycleId', {
-      allowNull: true,
-      type: Sequelize.INTEGER,
-      references: {
-        model: 'PatientServiceDateCycles',
-        key: 'id'
-      },
-      onUpdate: 'CASCADE',
-      onDelete: 'SET NULL'
-    });
-    await queryInterface.addIndex('RXRecords', ['patientServiceDateCycleId'], {
+    const rxColumns = await queryInterface.describeTable('RXRecords');
+    if (!rxColumns.patientServiceDateCycleId) {
+      await queryInterface.addColumn('RXRecords', 'patientServiceDateCycleId', {
+        allowNull: true,
+        type: Sequelize.INTEGER,
+        references: {
+          model: 'PatientServiceDateCycles',
+          key: 'id'
+        },
+        onUpdate: 'CASCADE',
+        onDelete: 'SET NULL'
+      });
+    }
+    await addIndexIfMissing(queryInterface, 'RXRecords', ['patientServiceDateCycleId'], {
       name: 'idx_rxrecords_patient_service_date_cycle'
     });
 

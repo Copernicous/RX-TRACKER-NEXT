@@ -1786,6 +1786,9 @@ async function doPurge() {
 // --------------------------------------------------------------------------
 var analyticsLoaded = false;
 var anlCharts       = {};
+var anlPage         = 1;
+var anlPageSize     = 25;
+var anlTotal        = 0;
 
 function anlChartDefaults() {
     Chart.defaults.color = '#64748b';
@@ -1794,24 +1797,50 @@ function anlChartDefaults() {
     Chart.defaults.font.size   = 11;
 }
 
-async function loadAnalytics() {
-    analyticsLoaded = false;
+function analyticsQueryParams(limit, offset, sortDir) {
     var _anlFrom = document.getElementById('anlFrom') ? document.getElementById('anlFrom').value : '';
     var _anlTo   = document.getElementById('anlTo')   ? document.getElementById('anlTo').value   : '';
-    var params = new URLSearchParams({ limit: 365 });
+    var params = new URLSearchParams();
+    params.set('limit', String(limit));
+    params.set('offset', String(offset || 0));
+    if (sortDir) params.set('sort', sortDir);
     if (_anlFrom) params.set('from', _anlFrom);
     if (_anlTo)   params.set('to',   _anlTo);
+    return params;
+}
+
+function setAnalyticsPageSize(size) {
+    anlPageSize = parseInt(size, 10) || 25;
+    anlPage = 1;
+    loadAnalytics(1);
+}
+
+async function loadAnalytics(page) {
+    analyticsLoaded = false;
+    if (typeof page === 'number' && page > 0) anlPage = page;
+    else anlPage = 1;
+    var chartParams = analyticsQueryParams(365, 0, 'desc');
+    var tableParams = analyticsQueryParams(anlPageSize, (anlPage - 1) * anlPageSize, 'desc');
 
     document.getElementById('anlTableWrap').innerHTML =
         '<p style="text-align:center;padding:3rem;color:var(--text-muted)"><i class="fas fa-spinner fa-spin me-2"></i>Loading snapshots...</p>';
 
     try {
-        var res  = await apiFetch('/api/admin/snapshots?' + params.toString());
+        var responses = await Promise.all([
+            apiFetch('/api/admin/snapshots?' + chartParams.toString()),
+            apiFetch('/api/admin/snapshots?' + tableParams.toString())
+        ]);
+        var res = responses[0];
+        var tableRes = responses[1];
         var data = await res.json();
+        var tableData = await tableRes.json();
         if (!res.ok) throw new Error(data.error || 'Failed');
+        if (!tableRes.ok) throw new Error(tableData.error || 'Failed');
         analyticsLoaded = true;
 
-        var rows   = data.rows   || [];
+        var rows   = (data.rows || []).slice().reverse();
+        var tableRows = tableData.rows || [];
+        anlTotal = tableData.total || 0;
         var latest = data.latest || null;
         var prev   = data.prev   || null;
 
@@ -1863,7 +1892,7 @@ async function loadAnalytics() {
             document.getElementById('anlKpiCards').innerHTML = '<p style="color:var(--text-muted);padding:1rem">No snapshot data yet. Click <strong>Capture Now</strong> to record today\'s metrics.</p>';
         }
 
-        if (!rows.length) {
+        if (!rows.length && !tableRows.length) {
             Object.keys(anlCharts).forEach(function(k) { anlCharts[k].destroy(); });
             anlCharts = {};
             document.getElementById('anlTableWrap').innerHTML =
@@ -1934,7 +1963,7 @@ async function loadAnalytics() {
             ['pendingRX','Pending'],['completedRX','Done'],['workflowCompletionRate','WF %'],
             ['auditEventsToday','Audit'],['errorLogsToday','Errors'],['unresolvedErrors','Open Errs'],
         ];
-        var allRows = rows.slice().reverse();
+        var allRows = tableRows.slice();
         var _aTh = '';
         COLS.forEach(function(col) {
             _aTh += '<th style="padding:.4rem .75rem;color:var(--text-muted);font-size:.63rem;text-transform:uppercase;text-align:right;font-weight:600">' + col[1] + '</th>';
@@ -1965,7 +1994,7 @@ async function loadAnalytics() {
                 '<thead><tr style="background:var(--surface-2);border-bottom:1px solid var(--border)">' + _aTh + '</tr></thead>' +
                 '<tbody>' + _aTr + '</tbody>' +
             '</table></div>' +
-            '<div style="font-size:0.68rem;color:var(--text-muted);margin-top:.5rem;text-align:right">' + rows.length + ' snapshot(s) in range</div>';
+            renderAnalyticsPager();
         /* BO-06: Sparklines — last 30 snapshots */
         var _spRows = rows.slice(-30);
         var _spLbls = _spRows.map(function(r) { return r.snapshotDate; });
@@ -1983,6 +2012,50 @@ async function loadAnalytics() {
     } catch(e) {
         document.getElementById('anlTableWrap').innerHTML = '<p style="color:#fca5a5;padding:2rem">'+e.message+'</p>';
     }
+}
+
+function renderAnalyticsPager() {
+    var total = anlTotal || 0;
+    var pages = Math.max(1, Math.ceil(total / anlPageSize));
+    if (anlPage > pages) anlPage = pages;
+    var start = total ? ((anlPage - 1) * anlPageSize) + 1 : 0;
+    var end = Math.min(anlPage * anlPageSize, total);
+
+    function btn(label, page, disabled, active) {
+        var style = active
+            ? 'background:#4a90e2;color:#fff;border-color:#4a90e2'
+            : '';
+        return '<button class="btn-bo btn-bo-outline" style="padding:.2rem .45rem;font-size:.68rem;' + style + '"' +
+            (disabled ? ' disabled' : ' onclick="loadAnalytics(' + page + ')"') + '>' + label + '</button>';
+    }
+
+    var pageBtns = '';
+    if (pages <= 7) {
+        for (var p = 1; p <= pages; p++) pageBtns += btn(String(p), p, false, p === anlPage);
+    } else {
+        pageBtns += btn('1', 1, false, anlPage === 1);
+        if (anlPage > 4) pageBtns += '<span style="color:var(--text-muted);padding:.2rem">...</span>';
+        var from = Math.max(2, anlPage - 1);
+        var to = Math.min(pages - 1, anlPage + 1);
+        for (var mid = from; mid <= to; mid++) pageBtns += btn(String(mid), mid, false, mid === anlPage);
+        if (anlPage < pages - 3) pageBtns += '<span style="color:var(--text-muted);padding:.2rem">...</span>';
+        pageBtns += btn(String(pages), pages, false, anlPage === pages);
+    }
+
+    var sizeOpts = [10, 25, 50, 100].map(function(size) {
+        return '<option value="' + size + '"' + (size === anlPageSize ? ' selected' : '') + '>' + size + '</option>';
+    }).join('');
+
+    return '<div style="display:flex;align-items:center;justify-content:space-between;gap:.75rem;flex-wrap:wrap;margin-top:.65rem;font-size:.68rem;color:var(--text-muted)">' +
+        '<div>Showing ' + start + '-' + end + ' of ' + total + ' snapshot(s)</div>' +
+        '<div style="display:flex;align-items:center;gap:.4rem;flex-wrap:wrap">' +
+            '<span>Rows/page</span>' +
+            '<select class="pag-size" style="height:28px;font-size:.68rem" onchange="setAnalyticsPageSize(this.value)">' + sizeOpts + '</select>' +
+            btn('Prev', Math.max(1, anlPage - 1), anlPage <= 1, false) +
+            pageBtns +
+            btn('Next', Math.min(pages, anlPage + 1), anlPage >= pages, false) +
+        '</div>' +
+    '</div>';
 }
 
 function anlMakeChart(id, config) {

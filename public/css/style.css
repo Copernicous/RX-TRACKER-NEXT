@@ -1149,6 +1149,14 @@ body.sidebar-mobile-open::before {
     color: var(--text) !important;
 }
 
+.trend-controls-band {
+    width: 100%;
+}
+.trend-controls-band .trend-date-input {
+    width: 140px;
+    font-size: .78rem;
+}
+
 /* ============================================
    DK-06: Bootstrap .alert dark mode fix
    Bootstrap alerts use fixed light backgrounds.

@@ -30,6 +30,8 @@ var _api = (function() {
 
 var drilldownModal = null, drilldownCurrentData = [], drilldownType = '';
 var _dashFrom = '', _dashTo = '';
+var _trendPreset = '30d', _trendFrom = '', _trendTo = '';
+var _trendChartType = 'line';
 var _accountModal = null;
 
 // =====================================================================
@@ -96,6 +98,98 @@ function buildDateQuery() {
     return parts.length ? '?' + parts.join('&') : '';
 }
 
+function validateDashRange() {
+    var fromEl = document.getElementById('dashFrom');
+    var toEl   = document.getElementById('dashTo');
+    if (!fromEl || !toEl) return true;
+    var from = fromEl.value;
+    var to   = toEl.value;
+    if (from && to && from > to) {
+        showToast('Dashboard custom date range cannot have From after To.', 'warning');
+        toEl.value = from;
+        return false;
+    }
+    return true;
+}
+
+function getTrendPresetRange(preset) {
+    var now = new Date();
+    var today = _fmtDate(now);
+    if (preset === 'all') return { from: '', to: '' };
+    if (preset === '7d')  {
+        var s7 = new Date(now);
+        s7.setDate(now.getDate() - 6);
+        return { from: _fmtDate(s7), to: today };
+    }
+    if (preset === '30d') {
+        var s30 = new Date(now);
+        s30.setDate(now.getDate() - 29);
+        return { from: _fmtDate(s30), to: today };
+    }
+    if (preset === '90d') {
+        var s90 = new Date(now);
+        s90.setDate(now.getDate() - 89);
+        return { from: _fmtDate(s90), to: today };
+    }
+    return { from: '', to: '' };
+}
+
+function syncTrendUi() {
+    var fromEl = document.getElementById('trendFrom');
+    var toEl   = document.getElementById('trendTo');
+    if (fromEl) fromEl.value = _trendFrom || '';
+    if (toEl)   toEl.value   = _trendTo || '';
+    var btns = document.querySelectorAll('.trend-range-btn');
+    for (var i = 0; i < btns.length; i++) {
+        var b = btns[i];
+        var active = b.getAttribute('data-trend-range') === _trendPreset;
+        b.classList.toggle('active', active);
+    }
+}
+
+function setTrendPreset(preset) {
+    _trendPreset = preset || '30d';
+    var range = getTrendPresetRange(_trendPreset);
+    _trendFrom = range.from;
+    _trendTo = range.to;
+    syncTrendUi();
+    loadDashboardCharts();
+}
+
+function validateTrendRange() {
+    var fromEl = document.getElementById('trendFrom');
+    var toEl   = document.getElementById('trendTo');
+    if (!fromEl || !toEl) return true;
+    var from = fromEl.value;
+    var to = toEl.value;
+    if (from && to && from > to) {
+        showToast('Trend range From date cannot be after To date.', 'warning');
+        toEl.value = from;
+        return false;
+    }
+    return true;
+}
+
+function buildTrendQuery() {
+    var parts = [];
+    if (_trendPreset === 'all') parts.push('chartRange=all');
+    if (_trendFrom) parts.push('chartFrom=' + _trendFrom);
+    if (_trendTo)   parts.push('chartTo=' + _trendTo);
+    return parts.length ? '?' + parts.join('&') : '';
+}
+
+function loadDashboardCharts() {
+    var q = buildTrendQuery();
+    return fetchWithAuth(_api.charts + q).then(function(chartRes) {
+        if (chartRes && chartRes.ok) {
+            return chartRes.json().then(function(chartData) {
+                window._lastChartData = chartData;
+                renderCharts(chartData);
+            });
+        }
+    }).catch(function(e) { console.warn('Charts failed:', e); });
+}
+
 // =====================================================================
 // Dashboard stats refresh
 // =====================================================================
@@ -111,6 +205,11 @@ function refreshDashboard() {
             setTxt('activeRxCount',          safe(data.activeRxCount));
             setTxt('patientsWithNoRxCount',  safe(data.patientsWithNoRx));
             setTxt('pendingDeliveriesCount', safe(data.pendingDeliveriesCount));
+            var setNote = function(id, val) { var el = document.getElementById(id); if (el) el.textContent = val; };
+            setNote('eligNowNote', 'Active patients only, inactive excluded');
+            setNote('eligExpiringNote', 'Active patients only, inactive excluded');
+            setNote('eligWindowNote', 'Active patients only, inactive excluded');
+            setNote('eligNoDateNote', 'Active patients only, inactive excluded');
 
             if (window._auditLogAllowed) {
                 var tbody = document.getElementById('recentActivityBody');
@@ -196,79 +295,8 @@ function openEligDrilldown(filter) {
         'none':     '#6c757d'
     };
 
-    var titleEl = document.getElementById('drilldownTitle');
-    var bodyEl  = document.getElementById('drilldownBody');
-    var fpBtn   = document.getElementById('drilldownFullPageBtn');
-
-    if (titleEl) titleEl.textContent = titles[filter] || '90-Day Eligibility';
-    if (bodyEl)  bodyEl.innerHTML    = '<p class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin me-2"></i>Loading patients...</p>';
-    if (fpBtn) {
-        var plEl = pageLinks[filter];
-        fpBtn.href = plEl ? plEl.href : '/patients';
-        fpBtn.textContent = '';
-        var fpIcon = document.createElement('i');
-        fpIcon.className = 'fas fa-filter me-1';
-        fpBtn.appendChild(fpIcon);
-        fpBtn.appendChild(document.createTextNode('View Full Filter'));
-    }
-
-    drilldownModal.show();
-
-    var apiUrl = (_api.eligBase || '/api/dashboard/eligibility-drilldown/') + filter;
-    fetchWithAuth(apiUrl).then(function(res) {
-        if (!res || !res.ok) throw new Error('API error');
-        return res.json();
-    }).then(function(data) {
-        if (titleEl) titleEl.textContent = (titles[filter] || '90-Day Eligibility') + ' (' + data.length + ')';
-        _renderEligDrilldownTable(filter, data, colors[filter] || '#6c757d', icons[filter] || 'fa-user');
-    }).catch(function() {
-        if (bodyEl) bodyEl.innerHTML = '<p class="text-danger text-center py-4"><i class="fas fa-exclamation-triangle me-1"></i>Could not load eligibility data.</p>';
-    });
-}
-
-function _renderEligDrilldownTable(filter, data, color, icon) {
-    var body = document.getElementById('drilldownBody');
-    if (!data || !data.length) {
-        body.innerHTML = '<p class="text-center text-muted py-4"><i class="fas ' + icon + ' me-2"></i>No patients in this category.</p>';
-        return;
-    }
-
-    var rows = '';
-    for (var i = 0; i < data.length; i++) {
-        var p = data[i];
-
-        // Status badge
-        var badge = '';
-        if (filter === 'eligible') {
-            badge = '<span class="badge" style="background:' + color + '22;color:' + color + ';font-size:.78rem">' +
-                    '<i class="fas fa-check me-1"></i>Overdue ' + (p.daysPastDue || 0) + 'd</span>';
-        } else if (filter === 'expiring') {
-            badge = '<span class="badge" style="background:' + color + '22;color:' + color + ';font-size:.78rem">' +
-                    '<i class="fas fa-hourglass-half me-1"></i>' + (p.daysLeft || 0) + 'd left</span>';
-        } else if (filter === 'window') {
-            badge = '<span class="badge" style="background:' + color + '22;color:' + color + ';font-size:.78rem">' +
-                    '<i class="fas fa-lock me-1"></i>' + (p.daysLeft || 0) + 'd left</span>';
-        } else {
-            badge = '<span class="badge bg-secondary" style="font-size:.78rem">No date</span>';
-        }
-
-        rows += '<tr>' +
-            '<td><code style="color:' + color + '">' + (p.patientCode || p.id) + '</code></td>' +
-            '<td><strong>' + (p.firstName || '') + ' ' + (p.lastName || '') + '</strong></td>' +
-            '<td>' + (p.serviceDate || '&mdash;') + '</td>' +
-            '<td>' + (p.expiryDate  || '&mdash;') + '</td>' +
-            '<td>' + badge + '</td>' +
-            '<td>' + (p.clinicName || '&mdash;') + '</td>' +
-            '</tr>';
-    }
-
-    body.innerHTML =
-        '<div class="table-responsive">' +
-        '<table class="table table-hover table-sm align-middle">' +
-        '<thead><tr style="border-bottom:2px solid ' + color + '44">' +
-        '<th>Patient ID</th><th>Name</th><th>Service Date</th><th>90-Day Expiry</th><th>Status</th><th>Clinic</th>' +
-        '</tr></thead><tbody>' + rows + '</tbody></table></div>' +
-        '<small class="text-muted">' + data.length + ' patient' + (data.length !== 1 ? 's' : '') + '</small>';
+    var plEl = pageLinks[filter];
+    window.location.href = plEl ? plEl.href : '/patients';
 }
 
 function loadEligibility() {
@@ -365,12 +393,41 @@ function renderCharts(data) {
     var gc = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)';
     Chart.defaults.color = tc;
 
-    new Chart(document.getElementById('patientsBarChart').getContext('2d'), {
+    var patientsBarCanvas = document.getElementById('patientsBarChart');
+    var rxDonutCanvas = document.getElementById('rxDonutChart');
+    var pTrend = document.getElementById('patientsTrendChart');
+    var wTrend = document.getElementById('workflowTrendChart');
+    var eTrend = document.getElementById('eligibilityTrendChart');
+    var wcTrend = document.getElementById('workflowCompletionTrendChart');
+    var svcTrend = document.getElementById('serviceDateTrendChart');
+    if (patientsBarCanvas && Chart.getChart(patientsBarCanvas)) Chart.getChart(patientsBarCanvas).destroy();
+    if (rxDonutCanvas && Chart.getChart(rxDonutCanvas)) Chart.getChart(rxDonutCanvas).destroy();
+    if (pTrend && Chart.getChart(pTrend)) Chart.getChart(pTrend).destroy();
+    if (wTrend && Chart.getChart(wTrend)) Chart.getChart(wTrend).destroy();
+    if (eTrend && Chart.getChart(eTrend)) Chart.getChart(eTrend).destroy();
+    if (wcTrend && Chart.getChart(wcTrend)) Chart.getChart(wcTrend).destroy();
+    if (svcTrend && Chart.getChart(svcTrend)) Chart.getChart(svcTrend).destroy();
+
+    var cardTotals = data.cardTotals || { labels: [], data: [] };
+    new Chart(patientsBarCanvas.getContext('2d'), {
         type: 'bar',
         data: {
-            labels: data.patientsPerMonth.labels,
-            datasets: [{ label: 'New Patients', data: data.patientsPerMonth.data,
-                backgroundColor: 'rgba(74,144,226,0.75)', borderColor: 'rgba(74,144,226,1)',
+            labels: cardTotals.labels,
+            datasets: [{ label: 'Current Total', data: cardTotals.data,
+                backgroundColor: [
+                    'rgba(25,135,84,0.75)',
+                    'rgba(220,53,69,0.75)',
+                    'rgba(74,144,226,0.75)',
+                    'rgba(245,166,35,0.78)',
+                    'rgba(155,89,182,0.75)'
+                ],
+                borderColor: [
+                    'rgba(25,135,84,1)',
+                    'rgba(220,53,69,1)',
+                    'rgba(74,144,226,1)',
+                    'rgba(245,166,35,1)',
+                    'rgba(155,89,182,1)'
+                ],
                 borderWidth: 1, borderRadius: 6 }]
         },
         options: { responsive: true, maintainAspectRatio: false,
@@ -385,7 +442,7 @@ function renderCharts(data) {
     var rxData = data.rxStatus;
     var total  = 0;
     for (var ri = 0; ri < rxData.data.length; ri++) { total += rxData.data[ri]; }
-    new Chart(document.getElementById('rxDonutChart').getContext('2d'), {
+    new Chart(rxDonutCanvas.getContext('2d'), {
         type: 'doughnut',
         data: {
             labels: rxData.labels,
@@ -406,6 +463,160 @@ function renderCharts(data) {
             }
         }
     });
+
+    var hasTrendData = false;
+    if (data.dailyTrends && data.dailyTrends.labels && data.dailyTrends.labels.length) {
+        var trendKeys = ['activePatients','inactivePatients','newPatientsToday','rxRecords','newRXToday','pendingDeliveries','completedRX','patientsWithNoRx','eligibleNow','expiringIn7','inWindow','noServiceDate','workflowStepsCompletedDaily','workflowStepsToday','workflowCompletionRate','serviceDateEntries'];
+        for (var hk = 0; hk < trendKeys.length; hk++) {
+            var series = data.dailyTrends[trendKeys[hk]];
+            if (series && series.length) {
+                hasTrendData = true;
+                break;
+            }
+        }
+    }
+
+    if (data.dailyTrends && hasTrendData) {
+        var trendLabels = data.dailyTrends.labels || [];
+        var trendColors = {
+            active: 'rgba(25,135,84,0.85)',
+            inactive: 'rgba(220,53,69,0.85)',
+            rx: 'rgba(74,144,226,0.85)',
+            pending: 'rgba(245,166,35,0.85)',
+            completed: 'rgba(80,227,194,0.85)',
+            norx: 'rgba(155,89,182,0.85)',
+            eligible: 'rgba(255,193,7,0.9)',
+            expiring: 'rgba(253,126,20,0.9)',
+            window: 'rgba(32,201,151,0.85)',
+            nodate: 'rgba(108,117,125,0.85)',
+            rate: 'rgba(13,110,253,0.9)',
+            newEntry: 'rgba(111,66,193,0.9)',
+            changes: 'rgba(32,201,151,0.85)'
+        };
+        var trendType = _trendChartType === 'bar' ? 'bar' : 'line';
+        var pointRadius = trendType === 'bar' ? 0 : 1.5;
+        var lineTension = trendType === 'bar' ? 0 : 0.25;
+        var baseTrendOptions = function(percentAxis, activityAxis) {
+            var scales = {
+                x: { grid: { color: gc }, ticks: { color: tc, maxRotation: 0, autoSkip: true } },
+                y: { grid: { color: gc }, ticks: { color: tc, precision: 0 }, beginAtZero: true, suggestedMax: percentAxis ? 100 : undefined }
+            };
+            if (activityAxis) {
+                scales.yActivity = {
+                    position: 'right',
+                    grid: { drawOnChartArea: false },
+                    ticks: { color: tc, precision: 0 },
+                    beginAtZero: true
+                };
+            }
+            return {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: { legend: { position: 'bottom' } },
+                scales: scales
+            };
+        };
+
+        if (pTrend) {
+            new Chart(pTrend.getContext('2d'), {
+                type: trendType,
+                data: {
+                    labels: trendLabels,
+                    datasets: [
+                        { label: 'Active Patients', data: data.dailyTrends.activePatients || [], borderColor: trendColors.active, backgroundColor: trendColors.active, tension: lineTension, fill: false, pointRadius: pointRadius },
+                        { label: 'Inactive Patients', data: data.dailyTrends.inactivePatients || [], borderColor: trendColors.inactive, backgroundColor: trendColors.inactive, tension: lineTension, fill: false, pointRadius: pointRadius },
+                        { label: 'New Patients', data: data.dailyTrends.newPatientsToday || [], borderColor: trendColors.newEntry, backgroundColor: trendColors.newEntry, tension: lineTension, fill: false, pointRadius: pointRadius, yAxisID: 'yActivity' },
+                        { label: 'Service Date Entries', data: data.dailyTrends.serviceDateEntries || [], borderColor: trendColors.changes, backgroundColor: trendColors.changes, tension: lineTension, fill: false, pointRadius: pointRadius, yAxisID: 'yActivity' },
+                        { label: 'Patients With No RX', data: data.dailyTrends.patientsWithNoRx || [], borderColor: trendColors.norx, backgroundColor: trendColors.norx, tension: lineTension, fill: false, pointRadius: pointRadius }
+                    ]
+                },
+                options: baseTrendOptions(false, true)
+            });
+        }
+
+        if (wTrend) {
+            new Chart(wTrend.getContext('2d'), {
+                type: trendType,
+                data: {
+                    labels: trendLabels,
+                    datasets: [
+                        { label: 'Total RX Records', data: data.dailyTrends.rxRecords || [], borderColor: trendColors.rx, backgroundColor: trendColors.rx, tension: lineTension, fill: false, pointRadius: pointRadius },
+                        { label: 'New RX Records', data: data.dailyTrends.newRXToday || [], borderColor: trendColors.newEntry, backgroundColor: trendColors.newEntry, tension: lineTension, fill: false, pointRadius: pointRadius, yAxisID: 'yActivity' },
+                        { label: 'Pending Deliveries', data: data.dailyTrends.pendingDeliveries || [], borderColor: trendColors.pending, backgroundColor: trendColors.pending, tension: lineTension, fill: false, pointRadius: pointRadius },
+                        { label: 'Completed RX', data: data.dailyTrends.completedRX || [], borderColor: trendColors.completed, backgroundColor: trendColors.completed, tension: lineTension, fill: false, pointRadius: pointRadius }
+                    ]
+                },
+                options: baseTrendOptions(false, true)
+            });
+        }
+
+        if (eTrend) {
+            new Chart(eTrend.getContext('2d'), {
+                type: trendType,
+                data: {
+                    labels: trendLabels,
+                    datasets: [
+                        { label: 'Eligible Now', data: data.dailyTrends.eligibleNow || [], borderColor: trendColors.eligible, backgroundColor: trendColors.eligible, tension: lineTension, fill: false, pointRadius: pointRadius },
+                        { label: '7 Days Left', data: data.dailyTrends.expiringIn7 || [], borderColor: trendColors.expiring, backgroundColor: trendColors.expiring, tension: lineTension, fill: false, pointRadius: pointRadius },
+                        { label: 'Active Window', data: data.dailyTrends.inWindow || [], borderColor: trendColors.window, backgroundColor: trendColors.window, tension: lineTension, fill: false, pointRadius: pointRadius },
+                        { label: 'No Service Date', data: data.dailyTrends.noServiceDate || [], borderColor: trendColors.nodate, backgroundColor: trendColors.nodate, tension: lineTension, fill: false, pointRadius: pointRadius }
+                    ]
+                },
+                options: baseTrendOptions(false)
+            });
+        }
+
+        if (wcTrend) {
+            new Chart(wcTrend.getContext('2d'), {
+                type: trendType,
+                data: {
+                    labels: trendLabels,
+                    datasets: [
+                        { label: 'Completion Rate %', data: data.dailyTrends.workflowCompletionRate || [], borderColor: trendColors.rate, backgroundColor: trendColors.rate, tension: lineTension, fill: false, pointRadius: pointRadius },
+                        { label: 'Workflow Steps Completed', data: data.dailyTrends.workflowStepsCompletedDaily || data.dailyTrends.workflowStepsToday || [], borderColor: trendColors.completed, backgroundColor: trendColors.completed, tension: lineTension, fill: false, pointRadius: pointRadius, yAxisID: 'yActivity' }
+                    ]
+                },
+                options: baseTrendOptions(true, true)
+            });
+        }
+
+        var svcTrend = document.getElementById('serviceDateTrendChart');
+        if (svcTrend) {
+            new Chart(svcTrend.getContext('2d'), {
+                type: trendType,
+                data: {
+                    labels: trendLabels,
+                    datasets: [
+                        { label: 'Service Date Entries', data: data.dailyTrends.serviceDateEntries || data.dailyTrends.serviceDateChanges || [], borderColor: trendColors.changes, backgroundColor: trendColors.changes, tension: lineTension, fill: false, pointRadius: pointRadius }
+                    ]
+                },
+                options: baseTrendOptions(false)
+            });
+        }
+
+    } else {
+        var trendCards = [
+            document.getElementById('patientsTrendChart'),
+            document.getElementById('workflowTrendChart'),
+            document.getElementById('eligibilityTrendChart'),
+            document.getElementById('workflowCompletionTrendChart'),
+            document.getElementById('serviceDateTrendChart')
+        ];
+        var msg = data.trendWarning || 'Trend charts are unavailable until the snapshot migration is applied.';
+        if (data.dailyTrends && !hasTrendData) {
+            msg = 'Trend data is empty for the selected range.';
+        }
+        for (var ti = 0; ti < trendCards.length; ti++) {
+            var canvas = trendCards[ti];
+            if (!canvas) continue;
+            var wrap = canvas.parentNode;
+            if (!wrap) continue;
+            if (Chart.getChart(canvas)) Chart.getChart(canvas).destroy();
+            wrap.innerHTML = '<div class="d-flex align-items-center justify-content-center text-center h-100" style="min-height:220px;color:#8b949e">' +
+                '<div><i class="fas fa-database me-2 text-warning"></i><div class="small fw-semibold">' + msg + '</div></div></div>';
+        }
+    }
 }
 
 // =====================================================================
@@ -436,117 +647,8 @@ function openDrilldown(type) {
         return el ? el.href : '#';
     }
 
-    var titleEl = document.getElementById('drilldownTitle');
-    var bodyEl  = document.getElementById('drilldownBody');
-    if (titleEl) titleEl.textContent = titles[type] || 'Report';
-    if (bodyEl)  bodyEl.innerHTML = '<p class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin me-2"></i>Loading...</p>';
-
-    var fp = document.getElementById('drilldownFullPageBtn');
-    if (fp) fp.href = getPageLink(type);
-    drilldownModal.show();
-
-    fetchWithAuth(_api.drill + type).then(function(res) {
-        if (!res) return;
-        return res.json().then(function(data) {
-            drilldownCurrentData = data;
-            if (titleEl) titleEl.textContent = (titles[type] || 'Report') + ' (' + data.length + ')';
-            renderDrilldownTable(type, data);
-        });
-    }).catch(function() {
-        if (bodyEl) bodyEl.innerHTML = '<p class="text-danger text-center py-4">Error loading data.</p>';
-    });
-}
-
-function renderDrilldownTable(type, data) {
-    var body = document.getElementById('drilldownBody');
-    if (!data || !data.length) { body.innerHTML = '<p class="text-center text-muted py-4">No records found.</p>'; return; }
-    var patientTypes = { 'active-patients': 1, 'inactive-patients': 1, 'patients-no-rx': 1 };
-    var isPatient = !!patientTypes[type];
-
-    if (isPatient) {
-        var pRows = '';
-        for (var pi = 0; pi < data.length; pi++) {
-            var p = data[pi];
-            pRows += '<tr>' +
-                '<td><code>' + (p.patientCode || p.id) + '</code></td>' +
-                '<td><strong>' + (p.firstName || '') + ' ' + (p.lastName || '') + '</strong></td>' +
-                '<td>' + (p.dob || '&mdash;') + '</td>' +
-                '<td>' + (p.phone || '&mdash;') + '</td>' +
-                '<td>' + (p.serviceDate || '&mdash;') + '</td>' +
-                '<td>' + (p.Clinic ? p.Clinic.name : '&mdash;') + '</td>' +
-                '<td>' + (p.PatientTransportCompany ? (p.PatientTransportCompany.contactPerson || p.PatientTransportCompany.companyName || '&mdash;') : '&mdash;') + '</td>' +
-                '<td>' + (p.PharmacyTransportCompany ? (p.PharmacyTransportCompany.contactPerson || p.PharmacyTransportCompany.companyName || '&mdash;') : '&mdash;') + '</td>' +
-                '</tr>';
-        }
-        body.innerHTML = '<div class="table-responsive"><table class="table table-hover table-sm align-middle">' +
-            '<thead><tr><th>Patient ID</th><th>Name</th><th>DOB</th><th>Phone</th>' +
-            '<th>Service Date</th><th>Clinic</th><th>Patient Transport</th><th>Pharmacy Transport</th>' +
-            '</tr></thead><tbody>' + pRows + '</tbody></table></div>' +
-            '<small class="text-muted">' + data.length + ' records</small>';
-    } else {
-        var rxRows = '';
-        for (var ri = 0; ri < data.length; ri++) {
-            var rx = data[ri];
-            var steps  = (rx.RXWorkflowTrackings || []).length;
-            var totalSteps = rx.workflowStepTotal || rx.totalWorkflowSteps || 0;
-            var pct    = totalSteps > 0 ? Math.round((steps / totalSteps) * 100) : 0;
-            rxRows += '<tr>' +
-                '<td><strong>#' + rx.id + '</strong></td>' +
-                '<td>' + (rx.Patient ? rx.Patient.firstName + ' ' + rx.Patient.lastName : '&mdash;') + '</td>' +
-                '<td><code>' + (rx.Patient ? (rx.Patient.patientCode || rx.patientId) : rx.patientId) + '</code></td>' +
-                '<td>' + (rx.Pharmacy ? rx.Pharmacy.name : '&mdash;') + '</td>' +
-                '<td>' + (rx.arrivalDate || '&mdash;') + '</td>' +
-                '<td>' + (rx.serviceDate || '&mdash;') + '</td>' +
-                '<td><div class="progress" style="height:8px;min-width:60px"><div class="progress-bar bg-primary" style="width:' + pct + '%"></div></div><small>' + steps + (totalSteps ? '/' + totalSteps : '') + ' step(s) completed</small></td>' +
-                '</tr>';
-        }
-        body.innerHTML = '<div class="table-responsive"><table class="table table-hover table-sm align-middle">' +
-            '<thead><tr><th>RX #</th><th>Patient</th><th>Patient ID</th>' +
-            '<th>Pharmacy</th><th>Arrival Date</th><th>Service Date</th><th>Workflow Progress</th>' +
-            '</tr></thead><tbody>' + rxRows + '</tbody></table></div>' +
-            '<small class="text-muted">' + data.length + ' records</small>';
-    }
-}
-
-// =====================================================================
-// CSV exports
-// =====================================================================
-function exportDrilldownCsv() {
-    if (!drilldownCurrentData || !drilldownCurrentData.length) { showToast('No data to export.', 'warning'); return; }
-    var patientTypes = { 'active-patients': 1, 'inactive-patients': 1, 'patients-no-rx': 1 };
-    var isPatient = !!patientTypes[drilldownType];
-    var headers, rows;
-    if (isPatient) {
-        headers = ['Patient ID','First Name','Last Name','DOB','Phone','Service Date','Clinic','Patient Transport','Pharmacy Transport','Status'];
-        rows = [];
-        for (var pi = 0; pi < drilldownCurrentData.length; pi++) {
-            var p = drilldownCurrentData[pi];
-            rows.push([
-                p.patientCode || p.id, p.firstName, p.lastName, p.dob || '', p.phone || '',
-                p.serviceDate || '',
-                p.Clinic ? p.Clinic.name : '',
-                p.PatientTransportCompany ? (p.PatientTransportCompany.contactPerson || p.PatientTransportCompany.companyName || '') : '',
-                p.PharmacyTransportCompany ? (p.PharmacyTransportCompany.contactPerson || p.PharmacyTransportCompany.companyName || '') : '',
-                p.isActive ? 'Active' : 'Inactive'
-            ]);
-        }
-    } else {
-        headers = ['RX #','Patient ID','Patient Name','Pharmacy','Arrival Date','Service Date','Steps Completed'];
-        rows = [];
-        for (var ri = 0; ri < drilldownCurrentData.length; ri++) {
-            var rx = drilldownCurrentData[ri];
-            rows.push([
-                rx.id,
-                rx.Patient ? (rx.Patient.patientCode || rx.patientId) : rx.patientId,
-                rx.Patient ? rx.Patient.firstName + ' ' + rx.Patient.lastName : '',
-                rx.Pharmacy ? rx.Pharmacy.name : '',
-                rx.arrivalDate || '', rx.serviceDate || '',
-                (rx.RXWorkflowTrackings || []).length
-            ]);
-        }
-    }
-    var typeMap = { 'active-patients':'active_patients','inactive-patients':'inactive_patients','total-rx':'all_rx_records','pending-rx':'pending_rx','patients-no-rx':'patients_no_rx' };
-    exportToCsv((typeMap[drilldownType] || 'report') + '_' + new Date().toISOString().slice(0,10) + '.csv', headers, rows);
+    var dest = getPageLink(type);
+    if (dest && dest !== '#') window.location.href = dest;
 }
 
 function exportDashboardReport() {
@@ -611,6 +713,54 @@ function exportRecentActivity() {
     if (!rows.length) { showToast('No activity to export', 'warning'); return; }
     exportToCsv('recent_activity_' + new Date().toISOString().slice(0,10) + '.csv', ['User','Module','Action','Date','IP Address'], rows);
     showToast('Recent activity exported!', 'success');
+}
+
+function exportTrendCsv() {
+    if (!window._lastChartData || !window._lastChartData.dailyTrends) {
+        showToast('No trend data to export.', 'warning');
+        return;
+    }
+    var d = window._lastChartData.dailyTrends;
+    var rows = [];
+    for (var i = 0; i < (d.labels || []).length; i++) {
+        rows.push([
+            d.labels[i] || '',
+            d.activePatients ? d.activePatients[i] : '',
+            d.inactivePatients ? d.inactivePatients[i] : '',
+            d.newPatientsToday ? d.newPatientsToday[i] : '',
+            d.rxRecords ? d.rxRecords[i] : '',
+            d.newRXToday ? d.newRXToday[i] : '',
+            d.pendingDeliveries ? d.pendingDeliveries[i] : '',
+            d.completedRX ? d.completedRX[i] : '',
+            d.patientsWithNoRx ? d.patientsWithNoRx[i] : '',
+            d.eligibleNow ? d.eligibleNow[i] : '',
+            d.expiringIn7 ? d.expiringIn7[i] : '',
+            d.inWindow ? d.inWindow[i] : '',
+            d.noServiceDate ? d.noServiceDate[i] : '',
+            d.workflowCompletionRate ? d.workflowCompletionRate[i] : '',
+            d.workflowStepsCompletedDaily ? d.workflowStepsCompletedDaily[i] : (d.workflowStepsToday ? d.workflowStepsToday[i] : ''),
+            d.serviceDateEntries ? d.serviceDateEntries[i] : (d.serviceDateChanges ? d.serviceDateChanges[i] : '')
+        ]);
+    }
+    exportToCsv('dashboard_trends_' + new Date().toISOString().slice(0,10) + '.csv', [
+        'Date',
+        'Active Patients',
+        'Inactive Patients',
+        'New Patients',
+        'Total RX Records',
+        'New RX Records',
+        'Pending Deliveries',
+        'Completed RX',
+        'Patients With No RX',
+        'Eligible Now',
+        '7 Days Left',
+        'Active Window',
+        'No Service Date',
+        'Workflow Completion Rate',
+        'Workflow Steps Completed',
+        'Service Date Entries'
+    ], rows);
+    showToast('Trend data exported!', 'success');
 }
 
 // =====================================================================
@@ -949,12 +1099,71 @@ document.addEventListener('DOMContentLoaded', function() {
         })(presetBtns[pi]);
     }
 
+    // Trend range controls
+    var trendBtns = document.querySelectorAll('.trend-range-btn');
+    for (var ti = 0; ti < trendBtns.length; ti++) {
+        (function(btn) {
+            btn.addEventListener('click', function() {
+                setTrendPreset(btn.getAttribute('data-trend-range') || '30d');
+            });
+        })(trendBtns[ti]);
+    }
+    var trendTypeEl = document.getElementById('trendChartType');
+    var savedTrendType = localStorage.getItem('rxDashTrendChartType');
+    if (savedTrendType === 'bar' || savedTrendType === 'line') {
+        _trendChartType = savedTrendType;
+    }
+    if (trendTypeEl) {
+        trendTypeEl.value = _trendChartType;
+        trendTypeEl.addEventListener('change', function() {
+            _trendChartType = this.value === 'bar' ? 'bar' : 'line';
+            localStorage.setItem('rxDashTrendChartType', _trendChartType);
+            if (window._lastChartData) renderCharts(window._lastChartData);
+        });
+    }
+
+    var trendFromEl = document.getElementById('trendFrom');
+    var trendToEl = document.getElementById('trendTo');
+    if (trendFromEl) {
+        trendFromEl.addEventListener('change', function() {
+            if (!validateTrendRange()) return;
+            _trendFrom = this.value;
+            _trendTo = trendToEl ? trendToEl.value : '';
+            _trendPreset = 'custom';
+            syncTrendUi();
+        });
+    }
+    if (trendToEl) {
+        trendToEl.addEventListener('change', function() {
+            if (!validateTrendRange()) return;
+            _trendFrom = trendFromEl ? trendFromEl.value : '';
+            _trendTo = this.value;
+            _trendPreset = 'custom';
+            syncTrendUi();
+        });
+    }
+    var trendApply = document.getElementById('trendApplyBtn');
+    if (trendApply) {
+        trendApply.addEventListener('click', function() {
+            if (!validateTrendRange()) return;
+            _trendFrom = trendFromEl ? trendFromEl.value : '';
+            _trendTo = trendToEl ? trendToEl.value : '';
+            _trendPreset = 'custom';
+            syncTrendUi();
+            loadDashboardCharts();
+        });
+    }
+    setTrendPreset('30d');
+
     // Date pickers
     var dateIds = ['dashFrom', 'dashTo'];
     for (var di = 0; di < dateIds.length; di++) {
         var el = document.getElementById(dateIds[di]);
         if (el) {
             el.addEventListener('change', function() {
+                _dashFrom = document.getElementById('dashFrom').value;
+                _dashTo   = document.getElementById('dashTo').value;
+                validateDashRange();
                 _dashFrom = document.getElementById('dashFrom').value;
                 _dashTo   = document.getElementById('dashTo').value;
                 var presets = document.querySelectorAll('.dash-preset');
@@ -994,24 +1203,16 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Export buttons
-    var drillCsv = document.getElementById('drilldownCsvBtn');
-    if (drillCsv) drillCsv.addEventListener('click', exportDrilldownCsv);
     var expDash = document.getElementById('exportDashboardBtn');
     if (expDash) expDash.addEventListener('click', exportDashboardReport);
     var expAct = document.getElementById('exportActivityBtn');
     if (expAct) expAct.addEventListener('click', exportRecentActivity);
+    var trendExport = document.getElementById('trendExportBtn');
+    if (trendExport) trendExport.addEventListener('click', exportTrendCsv);
 
     // Load data
-    refreshDashboard().then(function() {
-        return fetchWithAuth(_api.charts);
-    }).then(function(chartRes) {
-        if (chartRes && chartRes.ok) {
-            return chartRes.json().then(function(chartData) {
-                window._lastChartData = chartData;
-                renderCharts(chartData);
-            });
-        }
-    }).catch(function(e) { console.warn('Charts failed:', e); });
+    refreshDashboard();
+    loadDashboardCharts();
 
     // Load eligibility widget independently
     loadEligibility();

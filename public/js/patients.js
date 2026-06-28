@@ -2,7 +2,14 @@ var allPatients = [];
     var serviceDateOverrideEnabled = false;
     var filteredPatients = [];
     var currentPage = 1;
-    var pageSize = 20;
+    var pageSize = 10;
+    var patientServerPaging = true;
+    var patientTotalCount = 0;
+    var patientTotalPages = 1;
+    var patientNeedsActionCount = 0;
+    var patientFacets = null;
+    var patientNoRxFilter = false;
+    var patientHighlightId = '';
     var editingPatientId = null;
     var deletingPatientId = null;
     var patientModalOriginalServiceDate = '';
@@ -328,7 +335,7 @@ var allPatients = [];
             psSel.addEventListener('change', function() {
                 pageSize = parseInt(this.value);
                 currentPage = 1;
-                renderPatients();
+                loadPatients();
             });
         }
 
@@ -338,65 +345,22 @@ var allPatients = [];
         const statusParam    = urlParams.get('status');
         const highlightId    = urlParams.get('highlight');   // from global search
         const preFilterName  = urlParams.get('name');         // from global search by name
+        patientHighlightId = highlightId || '';
 
         if (statusParam === 'norx') {
-            // ── Special case: active patients with NO RX records ─────────────
-            // Call the dedicated endpoint instead of loading all patients first.
-            try {
-                document.getElementById('patientsBody').innerHTML =
-                    '<tr><td colspan="9" class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin me-2"></i>Loading No-RX patients...</td></tr>';
-                const norxRes = await fetchWithAuth('/api/dashboard/patients-no-rx');
-                if (norxRes && norxRes.ok) {
-                    const norxData = await norxRes.json();
-                    allPatients      = Array.isArray(norxData) ? norxData : [];
-                    filteredPatients = [...allPatients];
-                    currentPage      = 1;
-                    renderPatients();
-                    const needsActionBanner = document.getElementById('patientsNeedsActionBanner');
-                    if (needsActionBanner) needsActionBanner.textContent = '';
-                    // Show a dismissable filter banner above the table
-                    const tableCard = document.querySelector('.glass-card.p-4');
-                    if (tableCard && !document.getElementById('norxBanner')) {
-                        const banner = document.createElement('div');
-                        banner.id = 'norxBanner';
-                        banner.style.cssText = 'background:rgba(155,89,182,.09);border:1px solid rgba(155,89,182,.3);border-radius:10px;padding:.6rem 1rem;display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;font-size:.85rem';
-                        const message = document.createElement('span');
-                        const icon = document.createElement('i');
-                        icon.className = 'fas fa-user-slash me-2';
-                        icon.style.color = '#9b59b6';
-                        message.appendChild(icon);
-                        const label = document.createElement('strong');
-                        label.textContent = 'Filtered:';
-                        message.appendChild(label);
-                        message.appendChild(document.createTextNode(' Showing only active patients with no RX records (' + allPatients.length + ' record' + (allPatients.length !== 1 ? 's' : '') + ')'));
-                        const clearLink = document.createElement('a');
-                        clearLink.href = '/patients';
-                        clearLink.className = 'btn btn-sm btn-outline-secondary';
-                        clearLink.style.fontSize = '.75rem';
-                        const clearIcon = document.createElement('i');
-                        clearIcon.className = 'fas fa-times me-1';
-                        clearLink.appendChild(clearIcon);
-                        clearLink.appendChild(document.createTextNode('Clear Filter'));
-                        banner.appendChild(message);
-                        banner.appendChild(clearLink);
-                        tableCard.insertBefore(banner, tableCard.firstChild);
-                    }
-                    showToast('Showing Active Patients with No RX Records (' + allPatients.length + ')', 'info');
-                } else {
-                    throw new Error('API error');
-                }
-            } catch(e) {
-                showToast('Could not load No-RX filter — showing all patients', 'warning');
-                await loadPatients();
-            }
+            patientNoRxFilter = true;
+            await loadPatients();
+            showNoRxBanner();
+            showToast('Showing Active Patients with No RX Records (' + patientTotalCount + ')', 'info');
         } else {
-            // ── Normal case: load all patients then apply any URL filter ────
+            if (!statusParam) {
+                var defaultStatusEl = document.getElementById('srchStatus');
+                if (defaultStatusEl && !defaultStatusEl.value) defaultStatusEl.value = 'true';
+            }
             await loadPatients();
 
             if (highlightId) {
                 const targetId = parseInt(highlightId);
-                filteredPatients = allPatients.filter(p => p.id === targetId);
-                renderPatients();
                 setTimeout(() => {
                     const row = document.querySelector('tr[data-patient-id="' + targetId + '"]');
                     if (row) {
@@ -406,6 +370,7 @@ var allPatients = [];
                         setTimeout(() => { row.style.background = ''; }, 2000);
                     }
                 }, 300);
+                patientHighlightId = '';
                 showToast('Showing search result', 'info');
             } else if (preFilterName) {
                 const nameParts = decodeURIComponent(preFilterName).trim().split(' ');
@@ -427,6 +392,10 @@ var allPatients = [];
             // with ?eligFilter=eligible|expiring|window|none. Apply it automatically.
             var eligParam = urlParams.get('eligFilter');
             if (eligParam) {
+                var eligStatusEl = document.getElementById('srchStatus');
+                if (eligStatusEl && !eligStatusEl.value) {
+                    eligStatusEl.value = 'true';
+                }
                 var eligEl = document.getElementById('srchEligibility');
                 if (eligEl) {
                     eligEl.value = eligParam;
@@ -512,16 +481,21 @@ var allPatients = [];
         });
     }
 
-        document.getElementById('searchBtn').addEventListener('click', loadPatients);
+        document.getElementById('searchBtn').addEventListener('click', applyPatientSearch);
         document.getElementById('clearBtn').addEventListener('click', () => {
             ['srchFirstName','srchLastName','srchDob','srchPhone','srchStatus','srchClinic',
              'srchPatientCode','srchPatientTransport','srchPharmacyTransport','srchPharmacy','srchServiceFrom','srchServiceTo','srchEligibility','srchMissingInfo'
             ].forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
+            var clearStatusEl = document.getElementById('srchStatus');
+            if (clearStatusEl) clearStatusEl.value = 'true';
             document.getElementById('srchShowDeleted').checked = false;
+            patientNoRxFilter = false;
+            patientHighlightId = '';
             updateFilterBadge();
+            currentPage = 1;
             loadPatients();
         });
-        document.getElementById('srchShowDeleted').addEventListener('change', loadPatients);
+        document.getElementById('srchShowDeleted').addEventListener('change', applyPatientSearch);
         document.getElementById('srchClinic').addEventListener('change', applyPatientSearch);
 
         document.getElementById('savePatientBtn').addEventListener('click', savePatient);
@@ -577,9 +551,10 @@ var allPatients = [];
         EXPORT_COLS.forEach(c => { _exportColState[c.key] = true; });
 
         function openExportModal() {
-            if (!filteredPatients.length) { showToast('No records to export. Adjust filters first.', 'warning'); return; }
+            const exportCount = patientServerPaging ? patientTotalCount : filteredPatients.length;
+            if (!exportCount) { showToast('No records to export. Adjust filters first.', 'warning'); return; }
             document.getElementById('exportModalCount').textContent =
-                'Exporting ' + filteredPatients.length + ' record' + (filteredPatients.length !== 1 ? 's' : '') + ' matching current filters';
+                'Exporting ' + exportCount + ' record' + (exportCount !== 1 ? 's' : '') + ' matching current filters';
             const list = document.getElementById('exportColList');
             // Build checkbox HTML WITHOUT inline onchange (inline handlers run in global scope
             // and cannot access the _exportColState closure variable — that's the bug this fixes)
@@ -624,11 +599,27 @@ var allPatients = [];
         // Expose to window so the HTML button onclick="setAllExportCols(...)" can reach it
         window.setAllExportCols = setAllExportCols;
         document.getElementById('exportPatientsCsvBtn').addEventListener('click', openExportModal);
-        document.getElementById('doExportBtn').addEventListener('click', () => {
+        async function loadPatientsForExport() {
+            if (!patientServerPaging) return filteredPatients;
+            const params = buildPatientQueryParams({ exportAll: true });
+            const res = await fetchWithAuth('/api/patients?' + params.toString());
+            if (!res || !res.ok) throw new Error('Could not load export rows');
+            const data = await res.json();
+            return data && Array.isArray(data.rows) ? data.rows : [];
+        }
+
+        document.getElementById('doExportBtn').addEventListener('click', async () => {
             const selected = EXPORT_COLS.filter(c => _exportColState[c.key]);
             if (!selected.length) { showToast('Select at least one column.', 'warning'); return; }
             const headers = selected.map(c => c.label);
-            const rows    = filteredPatients.map(p => selected.map(c => c.fn(p)));
+            let exportPatients;
+            try {
+                exportPatients = await loadPatientsForExport();
+            } catch (e) {
+                showToast(e.message || 'Could not load export rows.', 'danger');
+                return;
+            }
+            const rows = exportPatients.map(p => selected.map(c => c.fn(p)));
             // IMPROVE-05: include active date range filters in filename
             const today  = new Date().toISOString().slice(0,10);
             const svcFrom = (document.getElementById('srchServiceFrom') || {}).value || '';
@@ -642,7 +633,7 @@ var allPatients = [];
             else                    { filenamePart += today; }
             exportToCsv(filenamePart + '.csv', headers, rows);
             bootstrap.Modal.getInstance(document.getElementById('exportColumnsModal')).hide();
-            showToast('Exported ' + filteredPatients.length + ' records (' + selected.length + ' columns).', 'success');
+            showToast('Exported ' + exportPatients.length + ' records (' + selected.length + ' columns).', 'success');
         });
 
         // Apply permissions to top-level buttons
@@ -723,15 +714,97 @@ var allPatients = [];
         } catch(e) {}
     }
 
+    function setPatientParam(params, name, value) {
+        if (value !== null && value !== undefined && String(value).trim() !== '') {
+            params.set(name, String(value).trim());
+        }
+    }
+
+    function buildPatientQueryParams(options) {
+        options = options || {};
+        var params = new URLSearchParams();
+        params.set('paginated', 'true');
+        if (options.exportAll) {
+            params.set('exportAll', 'true');
+            params.set('page', '1');
+            params.set('pageSize', '500');
+        } else {
+            params.set('page', String(currentPage));
+            params.set('pageSize', String(pageSize));
+        }
+        params.set('sort', pSortCol || 'id');
+        params.set('dir', pSortDir || 'desc');
+
+        setPatientParam(params, 'firstName', document.getElementById('srchFirstName')?.value || '');
+        setPatientParam(params, 'lastName', document.getElementById('srchLastName')?.value || '');
+        setPatientParam(params, 'dob', document.getElementById('srchDob')?.value || '');
+        setPatientParam(params, 'phone', document.getElementById('srchPhone')?.value || '');
+        setPatientParam(params, 'status', document.getElementById('srchStatus')?.value || '');
+        setPatientParam(params, 'clinicId', document.getElementById('srchClinic')?.value || '');
+        setPatientParam(params, 'patientCode', document.getElementById('srchPatientCode')?.value || '');
+        setPatientParam(params, 'patientTransportId', document.getElementById('srchPatientTransport')?.value || '');
+        setPatientParam(params, 'pharmacyTransportId', document.getElementById('srchPharmacyTransport')?.value || '');
+        setPatientParam(params, 'pharmacyId', document.getElementById('srchPharmacy')?.value || '');
+        setPatientParam(params, 'serviceFrom', document.getElementById('srchServiceFrom')?.value || '');
+        setPatientParam(params, 'serviceTo', document.getElementById('srchServiceTo')?.value || '');
+        setPatientParam(params, 'eligibility', document.getElementById('srchEligibility')?.value || '');
+        setPatientParam(params, 'missingInfo', document.getElementById('srchMissingInfo')?.value || '');
+        setPatientParam(params, 'id', patientHighlightId || '');
+
+        if (document.getElementById('srchShowDeleted')?.checked) params.set('includeDeleted', 'true');
+        if (patientNoRxFilter) params.set('noRx', 'true');
+        return params;
+    }
+
+    function applyPatientFacetOptions(facets) {
+        patientFacets = facets || null;
+        if (!patientFacets) return;
+        resetSelectOptions(document.getElementById('srchClinic'), 'All Clinics', patientFacets.clinics || []);
+        resetSelectOptions(document.getElementById('srchPatientTransport'), 'All Transport Companies', patientFacets.patientTransports || []);
+        resetSelectOptions(document.getElementById('srchPharmacyTransport'), 'All Pharmacy Transport', patientFacets.pharmacyTransports || []);
+        resetSelectOptions(document.getElementById('srchPharmacy'), 'All Pharmacies', patientFacets.pharmacies || []);
+    }
+
+    function showNoRxBanner() {
+        const needsActionBanner = document.getElementById('patientsNeedsActionBanner');
+        if (needsActionBanner) needsActionBanner.textContent = '';
+        const tableCard = document.querySelector('.glass-card.p-4');
+        if (!tableCard || document.getElementById('norxBanner')) return;
+        const banner = document.createElement('div');
+        banner.id = 'norxBanner';
+        banner.style.cssText = 'background:rgba(155,89,182,.09);border:1px solid rgba(155,89,182,.3);border-radius:10px;padding:.6rem 1rem;display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;font-size:.85rem';
+        const message = document.createElement('span');
+        const icon = document.createElement('i');
+        icon.className = 'fas fa-user-slash me-2';
+        icon.style.color = '#9b59b6';
+        message.appendChild(icon);
+        const label = document.createElement('strong');
+        label.textContent = 'Filtered:';
+        message.appendChild(label);
+        message.appendChild(document.createTextNode(' Showing only active patients with no RX records (' + patientTotalCount + ' record' + (patientTotalCount !== 1 ? 's' : '') + ')'));
+        const clearLink = document.createElement('a');
+        clearLink.href = '/patients';
+        clearLink.className = 'btn btn-sm btn-outline-secondary';
+        clearLink.style.fontSize = '.75rem';
+        const clearIcon = document.createElement('i');
+        clearIcon.className = 'fas fa-times me-1';
+        clearLink.appendChild(clearIcon);
+        clearLink.appendChild(document.createTextNode('Clear Filter'));
+        banner.appendChild(message);
+        banner.appendChild(clearLink);
+        tableCard.insertBefore(banner, tableCard.firstChild);
+    }
+
     async function loadPatients() {
-        const showDeleted = document.getElementById('srchShowDeleted').checked;
-        const apiUrl = '/api/patients' + (showDeleted ? '?includeDeleted=true' : '');
+        const params = buildPatientQueryParams();
+        const apiUrl = '/api/patients?' + params.toString();
         try {
+            document.getElementById('patientsBody').innerHTML =
+                '<tr><td colspan="9" class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin me-2"></i>Loading patients...</td></tr>';
             const res = await fetchWithAuth(apiUrl);
             if (!res) {
-                // fetchWithAuth returned null = 401 → already redirecting to login
                 document.getElementById('patientsBody').innerHTML =
-                    '<tr><td colspan="9" class="text-center text-warning py-4"><i class="fas fa-exclamation-triangle me-2"></i>Session expired — redirecting to login…</td></tr>';
+                    '<tr><td colspan="9" class="text-center text-warning py-4"><i class="fas fa-exclamation-triangle me-2"></i>Session expired - redirecting to login...</td></tr>';
                 return;
             }
             if (!res.ok) {
@@ -749,14 +822,34 @@ var allPatients = [];
                     '<tr><td colspan="9" class="text-center py-4"><div class="alert alert-danger mb-0"><strong>JSON Parse Error</strong><br><small>' + jsonErr.message + '</small><br><small class="text-muted">Raw: ' + raw.substring(0, 200) + '</small></div></td></tr>';
                 return;
             }
-            allPatients = Array.isArray(data) ? data : [];
-            applyPatientSearch();
+
+            if (data && Array.isArray(data.rows)) {
+                allPatients = data.rows;
+                filteredPatients = data.rows;
+                patientTotalCount = Number(data.total || 0);
+                patientTotalPages = Number(data.totalPages || 1);
+                patientNeedsActionCount = Number(data.needsActionTotal || 0);
+                currentPage = Number(data.page || currentPage || 1);
+                pageSize = Number(data.pageSize || pageSize || 10);
+                applyPatientFacetOptions(data.facets);
+            } else {
+                allPatients = Array.isArray(data) ? data : [];
+                filteredPatients = allPatients.slice();
+                patientTotalCount = filteredPatients.length;
+                patientTotalPages = Math.max(1, Math.ceil(patientTotalCount / pageSize));
+                patientNeedsActionCount = filteredPatients.filter(function(p) { return !!p.needsAction; }).length;
+                updatePatientCascadeOptions();
+            }
+
+            renderNeedsActionBanner();
+            updateFilterBadge();
+            updatePatientSortIcons();
+            renderPatients();
         } catch (netErr) {
             document.getElementById('patientsBody').innerHTML =
                 '<tr><td colspan="9" class="text-center py-4"><div class="alert alert-danger mb-0"><strong>Network Error</strong><br><small>' + netErr.message + '</small><br><small class="text-muted">URL attempted: ' + apiUrl + ' | Page origin: ' + window.location.origin + '</small></div></td></tr>';
         }
     }
-
     function patientHasAnyField(p, keys) {
         return keys.some(key => p[key] !== null && p[key] !== undefined && String(p[key]) !== '');
     }
@@ -848,6 +941,11 @@ var allPatients = [];
     }
 
     function applyPatientSearch() {
+        if (patientServerPaging) {
+            currentPage = 1;
+            loadPatients();
+            return;
+        }
         updatePatientCascadeOptions();
         const fn   = document.getElementById('srchFirstName').value.toLowerCase();
         const ln   = document.getElementById('srchLastName').value.toLowerCase();
@@ -974,7 +1072,12 @@ var allPatients = [];
             pSortCol = col;
             pSortDir = 'asc';
         }
-        applyPatientSearch();
+        if (patientServerPaging) {
+            currentPage = 1;
+            loadPatients();
+        } else {
+            applyPatientSearch();
+        }
     }
 
     function updatePatientSortIcons() {
@@ -991,12 +1094,14 @@ var allPatients = [];
 
     function renderPatients() {
         var start = (currentPage - 1) * pageSize;
-        var page = filteredPatients.slice(start, start + pageSize);
+        var totalRows = patientServerPaging ? patientTotalCount : filteredPatients.length;
+        var pages = patientServerPaging ? patientTotalPages : Math.ceil(filteredPatients.length / pageSize);
+        var page = patientServerPaging ? filteredPatients.slice() : filteredPatients.slice(start, start + pageSize);
         var tbody = document.getElementById('patientsBody');
         if (page.length === 0) {
             tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-4">No patients found.</td></tr>';
             var pi0 = document.getElementById('patientPageInfo');
-            if (pi0) pi0.textContent = '';
+            if (pi0) pi0.textContent = totalRows ? 'Showing 0 of ' + totalRows : '';
             document.getElementById('patientPagination').innerHTML = '';
             return;
         }
@@ -1236,9 +1341,9 @@ var allPatients = [];
         });
 
         var pi = document.getElementById('patientPageInfo');
-        if (pi) pi.textContent = 'Showing ' + (filteredPatients.length === 0 ? 0 : Math.min(start + 1, filteredPatients.length)) + '\u2013' + Math.min(start + pageSize, filteredPatients.length) + ' of ' + filteredPatients.length;
+        if (pi) pi.textContent = 'Showing ' + (totalRows === 0 ? 0 : Math.min(start + 1, totalRows)) + '\u2013' + Math.min(start + page.length, totalRows) + ' of ' + totalRows;
 
-        var pages = Math.ceil(filteredPatients.length / pageSize);
+        pages = Math.max(1, pages);
         // Smart ellipsis pagination — never renders more than ~9 buttons
         var pagHtml = '<li class="page-item' + (currentPage === 1 ? ' disabled' : '') + '"><a class="page-link" href="#" data-pg="' + (currentPage - 1) + '">&laquo;</a></li>';
         var delta = 2; // pages each side of current
@@ -1257,12 +1362,12 @@ var allPatients = [];
         var pagEl = document.getElementById('patientPagination');
         pagEl.innerHTML = pagHtml;
         // Event delegation on pagination — avoids inline onclick= which FortiGate corrupts
-        pagEl.addEventListener('click', function(e) {
+        pagEl.onclick = function(e) {
             e.preventDefault();
             var a = e.target.closest('a[data-pg]');
             if (!a) return;
             goPPage(parseInt(a.dataset.pg));
-        });
+        };
     }
 
 
@@ -1276,15 +1381,16 @@ var allPatients = [];
         var pending = (Array.isArray(allPatients) ? allPatients : []).filter(function(p) {
             return !!p.needsAction;
         });
+        var pendingCount = patientServerPaging ? patientNeedsActionCount : pending.length;
 
-        if (!pending.length) {
+        if (!pendingCount) {
             container.innerHTML = '';
             return;
         }
 
         const eligValue = (document.getElementById('srchEligibility')?.value || '');
         const isNeedsActionFilter = eligValue === 'needsAction';
-        const plural = pending.length === 1 ? '' : 's';
+        const plural = pendingCount === 1 ? '' : 's';
 
         container.textContent = '';
 
@@ -1314,13 +1420,13 @@ var allPatients = [];
         if (isNeedsActionFilter) {
             message.appendChild(document.createTextNode('Showing '));
             var strong = document.createElement('strong');
-            strong.textContent = String(pending.length);
+            strong.textContent = String(pendingCount);
             message.appendChild(strong);
             message.appendChild(document.createTextNode(' patient' + plural + ' that require workflow action.'));
         } else {
             message.appendChild(document.createTextNode('There are '));
             var count = document.createElement('strong');
-            count.textContent = String(pending.length);
+            count.textContent = String(pendingCount);
             message.appendChild(count);
             message.appendChild(document.createTextNode(' patient' + plural + ' past the 90-day window with incomplete RX workflow.'));
         }
@@ -1375,9 +1481,14 @@ var allPatients = [];
     }
 
     function goPPage(p) {
-        const pages = Math.ceil(filteredPatients.length / pageSize);
+        const pages = patientServerPaging ? patientTotalPages : Math.ceil(filteredPatients.length / pageSize);
         if(p<1||p>pages) return;
-        currentPage = p; renderPatients();
+        currentPage = p;
+        if (patientServerPaging) {
+            loadPatients();
+        } else {
+            renderPatients();
+        }
     }
 
     // ── RX History Modal — Previous Service Dates ─────────────────────────────
@@ -2393,7 +2504,6 @@ var allPatients = [];
 
     function liveFilter() {
         applyPatientSearch();
-        renderPatients();
     }
 
     function updateFilterBadge() {

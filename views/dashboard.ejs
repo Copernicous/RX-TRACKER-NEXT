@@ -340,6 +340,7 @@
                         <div>
                             <div class="text-muted small">Eligible Now</div>
                             <div class="fs-2 fw-bold" id="eligNowCount">&mdash;</div>
+                            <small class="text-muted d-block mt-1" id="eligNowNote">Active patients only, inactive excluded</small>
                             <small style="color:#198754"><i class="fas fa-external-link-alt me-1"></i>View patients</small>
                         </div>
                     </div>
@@ -351,6 +352,7 @@
                         <div>
                             <div class="text-muted small">Window &le;7 Days Left</div>
                             <div class="fs-2 fw-bold" id="eligExpiringCount">&mdash;</div>
+                            <small class="text-muted d-block mt-1" id="eligExpiringNote">Active patients only, inactive excluded</small>
                             <small class="text-danger"><i class="fas fa-external-link-alt me-1"></i>View patients</small>
                         </div>
                     </div>
@@ -362,6 +364,7 @@
                         <div>
                             <div class="text-muted small">In Active Window</div>
                             <div class="fs-2 fw-bold" id="eligInWindowCount">&mdash;</div>
+                            <small class="text-muted d-block mt-1" id="eligWindowNote">Active patients only, inactive excluded</small>
                             <small style="color:#4a90e2"><i class="fas fa-external-link-alt me-1"></i>View patients</small>
                         </div>
                     </div>
@@ -373,6 +376,7 @@
                         <div>
                             <div class="text-muted small">No Service Date</div>
                             <div class="fs-2 fw-bold" id="eligNoDateCount">&mdash;</div>
+                            <small class="text-muted d-block mt-1" id="eligNoDateNote">Active patients only, inactive excluded</small>
                             <small class="text-muted"><i class="fas fa-external-link-alt me-1"></i>View patients</small>
                         </div>
                     </div>
@@ -382,7 +386,7 @@
             <div class="row g-4 mb-4" id="chartsRow">
                 <div class="col-md-7">
                     <div class="glass-card p-4 h-100">
-                        <h6 class="mb-3 fw-semibold"><i class="fas fa-chart-bar me-2 text-primary"></i>New Patients &mdash; Last 6 Months</h6>
+                        <h6 class="mb-3 fw-semibold"><i class="fas fa-chart-bar me-2 text-primary"></i>Dashboard Card Totals</h6>
                         <div style="position:relative;height:220px"><canvas id="patientsBarChart"></canvas></div>
                     </div>
                 </div>
@@ -442,23 +446,71 @@
                 </div>
             </div>
 
-            <!-- Recent Activity -->
-            <div class="row g-4" id="recentActivityCard">
-                <div class="col-12">
-                    <div class="glass-card p-4">
+            <!-- Trend Charts -->
+            <div class="trend-controls-band glass-card p-3 mb-3" id="dashboardTrendControls">
+                <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                        <h5 class="mb-0 me-2"><i class="fas fa-chart-line me-2 text-primary"></i>Timeline Range</h5>
+                        <div class="btn-group btn-group-sm" role="group" aria-label="Trend range">
+                            <button class="btn btn-outline-secondary trend-range-btn active" data-trend-range="7d">7D</button>
+                            <button class="btn btn-outline-secondary trend-range-btn" data-trend-range="30d">30D</button>
+                            <button class="btn btn-outline-secondary trend-range-btn" data-trend-range="90d">90D</button>
+                            <button class="btn btn-outline-secondary trend-range-btn" data-trend-range="all">All</button>
+                        </div>
+                        <select class="form-select form-select-sm trend-date-input" id="trendChartType" aria-label="Trend chart type">
+                            <option value="line">Line</option>
+                            <option value="bar">Bar</option>
+                        </select>
+                    </div>
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                        <input type="date" id="trendFrom" class="form-control form-control-sm trend-date-input">
+                        <span class="small text-muted">&ndash;</span>
+                        <input type="date" id="trendTo" class="form-control form-control-sm trend-date-input">
+                        <button class="btn btn-outline-primary btn-sm" id="trendApplyBtn"><i class="fas fa-filter me-1"></i>Apply</button>
+                        <button class="btn btn-outline-success btn-sm" id="trendExportBtn"><i class="fas fa-file-csv me-1"></i>Export CSV</button>
+                    </div>
+                </div>
+            </div>
+            <div class="row g-4" id="dashboardTrendsRow">
+                <div class="col-lg-6">
+                    <div class="glass-card p-4 h-100">
                         <div class="d-flex justify-content-between align-items-center mb-3">
-                            <h5 class="mb-0"><i class="fas fa-history me-2"></i>Recent Activity</h5>
-                            <div class="d-flex gap-2">
-                                <a href="/audit-log" class="btn btn-sm btn-outline-secondary"><i class="fas fa-external-link-alt me-1"></i>Full Log</a>
-                                <button class="btn btn-sm btn-outline-success" id="exportActivityBtn"><i class="fas fa-file-csv me-1"></i>Export CSV</button>
-                            </div>
+                            <h5 class="mb-0"><i class="fas fa-chart-line me-2 text-primary"></i>Patients Over Time</h5>
                         </div>
-                        <div class="table-responsive">
-                            <table class="table table-hover mb-0">
-                                <thead><tr><th>User</th><th>Module</th><th>Action</th><th>Date</th><th>IP Address</th></tr></thead>
-                                <tbody id="recentActivityBody"><tr><td colspan="5" class="text-center text-muted">Loading...</td></tr></tbody>
-                            </table>
+                        <div style="position:relative;height:260px"><canvas id="patientsTrendChart"></canvas></div>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="glass-card p-4 h-100">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h5 class="mb-0"><i class="fas fa-chart-area me-2 text-success"></i>Workflow Over Time</h5>
+                            <small class="text-muted">Uses the same range</small>
                         </div>
+                        <div style="position:relative;height:260px"><canvas id="workflowTrendChart"></canvas></div>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="glass-card p-4 h-100">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h5 class="mb-0"><i class="fas fa-user-check me-2 text-warning"></i>Eligibility Over Time</h5>
+                        </div>
+                        <div style="position:relative;height:260px"><canvas id="eligibilityTrendChart"></canvas></div>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="glass-card p-4 h-100">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h5 class="mb-0"><i class="fas fa-tasks me-2 text-info"></i>Workflow Completion</h5>
+                        </div>
+                        <div style="position:relative;height:260px"><canvas id="workflowCompletionTrendChart"></canvas></div>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="glass-card p-4 h-100">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h5 class="mb-0"><i class="fas fa-pen-to-square me-2 text-success"></i>Service Date Entries</h5>
+                        </div>
+                        <div style="position:relative;height:260px"><canvas id="serviceDateTrendChart"></canvas></div>
                     </div>
                 </div>
             </div>
@@ -473,8 +525,7 @@
             <div class="modal-header">
                 <h5 class="modal-title" id="drilldownTitle">Report</h5>
                 <div class="ms-auto d-flex gap-2 me-3">
-                    <a class="btn btn-outline-primary btn-sm" id="drilldownFullPageBtn" href="#" target="_blank"><i class="fas fa-external-link-alt me-1"></i>Open Full Page</a>
-                    <button class="btn btn-outline-success btn-sm" id="drilldownCsvBtn"><i class="fas fa-file-csv me-1"></i>Export CSV</button>
+                    <a class="btn btn-outline-primary btn-sm" id="drilldownFullPageBtn" href="#" target="_self"><i class="fas fa-user-friends me-1"></i>View Patients</a>
                 </div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
@@ -512,10 +563,10 @@
     <a id="xl-rx-records-pending" href="/rx-records?pending=true"></a>
     <a id="xl-patients-norx"      href="/patients?status=norx"></a>
     <!-- Eligibility filter page links -->
-    <a id="xl-elig-eligible" href="/patients?eligFilter=eligible"></a>
-    <a id="xl-elig-expiring" href="/patients?eligFilter=expiring"></a>
-    <a id="xl-elig-window"   href="/patients?eligFilter=window"></a>
-    <a id="xl-elig-none"     href="/patients?eligFilter=none"></a>
+    <a id="xl-elig-eligible" href="/patients?eligFilter=eligible&status=active"></a>
+    <a id="xl-elig-expiring" href="/patients?eligFilter=expiring&status=active"></a>
+    <a id="xl-elig-window"   href="/patients?eligFilter=window&status=active"></a>
+    <a id="xl-elig-none"     href="/patients?eligFilter=none&status=active"></a>
     <!-- Eligibility drilldown API anchors -->
     <a id="xa-elig-base" href="/api/dashboard/eligibility-drilldown/"></a>
 </div>
@@ -528,4 +579,4 @@
 <script src="/js/help.js"></script>
 <script src="/js/dashboard.js"></script>
 </body>
-</html>
+</html>

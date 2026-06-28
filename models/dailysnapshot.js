@@ -19,6 +19,12 @@ module.exports = (sequelize, DataTypes) => {
     completedRX:             { type: DataTypes.INTEGER,  defaultValue: 0 },
     deletedRX:               { type: DataTypes.INTEGER,  defaultValue: 0 },
     returnedToWarehouseRX:   { type: DataTypes.INTEGER,  defaultValue: 0 },
+    patientsWithNoRx:        { type: DataTypes.INTEGER,  defaultValue: 0 },
+    // Eligibility
+    eligibleNow:             { type: DataTypes.INTEGER,  defaultValue: 0 },
+    expiringIn7:             { type: DataTypes.INTEGER,  defaultValue: 0 },
+    inWindow:                { type: DataTypes.INTEGER,  defaultValue: 0 },
+    noServiceDate:           { type: DataTypes.INTEGER,  defaultValue: 0 },
     // Workflow
     totalWorkflowSteps:      { type: DataTypes.INTEGER,  defaultValue: 0 },
     completedWorkflowSteps:  { type: DataTypes.INTEGER,  defaultValue: 0 },
@@ -27,6 +33,10 @@ module.exports = (sequelize, DataTypes) => {
     // Users & Activity
     totalUsers:              { type: DataTypes.INTEGER,  defaultValue: 0 },
     activeUsers:             { type: DataTypes.INTEGER,  defaultValue: 0 },
+    loginEventsToday:        { type: DataTypes.INTEGER,  defaultValue: 0 },
+    uniqueLoginUsersToday:   { type: DataTypes.INTEGER,  defaultValue: 0 },
+    userActivityEventsToday: { type: DataTypes.INTEGER,  defaultValue: 0 },
+    uniqueActivityUsersToday:{ type: DataTypes.INTEGER,  defaultValue: 0 },
     auditEventsToday:        { type: DataTypes.INTEGER,  defaultValue: 0 },
     errorLogsToday:          { type: DataTypes.INTEGER,  defaultValue: 0 },
     unresolvedErrors:        { type: DataTypes.INTEGER,  defaultValue: 0 },

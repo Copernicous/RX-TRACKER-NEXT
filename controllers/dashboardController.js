@@ -12,6 +12,10 @@ function buildDateRange(req) {
     return clause;
 }
 
+function localDateString(d) {
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
 exports.getStats = async (req, res) => {
     try {
         const dateRange = buildDateRange(req);
@@ -93,7 +97,6 @@ exports.getStats = async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 };
-
 exports.getActivePatients = async (req, res) => {
     try {
         const patients = await db.Patient.findAll({
@@ -187,62 +190,319 @@ exports.getTotalRx = async (req, res) => {
 
 exports.getChartData = async (req, res) => {
     try {
-        // ── Patients per month (last 6 months) ──────────────────────────────
-        const months = [];
-        const patientCounts = [];
-        for (let i = 5; i >= 0; i--) {
-            const d = new Date();
-            d.setDate(1);
-            d.setMonth(d.getMonth() - i);
-            const year  = d.getFullYear();
-            const month = d.getMonth() + 1;
-            const label = d.toLocaleString('default', { month: 'short', year: '2-digit' });
-            const startStr = `${year}-${String(month).padStart(2,'0')}-01`;
-            const endDate  = new Date(year, month, 0);
-            const endStr   = `${year}-${String(month).padStart(2,'0')}-${String(endDate.getDate()).padStart(2,'0')}`;
-            const count = await db.Patient.count({
-                where: {
-                    isDeleted: false,
-                    createdAt: { [Op.between]: [new Date(startStr), new Date(endStr + 'T23:59:59')] }
-                }
-            });
-            months.push(label);
-            patientCounts.push(count);
-        }
+        const chartFrom = req.query.chartFrom || '';
+        const chartTo   = req.query.chartTo || '';
+        const chartRange = req.query.chartRange || '';
 
-        // PERF-01: Replace N+1 per-record loop with grouped aggregate
         const totalSteps2 = await db.WorkflowAction.count({ where: { isActive: true } });
-        const allRxIds    = await db.RXRecord.findAll({
-            attributes: ['id'],
-            where: { isDeleted: false },
-            raw: true
-        });
-
+        const allRxIds = await db.RXRecord.findAll({ attributes: ['id', 'patientId'], where: { isDeleted: false }, raw: true });
         let completed2 = 0, pending = 0;
-
         if (totalSteps2 === 0) {
             pending = allRxIds.length;
         } else {
-            const trackingCounts = await db.RXWorkflowTracking.findAll({
-                attributes: ['rxRecordId', [fn('COUNT', col('id')), 'stepsDone']],
-                group: ['rxRecordId'],
+            const trackingCounts = await db.RXWorkflowTracking.findAll({ attributes: ['rxRecordId', [fn('COUNT', col('id')), 'stepsDone']], group: ['rxRecordId'], raw: true });
+            const doneMap = {};
+            for (const row of trackingCounts) doneMap[row.rxRecordId] = parseInt(row.stepsDone, 10);
+            for (const rec of allRxIds) {
+                if ((doneMap[rec.id] || 0) >= totalSteps2) completed2++; else pending++;
+            }
+        }
+        const notDeletedPatient = { [Op.or]: [{ isDeleted: false }, { isDeleted: null }] };
+        const activePatientsTotal = await db.Patient.count({ where: { isActive: true, ...notDeletedPatient } });
+        const inactivePatientsTotal = await db.Patient.count({ where: { isActive: false, ...notDeletedPatient } });
+        const patientIdsWithRxMap = {};
+        for (const rx of allRxIds) {
+            if (rx.patientId) patientIdsWithRxMap[rx.patientId] = true;
+        }
+        const patientIdsWithRx = Object.keys(patientIdsWithRxMap);
+        const patientsWithNoRxTotal = await db.Patient.count({
+            where: {
+                isActive: true,
+                ...notDeletedPatient,
+                id: { [Op.notIn]: patientIdsWithRx.length ? patientIdsWithRx : [0] }
+            }
+        });
+        const cardTotals = {
+            labels: ['Active', 'Inactive', 'Total RX', 'Pending', 'No RX'],
+            data: [activePatientsTotal, inactivePatientsTotal, allRxIds.length, pending, patientsWithNoRxTotal]
+        };
+
+        let rangeStart = chartFrom ? new Date(chartFrom + 'T00:00:00') : (function(){ var d = new Date(); d.setHours(0,0,0,0); d.setDate(d.getDate()-29); return d; })();
+        let rangeEnd = chartTo ? new Date(chartTo + 'T23:59:59') : new Date();
+        if (chartRange === 'all' && !chartFrom && !chartTo) {
+            const earliestCandidates = [];
+
+            const firstPatientService = await db.Patient.findOne({
+                attributes: ['serviceDate'],
+                where: {
+                    serviceDate: { [Op.ne]: null },
+                    [Op.or]: [{ isDeleted: false }, { isDeleted: null }]
+                },
+                order: [['serviceDate', 'ASC']],
                 raw: true
             });
-            const doneMap = {};
-            for (const row of trackingCounts) {
-                doneMap[row.rxRecordId] = parseInt(row.stepsDone, 10);
+            if (firstPatientService && firstPatientService.serviceDate) earliestCandidates.push(firstPatientService.serviceDate);
+
+            const firstServiceHistory = await db.PatientServiceDateHistory.findOne({
+                attributes: ['newServiceDate'],
+                where: { newServiceDate: { [Op.ne]: null } },
+                order: [['newServiceDate', 'ASC']],
+                raw: true
+            });
+            if (firstServiceHistory && firstServiceHistory.newServiceDate) earliestCandidates.push(firstServiceHistory.newServiceDate);
+
+            const firstServiceCycle = await db.PatientServiceDateCycle.findOne({
+                attributes: ['serviceDate'],
+                where: { serviceDate: { [Op.ne]: null } },
+                order: [['serviceDate', 'ASC']],
+                raw: true
+            });
+            if (firstServiceCycle && firstServiceCycle.serviceDate) earliestCandidates.push(firstServiceCycle.serviceDate);
+
+            const firstRxCreated = await db.RXRecord.findOne({
+                attributes: ['createdAt'],
+                where: { isDeleted: false },
+                order: [['createdAt', 'ASC']],
+                raw: true
+            });
+            if (firstRxCreated && firstRxCreated.createdAt) earliestCandidates.push(localDateString(new Date(firstRxCreated.createdAt)));
+
+            const firstPatientCreated = await db.Patient.findOne({
+                attributes: ['createdAt'],
+                where: { [Op.or]: [{ isDeleted: false }, { isDeleted: null }] },
+                order: [['createdAt', 'ASC']],
+                raw: true
+            });
+            if (firstPatientCreated && firstPatientCreated.createdAt) earliestCandidates.push(localDateString(new Date(firstPatientCreated.createdAt)));
+
+            const firstWorkflowCompletion = await db.RXWorkflowTracking.findOne({
+                attributes: ['completionDate'],
+                where: { completionDate: { [Op.ne]: null } },
+                order: [['completionDate', 'ASC']],
+                raw: true
+            });
+            if (firstWorkflowCompletion && firstWorkflowCompletion.completionDate) earliestCandidates.push(localDateString(new Date(firstWorkflowCompletion.completionDate)));
+
+            if (earliestCandidates.length) {
+                earliestCandidates.sort();
+                rangeStart = new Date(earliestCandidates[0] + 'T00:00:00');
             }
-            for (const { id } of allRxIds) {
-                const done = doneMap[id] || 0;
-                if (done >= totalSteps2) completed2++;
-                else pending++;
+        }
+        const startDate = localDateString(rangeStart);
+        const endDate = localDateString(rangeEnd);
+        const trendReady = true;
+        const trendWarning = '';
+        const dateKeys = [];
+        for (let d = new Date(startDate + 'T00:00:00'); localDateString(d) <= endDate; d.setDate(d.getDate() + 1)) {
+            dateKeys.push(localDateString(d));
+        }
+
+        function dateOnly(value) {
+            return localDateString(new Date(value));
+        }
+        function countByDate(rows, field, dateOnlyField) {
+            const counts = {};
+            for (const row of rows) {
+                if (!row[field]) continue;
+                const key = dateOnlyField ? String(row[field]).slice(0, 10) : dateOnly(row[field]);
+                counts[key] = (counts[key] || 0) + 1;
+            }
+            return dateKeys.map(function(date) { return counts[date] || 0; });
+        }
+        function latestServiceDate(cycles, date) {
+            if (!cycles || !cycles.length) return null;
+            let latest = null;
+            for (const cycle of cycles) {
+                if (cycle.serviceDate <= date) latest = cycle.serviceDate;
+                else break;
+            }
+            return latest;
+        }
+        function daysFromTo(fromDate, toDate) {
+            return Math.ceil((new Date(toDate + 'T00:00:00') - new Date(fromDate + 'T00:00:00')) / 86400000);
+        }
+
+        const rangeEndTs = new Date(endDate + 'T23:59:59');
+        const patientRows = await db.Patient.findAll({
+            attributes: ['id', 'createdAt', 'isActive'],
+            where: { [Op.or]: [{ isDeleted: false }, { isDeleted: null }] },
+            raw: true
+        });
+        const rxRows = await db.RXRecord.findAll({
+            attributes: ['id', 'patientId', 'createdAt'],
+            where: { isDeleted: false },
+            raw: true
+        });
+        const workflowStepRows = await db.RXWorkflowTracking.findAll({
+            attributes: ['rxRecordId', 'completionDate'],
+            where: { completionDate: { [Op.lte]: rangeEndTs } },
+            raw: true
+        });
+        const serviceCycles = await db.PatientServiceDateCycle.findAll({
+            attributes: ['patientId', 'serviceDate'],
+            where: { serviceDate: { [Op.lte]: endDate } },
+            order: [['patientId', 'ASC'], ['serviceDate', 'ASC']],
+            raw: true
+        });
+        const auditRows = await db.AuditLog.findAll({
+            attributes: ['createdAt', 'module', 'action', 'userId'],
+            where: { createdAt: { [Op.between]: [new Date(startDate + 'T00:00:00'), rangeEndTs] } },
+            raw: true
+        }).catch(() => []);
+        const activityRows = await db.UserActivityLog.findAll({
+            attributes: ['visitedAt', 'userId'],
+            where: { visitedAt: { [Op.between]: [new Date(startDate + 'T00:00:00'), rangeEndTs] } },
+            raw: true
+        }).catch(() => []);
+
+        const patients = patientRows.map(function(p) {
+            return { id: p.id, createdDate: dateOnly(p.createdAt), isActive: p.isActive === true };
+        });
+        const rxRecords = rxRows.map(function(rx) {
+            return { id: rx.id, patientId: rx.patientId, createdDate: dateOnly(rx.createdAt) };
+        });
+        const cyclesByPatient = {};
+        for (const cycle of serviceCycles) {
+            if (!cyclesByPatient[cycle.patientId]) cyclesByPatient[cycle.patientId] = [];
+            cyclesByPatient[cycle.patientId].push({ serviceDate: String(cycle.serviceDate).slice(0, 10) });
+        }
+        const trackingDatesByRx = {};
+        const trackingRows = [];
+        for (const row of workflowStepRows) {
+            if (!row.completionDate) continue;
+            const completionDate = dateOnly(row.completionDate);
+            trackingRows.push({ rxRecordId: row.rxRecordId, completionDate });
+            if (!trackingDatesByRx[row.rxRecordId]) trackingDatesByRx[row.rxRecordId] = [];
+            trackingDatesByRx[row.rxRecordId].push(completionDate);
+        }
+        Object.keys(trackingDatesByRx).forEach(function(rxId) {
+            trackingDatesByRx[rxId].sort();
+        });
+
+        const totalWorkflowSteps = await db.WorkflowAction.count({ where: { isActive: true } });
+        const newPatientsToday = countByDate(patients.map(function(p) { return { createdAt: p.createdDate }; }), 'createdAt', true);
+        const newRXToday = countByDate(rxRecords.map(function(rx) { return { createdAt: rx.createdDate }; }), 'createdAt', true);
+        const workflowStepsToday = countByDate(trackingRows.map(function(t) { return { completionDate: t.completionDate }; }), 'completionDate', true);
+        const serviceDateEntries = countByDate(serviceCycles, 'serviceDate', true);
+
+        const loginEventsByDate = {};
+        const auditEventsByDate = {};
+        const uniqueLoginUsersByDate = {};
+        for (const row of auditRows) {
+            const key = dateOnly(row.createdAt);
+            auditEventsByDate[key] = (auditEventsByDate[key] || 0) + 1;
+            if (row.module === 'Authentication' && row.action === 'Login') {
+                loginEventsByDate[key] = (loginEventsByDate[key] || 0) + 1;
+                if (row.userId) {
+                    if (!uniqueLoginUsersByDate[key]) uniqueLoginUsersByDate[key] = {};
+                    uniqueLoginUsersByDate[key][row.userId] = true;
+                }
+            }
+        }
+        const activityEventsByDate = {};
+        const uniqueActivityUsersByDate = {};
+        for (const row of activityRows) {
+            const key = dateOnly(row.visitedAt);
+            activityEventsByDate[key] = (activityEventsByDate[key] || 0) + 1;
+            if (row.userId) {
+                if (!uniqueActivityUsersByDate[key]) uniqueActivityUsersByDate[key] = {};
+                uniqueActivityUsersByDate[key][row.userId] = true;
             }
         }
 
-        res.json({
-            patientsPerMonth: { labels: months, data: patientCounts },
-            rxStatus: { labels: ['Completed', 'Pending'], data: [completed2, pending] }
-        });
+        const dailyTrends = {
+            labels: dateKeys,
+            activePatients: [],
+            inactivePatients: [],
+            newPatientsToday,
+            rxRecords: [],
+            newRXToday,
+            pendingDeliveries: [],
+            completedRX: [],
+            patientsWithNoRx: [],
+            eligibleNow: [],
+            expiringIn7: [],
+            inWindow: [],
+            noServiceDate: [],
+            loginEventsToday: [],
+            uniqueLoginUsersToday: [],
+            userActivityEventsToday: [],
+            uniqueActivityUsersToday: [],
+            auditEventsToday: [],
+            workflowStepsToday,
+            workflowStepsCompletedDaily: workflowStepsToday,
+            completedWorkflowSteps: [],
+            totalWorkflowSteps: [],
+            workflowCompletionRate: [],
+            serviceDateEntries
+        };
+
+        for (const date of dateKeys) {
+            const patientsAsOfDate = patients.filter(function(p) { return p.createdDate <= date; });
+            const activePatientsAsOfDate = patientsAsOfDate.filter(function(p) { return p.isActive; });
+            const rxAsOfDate = rxRecords.filter(function(rx) { return rx.createdDate <= date; });
+            const rxCreatedByPatient = {};
+            for (const rx of rxAsOfDate) {
+                if (!rxCreatedByPatient[rx.patientId] || rx.createdDate < rxCreatedByPatient[rx.patientId]) {
+                    rxCreatedByPatient[rx.patientId] = rx.createdDate;
+                }
+            }
+
+            let eligibleNow = 0;
+            let expiringIn7 = 0;
+            let inWindow = 0;
+            let noServiceDate = 0;
+            let patientsWithNoRx = 0;
+            for (const patient of activePatientsAsOfDate) {
+                const serviceDate = latestServiceDate(cyclesByPatient[patient.id], date);
+                if (!serviceDate) {
+                    noServiceDate++;
+                } else {
+                    const expiryDate = localDateString(new Date(new Date(serviceDate + 'T00:00:00').getTime() + 90 * 86400000));
+                    const daysLeft = daysFromTo(date, expiryDate);
+                    if (daysLeft < 0) eligibleNow++;
+                    else if (daysLeft <= 7) expiringIn7++;
+                    else inWindow++;
+                }
+                if (!rxCreatedByPatient[patient.id]) patientsWithNoRx++;
+            }
+
+            let completedRX = 0;
+            let completedWorkflowSteps = 0;
+            for (const rx of rxAsOfDate) {
+                const doneDates = trackingDatesByRx[rx.id] || [];
+                let done = 0;
+                for (const doneDate of doneDates) {
+                    if (doneDate <= date) done++;
+                    else break;
+                }
+                completedWorkflowSteps += done;
+                if (totalWorkflowSteps > 0 && done >= totalWorkflowSteps) completedRX++;
+            }
+            const totalStepsForDate = rxAsOfDate.length * totalWorkflowSteps;
+
+            dailyTrends.activePatients.push(activePatientsAsOfDate.length);
+            dailyTrends.inactivePatients.push(patientsAsOfDate.length - activePatientsAsOfDate.length);
+            dailyTrends.rxRecords.push(rxAsOfDate.length);
+            dailyTrends.pendingDeliveries.push(totalWorkflowSteps === 0 ? rxAsOfDate.length : rxAsOfDate.length - completedRX);
+            dailyTrends.completedRX.push(completedRX);
+            dailyTrends.patientsWithNoRx.push(patientsWithNoRx);
+            dailyTrends.eligibleNow.push(eligibleNow);
+            dailyTrends.expiringIn7.push(expiringIn7);
+            dailyTrends.inWindow.push(inWindow);
+            dailyTrends.noServiceDate.push(noServiceDate);
+            dailyTrends.completedWorkflowSteps.push(completedWorkflowSteps);
+            dailyTrends.totalWorkflowSteps.push(totalStepsForDate);
+            dailyTrends.workflowCompletionRate.push(totalStepsForDate > 0 ? Number(((completedWorkflowSteps / totalStepsForDate) * 100).toFixed(2)) : 0);
+            dailyTrends.loginEventsToday.push(loginEventsByDate[date] || 0);
+            dailyTrends.uniqueLoginUsersToday.push(uniqueLoginUsersByDate[date] ? Object.keys(uniqueLoginUsersByDate[date]).length : 0);
+            dailyTrends.userActivityEventsToday.push(activityEventsByDate[date] || 0);
+            dailyTrends.uniqueActivityUsersToday.push(uniqueActivityUsersByDate[date] ? Object.keys(uniqueActivityUsersByDate[date]).length : 0);
+            dailyTrends.auditEventsToday.push(auditEventsByDate[date] || 0);
+        }
+        dailyTrends.serviceDateChanges = dailyTrends.serviceDateEntries;
+
+        res.json({ cardTotals, rxStatus: { labels: ['Completed', 'Pending'], data: [completed2, pending] }, dailyTrends, trendReady, trendWarning });
     } catch (error) { res.status(500).json({ error: error.message }); }
 };
 

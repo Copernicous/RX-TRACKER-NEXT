@@ -40,6 +40,21 @@
         .patient-dropdown-item .pat-id    { font-size: 0.78rem; color: var(--text-muted, #6c757d); }
         .patient-dropdown-empty { padding: 10px 14px; color: var(--text-muted, #6c757d); font-size: 0.85rem; }
         #patientSearchInput.is-selected { border-color: #6366f1; }
+        #rxTable tbody tr.rx-inactive-row > td {
+            background: #efe6c9 !important;
+            color: #1f2937 !important;
+        }
+        #rxTable tbody tr.rx-inactive-row > td .text-muted,
+        #rxTable tbody tr.rx-inactive-row > td small,
+        #rxTable tbody tr.rx-inactive-row > td .badge {
+            color: inherit;
+        }
+        #rxTable tbody tr.rx-inactive-row > td .btn-outline-info,
+        #rxTable tbody tr.rx-inactive-row > td .btn-outline-secondary,
+        #rxTable tbody tr.rx-inactive-row > td .btn-outline-primary,
+        #rxTable tbody tr.rx-inactive-row > td .btn-outline-danger {
+            opacity: 0.95;
+        }
     </style>
 </head>
 <body>
@@ -74,13 +89,32 @@
                         <label class="form-label small fw-bold"><i class="fas fa-user me-1"></i>Patient Name</label>
                         <input type="text" class="form-control form-control-sm" id="rxFilterPatient" placeholder="First or last name...">
                     </div>
-                    <div class="col-md-2">
+                    <div class="col-md-1">
                         <label class="form-label small fw-bold">RX #</label>
                         <input type="text" class="form-control form-control-sm" id="rxFilterId" placeholder="RX number">
                     </div>
                     <div class="col-md-2">
                         <label class="form-label small fw-bold"><i class="fas fa-clinic-medical me-1"></i>Pharmacy</label>
-                        <input type="text" class="form-control form-control-sm" id="rxFilterPharmacy" placeholder="Pharmacy name">
+                        <select class="form-select form-select-sm" id="rxFilterPharmacy">
+                            <option value="">All Pharmacies</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label small fw-bold"><i class="fas fa-tasks me-1"></i>Workflow Status</label>
+                        <select class="form-select form-select-sm" id="rxFilterWorkflowStatus">
+                            <option value="">All Workflow</option>
+                            <option value="pending">Pending</option>
+                            <option value="not-started">Not Started</option>
+                            <option value="in-progress">In Progress</option>
+                            <option value="expired">Expired</option>
+                            <option value="completed">Completed</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label small fw-bold"><i class="fas fa-list-ol me-1"></i>Workflow Stage</label>
+                        <select class="form-select form-select-sm" id="rxFilterWorkflowStage">
+                            <option value="">All Stages</option>
+                        </select>
                     </div>
                     <div class="col-md-2 d-flex gap-1 align-items-end">
                         <button class="btn btn-primary btn-sm btn-search" id="rxFilterBtn" title="Search"><i class="fas fa-search"></i></button>
@@ -111,13 +145,15 @@
                             <input type="date" class="form-control form-control-sm" id="rxFilterSvcTo">
                         </div>
                         <div class="col-md-2">
-                            <label class="form-label small fw-bold"><i class="fas fa-tasks me-1"></i>Workflow Status</label>
-                            <select class="form-select form-select-sm" id="rxFilterWorkflowStatus">
-                                <option value="">All Workflow</option>
-                                <option value="pending">Pending</option>
-                                <option value="not-started">Not Started</option>
-                                <option value="in-progress">In Progress</option>
-                                <option value="completed">Completed</option>
+                            <label class="form-label small fw-bold"><i class="fas fa-truck me-1"></i>Patient Transport</label>
+                            <select class="form-select form-select-sm" id="rxFilterPatientTransport">
+                                <option value="">All Patient Transports</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small fw-bold"><i class="fas fa-truck me-1"></i>Pharmacy Transport</label>
+                            <select class="form-select form-select-sm" id="rxFilterPharmacyTransport">
+                                <option value="">All Pharmacy Transports</option>
                             </select>
                         </div>
                         <div class="col-md-3 d-flex align-items-end">
@@ -145,9 +181,9 @@
                     <div class="d-flex align-items-center gap-2">
                         <label class="small text-muted mb-0">Show</label>
                         <select class="form-select form-select-sm" style="width:auto" id="rxPageSizeSelect">
-                            <option value="10">10</option>
+                            <option value="10" selected>10</option>
                             <option value="20">20</option>
-                            <option value="50" selected>50</option>
+                            <option value="50">50</option>
                             <option value="100">100</option>
                         </select>
                         <small class="text-muted" id="rxPageInfo"></small>
@@ -167,6 +203,9 @@
                         </select>
                         <button id="rxBulkApplyBtn" class="btn btn-warning btn-sm fw-bold">
                             <i class="fas fa-play me-1"></i>Apply to Selected
+                        </button>
+                        <button id="rxBulkCloseBtn" class="btn btn-success btn-sm fw-bold">
+                            <i class="fas fa-lock-open me-1"></i>Close Expired
                         </button>
                         <button id="rxBulkClearBtn" class="btn btn-outline-light btn-sm">
                             <i class="fas fa-times me-1"></i>Clear
@@ -197,6 +236,33 @@
                         </tbody>
                     </table>
                 </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Bulk Close Expired RX Modal -->
+<div class="modal fade" id="bulkCloseExpiredModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-triangle-exclamation me-2 text-warning"></i>Close Expired RX Records</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="fw-semibold mb-2">This will only close RX records that are already outside the 90-day window.</p>
+                <p class="text-muted small mb-2">Active records will be skipped and reported in the result summary.</p>
+                <p class="text-danger small mb-0">Use this when the cycle is complete and a new service date should begin a new RX record.</p>
+                <div class="mt-3">
+                    <label class="form-label small fw-bold">Type YES to confirm</label>
+                    <input type="text" class="form-control form-control-sm" id="bulkCloseExpiredConfirmInput" autocomplete="off" placeholder="YES">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-success fw-semibold" id="bulkCloseExpiredConfirmBtn">
+                    <i class="fas fa-check-circle me-1"></i>Yes, Close Selected
+                </button>
             </div>
         </div>
     </div>
@@ -523,6 +589,92 @@
         });
     }
 
+    var bulkCloseExpiredModalInstance = null;
+    function _rxBulkCloseExpired() {
+        var n = _rxBulkSel.size;
+        if (n === 0) { showToast('No records selected.', 'warning'); return; }
+        if (bulkCloseExpiredModalInstance) {
+            var confirmInput = document.getElementById('bulkCloseExpiredConfirmInput');
+            if (confirmInput) confirmInput.value = '';
+            bulkCloseExpiredModalInstance.show();
+        } else if (confirm('Close ' + n + ' selected record(s) only if they are expired? Active records will be skipped.')) {
+            _rxRunBulkCloseExpired();
+        }
+    }
+
+    function _rxRunBulkCloseExpired() {
+        var ids = [];
+        _rxBulkSel.forEach(function(v) { ids.push(v); });
+        if (!ids.length) { showToast('No records selected.', 'warning'); return; }
+
+        var confirmInput = document.getElementById('bulkCloseExpiredConfirmInput');
+        var confirmText = confirmInput ? String(confirmInput.value || '').trim().toUpperCase() : '';
+        if (confirmText !== 'YES') {
+            showToast('Type YES to confirm closing expired RX records.', 'warning');
+            if (confirmInput) confirmInput.focus();
+            return;
+        }
+
+        var closeBtn = document.getElementById('rxBulkCloseBtn');
+        var confirmBtn = document.getElementById('bulkCloseExpiredConfirmBtn');
+        if (closeBtn) { closeBtn.disabled = true; closeBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Closing...'; }
+        if (confirmBtn) { confirmBtn.disabled = true; confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Working...'; }
+
+        var results = [];
+        var completed = 0;
+        var succeeded = 0;
+        var failed = 0;
+
+        function finish() {
+            _rxShowBulkResults({
+                action: { name: 'Close Expired RX Records' },
+                succeeded: succeeded,
+                failed: failed,
+                results: results
+            }, 'Close Expired RX Records');
+            var ok = succeeded;
+            var bad = failed;
+            if (bad === 0) {
+                showToast(ok + ' record' + (ok !== 1 ? 's' : '') + ' closed.', 'success');
+            } else {
+                showToast(ok + ' closed, ' + bad + ' skipped.', 'warning');
+            }
+            _rxBulkSel.clear();
+            _rxUpdateBulkBar();
+            loadRxRecords();
+            if (bulkCloseExpiredModalInstance) bulkCloseExpiredModalInstance.hide();
+            if (confirmInput) confirmInput.value = '';
+            if (closeBtn) { closeBtn.disabled = false; closeBtn.innerHTML = '<i class="fas fa-lock-open me-1"></i>Close Expired'; }
+            if (confirmBtn) { confirmBtn.disabled = false; confirmBtn.innerHTML = '<i class="fas fa-check-circle me-1"></i>Yes, Close Selected'; }
+        }
+
+        if (!ids.length) return finish();
+
+        ids.forEach(function(rxId) {
+            fetchWithAuth(window.rxUrl('/api/rx-records/') + rxId + '/close-expired-workflow', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({})
+            }).then(function(res) {
+                return res && res.json ? res.json().then(function(data) {
+                    if (res.ok) {
+                        succeeded += 1;
+                        results.push({ ok: true, rxId: rxId, patientName: data && data.patientName ? data.patientName : '', skipped: false });
+                    } else {
+                        failed += 1;
+                        results.push({ ok: false, rxId: rxId, patientName: data && data.patientName ? data.patientName : '', skipped: false, error: (data && (data.error || data.message)) || 'Unable to close this record.' });
+                    }
+                }) : Promise.resolve();
+            }).catch(function(err) {
+                failed += 1;
+                results.push({ ok: false, rxId: rxId, patientName: '', skipped: false, error: (err && err.message) || 'Network error' });
+            }).then(function() {
+                completed += 1;
+                if (completed === ids.length) finish();
+            });
+        });
+    }
+
 
 
     function _rxShowBulkResults(data, stepName) {
@@ -620,7 +772,9 @@
         if (el) el.style.display = _rxAdvOpen ? '' : 'none';
         if (ch) ch.className   = _rxAdvOpen ? 'fas fa-chevron-up ms-1' : 'fas fa-chevron-down ms-1';
     }
-    var rxPage = 1, rxPageSize = 50;
+    var rxPage = 1, rxPageSize = 10;
+    var rxTotalCount = 0, rxTotalPages = 1, rxServerPaging = true;
+    var rxFilterTimer = null;
     var currentRxId = null;
     var rSortCol = 'id';
     var rSortDir = 'desc';
@@ -635,31 +789,27 @@
     var allMedCatalog      = []; // RX action catalog
     var _rxPrefillPatientId = null;
     var _rxPrefillPatientName = '';
+    var rxPatientPickerPromise = null;
+    var rxPatientPickerLoaded = false;
+    var rxPatientSearchInitialized = false;
 
     // Loads all dropdown data needed for the New RX modal and workflow selectors.
     // Returns a Promise so DOMContentLoaded can chain .then(loadRxRecords).
     function loadRxDropdowns() {
-        var pRes, phRes, ptRes, rxRes, waRes, catRes;
-        return fetchWithAuth(window.rxUrl('/api/patients'), { silent: true }).then(function(r) {
-            pRes = r;
-            return fetchWithAuth(window.rxUrl('/api/lookup/pharmacies'), { silent: true });
-        }).then(function(r) {
-            phRes = r;
-            return fetchWithAuth(window.rxUrl('/api/lookup/patient-transport'), { silent: true });
-        }).then(function(r) {
-            ptRes = r;
-            return fetchWithAuth(window.rxUrl('/api/lookup/pharmacy-transport'), { silent: true });
-        }).then(function(r) {
-            rxRes = r;
-            return fetchWithAuth(window.rxUrl('/api/lookup/workflow-actions'), { silent: true });
-        }).then(function(r) {
-            waRes = r;
-            return fetchWithAuth(window.rxUrl('/api/lookup/medication-catalog'), { silent: true });
-        }).then(function(r) {
-            catRes = r;
-            if (pRes   && pRes.ok)  { return pRes.json();   } return [];
-        }).then(function(data) {
-            allPatientsList = Array.isArray(data) ? data : [];
+        var phRes, ptRes, rxRes, waRes, catRes;
+        loadRxPatientPickerData();
+        return Promise.all([
+            fetchWithAuth(window.rxUrl('/api/lookup/pharmacies'), { silent: true }),
+            fetchWithAuth(window.rxUrl('/api/lookup/patient-transport'), { silent: true }),
+            fetchWithAuth(window.rxUrl('/api/lookup/pharmacy-transport'), { silent: true }),
+            fetchWithAuth(window.rxUrl('/api/lookup/workflow-actions'), { silent: true }),
+            fetchWithAuth(window.rxUrl('/api/lookup/medication-catalog'), { silent: true })
+        ]).then(function(results) {
+            phRes = results[0];
+            ptRes = results[1];
+            rxRes = results[2];
+            waRes = results[3];
+            catRes = results[4];
             if (phRes  && phRes.ok) { return phRes.json();  } return [];
         }).then(function(data) {
             allPharmaciesList = Array.isArray(data) ? data : [];
@@ -684,11 +834,89 @@
                 opt.value = allMedCatalog[_mi].name;
                 dl.appendChild(opt);
             }
+            populateRxFilterSelects();
             initPatientSearch();
         }).catch(function(e) {
             console.error('[RX] loadRxDropdowns error:', e);
+            populateRxFilterSelects();
             initPatientSearch(); // always init patient search even on partial failure
         });
+    }
+
+    function loadRxPatientPickerData() {
+        if (rxPatientPickerLoaded) return Promise.resolve(allPatientsList);
+        if (rxPatientPickerPromise) return rxPatientPickerPromise;
+        var searchInput = document.getElementById('patientSearchInput');
+        if (searchInput) searchInput.placeholder = 'Loading patients...';
+        rxPatientPickerPromise = fetchWithAuth(window.rxUrl('/api/patients'), { silent: true }).then(function(res) {
+            if (!res || !res.ok) return [];
+            return res.json();
+        }).then(function(data) {
+            allPatientsList = Array.isArray(data) ? data : [];
+            rxPatientPickerLoaded = true;
+            if (searchInput) searchInput.placeholder = 'Search patient by name, ID...';
+            return allPatientsList;
+        }).catch(function(e) {
+            console.error('[RX] loadRxPatientPickerData error:', e);
+            if (searchInput) searchInput.placeholder = 'Search patient by name, ID...';
+            return allPatientsList;
+        });
+        return rxPatientPickerPromise;
+    }
+
+    function populateRxFilterSelects() {
+        var phSel = document.getElementById('rxFilterPharmacy');
+        if (phSel) {
+            var phCurrent = phSel.value;
+            phSel.innerHTML = '<option value="">All Pharmacies</option>';
+            for (var i = 0; i < allPharmaciesList.length; i++) {
+                var ph = allPharmaciesList[i];
+                var opt = document.createElement('option');
+                opt.value = String(ph.id);
+                opt.textContent = ph.name || ('Pharmacy #' + ph.id);
+                phSel.appendChild(opt);
+            }
+            if (phCurrent) phSel.value = phCurrent;
+        }
+        var ptSel = document.getElementById('rxFilterPatientTransport');
+        if (ptSel) {
+            var ptCurrent = ptSel.value;
+            ptSel.innerHTML = '<option value="">All Patient Transports</option>';
+            for (var j = 0; j < allPtList.length; j++) {
+                var pt = allPtList[j];
+                var ptOpt = document.createElement('option');
+                ptOpt.value = String(pt.id);
+                ptOpt.textContent = pt.companyName || pt.contactPerson || ('Transport #' + pt.id);
+                ptSel.appendChild(ptOpt);
+            }
+            if (ptCurrent) ptSel.value = ptCurrent;
+        }
+        var phtSel = document.getElementById('rxFilterPharmacyTransport');
+        if (phtSel) {
+            var phtCurrent = phtSel.value;
+            phtSel.innerHTML = '<option value="">All Pharmacy Transports</option>';
+            for (var k = 0; k < allPhtList.length; k++) {
+                var pht = allPhtList[k];
+                var phtOpt = document.createElement('option');
+                phtOpt.value = String(pht.id);
+                phtOpt.textContent = pht.companyName || pht.contactPerson || ('Transport #' + pht.id);
+                phtSel.appendChild(phtOpt);
+            }
+            if (phtCurrent) phtSel.value = phtCurrent;
+        }
+        var wfStageSel = document.getElementById('rxFilterWorkflowStage');
+        if (wfStageSel) {
+            var wfStageCurrent = wfStageSel.value || window._rxPrefilterWorkflowStage || '';
+            wfStageSel.innerHTML = '<option value="">All Stages</option>';
+            for (var ws = 0; ws < allWorkflowActions.length; ws++) {
+                var action = allWorkflowActions[ws];
+                var wfOpt = document.createElement('option');
+                wfOpt.value = String(ws + 1);
+                wfOpt.textContent = 'Stage ' + (ws + 1) + (action && action.name ? ' - ' + action.name : '');
+                wfStageSel.appendChild(wfOpt);
+            }
+            if (wfStageCurrent) wfStageSel.value = wfStageCurrent;
+        }
     }
 
     document.addEventListener('DOMContentLoaded', function() {
@@ -696,12 +924,18 @@
 
         workflowModalInstance = new bootstrap.Modal(document.getElementById('workflowModal'));
         expiredAccessModalInstance = new bootstrap.Modal(document.getElementById('expiredAccessModal'));
+        bulkCloseExpiredModalInstance = new bootstrap.Modal(document.getElementById('bulkCloseExpiredModal'));
         document.getElementById('closeExpiredRxBtn').addEventListener('click', function() {
             closeExpiredRxRecord(expiredAccessRxId);
         });
+        var bulkCloseBtn = document.getElementById('rxBulkCloseBtn');
+        if (bulkCloseBtn) bulkCloseBtn.addEventListener('click', _rxBulkCloseExpired);
+        var bulkCloseConfirmBtn = document.getElementById('bulkCloseExpiredConfirmBtn');
+        if (bulkCloseConfirmBtn) bulkCloseConfirmBtn.addEventListener('click', _rxRunBulkCloseExpired);
 
         document.getElementById('exportRxListCsvBtn').addEventListener('click', function() {
-            if (!filteredRx.length) { showToast('No data to export.', 'warning'); return; }
+            function runRxCsvExport(rowsForExport) {
+            if (!rowsForExport.length) { showToast('No data to export.', 'warning'); return; }
 
             var stageHeaders = [];
             allWorkflowActions.forEach(function(a) {
@@ -716,7 +950,7 @@
                 return Math.round((t2 - t1) / 864e5);
             }
 
-            var rows = filteredRx.map(function(rx) {
+            var rows = rowsForExport.map(function(rx) {
                 var trkMap = {};
                 (rx.RXWorkflowTrackings || []).forEach(function(t) { trkMap[t.workflowActionId] = t; });
                 var row = [
@@ -746,6 +980,22 @@
                 return row;
             });
             exportToCsv('rx_workflow_report_' + new Date().toISOString().slice(0,10) + '.csv', headers, rows);
+            }
+
+            if (rxServerPaging) {
+                var params = buildRxQueryParams({ exportAll: true });
+                fetchWithAuth(window.rxUrl('/api/rx-records') + '?' + params.toString()).then(function(res) {
+                    if (!res || !res.ok) { showToast('Could not export RX records.', 'danger'); return; }
+                    return res.json();
+                }).then(function(data) {
+                    if (!data) return;
+                    runRxCsvExport(Array.isArray(data.rows) ? data.rows : []);
+                }).catch(function() {
+                    showToast('Could not export RX records.', 'danger');
+                });
+            } else {
+                runRxCsvExport(filteredRx);
+            }
         });
 
         var urlParams = new URLSearchParams(window.location.search);
@@ -753,6 +1003,7 @@
         var patientName = urlParams.get('name');
         var autoOpenAddRx = urlParams.get('addRx') === '1' || urlParams.get('newRx') === '1';
         var pendingParam = urlParams.get('pending') === 'true' || urlParams.get('workflowStatus') === 'pending';
+        var stageParam = urlParams.get('workflowStage') || urlParams.get('stage') || '';
         var decodedName = '';
 
         if (patientName) {
@@ -785,21 +1036,33 @@
                 if (advChevron) advChevron.className = 'fas fa-chevron-up ms-1';
             }
         }
+        if (stageParam && /^\d+$/.test(stageParam)) {
+            window._rxPrefilterWorkflowStage = stageParam;
+            var wfStageFilterEl = document.getElementById('rxFilterWorkflowStage');
+            if (wfStageFilterEl) wfStageFilterEl.value = stageParam;
+        }
 
         // Filter bar listeners
         var _filterIds = ['rxFilterPatient','rxFilterId','rxFilterPharmacy','rxFilterPatientCode',
                           'rxFilterDateFrom','rxFilterDateTo','rxFilterSvcFrom','rxFilterSvcTo',
-                          'rxFilterWorkflowStatus'];
+                          'rxFilterPatientTransport','rxFilterPharmacyTransport',
+                          'rxFilterWorkflowStatus','rxFilterWorkflowStage'];
         for (var _fi = 0; _fi < _filterIds.length; _fi++) {
             (function(fid) {
                 var el = document.getElementById(fid);
                 if (!el) return;
-                el.addEventListener('input',  function() { rxPage = 1; applyRxFilter(); });
-                el.addEventListener('change', function() { rxPage = 1; applyRxFilter(); });
+                el.addEventListener('input',  function() { rxPage = 1; scheduleRxLoad(); });
+                el.addEventListener('change', function() { rxPage = 1; loadRxRecords(); });
             })(_filterIds[_fi]);
         }
         var rxFilterBtn = document.getElementById('rxFilterBtn');
-        if (rxFilterBtn) rxFilterBtn.addEventListener('click', function() { rxPage = 1; applyRxFilter(); });
+        if (rxFilterBtn) rxFilterBtn.addEventListener('click', function() { rxPage = 1; loadRxRecords(); });
+        var rxPageSizeSel = document.getElementById('rxPageSizeSelect');
+        if (rxPageSizeSel) rxPageSizeSel.addEventListener('change', function() {
+            rxPageSize = parseInt(this.value, 10) || 10;
+            rxPage = 1;
+            loadRxRecords();
+        });
         var rxClearBtn = document.getElementById('rxClearBtn');
         if (rxClearBtn) rxClearBtn.addEventListener('click', function() {
             for (var _ci = 0; _ci < _filterIds.length; _ci++) {
@@ -807,6 +1070,7 @@
             }
             var sdEl = document.getElementById('rxShowDeleted'); if (sdEl) sdEl.checked = false;
             window._rxPrefilterPatientId = null;
+            window._rxPrefilterWorkflowStage = null;
             rxPage = 1; loadRxRecords();
         });
         var rxShowDel = document.getElementById('rxShowDeleted');
@@ -844,7 +1108,7 @@
         }).then(function() {
             return loadRxRecords();
         }).then(function() {
-            if (patientName || patientId) { rxPage = 1; applyRxFilter(); }
+            if (patientName || patientId) { rxPage = 1; loadRxRecords(); }
             if (autoOpenAddRx) {
                 var autoPerms = getPagePerms();
                 if (autoPerms && autoPerms.canAdd) {
@@ -886,16 +1150,79 @@
         /* arrivalDate will be set = serviceDate when patient is selected */
     }
 
-    function loadRxRecords() {
+    function setRxParam(params, name, value) {
+        if (value !== null && value !== undefined && String(value).trim() !== '') {
+            params.set(name, String(value).trim());
+        }
+    }
+
+    function buildRxQueryParams(options) {
+        options = options || {};
+        var params = new URLSearchParams();
+        params.set('paginated', 'true');
+        if (options.exportAll) {
+            params.set('exportAll', 'true');
+            params.set('page', '1');
+            params.set('pageSize', '500');
+        } else {
+            params.set('page', String(rxPage));
+            params.set('pageSize', String(rxPageSize));
+        }
+        params.set('sort', rSortCol || 'id');
+        params.set('dir', rSortDir || 'desc');
+
+        setRxParam(params, 'patient', document.getElementById('rxFilterPatient')?.value || '');
+        setRxParam(params, 'id', document.getElementById('rxFilterId')?.value || '');
+        setRxParam(params, 'pharmacyId', document.getElementById('rxFilterPharmacy')?.value || '');
+        setRxParam(params, 'patientCode', document.getElementById('rxFilterPatientCode')?.value || '');
+        setRxParam(params, 'dateFrom', document.getElementById('rxFilterDateFrom')?.value || '');
+        setRxParam(params, 'dateTo', document.getElementById('rxFilterDateTo')?.value || '');
+        setRxParam(params, 'serviceFrom', document.getElementById('rxFilterSvcFrom')?.value || '');
+        setRxParam(params, 'serviceTo', document.getElementById('rxFilterSvcTo')?.value || '');
+        setRxParam(params, 'patientTransportId', document.getElementById('rxFilterPatientTransport')?.value || '');
+        setRxParam(params, 'pharmacyTransportId', document.getElementById('rxFilterPharmacyTransport')?.value || '');
+        setRxParam(params, 'workflowStatus', document.getElementById('rxFilterWorkflowStatus')?.value || '');
+        setRxParam(params, 'workflowStage', document.getElementById('rxFilterWorkflowStage')?.value || '');
+        setRxParam(params, 'patientId', window._rxPrefilterPatientId || '');
+
         var sdEl = document.getElementById('rxShowDeleted');
-        var showDeleted = sdEl && sdEl.checked;
-        var url = window.rxUrl('/api/rx-records') + (showDeleted ? '?includeDeleted=true' : '');
+        if (sdEl && sdEl.checked) params.set('includeDeleted', 'true');
+        return params;
+    }
+
+    function scheduleRxLoad() {
+        if (rxFilterTimer) clearTimeout(rxFilterTimer);
+        rxFilterTimer = setTimeout(function() {
+            rxFilterTimer = null;
+            loadRxRecords();
+        }, 250);
+    }
+
+    function loadRxRecords() {
+        var params = buildRxQueryParams();
+        var url = window.rxUrl('/api/rx-records') + '?' + params.toString();
+        var tbody = document.getElementById('rxBody');
+        if (tbody) {
+            tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin me-2"></i>Loading RX records...</td></tr>';
+        }
         return fetchWithAuth(url).then(function(res) {
             if (!res) return;
             return res.json().then(function(data) {
-                allRx = Array.isArray(data) ? data : [];
-                filteredRx = allRx.slice();
-                applyRxFilter();
+                if (data && Array.isArray(data.rows)) {
+                    rxServerPaging = true;
+                    allRx = data.rows;
+                    filteredRx = data.rows;
+                    rxTotalCount = Number(data.total || 0);
+                    rxTotalPages = Number(data.totalPages || 1);
+                    rxPage = Number(data.page || rxPage || 1);
+                    rxPageSize = Number(data.pageSize || rxPageSize || 10);
+                    renderRxSorted();
+                } else {
+                    rxServerPaging = false;
+                    allRx = Array.isArray(data) ? data : [];
+                    filteredRx = allRx.slice();
+                    applyRxFilter();
+                }
             });
         }).catch(function(e) { console.error('[RX] loadRxRecords error:', e); });
     }
@@ -903,23 +1230,51 @@
     function getRxWorkflowStatusKey(rx) {
         var completedSteps = rx && rx.RXWorkflowTrackings ? rx.RXWorkflowTrackings.length : 0;
         var totalSteps = allWorkflowActions.length;
+        var svc = rx && rx.serviceDate ? new Date(rx.serviceDate) : null;
+        if (svc && !isNaN(svc.getTime())) {
+            svc.setHours(0, 0, 0, 0);
+            var expiry = new Date(svc.getTime() + 90 * 864e5);
+            expiry.setHours(0, 0, 0, 0);
+            var today = new Date();
+            today.setHours(0, 0, 0, 0);
+            if (today > expiry && completedSteps < totalSteps) return 'expired';
+        }
         if (totalSteps > 0 && completedSteps >= totalSteps) return 'completed';
         if (completedSteps > 0) return 'in-progress';
         return 'not-started';
     }
 
+    function getRxWorkflowStageKey(rx) {
+        var totalSteps = allWorkflowActions.length || 0;
+        if (totalSteps <= 0) return '';
+        var completedSteps = rx && rx.RXWorkflowTrackings ? rx.RXWorkflowTrackings.length : 0;
+        if (completedSteps >= totalSteps) return 'completed';
+        return String(completedSteps + 1);
+    }
+
     function getRxWorkflowSortValue(rx) {
-        var key = getRxWorkflowStatusKey(rx);
-        if (key === 'not-started') return 0;
-        if (key === 'in-progress') return 1;
-        if (key === 'completed') return 2;
-        return 3;
+        var completedSteps = rx && rx.RXWorkflowTrackings ? rx.RXWorkflowTrackings.length : 0;
+        var totalSteps = allWorkflowActions.length || 0;
+        var svc = rx && rx.serviceDate ? new Date(rx.serviceDate) : null;
+        if (svc && !isNaN(svc.getTime())) {
+            svc.setHours(0, 0, 0, 0);
+            var exp = new Date(svc.getTime() + 90 * 864e5);
+            exp.setHours(0, 0, 0, 0);
+            var today = new Date();
+            today.setHours(0, 0, 0, 0);
+            if (today > exp) return 1000 + completedSteps;
+        }
+        if (totalSteps > 0 && completedSteps >= totalSteps) return totalSteps + 100;
+        return completedSteps;
     }
 
     function applyRxFilter() {
+        if (rxServerPaging) {
+            return loadRxRecords();
+        }
         var pat   = document.getElementById('rxFilterPatient').value.toLowerCase().trim();
         var rxId  = document.getElementById('rxFilterId').value.trim();
-        var ph    = document.getElementById('rxFilterPharmacy').value.toLowerCase().trim();
+        var ph    = document.getElementById('rxFilterPharmacy').value.trim();
         var from  = document.getElementById('rxFilterDateFrom').value;
         var to    = document.getElementById('rxFilterDateTo').value;
         var _pcEl = document.getElementById('rxFilterPatientCode');
@@ -928,12 +1283,19 @@
         var sfrom = _sfEl ? _sfEl.value : '';
         var _stEl = document.getElementById('rxFilterSvcTo');
         var sto   = _stEl ? _stEl.value : '';
+        var ptSel = document.getElementById('rxFilterPatientTransport');
+        var phtSel = document.getElementById('rxFilterPharmacyTransport');
+        var ptVal = ptSel ? ptSel.value : '';
+        var phtVal = phtSel ? phtSel.value : '';
         var _wfEl = document.getElementById('rxFilterWorkflowStatus');
         var wf    = _wfEl ? _wfEl.value : '';
+        var _wfsEl = document.getElementById('rxFilterWorkflowStage');
+        var wfStage = _wfsEl ? _wfsEl.value : '';
         var preId = window._rxPrefilterPatientId;
 
         filteredRx = allRx.filter(function(r) {
             var wfKey = getRxWorkflowStatusKey(r);
+            var wfStageKey = getRxWorkflowStageKey(r);
             if (pat) {
                 var fullName = r.Patient ? (r.Patient.firstName + ' ' + r.Patient.lastName).toLowerCase() : '';
                 var code     = r.Patient ? (r.Patient.patientCode || '').toLowerCase() : '';
@@ -947,27 +1309,29 @@
                 if (!r.Patient || String(r.Patient.id) !== String(preId)) return false;
             }
             if (rxId && String(r.id) !== rxId) return false;
-            if (ph) {
-                var phName = r.Pharmacy ? r.Pharmacy.name.toLowerCase() : '';
-                if (phName.indexOf(ph) === -1) return false;
-            }
+            if (ph && String(r.pharmacyId || '') !== String(ph)) return false;
             if (from  && r.serviceDate && r.serviceDate < from)  return false;
             if (to    && r.serviceDate && r.serviceDate > to)     return false;
             if (sfrom && r.serviceDate && r.serviceDate < sfrom) return false;
             if (sto   && r.serviceDate && r.serviceDate > sto)   return false;
-            if (wf === 'pending' && wfKey === 'completed') return false;
+            if (ptVal && String(r.patientTransportCompanyId || '') !== String(ptVal)) return false;
+            if (phtVal && String(r.pharmacyTransportCompanyId || '') !== String(phtVal)) return false;
+            if (wf === 'pending' && (wfKey === 'completed')) return false;
+            if (wf === 'pending' && wfKey === 'expired') return false;
             if (wf && wf !== 'pending' && wfKey !== wf) return false;
+            if (wfStage && wfStageKey !== wfStage) return false;
             return true;
         });
         renderRxSorted();
     }
 
     function renderRx() {
-        applyRxFilter();
+        if (rxServerPaging) renderRxSorted();
+        else applyRxFilter();
     }
 
     function renderRxSorted() {
-        filteredRx.sort(function(a, b) {
+        if (!rxServerPaging) filteredRx.sort(function(a, b) {
             var valA = a[rSortCol];
             var valB = b[rSortCol];
             
@@ -1001,7 +1365,8 @@
         updateRxSortIcons();
 
         var start = (rxPage - 1) * rxPageSize;
-        var page  = filteredRx.slice(start, start + rxPageSize);
+        var totalRows = rxServerPaging ? rxTotalCount : filteredRx.length;
+        var page  = rxServerPaging ? filteredRx.slice() : filteredRx.slice(start, start + rxPageSize);
         var tbody = document.getElementById('rxBody');
         if (page.length === 0) {
             tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-4">No RX records found.</td></tr>';
@@ -1023,7 +1388,7 @@
 
                 var tr = document.createElement('tr');
                 if (isDeleted)   tr.className = 'table-secondary text-muted';
-                else if (patInactive) tr.className = 'table-warning';
+                else if (patInactive) tr.className = 'rx-inactive-row';
 
                 /* ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Checkbox cell (F10-02) ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ */
                 var tdCb = document.createElement('td');
@@ -1093,7 +1458,32 @@
                 /* ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Workflow status cell ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ */
                 var tdWf = document.createElement('td');
                 var wfDiv = document.createElement('div');
-                wfDiv.className = 'd-flex align-items-center gap-2';
+                wfDiv.className = 'd-flex flex-column gap-1';
+                var wfTop = document.createElement('div');
+                wfTop.className = 'd-flex align-items-center gap-2 flex-wrap';
+                var wfBadge = document.createElement('span');
+                wfBadge.className = 'badge';
+                var wfKey = getRxWorkflowStatusKey(rx);
+                if (rx.serviceDate) {
+                    var _wfSvc = new Date(rx.serviceDate); _wfSvc.setHours(0,0,0,0);
+                    var _wfExp = new Date(_wfSvc.getTime() + 90 * 864e5);
+                    var _wfToday = new Date(); _wfToday.setHours(0,0,0,0);
+                    if (_wfToday > _wfExp) {
+                        wfBadge.className += ' bg-danger';
+                        wfBadge.textContent = 'Expired';
+                        wfBadge.title = 'The 90-day window ended on ' + _wfExp.toLocaleDateString();
+                    } else if (wfKey === 'completed') {
+                        wfBadge.className += ' bg-primary';
+                        wfBadge.textContent = 'Completed';
+                    } else if (wfKey === 'in-progress') {
+                        wfBadge.className += ' bg-warning text-dark';
+                        wfBadge.textContent = 'In Progress';
+                    } else {
+                        wfBadge.className += ' bg-secondary';
+                        wfBadge.textContent = 'Not Started';
+                    }
+                    wfTop.appendChild(wfBadge);
+                }
                 var prog = document.createElement('div');
                 prog.className = 'progress flex-grow-1';
                 prog.style.height = '8px';
@@ -1103,8 +1493,9 @@
                 prog.appendChild(bar);
                 var sm = document.createElement('small');
                 sm.textContent = completedSteps + '/' + totalSteps;
+                wfTop.appendChild(sm);
+                wfDiv.appendChild(wfTop);
                 wfDiv.appendChild(prog);
-                wfDiv.appendChild(sm);
                 tdWf.appendChild(wfDiv);
                 tr.appendChild(tdWf);
 
@@ -1151,8 +1542,8 @@
             if (saEl) saEl.indeterminate = false;
         }
         _rxUpdateBulkBar();
-        document.getElementById('rxPageInfo').textContent = 'Showing ' + (filteredRx.length === 0 ? 0 : Math.min(start+1, filteredRx.length)) + '\u2013' + Math.min(start+rxPageSize, filteredRx.length) + ' of ' + filteredRx.length;
-        var rxPages = Math.ceil(filteredRx.length / rxPageSize) || 1;
+        document.getElementById('rxPageInfo').textContent = 'Showing ' + (totalRows === 0 ? 0 : Math.min(start+1, totalRows)) + '\u2013' + Math.min(start+page.length, totalRows) + ' of ' + totalRows;
+        var rxPages = rxServerPaging ? rxTotalPages : (Math.ceil(filteredRx.length / rxPageSize) || 1);
         // Smart ellipsis paginator
         var rxIsFirst = rxPage === 1; var rxIsLast = rxPage >= rxPages;
         var rxPh = '<li class="page-item' + (rxIsFirst ? ' disabled' : '') + '"><a class="page-link" href="#" data-pg="' + (rxPage-1) + '">&laquo;</a></li>';
@@ -1178,7 +1569,8 @@
             rSortDir = 'asc';
         }
         rxPage = 1;
-        renderRx();
+        if (rxServerPaging) loadRxRecords();
+        else renderRx();
     }
 
     function updateRxSortIcons() {
@@ -1193,7 +1585,13 @@
         });
     }
 
-    function goRxPage(p) { const pages = Math.ceil(filteredRx.length/rxPageSize); if(p<1||p>pages)return; rxPage=p; renderRx(); }
+    function goRxPage(p) {
+        var pages = rxServerPaging ? rxTotalPages : Math.ceil(filteredRx.length/rxPageSize);
+        if(p<1||p>pages)return;
+        rxPage=p;
+        if (rxServerPaging) loadRxRecords();
+        else renderRx();
+    }
 
     function openRxModal() {
         medCount = 0;
@@ -1211,7 +1609,11 @@
         if (info)        info.textContent = '';
         addMedicationRow();
         if (_rxPrefillPatientId || _rxPrefillPatientName) {
-            applyRxPrefillPatient();
+            if (!applyRxPrefillPatient()) {
+                loadRxPatientPickerData().then(function() {
+                    applyRxPrefillPatient();
+                });
+            }
         }
         new bootstrap.Modal(document.getElementById('rxModal')).show();
     }
@@ -1254,15 +1656,25 @@
 
     // ---- Patient search picker ----
     function initPatientSearch() {
+        if (rxPatientSearchInitialized) return;
         var searchInput = document.getElementById('patientSearchInput');
         var hiddenInput = document.getElementById('rxPatientId');
         var dropdown    = document.getElementById('patientDropdown');
         var info        = document.getElementById('patientSelectedInfo');
         if (!searchInput || !dropdown) return;
+        rxPatientSearchInitialized = true;
 
         var hiIdx = -1;
 
         function renderDropdown(query) {
+            if (!rxPatientPickerLoaded) {
+                dropdown.innerHTML = '<div class="patient-dropdown-empty"><i class="fas fa-spinner fa-spin me-2"></i>Loading patients...</div>';
+                dropdown.classList.add('open');
+                loadRxPatientPickerData().then(function() {
+                    renderDropdown(searchInput.value || '');
+                });
+                return;
+            }
             var q = query.trim().toLowerCase();
             // Only show ACTIVE patients — inactive patients cannot receive new RX records
             var activePatients = allPatientsList.filter(function(p) { return p.isActive !== false; });

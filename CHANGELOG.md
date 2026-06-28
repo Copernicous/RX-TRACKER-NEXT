@@ -5,6 +5,117 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ---
 
+## [Unreleased]
+
+- No unreleased changes.
+
+## [2.0.65] - 2026-06-28
+
+### [RELEASE-65] Dashboard analytics and pagination performance
+**Files changed:** dashboard analytics, RX Records API/UI, Reports API/UI, Patient/RX defaults, release metadata
+
+- Promoted the tested staging dashboard analytics work into production, including the over-time dashboard graph improvements.
+- Changed RX Records list display from browser-side pagination to database-level pagination. The database now filters, sorts, counts, and returns only the current page before the API hydrates visible rows.
+- Kept legacy `/api/rx-records` full-array behavior for existing callers while the RX Records screen uses `paginated=true`.
+- Changed the RX Records patient picker to load in the background so the full patient picker no longer blocks the RX table display.
+- Added workflow-stage filtering support to the RX Records list.
+- Changed Patient Report and RX Action Report display to server/database pagination. Exports still fetch the full filtered result only when CSV/Excel is requested.
+- Defaulted Patient Management, RX Records, Patient Report, and RX Action Report page sizes to `10` rows.
+- Bumped production package version to `2.0.65`.
+
+**Database impact:**
+- Normal production migration/startup verification is required so the `DailySnapshots` trend columns from `20260628103000-add-dashboard-trend-metrics-to-daily-snapshots.js` are present.
+- No destructive schema or data changes are introduced. Existing patients, RX records, workflow history, and reports data are preserved.
+- Existing performance indexes cover the new paginated patient/RX/report query paths. If production text searches grow very large later, the next tuneup would be adding stronger functional/trigram indexes for name/search fields.
+
+**Staging speed results:**
+- RX Records page display: from about `800-850 ms` to about `30-55 ms`.
+- RX Records workflow stage filter: about `26 ms`.
+- RX Records patient-name filter: about `35 ms`.
+- Patient Report display: from about `1.2 sec` full load to about `28 ms` page load.
+- RX Action Report display: from about `9.8 sec` full load to about `28 ms` page load.
+- RX Action Report pending filter: about `20 ms`.
+
+## [2.0.64] - 2026-06-28
+
+### [HOTFIX-64] Production dashboard trend schema fallback
+**Files changed:** 3 | dashboard graph schema guard, release metadata, production rebuild
+
+- Expanded the dashboard trend schema guard so production waits for the full `DailySnapshots` trend column set before querying graphs.
+- Prevented `/api/dashboard/charts` from throwing when older production databases are missing `patientsWithNoRx` or related trend columns.
+- Bumped production package version to `2.0.64`.
+
+## [2.0.63] - 2026-06-28
+
+### [HOTFIX-63] Production graph fallback stabilization
+**Files changed:** 1 | dashboard trend rendering fallback
+
+- Added an explicit blank-state fallback so dashboard trend panels show a message when the snapshot series is empty or not yet available.
+- Prevented the dashboard from leaving the trend cards blank when the graph payload has no usable points.
+- Bumped production package version to `2.0.63`.
+
+## [2.0.62] - 2026-06-28
+
+### [HOTFIX-62] Production graphing schema guard
+**Files changed:** 3 | dashboard graph safety guard, snapshot schema readiness check, release metadata
+
+- Added a production-safe snapshot schema check so dashboard trend graphing waits until the new `DailySnapshots` trend columns exist.
+- Prevented daily snapshot capture from running against an older production schema before the migration is applied.
+- Added a visible dashboard message so graphing shows as migration-pending instead of failing silently.
+- Bumped production package version to `2.0.62`.
+
+## [2.0.61] - 2026-06-28
+
+### [RELEASE-61] Dashboard trends, analytics pagination, and production report prep
+**Files changed:** 30 | dashboard trend snapshots/UI, analytics and reports pagination, patient filters, staging QA data tools, release metadata
+
+- Added dashboard trend history metrics to `DailySnapshots`, including patient eligibility, no-RX, service-date window, workflow, and activity counters.
+- Added Dashboard trend graph cards for patients, RX/workflow, eligibility, and workflow completion, with shared range controls and CSV export support.
+- Kept Login Activity metrics in the snapshot/backoffice layer while removing the Login Activity card from the main dashboard.
+- Fixed dashboard trend date handling so date-only snapshot values stay on the intended local calendar day.
+- Added server-side Backoffice Analytics pagination so large snapshot histories no longer delay the table display.
+- Fixed Patient Report and RX Action Report row selectors so `10`, `20`, `50`, and `100` display only the selected page size.
+- Defaulted Patient Management filtering toward active patients so Dashboard card drilldowns and list totals match unless inactive records are explicitly requested.
+- Preserved staging/development bulk-data tooling for QA speed and functionality tests; production does not use the bulk seed path.
+- Bumped production package version to `2.0.61`.
+
+## [2.0.60] - 2026-06-28
+
+### [RELEASE-60] Dashboard drilldowns and patient filter refinement
+**Files changed:** 9 | dashboard controller/UI, patient filters, RX Records filters, release metadata
+
+- Fixed the Dashboard Pending Deliveries full-page link so it opens RX Records with the pending workflow filter applied.
+- Added RX Records Workflow Status filtering and sorting for Pending, Not Started, In Progress, and Completed workflow states.
+- Added Patient Management filters for missing clinic, default pharmacy, patient transport, and pharmacy transport information.
+- Added cascading Patient Management relationship filters so Clinic, Default Pharmacy, Patient Transport, and Pharmacy Transport options narrow to related patients.
+- Fixed Dashboard RX drilldown workflow progress bars so partial workflows no longer render as fully complete.
+- Bumped production package version to `2.0.60`.
+
+## [2.0.59] - 2026-06-26
+
+### [RELEASE-59] Service date cycle context auditing
+**Files changed:** 30 | service date cycle model/migration/service, patient/RX controllers, importer guard, timeline/profile views, session heartbeat handling, staging smoke tests, release metadata
+
+- Added service date cycles so each RX record can stay linked to the service-date period where it was created or imported.
+- Preserved historical workflow/RX records when starting a new 90-day cycle instead of clearing records from previous cycles.
+- Added importer protections and smoke coverage for old patients, expired service dates, and RX records with out-of-range service dates.
+- Captured clinic, default pharmacy, patient transport, and pharmacy transport snapshots per service date cycle, including audit metadata when those defaults change.
+- Added timeline/profile display, print, and export coverage for captured cycle defaults and related RX records.
+- Added heartbeat/session handling improvements for the sudden logout workflow and verified the staged cycle-context smoke tests.
+- Bumped production package version to `2.0.59`.
+
+## [2.0.58] - 2026-06-26
+
+### [RELEASE-58] Service date history, staging workflow, and print/export promotion
+**Files changed:** 36 | staging workflow docs/config, patient service date history model/migration/service, patient/RX timeline views, runtime path helpers, production packaging metadata
+
+- Added the staging workflow and branch-safe staging runtime configuration so new ideas can be tested separately before development and production promotion.
+- Added patient service date history tracking with related RX service records while preserving the existing 90-day service-date behavior.
+- Added print/export actions for patient timeline history, service-date related RX records, and patient RX history previous service date cycles.
+- Fixed RX Records detail printing so the details modal closes before opening the print preview, avoiding stacked modal/backdrop behavior.
+- Clarified patient timeline service-date history wording: full-history print/export buttons are now separate from per-row related RX print/CSV actions.
+- Bumped production package version to `2.0.58`.
+
 ## [2.0.57] - 2026-06-26
 
 ### [HOTFIX-57] Production Google Drive document upload transport
