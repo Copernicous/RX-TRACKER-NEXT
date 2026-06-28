@@ -13,7 +13,11 @@ module.exports = {
       loginEventsToday:         { type: Sequelize.INTEGER, defaultValue: 0 },
       uniqueLoginUsersToday:    { type: Sequelize.INTEGER, defaultValue: 0 },
       userActivityEventsToday:  { type: Sequelize.INTEGER, defaultValue: 0 },
-      uniqueActivityUsersToday: { type: Sequelize.INTEGER, defaultValue: 0 }
+      uniqueActivityUsersToday: { type: Sequelize.INTEGER, defaultValue: 0 },
+      workflowCompletionRate:   { type: Sequelize.DOUBLE,  defaultValue: 0 },
+      completedWorkflowSteps:   { type: Sequelize.INTEGER, defaultValue: 0 },
+      workflowStepsToday:       { type: Sequelize.INTEGER, defaultValue: 0 },
+      totalWorkflowSteps:       { type: Sequelize.INTEGER, defaultValue: 0 }
     };
 
     for (const name of Object.keys(columns)) {
@@ -30,6 +34,10 @@ module.exports = {
       'userActivityEventsToday',
       'uniqueLoginUsersToday',
       'loginEventsToday',
+      'totalWorkflowSteps',
+      'workflowStepsToday',
+      'completedWorkflowSteps',
+      'workflowCompletionRate',
       'noServiceDate',
       'inWindow',
       'expiringIn7',

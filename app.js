@@ -472,6 +472,27 @@ const startServer = async () => {
         console.warn('Startup migration warning (MedicationCatalogs.sortOrder, non-fatal):', e.message);
     }
 
+    // Ensure DailySnapshots has the dashboard trend columns used by production graphs.
+    // Safe to run repeatedly and only adds missing columns with default zero values.
+    try {
+        await db.sequelize.query('ALTER TABLE "DailySnapshots" ADD COLUMN IF NOT EXISTS "patientsWithNoRx" INTEGER DEFAULT 0;');
+        await db.sequelize.query('ALTER TABLE "DailySnapshots" ADD COLUMN IF NOT EXISTS "eligibleNow" INTEGER DEFAULT 0;');
+        await db.sequelize.query('ALTER TABLE "DailySnapshots" ADD COLUMN IF NOT EXISTS "expiringIn7" INTEGER DEFAULT 0;');
+        await db.sequelize.query('ALTER TABLE "DailySnapshots" ADD COLUMN IF NOT EXISTS "inWindow" INTEGER DEFAULT 0;');
+        await db.sequelize.query('ALTER TABLE "DailySnapshots" ADD COLUMN IF NOT EXISTS "noServiceDate" INTEGER DEFAULT 0;');
+        await db.sequelize.query('ALTER TABLE "DailySnapshots" ADD COLUMN IF NOT EXISTS "loginEventsToday" INTEGER DEFAULT 0;');
+        await db.sequelize.query('ALTER TABLE "DailySnapshots" ADD COLUMN IF NOT EXISTS "uniqueLoginUsersToday" INTEGER DEFAULT 0;');
+        await db.sequelize.query('ALTER TABLE "DailySnapshots" ADD COLUMN IF NOT EXISTS "userActivityEventsToday" INTEGER DEFAULT 0;');
+        await db.sequelize.query('ALTER TABLE "DailySnapshots" ADD COLUMN IF NOT EXISTS "uniqueActivityUsersToday" INTEGER DEFAULT 0;');
+        await db.sequelize.query('ALTER TABLE "DailySnapshots" ADD COLUMN IF NOT EXISTS "workflowCompletionRate" DOUBLE PRECISION DEFAULT 0;');
+        await db.sequelize.query('ALTER TABLE "DailySnapshots" ADD COLUMN IF NOT EXISTS "completedWorkflowSteps" INTEGER DEFAULT 0;');
+        await db.sequelize.query('ALTER TABLE "DailySnapshots" ADD COLUMN IF NOT EXISTS "workflowStepsToday" INTEGER DEFAULT 0;');
+        await db.sequelize.query('ALTER TABLE "DailySnapshots" ADD COLUMN IF NOT EXISTS "totalWorkflowSteps" INTEGER DEFAULT 0;');
+        console.log('Database verified: DailySnapshots trend columns ready.');
+    } catch (e) {
+        console.warn('Startup migration warning (DailySnapshots trend columns, non-fatal):', e.message);
+    }
+
     // H1 FIX: Ensure patientCode has a DB-level UNIQUE constraint (race-safe duplicate prevention)
     try {
         await db.sequelize.query('ALTER TABLE "Patients" ADD CONSTRAINT "Patients_patientCode_unique" UNIQUE ("patientCode");');
