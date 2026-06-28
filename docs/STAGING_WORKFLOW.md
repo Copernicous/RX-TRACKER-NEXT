@@ -127,6 +127,14 @@ Then restart staging:
 npm run staging:start
 ```
 
+## Bulk Test Data Rule
+
+Bulk add/remove scripts are allowed for development and staging only.
+
+- Use them to generate large random test sets, stress the UI, and verify deletes/removals in non-production environments.
+- Do not run bulk seeding or bulk cleanup against production data.
+- If a bulk workflow is useful for release validation, mirror it in staging and keep production limited to normal release operations.
+
 ## Production Data Copy
 
 Do not connect staging to the production database.

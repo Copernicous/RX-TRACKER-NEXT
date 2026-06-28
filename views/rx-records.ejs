@@ -40,6 +40,21 @@
         .patient-dropdown-item .pat-id    { font-size: 0.78rem; color: var(--text-muted, #6c757d); }
         .patient-dropdown-empty { padding: 10px 14px; color: var(--text-muted, #6c757d); font-size: 0.85rem; }
         #patientSearchInput.is-selected { border-color: #6366f1; }
+        #rxTable tbody tr.rx-inactive-row > td {
+            background: #efe6c9 !important;
+            color: #1f2937 !important;
+        }
+        #rxTable tbody tr.rx-inactive-row > td .text-muted,
+        #rxTable tbody tr.rx-inactive-row > td small,
+        #rxTable tbody tr.rx-inactive-row > td .badge {
+            color: inherit;
+        }
+        #rxTable tbody tr.rx-inactive-row > td .btn-outline-info,
+        #rxTable tbody tr.rx-inactive-row > td .btn-outline-secondary,
+        #rxTable tbody tr.rx-inactive-row > td .btn-outline-primary,
+        #rxTable tbody tr.rx-inactive-row > td .btn-outline-danger {
+            opacity: 0.95;
+        }
     </style>
 </head>
 <body>
@@ -80,7 +95,20 @@
                     </div>
                     <div class="col-md-2">
                         <label class="form-label small fw-bold"><i class="fas fa-clinic-medical me-1"></i>Pharmacy</label>
-                        <input type="text" class="form-control form-control-sm" id="rxFilterPharmacy" placeholder="Pharmacy name">
+                        <select class="form-select form-select-sm" id="rxFilterPharmacy">
+                            <option value="">All Pharmacies</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label small fw-bold"><i class="fas fa-tasks me-1"></i>Workflow Status</label>
+                        <select class="form-select form-select-sm" id="rxFilterWorkflowStatus">
+                            <option value="">All Workflow</option>
+                            <option value="pending">Pending</option>
+                            <option value="not-started">Not Started</option>
+                            <option value="in-progress">In Progress</option>
+                            <option value="expired">Expired</option>
+                            <option value="completed">Completed</option>
+                        </select>
                     </div>
                     <div class="col-md-2 d-flex gap-1 align-items-end">
                         <button class="btn btn-primary btn-sm btn-search" id="rxFilterBtn" title="Search"><i class="fas fa-search"></i></button>
@@ -111,13 +139,15 @@
                             <input type="date" class="form-control form-control-sm" id="rxFilterSvcTo">
                         </div>
                         <div class="col-md-2">
-                            <label class="form-label small fw-bold"><i class="fas fa-tasks me-1"></i>Workflow Status</label>
-                            <select class="form-select form-select-sm" id="rxFilterWorkflowStatus">
-                                <option value="">All Workflow</option>
-                                <option value="pending">Pending</option>
-                                <option value="not-started">Not Started</option>
-                                <option value="in-progress">In Progress</option>
-                                <option value="completed">Completed</option>
+                            <label class="form-label small fw-bold"><i class="fas fa-truck me-1"></i>Patient Transport</label>
+                            <select class="form-select form-select-sm" id="rxFilterPatientTransport">
+                                <option value="">All Patient Transports</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small fw-bold"><i class="fas fa-truck me-1"></i>Pharmacy Transport</label>
+                            <select class="form-select form-select-sm" id="rxFilterPharmacyTransport">
+                                <option value="">All Pharmacy Transports</option>
                             </select>
                         </div>
                         <div class="col-md-3 d-flex align-items-end">
@@ -168,6 +198,9 @@
                         <button id="rxBulkApplyBtn" class="btn btn-warning btn-sm fw-bold">
                             <i class="fas fa-play me-1"></i>Apply to Selected
                         </button>
+                        <button id="rxBulkCloseBtn" class="btn btn-success btn-sm fw-bold">
+                            <i class="fas fa-lock-open me-1"></i>Close Expired
+                        </button>
                         <button id="rxBulkClearBtn" class="btn btn-outline-light btn-sm">
                             <i class="fas fa-times me-1"></i>Clear
                         </button>
@@ -197,6 +230,33 @@
                         </tbody>
                     </table>
                 </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Bulk Close Expired RX Modal -->
+<div class="modal fade" id="bulkCloseExpiredModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-triangle-exclamation me-2 text-warning"></i>Close Expired RX Records</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="fw-semibold mb-2">This will only close RX records that are already outside the 90-day window.</p>
+                <p class="text-muted small mb-2">Active records will be skipped and reported in the result summary.</p>
+                <p class="text-danger small mb-0">Use this when the cycle is complete and a new service date should begin a new RX record.</p>
+                <div class="mt-3">
+                    <label class="form-label small fw-bold">Type YES to confirm</label>
+                    <input type="text" class="form-control form-control-sm" id="bulkCloseExpiredConfirmInput" autocomplete="off" placeholder="YES">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-success fw-semibold" id="bulkCloseExpiredConfirmBtn">
+                    <i class="fas fa-check-circle me-1"></i>Yes, Close Selected
+                </button>
             </div>
         </div>
     </div>
@@ -523,6 +583,92 @@
         });
     }
 
+    var bulkCloseExpiredModalInstance = null;
+    function _rxBulkCloseExpired() {
+        var n = _rxBulkSel.size;
+        if (n === 0) { showToast('No records selected.', 'warning'); return; }
+        if (bulkCloseExpiredModalInstance) {
+            var confirmInput = document.getElementById('bulkCloseExpiredConfirmInput');
+            if (confirmInput) confirmInput.value = '';
+            bulkCloseExpiredModalInstance.show();
+        } else if (confirm('Close ' + n + ' selected record(s) only if they are expired? Active records will be skipped.')) {
+            _rxRunBulkCloseExpired();
+        }
+    }
+
+    function _rxRunBulkCloseExpired() {
+        var ids = [];
+        _rxBulkSel.forEach(function(v) { ids.push(v); });
+        if (!ids.length) { showToast('No records selected.', 'warning'); return; }
+
+        var confirmInput = document.getElementById('bulkCloseExpiredConfirmInput');
+        var confirmText = confirmInput ? String(confirmInput.value || '').trim().toUpperCase() : '';
+        if (confirmText !== 'YES') {
+            showToast('Type YES to confirm closing expired RX records.', 'warning');
+            if (confirmInput) confirmInput.focus();
+            return;
+        }
+
+        var closeBtn = document.getElementById('rxBulkCloseBtn');
+        var confirmBtn = document.getElementById('bulkCloseExpiredConfirmBtn');
+        if (closeBtn) { closeBtn.disabled = true; closeBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Closing...'; }
+        if (confirmBtn) { confirmBtn.disabled = true; confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Working...'; }
+
+        var results = [];
+        var completed = 0;
+        var succeeded = 0;
+        var failed = 0;
+
+        function finish() {
+            _rxShowBulkResults({
+                action: { name: 'Close Expired RX Records' },
+                succeeded: succeeded,
+                failed: failed,
+                results: results
+            }, 'Close Expired RX Records');
+            var ok = succeeded;
+            var bad = failed;
+            if (bad === 0) {
+                showToast(ok + ' record' + (ok !== 1 ? 's' : '') + ' closed.', 'success');
+            } else {
+                showToast(ok + ' closed, ' + bad + ' skipped.', 'warning');
+            }
+            _rxBulkSel.clear();
+            _rxUpdateBulkBar();
+            loadRxRecords();
+            if (bulkCloseExpiredModalInstance) bulkCloseExpiredModalInstance.hide();
+            if (confirmInput) confirmInput.value = '';
+            if (closeBtn) { closeBtn.disabled = false; closeBtn.innerHTML = '<i class="fas fa-lock-open me-1"></i>Close Expired'; }
+            if (confirmBtn) { confirmBtn.disabled = false; confirmBtn.innerHTML = '<i class="fas fa-check-circle me-1"></i>Yes, Close Selected'; }
+        }
+
+        if (!ids.length) return finish();
+
+        ids.forEach(function(rxId) {
+            fetchWithAuth(window.rxUrl('/api/rx-records/') + rxId + '/close-expired-workflow', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({})
+            }).then(function(res) {
+                return res && res.json ? res.json().then(function(data) {
+                    if (res.ok) {
+                        succeeded += 1;
+                        results.push({ ok: true, rxId: rxId, patientName: data && data.patientName ? data.patientName : '', skipped: false });
+                    } else {
+                        failed += 1;
+                        results.push({ ok: false, rxId: rxId, patientName: data && data.patientName ? data.patientName : '', skipped: false, error: (data && (data.error || data.message)) || 'Unable to close this record.' });
+                    }
+                }) : Promise.resolve();
+            }).catch(function(err) {
+                failed += 1;
+                results.push({ ok: false, rxId: rxId, patientName: '', skipped: false, error: (err && err.message) || 'Network error' });
+            }).then(function() {
+                completed += 1;
+                if (completed === ids.length) finish();
+            });
+        });
+    }
+
 
 
     function _rxShowBulkResults(data, stepName) {
@@ -684,11 +830,55 @@
                 opt.value = allMedCatalog[_mi].name;
                 dl.appendChild(opt);
             }
+            populateRxFilterSelects();
             initPatientSearch();
         }).catch(function(e) {
             console.error('[RX] loadRxDropdowns error:', e);
+            populateRxFilterSelects();
             initPatientSearch(); // always init patient search even on partial failure
         });
+    }
+
+    function populateRxFilterSelects() {
+        var phSel = document.getElementById('rxFilterPharmacy');
+        if (phSel) {
+            var phCurrent = phSel.value;
+            phSel.innerHTML = '<option value="">All Pharmacies</option>';
+            for (var i = 0; i < allPharmaciesList.length; i++) {
+                var ph = allPharmaciesList[i];
+                var opt = document.createElement('option');
+                opt.value = String(ph.id);
+                opt.textContent = ph.name || ('Pharmacy #' + ph.id);
+                phSel.appendChild(opt);
+            }
+            if (phCurrent) phSel.value = phCurrent;
+        }
+        var ptSel = document.getElementById('rxFilterPatientTransport');
+        if (ptSel) {
+            var ptCurrent = ptSel.value;
+            ptSel.innerHTML = '<option value="">All Patient Transports</option>';
+            for (var j = 0; j < allPtList.length; j++) {
+                var pt = allPtList[j];
+                var ptOpt = document.createElement('option');
+                ptOpt.value = String(pt.id);
+                ptOpt.textContent = pt.companyName || pt.contactPerson || ('Transport #' + pt.id);
+                ptSel.appendChild(ptOpt);
+            }
+            if (ptCurrent) ptSel.value = ptCurrent;
+        }
+        var phtSel = document.getElementById('rxFilterPharmacyTransport');
+        if (phtSel) {
+            var phtCurrent = phtSel.value;
+            phtSel.innerHTML = '<option value="">All Pharmacy Transports</option>';
+            for (var k = 0; k < allPhtList.length; k++) {
+                var pht = allPhtList[k];
+                var phtOpt = document.createElement('option');
+                phtOpt.value = String(pht.id);
+                phtOpt.textContent = pht.companyName || pht.contactPerson || ('Transport #' + pht.id);
+                phtSel.appendChild(phtOpt);
+            }
+            if (phtCurrent) phtSel.value = phtCurrent;
+        }
     }
 
     document.addEventListener('DOMContentLoaded', function() {
@@ -696,9 +886,14 @@
 
         workflowModalInstance = new bootstrap.Modal(document.getElementById('workflowModal'));
         expiredAccessModalInstance = new bootstrap.Modal(document.getElementById('expiredAccessModal'));
+        bulkCloseExpiredModalInstance = new bootstrap.Modal(document.getElementById('bulkCloseExpiredModal'));
         document.getElementById('closeExpiredRxBtn').addEventListener('click', function() {
             closeExpiredRxRecord(expiredAccessRxId);
         });
+        var bulkCloseBtn = document.getElementById('rxBulkCloseBtn');
+        if (bulkCloseBtn) bulkCloseBtn.addEventListener('click', _rxBulkCloseExpired);
+        var bulkCloseConfirmBtn = document.getElementById('bulkCloseExpiredConfirmBtn');
+        if (bulkCloseConfirmBtn) bulkCloseConfirmBtn.addEventListener('click', _rxRunBulkCloseExpired);
 
         document.getElementById('exportRxListCsvBtn').addEventListener('click', function() {
             if (!filteredRx.length) { showToast('No data to export.', 'warning'); return; }
@@ -789,6 +984,7 @@
         // Filter bar listeners
         var _filterIds = ['rxFilterPatient','rxFilterId','rxFilterPharmacy','rxFilterPatientCode',
                           'rxFilterDateFrom','rxFilterDateTo','rxFilterSvcFrom','rxFilterSvcTo',
+                          'rxFilterPatientTransport','rxFilterPharmacyTransport',
                           'rxFilterWorkflowStatus'];
         for (var _fi = 0; _fi < _filterIds.length; _fi++) {
             (function(fid) {
@@ -800,6 +996,12 @@
         }
         var rxFilterBtn = document.getElementById('rxFilterBtn');
         if (rxFilterBtn) rxFilterBtn.addEventListener('click', function() { rxPage = 1; applyRxFilter(); });
+        var rxPageSizeSel = document.getElementById('rxPageSizeSelect');
+        if (rxPageSizeSel) rxPageSizeSel.addEventListener('change', function() {
+            rxPageSize = parseInt(this.value, 10) || 50;
+            rxPage = 1;
+            renderRxSorted();
+        });
         var rxClearBtn = document.getElementById('rxClearBtn');
         if (rxClearBtn) rxClearBtn.addEventListener('click', function() {
             for (var _ci = 0; _ci < _filterIds.length; _ci++) {
@@ -903,23 +1105,40 @@
     function getRxWorkflowStatusKey(rx) {
         var completedSteps = rx && rx.RXWorkflowTrackings ? rx.RXWorkflowTrackings.length : 0;
         var totalSteps = allWorkflowActions.length;
+        var svc = rx && rx.serviceDate ? new Date(rx.serviceDate) : null;
+        if (svc && !isNaN(svc.getTime())) {
+            svc.setHours(0, 0, 0, 0);
+            var expiry = new Date(svc.getTime() + 90 * 864e5);
+            expiry.setHours(0, 0, 0, 0);
+            var today = new Date();
+            today.setHours(0, 0, 0, 0);
+            if (today > expiry && completedSteps < totalSteps) return 'expired';
+        }
         if (totalSteps > 0 && completedSteps >= totalSteps) return 'completed';
         if (completedSteps > 0) return 'in-progress';
         return 'not-started';
     }
 
     function getRxWorkflowSortValue(rx) {
-        var key = getRxWorkflowStatusKey(rx);
-        if (key === 'not-started') return 0;
-        if (key === 'in-progress') return 1;
-        if (key === 'completed') return 2;
-        return 3;
+        var completedSteps = rx && rx.RXWorkflowTrackings ? rx.RXWorkflowTrackings.length : 0;
+        var totalSteps = allWorkflowActions.length || 0;
+        var svc = rx && rx.serviceDate ? new Date(rx.serviceDate) : null;
+        if (svc && !isNaN(svc.getTime())) {
+            svc.setHours(0, 0, 0, 0);
+            var exp = new Date(svc.getTime() + 90 * 864e5);
+            exp.setHours(0, 0, 0, 0);
+            var today = new Date();
+            today.setHours(0, 0, 0, 0);
+            if (today > exp) return 1000 + completedSteps;
+        }
+        if (totalSteps > 0 && completedSteps >= totalSteps) return totalSteps + 100;
+        return completedSteps;
     }
 
     function applyRxFilter() {
         var pat   = document.getElementById('rxFilterPatient').value.toLowerCase().trim();
         var rxId  = document.getElementById('rxFilterId').value.trim();
-        var ph    = document.getElementById('rxFilterPharmacy').value.toLowerCase().trim();
+        var ph    = document.getElementById('rxFilterPharmacy').value.trim();
         var from  = document.getElementById('rxFilterDateFrom').value;
         var to    = document.getElementById('rxFilterDateTo').value;
         var _pcEl = document.getElementById('rxFilterPatientCode');
@@ -928,6 +1147,10 @@
         var sfrom = _sfEl ? _sfEl.value : '';
         var _stEl = document.getElementById('rxFilterSvcTo');
         var sto   = _stEl ? _stEl.value : '';
+        var ptSel = document.getElementById('rxFilterPatientTransport');
+        var phtSel = document.getElementById('rxFilterPharmacyTransport');
+        var ptVal = ptSel ? ptSel.value : '';
+        var phtVal = phtSel ? phtSel.value : '';
         var _wfEl = document.getElementById('rxFilterWorkflowStatus');
         var wf    = _wfEl ? _wfEl.value : '';
         var preId = window._rxPrefilterPatientId;
@@ -947,15 +1170,15 @@
                 if (!r.Patient || String(r.Patient.id) !== String(preId)) return false;
             }
             if (rxId && String(r.id) !== rxId) return false;
-            if (ph) {
-                var phName = r.Pharmacy ? r.Pharmacy.name.toLowerCase() : '';
-                if (phName.indexOf(ph) === -1) return false;
-            }
+            if (ph && String(r.pharmacyId || '') !== String(ph)) return false;
             if (from  && r.serviceDate && r.serviceDate < from)  return false;
             if (to    && r.serviceDate && r.serviceDate > to)     return false;
             if (sfrom && r.serviceDate && r.serviceDate < sfrom) return false;
             if (sto   && r.serviceDate && r.serviceDate > sto)   return false;
-            if (wf === 'pending' && wfKey === 'completed') return false;
+            if (ptVal && String(r.patientTransportCompanyId || '') !== String(ptVal)) return false;
+            if (phtVal && String(r.pharmacyTransportCompanyId || '') !== String(phtVal)) return false;
+            if (wf === 'pending' && (wfKey === 'completed')) return false;
+            if (wf === 'pending' && wfKey === 'expired') return false;
             if (wf && wf !== 'pending' && wfKey !== wf) return false;
             return true;
         });
@@ -1023,7 +1246,7 @@
 
                 var tr = document.createElement('tr');
                 if (isDeleted)   tr.className = 'table-secondary text-muted';
-                else if (patInactive) tr.className = 'table-warning';
+                else if (patInactive) tr.className = 'rx-inactive-row';
 
                 /* ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Checkbox cell (F10-02) ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ */
                 var tdCb = document.createElement('td');
@@ -1093,7 +1316,32 @@
                 /* ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Workflow status cell ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ */
                 var tdWf = document.createElement('td');
                 var wfDiv = document.createElement('div');
-                wfDiv.className = 'd-flex align-items-center gap-2';
+                wfDiv.className = 'd-flex flex-column gap-1';
+                var wfTop = document.createElement('div');
+                wfTop.className = 'd-flex align-items-center gap-2 flex-wrap';
+                var wfBadge = document.createElement('span');
+                wfBadge.className = 'badge';
+                var wfKey = getRxWorkflowStatusKey(rx);
+                if (rx.serviceDate) {
+                    var _wfSvc = new Date(rx.serviceDate); _wfSvc.setHours(0,0,0,0);
+                    var _wfExp = new Date(_wfSvc.getTime() + 90 * 864e5);
+                    var _wfToday = new Date(); _wfToday.setHours(0,0,0,0);
+                    if (_wfToday > _wfExp) {
+                        wfBadge.className += ' bg-danger';
+                        wfBadge.textContent = 'Expired';
+                        wfBadge.title = 'The 90-day window ended on ' + _wfExp.toLocaleDateString();
+                    } else if (wfKey === 'completed') {
+                        wfBadge.className += ' bg-primary';
+                        wfBadge.textContent = 'Completed';
+                    } else if (wfKey === 'in-progress') {
+                        wfBadge.className += ' bg-warning text-dark';
+                        wfBadge.textContent = 'In Progress';
+                    } else {
+                        wfBadge.className += ' bg-secondary';
+                        wfBadge.textContent = 'Not Started';
+                    }
+                    wfTop.appendChild(wfBadge);
+                }
                 var prog = document.createElement('div');
                 prog.className = 'progress flex-grow-1';
                 prog.style.height = '8px';
@@ -1103,8 +1351,9 @@
                 prog.appendChild(bar);
                 var sm = document.createElement('small');
                 sm.textContent = completedSteps + '/' + totalSteps;
+                wfTop.appendChild(sm);
+                wfDiv.appendChild(wfTop);
                 wfDiv.appendChild(prog);
-                wfDiv.appendChild(sm);
                 tdWf.appendChild(wfDiv);
                 tr.appendChild(tdWf);
 

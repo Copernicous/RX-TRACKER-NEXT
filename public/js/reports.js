@@ -108,6 +108,10 @@
             const qProg  = document.getElementById('rrfProgress').value;
             const dFrom  = document.getElementById('rxDateFrom').value;
             const dTo    = document.getElementById('rxDateTo').value;
+        if (dateRangeIsReversed(dFrom, dTo)) {
+            showToast('RX report date range cannot have From after To.', 'warning');
+            document.getElementById('rxDateTo').value = dFrom;
+        }
             const patient = r.Patient || {};
 
             if (qRxId && !String(r.id).includes(qRxId)) return false;
@@ -167,6 +171,30 @@
         return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
     }
 
+    function validateDateRange(fromId, toId, label) {
+        var fromEl = document.getElementById(fromId);
+        var toEl = document.getElementById(toId);
+        if (!fromEl || !toEl) return true;
+        var from = fromEl.value;
+        var to = toEl.value;
+        if (from && to && from > to) {
+            showToast((label || 'Date range') + ' cannot have From after To.', 'warning');
+            toEl.value = from;
+            return false;
+        }
+        return true;
+    }
+
+    function dateRangeIsReversed(from, to) {
+        if (!from || !to) return false;
+        var f = new Date(from + 'T00:00:00');
+        var t = new Date(to + 'T00:00:00');
+        if (isNaN(f.getTime()) || isNaN(t.getTime())) return false;
+        f.setHours(0,0,0,0);
+        t.setHours(0,0,0,0);
+        return f.getTime() > t.getTime();
+    }
+
     // ─── Patient Report ───────────────────────────────────────────────────────────
     function getVal(id) { const el = document.getElementById(id); return el ? el.value.toLowerCase().trim() : ''; }
 
@@ -180,6 +208,7 @@
         const qPhone    = getVal('prfPhone');
         const qTransport= getVal('prfTransport');
         const qClinic   = getVal('prfClinic');
+        validateDateRange('patientDateFrom', 'patientDateTo', 'Patient report date range');
 
         let data = allPatientReport.filter(p => {
             if (filter !== '' && String(p.isActive) !== filter) return false;
@@ -270,6 +299,10 @@
         const qProg  = document.getElementById('rrfProgress').value;
         const dFrom  = document.getElementById('rxDateFrom').value;
         const dTo    = document.getElementById('rxDateTo').value;
+        if (dateRangeIsReversed(dFrom, dTo)) {
+            showToast('RX report date range cannot have From after To.', 'warning');
+            document.getElementById('rxDateTo').value = dFrom;
+        }
 
         let data = allRxReport.filter(r => {
             if (qRxId  && !String(r.id).includes(qRxId)) return false;
@@ -476,12 +509,14 @@
         var filter     = document.getElementById('patientStatusFilter').value;
         var dFrom      = document.getElementById('patientDateFrom').value;
         var dTo        = document.getElementById('patientDateTo').value;
+        validateDateRange('patientDateFrom', 'patientDateTo', 'Patient report date range');
         var qCode      = getVal('prfPatientCode');
         var qFirst     = getVal('prfFirstName');
         var qLast      = getVal('prfLastName');
         var qPhone     = getVal('prfPhone');
         var qTransport = getVal('prfTransport');
         var qClinic    = getVal('prfClinic');
+        validateDateRange('patientDateFrom', 'patientDateTo', 'Patient report date range');
         return allPatientReport.filter(function(p) {
             if (filter !== '' && String(p.isActive) !== filter) return false;
             if (qCode  && !(p.patientCode||'').toLowerCase().includes(qCode))   return false;
@@ -546,3 +581,4 @@
         var rxPrint = document.getElementById('printRxBtn');
         if (rxPrint) rxPrint.addEventListener('click', function() { printReport('RX Records Report', 'rxReportTable'); });
     });
+
