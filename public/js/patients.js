@@ -7,6 +7,10 @@ var allPatients = [];
     var patientTotalCount = 0;
     var patientTotalPages = 1;
     var patientNeedsActionCount = 0;
+    var patientNeedsActionAlerts = [];
+    var patientNeedsActionAlertIndex = 0;
+    var patientNeedsActionAlertKey = '';
+    var patientNeedsActionAlertLoading = false;
     var patientFacets = null;
     var patientNoRxFilter = false;
     var patientHighlightId = '';
@@ -795,6 +799,71 @@ var allPatients = [];
         tableCard.insertBefore(banner, tableCard.firstChild);
     }
 
+    function buildNeedsActionAlertKey() {
+        var params = buildPatientQueryParams({ exportAll: true });
+        params.set('eligibility', 'needsAction');
+        params.delete('page');
+        params.delete('pageSize');
+        params.delete('exportAll');
+        params.delete('sort');
+        params.delete('dir');
+        return params.toString();
+    }
+
+    function needsActionAlertSummary(patient) {
+        if (!patient) return '';
+        var name = ((patient.firstName || '') + ' ' + (patient.lastName || '')).trim() || 'Unnamed patient';
+        var patientCode = patient.patientCode ? ' (' + patient.patientCode + ')' : '';
+        var serviceDate = patient.serviceDate ? (window.fmtDate(patient.serviceDate) || patient.serviceDate) : 'No service date';
+        var expiryDate = '';
+        if (patient.serviceDate) {
+            var svc = new Date(patient.serviceDate + 'T00:00:00');
+            if (!isNaN(svc.getTime())) {
+                svc.setDate(svc.getDate() + 90);
+                expiryDate = window.fmtDate(svc.toISOString().slice(0, 10)) || svc.toISOString().slice(0, 10);
+            }
+        }
+        var rxCount = Array.isArray(patient.RXRecords) ? patient.RXRecords.length : 0;
+        var parts = [
+            name + patientCode,
+            'Service ' + serviceDate
+        ];
+        if (expiryDate) parts.push('Expired ' + expiryDate);
+        parts.push(rxCount + ' RX record' + (rxCount === 1 ? '' : 's'));
+        return parts.join(' | ');
+    }
+
+    async function loadNeedsActionAlertsForBanner(force) {
+        var key = buildNeedsActionAlertKey();
+        if (!force && key === patientNeedsActionAlertKey && patientNeedsActionAlerts.length) return;
+        if (patientNeedsActionAlertLoading) return;
+        patientNeedsActionAlertLoading = true;
+        var keyChanged = key !== patientNeedsActionAlertKey;
+        patientNeedsActionAlertKey = key;
+        if (keyChanged) patientNeedsActionAlertIndex = 0;
+
+        try {
+            var params = buildPatientQueryParams({ exportAll: true });
+            params.set('eligibility', 'needsAction');
+            params.delete('noRx');
+            var res = await fetchWithAuth('/api/patients?' + params.toString(), { silent: true });
+            if (!res || !res.ok) throw new Error('Unable to load patient alerts');
+            var data = await res.json();
+            patientNeedsActionAlerts = data && Array.isArray(data.rows)
+                ? data.rows.filter(function(p) { return !!p.needsAction; })
+                : [];
+            if (patientNeedsActionAlertIndex >= patientNeedsActionAlerts.length) {
+                patientNeedsActionAlertIndex = 0;
+            }
+        } catch(e) {
+            patientNeedsActionAlerts = [];
+            patientNeedsActionAlertIndex = 0;
+        } finally {
+            patientNeedsActionAlertLoading = false;
+            renderNeedsActionBanner();
+        }
+    }
+
     async function loadPatients() {
         const params = buildPatientQueryParams();
         const apiUrl = '/api/patients?' + params.toString();
@@ -1385,6 +1454,9 @@ var allPatients = [];
 
         if (!pendingCount) {
             container.innerHTML = '';
+            patientNeedsActionAlerts = [];
+            patientNeedsActionAlertIndex = 0;
+            patientNeedsActionAlertKey = '';
             return;
         }
 
@@ -1409,7 +1481,10 @@ var allPatients = [];
             ? 'rgba(220,53,69,.06)'
             : 'rgba(255,193,7,.12)';
 
-        var message = document.createElement('span');
+        var messageWrap = document.createElement('div');
+        messageWrap.style.minWidth = '0';
+        messageWrap.style.flex = '1';
+        var message = document.createElement('div');
         var icon = document.createElement('i');
         icon.className = isNeedsActionFilter
             ? 'fas fa-filter me-2'
@@ -1431,9 +1506,49 @@ var allPatients = [];
             message.appendChild(document.createTextNode(' patient' + plural + ' past the 90-day window with incomplete RX workflow.'));
         }
 
-        banner.appendChild(message);
+        messageWrap.appendChild(message);
 
         if (!isNeedsActionFilter) {
+            var alertLine = document.createElement('div');
+            alertLine.style.fontSize = '.76rem';
+            alertLine.style.marginTop = '3px';
+            alertLine.style.color = 'var(--text-muted,#6c757d)';
+            alertLine.style.whiteSpace = 'nowrap';
+            alertLine.style.overflow = 'hidden';
+            alertLine.style.textOverflow = 'ellipsis';
+
+            if (patientNeedsActionAlerts.length) {
+                var safeIndex = Math.min(patientNeedsActionAlertIndex, patientNeedsActionAlerts.length - 1);
+                var preview = needsActionAlertSummary(patientNeedsActionAlerts[safeIndex]);
+                alertLine.textContent = 'Alert ' + (safeIndex + 1) + ' of ' + pendingCount + ': ' + preview;
+            } else {
+                alertLine.textContent = patientNeedsActionAlertLoading
+                    ? 'Loading patient alerts...'
+                    : 'Loading patient alerts...';
+                loadNeedsActionAlertsForBanner(false);
+            }
+            messageWrap.appendChild(alertLine);
+        }
+
+        banner.appendChild(messageWrap);
+
+        var actions = document.createElement('div');
+        actions.style.display = 'flex';
+        actions.style.gap = '6px';
+        actions.style.alignItems = 'center';
+        actions.style.flexShrink = '0';
+        if (!isNeedsActionFilter) {
+            var nextBtn = document.createElement('button');
+            nextBtn.type = 'button';
+            nextBtn.id = 'nextNeedsActionAlertBtn';
+            nextBtn.className = 'btn btn-sm btn-outline-warning';
+            nextBtn.disabled = pendingCount <= 1;
+            var nextIcon = document.createElement('i');
+            nextIcon.className = 'fas fa-chevron-right me-1';
+            nextBtn.appendChild(nextIcon);
+            nextBtn.appendChild(document.createTextNode('Next'));
+            actions.appendChild(nextBtn);
+
             var showBtn = document.createElement('button');
             showBtn.type = 'button';
             showBtn.id = 'showNeedsActionBtn';
@@ -1442,10 +1557,23 @@ var allPatients = [];
             btnIcon.className = 'fas fa-filter me-1';
             showBtn.appendChild(btnIcon);
             showBtn.appendChild(document.createTextNode('Show Patients'));
-            banner.appendChild(showBtn);
+            actions.appendChild(showBtn);
         }
+        banner.appendChild(actions);
 
         container.appendChild(banner);
+
+        const nextAlertBtn = document.getElementById('nextNeedsActionAlertBtn');
+        if (!isNeedsActionFilter && nextAlertBtn) {
+            nextAlertBtn.addEventListener('click', function() {
+                if (!patientNeedsActionAlerts.length) {
+                    loadNeedsActionAlertsForBanner(true);
+                    return;
+                }
+                patientNeedsActionAlertIndex = (patientNeedsActionAlertIndex + 1) % patientNeedsActionAlerts.length;
+                renderNeedsActionBanner();
+            });
+        }
 
         const btn = document.getElementById('showNeedsActionBtn');
         if (!isNeedsActionFilter && btn) {
