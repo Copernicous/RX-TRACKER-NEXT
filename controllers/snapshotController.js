@@ -8,6 +8,11 @@ const { Op }          = require('sequelize');
 exports.getSnapshots = async (req, res) => {
     try {
         const { from, to, limit = 90, offset = 0 } = req.query;
+        const parsedLimit = parseInt(limit, 10);
+        const parsedOffset = parseInt(offset, 10);
+        const safeLimit = Math.min(500, Math.max(1, Number.isFinite(parsedLimit) ? parsedLimit : 90));
+        const safeOffset = Math.max(0, Number.isFinite(parsedOffset) ? parsedOffset : 0);
+        const sortDir = String(req.query.sort || '').toLowerCase() === 'desc' ? 'DESC' : 'ASC';
         const where = {};
         if (from || to) {
             where.snapshotDate = {};
@@ -16,9 +21,9 @@ exports.getSnapshots = async (req, res) => {
         }
         const rows = await db.DailySnapshot.findAll({
             where,
-            order: [['snapshotDate', 'ASC']],
-            limit:  Math.min(500, parseInt(limit, 10)),
-            offset: parseInt(offset, 10),
+            order: [['snapshotDate', sortDir]],
+            limit:  safeLimit,
+            offset: safeOffset,
         });
         const total = await db.DailySnapshot.count({ where });
 

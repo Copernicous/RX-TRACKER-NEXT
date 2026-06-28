@@ -3,6 +3,8 @@
     var allWorkflowActions = [];
     var prSortCol = 'id', prSortDir = 'desc';
     var rrSortCol = 'id', rrSortDir = 'desc';
+    var prPage = 1, prPageSize = 10;
+    var rrPage = 1, rrPageSize = 10;
     var _panelStates = {};
 
     function togglePanel(panelId, chevronId, stateKey) {
@@ -198,6 +200,61 @@
     // ─── Patient Report ───────────────────────────────────────────────────────────
     function getVal(id) { const el = document.getElementById(id); return el ? el.value.toLowerCase().trim() : ''; }
 
+    function renderReportPager(navId, currentPage, totalPages, onPage) {
+        var nav = document.getElementById(navId);
+        if (!nav) return;
+        totalPages = Math.max(1, totalPages || 1);
+        currentPage = Math.min(Math.max(1, currentPage || 1), totalPages);
+
+        function pageItem(label, page, disabled, active) {
+            return '<li class="page-item ' + (disabled ? 'disabled ' : '') + (active ? 'active' : '') + '">' +
+                '<button type="button" class="page-link" data-page="' + page + '"' + (disabled ? ' disabled' : '') + '>' + label + '</button>' +
+                '</li>';
+        }
+
+        var html = pageItem('&laquo;', 1, currentPage <= 1, false);
+        html += pageItem('&lsaquo;', Math.max(1, currentPage - 1), currentPage <= 1, false);
+
+        if (totalPages <= 7) {
+            for (var p = 1; p <= totalPages; p++) html += pageItem(String(p), p, false, p === currentPage);
+        } else {
+            html += pageItem('1', 1, false, currentPage === 1);
+            if (currentPage > 4) html += '<li class="page-item disabled"><span class="page-link">...</span></li>';
+            var from = Math.max(2, currentPage - 1);
+            var to = Math.min(totalPages - 1, currentPage + 1);
+            for (var mid = from; mid <= to; mid++) html += pageItem(String(mid), mid, false, mid === currentPage);
+            if (currentPage < totalPages - 3) html += '<li class="page-item disabled"><span class="page-link">...</span></li>';
+            html += pageItem(String(totalPages), totalPages, false, currentPage === totalPages);
+        }
+
+        html += pageItem('&rsaquo;', Math.min(totalPages, currentPage + 1), currentPage >= totalPages, false);
+        html += pageItem('&raquo;', totalPages, currentPage >= totalPages, false);
+        nav.innerHTML = html;
+
+        nav.querySelectorAll('button[data-page]').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var page = parseInt(btn.getAttribute('data-page'), 10);
+                if (!Number.isFinite(page) || btn.disabled) return;
+                onPage(page);
+            });
+        });
+    }
+
+    function prChangeSize(value) {
+        prPageSize = parseInt(value, 10) || 10;
+        prPage = 1;
+        renderPatientReport();
+    }
+    function rrChangeSize(value) {
+        rrPageSize = parseInt(value, 10) || 10;
+        rrPage = 1;
+        renderRxActionReport();
+    }
+    window.prChangeSize = prChangeSize;
+    window.rrChangeSize = rrChangeSize;
+    window.renderPatientReport = renderPatientReport;
+    window.renderRxActionReport = renderRxActionReport;
+
     function renderPatientReport() {
         const filter    = document.getElementById('patientStatusFilter').value;
         const dFrom     = document.getElementById('patientDateFrom').value;
@@ -238,14 +295,23 @@
 
         const tbody   = document.getElementById('patientReportBody');
         const countEl = document.getElementById('patientReportCount');
+        const navEl   = document.getElementById('prPagNav');
         if (!tbody) return;
         if (!data.length) {
             tbody.innerHTML = '<tr><td colspan="11" class="text-center text-muted py-4">No records found</td></tr>';
             if (countEl) countEl.textContent = '0 records';
+            if (navEl) navEl.innerHTML = '';
             return;
         }
+        var totalRecords = data.length;
+        var totalPages = Math.max(1, Math.ceil(totalRecords / prPageSize));
+        if (prPage > totalPages) prPage = totalPages;
+        if (prPage < 1) prPage = 1;
+        var startIndex = (prPage - 1) * prPageSize;
+        var endIndex = Math.min(startIndex + prPageSize, totalRecords);
+        var pageData = data.slice(startIndex, endIndex);
         var patientRowsHtml = '';
-        data.forEach(function(p) {
+        pageData.forEach(function(p) {
             const statusBadge = p.isActive
                 ? '<span class="badge bg-success">Active</span>'
                 : '<span class="badge bg-secondary">Inactive</span>';
@@ -266,7 +332,11 @@
             '</tr>';
         });
         tbody.innerHTML = patientRowsHtml;
-        if (countEl) countEl.textContent = data.length + ' record' + (data.length !== 1 ? 's' : '');
+        if (countEl) countEl.textContent = 'Showing ' + (startIndex + 1) + '-' + endIndex + ' of ' + totalRecords;
+        renderReportPager('prPagNav', prPage, totalPages, function(page) {
+            prPage = page;
+            renderPatientReport();
+        });
     }
 
     function getNestedVal(obj, path) {
@@ -336,14 +406,23 @@
 
         const tbody = document.getElementById('rxActionBody');
         const countEl = document.getElementById('rxReportCount');
+        const navEl = document.getElementById('rrPagNav');
         if (!tbody) return;
         if (!data.length) {
             tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">No records found</td></tr>';
             if (countEl) countEl.textContent = '0 records';
+            if (navEl) navEl.innerHTML = '';
             return;
         }
+        var totalRecords = data.length;
+        var totalPages = Math.max(1, Math.ceil(totalRecords / rrPageSize));
+        if (rrPage > totalPages) rrPage = totalPages;
+        if (rrPage < 1) rrPage = 1;
+        var startIndex = (rrPage - 1) * rrPageSize;
+        var endIndex = Math.min(startIndex + rrPageSize, totalRecords);
+        var pageData = data.slice(startIndex, endIndex);
         var rxRowsHtml = '';
-        data.forEach(function(r) {
+        pageData.forEach(function(r) {
             const steps   = r.completedSteps || [];
             const wfTotal = allWorkflowActions.length;
             const done    = steps.length;
@@ -377,7 +456,11 @@
             '</tr>';
         });
         tbody.innerHTML = rxRowsHtml;
-        if (countEl) countEl.textContent = data.length + ' record' + (data.length !== 1 ? 's' : '');
+        if (countEl) countEl.textContent = 'Showing ' + (startIndex + 1) + '-' + endIndex + ' of ' + totalRecords;
+        renderReportPager('rrPagNav', rrPage, totalPages, function(page) {
+            rrPage = page;
+            renderRxActionReport();
+        });
     }
 
     function sortRxReport(col) {

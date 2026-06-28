@@ -477,14 +477,12 @@ function renderCharts(data) {
     var wTrend = document.getElementById('workflowTrendChart');
     var eTrend = document.getElementById('eligibilityTrendChart');
     var wcTrend = document.getElementById('workflowCompletionTrendChart');
-    var aTrend = document.getElementById('activityTrendChart');
     if (patientsBarCanvas && Chart.getChart(patientsBarCanvas)) Chart.getChart(patientsBarCanvas).destroy();
     if (rxDonutCanvas && Chart.getChart(rxDonutCanvas)) Chart.getChart(rxDonutCanvas).destroy();
     if (pTrend && Chart.getChart(pTrend)) Chart.getChart(pTrend).destroy();
     if (wTrend && Chart.getChart(wTrend)) Chart.getChart(wTrend).destroy();
     if (eTrend && Chart.getChart(eTrend)) Chart.getChart(eTrend).destroy();
     if (wcTrend && Chart.getChart(wcTrend)) Chart.getChart(wcTrend).destroy();
-    if (aTrend && Chart.getChart(aTrend)) Chart.getChart(aTrend).destroy();
 
     new Chart(patientsBarCanvas.getContext('2d'), {
         type: 'bar',
@@ -541,10 +539,7 @@ function renderCharts(data) {
             expiring: 'rgba(253,126,20,0.9)',
             window: 'rgba(32,201,151,0.85)',
             nodate: 'rgba(108,117,125,0.85)',
-            activity: 'rgba(13,202,240,0.85)',
-            users: 'rgba(111,66,193,0.85)',
-            rate: 'rgba(13,110,253,0.9)',
-            audit: 'rgba(214,51,132,0.85)'
+            rate: 'rgba(13,110,253,0.9)'
         };
         var baseLineOptions = function(percentAxis) {
             return {
@@ -619,21 +614,6 @@ function renderCharts(data) {
             });
         }
 
-        if (aTrend) {
-            new Chart(aTrend.getContext('2d'), {
-                type: 'line',
-                data: {
-                    labels: trendLabels,
-                    datasets: [
-                        { label: 'Login Events', data: data.dailyTrends.loginEventsToday || [], borderColor: trendColors.active, backgroundColor: trendColors.active, tension: 0.25, fill: false, pointRadius: 1.5 },
-                        { label: 'Users Logged In', data: data.dailyTrends.uniqueLoginUsersToday || [], borderColor: trendColors.users, backgroundColor: trendColors.users, tension: 0.25, fill: false, pointRadius: 1.5 },
-                        { label: 'Page Activity', data: data.dailyTrends.userActivityEventsToday || [], borderColor: trendColors.activity, backgroundColor: trendColors.activity, tension: 0.25, fill: false, pointRadius: 1.5 },
-                        { label: 'Audit Events', data: data.dailyTrends.auditEventsToday || [], borderColor: trendColors.audit, backgroundColor: trendColors.audit, tension: 0.25, fill: false, pointRadius: 1.5 }
-                    ]
-                },
-                options: baseLineOptions(false)
-            });
-        }
     }
 }
 
@@ -873,12 +853,7 @@ function exportTrendCsv() {
             d.inWindow ? d.inWindow[i] : '',
             d.noServiceDate ? d.noServiceDate[i] : '',
             d.workflowCompletionRate ? d.workflowCompletionRate[i] : '',
-            d.workflowStepsToday ? d.workflowStepsToday[i] : '',
-            d.loginEventsToday ? d.loginEventsToday[i] : '',
-            d.uniqueLoginUsersToday ? d.uniqueLoginUsersToday[i] : '',
-            d.userActivityEventsToday ? d.userActivityEventsToday[i] : '',
-            d.uniqueActivityUsersToday ? d.uniqueActivityUsersToday[i] : '',
-            d.auditEventsToday ? d.auditEventsToday[i] : ''
+            d.workflowStepsToday ? d.workflowStepsToday[i] : ''
         ]);
     }
     exportToCsv('dashboard_trends_' + new Date().toISOString().slice(0,10) + '.csv', [
@@ -894,12 +869,7 @@ function exportTrendCsv() {
         'Active Window',
         'No Service Date',
         'Workflow Completion Rate',
-        'Workflow Steps Today',
-        'Login Events',
-        'Users Logged In',
-        'Page Activity',
-        'Users Active In Pages',
-        'Audit Events'
+        'Workflow Steps Today'
     ], rows);
     showToast('Trend data exported!', 'success');
 }
