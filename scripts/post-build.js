@@ -7,6 +7,7 @@
  *   .env                — environment config (required to run)
  *   RX-Manager.bat      — production management menu
  *   CHANGELOG.md        — version history / what changed
+ *   Readme.txt          — release summary / verification notes
  *   DEFERRED-ITEMS.txt  — security / tech-debt tracking
  *   OPERATIONS_MANUAL.md — admin and recovery procedures
  *   install-service.ps1 — Windows Service installer
@@ -31,6 +32,7 @@ const filesToCopy = [
     '.env.example',
     'RX-Manager.bat',
     'CHANGELOG.md',
+    'Readme.txt',
     'PRODUCTION_RELEASE_CHECKLIST.md',
     'DEFERRED-ITEMS.txt',
     'OPERATIONS_MANUAL.md',
