@@ -5,6 +5,25 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ---
 
+## [Unreleased] - Staging QA
+
+### Performance - RX Records and Reports database pagination
+**Files changed:** RX Records API/UI, Reports API/UI, Patient/RX page-size defaults
+
+- Changed RX Records list display from browser-side pagination to database-level pagination. The database now filters, sorts, counts, and returns only the current page before the API hydrates visible rows.
+- Kept legacy `/api/rx-records` full-array behavior for existing callers while the RX Records screen uses `paginated=true`.
+- Changed the RX Records patient picker to load in the background so the full patient picker no longer blocks the RX table display.
+- Changed Patient Report and RX Action Report display to server/database pagination. Exports still fetch the full filtered result only when CSV/Excel is requested.
+- Defaulted Patient Management, RX Records, Patient Report, and RX Action Report page sizes to `10` rows.
+
+**Staging speed results:**
+- RX Records page display: from about `800-850 ms` to about `30-55 ms`.
+- RX Records workflow stage filter: about `26 ms`.
+- RX Records patient-name filter: about `35 ms`.
+- Patient Report display: from about `1.2 sec` full load to about `28 ms` page load.
+- RX Action Report display: from about `9.8 sec` full load to about `28 ms` page load.
+- RX Action Report pending filter: about `20 ms`.
+
 ## [2.0.64] - 2026-06-28
 
 ### [HOTFIX-64] Production dashboard trend schema fallback

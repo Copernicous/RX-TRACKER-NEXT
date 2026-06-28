@@ -8,6 +8,8 @@ const {
     serviceDateMatches
 } = require('../services/patientServiceDateCycleService');
 
+const Op = db.Sequelize.Op;
+
 // ---- helper: save a history snapshot ----
 async function saveHistory(rxId, userId, changeType, snapshot, changedFields, note, transaction) {
     try {
@@ -81,31 +83,267 @@ function getWorkflowWindowBlock(rx) {
     return null;
 }
 
+function cleanString(value) {
+    return value === undefined || value === null ? '' : String(value).trim();
+}
+
+function parsePositiveInt(value, fallback, min, max) {
+    const parsed = parseInt(value, 10);
+    if (isNaN(parsed)) return fallback;
+    return Math.min(max, Math.max(min, parsed));
+}
+
+function isDateOnly(value) {
+    return /^\d{4}-\d{2}-\d{2}$/.test(cleanString(value));
+}
+
+function maxDateOnly(values) {
+    const dates = values.filter(isDateOnly).sort();
+    return dates.length ? dates[dates.length - 1] : '';
+}
+
+function minDateOnly(values) {
+    const dates = values.filter(isDateOnly).sort();
+    return dates.length ? dates[0] : '';
+}
+
+function rxInclude() {
+    return [
+        { model: db.Patient },
+        { model: db.PatientServiceDateCycle },
+        { model: db.Pharmacy },
+        { model: db.PatientTransportCompany },
+        { model: db.PharmacyTransportCompany },
+        { model: db.Medication },
+        { model: db.RXWorkflowTracking }
+    ];
+}
+
+function enrichRxRows(data) {
+    return data.map(rx => {
+        const plain = rx.toJSON();
+        plain.completedSteps = (plain.RXWorkflowTrackings || []).map(t => t.workflowActionId);
+        return plain;
+    });
+}
+
+function buildRxWhere(query) {
+    const showDeleted = query.deleted === 'true' || query.includeDeleted === 'true';
+    const where = showDeleted ? { isDeleted: true } : { [Op.or]: [{ isDeleted: false }, { isDeleted: null }] };
+    const rxId = cleanString(query.id);
+    const pharmacyId = cleanString(query.pharmacyId);
+    const patientId = cleanString(query.patientId);
+    const patientTransportId = cleanString(query.patientTransportId);
+    const pharmacyTransportId = cleanString(query.pharmacyTransportId);
+    const from = maxDateOnly([query.dateFrom, query.serviceFrom]);
+    const to = minDateOnly([query.dateTo, query.serviceTo]);
+
+    if (/^\d+$/.test(rxId)) where.id = parseInt(rxId, 10);
+    if (/^\d+$/.test(pharmacyId)) where.pharmacyId = parseInt(pharmacyId, 10);
+    if (/^\d+$/.test(patientId)) where.patientId = parseInt(patientId, 10);
+    if (/^\d+$/.test(patientTransportId)) where.patientTransportCompanyId = parseInt(patientTransportId, 10);
+    if (/^\d+$/.test(pharmacyTransportId)) where.pharmacyTransportCompanyId = parseInt(pharmacyTransportId, 10);
+    if (from || to) {
+        where.serviceDate = {};
+        if (from) where.serviceDate[Op.gte] = from;
+        if (to) where.serviceDate[Op.lte] = to;
+    }
+    return where;
+}
+
+function addRxPageFilters(query, replacements, totalSteps) {
+    const whereSql = [];
+    const showDeleted = query.deleted === 'true' || query.includeDeleted === 'true';
+    const rxId = cleanString(query.id);
+    const patient = cleanString(query.patient).toLowerCase();
+    const patientCode = cleanString(query.patientCode).toLowerCase();
+    const patientId = cleanString(query.patientId);
+    const pharmacyId = cleanString(query.pharmacyId);
+    const patientTransportId = cleanString(query.patientTransportId);
+    const pharmacyTransportId = cleanString(query.pharmacyTransportId);
+    const workflowStatus = cleanString(query.workflowStatus);
+    const workflowStage = cleanString(query.workflowStage);
+    const from = maxDateOnly([query.dateFrom, query.serviceFrom]);
+    const to = minDateOnly([query.dateTo, query.serviceTo]);
+    const completedExpr = 'COALESCE(wc.completed_steps, 0)';
+    const expiredExpr = `(r."serviceDate" IS NOT NULL AND (r."serviceDate"::date + INTERVAL '90 days')::date < CURRENT_DATE AND ${completedExpr} < :totalSteps)`;
+    const completedExprSql = `(:totalSteps > 0 AND ${completedExpr} >= :totalSteps)`;
+
+    replacements.totalSteps = totalSteps;
+    whereSql.push(showDeleted ? 'r."isDeleted" = TRUE' : '(r."isDeleted" = FALSE OR r."isDeleted" IS NULL)');
+
+    if (/^\d+$/.test(rxId)) {
+        replacements.rxId = parseInt(rxId, 10);
+        whereSql.push('r.id = :rxId');
+    }
+    if (/^\d+$/.test(patientId)) {
+        replacements.patientId = parseInt(patientId, 10);
+        whereSql.push('r."patientId" = :patientId');
+    }
+    if (/^\d+$/.test(pharmacyId)) {
+        replacements.pharmacyId = parseInt(pharmacyId, 10);
+        whereSql.push('r."pharmacyId" = :pharmacyId');
+    }
+    if (/^\d+$/.test(patientTransportId)) {
+        replacements.patientTransportId = parseInt(patientTransportId, 10);
+        whereSql.push('r."patientTransportCompanyId" = :patientTransportId');
+    }
+    if (/^\d+$/.test(pharmacyTransportId)) {
+        replacements.pharmacyTransportId = parseInt(pharmacyTransportId, 10);
+        whereSql.push('r."pharmacyTransportCompanyId" = :pharmacyTransportId');
+    }
+    if (from) {
+        replacements.serviceFrom = from;
+        whereSql.push('r."serviceDate" >= :serviceFrom');
+    }
+    if (to) {
+        replacements.serviceTo = to;
+        whereSql.push('r."serviceDate" <= :serviceTo');
+    }
+    if (patient) {
+        replacements.patientLike = `%${patient}%`;
+        whereSql.push(`(
+            LOWER(COALESCE(p."firstName", '') || ' ' || COALESCE(p."lastName", '')) LIKE :patientLike
+            OR LOWER(COALESCE(p."patientCode", '')) LIKE :patientLike
+        )`);
+    }
+    if (patientCode) {
+        replacements.patientCodeLike = `%${patientCode}%`;
+        whereSql.push('LOWER(COALESCE(p."patientCode", \'\')) LIKE :patientCodeLike');
+    }
+
+    if (workflowStatus === 'pending') {
+        whereSql.push(`NOT ${completedExprSql}`);
+        whereSql.push(`NOT ${expiredExpr}`);
+    } else if (workflowStatus === 'expired') {
+        whereSql.push(expiredExpr);
+    } else if (workflowStatus === 'completed') {
+        whereSql.push(completedExprSql);
+    } else if (workflowStatus === 'in-progress') {
+        whereSql.push(`${completedExpr} > 0`);
+        whereSql.push(`NOT ${completedExprSql}`);
+        whereSql.push(`NOT ${expiredExpr}`);
+    } else if (workflowStatus === 'not-started') {
+        whereSql.push(`${completedExpr} = 0`);
+        whereSql.push(`NOT ${expiredExpr}`);
+    }
+
+    if (/^\d+$/.test(workflowStage)) {
+        replacements.workflowStageDone = parseInt(workflowStage, 10) - 1;
+        whereSql.push(`${completedExpr} = :workflowStageDone`);
+    }
+
+    return whereSql;
+}
+
+function rxPageFromSql() {
+    return `
+        FROM "RXRecords" r
+        LEFT JOIN "Patients" p ON p.id = r."patientId"
+        LEFT JOIN "Pharmacies" ph ON ph.id = r."pharmacyId"
+        LEFT JOIN (
+            SELECT "rxRecordId", COUNT(*)::integer AS completed_steps
+            FROM "RXWorkflowTrackings"
+            GROUP BY "rxRecordId"
+        ) wc ON wc."rxRecordId" = r.id
+    `;
+}
+
+function rxPageSortSql(sort) {
+    const completedExpr = 'COALESCE(wc.completed_steps, 0)';
+    const workflowSort = `
+        CASE
+            WHEN r."serviceDate" IS NOT NULL
+             AND (r."serviceDate"::date + INTERVAL '90 days')::date < CURRENT_DATE
+             AND ${completedExpr} < :totalSteps
+                THEN 1000 + ${completedExpr}
+            WHEN :totalSteps > 0 AND ${completedExpr} >= :totalSteps
+                THEN :totalSteps + 100
+            ELSE ${completedExpr}
+        END
+    `;
+    const allowed = {
+        id: 'r.id',
+        'Patient.firstName': `LOWER(COALESCE(p."firstName", '') || ' ' || COALESCE(p."lastName", ''))`,
+        serviceDate: 'r."serviceDate"',
+        nextSvcDate: `(r."serviceDate"::date + INTERVAL '90 days')`,
+        cycleStatus: `(r."serviceDate"::date + INTERVAL '90 days')`,
+        'Pharmacy.name': 'LOWER(COALESCE(ph."name", \'\'))',
+        workflowStatus: workflowSort
+    };
+    return allowed[sort] || allowed.id;
+}
+
+async function getPaginatedRxRecords(query) {
+    const pageSize = parsePositiveInt(query.pageSize, 10, 1, 500);
+    const requestedPage = parsePositiveInt(query.page, 1, 1, 1000000);
+    const sort = cleanString(query.sort) || 'id';
+    const dir = cleanString(query.dir).toLowerCase() === 'asc' ? 'asc' : 'desc';
+    const totalWorkflowSteps = await db.WorkflowAction.count({ where: { isActive: true } });
+    const replacements = {};
+    const whereSql = addRxPageFilters(query, replacements, totalWorkflowSteps);
+    const fromSql = rxPageFromSql();
+    const whereClause = whereSql.length ? `WHERE ${whereSql.join(' AND ')}` : '';
+    const sortSql = rxPageSortSql(sort);
+    const dirSql = dir === 'asc' ? 'ASC' : 'DESC';
+    const countRows = await db.sequelize.query(
+        `SELECT COUNT(*)::integer AS total ${fromSql} ${whereClause}`,
+        { type: db.Sequelize.QueryTypes.SELECT, replacements }
+    );
+    const total = parseInt(countRows[0] && countRows[0].total, 10) || 0;
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+    const safePage = Math.min(requestedPage, totalPages);
+    const offset = (safePage - 1) * pageSize;
+    const pageLimit = query.exportAll === 'true' ? Math.max(total, 1) : pageSize;
+    const pageOffset = query.exportAll === 'true' ? 0 : offset;
+    const pageReplacements = Object.assign({}, replacements, {
+        limit: pageLimit,
+        offset: pageOffset
+    });
+    const idRows = total === 0 ? [] : await db.sequelize.query(
+        `SELECT r.id ${fromSql} ${whereClause}
+         ORDER BY ${sortSql} ${dirSql} NULLS LAST, r.id DESC
+         LIMIT :limit OFFSET :offset`,
+        { type: db.Sequelize.QueryTypes.SELECT, replacements: pageReplacements }
+    );
+    const ids = idRows.map(row => row.id);
+    let rows = [];
+    if (ids.length) {
+        const data = await db.RXRecord.findAll({
+            where: { id: { [Op.in]: ids } },
+            include: rxInclude()
+        });
+        const byId = new Map(enrichRxRows(data).map(row => [row.id, row]));
+        rows = ids.map(id => byId.get(id)).filter(Boolean);
+    }
+
+    return {
+        rows,
+        total,
+        page: safePage,
+        pageSize,
+        totalPages,
+        sort,
+        dir
+    };
+}
+
 // GET /api/rx-records
 exports.getAll = async (req, res) => {
     try {
-        // Accept both ?deleted=true and legacy ?includeDeleted=true
-        const showDeleted = req.query.deleted === 'true' || req.query.includeDeleted === 'true';
-        const where = showDeleted ? { isDeleted: true } : { isDeleted: false };
+        if (req.query.paginated === 'true') {
+            return res.json(await getPaginatedRxRecords(req.query));
+        }
+
+        const where = buildRxWhere(req.query);
         const data = await db.RXRecord.findAll({
             where,
-            include: [
-                { model: db.Patient },
-                { model: db.PatientServiceDateCycle },
-                { model: db.Pharmacy },
-                { model: db.PatientTransportCompany },
-                { model: db.PharmacyTransportCompany },
-                { model: db.Medication },
-                { model: db.RXWorkflowTracking }
-            ],
+            include: rxInclude(),
             order: [['id', 'DESC']]
         });
-        // Compute completedSteps array of workflowActionIds (expected by frontend)
-        const result = data.map(rx => {
-            const plain = rx.toJSON();
-            plain.completedSteps = (plain.RXWorkflowTrackings || []).map(t => t.workflowActionId);
-            return plain;
-        });
+        const totalWorkflowSteps = await db.WorkflowAction.count({ where: { isActive: true } });
+        let result = enrichRxRows(data);
+
         res.json(result);
     } catch (err) { res.status(500).json({ error: err.message }); }
 };

@@ -282,7 +282,7 @@ exports.getAll = async (req, res) => {
         let rows = enrichPatientRows(data, totalWorkflowSteps);
 
         if (req.query.paginated === 'true') {
-            const pageSize = parsePositiveInt(req.query.pageSize, 20, 1, 500);
+            const pageSize = parsePositiveInt(req.query.pageSize, 10, 1, 500);
             const page = parsePositiveInt(req.query.page, 1, 1, 1000000);
             const sort = cleanString(req.query.sort) || 'id';
             const dir = cleanString(req.query.dir).toLowerCase() === 'asc' ? 'asc' : 'desc';

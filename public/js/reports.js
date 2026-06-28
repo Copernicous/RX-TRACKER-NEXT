@@ -31,20 +31,87 @@
         try {
             const tok = localStorage.getItem('token');
             const hdr = { 'Authorization': 'Bearer ' + tok };
-            const [patRes, rxRes, wfRes] = await Promise.all([
-                fetch(window.rxUrl('/api/reports/patients'),  { headers: hdr }).then(r => r.json()),
-                fetch(window.rxUrl('/api/reports/rx-actions'),{ headers: hdr }).then(r => r.json()),
-                fetch(window.rxUrl('/api/lookup/workflow-actions'),  { headers: hdr }).then(r => r.json())
-            ]);
-            allPatientReport   = Array.isArray(patRes) ? patRes : [];
-            allRxReport        = Array.isArray(rxRes)  ? rxRes  : [];
+            const wfRes = await fetch(window.rxUrl('/api/lookup/workflow-actions'), { headers: hdr }).then(r => r.json());
             allWorkflowActions = Array.isArray(wfRes)  ? wfRes  : [];
-            renderPatientReport();
-            renderRxActionReport();
             buildAutocompletes();
+            await Promise.all([renderPatientReport(), renderRxActionReport()]);
         } catch(e) {
             console.error('Report load error:', e);
         }
+    }
+
+    function setReportParam(params, name, value) {
+        if (value !== null && value !== undefined && String(value).trim() !== '') {
+            params.set(name, String(value).trim());
+        }
+    }
+
+    async function fetchReportJson(url) {
+        const tok = localStorage.getItem('token');
+        const res = await fetch(window.rxUrl(url), { headers: { 'Authorization': 'Bearer ' + tok } });
+        if (!res.ok) throw new Error('Report API ' + res.status);
+        return res.json();
+    }
+
+    function buildPatientReportParams(options) {
+        options = options || {};
+        var params = new URLSearchParams();
+        params.set('paginated', 'true');
+        if (options.exportAll) {
+            params.set('exportAll', 'true');
+            params.set('page', '1');
+            params.set('pageSize', '500');
+        } else {
+            params.set('page', String(prPage));
+            params.set('pageSize', String(prPageSize));
+        }
+        params.set('sort', prSortCol || 'id');
+        params.set('dir', prSortDir || 'desc');
+        setReportParam(params, 'status', document.getElementById('patientStatusFilter')?.value || '');
+        setReportParam(params, 'dateFrom', document.getElementById('patientDateFrom')?.value || '');
+        setReportParam(params, 'dateTo', document.getElementById('patientDateTo')?.value || '');
+        setReportParam(params, 'patientCode', getVal('prfPatientCode'));
+        setReportParam(params, 'firstName', getVal('prfFirstName'));
+        setReportParam(params, 'lastName', getVal('prfLastName'));
+        setReportParam(params, 'phone', getVal('prfPhone'));
+        setReportParam(params, 'transport', getVal('prfTransport'));
+        setReportParam(params, 'clinic', getVal('prfClinic'));
+        return params;
+    }
+
+    function buildRxReportParams(options) {
+        options = options || {};
+        var params = new URLSearchParams();
+        params.set('paginated', 'true');
+        if (options.exportAll) {
+            params.set('exportAll', 'true');
+            params.set('page', '1');
+            params.set('pageSize', '500');
+        } else {
+            params.set('page', String(rrPage));
+            params.set('pageSize', String(rrPageSize));
+        }
+        params.set('sort', rrSortCol || 'id');
+        params.set('dir', rrSortDir || 'desc');
+        setReportParam(params, 'rxId', getVal('rrfRxId'));
+        setReportParam(params, 'firstName', getVal('rrfFirstName'));
+        setReportParam(params, 'lastName', getVal('rrfLastName'));
+        setReportParam(params, 'patientCode', getVal('rrfPatientCode'));
+        setReportParam(params, 'pharmacy', getVal('rrfPharmacy'));
+        setReportParam(params, 'progress', document.getElementById('rrfProgress')?.value || '');
+        setReportParam(params, 'dateFrom', document.getElementById('rxDateFrom')?.value || '');
+        setReportParam(params, 'dateTo', document.getElementById('rxDateTo')?.value || '');
+        return params;
+    }
+
+    async function fetchPatientReportRows(options) {
+        const data = await fetchReportJson('/api/reports/patients?' + buildPatientReportParams(options || {}).toString());
+        return data && Array.isArray(data.rows) ? data.rows : [];
+    }
+
+    async function fetchRxReportRows(options) {
+        const data = await fetchReportJson('/api/reports/rx-actions?' + buildRxReportParams(options || {}).toString());
+        return data && Array.isArray(data.rows) ? data.rows : [];
     }
 
     // ─── Autocomplete Engine ─────────────────────────────────────────────────────
@@ -256,60 +323,29 @@
     window.renderRxActionReport = renderRxActionReport;
 
     function renderPatientReport() {
-        const filter    = document.getElementById('patientStatusFilter').value;
-        const dFrom     = document.getElementById('patientDateFrom').value;
-        const dTo       = document.getElementById('patientDateTo').value;
-        const qCode     = getVal('prfPatientCode');
-        const qFirst    = getVal('prfFirstName');
-        const qLast     = getVal('prfLastName');
-        const qPhone    = getVal('prfPhone');
-        const qTransport= getVal('prfTransport');
-        const qClinic   = getVal('prfClinic');
         validateDateRange('patientDateFrom', 'patientDateTo', 'Patient report date range');
-
-        let data = allPatientReport.filter(p => {
-            if (filter !== '' && String(p.isActive) !== filter) return false;
-            if (qCode  && !(p.patientCode||'').toLowerCase().includes(qCode))   return false;
-            if (qFirst && !(p.firstName||'').toLowerCase().includes(qFirst))     return false;
-            if (qLast  && !(p.lastName||'').toLowerCase().includes(qLast))       return false;
-            if (qPhone && !(p.phone||'').toLowerCase().includes(qPhone))         return false;
-            if (qClinic && !((p.Clinic&&p.Clinic.name)||'').toLowerCase().includes(qClinic)) return false;
-            if (qTransport) {
-                const pt  = ((p.PatientTransportCompany&&p.PatientTransportCompany.companyName)||'').toLowerCase();
-                const pxt = ((p.PharmacyTransportCompany&&p.PharmacyTransportCompany.companyName)||'').toLowerCase();
-                if (!pt.includes(qTransport) && !pxt.includes(qTransport)) return false;
-            }
-            const svc = p.serviceDate || '';
-            if (dFrom && svc && svc < dFrom) return false;
-            if (dTo   && svc && svc > dTo)   return false;
-            return true;
-        });
-
-        data.sort((a,b) => {
-            let va = getNestedVal(a, prSortCol), vb = getNestedVal(b, prSortCol);
-            if (va == null) va = ''; if (vb == null) vb = '';
-            if (typeof va === 'string') va = va.toLowerCase();
-            if (typeof vb === 'string') vb = vb.toLowerCase();
-            return prSortDir === 'asc' ? (va > vb ? 1 : -1) : (va < vb ? 1 : -1);
-        });
-
         const tbody   = document.getElementById('patientReportBody');
         const countEl = document.getElementById('patientReportCount');
         const navEl   = document.getElementById('prPagNav');
         if (!tbody) return;
+        tbody.innerHTML = '<tr><td colspan="11" class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin me-2"></i>Loading...</td></tr>';
+
+        return fetchReportJson('/api/reports/patients?' + buildPatientReportParams().toString()).then(function(result) {
+        var data = result && Array.isArray(result.rows) ? result.rows : [];
+        allPatientReport = data;
         if (!data.length) {
             tbody.innerHTML = '<tr><td colspan="11" class="text-center text-muted py-4">No records found</td></tr>';
             if (countEl) countEl.textContent = '0 records';
             if (navEl) navEl.innerHTML = '';
             return;
         }
-        var totalRecords = data.length;
-        var totalPages = Math.max(1, Math.ceil(totalRecords / prPageSize));
-        if (prPage > totalPages) prPage = totalPages;
-        if (prPage < 1) prPage = 1;
+        var totalRecords = Number(result.total || data.length || 0);
+        var totalPages = Number(result.totalPages || Math.max(1, Math.ceil(totalRecords / prPageSize)));
+        prPage = Number(result.page || prPage || 1);
+        prPageSize = Number(result.pageSize || prPageSize || 10);
         var startIndex = (prPage - 1) * prPageSize;
-        var endIndex = Math.min(startIndex + prPageSize, totalRecords);
-        var pageData = data.slice(startIndex, endIndex);
+        var endIndex = Math.min(startIndex + data.length, totalRecords);
+        var pageData = data;
         var patientRowsHtml = '';
         pageData.forEach(function(p) {
             const statusBadge = p.isActive
@@ -337,6 +373,12 @@
             prPage = page;
             renderPatientReport();
         });
+        }).catch(function(err) {
+            tbody.innerHTML = '<tr><td colspan="11" class="text-center text-danger py-4">Could not load patient report.</td></tr>';
+            if (countEl) countEl.textContent = '';
+            if (navEl) navEl.innerHTML = '';
+            console.error('Patient report load error:', err);
+        });
     }
 
     function getNestedVal(obj, path) {
@@ -346,6 +388,7 @@
     function sortPatientReport(col) {
         if (prSortCol === col) prSortDir = prSortDir === 'asc' ? 'desc' : 'asc';
         else { prSortCol = col; prSortDir = 'asc'; }
+        prPage = 1;
         document.querySelectorAll('[id^="prIcon_"]').forEach(el => { el.className = 'fas fa-sort text-muted'; el.style.opacity = '0.3'; });
         const icon = document.getElementById('prIcon_' + col);
         if (icon) { icon.className = 'fas fa-sort-' + (prSortDir === 'asc' ? 'up' : 'down') + ' text-primary'; icon.style.opacity = '1'; }
@@ -356,17 +399,12 @@
         ['prfPatientCode','prfFirstName','prfLastName','prfPhone','prfTransport','prfClinic','patientDateFrom','patientDateTo']
             .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
         document.getElementById('patientStatusFilter').value = '';
+        prPage = 1;
         renderPatientReport();
     }
 
     // ─── RX Action Report ─────────────────────────────────────────────────────────
     function renderRxActionReport() {
-        const qRxId  = getVal('rrfRxId');
-        const qFirst = getVal('rrfFirstName');
-        const qLast  = getVal('rrfLastName');
-        const qCode  = getVal('rrfPatientCode');
-        const qPharm = getVal('rrfPharmacy');
-        const qProg  = document.getElementById('rrfProgress').value;
         const dFrom  = document.getElementById('rxDateFrom').value;
         const dTo    = document.getElementById('rxDateTo').value;
         if (dateRangeIsReversed(dFrom, dTo)) {
@@ -374,53 +412,28 @@
             document.getElementById('rxDateTo').value = dFrom;
         }
 
-        let data = allRxReport.filter(r => {
-            if (qRxId  && !String(r.id).includes(qRxId)) return false;
-            if (qFirst && !(r.Patient&&r.Patient.firstName||'').toLowerCase().includes(qFirst)) return false;
-            if (qLast  && !(r.Patient&&r.Patient.lastName||'').toLowerCase().includes(qLast))   return false;
-            if (qCode  && !(r.Patient&&r.Patient.patientCode||'').toLowerCase().includes(qCode)) return false;
-            if (qPharm && !(r.Pharmacy&&r.Pharmacy.name||'').toLowerCase().includes(qPharm))    return false;
-            const svc = r.serviceDate || '';
-            if (dFrom && svc && svc < dFrom) return false;
-            if (dTo   && svc && svc > dTo)   return false;
-            return true;
-        });
-
-        data.sort((a,b) => {
-            let va = getNestedVal(a, rrSortCol), vb = getNestedVal(b, rrSortCol);
-            if (va == null) va = ''; if (vb == null) vb = '';
-            if (typeof va === 'string') va = va.toLowerCase();
-            if (typeof vb === 'string') vb = vb.toLowerCase();
-            return rrSortDir === 'asc' ? (va > vb ? 1 : -1) : (va < vb ? 1 : -1);
-        });
-
-        if (qProg) {
-            data = data.filter(r => {
-                const steps = r.completedSteps || [];
-                const total = allWorkflowActions.length;
-                if (qProg === 'complete') return steps.length >= total && total > 0;
-                if (qProg === 'pending')  return steps.length < total;
-                return true;
-            });
-        }
-
         const tbody = document.getElementById('rxActionBody');
         const countEl = document.getElementById('rxReportCount');
         const navEl = document.getElementById('rrPagNav');
         if (!tbody) return;
+        tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin me-2"></i>Loading...</td></tr>';
+
+        return fetchReportJson('/api/reports/rx-actions?' + buildRxReportParams().toString()).then(function(result) {
+        var data = result && Array.isArray(result.rows) ? result.rows : [];
+        allRxReport = data;
         if (!data.length) {
             tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">No records found</td></tr>';
             if (countEl) countEl.textContent = '0 records';
             if (navEl) navEl.innerHTML = '';
             return;
         }
-        var totalRecords = data.length;
-        var totalPages = Math.max(1, Math.ceil(totalRecords / rrPageSize));
-        if (rrPage > totalPages) rrPage = totalPages;
-        if (rrPage < 1) rrPage = 1;
+        var totalRecords = Number(result.total || data.length || 0);
+        var totalPages = Number(result.totalPages || Math.max(1, Math.ceil(totalRecords / rrPageSize)));
+        rrPage = Number(result.page || rrPage || 1);
+        rrPageSize = Number(result.pageSize || rrPageSize || 10);
         var startIndex = (rrPage - 1) * rrPageSize;
-        var endIndex = Math.min(startIndex + rrPageSize, totalRecords);
-        var pageData = data.slice(startIndex, endIndex);
+        var endIndex = Math.min(startIndex + data.length, totalRecords);
+        var pageData = data;
         var rxRowsHtml = '';
         pageData.forEach(function(r) {
             const steps   = r.completedSteps || [];
@@ -461,11 +474,18 @@
             rrPage = page;
             renderRxActionReport();
         });
+        }).catch(function(err) {
+            tbody.innerHTML = '<tr><td colspan="8" class="text-center text-danger py-4">Could not load RX action report.</td></tr>';
+            if (countEl) countEl.textContent = '';
+            if (navEl) navEl.innerHTML = '';
+            console.error('RX action report load error:', err);
+        });
     }
 
     function sortRxReport(col) {
         if (rrSortCol === col) rrSortDir = rrSortDir === 'asc' ? 'desc' : 'asc';
         else { rrSortCol = col; rrSortDir = 'asc'; }
+        rrPage = 1;
         document.querySelectorAll('[id^="rrIcon_"]').forEach(el => { el.className = 'fas fa-sort text-muted'; el.style.opacity = '0.3'; });
         const icon = document.getElementById('rrIcon_' + col);
         if (icon) { icon.className = 'fas fa-sort-' + (rrSortDir === 'asc' ? 'up' : 'down') + ' text-primary'; icon.style.opacity = '1'; }
@@ -476,40 +496,14 @@
         ['rrfRxId','rrfFirstName','rrfLastName','rrfPatientCode','rrfPharmacy','rxDateFrom','rxDateTo']
             .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
         document.getElementById('rrfProgress').value = '';
+        rrPage = 1;
         renderRxActionReport();
     }
 
     // ─── Export CSV ───────────────────────────────────────────────────────────────
     function setupReportExports() {
-        document.getElementById('exportPatientCsv').addEventListener('click', () => {
-            const filter     = document.getElementById('patientStatusFilter').value;
-            const dFrom      = document.getElementById('patientDateFrom').value;
-            const dTo        = document.getElementById('patientDateTo').value;
-            const qCode      = getVal('prfPatientCode');
-            const qFirst     = getVal('prfFirstName');
-            const qLast      = getVal('prfLastName');
-            const qPhone     = getVal('prfPhone');
-            const qTransport = getVal('prfTransport');
-            const qClinic    = getVal('prfClinic');
-
-            let data = allPatientReport.filter(p => {
-                if (filter !== '' && String(p.isActive) !== filter) return false;
-                if (qCode  && !(p.patientCode||'').toLowerCase().includes(qCode))   return false;
-                if (qFirst && !(p.firstName||'').toLowerCase().includes(qFirst))     return false;
-                if (qLast  && !(p.lastName||'').toLowerCase().includes(qLast))       return false;
-                if (qPhone && !(p.phone||'').toLowerCase().includes(qPhone))         return false;
-                if (qClinic && !((p.Clinic&&p.Clinic.name)||'').toLowerCase().includes(qClinic)) return false;
-                if (qTransport) {
-                    const pt  = ((p.PatientTransportCompany&&p.PatientTransportCompany.companyName)||'').toLowerCase();
-                    const pxt = ((p.PharmacyTransportCompany&&p.PharmacyTransportCompany.companyName)||'').toLowerCase();
-                    if (!pt.includes(qTransport) && !pxt.includes(qTransport)) return false;
-                }
-                const svc = p.serviceDate || '';
-                if (dFrom && svc && svc < dFrom) return false;
-                if (dTo   && svc && svc > dTo)   return false;
-                return true;
-            });
-
+        document.getElementById('exportPatientCsv').addEventListener('click', async () => {
+            const data = await fetchPatientReportRows({ exportAll: true });
             if (!data.length) { showToast('No data to export', 'warning'); return; }
             const headers = ['Patient ID','First Name','Last Name','DOB','Phone','Address','Service Date','Status','Clinic','Patient Transport','Pharmacy Transport'];
             const rows = data.map(p => [
@@ -524,10 +518,11 @@
             showToast('Patient report exported!', 'success');
         });
 
-        document.getElementById('exportRxCsv').addEventListener('click', () => {
-            if (!allRxReport.length) { showToast('No data to export', 'warning'); return; }
+        document.getElementById('exportRxCsv').addEventListener('click', async () => {
+            const data = await fetchRxReportRows({ exportAll: true });
+            if (!data.length) { showToast('No data to export', 'warning'); return; }
             const headers = ['RX #','Patient','Patient ID','Pharmacy','Service Date','Done Steps','Progress %'];
-            const rows = allRxReport.map(r => {
+            const rows = data.map(r => {
                 const steps = r.completedSteps || [];
                 const pct   = allWorkflowActions.length ? Math.round(steps.length / allWorkflowActions.length * 100) : 0;
                 return [
@@ -589,42 +584,16 @@
 
     // Helper: returns filtered patient data (mirrors CSV export filter logic, avoids duplication)
     function getFilteredPatientData() {
-        var filter     = document.getElementById('patientStatusFilter').value;
-        var dFrom      = document.getElementById('patientDateFrom').value;
-        var dTo        = document.getElementById('patientDateTo').value;
         validateDateRange('patientDateFrom', 'patientDateTo', 'Patient report date range');
-        var qCode      = getVal('prfPatientCode');
-        var qFirst     = getVal('prfFirstName');
-        var qLast      = getVal('prfLastName');
-        var qPhone     = getVal('prfPhone');
-        var qTransport = getVal('prfTransport');
-        var qClinic    = getVal('prfClinic');
-        validateDateRange('patientDateFrom', 'patientDateTo', 'Patient report date range');
-        return allPatientReport.filter(function(p) {
-            if (filter !== '' && String(p.isActive) !== filter) return false;
-            if (qCode  && !(p.patientCode||'').toLowerCase().includes(qCode))   return false;
-            if (qFirst && !(p.firstName||'').toLowerCase().includes(qFirst))     return false;
-            if (qLast  && !(p.lastName||'').toLowerCase().includes(qLast))       return false;
-            if (qPhone && !(p.phone||'').toLowerCase().includes(qPhone))         return false;
-            if (qClinic && !((p.Clinic&&p.Clinic.name)||'').toLowerCase().includes(qClinic)) return false;
-            if (qTransport) {
-                var pt  = ((p.PatientTransportCompany&&p.PatientTransportCompany.companyName)||'').toLowerCase();
-                var pxt = ((p.PharmacyTransportCompany&&p.PharmacyTransportCompany.companyName)||'').toLowerCase();
-                if (!pt.includes(qTransport) && !pxt.includes(qTransport)) return false;
-            }
-            var svc = p.serviceDate || '';
-            if (dFrom && svc && svc < dFrom) return false;
-            if (dTo   && svc && svc > dTo)   return false;
-            return true;
-        });
+        return fetchPatientReportRows({ exportAll: true });
     }
 
     // BUG-04/05: Wire Excel, PDF, Print buttons — FortiGate-safe (addEventListener only, no inline handlers)
     document.addEventListener('DOMContentLoaded', function() {
         // ── Patient tab ──
         var patXls = document.getElementById('exportPatientXls');
-        if (patXls) patXls.addEventListener('click', function() {
-            var data = getFilteredPatientData();
+        if (patXls) patXls.addEventListener('click', async function() {
+            var data = await getFilteredPatientData();
             if (!data.length) { showToast('No data to export', 'warning'); return; }
             var headers = ['Patient ID','First Name','Last Name','DOB','Phone','Address','Service Date','Status','Clinic','Patient Transport','Pharmacy Transport'];
             var rows = data.map(function(p) {
@@ -644,10 +613,11 @@
 
         // ── RX tab ──
         var rxXls = document.getElementById('exportRxXls');
-        if (rxXls) rxXls.addEventListener('click', function() {
-            if (!allRxReport.length) { showToast('No data to export', 'warning'); return; }
+        if (rxXls) rxXls.addEventListener('click', async function() {
+            var data = await fetchRxReportRows({ exportAll: true });
+            if (!data.length) { showToast('No data to export', 'warning'); return; }
             var headers = ['RX #','Patient','Patient ID','Pharmacy','Service Date','Done Steps','Progress %'];
-            var rows = allRxReport.map(function(r) {
+            var rows = data.map(function(r) {
                 var steps = r.completedSteps || [];
                 var pct   = allWorkflowActions.length ? Math.round(steps.length / allWorkflowActions.length * 100) : 0;
                 return ['RX-' + r.id,

@@ -2,7 +2,7 @@ var allPatients = [];
     var serviceDateOverrideEnabled = false;
     var filteredPatients = [];
     var currentPage = 1;
-    var pageSize = 20;
+    var pageSize = 10;
     var patientServerPaging = true;
     var patientTotalCount = 0;
     var patientTotalPages = 1;
@@ -830,7 +830,7 @@ var allPatients = [];
                 patientTotalPages = Number(data.totalPages || 1);
                 patientNeedsActionCount = Number(data.needsActionTotal || 0);
                 currentPage = Number(data.page || currentPage || 1);
-                pageSize = Number(data.pageSize || pageSize || 20);
+                pageSize = Number(data.pageSize || pageSize || 10);
                 applyPatientFacetOptions(data.facets);
             } else {
                 allPatients = Array.isArray(data) ? data : [];

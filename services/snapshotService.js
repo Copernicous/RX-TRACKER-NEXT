@@ -17,7 +17,11 @@ const TREND_COLUMNS = [
     'loginEventsToday',
     'uniqueLoginUsersToday',
     'userActivityEventsToday',
-    'uniqueActivityUsersToday'
+    'uniqueActivityUsersToday',
+    'workflowCompletionRate',
+    'completedWorkflowSteps',
+    'workflowStepsToday',
+    'totalWorkflowSteps'
 ];
 function db() {
     if (!_db) _db = require('../models');
