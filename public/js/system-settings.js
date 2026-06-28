@@ -124,12 +124,249 @@ function switchTab(tab) {
     const btn = document.querySelector(`[data-tab="${tab}"]`);
     if (btn) btn.classList.add('active');
     if (tab === 'email') loadEmailSettings();
+    if (tab === 'email-alerts') loadEmailAlertSettings();
 }
 
 // ────────────────────────────────────────────────────────────────────────────
 // EMAIL SETTINGS TAB
 // ────────────────────────────────────────────────────────────────────────────
 let _emailLoaded = false;
+let _emailAlertsLoaded = false;
+
+const EMAIL_ALERT_RULE_GROUPS = [
+    {
+        title: 'Security',
+        rules: [
+            { key:'failed_login_threshold', title:'Failed login threshold', desc:'Repeated failed logins reach the configured threshold.' },
+            { key:'account_locked', title:'Account locked', desc:'A user is locked because of too many failed attempts.' },
+            { key:'missing_auth_spike', title:'Missing authentication spike', desc:'Unauthenticated requests reach the configured threshold.' },
+            { key:'permission_denied_spike', title:'Permission denied spike', desc:'Access denied events increase above the normal level.' },
+            { key:'admin_login', title:'Administrator login', desc:'An administrator or master account signs in.' },
+            { key:'security_settings_changed', title:'Security settings changed', desc:'2FA, session timeout, or login limits are updated.' },
+            { key:'api_key_changed', title:'API key changed', desc:'An API key is created, disabled, deleted, or regenerated.' }
+        ]
+    },
+    {
+        title: 'Patient and RX',
+        rules: [
+            { key:'expired_open_workflow', title:'Expired 90-day window', desc:'A patient is past the 90-day window with incomplete RX workflow.' },
+            { key:'expiring_7_days', title:'7 days left', desc:'A service window is near expiration.' },
+            { key:'no_service_date', title:'No service date', desc:'An active patient is missing a service date.' },
+            { key:'active_no_rx', title:'Active patient with no RX', desc:'An active patient has no RX records.' },
+            { key:'missing_required_info', title:'Missing required information', desc:'Patient or RX records are missing required workflow details.' },
+            { key:'rx_stuck_workflow', title:'RX stuck in workflow', desc:'RX records remain in the same workflow stage past the expected time.' },
+            { key:'service_date_override', title:'Service date override', desc:'A service date override or manual cycle adjustment is saved.' }
+        ]
+    },
+    {
+        title: 'System',
+        rules: [
+            { key:'backup_failed', title:'Backup failed', desc:'The latest backup job fails.' },
+            { key:'backup_missing', title:'Backup missing', desc:'No successful backup is detected inside the expected window.' },
+            { key:'critical_error', title:'Critical error spike', desc:'Application errors increase above the expected level.' },
+            { key:'email_config_failure', title:'Email configuration failure', desc:'SMTP test or email delivery fails.' }
+        ]
+    }
+];
+
+function getDefaultEmailAlertRules() {
+    const rules = {};
+    EMAIL_ALERT_RULE_GROUPS.forEach(group => {
+        group.rules.forEach(rule => { rules[rule.key] = false; });
+    });
+    return rules;
+}
+
+function parseEmailAlertRules(raw) {
+    const defaults = getDefaultEmailAlertRules();
+    if (!raw) return defaults;
+    try {
+        const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        if (!parsed || typeof parsed !== 'object') return defaults;
+        return { ...defaults, ...parsed };
+    } catch(e) {
+        console.warn('Could not parse email alert rules:', e.message);
+        return defaults;
+    }
+}
+
+function renderEmailAlertRules(rules) {
+    const wrap = document.getElementById('emailAlertRuleGroups');
+    if (!wrap) return;
+
+    wrap.innerHTML = EMAIL_ALERT_RULE_GROUPS.map(group => {
+        const items = group.rules.map(rule => {
+            const checked = rules[rule.key] ? 'checked' : '';
+            return `
+                <div class="col-xl-4 col-md-6">
+                    <div class="email-alert-rule h-100">
+                        <div class="form-check form-switch mb-0">
+                            <input class="form-check-input email-alert-rule-input" type="checkbox" id="emailAlertRule_${rule.key}" data-rule="${rule.key}" ${checked}>
+                            <label class="form-check-label w-100" for="emailAlertRule_${rule.key}">
+                                <div class="email-alert-rule-title">${rule.title}</div>
+                                <div class="email-alert-rule-desc">${rule.desc}</div>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+        return `
+            <div class="email-alert-group-title">${group.title}</div>
+            <div class="row g-2">${items}</div>
+        `;
+    }).join('');
+
+    updateEmailAlertsStatus();
+}
+
+function collectEmailAlertRules() {
+    const rules = getDefaultEmailAlertRules();
+    document.querySelectorAll('.email-alert-rule-input').forEach(input => {
+        rules[input.dataset.rule] = input.checked;
+    });
+    return rules;
+}
+
+function updateEmailAlertsStatus() {
+    const enabled = !!document.getElementById('emailAlertsEnabled')?.checked;
+    const label = document.getElementById('emailAlertsEnabledLabel');
+    const badge = document.getElementById('emailAlertsStatusBadge');
+    const countEl = document.getElementById('emailAlertsRuleCount');
+    const rules = collectEmailAlertRules();
+    const activeCount = Object.values(rules).filter(Boolean).length;
+
+    if (label) label.innerHTML = enabled ? 'Alerts are <strong>enabled</strong>' : 'Alerts are disabled';
+    if (badge) {
+        if (enabled) {
+            badge.className = activeCount ? 'badge bg-success' : 'badge bg-warning text-dark';
+            badge.textContent = activeCount ? 'Enabled' : 'No conditions selected';
+        } else {
+            badge.className = 'badge bg-secondary';
+            badge.textContent = 'Disabled';
+        }
+    }
+    if (countEl) countEl.textContent = activeCount + ' active';
+}
+
+async function loadEmailAlertSettings(force) {
+    if (_emailAlertsLoaded && !force) return;
+    _emailAlertsLoaded = true;
+    try {
+        const res = await fetchWithAuth('/api/settings');
+        if (!res || !res.ok) return;
+        const data = await res.json();
+        currentSettings = data;
+
+        const enabled = data.email_alerts_enabled === 'true';
+        const enabledInput = document.getElementById('emailAlertsEnabled');
+        const recipients = document.getElementById('emailAlertRecipients');
+        if (enabledInput) enabledInput.checked = enabled;
+        if (recipients) recipients.value = data.email_alerts_recipients || '';
+
+        const failedLogin = document.getElementById('emailFailedLoginThreshold');
+        const missingAuth = document.getElementById('emailMissingAuthThreshold');
+        const cooldown = document.getElementById('emailCooldownMinutes');
+        const digest = document.getElementById('emailDigestTime');
+        if (failedLogin) failedLogin.value = data.email_alert_failed_login_threshold || '5';
+        if (missingAuth) missingAuth.value = data.email_alert_missing_auth_threshold || '10';
+        if (cooldown) cooldown.value = data.email_alert_cooldown_minutes || '60';
+        if (digest) digest.value = data.email_alert_digest_time || '08:00';
+
+        renderEmailAlertRules(parseEmailAlertRules(data.email_alert_rules));
+    } catch(e) {
+        console.error('loadEmailAlertSettings:', e);
+        showToast('Could not load email alert settings', 'danger');
+    }
+}
+
+function resetEmailAlertConditions() {
+    renderEmailAlertRules(getDefaultEmailAlertRules());
+    showToast('Alert conditions reset in the form. Save to keep the reset.', 'warning');
+}
+
+async function saveEmailAlertSettings() {
+    const btn = document.getElementById('saveEmailAlertsBtn');
+    const enabled = !!document.getElementById('emailAlertsEnabled')?.checked;
+    const recipients = (document.getElementById('emailAlertRecipients')?.value || '').trim();
+    const rules = collectEmailAlertRules();
+    const activeCount = Object.values(rules).filter(Boolean).length;
+
+    if (enabled && !recipients) {
+        document.getElementById('emailAlertRecipients')?.focus();
+        showToast('Enter at least one alert recipient before enabling alerts.', 'warning');
+        return;
+    }
+    if (enabled && activeCount === 0) {
+        showToast('Select at least one alert condition before enabling alerts.', 'warning');
+        return;
+    }
+
+    const invalidRecipients = recipients
+        ? recipients.split(',').map(v => v.trim()).filter(Boolean).filter(v => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v))
+        : [];
+    if (invalidRecipients.length) {
+        showToast('Check recipient email: ' + invalidRecipients[0], 'warning');
+        return;
+    }
+
+    const failedLoginThreshold = parseInt(document.getElementById('emailFailedLoginThreshold')?.value || '5', 10);
+    const missingAuthThreshold = parseInt(document.getElementById('emailMissingAuthThreshold')?.value || '10', 10);
+    const cooldownMinutes = parseInt(document.getElementById('emailCooldownMinutes')?.value || '60', 10);
+    const digestTime = document.getElementById('emailDigestTime')?.value || '08:00';
+
+    if (!Number.isFinite(failedLoginThreshold) || failedLoginThreshold < 1 || failedLoginThreshold > 100) {
+        showToast('Failed login threshold must be 1-100.', 'warning');
+        return;
+    }
+    if (!Number.isFinite(missingAuthThreshold) || missingAuthThreshold < 1 || missingAuthThreshold > 500) {
+        showToast('Missing auth threshold must be 1-500.', 'warning');
+        return;
+    }
+    if (!Number.isFinite(cooldownMinutes) || cooldownMinutes < 5 || cooldownMinutes > 1440) {
+        showToast('Cooldown must be 5-1440 minutes.', 'warning');
+        return;
+    }
+
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Saving...';
+    }
+
+    try {
+        const res = await fetchWithAuth('/api/settings', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                email_alerts_enabled: String(enabled),
+                email_alerts_recipients: recipients,
+                email_alert_rules: JSON.stringify(rules),
+                email_alert_failed_login_threshold: String(failedLoginThreshold),
+                email_alert_missing_auth_threshold: String(missingAuthThreshold),
+                email_alert_cooldown_minutes: String(cooldownMinutes),
+                email_alert_digest_time: digestTime
+            })
+        });
+        if (res && res.ok) {
+            const data = await res.json();
+            currentSettings = data.settings;
+            renderSettingsTable(currentSettings);
+            showSaved('emailAlertsSaveOk');
+            updateEmailAlertsStatus();
+            showToast('Email alert settings saved.', 'success');
+        } else {
+            const err = await res.json();
+            showToast(err.error || 'Failed to save email alert settings', 'danger');
+        }
+    } catch(e) {
+        showToast('Network error: ' + e.message, 'danger');
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-save me-1"></i>Save Alert Settings';
+        }
+    }
+}
 
 async function loadEmailSettings() {
     if (_emailLoaded) return;
@@ -227,6 +464,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (_urlTab && document.getElementById('tab-' + _urlTab)) {
         switchTab(_urlTab);
     }
+
+    document.getElementById('emailAlertsEnabled')?.addEventListener('change', updateEmailAlertsStatus);
+    document.getElementById('emailAlertRuleGroups')?.addEventListener('change', (e) => {
+        if (e.target?.classList?.contains('email-alert-rule-input')) updateEmailAlertsStatus();
+    });
+    document.getElementById('saveEmailAlertsBtn')?.addEventListener('click', saveEmailAlertSettings);
+    document.getElementById('resetEmailAlertsBtn')?.addEventListener('click', resetEmailAlertConditions);
 
     // ── Save Timezone ──────────────────────────────────────────────────────
     document.getElementById('saveTzBtn')?.addEventListener('click', async () => {

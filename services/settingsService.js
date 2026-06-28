@@ -13,6 +13,27 @@
 // ── Sensitive keys — never returned to the frontend ──────────────────────────
 const SENSITIVE_KEYS = new Set(['smtp_pass']);
 
+const DEFAULT_EMAIL_ALERT_RULES = JSON.stringify({
+    failed_login_threshold: false,
+    account_locked: false,
+    missing_auth_spike: false,
+    permission_denied_spike: false,
+    admin_login: false,
+    security_settings_changed: false,
+    api_key_changed: false,
+    expired_open_workflow: false,
+    expiring_7_days: false,
+    no_service_date: false,
+    active_no_rx: false,
+    missing_required_info: false,
+    rx_stuck_workflow: false,
+    service_date_override: false,
+    backup_failed: false,
+    backup_missing: false,
+    critical_error: false,
+    email_config_failure: false
+});
+
 const DEFAULTS = {
     app_timezone:  process.env.TZ          || 'America/New_York',
     app_name:      process.env.APP_NAME    || 'Patient RX System',
@@ -24,6 +45,14 @@ const DEFAULTS = {
     smtp_user:     process.env.SMTP_USER   || '',
     smtp_pass:     process.env.SMTP_PASS   || '',   // stored encrypted in next iteration; stored plaintext for now
     smtp_from_name:process.env.SMTP_FROM_NAME || 'Patient RX System',
+    // Email alert conditions. These are configuration only until alert jobs are enabled.
+    email_alerts_enabled:              'false',
+    email_alerts_recipients:           '',
+    email_alert_rules:                 DEFAULT_EMAIL_ALERT_RULES,
+    email_alert_failed_login_threshold:'5',
+    email_alert_missing_auth_threshold:'10',
+    email_alert_cooldown_minutes:      '60',
+    email_alert_digest_time:           '08:00',
     // Security settings — editable from System Settings > Security card
     session_timeout_minutes: process.env.SESSION_TIMEOUT_MINUTES || '30',
     max_failed_logins:       process.env.MAX_FAILED_LOGINS        || '5'
