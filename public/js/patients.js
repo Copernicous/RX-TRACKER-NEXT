@@ -7,10 +7,10 @@ var allPatients = [];
     var patientTotalCount = 0;
     var patientTotalPages = 1;
     var patientNeedsActionCount = 0;
-    var patientNeedsActionAlerts = [];
-    var patientNeedsActionAlertIndex = 0;
-    var patientNeedsActionAlertKey = '';
-    var patientNeedsActionAlertLoading = false;
+    var patientNoticeGroups = [];
+    var patientNoticeIndex = 0;
+    var patientNoticeKey = '';
+    var patientNoticeLoading = false;
     var patientFacets = null;
     var patientNoRxFilter = false;
     var patientHighlightId = '';
@@ -799,69 +799,138 @@ var allPatients = [];
         tableCard.insertBefore(banner, tableCard.firstChild);
     }
 
-    function buildNeedsActionAlertKey() {
-        var params = buildPatientQueryParams({ exportAll: true });
-        params.set('eligibility', 'needsAction');
-        params.delete('page');
-        params.delete('pageSize');
-        params.delete('exportAll');
-        params.delete('sort');
-        params.delete('dir');
-        return params.toString();
+    function patientPlural(count, word) {
+        return String(count) + ' ' + word + (Number(count) === 1 ? '' : 's');
     }
 
-    function needsActionAlertSummary(patient) {
-        if (!patient) return '';
-        var name = ((patient.firstName || '') + ' ' + (patient.lastName || '')).trim() || 'Unnamed patient';
-        var patientCode = patient.patientCode ? ' (' + patient.patientCode + ')' : '';
-        var serviceDate = patient.serviceDate ? (window.fmtDate(patient.serviceDate) || patient.serviceDate) : 'No service date';
-        var expiryDate = '';
-        if (patient.serviceDate) {
-            var svc = new Date(patient.serviceDate + 'T00:00:00');
-            if (!isNaN(svc.getTime())) {
-                svc.setDate(svc.getDate() + 90);
-                expiryDate = window.fmtDate(svc.toISOString().slice(0, 10)) || svc.toISOString().slice(0, 10);
-            }
+    function buildPatientNoticeKey() {
+        return [
+            patientNeedsActionCount,
+            document.getElementById('srchStatus')?.value || '',
+            document.getElementById('srchClinic')?.value || ''
+        ].join('|');
+    }
+
+    async function patientFetchJson(url) {
+        try {
+            var res = await fetchWithAuth(url, { silent: true });
+            if (!res || !res.ok) return null;
+            return await res.json();
+        } catch(e) {
+            return null;
         }
-        var rxCount = Array.isArray(patient.RXRecords) ? patient.RXRecords.length : 0;
-        var parts = [
-            name + patientCode,
-            'Service ' + serviceDate
-        ];
-        if (expiryDate) parts.push('Expired ' + expiryDate);
-        parts.push(rxCount + ' RX record' + (rxCount === 1 ? '' : 's'));
-        return parts.join(' | ');
     }
 
-    async function loadNeedsActionAlertsForBanner(force) {
-        var key = buildNeedsActionAlertKey();
-        if (!force && key === patientNeedsActionAlertKey && patientNeedsActionAlerts.length) return;
-        if (patientNeedsActionAlertLoading) return;
-        patientNeedsActionAlertLoading = true;
-        var keyChanged = key !== patientNeedsActionAlertKey;
-        patientNeedsActionAlertKey = key;
-        if (keyChanged) patientNeedsActionAlertIndex = 0;
+    async function loadPatientNoticeGroupsForBanner(force) {
+        var key = buildPatientNoticeKey();
+        if (!force && key === patientNoticeKey && patientNoticeGroups.length) return;
+        if (patientNoticeLoading) return;
+        patientNoticeLoading = true;
+        var keyChanged = key !== patientNoticeKey;
+        patientNoticeKey = key;
+        if (keyChanged) patientNoticeIndex = 0;
 
         try {
-            var params = buildPatientQueryParams({ exportAll: true });
-            params.set('eligibility', 'needsAction');
-            params.delete('noRx');
-            var res = await fetchWithAuth('/api/patients?' + params.toString(), { silent: true });
-            if (!res || !res.ok) throw new Error('Unable to load patient alerts');
-            var data = await res.json();
-            patientNeedsActionAlerts = data && Array.isArray(data.rows)
-                ? data.rows.filter(function(p) { return !!p.needsAction; })
-                : [];
-            if (patientNeedsActionAlertIndex >= patientNeedsActionAlerts.length) {
-                patientNeedsActionAlertIndex = 0;
+            var groups = [];
+            if (patientNeedsActionCount > 0) {
+                groups.push({
+                    key: 'needsAction',
+                    icon: 'fas fa-exclamation-triangle text-warning',
+                    message: 'There are ' + patientPlural(patientNeedsActionCount, 'patient') + ' past the 90-day window with incomplete RX workflow.',
+                    detail: 'Open workflow after the service window expired',
+                    actionLabel: 'Show Patients'
+                });
             }
+
+            var eligibility = await patientFetchJson('/api/dashboard/eligibility');
+            if (eligibility) {
+                if (Number(eligibility.eligibleNow || 0) > 0) {
+                    groups.push({
+                        key: 'eligible',
+                        icon: 'fas fa-check-circle text-success',
+                        message: 'There are ' + patientPlural(eligibility.eligibleNow, 'patient') + ' past the 90-day service window.',
+                        detail: 'Eligible now for a new service cycle',
+                        actionLabel: 'Show Patients'
+                    });
+                }
+                if (Number(eligibility.expiringIn7 || 0) > 0) {
+                    groups.push({
+                        key: 'expiring',
+                        icon: 'fas fa-hourglass-half text-danger',
+                        message: 'There are ' + patientPlural(eligibility.expiringIn7, 'patient') + ' with 7 days or less left in the 90-day window.',
+                        detail: 'Service window closing soon',
+                        actionLabel: 'Show Patients'
+                    });
+                }
+                if (Number(eligibility.noServiceDate || 0) > 0) {
+                    groups.push({
+                        key: 'none',
+                        icon: 'fas fa-calendar-times text-secondary',
+                        message: 'There are ' + patientPlural(eligibility.noServiceDate, 'patient') + ' with no service date.',
+                        detail: 'Missing service-date clock',
+                        actionLabel: 'Show Patients'
+                    });
+                }
+            }
+
+            var stats = await patientFetchJson('/api/dashboard/stats');
+            if (stats && Number(stats.patientsWithNoRx || 0) > 0) {
+                groups.push({
+                    key: 'noRx',
+                    icon: 'fas fa-user-slash',
+                    message: 'There are ' + patientPlural(stats.patientsWithNoRx, 'active patient') + ' with no RX records.',
+                    detail: 'Patient record exists without an RX record',
+                    actionLabel: 'Show Patients'
+                });
+            }
+
+            var missing = await patientFetchJson('/api/patients?paginated=true&page=1&pageSize=1&sort=id&dir=desc&status=true&missingInfo=any');
+            if (missing && Number(missing.total || 0) > 0) {
+                groups.push({
+                    key: 'missingInfo',
+                    icon: 'fas fa-exclamation-circle text-warning',
+                    message: 'There are ' + patientPlural(missing.total, 'active patient') + ' missing required default information.',
+                    detail: 'Clinic, pharmacy, or transport information is incomplete',
+                    actionLabel: 'Show Patients'
+                });
+            }
+
+            patientNoticeGroups = groups;
+            if (patientNoticeIndex >= patientNoticeGroups.length) patientNoticeIndex = 0;
         } catch(e) {
-            patientNeedsActionAlerts = [];
-            patientNeedsActionAlertIndex = 0;
+            patientNoticeGroups = [];
+            patientNoticeIndex = 0;
         } finally {
-            patientNeedsActionAlertLoading = false;
+            patientNoticeLoading = false;
             renderNeedsActionBanner();
         }
+    }
+
+    function applyPatientNoticeGroup(key) {
+        var eligEl = document.getElementById('srchEligibility');
+        var missingEl = document.getElementById('srchMissingInfo');
+        if (eligEl) eligEl.value = '';
+        if (missingEl) missingEl.value = '';
+
+        if (key === 'noRx') {
+            window.rxNav('/patients?status=norx');
+            return;
+        }
+        if (key === 'missingInfo') {
+            if (missingEl) missingEl.value = 'any';
+        } else if (eligEl) {
+            eligEl.value = key;
+        }
+
+        var advRow = document.getElementById('advancedFilterRow');
+        var chevron = document.getElementById('advancedChevron');
+        if (advRow) {
+            advRow.style.display = '';
+            _advancedOpen = true;
+        }
+        if (chevron) chevron.className = 'fas fa-chevron-up ms-1';
+        currentPage = 1;
+        liveFilter();
     }
 
     async function loadPatients() {
@@ -1451,20 +1520,33 @@ var allPatients = [];
             return !!p.needsAction;
         });
         var pendingCount = patientServerPaging ? patientNeedsActionCount : pending.length;
+        const eligValue = (document.getElementById('srchEligibility')?.value || '');
+        const isNeedsActionFilter = eligValue === 'needsAction';
 
-        if (!pendingCount) {
+        if (!isNeedsActionFilter && !patientNoticeGroups.length && !patientNoticeLoading) {
+            loadPatientNoticeGroupsForBanner(false);
+        }
+
+        if (isNeedsActionFilter && !pendingCount) {
             container.innerHTML = '';
-            patientNeedsActionAlerts = [];
-            patientNeedsActionAlertIndex = 0;
-            patientNeedsActionAlertKey = '';
+            return;
+        }
+        if (!isNeedsActionFilter && !patientNoticeLoading && !patientNoticeGroups.length) {
+            container.innerHTML = '';
+            patientNoticeIndex = 0;
+            patientNoticeKey = '';
             return;
         }
 
-        const eligValue = (document.getElementById('srchEligibility')?.value || '');
-        const isNeedsActionFilter = eligValue === 'needsAction';
-        const plural = pendingCount === 1 ? '' : 's';
-
         container.textContent = '';
+
+        var currentNotice = null;
+        var noticeCount = patientNoticeGroups.length;
+        if (!isNeedsActionFilter && noticeCount) {
+            if (patientNoticeIndex >= noticeCount) patientNoticeIndex = 0;
+            currentNotice = patientNoticeGroups[patientNoticeIndex];
+        }
+        const plural = pendingCount === 1 ? '' : 's';
 
         var banner = document.createElement('div');
         banner.style.padding = '8px 12px';
@@ -1488,7 +1570,7 @@ var allPatients = [];
         var icon = document.createElement('i');
         icon.className = isNeedsActionFilter
             ? 'fas fa-filter me-2'
-            : 'fas fa-exclamation-triangle me-2 text-warning';
+            : ((currentNotice && currentNotice.icon ? currentNotice.icon : 'fas fa-exclamation-triangle text-warning') + ' me-2');
         if (isNeedsActionFilter) icon.style.color = '#dc3545';
         message.appendChild(icon);
 
@@ -1498,36 +1580,26 @@ var allPatients = [];
             strong.textContent = String(pendingCount);
             message.appendChild(strong);
             message.appendChild(document.createTextNode(' patient' + plural + ' that require workflow action.'));
+        } else if (currentNotice) {
+            message.appendChild(document.createTextNode(currentNotice.message));
         } else {
-            message.appendChild(document.createTextNode('There are '));
-            var count = document.createElement('strong');
-            count.textContent = String(pendingCount);
-            message.appendChild(count);
-            message.appendChild(document.createTextNode(' patient' + plural + ' past the 90-day window with incomplete RX workflow.'));
+            message.appendChild(document.createTextNode('Loading patient notices...'));
         }
 
         messageWrap.appendChild(message);
 
         if (!isNeedsActionFilter) {
-            var alertLine = document.createElement('div');
-            alertLine.style.fontSize = '.76rem';
-            alertLine.style.marginTop = '3px';
-            alertLine.style.color = 'var(--text-muted,#6c757d)';
-            alertLine.style.whiteSpace = 'nowrap';
-            alertLine.style.overflow = 'hidden';
-            alertLine.style.textOverflow = 'ellipsis';
-
-            if (patientNeedsActionAlerts.length) {
-                var safeIndex = Math.min(patientNeedsActionAlertIndex, patientNeedsActionAlerts.length - 1);
-                var preview = needsActionAlertSummary(patientNeedsActionAlerts[safeIndex]);
-                alertLine.textContent = 'Alert ' + (safeIndex + 1) + ' of ' + pendingCount + ': ' + preview;
-            } else {
-                alertLine.textContent = patientNeedsActionAlertLoading
-                    ? 'Loading patient alerts...'
-                    : 'Loading patient alerts...';
-                loadNeedsActionAlertsForBanner(false);
-            }
-            messageWrap.appendChild(alertLine);
+            var noticeLine = document.createElement('div');
+            noticeLine.style.fontSize = '.76rem';
+            noticeLine.style.marginTop = '3px';
+            noticeLine.style.color = 'var(--text-muted,#6c757d)';
+            noticeLine.style.whiteSpace = 'nowrap';
+            noticeLine.style.overflow = 'hidden';
+            noticeLine.style.textOverflow = 'ellipsis';
+            noticeLine.textContent = currentNotice
+                ? 'Notice ' + (patientNoticeIndex + 1) + ' of ' + noticeCount + ': ' + (currentNotice.detail || 'Patient task group')
+                : 'Loading notice groups...';
+            messageWrap.appendChild(noticeLine);
         }
 
         banner.appendChild(messageWrap);
@@ -1540,9 +1612,9 @@ var allPatients = [];
         if (!isNeedsActionFilter) {
             var nextBtn = document.createElement('button');
             nextBtn.type = 'button';
-            nextBtn.id = 'nextNeedsActionAlertBtn';
+            nextBtn.id = 'nextPatientNoticeBtn';
             nextBtn.className = 'btn btn-sm btn-outline-warning';
-            nextBtn.disabled = pendingCount <= 1;
+            nextBtn.disabled = noticeCount <= 1;
             var nextIcon = document.createElement('i');
             nextIcon.className = 'fas fa-chevron-right me-1';
             nextBtn.appendChild(nextIcon);
@@ -1551,44 +1623,36 @@ var allPatients = [];
 
             var showBtn = document.createElement('button');
             showBtn.type = 'button';
-            showBtn.id = 'showNeedsActionBtn';
+            showBtn.id = 'showPatientNoticeBtn';
             showBtn.className = 'btn btn-sm btn-warning';
             var btnIcon = document.createElement('i');
             btnIcon.className = 'fas fa-filter me-1';
             showBtn.appendChild(btnIcon);
-            showBtn.appendChild(document.createTextNode('Show Patients'));
+            showBtn.appendChild(document.createTextNode(currentNotice && currentNotice.actionLabel ? currentNotice.actionLabel : 'Show Patients'));
             actions.appendChild(showBtn);
         }
         banner.appendChild(actions);
 
         container.appendChild(banner);
 
-        const nextAlertBtn = document.getElementById('nextNeedsActionAlertBtn');
-        if (!isNeedsActionFilter && nextAlertBtn) {
-            nextAlertBtn.addEventListener('click', function() {
-                if (!patientNeedsActionAlerts.length) {
-                    loadNeedsActionAlertsForBanner(true);
+        const nextNoticeBtn = document.getElementById('nextPatientNoticeBtn');
+        if (!isNeedsActionFilter && nextNoticeBtn) {
+            nextNoticeBtn.addEventListener('click', function() {
+                if (!patientNoticeGroups.length) {
+                    loadPatientNoticeGroupsForBanner(true);
                     return;
                 }
-                patientNeedsActionAlertIndex = (patientNeedsActionAlertIndex + 1) % patientNeedsActionAlerts.length;
+                patientNoticeIndex = (patientNoticeIndex + 1) % patientNoticeGroups.length;
                 renderNeedsActionBanner();
             });
         }
 
-        const btn = document.getElementById('showNeedsActionBtn');
+        const btn = document.getElementById('showPatientNoticeBtn');
         if (!isNeedsActionFilter && btn) {
             btn.addEventListener('click', function() {
-                var eligEl = document.getElementById('srchEligibility');
-                if (!eligEl) return;
-                eligEl.value = 'needsAction';
-                var advRow = document.getElementById('advancedFilterRow');
-                var chevron = document.getElementById('advancedChevron');
-                if (advRow) {
-                    advRow.style.display = '';
-                    _advancedOpen = true;
+                if (currentNotice && currentNotice.key) {
+                    applyPatientNoticeGroup(currentNotice.key);
                 }
-                if (chevron) chevron.className = 'fas fa-chevron-up ms-1';
-                liveFilter();
             });
         }
     }
