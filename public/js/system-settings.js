@@ -179,7 +179,11 @@ function getDefaultEmailAlertRules() {
 }
 
 function getDefaultUserSubscriptions() {
-    return {};
+    const subs = {};
+    EMAIL_ALERT_RULE_GROUPS.forEach(group => {
+        group.rules.forEach(rule => { subs[rule.key] = false; });
+    });
+    return subs;
 }
 
 function parseEmailAlertRules(raw) {
@@ -265,24 +269,31 @@ function parseUserSubscriptions(raw) {
 }
 
 function renderEmailAlertUsers(users, subscriptions) {
+    const thead = document.getElementById('emailAlertUserHead');
     const wrap = document.getElementById('emailAlertUserList');
     if (!wrap) return;
+    const flatRules = EMAIL_ALERT_RULE_GROUPS.flatMap(group => group.rules);
+    if (thead) {
+        thead.innerHTML = `
+            <tr>
+                <th style="min-width:220px;">User</th>
+                ${flatRules.map(rule => `<th class="text-center" style="min-width:120px;">${rule.title}</th>`).join('')}
+            </tr>
+        `;
+    }
     if (!users.length) {
-        wrap.innerHTML = '<div class="text-muted small py-2">No users with email addresses were found.</div>';
+        wrap.innerHTML = `<tr><td colspan="${1 + flatRules.length}" class="text-muted small py-3">No users with email addresses were found.</td></tr>`;
         return;
     }
     wrap.innerHTML = users.map(user => {
-        const userSub = subscriptions[user.id] || { enabled: false, security: false, patient: false, system: false };
+        const userSub = subscriptions[user.id] || getDefaultUserSubscriptions();
         return `
             <tr>
                 <td>
                     <div class="fw-semibold">${user.firstName || ''} ${user.lastName || ''}</div>
                     <div class="text-muted small">@${user.username || ''} ${user.email ? '&bull; ' + user.email : ''}</div>
                 </td>
-                <td class="text-center"><input class="form-check-input email-user-enabled" type="checkbox" data-user-id="${user.id}" data-field="enabled" ${userSub.enabled ? 'checked' : ''}></td>
-                <td class="text-center"><input class="form-check-input email-user-enabled" type="checkbox" data-user-id="${user.id}" data-field="security" ${userSub.security ? 'checked' : ''}></td>
-                <td class="text-center"><input class="form-check-input email-user-enabled" type="checkbox" data-user-id="${user.id}" data-field="patient" ${userSub.patient ? 'checked' : ''}></td>
-                <td class="text-center"><input class="form-check-input email-user-enabled" type="checkbox" data-user-id="${user.id}" data-field="system" ${userSub.system ? 'checked' : ''}></td>
+                ${flatRules.map(rule => `<td class="text-center"><input class="form-check-input email-user-enabled" type="checkbox" data-user-id="${user.id}" data-field="${rule.key}" ${userSub[rule.key] ? 'checked' : ''}></td>`).join('')}
             </tr>
         `;
     }).join('');
@@ -293,7 +304,7 @@ function collectUserAlertSubscriptions() {
     document.querySelectorAll('.email-user-enabled').forEach(input => {
         const id = input.dataset.userId;
         const field = input.dataset.field;
-        if (!subs[id]) subs[id] = { enabled:false, security:false, patient:false, system:false };
+        if (!subs[id]) subs[id] = getDefaultUserSubscriptions();
         subs[id][field] = input.checked;
     });
     return subs;
@@ -328,6 +339,7 @@ async function saveEmailAlertUsers() {
         const data = await res.json();
         currentSettings = data.settings;
         renderSettingsTable(currentSettings);
+        _emailAlertUsersLoaded = false;
         showToast('Per-user alert subscriptions saved.', 'success');
     } else {
         const err = await res.json();
