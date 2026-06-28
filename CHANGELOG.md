@@ -5,6 +5,21 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ---
 
+## [2.0.61] - 2026-06-28
+
+### [RELEASE-61] Dashboard trends, analytics pagination, and production report prep
+**Files changed:** 30 | dashboard trend snapshots/UI, analytics and reports pagination, patient filters, staging QA data tools, release metadata
+
+- Added dashboard trend history metrics to `DailySnapshots`, including patient eligibility, no-RX, service-date window, workflow, and activity counters.
+- Added Dashboard trend graph cards for patients, RX/workflow, eligibility, and workflow completion, with shared range controls and CSV export support.
+- Kept Login Activity metrics in the snapshot/backoffice layer while removing the Login Activity card from the main dashboard.
+- Fixed dashboard trend date handling so date-only snapshot values stay on the intended local calendar day.
+- Added server-side Backoffice Analytics pagination so large snapshot histories no longer delay the table display.
+- Fixed Patient Report and RX Action Report row selectors so `10`, `20`, `50`, and `100` display only the selected page size.
+- Defaulted Patient Management filtering toward active patients so Dashboard card drilldowns and list totals match unless inactive records are explicitly requested.
+- Preserved staging/development bulk-data tooling for QA speed and functionality tests; production does not use the bulk seed path.
+- Bumped production package version to `2.0.61`.
+
 ## [2.0.60] - 2026-06-28
 
 ### [RELEASE-60] Dashboard drilldowns and patient filter refinement
