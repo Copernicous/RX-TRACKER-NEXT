@@ -5,16 +5,28 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ---
 
-## [Unreleased] - Staging QA
+## [Unreleased]
 
-### Performance - RX Records and Reports database pagination
-**Files changed:** RX Records API/UI, Reports API/UI, Patient/RX page-size defaults
+- No unreleased changes.
 
+## [2.0.65] - 2026-06-28
+
+### [RELEASE-65] Dashboard analytics and pagination performance
+**Files changed:** dashboard analytics, RX Records API/UI, Reports API/UI, Patient/RX defaults, release metadata
+
+- Promoted the tested staging dashboard analytics work into production, including the over-time dashboard graph improvements.
 - Changed RX Records list display from browser-side pagination to database-level pagination. The database now filters, sorts, counts, and returns only the current page before the API hydrates visible rows.
 - Kept legacy `/api/rx-records` full-array behavior for existing callers while the RX Records screen uses `paginated=true`.
 - Changed the RX Records patient picker to load in the background so the full patient picker no longer blocks the RX table display.
+- Added workflow-stage filtering support to the RX Records list.
 - Changed Patient Report and RX Action Report display to server/database pagination. Exports still fetch the full filtered result only when CSV/Excel is requested.
 - Defaulted Patient Management, RX Records, Patient Report, and RX Action Report page sizes to `10` rows.
+- Bumped production package version to `2.0.65`.
+
+**Database impact:**
+- Normal production migration/startup verification is required so the `DailySnapshots` trend columns from `20260628103000-add-dashboard-trend-metrics-to-daily-snapshots.js` are present.
+- No destructive schema or data changes are introduced. Existing patients, RX records, workflow history, and reports data are preserved.
+- Existing performance indexes cover the new paginated patient/RX/report query paths. If production text searches grow very large later, the next tuneup would be adding stronger functional/trigram indexes for name/search fields.
 
 **Staging speed results:**
 - RX Records page display: from about `800-850 ms` to about `30-55 ms`.
