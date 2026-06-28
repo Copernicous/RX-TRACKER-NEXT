@@ -5,6 +5,24 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ---
 
+## [2.0.64] - 2026-06-28
+
+### [HOTFIX-64] Production dashboard trend schema fallback
+**Files changed:** 3 | dashboard graph schema guard, release metadata, production rebuild
+
+- Expanded the dashboard trend schema guard so production waits for the full `DailySnapshots` trend column set before querying graphs.
+- Prevented `/api/dashboard/charts` from throwing when older production databases are missing `patientsWithNoRx` or related trend columns.
+- Bumped production package version to `2.0.64`.
+
+## [2.0.63] - 2026-06-28
+
+### [HOTFIX-63] Production graph fallback stabilization
+**Files changed:** 1 | dashboard trend rendering fallback
+
+- Added an explicit blank-state fallback so dashboard trend panels show a message when the snapshot series is empty or not yet available.
+- Prevented the dashboard from leaving the trend cards blank when the graph payload has no usable points.
+- Bumped production package version to `2.0.63`.
+
 ## [2.0.62] - 2026-06-28
 
 ### [HOTFIX-62] Production graphing schema guard

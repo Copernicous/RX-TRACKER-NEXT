@@ -526,7 +526,19 @@ function renderCharts(data) {
         }
     });
 
-    if (data.dailyTrends) {
+    var hasTrendData = false;
+    if (data.dailyTrends && data.dailyTrends.labels && data.dailyTrends.labels.length) {
+        var trendKeys = ['activePatients','inactivePatients','rxRecords','pendingDeliveries','completedRX','patientsWithNoRx','eligibleNow','expiringIn7','inWindow','noServiceDate','workflowStepsToday','workflowCompletionRate'];
+        for (var hk = 0; hk < trendKeys.length; hk++) {
+            var series = data.dailyTrends[trendKeys[hk]];
+            if (series && series.length) {
+                hasTrendData = true;
+                break;
+            }
+        }
+    }
+
+    if (data.dailyTrends && hasTrendData) {
         var trendLabels = data.dailyTrends.labels || [];
         var trendColors = {
             active: 'rgba(25,135,84,0.85)',
@@ -622,11 +634,15 @@ function renderCharts(data) {
             document.getElementById('workflowCompletionTrendChart')
         ];
         var msg = data.trendWarning || 'Trend charts are unavailable until the snapshot migration is applied.';
+        if (data.dailyTrends && !hasTrendData) {
+            msg = 'Trend data is empty for the selected range.';
+        }
         for (var ti = 0; ti < trendCards.length; ti++) {
             var canvas = trendCards[ti];
             if (!canvas) continue;
             var wrap = canvas.parentNode;
             if (!wrap) continue;
+            if (Chart.getChart(canvas)) Chart.getChart(canvas).destroy();
             wrap.innerHTML = '<div class="d-flex align-items-center justify-content-center text-center h-100" style="min-height:220px;color:#8b949e">' +
                 '<div><i class="fas fa-database me-2 text-warning"></i><div class="small fw-semibold">' + msg + '</div></div></div>';
         }

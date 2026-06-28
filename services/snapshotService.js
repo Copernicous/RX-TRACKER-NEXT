@@ -8,6 +8,17 @@ const { QueryTypes } = require('sequelize');
 
 let _db = null;
 let _trendSchemaReady = null;
+const TREND_COLUMNS = [
+    'patientsWithNoRx',
+    'eligibleNow',
+    'expiringIn7',
+    'inWindow',
+    'noServiceDate',
+    'loginEventsToday',
+    'uniqueLoginUsersToday',
+    'userActivityEventsToday',
+    'uniqueActivityUsersToday'
+];
 function db() {
     if (!_db) _db = require('../models');
     return _db;
@@ -18,7 +29,9 @@ async function isTrendSnapshotSchemaReady() {
     try {
         const qi = db().sequelize.getQueryInterface();
         const table = await qi.describeTable('DailySnapshots');
-        _trendSchemaReady = !!table && Object.prototype.hasOwnProperty.call(table, 'eligibleNow');
+        _trendSchemaReady = !!table && TREND_COLUMNS.every(function(col) {
+            return Object.prototype.hasOwnProperty.call(table, col);
+        });
     } catch (e) {
         _trendSchemaReady = false;
     }
