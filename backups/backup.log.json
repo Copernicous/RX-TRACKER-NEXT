@@ -1,5 +1,85 @@
 [
   {
+    "id": 1782626400606,
+    "filename": "backup_2026-06-28T06-00-00.dump",
+    "filepath": "E:\\Documents\\Daniely RX\\backups\\backup_2026-06-28T06-00-00.dump",
+    "timestamp": "2026-06-28T06:00:00.606Z",
+    "triggeredBy": "Scheduled",
+    "status": "success",
+    "size": 107849,
+    "error": null
+  },
+  {
+    "id": 1782540000564,
+    "filename": "backup_2026-06-27T06-00-00.dump",
+    "filepath": "E:\\Documents\\Daniely RX\\backups\\backup_2026-06-27T06-00-00.dump",
+    "timestamp": "2026-06-27T06:00:00.564Z",
+    "triggeredBy": "Scheduled",
+    "status": "success",
+    "size": 106881,
+    "error": null
+  },
+  {
+    "id": 1782540000561,
+    "filename": "backup_2026-06-27T06-00-00.dump",
+    "filepath": "E:\\Documents\\Daniely RX\\backups\\backup_2026-06-27T06-00-00.dump",
+    "timestamp": "2026-06-27T06:00:00.561Z",
+    "triggeredBy": "Scheduled",
+    "status": "success",
+    "size": 106881,
+    "error": null
+  },
+  {
+    "id": 1782486000337,
+    "filename": "backup_2026-06-26T15-00-00.dump",
+    "filepath": "E:\\Documents\\Daniely RX\\backups\\backup_2026-06-26T15-00-00.dump",
+    "timestamp": "2026-06-26T15:00:00.337Z",
+    "triggeredBy": "Scheduled",
+    "status": "success",
+    "size": 95627,
+    "error": null
+  },
+  {
+    "id": 1782486000336,
+    "filename": "backup_2026-06-26T15-00-00.dump",
+    "filepath": "E:\\Documents\\Daniely RX\\backups\\backup_2026-06-26T15-00-00.dump",
+    "timestamp": "2026-06-26T15:00:00.336Z",
+    "triggeredBy": "Scheduled",
+    "status": "success",
+    "size": 95627,
+    "error": null
+  },
+  {
+    "id": 1782432000333,
+    "filename": "backup_2026-06-26T00-00-00.dump",
+    "filepath": "E:\\Documents\\Daniely RX\\backups\\backup_2026-06-26T00-00-00.dump",
+    "timestamp": "2026-06-26T00:00:00.333Z",
+    "triggeredBy": "Scheduled",
+    "status": "success",
+    "size": 88821,
+    "error": null
+  },
+  {
+    "id": 1782417600525,
+    "filename": "backup_2026-06-25T20-00-00.dump",
+    "filepath": "E:\\Documents\\Daniely RX\\backups\\backup_2026-06-25T20-00-00.dump",
+    "timestamp": "2026-06-25T20:00:00.525Z",
+    "triggeredBy": "Scheduled",
+    "status": "success",
+    "size": 88055,
+    "error": null
+  },
+  {
+    "id": 1782417600524,
+    "filename": "backup_2026-06-25T20-00-00.dump",
+    "filepath": "E:\\Documents\\Daniely RX\\backups\\backup_2026-06-25T20-00-00.dump",
+    "timestamp": "2026-06-25T20:00:00.524Z",
+    "triggeredBy": "Scheduled",
+    "status": "success",
+    "size": 88055,
+    "error": null
+  },
+  {
     "id": 1782399600745,
     "filename": "backup_2026-06-25T15-00-00.dump",
     "filepath": "E:\\Documents\\Daniely RX\\backups\\backup_2026-06-25T15-00-00.dump",
@@ -45,24 +125,6 @@
     "triggeredBy": "Manual (admin)",
     "status": "success",
     "size": 73823,
-    "error": null
-  },
-  {
-    "id": 1782194400391,
-    "filename": "backup_2026-06-23T06-00-00.dump",
-    "timestamp": "2026-06-23T06:00:00.391Z",
-    "triggeredBy": "Scheduled",
-    "status": "success",
-    "size": 65720,
-    "error": null
-  },
-  {
-    "id": 1782186271321,
-    "filename": "backup_2026-06-23T03-44-30.dump",
-    "timestamp": "2026-06-23T03:44:31.321Z",
-    "triggeredBy": "Manual (admin)",
-    "status": "success",
-    "size": 65703,
     "error": null
   }
 ]

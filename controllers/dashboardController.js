@@ -1,5 +1,6 @@
 const db = require('../models');
 const { Op, fn, col, literal } = require('sequelize');
+const { captureSnapshot } = require('../services/snapshotService');
 
 // ── Helper: build a date-range WHERE clause from ?from= / ?to= params ─────────
 function buildDateRange(req) {
@@ -10,6 +11,29 @@ function buildDateRange(req) {
     if (from) clause[Op.gte] = new Date(from + 'T00:00:00');
     if (to)   clause[Op.lte] = new Date(to   + 'T23:59:59');
     return clause;
+}
+
+function snapshotToTrend(row) {
+    if (!row) return null;
+    return {
+        date: row.snapshotDate,
+        activePatients: row.activePatients || 0,
+        inactivePatients: row.inactivePatients || 0,
+        totalRX: row.totalRX || 0,
+        pendingRX: row.pendingRX || 0,
+        eligibleNow: row.eligibleNow || 0,
+        expiringIn7: row.expiringIn7 || 0,
+        inWindow: row.inWindow || 0,
+        noServiceDate: row.noServiceDate || 0,
+        loginEventsToday: row.loginEventsToday || 0,
+        workflowCompletionRate: row.workflowCompletionRate || 0,
+        completedWorkflowSteps: row.completedWorkflowSteps || 0,
+        totalWorkflowSteps: row.totalWorkflowSteps || 0
+    };
+}
+
+function localDateString(d) {
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 }
 
 exports.getStats = async (req, res) => {
@@ -93,7 +117,6 @@ exports.getStats = async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 };
-
 exports.getActivePatients = async (req, res) => {
     try {
         const patients = await db.Patient.findAll({
@@ -187,62 +210,112 @@ exports.getTotalRx = async (req, res) => {
 
 exports.getChartData = async (req, res) => {
     try {
-        // ── Patients per month (last 6 months) ──────────────────────────────
         const months = [];
         const patientCounts = [];
+        const chartFrom = req.query.chartFrom || '';
+        const chartTo   = req.query.chartTo || '';
+        const chartRange = req.query.chartRange || '';
+
+        function monthLabel(d) {
+            return d.toLocaleString('default', { month: 'short', year: '2-digit' });
+        }
+
+        function startOfDay(d) {
+            var x = new Date(d);
+            x.setHours(0, 0, 0, 0);
+            return x;
+        }
+
         for (let i = 5; i >= 0; i--) {
             const d = new Date();
             d.setDate(1);
             d.setMonth(d.getMonth() - i);
-            const year  = d.getFullYear();
+            const year = d.getFullYear();
             const month = d.getMonth() + 1;
-            const label = d.toLocaleString('default', { month: 'short', year: '2-digit' });
-            const startStr = `${year}-${String(month).padStart(2,'0')}-01`;
-            const endDate  = new Date(year, month, 0);
-            const endStr   = `${year}-${String(month).padStart(2,'0')}-${String(endDate.getDate()).padStart(2,'0')}`;
-            const count = await db.Patient.count({
-                where: {
-                    isDeleted: false,
-                    createdAt: { [Op.between]: [new Date(startStr), new Date(endStr + 'T23:59:59')] }
-                }
-            });
+            const label = monthLabel(d);
+            const startStr = year + '-' + String(month).padStart(2, '0') + '-01';
+            const endDate = new Date(year, month, 0);
+            const endStr = year + '-' + String(month).padStart(2, '0') + '-' + String(endDate.getDate()).padStart(2, '0');
+            const count = await db.Patient.count({ where: { isDeleted: false, createdAt: { [Op.between]: [new Date(startStr), new Date(endStr + 'T23:59:59')] } } });
             months.push(label);
             patientCounts.push(count);
         }
 
-        // PERF-01: Replace N+1 per-record loop with grouped aggregate
         const totalSteps2 = await db.WorkflowAction.count({ where: { isActive: true } });
-        const allRxIds    = await db.RXRecord.findAll({
-            attributes: ['id'],
-            where: { isDeleted: false },
-            raw: true
-        });
-
+        const allRxIds = await db.RXRecord.findAll({ attributes: ['id'], where: { isDeleted: false }, raw: true });
         let completed2 = 0, pending = 0;
-
         if (totalSteps2 === 0) {
             pending = allRxIds.length;
         } else {
-            const trackingCounts = await db.RXWorkflowTracking.findAll({
-                attributes: ['rxRecordId', [fn('COUNT', col('id')), 'stepsDone']],
-                group: ['rxRecordId'],
-                raw: true
-            });
+            const trackingCounts = await db.RXWorkflowTracking.findAll({ attributes: ['rxRecordId', [fn('COUNT', col('id')), 'stepsDone']], group: ['rxRecordId'], raw: true });
             const doneMap = {};
-            for (const row of trackingCounts) {
-                doneMap[row.rxRecordId] = parseInt(row.stepsDone, 10);
-            }
-            for (const { id } of allRxIds) {
-                const done = doneMap[id] || 0;
-                if (done >= totalSteps2) completed2++;
-                else pending++;
+            for (const row of trackingCounts) doneMap[row.rxRecordId] = parseInt(row.stepsDone, 10);
+            for (const rec of allRxIds) {
+                if ((doneMap[rec.id] || 0) >= totalSteps2) completed2++; else pending++;
             }
         }
 
-        res.json({
-            patientsPerMonth: { labels: months, data: patientCounts },
-            rxStatus: { labels: ['Completed', 'Pending'], data: [completed2, pending] }
+        let rangeStart = chartFrom ? new Date(chartFrom + 'T00:00:00') : (function(){ var d = new Date(); d.setHours(0,0,0,0); d.setDate(d.getDate()-29); return d; })();
+        let rangeEnd = chartTo ? new Date(chartTo + 'T23:59:59') : new Date();
+        if (chartRange === 'all' && !chartFrom && !chartTo) {
+            const firstSnap = await db.DailySnapshot.findOne({ order: [['snapshotDate', 'ASC']], raw: true });
+            if (firstSnap && firstSnap.snapshotDate) {
+                rangeStart = new Date(firstSnap.snapshotDate + 'T00:00:00');
+            }
+        }
+        const startDate = localDateString(rangeStart);
+        const endDate = localDateString(rangeEnd);
+        const todayDate = localDateString(new Date());
+        if (startDate <= todayDate && endDate >= todayDate) {
+            const todaySnap = await db.DailySnapshot.findOne({ where: { snapshotDate: todayDate }, raw: true });
+            const staleMs = todaySnap && todaySnap.updatedAt ? (Date.now() - new Date(todaySnap.updatedAt).getTime()) : null;
+            if (!todaySnap || staleMs === null || staleMs > 5 * 60 * 1000) {
+                await captureSnapshot(todayDate).catch(function(e) {
+                    console.warn('[Dashboard] Could not refresh today snapshot:', e.message);
+                });
+            }
+        }
+        const snapshots = await db.DailySnapshot.findAll({
+            where: { snapshotDate: { [Op.between]: [startDate, endDate] } },
+            order: [['snapshotDate', 'ASC']],
+            raw: true
         });
+        const byDate = {};
+        for (const snap of snapshots) byDate[snap.snapshotDate] = snap;
+        const dateKeys = [];
+        for (let d = new Date(startDate + 'T00:00:00'); localDateString(d) <= endDate; d.setDate(d.getDate() + 1)) {
+            dateKeys.push(localDateString(d));
+        }
+        function series(field) {
+            return dateKeys.map(function(date) {
+                const row = byDate[date];
+                return row ? (row[field] || 0) : null;
+            });
+        }
+        const dailyTrends = {
+            labels: dateKeys,
+            activePatients: series('activePatients'),
+            inactivePatients: series('inactivePatients'),
+            rxRecords: series('totalRX'),
+            pendingDeliveries: series('pendingRX'),
+            completedRX: series('completedRX'),
+            patientsWithNoRx: series('patientsWithNoRx'),
+            eligibleNow: series('eligibleNow'),
+            expiringIn7: series('expiringIn7'),
+            inWindow: series('inWindow'),
+            noServiceDate: series('noServiceDate'),
+            loginEventsToday: series('loginEventsToday'),
+            uniqueLoginUsersToday: series('uniqueLoginUsersToday'),
+            userActivityEventsToday: series('userActivityEventsToday'),
+            uniqueActivityUsersToday: series('uniqueActivityUsersToday'),
+            auditEventsToday: series('auditEventsToday'),
+            workflowStepsToday: series('workflowStepsToday'),
+            completedWorkflowSteps: series('completedWorkflowSteps'),
+            totalWorkflowSteps: series('totalWorkflowSteps'),
+            workflowCompletionRate: series('workflowCompletionRate')
+        };
+
+        res.json({ patientsPerMonth: { labels: months, data: patientCounts }, rxStatus: { labels: ['Completed', 'Pending'], data: [completed2, pending] }, dailyTrends });
     } catch (error) { res.status(500).json({ error: error.message }); }
 };
 

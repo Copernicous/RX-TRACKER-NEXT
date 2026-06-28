@@ -30,6 +30,7 @@ var _api = (function() {
 
 var drilldownModal = null, drilldownCurrentData = [], drilldownType = '';
 var _dashFrom = '', _dashTo = '';
+var _trendPreset = '30d', _trendFrom = '', _trendTo = '';
 var _accountModal = null;
 
 // =====================================================================
@@ -96,6 +97,98 @@ function buildDateQuery() {
     return parts.length ? '?' + parts.join('&') : '';
 }
 
+function validateDashRange() {
+    var fromEl = document.getElementById('dashFrom');
+    var toEl   = document.getElementById('dashTo');
+    if (!fromEl || !toEl) return true;
+    var from = fromEl.value;
+    var to   = toEl.value;
+    if (from && to && from > to) {
+        showToast('Dashboard custom date range cannot have From after To.', 'warning');
+        toEl.value = from;
+        return false;
+    }
+    return true;
+}
+
+function getTrendPresetRange(preset) {
+    var now = new Date();
+    var today = _fmtDate(now);
+    if (preset === 'all') return { from: '', to: '' };
+    if (preset === '7d')  {
+        var s7 = new Date(now);
+        s7.setDate(now.getDate() - 6);
+        return { from: _fmtDate(s7), to: today };
+    }
+    if (preset === '30d') {
+        var s30 = new Date(now);
+        s30.setDate(now.getDate() - 29);
+        return { from: _fmtDate(s30), to: today };
+    }
+    if (preset === '90d') {
+        var s90 = new Date(now);
+        s90.setDate(now.getDate() - 89);
+        return { from: _fmtDate(s90), to: today };
+    }
+    return { from: '', to: '' };
+}
+
+function syncTrendUi() {
+    var fromEl = document.getElementById('trendFrom');
+    var toEl   = document.getElementById('trendTo');
+    if (fromEl) fromEl.value = _trendFrom || '';
+    if (toEl)   toEl.value   = _trendTo || '';
+    var btns = document.querySelectorAll('.trend-range-btn');
+    for (var i = 0; i < btns.length; i++) {
+        var b = btns[i];
+        var active = b.getAttribute('data-trend-range') === _trendPreset;
+        b.classList.toggle('active', active);
+    }
+}
+
+function setTrendPreset(preset) {
+    _trendPreset = preset || '30d';
+    var range = getTrendPresetRange(_trendPreset);
+    _trendFrom = range.from;
+    _trendTo = range.to;
+    syncTrendUi();
+    loadDashboardCharts();
+}
+
+function validateTrendRange() {
+    var fromEl = document.getElementById('trendFrom');
+    var toEl   = document.getElementById('trendTo');
+    if (!fromEl || !toEl) return true;
+    var from = fromEl.value;
+    var to = toEl.value;
+    if (from && to && from > to) {
+        showToast('Trend range From date cannot be after To date.', 'warning');
+        toEl.value = from;
+        return false;
+    }
+    return true;
+}
+
+function buildTrendQuery() {
+    var parts = [];
+    if (_trendPreset === 'all') parts.push('chartRange=all');
+    if (_trendFrom) parts.push('chartFrom=' + _trendFrom);
+    if (_trendTo)   parts.push('chartTo=' + _trendTo);
+    return parts.length ? '?' + parts.join('&') : '';
+}
+
+function loadDashboardCharts() {
+    var q = buildTrendQuery();
+    return fetchWithAuth(_api.charts + q).then(function(chartRes) {
+        if (chartRes && chartRes.ok) {
+            return chartRes.json().then(function(chartData) {
+                window._lastChartData = chartData;
+                renderCharts(chartData);
+            });
+        }
+    }).catch(function(e) { console.warn('Charts failed:', e); });
+}
+
 // =====================================================================
 // Dashboard stats refresh
 // =====================================================================
@@ -111,6 +204,11 @@ function refreshDashboard() {
             setTxt('activeRxCount',          safe(data.activeRxCount));
             setTxt('patientsWithNoRxCount',  safe(data.patientsWithNoRx));
             setTxt('pendingDeliveriesCount', safe(data.pendingDeliveriesCount));
+            var setNote = function(id, val) { var el = document.getElementById(id); if (el) el.textContent = val; };
+            setNote('eligNowNote', 'Active patients only, inactive excluded');
+            setNote('eligExpiringNote', 'Active patients only, inactive excluded');
+            setNote('eligWindowNote', 'Active patients only, inactive excluded');
+            setNote('eligNoDateNote', 'Active patients only, inactive excluded');
 
             if (window._auditLogAllowed) {
                 var tbody = document.getElementById('recentActivityBody');
@@ -205,6 +303,14 @@ function openEligDrilldown(filter) {
     if (fpBtn) {
         var plEl = pageLinks[filter];
         fpBtn.href = plEl ? plEl.href : '/patients';
+        fpBtn.target = '_self';
+        fpBtn.onclick = function(e) {
+            if (e && e.preventDefault) e.preventDefault();
+            var dest = fpBtn.href || '/patients';
+            if (drilldownModal) drilldownModal.hide();
+            window.location.href = dest;
+            return false;
+        };
         fpBtn.textContent = '';
         var fpIcon = document.createElement('i');
         fpIcon.className = 'fas fa-filter me-1';
@@ -365,7 +471,20 @@ function renderCharts(data) {
     var gc = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)';
     Chart.defaults.color = tc;
 
-    new Chart(document.getElementById('patientsBarChart').getContext('2d'), {
+    var patientsBarCanvas = document.getElementById('patientsBarChart');
+    var rxDonutCanvas = document.getElementById('rxDonutChart');
+    var pTrend = document.getElementById('patientsTrendChart');
+    var wTrend = document.getElementById('workflowTrendChart');
+    var eTrend = document.getElementById('eligibilityTrendChart');
+    var wcTrend = document.getElementById('workflowCompletionTrendChart');
+    if (patientsBarCanvas && Chart.getChart(patientsBarCanvas)) Chart.getChart(patientsBarCanvas).destroy();
+    if (rxDonutCanvas && Chart.getChart(rxDonutCanvas)) Chart.getChart(rxDonutCanvas).destroy();
+    if (pTrend && Chart.getChart(pTrend)) Chart.getChart(pTrend).destroy();
+    if (wTrend && Chart.getChart(wTrend)) Chart.getChart(wTrend).destroy();
+    if (eTrend && Chart.getChart(eTrend)) Chart.getChart(eTrend).destroy();
+    if (wcTrend && Chart.getChart(wcTrend)) Chart.getChart(wcTrend).destroy();
+
+    new Chart(patientsBarCanvas.getContext('2d'), {
         type: 'bar',
         data: {
             labels: data.patientsPerMonth.labels,
@@ -385,7 +504,7 @@ function renderCharts(data) {
     var rxData = data.rxStatus;
     var total  = 0;
     for (var ri = 0; ri < rxData.data.length; ri++) { total += rxData.data[ri]; }
-    new Chart(document.getElementById('rxDonutChart').getContext('2d'), {
+    new Chart(rxDonutCanvas.getContext('2d'), {
         type: 'doughnut',
         data: {
             labels: rxData.labels,
@@ -406,6 +525,96 @@ function renderCharts(data) {
             }
         }
     });
+
+    if (data.dailyTrends) {
+        var trendLabels = data.dailyTrends.labels || [];
+        var trendColors = {
+            active: 'rgba(25,135,84,0.85)',
+            inactive: 'rgba(220,53,69,0.85)',
+            rx: 'rgba(74,144,226,0.85)',
+            pending: 'rgba(245,166,35,0.85)',
+            completed: 'rgba(80,227,194,0.85)',
+            norx: 'rgba(155,89,182,0.85)',
+            eligible: 'rgba(255,193,7,0.9)',
+            expiring: 'rgba(253,126,20,0.9)',
+            window: 'rgba(32,201,151,0.85)',
+            nodate: 'rgba(108,117,125,0.85)',
+            rate: 'rgba(13,110,253,0.9)'
+        };
+        var baseLineOptions = function(percentAxis) {
+            return {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: { legend: { position: 'bottom' } },
+                scales: {
+                    x: { grid: { color: gc }, ticks: { color: tc, maxRotation: 0, autoSkip: true } },
+                    y: { grid: { color: gc }, ticks: { color: tc, precision: 0 }, beginAtZero: true, suggestedMax: percentAxis ? 100 : undefined }
+                }
+            };
+        };
+
+        if (pTrend) {
+            new Chart(pTrend.getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels: trendLabels,
+                    datasets: [
+                        { label: 'Active Patients', data: data.dailyTrends.activePatients || [], borderColor: trendColors.active, backgroundColor: trendColors.active, tension: 0.25, fill: false, pointRadius: 1.5 },
+                        { label: 'Inactive Patients', data: data.dailyTrends.inactivePatients || [], borderColor: trendColors.inactive, backgroundColor: trendColors.inactive, tension: 0.25, fill: false, pointRadius: 1.5 },
+                        { label: 'Patients With No RX', data: data.dailyTrends.patientsWithNoRx || [], borderColor: trendColors.norx, backgroundColor: trendColors.norx, tension: 0.25, fill: false, pointRadius: 1.5 }
+                    ]
+                },
+                options: baseLineOptions(false)
+            });
+        }
+
+        if (wTrend) {
+            new Chart(wTrend.getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels: trendLabels,
+                    datasets: [
+                        { label: 'Total RX Records', data: data.dailyTrends.rxRecords || [], borderColor: trendColors.rx, backgroundColor: trendColors.rx, tension: 0.25, fill: false, pointRadius: 1.5 },
+                        { label: 'Pending Deliveries', data: data.dailyTrends.pendingDeliveries || [], borderColor: trendColors.pending, backgroundColor: trendColors.pending, tension: 0.25, fill: false, pointRadius: 1.5 },
+                        { label: 'Completed RX', data: data.dailyTrends.completedRX || [], borderColor: trendColors.completed, backgroundColor: trendColors.completed, tension: 0.25, fill: false, pointRadius: 1.5 }
+                    ]
+                },
+                options: baseLineOptions(false)
+            });
+        }
+
+        if (eTrend) {
+            new Chart(eTrend.getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels: trendLabels,
+                    datasets: [
+                        { label: 'Eligible Now', data: data.dailyTrends.eligibleNow || [], borderColor: trendColors.eligible, backgroundColor: trendColors.eligible, tension: 0.25, fill: false, pointRadius: 1.5 },
+                        { label: '7 Days Left', data: data.dailyTrends.expiringIn7 || [], borderColor: trendColors.expiring, backgroundColor: trendColors.expiring, tension: 0.25, fill: false, pointRadius: 1.5 },
+                        { label: 'Active Window', data: data.dailyTrends.inWindow || [], borderColor: trendColors.window, backgroundColor: trendColors.window, tension: 0.25, fill: false, pointRadius: 1.5 },
+                        { label: 'No Service Date', data: data.dailyTrends.noServiceDate || [], borderColor: trendColors.nodate, backgroundColor: trendColors.nodate, tension: 0.25, fill: false, pointRadius: 1.5 }
+                    ]
+                },
+                options: baseLineOptions(false)
+            });
+        }
+
+        if (wcTrend) {
+            new Chart(wcTrend.getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels: trendLabels,
+                    datasets: [
+                        { label: 'Completion Rate %', data: data.dailyTrends.workflowCompletionRate || [], borderColor: trendColors.rate, backgroundColor: trendColors.rate, tension: 0.25, fill: false, pointRadius: 1.5 },
+                        { label: 'Steps Completed Today', data: data.dailyTrends.workflowStepsToday || [], borderColor: trendColors.completed, backgroundColor: trendColors.completed, tension: 0.25, fill: false, pointRadius: 1.5 }
+                    ]
+                },
+                options: baseLineOptions(true)
+            });
+        }
+
+    }
 }
 
 // =====================================================================
@@ -442,7 +651,17 @@ function openDrilldown(type) {
     if (bodyEl)  bodyEl.innerHTML = '<p class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin me-2"></i>Loading...</p>';
 
     var fp = document.getElementById('drilldownFullPageBtn');
-    if (fp) fp.href = getPageLink(type);
+    if (fp) {
+        fp.href = getPageLink(type);
+        fp.target = '_self';
+        fp.onclick = function(e) {
+            if (e && e.preventDefault) e.preventDefault();
+            var dest = fp.href || '#';
+            if (drilldownModal) drilldownModal.hide();
+            if (dest && dest !== '#') window.location.href = dest;
+            return false;
+        };
+    }
     drilldownModal.show();
 
     fetchWithAuth(_api.drill + type).then(function(res) {
@@ -611,6 +830,48 @@ function exportRecentActivity() {
     if (!rows.length) { showToast('No activity to export', 'warning'); return; }
     exportToCsv('recent_activity_' + new Date().toISOString().slice(0,10) + '.csv', ['User','Module','Action','Date','IP Address'], rows);
     showToast('Recent activity exported!', 'success');
+}
+
+function exportTrendCsv() {
+    if (!window._lastChartData || !window._lastChartData.dailyTrends) {
+        showToast('No trend data to export.', 'warning');
+        return;
+    }
+    var d = window._lastChartData.dailyTrends;
+    var rows = [];
+    for (var i = 0; i < (d.labels || []).length; i++) {
+        rows.push([
+            d.labels[i] || '',
+            d.activePatients ? d.activePatients[i] : '',
+            d.inactivePatients ? d.inactivePatients[i] : '',
+            d.rxRecords ? d.rxRecords[i] : '',
+            d.pendingDeliveries ? d.pendingDeliveries[i] : '',
+            d.completedRX ? d.completedRX[i] : '',
+            d.patientsWithNoRx ? d.patientsWithNoRx[i] : '',
+            d.eligibleNow ? d.eligibleNow[i] : '',
+            d.expiringIn7 ? d.expiringIn7[i] : '',
+            d.inWindow ? d.inWindow[i] : '',
+            d.noServiceDate ? d.noServiceDate[i] : '',
+            d.workflowCompletionRate ? d.workflowCompletionRate[i] : '',
+            d.workflowStepsToday ? d.workflowStepsToday[i] : ''
+        ]);
+    }
+    exportToCsv('dashboard_trends_' + new Date().toISOString().slice(0,10) + '.csv', [
+        'Date',
+        'Active Patients',
+        'Inactive Patients',
+        'Total RX Records',
+        'Pending Deliveries',
+        'Completed RX',
+        'Patients With No RX',
+        'Eligible Now',
+        '7 Days Left',
+        'Active Window',
+        'No Service Date',
+        'Workflow Completion Rate',
+        'Workflow Steps Today'
+    ], rows);
+    showToast('Trend data exported!', 'success');
 }
 
 // =====================================================================
@@ -949,12 +1210,58 @@ document.addEventListener('DOMContentLoaded', function() {
         })(presetBtns[pi]);
     }
 
+    // Trend range controls
+    var trendBtns = document.querySelectorAll('.trend-range-btn');
+    for (var ti = 0; ti < trendBtns.length; ti++) {
+        (function(btn) {
+            btn.addEventListener('click', function() {
+                setTrendPreset(btn.getAttribute('data-trend-range') || '30d');
+            });
+        })(trendBtns[ti]);
+    }
+
+    var trendFromEl = document.getElementById('trendFrom');
+    var trendToEl = document.getElementById('trendTo');
+    if (trendFromEl) {
+        trendFromEl.addEventListener('change', function() {
+            if (!validateTrendRange()) return;
+            _trendFrom = this.value;
+            _trendTo = trendToEl ? trendToEl.value : '';
+            _trendPreset = 'custom';
+            syncTrendUi();
+        });
+    }
+    if (trendToEl) {
+        trendToEl.addEventListener('change', function() {
+            if (!validateTrendRange()) return;
+            _trendFrom = trendFromEl ? trendFromEl.value : '';
+            _trendTo = this.value;
+            _trendPreset = 'custom';
+            syncTrendUi();
+        });
+    }
+    var trendApply = document.getElementById('trendApplyBtn');
+    if (trendApply) {
+        trendApply.addEventListener('click', function() {
+            if (!validateTrendRange()) return;
+            _trendFrom = trendFromEl ? trendFromEl.value : '';
+            _trendTo = trendToEl ? trendToEl.value : '';
+            _trendPreset = 'custom';
+            syncTrendUi();
+            loadDashboardCharts();
+        });
+    }
+    setTrendPreset('30d');
+
     // Date pickers
     var dateIds = ['dashFrom', 'dashTo'];
     for (var di = 0; di < dateIds.length; di++) {
         var el = document.getElementById(dateIds[di]);
         if (el) {
             el.addEventListener('change', function() {
+                _dashFrom = document.getElementById('dashFrom').value;
+                _dashTo   = document.getElementById('dashTo').value;
+                validateDashRange();
                 _dashFrom = document.getElementById('dashFrom').value;
                 _dashTo   = document.getElementById('dashTo').value;
                 var presets = document.querySelectorAll('.dash-preset');
@@ -1000,18 +1307,12 @@ document.addEventListener('DOMContentLoaded', function() {
     if (expDash) expDash.addEventListener('click', exportDashboardReport);
     var expAct = document.getElementById('exportActivityBtn');
     if (expAct) expAct.addEventListener('click', exportRecentActivity);
+    var trendExport = document.getElementById('trendExportBtn');
+    if (trendExport) trendExport.addEventListener('click', exportTrendCsv);
 
     // Load data
-    refreshDashboard().then(function() {
-        return fetchWithAuth(_api.charts);
-    }).then(function(chartRes) {
-        if (chartRes && chartRes.ok) {
-            return chartRes.json().then(function(chartData) {
-                window._lastChartData = chartData;
-                renderCharts(chartData);
-            });
-        }
-    }).catch(function(e) { console.warn('Charts failed:', e); });
+    refreshDashboard();
+    loadDashboardCharts();
 
     // Load eligibility widget independently
     loadEligibility();
