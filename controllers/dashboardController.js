@@ -1,6 +1,6 @@
 const db = require('../models');
 const { Op, fn, col, literal } = require('sequelize');
-const { captureSnapshot } = require('../services/snapshotService');
+const { captureSnapshot, isTrendSnapshotSchemaReady } = require('../services/snapshotService');
 
 // ── Helper: build a date-range WHERE clause from ?from= / ?to= params ─────────
 function buildDateRange(req) {
@@ -275,47 +275,55 @@ exports.getChartData = async (req, res) => {
                 });
             }
         }
-        const snapshots = await db.DailySnapshot.findAll({
-            where: { snapshotDate: { [Op.between]: [startDate, endDate] } },
-            order: [['snapshotDate', 'ASC']],
-            raw: true
-        });
-        const byDate = {};
-        for (const snap of snapshots) byDate[snap.snapshotDate] = snap;
-        const dateKeys = [];
-        for (let d = new Date(startDate + 'T00:00:00'); localDateString(d) <= endDate; d.setDate(d.getDate() + 1)) {
-            dateKeys.push(localDateString(d));
-        }
-        function series(field) {
-            return dateKeys.map(function(date) {
-                const row = byDate[date];
-                return row ? (row[field] || 0) : null;
-            });
-        }
-        const dailyTrends = {
-            labels: dateKeys,
-            activePatients: series('activePatients'),
-            inactivePatients: series('inactivePatients'),
-            rxRecords: series('totalRX'),
-            pendingDeliveries: series('pendingRX'),
-            completedRX: series('completedRX'),
-            patientsWithNoRx: series('patientsWithNoRx'),
-            eligibleNow: series('eligibleNow'),
-            expiringIn7: series('expiringIn7'),
-            inWindow: series('inWindow'),
-            noServiceDate: series('noServiceDate'),
-            loginEventsToday: series('loginEventsToday'),
-            uniqueLoginUsersToday: series('uniqueLoginUsersToday'),
-            userActivityEventsToday: series('userActivityEventsToday'),
-            uniqueActivityUsersToday: series('uniqueActivityUsersToday'),
-            auditEventsToday: series('auditEventsToday'),
-            workflowStepsToday: series('workflowStepsToday'),
-            completedWorkflowSteps: series('completedWorkflowSteps'),
-            totalWorkflowSteps: series('totalWorkflowSteps'),
-            workflowCompletionRate: series('workflowCompletionRate')
-        };
+        const trendReady = await isTrendSnapshotSchemaReady();
+        let dailyTrends = null;
+        let trendWarning = '';
 
-        res.json({ patientsPerMonth: { labels: months, data: patientCounts }, rxStatus: { labels: ['Completed', 'Pending'], data: [completed2, pending] }, dailyTrends });
+        if (trendReady) {
+            const snapshots = await db.DailySnapshot.findAll({
+                where: { snapshotDate: { [Op.between]: [startDate, endDate] } },
+                order: [['snapshotDate', 'ASC']],
+                raw: true
+            });
+            const byDate = {};
+            for (const snap of snapshots) byDate[snap.snapshotDate] = snap;
+            const dateKeys = [];
+            for (let d = new Date(startDate + 'T00:00:00'); localDateString(d) <= endDate; d.setDate(d.getDate() + 1)) {
+                dateKeys.push(localDateString(d));
+            }
+            function series(field) {
+                return dateKeys.map(function(date) {
+                    const row = byDate[date];
+                    return row ? (row[field] || 0) : null;
+                });
+            }
+            dailyTrends = {
+                labels: dateKeys,
+                activePatients: series('activePatients'),
+                inactivePatients: series('inactivePatients'),
+                rxRecords: series('totalRX'),
+                pendingDeliveries: series('pendingRX'),
+                completedRX: series('completedRX'),
+                patientsWithNoRx: series('patientsWithNoRx'),
+                eligibleNow: series('eligibleNow'),
+                expiringIn7: series('expiringIn7'),
+                inWindow: series('inWindow'),
+                noServiceDate: series('noServiceDate'),
+                loginEventsToday: series('loginEventsToday'),
+                uniqueLoginUsersToday: series('uniqueLoginUsersToday'),
+                userActivityEventsToday: series('userActivityEventsToday'),
+                uniqueActivityUsersToday: series('uniqueActivityUsersToday'),
+                auditEventsToday: series('auditEventsToday'),
+                workflowStepsToday: series('workflowStepsToday'),
+                completedWorkflowSteps: series('completedWorkflowSteps'),
+                totalWorkflowSteps: series('totalWorkflowSteps'),
+                workflowCompletionRate: series('workflowCompletionRate')
+            };
+        } else {
+            trendWarning = 'Daily trend graphs are waiting on the production snapshot migration.';
+        }
+
+        res.json({ patientsPerMonth: { labels: months, data: patientCounts }, rxStatus: { labels: ['Completed', 'Pending'], data: [completed2, pending] }, dailyTrends, trendReady, trendWarning });
     } catch (error) { res.status(500).json({ error: error.message }); }
 };
 

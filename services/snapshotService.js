@@ -7,9 +7,22 @@
 const { QueryTypes } = require('sequelize');
 
 let _db = null;
+let _trendSchemaReady = null;
 function db() {
     if (!_db) _db = require('../models');
     return _db;
+}
+
+async function isTrendSnapshotSchemaReady() {
+    if (_trendSchemaReady !== null) return _trendSchemaReady;
+    try {
+        const qi = db().sequelize.getQueryInterface();
+        const table = await qi.describeTable('DailySnapshots');
+        _trendSchemaReady = !!table && Object.prototype.hasOwnProperty.call(table, 'eligibleNow');
+    } catch (e) {
+        _trendSchemaReady = false;
+    }
+    return _trendSchemaReady;
 }
 
 /**
@@ -19,6 +32,12 @@ function db() {
  * @returns {Promise<object>}      — The saved DailySnapshot instance.
  */
 async function captureSnapshot(forDate) {
+    const schemaReady = await isTrendSnapshotSchemaReady();
+    if (!schemaReady) {
+        console.warn('[Snapshot] Skipping capture: DailySnapshots trend columns are not available yet.');
+        return null;
+    }
+
     let d;
     if (typeof forDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(forDate)) {
         const parts = forDate.split('-').map(n => parseInt(n, 10));
@@ -225,4 +244,4 @@ async function captureSnapshot(forDate) {
     return snap;
 }
 
-module.exports = { captureSnapshot };
+module.exports = { captureSnapshot, isTrendSnapshotSchemaReady };

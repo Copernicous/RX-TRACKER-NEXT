@@ -614,6 +614,22 @@ function renderCharts(data) {
             });
         }
 
+    } else {
+        var trendCards = [
+            document.getElementById('patientsTrendChart'),
+            document.getElementById('workflowTrendChart'),
+            document.getElementById('eligibilityTrendChart'),
+            document.getElementById('workflowCompletionTrendChart')
+        ];
+        var msg = data.trendWarning || 'Trend charts are unavailable until the snapshot migration is applied.';
+        for (var ti = 0; ti < trendCards.length; ti++) {
+            var canvas = trendCards[ti];
+            if (!canvas) continue;
+            var wrap = canvas.parentNode;
+            if (!wrap) continue;
+            wrap.innerHTML = '<div class="d-flex align-items-center justify-content-center text-center h-100" style="min-height:220px;color:#8b949e">' +
+                '<div><i class="fas fa-database me-2 text-warning"></i><div class="small fw-semibold">' + msg + '</div></div></div>';
+        }
     }
 }
 

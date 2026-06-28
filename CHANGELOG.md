@@ -5,6 +5,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ---
 
+## [2.0.62] - 2026-06-28
+
+### [HOTFIX-62] Production graphing schema guard
+**Files changed:** 3 | dashboard graph safety guard, snapshot schema readiness check, release metadata
+
+- Added a production-safe snapshot schema check so dashboard trend graphing waits until the new `DailySnapshots` trend columns exist.
+- Prevented daily snapshot capture from running against an older production schema before the migration is applied.
+- Added a visible dashboard message so graphing shows as migration-pending instead of failing silently.
+- Bumped production package version to `2.0.62`.
+
 ## [2.0.61] - 2026-06-28
 
 ### [RELEASE-61] Dashboard trends, analytics pagination, and production report prep
