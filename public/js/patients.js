@@ -353,6 +353,10 @@ var allPatients = [];
             showNoRxBanner();
             showToast('Showing Active Patients with No RX Records (' + patientTotalCount + ')', 'info');
         } else {
+            if (!statusParam) {
+                var defaultStatusEl = document.getElementById('srchStatus');
+                if (defaultStatusEl && !defaultStatusEl.value) defaultStatusEl.value = 'true';
+            }
             await loadPatients();
 
             if (highlightId) {
@@ -388,6 +392,10 @@ var allPatients = [];
             // with ?eligFilter=eligible|expiring|window|none. Apply it automatically.
             var eligParam = urlParams.get('eligFilter');
             if (eligParam) {
+                var eligStatusEl = document.getElementById('srchStatus');
+                if (eligStatusEl && !eligStatusEl.value) {
+                    eligStatusEl.value = 'true';
+                }
                 var eligEl = document.getElementById('srchEligibility');
                 if (eligEl) {
                     eligEl.value = eligParam;
@@ -478,6 +486,8 @@ var allPatients = [];
             ['srchFirstName','srchLastName','srchDob','srchPhone','srchStatus','srchClinic',
              'srchPatientCode','srchPatientTransport','srchPharmacyTransport','srchPharmacy','srchServiceFrom','srchServiceTo','srchEligibility','srchMissingInfo'
             ].forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
+            var clearStatusEl = document.getElementById('srchStatus');
+            if (clearStatusEl) clearStatusEl.value = 'true';
             document.getElementById('srchShowDeleted').checked = false;
             patientNoRxFilter = false;
             patientHighlightId = '';

@@ -19,7 +19,13 @@ function db() {
  * @returns {Promise<object>}      — The saved DailySnapshot instance.
  */
 async function captureSnapshot(forDate) {
-    const d = forDate ? new Date(forDate) : new Date();
+    let d;
+    if (typeof forDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(forDate)) {
+        const parts = forDate.split('-').map(n => parseInt(n, 10));
+        d = new Date(parts[0], parts[1] - 1, parts[2]);
+    } else {
+        d = forDate ? new Date(forDate) : new Date();
+    }
     // Normalise to YYYY-MM-DD in local time
     const pad = n => String(n).padStart(2, '0');
     const snapshotDate = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -36,7 +42,6 @@ async function captureSnapshot(forDate) {
     const seq = db().sequelize;
 
     // ── Patients ──────────────────────────────────────────────────────────
-    // Patients table uses isActive (no isDeleted column)
     const [pat] = await seq.query(`
         SELECT
             COUNT(*)                                                             AS "totalPatients",
@@ -45,6 +50,7 @@ async function captureSnapshot(forDate) {
             COUNT(*) FILTER (WHERE "createdAt" BETWEEN :dayStart AND :dayEnd)    AS "newPatientsToday",
             COUNT(*) FILTER (WHERE "isNonCompanyPatient" = true)                 AS "nonCompanyPatients"
         FROM "Patients"
+        WHERE COALESCE("isDeleted", false) = false
     `, { type: QueryTypes.SELECT, replacements: { dayStart, dayEnd } });
 
     // ── RX Records ────────────────────────────────────────────────────────
@@ -61,7 +67,7 @@ async function captureSnapshot(forDate) {
         SELECT
             (SELECT COUNT(*) FROM "RXRecords" WHERE "isDeleted" = false)                                                            AS "totalRX",
             (SELECT COUNT(*) FROM "RXRecords" WHERE "isDeleted" = false AND "createdAt" BETWEEN :dayStart AND :dayEnd)              AS "newRXToday",
-            (SELECT COUNT(*) FROM wf_totals WHERE done_steps < total_steps)                                                         AS "pendingRX",
+            (SELECT COUNT(*) FROM wf_totals WHERE total_steps = 0 OR done_steps < total_steps)                                      AS "pendingRX",
             (SELECT COUNT(*) FROM wf_totals WHERE done_steps >= total_steps AND total_steps > 0)                                    AS "completedRX",
             (SELECT COUNT(*) FROM "RXRecords" WHERE "isDeleted" = true)                                                             AS "deletedRX",
             (SELECT COUNT(*) FROM "RXRecords" WHERE "returnedToWarehouse" = true AND "isDeleted" = false)                          AS "returnedToWarehouseRX"
@@ -100,6 +106,42 @@ async function captureSnapshot(forDate) {
             COUNT(*) FILTER (WHERE "isActive" = true)     AS "activeUsers"
         FROM "Users"
     `, { type: QueryTypes.SELECT });
+
+    const [elig] = await seq.query(`
+        SELECT
+            COUNT(*) FILTER (WHERE "isActive" = true AND "serviceDate" IS NOT NULL AND (("serviceDate"::date + INTERVAL '90 days')::date < CAST(:snapshotDate AS date))) AS "eligibleNow",
+            COUNT(*) FILTER (WHERE "isActive" = true AND "serviceDate" IS NOT NULL AND (("serviceDate"::date + INTERVAL '90 days')::date >= CAST(:snapshotDate AS date)) AND (("serviceDate"::date + INTERVAL '90 days')::date <= CAST(:snapshotDate AS date) + INTERVAL '7 days')) AS "expiringIn7",
+            COUNT(*) FILTER (WHERE "isActive" = true AND "serviceDate" IS NOT NULL AND (("serviceDate"::date + INTERVAL '90 days')::date > CAST(:snapshotDate AS date) + INTERVAL '7 days')) AS "inWindow",
+            COUNT(*) FILTER (WHERE "isActive" = true AND "serviceDate" IS NULL) AS "noServiceDate",
+            COUNT(*) FILTER (
+                WHERE "isActive" = true
+                  AND NOT EXISTS (
+                      SELECT 1 FROM "RXRecords" r
+                      WHERE r."patientId" = "Patients".id
+                        AND r."isDeleted" = false
+                  )
+            ) AS "patientsWithNoRx"
+        FROM "Patients"
+        WHERE COALESCE("isDeleted", false) = false
+    `, { type: QueryTypes.SELECT, replacements: { snapshotDate } });
+
+    const loginEventsToday = await seq.query(
+        `SELECT COUNT(*) AS cnt FROM "AuditLogs" WHERE "createdAt" BETWEEN :dayStart AND :dayEnd AND "module" = 'Authentication' AND "action" = 'Login'`,
+        { type: QueryTypes.SELECT, replacements: { dayStart, dayEnd } }
+    ).then(r => parseInt(r[0].cnt, 10));
+
+    const uniqueLoginUsersToday = await seq.query(
+        `SELECT COUNT(DISTINCT "userId") AS cnt FROM "AuditLogs" WHERE "createdAt" BETWEEN :dayStart AND :dayEnd AND "module" = 'Authentication' AND "action" = 'Login' AND "userId" IS NOT NULL`,
+        { type: QueryTypes.SELECT, replacements: { dayStart, dayEnd } }
+    ).then(r => parseInt(r[0].cnt, 10));
+
+    const userActivity = await seq.query(
+        `SELECT COUNT(*) AS events, COUNT(DISTINCT "userId") AS users FROM "UserActivityLogs" WHERE "visitedAt" BETWEEN :dayStart AND :dayEnd`,
+        { type: QueryTypes.SELECT, replacements: { dayStart, dayEnd } }
+    ).then(r => ({
+        events: parseInt(r[0].events, 10) || 0,
+        users: parseInt(r[0].users, 10) || 0
+    })).catch(() => ({ events: 0, users: 0 }));
 
     const auditEventsToday = await seq.query(
         `SELECT COUNT(*) AS cnt FROM "AuditLogs" WHERE "createdAt" BETWEEN :dayStart AND :dayEnd`,
@@ -159,9 +201,18 @@ async function captureSnapshot(forDate) {
         // users
         totalUsers:              parseInt(usr.totalUsers,       10) || 0,
         activeUsers:             parseInt(usr.activeUsers,      10) || 0,
+        loginEventsToday,
+        uniqueLoginUsersToday,
+        userActivityEventsToday:  userActivity.events,
+        uniqueActivityUsersToday: userActivity.users,
         auditEventsToday,
         errorLogsToday,
         unresolvedErrors,
+        eligibleNow:             parseInt(elig.eligibleNow,     10) || 0,
+        expiringIn7:             parseInt(elig.expiringIn7,     10) || 0,
+        inWindow:                parseInt(elig.inWindow,        10) || 0,
+        noServiceDate:           parseInt(elig.noServiceDate,   10) || 0,
+        patientsWithNoRx:        parseInt(elig.patientsWithNoRx,10) || 0,
         // lookup
         totalPharmacies,
         totalClinics,
