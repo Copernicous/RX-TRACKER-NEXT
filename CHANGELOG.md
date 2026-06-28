@@ -9,6 +9,21 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 - No unreleased changes.
 
+## [2.0.66] - 2026-06-28
+
+### [RELEASE-66] Patient notice-group carousel
+**Files changed:** Patients UI, release metadata
+
+- Added a rotating notice-group carousel to the Patient Management alert banner.
+- Changed the banner from a single visible task notice to `Notice N of X`, with a `Next` button that loops through available patient task groups.
+- Included dynamic notice groups for expired 90-day windows with incomplete RX workflow, eligible patients, expiring service windows, missing service dates, active patients with no RX records, and missing required default information.
+- Kept `Show Patients` contextual so it applies the filter for the currently visible notice group.
+- Bumped production package version to `2.0.66`.
+
+**Database impact:**
+- No schema changes and no data changes are introduced.
+- The notice groups are calculated from existing patient, RX, dashboard, and missing-info filters.
+
 ## [2.0.65] - 2026-06-28
 
 ### [RELEASE-65] Dashboard analytics and pagination performance
