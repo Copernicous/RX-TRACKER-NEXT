@@ -181,9 +181,9 @@
                     <div class="d-flex align-items-center gap-2">
                         <label class="small text-muted mb-0">Show</label>
                         <select class="form-select form-select-sm" style="width:auto" id="rxPageSizeSelect">
-                            <option value="10">10</option>
+                            <option value="10" selected>10</option>
                             <option value="20">20</option>
-                            <option value="50" selected>50</option>
+                            <option value="50">50</option>
                             <option value="100">100</option>
                         </select>
                         <small class="text-muted" id="rxPageInfo"></small>
@@ -772,7 +772,9 @@
         if (el) el.style.display = _rxAdvOpen ? '' : 'none';
         if (ch) ch.className   = _rxAdvOpen ? 'fas fa-chevron-up ms-1' : 'fas fa-chevron-down ms-1';
     }
-    var rxPage = 1, rxPageSize = 50;
+    var rxPage = 1, rxPageSize = 10;
+    var rxTotalCount = 0, rxTotalPages = 1, rxServerPaging = true;
+    var rxFilterTimer = null;
     var currentRxId = null;
     var rSortCol = 'id';
     var rSortDir = 'desc';
@@ -787,31 +789,27 @@
     var allMedCatalog      = []; // RX action catalog
     var _rxPrefillPatientId = null;
     var _rxPrefillPatientName = '';
+    var rxPatientPickerPromise = null;
+    var rxPatientPickerLoaded = false;
+    var rxPatientSearchInitialized = false;
 
     // Loads all dropdown data needed for the New RX modal and workflow selectors.
     // Returns a Promise so DOMContentLoaded can chain .then(loadRxRecords).
     function loadRxDropdowns() {
-        var pRes, phRes, ptRes, rxRes, waRes, catRes;
-        return fetchWithAuth(window.rxUrl('/api/patients'), { silent: true }).then(function(r) {
-            pRes = r;
-            return fetchWithAuth(window.rxUrl('/api/lookup/pharmacies'), { silent: true });
-        }).then(function(r) {
-            phRes = r;
-            return fetchWithAuth(window.rxUrl('/api/lookup/patient-transport'), { silent: true });
-        }).then(function(r) {
-            ptRes = r;
-            return fetchWithAuth(window.rxUrl('/api/lookup/pharmacy-transport'), { silent: true });
-        }).then(function(r) {
-            rxRes = r;
-            return fetchWithAuth(window.rxUrl('/api/lookup/workflow-actions'), { silent: true });
-        }).then(function(r) {
-            waRes = r;
-            return fetchWithAuth(window.rxUrl('/api/lookup/medication-catalog'), { silent: true });
-        }).then(function(r) {
-            catRes = r;
-            if (pRes   && pRes.ok)  { return pRes.json();   } return [];
-        }).then(function(data) {
-            allPatientsList = Array.isArray(data) ? data : [];
+        var phRes, ptRes, rxRes, waRes, catRes;
+        loadRxPatientPickerData();
+        return Promise.all([
+            fetchWithAuth(window.rxUrl('/api/lookup/pharmacies'), { silent: true }),
+            fetchWithAuth(window.rxUrl('/api/lookup/patient-transport'), { silent: true }),
+            fetchWithAuth(window.rxUrl('/api/lookup/pharmacy-transport'), { silent: true }),
+            fetchWithAuth(window.rxUrl('/api/lookup/workflow-actions'), { silent: true }),
+            fetchWithAuth(window.rxUrl('/api/lookup/medication-catalog'), { silent: true })
+        ]).then(function(results) {
+            phRes = results[0];
+            ptRes = results[1];
+            rxRes = results[2];
+            waRes = results[3];
+            catRes = results[4];
             if (phRes  && phRes.ok) { return phRes.json();  } return [];
         }).then(function(data) {
             allPharmaciesList = Array.isArray(data) ? data : [];
@@ -843,6 +841,27 @@
             populateRxFilterSelects();
             initPatientSearch(); // always init patient search even on partial failure
         });
+    }
+
+    function loadRxPatientPickerData() {
+        if (rxPatientPickerLoaded) return Promise.resolve(allPatientsList);
+        if (rxPatientPickerPromise) return rxPatientPickerPromise;
+        var searchInput = document.getElementById('patientSearchInput');
+        if (searchInput) searchInput.placeholder = 'Loading patients...';
+        rxPatientPickerPromise = fetchWithAuth(window.rxUrl('/api/patients'), { silent: true }).then(function(res) {
+            if (!res || !res.ok) return [];
+            return res.json();
+        }).then(function(data) {
+            allPatientsList = Array.isArray(data) ? data : [];
+            rxPatientPickerLoaded = true;
+            if (searchInput) searchInput.placeholder = 'Search patient by name, ID...';
+            return allPatientsList;
+        }).catch(function(e) {
+            console.error('[RX] loadRxPatientPickerData error:', e);
+            if (searchInput) searchInput.placeholder = 'Search patient by name, ID...';
+            return allPatientsList;
+        });
+        return rxPatientPickerPromise;
     }
 
     function populateRxFilterSelects() {
@@ -915,7 +934,8 @@
         if (bulkCloseConfirmBtn) bulkCloseConfirmBtn.addEventListener('click', _rxRunBulkCloseExpired);
 
         document.getElementById('exportRxListCsvBtn').addEventListener('click', function() {
-            if (!filteredRx.length) { showToast('No data to export.', 'warning'); return; }
+            function runRxCsvExport(rowsForExport) {
+            if (!rowsForExport.length) { showToast('No data to export.', 'warning'); return; }
 
             var stageHeaders = [];
             allWorkflowActions.forEach(function(a) {
@@ -930,7 +950,7 @@
                 return Math.round((t2 - t1) / 864e5);
             }
 
-            var rows = filteredRx.map(function(rx) {
+            var rows = rowsForExport.map(function(rx) {
                 var trkMap = {};
                 (rx.RXWorkflowTrackings || []).forEach(function(t) { trkMap[t.workflowActionId] = t; });
                 var row = [
@@ -960,6 +980,22 @@
                 return row;
             });
             exportToCsv('rx_workflow_report_' + new Date().toISOString().slice(0,10) + '.csv', headers, rows);
+            }
+
+            if (rxServerPaging) {
+                var params = buildRxQueryParams({ exportAll: true });
+                fetchWithAuth(window.rxUrl('/api/rx-records') + '?' + params.toString()).then(function(res) {
+                    if (!res || !res.ok) { showToast('Could not export RX records.', 'danger'); return; }
+                    return res.json();
+                }).then(function(data) {
+                    if (!data) return;
+                    runRxCsvExport(Array.isArray(data.rows) ? data.rows : []);
+                }).catch(function() {
+                    showToast('Could not export RX records.', 'danger');
+                });
+            } else {
+                runRxCsvExport(filteredRx);
+            }
         });
 
         var urlParams = new URLSearchParams(window.location.search);
@@ -1015,17 +1051,17 @@
             (function(fid) {
                 var el = document.getElementById(fid);
                 if (!el) return;
-                el.addEventListener('input',  function() { rxPage = 1; applyRxFilter(); });
-                el.addEventListener('change', function() { rxPage = 1; applyRxFilter(); });
+                el.addEventListener('input',  function() { rxPage = 1; scheduleRxLoad(); });
+                el.addEventListener('change', function() { rxPage = 1; loadRxRecords(); });
             })(_filterIds[_fi]);
         }
         var rxFilterBtn = document.getElementById('rxFilterBtn');
-        if (rxFilterBtn) rxFilterBtn.addEventListener('click', function() { rxPage = 1; applyRxFilter(); });
+        if (rxFilterBtn) rxFilterBtn.addEventListener('click', function() { rxPage = 1; loadRxRecords(); });
         var rxPageSizeSel = document.getElementById('rxPageSizeSelect');
         if (rxPageSizeSel) rxPageSizeSel.addEventListener('change', function() {
-            rxPageSize = parseInt(this.value, 10) || 50;
+            rxPageSize = parseInt(this.value, 10) || 10;
             rxPage = 1;
-            renderRxSorted();
+            loadRxRecords();
         });
         var rxClearBtn = document.getElementById('rxClearBtn');
         if (rxClearBtn) rxClearBtn.addEventListener('click', function() {
@@ -1072,7 +1108,7 @@
         }).then(function() {
             return loadRxRecords();
         }).then(function() {
-            if (patientName || patientId) { rxPage = 1; applyRxFilter(); }
+            if (patientName || patientId) { rxPage = 1; loadRxRecords(); }
             if (autoOpenAddRx) {
                 var autoPerms = getPagePerms();
                 if (autoPerms && autoPerms.canAdd) {
@@ -1114,16 +1150,79 @@
         /* arrivalDate will be set = serviceDate when patient is selected */
     }
 
-    function loadRxRecords() {
+    function setRxParam(params, name, value) {
+        if (value !== null && value !== undefined && String(value).trim() !== '') {
+            params.set(name, String(value).trim());
+        }
+    }
+
+    function buildRxQueryParams(options) {
+        options = options || {};
+        var params = new URLSearchParams();
+        params.set('paginated', 'true');
+        if (options.exportAll) {
+            params.set('exportAll', 'true');
+            params.set('page', '1');
+            params.set('pageSize', '500');
+        } else {
+            params.set('page', String(rxPage));
+            params.set('pageSize', String(rxPageSize));
+        }
+        params.set('sort', rSortCol || 'id');
+        params.set('dir', rSortDir || 'desc');
+
+        setRxParam(params, 'patient', document.getElementById('rxFilterPatient')?.value || '');
+        setRxParam(params, 'id', document.getElementById('rxFilterId')?.value || '');
+        setRxParam(params, 'pharmacyId', document.getElementById('rxFilterPharmacy')?.value || '');
+        setRxParam(params, 'patientCode', document.getElementById('rxFilterPatientCode')?.value || '');
+        setRxParam(params, 'dateFrom', document.getElementById('rxFilterDateFrom')?.value || '');
+        setRxParam(params, 'dateTo', document.getElementById('rxFilterDateTo')?.value || '');
+        setRxParam(params, 'serviceFrom', document.getElementById('rxFilterSvcFrom')?.value || '');
+        setRxParam(params, 'serviceTo', document.getElementById('rxFilterSvcTo')?.value || '');
+        setRxParam(params, 'patientTransportId', document.getElementById('rxFilterPatientTransport')?.value || '');
+        setRxParam(params, 'pharmacyTransportId', document.getElementById('rxFilterPharmacyTransport')?.value || '');
+        setRxParam(params, 'workflowStatus', document.getElementById('rxFilterWorkflowStatus')?.value || '');
+        setRxParam(params, 'workflowStage', document.getElementById('rxFilterWorkflowStage')?.value || '');
+        setRxParam(params, 'patientId', window._rxPrefilterPatientId || '');
+
         var sdEl = document.getElementById('rxShowDeleted');
-        var showDeleted = sdEl && sdEl.checked;
-        var url = window.rxUrl('/api/rx-records') + (showDeleted ? '?includeDeleted=true' : '');
+        if (sdEl && sdEl.checked) params.set('includeDeleted', 'true');
+        return params;
+    }
+
+    function scheduleRxLoad() {
+        if (rxFilterTimer) clearTimeout(rxFilterTimer);
+        rxFilterTimer = setTimeout(function() {
+            rxFilterTimer = null;
+            loadRxRecords();
+        }, 250);
+    }
+
+    function loadRxRecords() {
+        var params = buildRxQueryParams();
+        var url = window.rxUrl('/api/rx-records') + '?' + params.toString();
+        var tbody = document.getElementById('rxBody');
+        if (tbody) {
+            tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin me-2"></i>Loading RX records...</td></tr>';
+        }
         return fetchWithAuth(url).then(function(res) {
             if (!res) return;
             return res.json().then(function(data) {
-                allRx = Array.isArray(data) ? data : [];
-                filteredRx = allRx.slice();
-                applyRxFilter();
+                if (data && Array.isArray(data.rows)) {
+                    rxServerPaging = true;
+                    allRx = data.rows;
+                    filteredRx = data.rows;
+                    rxTotalCount = Number(data.total || 0);
+                    rxTotalPages = Number(data.totalPages || 1);
+                    rxPage = Number(data.page || rxPage || 1);
+                    rxPageSize = Number(data.pageSize || rxPageSize || 10);
+                    renderRxSorted();
+                } else {
+                    rxServerPaging = false;
+                    allRx = Array.isArray(data) ? data : [];
+                    filteredRx = allRx.slice();
+                    applyRxFilter();
+                }
             });
         }).catch(function(e) { console.error('[RX] loadRxRecords error:', e); });
     }
@@ -1170,6 +1269,9 @@
     }
 
     function applyRxFilter() {
+        if (rxServerPaging) {
+            return loadRxRecords();
+        }
         var pat   = document.getElementById('rxFilterPatient').value.toLowerCase().trim();
         var rxId  = document.getElementById('rxFilterId').value.trim();
         var ph    = document.getElementById('rxFilterPharmacy').value.trim();
@@ -1224,11 +1326,12 @@
     }
 
     function renderRx() {
-        applyRxFilter();
+        if (rxServerPaging) renderRxSorted();
+        else applyRxFilter();
     }
 
     function renderRxSorted() {
-        filteredRx.sort(function(a, b) {
+        if (!rxServerPaging) filteredRx.sort(function(a, b) {
             var valA = a[rSortCol];
             var valB = b[rSortCol];
             
@@ -1262,7 +1365,8 @@
         updateRxSortIcons();
 
         var start = (rxPage - 1) * rxPageSize;
-        var page  = filteredRx.slice(start, start + rxPageSize);
+        var totalRows = rxServerPaging ? rxTotalCount : filteredRx.length;
+        var page  = rxServerPaging ? filteredRx.slice() : filteredRx.slice(start, start + rxPageSize);
         var tbody = document.getElementById('rxBody');
         if (page.length === 0) {
             tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-4">No RX records found.</td></tr>';
@@ -1438,8 +1542,8 @@
             if (saEl) saEl.indeterminate = false;
         }
         _rxUpdateBulkBar();
-        document.getElementById('rxPageInfo').textContent = 'Showing ' + (filteredRx.length === 0 ? 0 : Math.min(start+1, filteredRx.length)) + '\u2013' + Math.min(start+rxPageSize, filteredRx.length) + ' of ' + filteredRx.length;
-        var rxPages = Math.ceil(filteredRx.length / rxPageSize) || 1;
+        document.getElementById('rxPageInfo').textContent = 'Showing ' + (totalRows === 0 ? 0 : Math.min(start+1, totalRows)) + '\u2013' + Math.min(start+page.length, totalRows) + ' of ' + totalRows;
+        var rxPages = rxServerPaging ? rxTotalPages : (Math.ceil(filteredRx.length / rxPageSize) || 1);
         // Smart ellipsis paginator
         var rxIsFirst = rxPage === 1; var rxIsLast = rxPage >= rxPages;
         var rxPh = '<li class="page-item' + (rxIsFirst ? ' disabled' : '') + '"><a class="page-link" href="#" data-pg="' + (rxPage-1) + '">&laquo;</a></li>';
@@ -1465,7 +1569,8 @@
             rSortDir = 'asc';
         }
         rxPage = 1;
-        renderRx();
+        if (rxServerPaging) loadRxRecords();
+        else renderRx();
     }
 
     function updateRxSortIcons() {
@@ -1480,7 +1585,13 @@
         });
     }
 
-    function goRxPage(p) { const pages = Math.ceil(filteredRx.length/rxPageSize); if(p<1||p>pages)return; rxPage=p; renderRx(); }
+    function goRxPage(p) {
+        var pages = rxServerPaging ? rxTotalPages : Math.ceil(filteredRx.length/rxPageSize);
+        if(p<1||p>pages)return;
+        rxPage=p;
+        if (rxServerPaging) loadRxRecords();
+        else renderRx();
+    }
 
     function openRxModal() {
         medCount = 0;
@@ -1498,7 +1609,11 @@
         if (info)        info.textContent = '';
         addMedicationRow();
         if (_rxPrefillPatientId || _rxPrefillPatientName) {
-            applyRxPrefillPatient();
+            if (!applyRxPrefillPatient()) {
+                loadRxPatientPickerData().then(function() {
+                    applyRxPrefillPatient();
+                });
+            }
         }
         new bootstrap.Modal(document.getElementById('rxModal')).show();
     }
@@ -1541,15 +1656,25 @@
 
     // ---- Patient search picker ----
     function initPatientSearch() {
+        if (rxPatientSearchInitialized) return;
         var searchInput = document.getElementById('patientSearchInput');
         var hiddenInput = document.getElementById('rxPatientId');
         var dropdown    = document.getElementById('patientDropdown');
         var info        = document.getElementById('patientSelectedInfo');
         if (!searchInput || !dropdown) return;
+        rxPatientSearchInitialized = true;
 
         var hiIdx = -1;
 
         function renderDropdown(query) {
+            if (!rxPatientPickerLoaded) {
+                dropdown.innerHTML = '<div class="patient-dropdown-empty"><i class="fas fa-spinner fa-spin me-2"></i>Loading patients...</div>';
+                dropdown.classList.add('open');
+                loadRxPatientPickerData().then(function() {
+                    renderDropdown(searchInput.value || '');
+                });
+                return;
+            }
             var q = query.trim().toLowerCase();
             // Only show ACTIVE patients — inactive patients cannot receive new RX records
             var activePatients = allPatientsList.filter(function(p) { return p.isActive !== false; });
