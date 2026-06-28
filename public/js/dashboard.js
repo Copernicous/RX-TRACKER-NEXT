@@ -96,6 +96,20 @@ function buildDateQuery() {
     return parts.length ? '?' + parts.join('&') : '';
 }
 
+function validateDashRange() {
+    var fromEl = document.getElementById('dashFrom');
+    var toEl   = document.getElementById('dashTo');
+    if (!fromEl || !toEl) return true;
+    var from = fromEl.value;
+    var to   = toEl.value;
+    if (from && to && from > to) {
+        showToast('Dashboard custom date range cannot have From after To.', 'warning');
+        toEl.value = from;
+        return false;
+    }
+    return true;
+}
+
 // =====================================================================
 // Dashboard stats refresh
 // =====================================================================
@@ -955,6 +969,9 @@ document.addEventListener('DOMContentLoaded', function() {
         var el = document.getElementById(dateIds[di]);
         if (el) {
             el.addEventListener('change', function() {
+                _dashFrom = document.getElementById('dashFrom').value;
+                _dashTo   = document.getElementById('dashTo').value;
+                validateDashRange();
                 _dashFrom = document.getElementById('dashFrom').value;
                 _dashTo   = document.getElementById('dashTo').value;
                 var presets = document.querySelectorAll('.dash-preset');

@@ -95,50 +95,230 @@ function isWorkflowCycleNeedsAction(serviceDate, rxRecords, totalWorkflowSteps) 
     });
 }
 
+function cleanString(value) {
+    return String(value || '').trim();
+}
+
+function cleanLower(value) {
+    return cleanString(value).toLowerCase();
+}
+
+function isPresent(value) {
+    return value !== null && value !== undefined && String(value) !== '';
+}
+
+function idString(value) {
+    return isPresent(value) ? String(value) : '';
+}
+
+function patientHasAnyField(patient, fields) {
+    return fields.some(field => isPresent(patient[field]));
+}
+
+function patientEligibilityStatus(patient, todayMs) {
+    if (!patient.serviceDate) return { key: 'none', daysLeft: null };
+    const svcMs = new Date(patient.serviceDate).setHours(0, 0, 0, 0);
+    const expMs = svcMs + 90 * 864e5;
+    const daysLeft = Math.ceil((expMs - todayMs) / 864e5);
+    if (daysLeft < 0) return { key: 'eligible', daysLeft };
+    if (daysLeft <= 7) return { key: 'expiring', daysLeft };
+    return { key: 'window', daysLeft };
+}
+
+function matchesPatientQuery(patient, query) {
+    const firstName = cleanLower(query.firstName);
+    const id = cleanString(query.id);
+    const lastName = cleanLower(query.lastName);
+    const dob = cleanString(query.dob);
+    const phone = cleanLower(query.phone);
+    const status = cleanString(query.status);
+    const patientCode = cleanLower(query.patientCode);
+    const clinicId = cleanString(query.clinicId);
+    const pharmacyId = cleanString(query.pharmacyId);
+    const patientTransportId = cleanString(query.patientTransportId);
+    const pharmacyTransportId = cleanString(query.pharmacyTransportId);
+    const serviceFrom = cleanString(query.serviceFrom);
+    const serviceTo = cleanString(query.serviceTo);
+    const eligibility = cleanString(query.eligibility);
+    const missingInfo = cleanString(query.missingInfo);
+
+    if (id && idString(patient.id) !== id) return false;
+    if (firstName && !cleanLower(patient.firstName).includes(firstName)) return false;
+    if (lastName && !cleanLower(patient.lastName).includes(lastName)) return false;
+    if (dob && String(patient.dob || '') !== dob) return false;
+    if (phone && !cleanLower(patient.phone).includes(phone)) return false;
+    if (status !== '' && String(patient.isActive) !== status) return false;
+    if (patientCode && !cleanLower(patient.patientCode).includes(patientCode)) return false;
+    if (clinicId && idString(patient.clinicId) !== clinicId) return false;
+    if (pharmacyId && idString(patient.pharmacyId) !== pharmacyId) return false;
+    if (patientTransportId && idString(patient.patientTransportCompanyId) !== patientTransportId) return false;
+    if (pharmacyTransportId && idString(patient.pharmacyTransportCompanyId) !== pharmacyTransportId) return false;
+    if (serviceFrom && patient.serviceDate && String(patient.serviceDate) < serviceFrom) return false;
+    if (serviceTo && patient.serviceDate && String(patient.serviceDate) > serviceTo) return false;
+
+    if (missingInfo) {
+        const missingClinic = !patientHasAnyField(patient, ['clinicId']);
+        const missingPharmacy = !patientHasAnyField(patient, ['pharmacyId']);
+        const missingPatientTransport = !patientHasAnyField(patient, ['patientTransportCompanyId']);
+        const missingPharmacyTransport = !patientHasAnyField(patient, ['pharmacyTransportCompanyId']);
+        if (missingInfo === 'clinic' && !missingClinic) return false;
+        if (missingInfo === 'pharmacy' && !missingPharmacy) return false;
+        if (missingInfo === 'patientTransport' && !missingPatientTransport) return false;
+        if (missingInfo === 'pharmacyTransport' && !missingPharmacyTransport) return false;
+        if (missingInfo === 'any' && !(missingClinic || missingPharmacy || missingPatientTransport || missingPharmacyTransport)) return false;
+        if (missingInfo === 'all' && !(missingClinic && missingPharmacy && missingPatientTransport && missingPharmacyTransport)) return false;
+    }
+
+    if (eligibility) {
+        if (eligibility === 'needsAction') return !!patient.needsAction;
+        const statusInfo = patientEligibilityStatus(patient, new Date().setHours(0, 0, 0, 0));
+        if (statusInfo.key !== eligibility) return false;
+    }
+
+    return true;
+}
+
+function patientSortValue(patient, sortKey) {
+    if (sortKey === 'firstName') return cleanLower((patient.firstName || '') + ' ' + (patient.lastName || ''));
+    if (sortKey === 'Clinic.name') return cleanLower(patient.Clinic && patient.Clinic.name);
+    if (sortKey === 'nextSvcDate') return patient.serviceDate ? new Date(patient.serviceDate).getTime() + 90 * 864e5 : -8640000000000000;
+    if (sortKey === 'isActive') return patient.isActive ? 1 : 0;
+    return patient[sortKey];
+}
+
+function sortPatientsForList(rows, sortKey, sortDir) {
+    const dir = sortDir === 'desc' ? -1 : 1;
+    return rows.sort((a, b) => {
+        const av = patientSortValue(a, sortKey);
+        const bv = patientSortValue(b, sortKey);
+        if (typeof av === 'string' || typeof bv === 'string') {
+            return dir * cleanString(av).localeCompare(cleanString(bv));
+        }
+        if (av < bv) return -1 * dir;
+        if (av > bv) return 1 * dir;
+        return 0;
+    });
+}
+
+function optionLabel(record, labelKeys) {
+    if (!record) return '';
+    for (const key of labelKeys) {
+        if (record[key]) return record[key];
+    }
+    return '';
+}
+
+function addFacetOption(map, id, label) {
+    if (!isPresent(id) || !label) return;
+    map[String(id)] = label;
+}
+
+function buildPatientFacets(rows) {
+    const facets = { clinics: {}, pharmacies: {}, patientTransports: {}, pharmacyTransports: {} };
+    rows.forEach(patient => {
+        addFacetOption(facets.clinics, patient.clinicId, optionLabel(patient.Clinic, ['name']));
+        addFacetOption(facets.pharmacies, patient.pharmacyId, optionLabel(patient.Pharmacy, ['name']));
+        addFacetOption(facets.patientTransports, patient.patientTransportCompanyId, optionLabel(patient.PatientTransportCompany, ['contactPerson', 'companyName']));
+        addFacetOption(facets.pharmacyTransports, patient.pharmacyTransportCompanyId, optionLabel(patient.PharmacyTransportCompany, ['companyName', 'contactPerson']));
+    });
+    return Object.keys(facets).reduce((out, key) => {
+        out[key] = Object.keys(facets[key])
+            .sort((a, b) => facets[key][a].localeCompare(facets[key][b]))
+            .map(id => ({ id, label: facets[key][id] }));
+        return out;
+    }, {});
+}
+
+function patientInclude() {
+    return [
+        db.PatientTransportCompany,
+        db.PharmacyTransportCompany,
+        db.Clinic,
+        db.Pharmacy,
+        { model: db.PatientNote, as: 'PatientNotes', attributes: ['id'] },
+        {
+            model: db.RXRecord,
+            attributes: ['id'],
+            include: [{
+                model: db.RXWorkflowTracking,
+                attributes: ['id']
+            }],
+            where: { [Op.or]: [{ isDeleted: false }, { isDeleted: null }] },
+            required: false
+        }
+    ];
+}
+
+function enrichPatientRows(data, totalWorkflowSteps) {
+    return data.map((patient) => {
+        const plain = patient.toJSON();
+        plain.needsAction = isWorkflowCycleNeedsAction(
+            plain.serviceDate,
+            plain.RXRecords,
+            totalWorkflowSteps
+        );
+        return plain;
+    });
+}
+
+function parsePositiveInt(value, fallback, min, max) {
+    const parsed = parseInt(value, 10);
+    if (isNaN(parsed)) return fallback;
+    return Math.min(max, Math.max(min, parsed));
+}
+
 exports.getAll = async (req, res) => {
     try {
         const whereClause = {};
         const totalWorkflowSteps = await db.WorkflowAction.count({ where: { isActive: true } });
         if (req.query.includeDeleted !== 'true') {
-            // LOGIC-03 FIX: Also include rows where isDeleted IS NULL (legacy records before the column existed)
             whereClause[Op.or] = [{ isDeleted: false }, { isDeleted: null }];
         }
+
         const data = await db.Patient.findAll({
             where: whereClause,
-            include: [
-                db.PatientTransportCompany,
-                db.PharmacyTransportCompany,
-                db.Clinic,
-                db.Pharmacy,
-                // Include PatientNotes with only id so the client can show a note count badge
-                // NOTE: alias must differ from the 'notes' text field (case conflict in some JSON parsers)
-                { model: db.PatientNote, as: 'PatientNotes', attributes: ['id'] },
-                // Include RXRecords with only id (non-deleted) so the client can show RX/History/Timeline count badges
-                {
-                    model: db.RXRecord,
-                    attributes: ['id'],
-                    include: [{
-                        model: db.RXWorkflowTracking,
-                        attributes: ['id']
-                    }],
-                    where: { [Op.or]: [{ isDeleted: false }, { isDeleted: null }] },
-                    required: false   // LEFT JOIN — patients with 0 RX records still appear
-                }
-            ]
+            include: patientInclude()
         });
-        const rows = data.map((patient) => {
-            const plain = patient.toJSON();
-            plain.needsAction = isWorkflowCycleNeedsAction(
-                plain.serviceDate,
-                plain.RXRecords,
-                totalWorkflowSteps
-            );
-            return plain;
-        });
+        let rows = enrichPatientRows(data, totalWorkflowSteps);
+
+        if (req.query.paginated === 'true') {
+            const pageSize = parsePositiveInt(req.query.pageSize, 20, 1, 500);
+            const page = parsePositiveInt(req.query.page, 1, 1, 1000000);
+            const sort = cleanString(req.query.sort) || 'id';
+            const dir = cleanString(req.query.dir).toLowerCase() === 'asc' ? 'asc' : 'desc';
+
+            rows = rows.filter(patient => matchesPatientQuery(patient, req.query));
+            if (req.query.noRx === 'true') {
+                rows = rows.filter(patient => patient.isActive === true && (!patient.RXRecords || patient.RXRecords.length === 0));
+            }
+
+            const total = rows.length;
+            const needsActionTotal = rows.filter(patient => !!patient.needsAction).length;
+            const facets = buildPatientFacets(rows);
+            sortPatientsForList(rows, sort, dir);
+            const totalPages = Math.max(1, Math.ceil(total / pageSize));
+            const safePage = Math.min(page, totalPages);
+            const offset = (safePage - 1) * pageSize;
+            const pageRows = req.query.exportAll === 'true'
+                ? rows
+                : rows.slice(offset, offset + pageSize);
+
+            return res.json({
+                rows: pageRows,
+                total,
+                page: safePage,
+                pageSize,
+                totalPages,
+                needsActionTotal,
+                sort,
+                dir,
+                facets
+            });
+        }
+
         res.json(rows);
     } catch (err) { res.status(500).json({ error: err.message }); }
 };
-
 exports.getOne = async (req, res) => {
     try {
         const data = await db.Patient.findByPk(req.params.id, {
