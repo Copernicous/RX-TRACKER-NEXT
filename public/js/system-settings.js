@@ -132,6 +132,7 @@ function switchTab(tab) {
 // ────────────────────────────────────────────────────────────────────────────
 let _emailLoaded = false;
 let _emailAlertsLoaded = false;
+let _emailAlertUsersLoaded = false;
 
 const EMAIL_ALERT_RULE_GROUPS = [
     {
@@ -175,6 +176,10 @@ function getDefaultEmailAlertRules() {
         group.rules.forEach(rule => { rules[rule.key] = false; });
     });
     return rules;
+}
+
+function getDefaultUserSubscriptions() {
+    return {};
 }
 
 function parseEmailAlertRules(raw) {
@@ -249,6 +254,87 @@ function updateEmailAlertsStatus() {
     if (countEl) countEl.textContent = activeCount + ' active';
 }
 
+function parseUserSubscriptions(raw) {
+    if (!raw) return {};
+    try {
+        const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch (e) {
+        return {};
+    }
+}
+
+function renderEmailAlertUsers(users, subscriptions) {
+    const wrap = document.getElementById('emailAlertUserList');
+    if (!wrap) return;
+    if (!users.length) {
+        wrap.innerHTML = '<div class="text-muted small py-2">No users with email addresses were found.</div>';
+        return;
+    }
+    wrap.innerHTML = users.map(user => {
+        const userSub = subscriptions[user.id] || { enabled: false, security: false, patient: false, system: false };
+        return `
+            <tr>
+                <td>
+                    <div class="fw-semibold">${user.firstName || ''} ${user.lastName || ''}</div>
+                    <div class="text-muted small">@${user.username || ''} ${user.email ? '&bull; ' + user.email : ''}</div>
+                </td>
+                <td class="text-center"><input class="form-check-input email-user-enabled" type="checkbox" data-user-id="${user.id}" data-field="enabled" ${userSub.enabled ? 'checked' : ''}></td>
+                <td class="text-center"><input class="form-check-input email-user-enabled" type="checkbox" data-user-id="${user.id}" data-field="security" ${userSub.security ? 'checked' : ''}></td>
+                <td class="text-center"><input class="form-check-input email-user-enabled" type="checkbox" data-user-id="${user.id}" data-field="patient" ${userSub.patient ? 'checked' : ''}></td>
+                <td class="text-center"><input class="form-check-input email-user-enabled" type="checkbox" data-user-id="${user.id}" data-field="system" ${userSub.system ? 'checked' : ''}></td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function collectUserAlertSubscriptions() {
+    const subs = {};
+    document.querySelectorAll('.email-user-enabled').forEach(input => {
+        const id = input.dataset.userId;
+        const field = input.dataset.field;
+        if (!subs[id]) subs[id] = { enabled:false, security:false, patient:false, system:false };
+        subs[id][field] = input.checked;
+    });
+    return subs;
+}
+
+async function loadEmailAlertUsers(force) {
+    if (_emailAlertUsersLoaded && !force) return;
+    _emailAlertUsersLoaded = true;
+    try {
+        const [userRes, settingsRes] = await Promise.all([
+            fetchWithAuth('/api/users?includeInactive=true'),
+            fetchWithAuth('/api/settings')
+        ]);
+        if (!userRes || !userRes.ok || !settingsRes || !settingsRes.ok) return;
+        const users = await userRes.json();
+        const settingsData = await settingsRes.json();
+        const subscriptions = parseUserSubscriptions(settingsData.email_alert_user_subscriptions);
+        renderEmailAlertUsers(users.filter(u => u.email), subscriptions);
+    } catch (e) {
+        console.error('loadEmailAlertUsers:', e);
+    }
+}
+
+async function saveEmailAlertUsers() {
+    const subs = collectUserAlertSubscriptions();
+    const res = await fetchWithAuth('/api/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email_alert_user_subscriptions: JSON.stringify(subs) })
+    });
+    if (res && res.ok) {
+        const data = await res.json();
+        currentSettings = data.settings;
+        renderSettingsTable(currentSettings);
+        showToast('Per-user alert subscriptions saved.', 'success');
+    } else {
+        const err = await res.json();
+        showToast(err.error || 'Failed to save user alert subscriptions', 'danger');
+    }
+}
+
 async function loadEmailAlertSettings(force) {
     if (_emailAlertsLoaded && !force) return;
     _emailAlertsLoaded = true;
@@ -274,6 +360,7 @@ async function loadEmailAlertSettings(force) {
         if (digest) digest.value = data.email_alert_digest_time || '08:00';
 
         renderEmailAlertRules(parseEmailAlertRules(data.email_alert_rules));
+        loadEmailAlertUsers(force).catch(() => {});
     } catch(e) {
         console.error('loadEmailAlertSettings:', e);
         showToast('Could not load email alert settings', 'danger');
@@ -471,6 +558,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
     document.getElementById('saveEmailAlertsBtn')?.addEventListener('click', saveEmailAlertSettings);
     document.getElementById('resetEmailAlertsBtn')?.addEventListener('click', resetEmailAlertConditions);
+    document.getElementById('saveEmailAlertUsersBtn')?.addEventListener('click', saveEmailAlertUsers);
 
     // ── Save Timezone ──────────────────────────────────────────────────────
     document.getElementById('saveTzBtn')?.addEventListener('click', async () => {

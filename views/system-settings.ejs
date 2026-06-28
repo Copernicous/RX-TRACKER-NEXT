@@ -636,6 +636,32 @@
                         </div>
                     </div>
 
+                    <div class="glass-card p-4 mb-4 setting-card" style="border-left-color:#8b5cf6;">
+                        <div class="d-flex align-items-center justify-content-between gap-3 flex-wrap mb-2">
+                            <h6 class="fw-bold mb-0"><i class="fas fa-users me-2 text-primary"></i>Per-User Delivery</h6>
+                            <button class="btn btn-outline-primary btn-sm" id="saveEmailAlertUsersBtn" type="button">
+                                <i class="fas fa-save me-1"></i>Save User Delivery
+                            </button>
+                        </div>
+                        <p class="text-muted small mb-3">Each user is matched to their saved email address and can subscribe to different alert groups.</p>
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle">
+                                <thead>
+                                    <tr>
+                                        <th>User</th>
+                                        <th class="text-center">Enabled</th>
+                                        <th class="text-center">Security</th>
+                                        <th class="text-center">Patient/RX</th>
+                                        <th class="text-center">System</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="emailAlertUserList">
+                                    <tr><td colspan="5" class="text-muted text-center py-3">Loading user delivery options...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
                 </div><!-- /tab-email-alerts -->
 
 

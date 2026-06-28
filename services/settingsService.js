@@ -49,6 +49,7 @@ const DEFAULTS = {
     email_alerts_enabled:              'false',
     email_alerts_recipients:           '',
     email_alert_rules:                 DEFAULT_EMAIL_ALERT_RULES,
+    email_alert_user_subscriptions:    '{}',
     email_alert_failed_login_threshold:'5',
     email_alert_missing_auth_threshold:'10',
     email_alert_cooldown_minutes:      '60',
