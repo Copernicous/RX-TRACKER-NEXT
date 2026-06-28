@@ -9,6 +9,10 @@ var allPatients = [];
     var patientModalCanUseAddRxShortcut = false;
     var pSortCol = 'id';
     var pSortDir = 'desc';
+    var patientTransportOptions = [];
+    var pharmacyTransportOptions = [];
+    var clinicOptions = [];
+    var pharmacyOptions = [];
 
     function normalizeName(value) {
         return String(value || '').trim().toUpperCase();
@@ -22,6 +26,21 @@ var allPatients = [];
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#x27;');
+    }
+
+    function patientFieldValue(p, primaryKey, legacyKey) {
+        var val = p && p[primaryKey] !== undefined ? p[primaryKey] : (legacyKey ? p[legacyKey] : undefined);
+        return val !== null && val !== undefined && String(val) !== '' ? String(val) : '';
+    }
+
+    function resetSelectOptions(sel, defaultText, options) {
+        if (!sel) return;
+        var current = sel.value;
+        sel.innerHTML = '<option value="">' + defaultText + '</option>';
+        options.forEach(function(opt) {
+            sel.innerHTML += '<option value="' + opt.id + '">' + patientEscapeHtml(opt.label) + '</option>';
+        });
+        sel.value = current;
     }
 
     function serviceDateHistoryActor(row) {
@@ -496,7 +515,7 @@ var allPatients = [];
         document.getElementById('searchBtn').addEventListener('click', loadPatients);
         document.getElementById('clearBtn').addEventListener('click', () => {
             ['srchFirstName','srchLastName','srchDob','srchPhone','srchStatus','srchClinic',
-             'srchPatientCode','srchPatientTransport','srchPharmacyTransport','srchServiceFrom','srchServiceTo','srchEligibility'
+             'srchPatientCode','srchPatientTransport','srchPharmacyTransport','srchPharmacy','srchServiceFrom','srchServiceTo','srchEligibility','srchMissingInfo'
             ].forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
             document.getElementById('srchShowDeleted').checked = false;
             updateFilterBadge();
@@ -664,38 +683,40 @@ var allPatients = [];
             ]);
             if (ptRes && ptRes.ok) {
                 const pt = await ptRes.json();
+                patientTransportOptions = [];
                 const ptSel = document.getElementById('pPatientTransport');
-                const srchPtSel = document.getElementById('srchPatientTransport');
                 pt.forEach(c => {
                     const label = c.contactPerson || c.companyName;
+                    patientTransportOptions.push({ id: String(c.id), label: label });
                     ptSel.innerHTML += '<option value="' + c.id + '">' + label + '</option>';
-                    if (srchPtSel) srchPtSel.innerHTML += '<option value="' + c.id + '">' + label + '</option>';
                 });
             }
             if (rxRes && rxRes.ok) {
                 const rx = await rxRes.json();
+                pharmacyTransportOptions = [];
                 const rxSel = document.getElementById('pPharmacyTransport');
-                const srchRxSel = document.getElementById('srchPharmacyTransport');
                 rx.forEach(c => {
                     const label = c.companyName || c.contactPerson;
+                    pharmacyTransportOptions.push({ id: String(c.id), label: label });
                     rxSel.innerHTML += '<option value="' + c.id + '">' + label + '</option>';
-                    if (srchRxSel) srchRxSel.innerHTML += '<option value="' + c.id + '">' + label + '</option>';
                 });
             }
             if (clRes && clRes.ok) {
                 const cl = await clRes.json();
+                clinicOptions = [];
                 const clSel = document.getElementById('pClinicId');
-                const srchSel = document.getElementById('srchClinic');
                 cl.forEach(c => {
                     const label = c.name + (c.address ? ' – ' + c.address : '');
+                    clinicOptions.push({ id: String(c.id), label: c.name });
                     clSel.innerHTML   += '<option value="' + c.id + '">' + label + '</option>';
-                    srchSel.innerHTML += '<option value="' + c.id + '">' + c.name + '</option>';
                 });
             }
             if (phRes && phRes.ok) {
                 const ph = await phRes.json();
+                pharmacyOptions = [];
                 const phSel = document.getElementById('pPharmacyId');
                 ph.forEach(p => {
+                    pharmacyOptions.push({ id: String(p.id), label: p.name });
                     phSel.innerHTML += '<option value="' + p.id + '">' + p.name + (p.address ? ' – ' + p.address : '') + '</option>';
                 });
             }
@@ -736,7 +757,98 @@ var allPatients = [];
         }
     }
 
+    function patientHasAnyField(p, keys) {
+        return keys.some(key => p[key] !== null && p[key] !== undefined && String(p[key]) !== '');
+    }
+
+    function patientMatchesCascadeFilters(p, skipField) {
+        var fn   = (document.getElementById('srchFirstName')?.value || '').toLowerCase();
+        var ln   = (document.getElementById('srchLastName')?.value || '').toLowerCase();
+        var dob  = document.getElementById('srchDob')?.value || '';
+        var ph   = (document.getElementById('srchPhone')?.value || '').toLowerCase();
+        var st   = document.getElementById('srchStatus')?.value || '';
+        var cl   = document.getElementById('srchClinic')?.value || '';
+        var pc   = (document.getElementById('srchPatientCode')?.value || '').toLowerCase();
+        var pt   = document.getElementById('srchPatientTransport')?.value || '';
+        var rx   = document.getElementById('srchPharmacyTransport')?.value || '';
+        var pharm = document.getElementById('srchPharmacy')?.value || '';
+        var sf   = document.getElementById('srchServiceFrom')?.value || '';
+        var st2  = document.getElementById('srchServiceTo')?.value || '';
+        var elig = document.getElementById('srchEligibility')?.value || '';
+        var missingInfo = document.getElementById('srchMissingInfo')?.value || '';
+        var todayMs = new Date().setHours(0,0,0,0);
+
+        if (fn && !(p.firstName||'').toLowerCase().includes(fn)) return false;
+        if (ln && !(p.lastName||'').toLowerCase().includes(ln)) return false;
+        if (dob && p.dob !== dob) return false;
+        if (ph && !(p.phone||'').toLowerCase().includes(ph)) return false;
+        if (st !== '' && String(p.isActive) !== st) return false;
+        if (pc && !(p.patientCode||'').toLowerCase().includes(pc)) return false;
+        if (skipField !== 'clinic' && cl && patientFieldValue(p, 'clinicId') !== cl) return false;
+        if (skipField !== 'patientTransport' && pt && patientFieldValue(p, 'patientTransportCompanyId', 'patientTransportId') !== pt) return false;
+        if (skipField !== 'pharmacyTransport' && rx && patientFieldValue(p, 'pharmacyTransportCompanyId', 'pharmacyTransportId') !== rx) return false;
+        if (skipField !== 'pharmacy' && pharm && patientFieldValue(p, 'pharmacyId') !== pharm) return false;
+        if (sf && p.serviceDate && p.serviceDate < sf) return false;
+        if (st2 && p.serviceDate && p.serviceDate > st2) return false;
+
+        if (missingInfo) {
+            var missingClinic = !patientHasAnyField(p, ['clinicId']);
+            var missingPharmacy = !patientHasAnyField(p, ['pharmacyId']);
+            var missingPatientTransport = !patientHasAnyField(p, ['patientTransportCompanyId', 'patientTransportId']);
+            var missingPharmacyTransport = !patientHasAnyField(p, ['pharmacyTransportCompanyId', 'pharmacyTransportId']);
+            if (missingInfo === 'clinic' && !missingClinic) return false;
+            if (missingInfo === 'pharmacy' && !missingPharmacy) return false;
+            if (missingInfo === 'patientTransport' && !missingPatientTransport) return false;
+            if (missingInfo === 'pharmacyTransport' && !missingPharmacyTransport) return false;
+            if (missingInfo === 'any' && !(missingClinic || missingPharmacy || missingPatientTransport || missingPharmacyTransport)) return false;
+            if (missingInfo === 'all' && !(missingClinic && missingPharmacy && missingPatientTransport && missingPharmacyTransport)) return false;
+        }
+
+        if (elig) {
+            if (!p.serviceDate) {
+                if (elig !== 'none') return false;
+            } else if (elig === 'needsAction' && !p.needsAction) {
+                return false;
+            } else {
+                var svcMs = new Date(p.serviceDate).setHours(0,0,0,0);
+                var exp90 = svcMs + 90 * 864e5;
+                var dl90 = Math.ceil((exp90 - todayMs) / 864e5);
+                if (elig === 'eligible' && dl90 >= 0) return false;
+                if (elig === 'expiring' && (dl90 < 0 || dl90 > 7)) return false;
+                if (elig === 'window' && (dl90 < 0 || dl90 <= 7)) return false;
+                if (elig === 'none') return false;
+            }
+        }
+
+        return true;
+    }
+
+    function updatePatientCascadeOptions() {
+        var defs = [
+            { field: 'clinic', selectId: 'srchClinic', defaultText: 'All Clinics', options: clinicOptions, keys: ['clinicId'] },
+            { field: 'patientTransport', selectId: 'srchPatientTransport', defaultText: 'All Transport Companies', options: patientTransportOptions, keys: ['patientTransportCompanyId', 'patientTransportId'] },
+            { field: 'pharmacyTransport', selectId: 'srchPharmacyTransport', defaultText: 'All Pharmacy Transport', options: pharmacyTransportOptions, keys: ['pharmacyTransportCompanyId', 'pharmacyTransportId'] },
+            { field: 'pharmacy', selectId: 'srchPharmacy', defaultText: 'All Pharmacies', options: pharmacyOptions, keys: ['pharmacyId'] }
+        ];
+
+        defs.forEach(function(def) {
+            var sel = document.getElementById(def.selectId);
+            if (!sel) return;
+            var current = sel.value;
+            var allowed = {};
+            allPatients.forEach(function(p) {
+                if (!patientMatchesCascadeFilters(p, def.field)) return;
+                var value = patientFieldValue(p, def.keys[0], def.keys[1]);
+                if (value) allowed[value] = true;
+            });
+            var nextOptions = def.options.filter(function(opt) { return allowed[opt.id]; });
+            resetSelectOptions(sel, def.defaultText, nextOptions);
+            if (current && !allowed[current]) sel.value = '';
+        });
+    }
+
     function applyPatientSearch() {
+        updatePatientCascadeOptions();
         const fn   = document.getElementById('srchFirstName').value.toLowerCase();
         const ln   = document.getElementById('srchLastName').value.toLowerCase();
         const dob  = document.getElementById('srchDob').value;
@@ -747,11 +859,17 @@ var allPatients = [];
         const pc   = (document.getElementById('srchPatientCode')?.value || '').toLowerCase();
         const pt   = document.getElementById('srchPatientTransport')?.value || '';
         const rx   = document.getElementById('srchPharmacyTransport')?.value || '';
+        const pharm = document.getElementById('srchPharmacy')?.value || '';
         const sf   = document.getElementById('srchServiceFrom')?.value || '';
         const st2  = document.getElementById('srchServiceTo')?.value || '';
         const elig = (document.getElementById('srchEligibility')?.value || '');
+        const missingInfo = (document.getElementById('srchMissingInfo')?.value || '');
 
         const _todayMs = new Date().setHours(0,0,0,0);
+
+        function hasPatientField(p, keys) {
+            return keys.some(key => p[key] !== null && p[key] !== undefined && String(p[key]) !== '');
+        }
 
         filteredPatients = allPatients.filter(p => {
             if (fn && !(p.firstName||'').toLowerCase().includes(fn)) return false;
@@ -766,15 +884,33 @@ var allPatients = [];
             // Advanced filters
             if (pc && !(p.patientCode||'').toLowerCase().includes(pc)) return false;
             if (pt !== '') {
-                const patPt = p.patientTransportId !== null && p.patientTransportId !== undefined ? String(p.patientTransportId) : '';
+                const patPtVal = p.patientTransportCompanyId !== undefined ? p.patientTransportCompanyId : p.patientTransportId;
+                const patPt = patPtVal !== null && patPtVal !== undefined ? String(patPtVal) : '';
                 if (patPt !== pt) return false;
             }
             if (rx !== '') {
-                const patRx = p.pharmacyTransportId !== null && p.pharmacyTransportId !== undefined ? String(p.pharmacyTransportId) : '';
+                const patRxVal = p.pharmacyTransportCompanyId !== undefined ? p.pharmacyTransportCompanyId : p.pharmacyTransportId;
+                const patRx = patRxVal !== null && patRxVal !== undefined ? String(patRxVal) : '';
                 if (patRx !== rx) return false;
+            }
+            if (pharm !== '') {
+                const patPharm = p.pharmacyId !== null && p.pharmacyId !== undefined ? String(p.pharmacyId) : '';
+                if (patPharm !== pharm) return false;
             }
             if (sf && p.serviceDate && p.serviceDate < sf) return false;
             if (st2 && p.serviceDate && p.serviceDate > st2) return false;
+            if (missingInfo) {
+                var missingClinic = !hasPatientField(p, ['clinicId']);
+                var missingPharmacy = !hasPatientField(p, ['pharmacyId']);
+                var missingPatientTransport = !hasPatientField(p, ['patientTransportCompanyId', 'patientTransportId']);
+                var missingPharmacyTransport = !hasPatientField(p, ['pharmacyTransportCompanyId', 'pharmacyTransportId']);
+                if (missingInfo === 'clinic' && !missingClinic) return false;
+                if (missingInfo === 'pharmacy' && !missingPharmacy) return false;
+                if (missingInfo === 'patientTransport' && !missingPatientTransport) return false;
+                if (missingInfo === 'pharmacyTransport' && !missingPharmacyTransport) return false;
+                if (missingInfo === 'any' && !(missingClinic || missingPharmacy || missingPatientTransport || missingPharmacyTransport)) return false;
+                if (missingInfo === 'all' && !(missingClinic && missingPharmacy && missingPatientTransport && missingPharmacyTransport)) return false;
+            }
             // ── 90-day eligibility filter ──────────────────────────────────────
             // Logic MUST match dashboardController.js getEligibilityStats()
             // Source of truth: patient.serviceDate (not latest RX serviceDate)
@@ -2261,7 +2397,7 @@ var allPatients = [];
     }
 
     function updateFilterBadge() {
-        const advancedIds = ['srchPatientCode','srchPatientTransport','srchPharmacyTransport','srchServiceFrom','srchServiceTo','srchEligibility'];
+        const advancedIds = ['srchPatientCode','srchPatientTransport','srchPharmacyTransport','srchPharmacy','srchServiceFrom','srchServiceTo','srchEligibility','srchMissingInfo'];
         const basicIds    = ['srchFirstName','srchLastName','srchDob','srchPhone'];
         const statusEl    = document.getElementById('srchStatus');
         const clinicEl    = document.getElementById('srchClinic');
@@ -2301,8 +2437,9 @@ var allPatients = [];
             srchFirstName: 'First Name', srchLastName: 'Last Name', srchDob: 'DOB',
             srchPhone: 'Phone', srchStatus: 'Status', srchClinic: 'Clinic',
             srchPatientCode: 'Patient ID', srchPatientTransport: 'Patient Transport',
-            srchPharmacyTransport: 'Pharmacy Transport', srchServiceFrom: 'From',
-            srchServiceTo: 'To', srchEligibility: '90-Day Eligibility'
+            srchPharmacyTransport: 'Pharmacy Transport', srchPharmacy: 'Pharmacy', srchServiceFrom: 'From',
+            srchServiceTo: 'To', srchEligibility: '90-Day Eligibility',
+            srchMissingInfo: 'Missing Info'
         };
         var _chipIds = [...basicIds, ...advancedIds, 'srchStatus','srchClinic']
             .filter(id => { const el = document.getElementById(id); return el && el.value; });

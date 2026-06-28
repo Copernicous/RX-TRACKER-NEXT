@@ -110,6 +110,16 @@
                             <label class="form-label small fw-bold"><i class="fas fa-calendar-check me-1"></i>Service To</label>
                             <input type="date" class="form-control form-control-sm" id="rxFilterSvcTo">
                         </div>
+                        <div class="col-md-2">
+                            <label class="form-label small fw-bold"><i class="fas fa-tasks me-1"></i>Workflow Status</label>
+                            <select class="form-select form-select-sm" id="rxFilterWorkflowStatus">
+                                <option value="">All Workflow</option>
+                                <option value="pending">Pending</option>
+                                <option value="not-started">Not Started</option>
+                                <option value="in-progress">In Progress</option>
+                                <option value="completed">Completed</option>
+                            </select>
+                        </div>
                         <div class="col-md-3 d-flex align-items-end">
                             <div class="form-check form-switch mt-1">
                                 <input class="form-check-input" type="checkbox" id="rxShowDeleted">
@@ -178,7 +188,7 @@
                                 <th style="cursor:pointer" onclick="sortRx('nextSvcDate')">Next Service Date <i class="fas fa-sort text-muted" style="opacity:0.3" id="srIcon_nextSvcDate"></i></th>
                                 <th style="cursor:pointer" onclick="sortRx('cycleStatus')">Cycle Status <i class="fas fa-sort text-muted" style="opacity:0.3" id="srIcon_cycleStatus"></i></th>
                                 <th style="cursor:pointer" onclick="sortRx('Pharmacy.name')">Pharmacy <i class="fas fa-sort text-muted" style="opacity:0.3" id="srIcon_Pharmacy.name"></i></th>
-                                <th>Workflow Status</th>
+                                <th style="cursor:pointer" onclick="sortRx('workflowStatus')">Workflow Status <i class="fas fa-sort text-muted" style="opacity:0.3" id="srIcon_workflowStatus"></i></th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
@@ -742,6 +752,7 @@
         var patientId   = urlParams.get('patient');
         var patientName = urlParams.get('name');
         var autoOpenAddRx = urlParams.get('addRx') === '1' || urlParams.get('newRx') === '1';
+        var pendingParam = urlParams.get('pending') === 'true' || urlParams.get('workflowStatus') === 'pending';
         var decodedName = '';
 
         if (patientName) {
@@ -763,10 +774,22 @@
         } else if (decodedName) {
             _rxPrefillPatientName = decodedName.trim();
         }
+        if (pendingParam) {
+            var wfFilterEl = document.getElementById('rxFilterWorkflowStatus');
+            if (wfFilterEl) wfFilterEl.value = 'pending';
+            var advPanel = document.getElementById('rxAdvPanel');
+            if (advPanel) {
+                advPanel.style.display = '';
+                _rxAdvOpen = true;
+                var advChevron = document.getElementById('rxAdvChevron');
+                if (advChevron) advChevron.className = 'fas fa-chevron-up ms-1';
+            }
+        }
 
         // Filter bar listeners
         var _filterIds = ['rxFilterPatient','rxFilterId','rxFilterPharmacy','rxFilterPatientCode',
-                          'rxFilterDateFrom','rxFilterDateTo','rxFilterSvcFrom','rxFilterSvcTo'];
+                          'rxFilterDateFrom','rxFilterDateTo','rxFilterSvcFrom','rxFilterSvcTo',
+                          'rxFilterWorkflowStatus'];
         for (var _fi = 0; _fi < _filterIds.length; _fi++) {
             (function(fid) {
                 var el = document.getElementById(fid);
@@ -877,6 +900,22 @@
         }).catch(function(e) { console.error('[RX] loadRxRecords error:', e); });
     }
 
+    function getRxWorkflowStatusKey(rx) {
+        var completedSteps = rx && rx.RXWorkflowTrackings ? rx.RXWorkflowTrackings.length : 0;
+        var totalSteps = allWorkflowActions.length;
+        if (totalSteps > 0 && completedSteps >= totalSteps) return 'completed';
+        if (completedSteps > 0) return 'in-progress';
+        return 'not-started';
+    }
+
+    function getRxWorkflowSortValue(rx) {
+        var key = getRxWorkflowStatusKey(rx);
+        if (key === 'not-started') return 0;
+        if (key === 'in-progress') return 1;
+        if (key === 'completed') return 2;
+        return 3;
+    }
+
     function applyRxFilter() {
         var pat   = document.getElementById('rxFilterPatient').value.toLowerCase().trim();
         var rxId  = document.getElementById('rxFilterId').value.trim();
@@ -889,9 +928,12 @@
         var sfrom = _sfEl ? _sfEl.value : '';
         var _stEl = document.getElementById('rxFilterSvcTo');
         var sto   = _stEl ? _stEl.value : '';
+        var _wfEl = document.getElementById('rxFilterWorkflowStatus');
+        var wf    = _wfEl ? _wfEl.value : '';
         var preId = window._rxPrefilterPatientId;
 
         filteredRx = allRx.filter(function(r) {
+            var wfKey = getRxWorkflowStatusKey(r);
             if (pat) {
                 var fullName = r.Patient ? (r.Patient.firstName + ' ' + r.Patient.lastName).toLowerCase() : '';
                 var code     = r.Patient ? (r.Patient.patientCode || '').toLowerCase() : '';
@@ -913,6 +955,8 @@
             if (to    && r.serviceDate && r.serviceDate > to)     return false;
             if (sfrom && r.serviceDate && r.serviceDate < sfrom) return false;
             if (sto   && r.serviceDate && r.serviceDate > sto)   return false;
+            if (wf === 'pending' && wfKey === 'completed') return false;
+            if (wf && wf !== 'pending' && wfKey !== wf) return false;
             return true;
         });
         renderRxSorted();
@@ -940,6 +984,9 @@
                 var _sd2B = b.serviceDate ? new Date(b.serviceDate).getTime() + 90*864e5 : null;
                 valA = _sd2A !== null ? Math.round((_sd2A - Date.now()) / 864e5) : -9999;
                 valB = _sd2B !== null ? Math.round((_sd2B - Date.now()) / 864e5) : -9999;
+            } else if (rSortCol === 'workflowStatus') {
+                valA = getRxWorkflowSortValue(a);
+                valB = getRxWorkflowSortValue(b);
             }
             
             if (typeof valA === 'string' && typeof valB === 'string') {
@@ -957,7 +1004,7 @@
         var page  = filteredRx.slice(start, start + rxPageSize);
         var tbody = document.getElementById('rxBody');
         if (page.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">No RX records found.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-4">No RX records found.</td></tr>';
         } else {
             /* Build rows purely via DOM API (no template literals) ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â FortiGate-safe */
             tbody.innerHTML = '';
@@ -1135,7 +1182,7 @@
     }
 
     function updateRxSortIcons() {
-        ['id', 'Patient.firstName', 'serviceDate', 'nextSvcDate', 'cycleStatus', 'Pharmacy.name'].forEach(function(c) {
+        ['id', 'Patient.firstName', 'serviceDate', 'nextSvcDate', 'cycleStatus', 'Pharmacy.name', 'workflowStatus'].forEach(function(c) {
             const icon = document.getElementById('srIcon_' + c);
             if (icon) {
                 icon.className = c === rSortCol 

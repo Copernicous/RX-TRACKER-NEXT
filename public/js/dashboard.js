@@ -488,7 +488,8 @@ function renderDrilldownTable(type, data) {
         for (var ri = 0; ri < data.length; ri++) {
             var rx = data[ri];
             var steps  = (rx.RXWorkflowTrackings || []).length;
-            var pct    = steps > 0 ? Math.round(steps / Math.max(steps, 1) * 100) : 0;
+            var totalSteps = rx.workflowStepTotal || rx.totalWorkflowSteps || 0;
+            var pct    = totalSteps > 0 ? Math.round((steps / totalSteps) * 100) : 0;
             rxRows += '<tr>' +
                 '<td><strong>#' + rx.id + '</strong></td>' +
                 '<td>' + (rx.Patient ? rx.Patient.firstName + ' ' + rx.Patient.lastName : '&mdash;') + '</td>' +
@@ -496,7 +497,7 @@ function renderDrilldownTable(type, data) {
                 '<td>' + (rx.Pharmacy ? rx.Pharmacy.name : '&mdash;') + '</td>' +
                 '<td>' + (rx.arrivalDate || '&mdash;') + '</td>' +
                 '<td>' + (rx.serviceDate || '&mdash;') + '</td>' +
-                '<td><div class="progress" style="height:8px;min-width:60px"><div class="progress-bar bg-primary" style="width:' + pct + '%"></div></div><small>' + steps + ' step(s) completed</small></td>' +
+                '<td><div class="progress" style="height:8px;min-width:60px"><div class="progress-bar bg-primary" style="width:' + pct + '%"></div></div><small>' + steps + (totalSteps ? '/' + totalSteps : '') + ' step(s) completed</small></td>' +
                 '</tr>';
         }
         body.innerHTML = '<div class="table-responsive"><table class="table table-hover table-sm align-middle">' +
