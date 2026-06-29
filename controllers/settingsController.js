@@ -54,6 +54,13 @@ function formatAlertLabel(alertKey) {
         .join(' ');
 }
 
+function maskSettingValue(key, value) {
+    if (/pass|secret|token|key/i.test(String(key || ''))) {
+        return value ? '[redacted]' : '';
+    }
+    return String(value == null ? '' : value);
+}
+
 // GET /api/settings/email-alerts/user/:userId — inspect one user's granular alert subscriptions
 exports.getUserEmailAlertConfig = async (req, res) => {
     try {
@@ -231,6 +238,7 @@ exports.update = async (req, res) => {
             return res.status(400).json({ error: 'Request body must be a JSON object of { key: value } pairs.' });
         }
 
+        const auditChanges = [];
         for (const [key, value] of Object.entries(updates)) {
             // Timezone validation
             if (key === 'app_timezone' && !settings.KNOWN_TIMEZONES.includes(value)) {
@@ -244,7 +252,27 @@ exports.update = async (req, res) => {
             if (key === 'smtp_pass' && value === '') {
                 continue; // skip — don't erase existing password with empty
             }
+            const previousValue = settings.get(key);
             await settings.set(key, String(value));
+            auditChanges.push({
+                key,
+                previousValue: maskSettingValue(key, previousValue),
+                newValue: maskSettingValue(key, value)
+            });
+        }
+
+        if (auditChanges.length) {
+            await db.AuditLog.create({
+                userId: req.user?.id || null,
+                date: new Date(),
+                time: new Date(),
+                module: 'System Settings',
+                action: 'Settings Updated',
+                recordId: null,
+                previousValue: auditChanges.map(change => ({ key: change.key, value: change.previousValue })),
+                newValue: auditChanges.map(change => ({ key: change.key, value: change.newValue })),
+                ipAddress: req.ip
+            }).catch(() => {});
         }
 
         // Return masked copy
