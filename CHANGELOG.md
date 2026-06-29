@@ -9,6 +9,27 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 - No unreleased changes.
 
+## [2.0.69] - 2026-06-29
+
+### [RELEASE-69] Security hardening and FortiGate proxy HTTPS support
+**Files changed:** web/API access hardening, document handling, System Settings security, FortiGate proxy handling, release metadata
+
+- Promoted the tested security hardening from staging/development into production.
+- Switched browser authentication to server-set `HttpOnly` cookies and removed browser-readable full-token compatibility paths.
+- Added dedicated CSRF protection for cookie-authenticated unsafe requests.
+- Added safer rendering for System Settings user/settings tables and documented the implemented security controls.
+- Encrypted SMTP passwords at rest when saved through System Settings.
+- Removed document upload routes/UI and disabled Google Drive document API usage for uploads.
+- Added FortiGate-aware HTTPS handling so the browser can use HTTPS through the proxy while the internal Node backend remains HTTP.
+- Added safe HTTPS/proxy environment keys to `.env.example`.
+- Bumped production package version to `2.0.69`.
+
+**Database impact:**
+- No schema changes and no destructive data changes are introduced.
+- Existing patient, RX, workflow, audit, report, and settings data are preserved.
+- SMTP password values are encrypted when saved through System Settings after this release.
+- Existing production documents are not expected for this deployment; document uploads remain disabled.
+
 ## [2.0.68] - 2026-06-29
 
 ### [HOTFIX-68] Dark-mode edit patient contrast fix
