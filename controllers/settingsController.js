@@ -18,7 +18,7 @@ exports.getTimezones = (req, res) => {
 // GET /api/session-config - authenticated users can read non-sensitive session timing.
 exports.getSessionConfig = (req, res) => {
     const rawMinutes = parseInt(settings.get('session_timeout_minutes') || process.env.SESSION_TIMEOUT_MINUTES || '30', 10);
-    const sessionTimeoutMinutes = Number.isFinite(rawMinutes) ? Math.min(Math.max(rawMinutes, 5), 480) : 30;
+    const sessionTimeoutMinutes = Number.isFinite(rawMinutes) ? Math.min(Math.max(rawMinutes, 1), 480) : 30;
     res.json({
         sessionTimeoutMinutes,
         warningSeconds: 120
@@ -249,6 +249,18 @@ exports.update = async (req, res) => {
 
         const auditChanges = [];
         for (const [key, value] of Object.entries(updates)) {
+            if (key === 'smtp_pass_clear') {
+                if (String(value) === 'true') {
+                    const previousValue = settings.get('smtp_pass');
+                    await settings.set('smtp_pass', '');
+                    auditChanges.push({
+                        key: 'smtp_pass',
+                        previousValue: maskSettingValue('smtp_pass', previousValue),
+                        newValue: ''
+                    });
+                }
+                continue;
+            }
             // Timezone validation
             if (key === 'app_timezone' && !settings.KNOWN_TIMEZONES.includes(value)) {
                 return res.status(400).json({ error: `Unknown timezone: "${value}". Please select a value from the list.` });

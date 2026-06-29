@@ -7,7 +7,7 @@ This document lists the security controls currently implemented in the Patient R
 
 ## Summary
 
-The application is protected mainly by cookie-only authenticated access, role-based permissions, security headers, CSRF protection, CORS restrictions, rate limits, 2FA support, audit logging, document upload removal, SMTP secret encryption at rest, and admin/master-admin separation.
+The application is protected mainly by cookie-only authenticated access, server-enforced idle sessions, role-based permissions, security headers, CSRF protection, CORS restrictions, rate limits, 2FA support, audit logging, document upload removal, SMTP secret encryption at rest, and admin/master-admin separation.
 
 Patient and RX data are stored on the local server/PostgreSQL. The application does not currently encrypt individual patient columns inside PostgreSQL. Protection at rest depends on the server/database/storage controls, such as Windows BitLocker, PostgreSQL storage security, backups security, and OS permissions.
 
@@ -33,6 +33,7 @@ Patient and RX data are stored on the local server/PostgreSQL. The application d
 | CSRF protection | Unsafe cookie-authenticated requests require an `X-CSRF-Token` header matching the same-origin `rxCsrf` cookie. | `app.js`, `public/js/base.js` |
 | Web page login gate | Protected HTML pages redirect to `/login` if there is no valid web auth cookie. | `routes/webRoutes.js`, `middleware/webAuth.js` |
 | JWT expiry | Full login tokens expire after 8 hours. | `controllers/authController.js` |
+| Server-side idle timeout | Authenticated API requests and protected web pages validate an in-memory idle session. User activity refreshes the idle timer through `/api/session/activity`; background heartbeat does not extend the security session. | `services/sessionIdleService.js`, `middleware/auth.js`, `middleware/webAuth.js`, `routes/apiRoutes.js`, `public/js/app.js` |
 | Token invalidation after password change | Tokens include `tv` token version. Password changes increment `tokenVersion`, invalidating old tokens. | `middleware/auth.js`, `controllers/authController.js` |
 | Password hashing | User passwords are stored as bcrypt hashes, not plaintext. Normal user create/update uses bcrypt; password change/reset uses stronger bcrypt cost where implemented. | `controllers/userController.js`, `controllers/authController.js`, `app.js` |
 | Generic login failure message | Login does not reveal whether the username exists. | `controllers/authController.js` |
@@ -138,7 +139,7 @@ These are the security protections or indicators that users see in the applicati
 | Login screen | Username/password login; generic errors; 2FA step appears when required. | JWT auth, password hashing, inactive-user block, lockout, rate limits |
 | 2FA account panel | Users can set up 2FA, scan QR code, save backup codes, disable 2FA with authenticator code, or regenerate backup codes. | TOTP verification, hashed backup codes, audit logs |
 | Global 2FA setting | Admins see a System Settings toggle and warning when global 2FA enforcement is disabled. | `require_2fa` setting checked during login |
-| Session warning | Users see "Session Expiring Soon" and can stay logged in or log out. | Front-end idle timer uses `/api/session-config`; JWT still expires after 8 hours |
+| Session warning | Users see "Session Expiring Soon" and can stay logged in or log out. | Front-end timer uses `/api/session-config`; server-side idle validation rejects stale sessions before the 8-hour JWT maximum |
 | Access denied feedback | Forbidden actions show "Access denied" toast/message instead of exposing data. | Server returns 403 from RBAC/admin/master checks |
 | Permission-aware sidebar | Users only see modules their role can access. | Server routes still enforce permissions |
 | Read-only/edit restrictions | Buttons, fields, save/delete/export controls are hidden or disabled when permission is missing. | Server RBAC enforces the same actions |
@@ -146,7 +147,7 @@ These are the security protections or indicators that users see in the applicati
 | Who's Online | Authorized users can see active sessions and pages being used. | Active sessions endpoint requires `active_users` permission |
 | Staging banner | Staging environment is visibly marked on login/sidebar/navbar. | Environment markers from server locals |
 | Document area | Existing documents can be listed/downloaded if allowed; upload controls are removed. | Upload routes are not mounted; document list/download checks permissions |
-| System Settings security card | Admins can configure session timeout and max failed login threshold. | Session timeout is read by front end; failed-login and 2FA lockout code reads the configured threshold |
+| System Settings security card | Admins can configure session timeout and max failed login threshold. | Session timeout is enforced by server idle tracking and reflected in the front-end warning; failed-login and 2FA lockout code reads the configured threshold |
 | Email security alerts | Admins can configure security alert conditions and per-user subscriptions. | Settings are admin-only and audited |
 | Backup/restore warnings | Restore UI requires deliberate confirmation and shows warnings. | Backup/restore endpoints are Administrator-only |
 
@@ -157,7 +158,7 @@ These are the security protections or indicators that users see in the applicati
 | `APP_ORIGIN` | Allowed browser origins for credentialed CORS | Required in production; comma-separated allowlist |
 | `FORCE_HTTPS` | Enforce HTTPS redirect and HSTS | Only active when set to `true` |
 | `JWT_SECRET` | Signs/verifies JWT tokens | Required for secure auth; must be strong and private |
-| `SESSION_TIMEOUT_MINUTES` / `session_timeout_minutes` | Front-end idle timeout | Default 30 minutes; clamped by API to 5-480 minutes |
+| `SESSION_TIMEOUT_MINUTES` / `session_timeout_minutes` | Server-side idle timeout and front-end warning timing | Default 30 minutes; clamped to 1-480 minutes |
 | `MAX_FAILED_LOGINS` / `max_failed_logins` | Failed-login threshold setting | Login and 2FA lockout paths read this setting; valid range is 1-20 |
 | `require_2fa` | Global 2FA enforcement | Defaults to true; if false, users with 2FA configured skip code prompt |
 | `DOCUMENT_UPLOAD_MAX_MB` | Legacy document upload limit | Patient/RX document upload code is removed/disabled, so this no longer controls patient/RX uploads |
@@ -171,9 +172,7 @@ These are the items still pending after the staging hardening pass.
 
 1. CSP still allows inline scripts/styles. CSP uses `'unsafe-inline'` because the current app still has inline handlers and inline scripts. Recommended fix: move inline scripts/handlers into static JS files and then switch to a nonce-based or stricter CSP.
 
-2. Session timeout is still primarily front-end idle enforcement. Users are redirected after inactivity, and the auth cookie/JWT still has an 8-hour absolute expiry. Recommended fix: add server-side idle session tracking or rotate/refresh tokens with an idle timeout if stricter inactivity enforcement is required.
-
-3. PostgreSQL patient/RX column-level encryption is not implemented. Patient names, phones, addresses, notes, service dates, and RX workflow data are stored normally in PostgreSQL. Current protection should rely on BitLocker/full-disk encryption, restricted Windows/PostgreSQL accounts, secure backups, and limited server access. Future option: add application-level encryption for selected sensitive columns if required.
+2. PostgreSQL patient/RX column-level encryption is not implemented. Patient names, phones, addresses, notes, service dates, and RX workflow data are stored normally in PostgreSQL. Current protection should rely on BitLocker/full-disk encryption, restricted Windows/PostgreSQL accounts, secure backups, and limited server access. Future option: add application-level encryption for selected sensitive columns if required.
 
 ## Practical Production Verification
 
@@ -188,9 +187,10 @@ Use this checklist after each security-related release:
 7. Confirm the browser does not receive/store a full JWT in `localStorage` or a JavaScript-readable `rxToken` cookie.
 8. Confirm unsafe API requests without the `X-CSRF-Token` header return 403.
 9. Confirm logout clears the session and writes an Authentication / Logout audit entry.
-10. Confirm System Settings returns masked SMTP password values only and stores `smtp_pass` encrypted in the database.
-11. Confirm patient/RX document upload controls are absent.
-12. Confirm old Drive-backed document rows do not expose Drive download links.
-13. Confirm Audit Log and User Activity Log are visible only to authorized roles.
-14. Confirm Backup Management is Administrator-only.
-15. Confirm Back Office is blocked unless `isMaster=true`.
+10. Set the staging session timeout to 1 minute, stop using the app, and confirm API/page access requires login again after the idle period.
+11. Confirm System Settings returns masked SMTP password values only and stores `smtp_pass` encrypted in the database.
+12. Confirm patient/RX document upload controls are absent.
+13. Confirm old Drive-backed document rows do not expose Drive download links.
+14. Confirm Audit Log and User Activity Log are visible only to authorized roles.
+15. Confirm Backup Management is Administrator-only.
+16. Confirm Back Office is blocked unless `isMaster=true`.

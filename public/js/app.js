@@ -536,9 +536,27 @@ function setupSessionTimeout() {
     let WARN_SECONDS = 120;
     let idleTimer, warnTimer, countdownTimer;
     const ACTIVITY_KEY = 'rxLastActivityAt';
+    const SERVER_ACTIVITY_MS = 60 * 1000;
+    let lastServerActivityPing = 0;
+
+    function notifyServerActivity(force) {
+        if (!getCurrentAuthUser()) return;
+        var now = Date.now();
+        if (!force && now - lastServerActivityPing < SERVER_ACTIVITY_MS) return;
+        lastServerActivityPing = now;
+        try {
+            fetch(window.rxUrl ? window.rxUrl('/api/session/activity') : '/api/session/activity', {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                keepalive: true
+            }).catch(function() {});
+        } catch(e) {}
+    }
 
     function markActivity() {
         try { localStorage.setItem(ACTIVITY_KEY, String(Date.now())); } catch(e) {}
+        notifyServerActivity(false);
     }
 
     function lastActivityAt() {
@@ -552,7 +570,7 @@ function setupSessionTimeout() {
         var cleanWarning = parseInt(warningSeconds, 10);
         if (!Number.isFinite(cleanMinutes)) cleanMinutes = 30;
         if (!Number.isFinite(cleanWarning)) cleanWarning = 120;
-        cleanMinutes = Math.min(Math.max(cleanMinutes, 5), 480);
+        cleanMinutes = Math.min(Math.max(cleanMinutes, 1), 480);
         cleanWarning = Math.min(Math.max(cleanWarning, 30), Math.max(cleanMinutes * 60 - 30, 30));
         IDLE_MS = cleanMinutes * 60 * 1000;
         WARN_SECONDS = cleanWarning;
@@ -582,7 +600,7 @@ function setupSessionTimeout() {
                 '<h5 class="modal-title text-warning"><i class="fas fa-clock me-2"></i>Session Expiring Soon</h5>' +
               '</div>' +
               '<div class="modal-body text-center py-4">' +
-                '<p class="mb-2">You have been idle for <strong>28 minutes</strong>.</p>' +
+                '<p class="mb-2">You have been idle close to the configured session limit.</p>' +
                 '<p class="text-muted">You will be automatically logged out in <strong id="sessionCountdown">2:00</strong>.</p>' +
               '</div>' +
               '<div class="modal-footer justify-content-center">' +
@@ -596,6 +614,7 @@ function setupSessionTimeout() {
 
         document.getElementById('sessionStayBtn').addEventListener('click', function() {
             var _wm=bootstrap.Modal.getInstance(document.getElementById('sessionWarnModal'));if(_wm)_wm.hide();
+            notifyServerActivity(true);
             resetTimers();
         });
         document.getElementById('sessionLogoutNowBtn').addEventListener('click', performLogout);

@@ -10,6 +10,7 @@ const fs   = require('fs');
 const multer = require('multer');
 const errorLogController = require('../controllers/errorLogController');
 const sessionTracker = require('../services/sessionTracker');
+const sessionIdleService = require('../services/sessionIdleService');
 const { getWritableRoot } = require('../utils/runtimePaths');
 
 function getCookie(cookieHeader, name) {
@@ -248,6 +249,7 @@ router.post('/auth/logout', auth, async (req, res) => {
     } catch (e) { /* non-fatal */ }
     // Remove from active sessions tracker immediately
     if (req.user) sessionTracker.remove(req.user.id);
+    sessionIdleService.end(req.authToken, req.user);
     res.clearCookie('rxToken', { path: '/', sameSite: 'lax' });
     res.clearCookie('rxToken', { path: '/', sameSite: 'none', secure: true });
     res.clearCookie('rxCsrf', { path: '/', sameSite: 'lax' });
@@ -257,6 +259,12 @@ router.post('/auth/logout', auth, async (req, res) => {
 
 // ── Active User Sessions (Who's Online) ──────────────────────────────────────
 // POST /api/heartbeat — any authenticated user; updates their session entry
+// POST /api/session/activity - user-driven activity extends the server-side idle timer.
+router.post('/session/activity', auth, (req, res) => {
+    sessionIdleService.touch(req.authToken, req.user);
+    res.status(204).end();
+});
+
 router.post('/heartbeat', auth, (req, res) => {
     const { currentPage, currentUrl } = req.body || {};
     // Capture real IP — x-forwarded-for first (FortiGate/proxy), then direct

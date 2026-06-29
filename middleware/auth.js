@@ -1,5 +1,13 @@
 const jwt = require('jsonwebtoken');
 const securityAlertService = require('../services/securityAlertService');
+const sessionIdleService = require('../services/sessionIdleService');
+
+function clearAuthCookies(res) {
+    res.clearCookie('rxToken', { path: '/', sameSite: 'lax' });
+    res.clearCookie('rxToken', { path: '/', sameSite: 'none', secure: true });
+    res.clearCookie('rxCsrf', { path: '/', sameSite: 'lax' });
+    res.clearCookie('rxCsrf', { path: '/', sameSite: 'none', secure: true });
+}
 
 // Helper: parse a specific cookie from the Cookie header string
 function getCookie(cookieHeader, name) {
@@ -60,8 +68,20 @@ module.exports = (req, res, next) => {
             console.warn('[Auth] tokenVersion DB check skipped (DB unavailable):', _e.message);
         }
 
+        const idleCheck = sessionIdleService.validate(token, decoded);
+        if (!idleCheck.ok) {
+            securityAlertService.recordMissingAuth({ req, reason: 'idle_timeout' }).catch(() => {});
+            clearAuthCookies(res);
+            return res.status(401).json({
+                message: 'Session expired due to inactivity. Please log in again.',
+                reason: 'idle_timeout',
+                timeoutMinutes: idleCheck.timeoutMinutes
+            });
+        }
 
         req.user = decoded;
+        req.authToken = token;
+        req.authSessionKey = idleCheck.key;
         next();
     });
 };

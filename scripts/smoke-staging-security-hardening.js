@@ -89,8 +89,11 @@ async function main() {
     const loginEjs = readRel('views/login.ejs');
     const appServer = readRel('app.js');
     const authController = readRel('controllers/authController.js');
+    const authMiddleware = readRel('middleware/auth.js');
+    const webAuthMiddleware = readRel('middleware/webAuth.js');
     const twoFactorController = readRel('controllers/twoFactorController.js');
     const settingsService = readRel('services/settingsService.js');
+    const sessionIdleService = readRel('services/sessionIdleService.js');
     const documentController = readRel('controllers/documentController.js');
     const apiRoutes = readRel('routes/apiRoutes.js');
     const securityAlertService = readRel('services/securityAlertService.js');
@@ -140,10 +143,20 @@ async function main() {
 
     addResult(
         5,
-        'Session timeout is primarily front-end enforced',
-        has(appJs, 'setupSessionTimeout') && has(authController, "expiresIn: '8h'") ? 'WARN' : 'PASS',
-        'app.js handles idle logout in browser; JWT full token expiry remains 8h.',
-        'Open /js/app.js for setupSessionTimeout and controllers/authController.js for JWT expiresIn.'
+        'Server-side session idle timeout',
+        has(sessionIdleService, 'idle_timeout')
+            && has(authMiddleware, 'sessionIdleService.validate')
+            && has(webAuthMiddleware, 'sessionIdleService.validate')
+            && has(apiRoutes, "/session/activity")
+            && has(appJs, '/api/session/activity') ? 'PASS' : 'WARN',
+        has(sessionIdleService, 'idle_timeout')
+            && has(authMiddleware, 'sessionIdleService.validate')
+            && has(webAuthMiddleware, 'sessionIdleService.validate')
+            && has(apiRoutes, "/session/activity")
+            && has(appJs, '/api/session/activity')
+            ? 'Auth middleware validates server-side idle timeout; user activity endpoint refreshes it.'
+            : 'Idle timeout still appears incomplete or front-end only.',
+        'Inspect services/sessionIdleService.js, middleware/auth.js, middleware/webAuth.js, routes/apiRoutes.js, and /js/app.js.'
     );
 
     const modelText = patientModel + '\n' + rxModel;

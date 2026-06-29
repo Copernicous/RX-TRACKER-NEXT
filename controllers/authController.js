@@ -5,6 +5,7 @@ const settings = require('../services/settingsService');
 const { BUILT_IN_DEFAULTS } = require('../middleware/rbac');
 const requestSecurity = require('../utils/requestSecurity');
 const securityAlertService = require('../services/securityAlertService');
+const sessionIdleService = require('../services/sessionIdleService');
 
 // ── Account lockout constants ─────────────────────────────────────────────────
 const FALLBACK_MAX_FAILED_ATTEMPTS = 5;
@@ -118,6 +119,7 @@ async function issueFullToken(user, req, res) {
     const rolePerms = user.Role.permissions ||
         (BUILT_IN_DEFAULTS[user.Role.name] ? BUILT_IN_DEFAULTS[user.Role.name]() : {});
 
+    const sid = sessionIdleService.createSessionId();
     const token = jwt.sign(
         {
             id:          user.id,
@@ -127,6 +129,7 @@ async function issueFullToken(user, req, res) {
             role:        user.Role.name,
             permissions: rolePerms,
             tv:          user.tokenVersion || 0,
+            sid:         sid,
             // MASTER admin flag — controls /backoffice access.
             // Value comes from DB; UI/API never allows changing it.
             isMaster:    user.isMaster === true
@@ -134,6 +137,7 @@ async function issueFullToken(user, req, res) {
         process.env.JWT_SECRET,
         { expiresIn: '8h' }
     );
+    sessionIdleService.start(token, { id: user.id, sid: sid });
 
     // Log successful login
     await db.AuditLog.create({

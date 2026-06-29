@@ -11,6 +11,14 @@
  * If the cookie is absent or invalid, locals are null (guest / not-logged-in).
  */
 const jwt = require('jsonwebtoken');
+const sessionIdleService = require('../services/sessionIdleService');
+
+function clearAuthCookies(res) {
+    res.clearCookie('rxToken', { path: '/', sameSite: 'lax' });
+    res.clearCookie('rxToken', { path: '/', sameSite: 'none', secure: true });
+    res.clearCookie('rxCsrf', { path: '/', sameSite: 'lax' });
+    res.clearCookie('rxCsrf', { path: '/', sameSite: 'none', secure: true });
+}
 
 // Simple cookie string parser — no external package needed.
 function parseCookies(cookieHeader) {
@@ -42,17 +50,22 @@ module.exports = (req, res, next) => {
         if (!token) return next();
 
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const idleCheck = sessionIdleService.validate(token, decoded);
+        if (!idleCheck.ok) {
+            clearAuthCookies(res);
+            return next();
+        }
+        sessionIdleService.touch(token, decoded);
         req.user               = decoded;          // allow middleware like requireMaster to read req.user
+        req.authToken          = token;
+        req.authSessionKey     = idleCheck.key;
         res.locals.currentUser = decoded;
         res.locals.userPerms   = decoded.permissions || {};
         res.locals.isAdmin     = decoded.role === 'Administrator';
         res.locals.isMaster    = decoded.isMaster === true;
     } catch (e) {
         // Expired or tampered token — clear it gracefully
-        res.clearCookie('rxToken', { path: '/', sameSite: 'lax' });
-        res.clearCookie('rxToken', { path: '/', sameSite: 'none', secure: true });
-        res.clearCookie('rxCsrf', { path: '/', sameSite: 'lax' });
-        res.clearCookie('rxCsrf', { path: '/', sameSite: 'none', secure: true });
+        clearAuthCookies(res);
     }
     next();
 };
