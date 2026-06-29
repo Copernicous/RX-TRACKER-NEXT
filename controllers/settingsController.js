@@ -1,6 +1,8 @@
 ﻿const settings       = require('../services/settingsService');
 const { extractRoutes } = require('../utils/routeInspector');
 const routeManifest  = require('../config/routeManifest');
+const emailService   = require('../services/emailService');
+const db             = require('../models');
 
 // GET /api/settings — returns all current settings (sensitive keys masked)
 exports.getAll = (req, res) => {
@@ -32,6 +34,193 @@ exports.getEmailStatus = (req, res) => {
         smtp_from_name:settings.get('smtp_from_name') || 'Patient RX System',
         smtp_pass_set: !!(settings.get('smtp_pass'))  // just boolean — never send the value
     });
+};
+
+function parseJsonObject(raw, fallback) {
+    if (!raw) return fallback;
+    try {
+        const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        return parsed && typeof parsed === 'object' ? parsed : fallback;
+    } catch (e) {
+        return fallback;
+    }
+}
+
+function formatAlertLabel(alertKey) {
+    return String(alertKey || 'sample_alert')
+        .split('_')
+        .filter(Boolean)
+        .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+        .join(' ');
+}
+
+// GET /api/settings/email-alerts/user/:userId — inspect one user's granular alert subscriptions
+exports.getUserEmailAlertConfig = async (req, res) => {
+    try {
+        const userId = parseInt(req.params.userId, 10);
+        if (!Number.isInteger(userId) || userId < 1) {
+            return res.status(400).json({ error: 'Invalid user ID.' });
+        }
+
+        const user = await db.User.findByPk(userId, {
+            attributes: ['id', 'firstName', 'lastName', 'username', 'email', 'isActive']
+        });
+        if (!user) {
+            return res.status(404).json({ error: 'User not found.' });
+        }
+
+        const rules = parseJsonObject(settings.get('email_alert_rules'), {});
+        const subscriptions = parseJsonObject(settings.get('email_alert_user_subscriptions'), {});
+        const userRules = subscriptions[String(userId)] || subscriptions[userId] || {};
+        const enabledKeys = Object.keys(userRules).filter(key => userRules[key] === true);
+        const inactiveGlobalKeys = enabledKeys.filter(key => rules[key] !== true);
+
+        res.json({
+            user: {
+                id: user.id,
+                firstName: user.firstName,
+                lastName: user.lastName,
+                username: user.username,
+                email: user.email,
+                isActive: user.isActive
+            },
+            alertsEnabled: settings.get('email_alerts_enabled') === 'true',
+            globalRecipients: String(settings.get('email_alerts_recipients') || '')
+                .split(',')
+                .map(v => v.trim())
+                .filter(Boolean),
+            subscriptions: userRules,
+            enabledAlertKeys: enabledKeys,
+            enabledCount: enabledKeys.length,
+            inactiveGlobalAlertKeys: inactiveGlobalKeys
+        });
+    } catch (e) {
+        console.error('[settings.getUserEmailAlertConfig]', e.message);
+        res.status(500).json({ error: e.message });
+    }
+};
+
+// POST /api/settings/email-alerts/test — send a sample alert using saved recipients/subscriptions
+exports.sendTestEmailAlert = async (req, res) => {
+    try {
+        if (!emailService.isConfigured()) {
+            return res.status(422).json({
+                error: 'Email is not configured.',
+                hint: 'Configure SMTP first in System Settings -> Email Setup.'
+            });
+        }
+
+        const alertKey = String(req.body?.alertKey || '').trim();
+        if (!alertKey) {
+            return res.status(400).json({ error: 'alertKey is required.' });
+        }
+
+        const rules = parseJsonObject(settings.get('email_alert_rules'), {});
+        const subscriptions = parseJsonObject(settings.get('email_alert_user_subscriptions'), {});
+        const manualRecipients = String(settings.get('email_alerts_recipients') || '')
+            .split(',')
+            .map(v => v.trim().toLowerCase())
+            .filter(Boolean);
+
+        const users = await db.User.findAll({
+            attributes: ['id', 'username', 'email'],
+            where: { isActive: true }
+        });
+
+        const subscribedRecipients = users
+            .filter(user => {
+                const userRules = subscriptions[String(user.id)] || subscriptions[user.id] || {};
+                return user.email && userRules[alertKey] === true;
+            })
+            .map(user => String(user.email).trim().toLowerCase());
+
+        const recipients = Array.from(new Set(manualRecipients.concat(subscribedRecipients)));
+        if (!recipients.length) {
+            return res.status(400).json({
+                error: 'No recipients are configured for this alert.',
+                hint: 'Add alert recipients or enable a per-user subscription for the selected alert.'
+            });
+        }
+
+        const alertEnabled = settings.get('email_alerts_enabled') === 'true';
+        const ruleEnabled = rules[alertKey] === true;
+        const label = formatAlertLabel(alertKey);
+        const now = new Date().toLocaleString('en-US', { timeZone: process.env.TZ || 'America/New_York' });
+        const actorName = req.user?.username || 'Administrator';
+        const subject = `Patient RX Alert Test - ${label}`;
+        const html = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+body { font-family: Arial, sans-serif; background: #f4f6fb; margin: 0; padding: 24px; color: #334155; }
+.card { max-width: 720px; margin: 0 auto; background: #ffffff; border-radius: 14px; overflow: hidden; box-shadow: 0 10px 30px rgba(15,23,42,.08); border: 1px solid #e2e8f0; }
+.hero { background: linear-gradient(135deg, #22c55e 0%, #0ea5e9 100%); color: white; padding: 26px 30px; }
+.hero h1 { margin: 0 0 6px; font-size: 22px; }
+.hero p { margin: 0; font-size: 13px; opacity: .9; }
+.body { padding: 28px 30px; }
+.pill { display: inline-block; padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; margin-right: 8px; }
+.on { background: #dcfce7; color: #166534; }
+.off { background: #fee2e2; color: #991b1b; }
+.meta { width: 100%; border-collapse: collapse; margin-top: 18px; }
+.meta td { border-bottom: 1px solid #e2e8f0; padding: 10px 0; vertical-align: top; font-size: 14px; }
+.meta td:first-child { width: 180px; color: #64748b; font-weight: 700; }
+.note { margin-top: 18px; padding: 14px 16px; border-radius: 10px; background: #eff6ff; color: #1d4ed8; font-size: 13px; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="hero">
+      <h1>Sample Email Alert</h1>
+      <p>This is a manual verification email sent from System Settings.</p>
+    </div>
+    <div class="body">
+      <div style="margin-bottom:12px;">
+        <span class="pill ${alertEnabled ? 'on' : 'off'}">Alerts ${alertEnabled ? 'Enabled' : 'Disabled'}</span>
+        <span class="pill ${ruleEnabled ? 'on' : 'off'}">Rule ${ruleEnabled ? 'Active' : 'Inactive'}</span>
+      </div>
+      <p><strong>${label}</strong> was triggered as a test so you can verify recipients, formatting, and SMTP delivery.</p>
+      <table class="meta">
+        <tr><td>Alert key</td><td>${alertKey}</td></tr>
+        <tr><td>Sent by</td><td>${actorName}</td></tr>
+        <tr><td>Server time</td><td>${now}</td></tr>
+        <tr><td>Saved recipients</td><td>${manualRecipients.length ? manualRecipients.join(', ') : 'None'}</td></tr>
+        <tr><td>Subscribed users</td><td>${subscribedRecipients.length ? subscribedRecipients.join(', ') : 'None'}</td></tr>
+        <tr><td>Delivered to</td><td>${recipients.join(', ')}</td></tr>
+      </table>
+      <div class="note">
+        If this message arrived successfully, the email alert configuration is ready for live alert wiring.
+      </div>
+    </div>
+  </div>
+</body>
+</html>`;
+
+        await emailService.sendEmail({ to: recipients, subject, html });
+
+        await db.AuditLog.create({
+            userId: req.user?.id || null,
+            date: new Date(),
+            time: new Date(),
+            module: 'System Settings',
+            action: `Sent sample email alert (${alertKey})`,
+            recordId: null,
+            previousValue: null,
+            newValue: { alertKey, recipients },
+            ipAddress: req.ip
+        });
+
+        res.json({
+            ok: true,
+            alertKey,
+            recipients,
+            recipientCount: recipients.length,
+            message: `Sample alert sent to ${recipients.length} recipient(s).`
+        });
+    } catch (e) {
+        console.error('[settings.sendTestEmailAlert]', e.message);
+        res.status(500).json({ error: e.message });
+    }
 };
 
 // PUT /api/settings — update one or more settings (Admin only)

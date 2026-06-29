@@ -4,6 +4,28 @@ const db = require('../models');
 const storage = require('../services/documentStorageService');
 const { getRequestPermission } = require('../middleware/rbac');
 
+const SAFE_DOWNLOAD_MIME = new Set([
+    'image/jpeg',
+    'image/png',
+    'image/gif',
+    'image/webp',
+    'image/bmp',
+    'image/tiff',
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'text/csv',
+    'application/csv',
+    'text/plain'
+]);
+
+function normalizeDownloadMime(mimeType) {
+    const raw = String(mimeType || '').toLowerCase().trim();
+    return SAFE_DOWNLOAD_MIME.has(raw) ? raw : 'application/octet-stream';
+}
+
 function serializeAttachment(row) {
     const doc = row.toJSON ? row.toJSON() : row;
     const uploader = doc.UploadedBy ? {
@@ -161,9 +183,12 @@ exports.downloadDocument = async (req, res) => {
         }
 
         const stream = await storage.openReadStream(attachment);
-        res.setHeader('Content-Type', attachment.mimeType || 'application/octet-stream');
+        const safeMime = normalizeDownloadMime(attachment.mimeType);
+        res.setHeader('Content-Type', safeMime);
+        res.setHeader('X-Content-Type-Options', 'nosniff');
+        res.setHeader('Content-Security-Policy', "default-src 'none'; sandbox");
         const safeDownloadName = String(attachment.originalName || attachment.storedName).replace(/["\r\n]/g, '');
-        res.setHeader('Content-Disposition', 'inline; filename="' + safeDownloadName + '"');
+        res.setHeader('Content-Disposition', 'attachment; filename="' + safeDownloadName + '"');
         stream.on('error', (err) => {
             if (!res.headersSent) res.status(500).json({ error: err.message });
             else res.destroy(err);

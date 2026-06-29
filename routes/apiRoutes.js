@@ -100,6 +100,23 @@ const pathMap = {
 };
 
 const DOCUMENT_MAX_MB = parseInt(process.env.DOCUMENT_UPLOAD_MAX_MB || '25', 10);
+const DOCUMENT_ALLOWED_TYPES = new Map([
+    ['.jpg',  ['image/jpeg']],
+    ['.jpeg', ['image/jpeg']],
+    ['.png',  ['image/png']],
+    ['.gif',  ['image/gif']],
+    ['.webp', ['image/webp']],
+    ['.bmp',  ['image/bmp']],
+    ['.tif',  ['image/tiff']],
+    ['.tiff', ['image/tiff']],
+    ['.pdf',  ['application/pdf']],
+    ['.doc',  ['application/msword']],
+    ['.docx', ['application/vnd.openxmlformats-officedocument.wordprocessingml.document']],
+    ['.xls',  ['application/vnd.ms-excel']],
+    ['.xlsx', ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']],
+    ['.csv',  ['text/csv', 'application/csv']],
+    ['.txt',  ['text/plain']]
+]);
 const documentUpload = multer({
     storage: multer.memoryStorage(),
     limits: {
@@ -108,21 +125,9 @@ const documentUpload = multer({
     },
     fileFilter: function(req, file, cb) {
         const ext = path.extname(file.originalname || '').toLowerCase();
-        const allowedExts = new Set([
-            '.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.tif', '.tiff',
-            '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.csv', '.txt'
-        ]);
-        const allowedMime = (file.mimetype || '').startsWith('image/')
-            || [
-                'application/pdf',
-                'application/msword',
-                'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-                'application/vnd.ms-excel',
-                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                'text/csv',
-                'text/plain'
-            ].includes(file.mimetype);
-        if (!allowedMime && !allowedExts.has(ext)) {
+        const allowedMimes = DOCUMENT_ALLOWED_TYPES.get(ext);
+        const mime = String(file.mimetype || '').toLowerCase();
+        if (!allowedMimes || !allowedMimes.includes(mime)) {
             return cb(new Error('Only pictures, PDFs, Office files, CSV, and text documents are accepted.'));
         }
         cb(null, true);
@@ -197,7 +202,6 @@ router.get('/patients/:id/notes',           rbac.requirePermission('patients',  
 router.post('/patients/:id/notes',          rbac.requirePermission('patient_notes', 'add'),  patientNoteController.addNote);
 router.delete('/patients/:id/notes/:noteId',rbac.requirePermission('patients',      'read'), patientNoteController.deleteNote);
 router.get('/patients/:id/documents',       rbac.requirePermission('patients',      'read'), documentController.listPatientDocuments);
-router.post('/patients/:id/documents',      rbac.requirePermission('patients',      'edit'), handleDocumentUpload, documentController.uploadPatientDocuments);
 
 generateCRUDRoutes('/clinics', clinicController, 'Clinics');
 router.put('/clinics/:id/restore', rbac.requirePermission('clinics', 'edit'), auditLogger('Clinics'), clinicController.restore);
@@ -220,7 +224,6 @@ router.put('/rx-records/:id/restore',           rbac.requirePermission('rx_recor
 // RX History — must be before the generic CRUD block
 router.get('/rx-records/:id/history', rbac.requirePermission('rx_records', 'read'), rxController.getHistory);
 router.get('/rx-records/:id/documents', rbac.requirePermission('rx_records', 'read'), documentController.listRxDocuments);
-router.post('/rx-records/:id/documents', rbac.requirePermission('rx_records', 'edit'), handleDocumentUpload, documentController.uploadRxDocuments);
 generateCRUDRoutes('/rx-records', rxController, 'RX Records');
 
 router.get('/documents/:id/download', documentController.downloadDocument);
@@ -522,6 +525,8 @@ router.get('/settings',              adminOnly, settingsController.getAll);
 router.get('/settings/timezones',    adminOnly, settingsController.getTimezones);
 router.get('/settings/email-status', adminOnly, settingsController.getEmailStatus);
 router.get('/settings/api-routes',    adminOnly, settingsController.getApiRoutes);
+router.get('/settings/email-alerts/user/:userId', adminOnly, settingsController.getUserEmailAlertConfig);
+router.post('/settings/email-alerts/test', adminOnly, settingsController.sendTestEmailAlert);
 router.put('/settings',              adminOnly, settingsController.update);
 
 // ---- API Key Management (Admin only) ----
