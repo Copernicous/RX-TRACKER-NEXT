@@ -9,6 +9,25 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 - No unreleased changes.
 
+## [2.0.67] - 2026-06-29
+
+### [RELEASE-67] Security hardening and document upload removal
+**Files changed:** web/API access hardening, System Settings email alerts, document handling, release metadata
+
+- Removed patient and RX document upload UI and disabled the document upload API routes.
+- Removed the Google Drive web-view link from document API responses and stopped requesting/storing that link for new document records.
+- Kept existing document downloads role-restricted while forcing safer download headers for document responses.
+- Added login enforcement for protected HTML pages so logged-out users are redirected to `/login`.
+- Added safer rendering for System Settings email-alert user configuration and settings tables to reduce stored-XSS risk from user or settings values.
+- Added audit logging for System Settings updates with sensitive setting values redacted.
+- Expanded email alert settings to support global rules, granular per-user subscriptions, test alerts, and plain-language per-user configuration inspection.
+- Bumped production package version to `2.0.67`.
+
+**Database impact:**
+- No destructive schema changes are introduced.
+- Existing production documents are not expected for this deployment. Existing patient, RX, workflow, audit, settings, and report data are preserved.
+- New System Settings updates will write audit records. Sensitive values such as passwords, secrets, tokens, and keys are redacted in the audit payload.
+
 ## [2.0.66] - 2026-06-28
 
 ### [RELEASE-66] Patient notice-group carousel
