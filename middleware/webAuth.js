@@ -49,7 +49,10 @@ module.exports = (req, res, next) => {
         res.locals.isMaster    = decoded.isMaster === true;
     } catch (e) {
         // Expired or tampered token — clear it gracefully
+        res.clearCookie('rxToken', { path: '/', sameSite: 'lax' });
         res.clearCookie('rxToken', { path: '/', sameSite: 'none', secure: true });
+        res.clearCookie('rxCsrf', { path: '/', sameSite: 'lax' });
+        res.clearCookie('rxCsrf', { path: '/', sameSite: 'none', secure: true });
     }
     next();
 };

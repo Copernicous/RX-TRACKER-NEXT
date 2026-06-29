@@ -31,7 +31,6 @@ window.isoDate = function(val) {
 (function() {
     function sendError(message, source, stack, severity) {
         try {
-            var token = localStorage.getItem('token');
             var payload = JSON.stringify({
                 message:  message  || 'Unknown error',
                 stack:    stack    || null,
@@ -39,9 +38,12 @@ window.isoDate = function(val) {
                 severity: severity || 'error'
             });
             var xhr = new XMLHttpRequest();
-            xhr.open('POST', '/api/errors', true);
+            xhr.open('POST', window.rxUrl ? window.rxUrl('/api/errors') : '/api/errors', true);
+            xhr.withCredentials = true;
             xhr.setRequestHeader('Content-Type', 'application/json');
-            if (token) xhr.setRequestHeader('Authorization', 'Bearer ' + token);
+            if (window.rxCsrfToken && window.rxCsrfToken()) {
+                xhr.setRequestHeader('X-CSRF-Token', window.rxCsrfToken());
+            }
             xhr.send(payload);
         } catch(e) { /* never throw from error logger */ }
     }
@@ -409,10 +411,9 @@ function setupGlobalSearch() {
 
 // ----- Auth Guard -----
 function checkAuth() {
-    var token = localStorage.getItem('token');
     var serverUser = null;
     try { serverUser = window.__RX_AUTH_USER || null; } catch (e) { serverUser = null; }
-    if (!token && !serverUser) {
+    if (!serverUser) {
         window.rxNav('/login');
         return;
     }
@@ -514,16 +515,14 @@ function setupLogout() {
     btn.addEventListener('click', async function() {
         // Track logout in audit log (fire-and-forget)
         try {
-            var token = localStorage.getItem('token');
-            if (token) {
-                await fetch(window.rxUrl('/api/auth/logout'), {
-                    method: 'POST',
-                    credentials: 'include',
-                    headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' }
-                });
-            }
+            await fetch(window.rxUrl('/api/auth/logout'), {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' }
+            });
         } catch(e) { /* non-fatal */ }
         localStorage.removeItem('token');
+        localStorage.removeItem('rxToken');
         localStorage.removeItem('user');
         // Server's /api/auth/logout calls res.clearCookie('rxToken') — no need to touch document.cookie
         window.rxNav('/login');
@@ -608,14 +607,14 @@ function setupSessionTimeout() {
             return;
         }
         try {
-            var token = localStorage.getItem('token');
-            if (token) await fetch(window.rxUrl('/api/auth/logout'), {
+            await fetch(window.rxUrl('/api/auth/logout'), {
                 method: 'POST',
                 credentials: 'include',
-                headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' }
+                headers: { 'Content-Type': 'application/json' }
             });
         } catch(e) {}
         localStorage.removeItem('token');
+        localStorage.removeItem('rxToken');
         localStorage.removeItem('user');
         window.rxNav('/login?reason=timeout');
     }
@@ -659,8 +658,8 @@ function setupSessionTimeout() {
             var openModal = modalEl ? bootstrap.Modal.getInstance(modalEl) : null;
             if (openModal) openModal.hide();
         } catch(e) {}
-        // Don't reset if on login page
-        if (!localStorage.getItem('token')) return;
+        // Don't reset if on login page or another unauthenticated page.
+        if (!getCurrentAuthUser()) return;
         warnTimer = setTimeout(showWarning,  WARN_MS);
         idleTimer = setTimeout(performLogout, IDLE_MS);
     }
@@ -678,26 +677,23 @@ function setupSessionTimeout() {
 // ----- Authenticated Fetch -----
 // Pass options.silent = true to suppress the 403 toast for background/init calls
 async function fetchWithAuth(url, options = {}) {
-    var token = localStorage.getItem('token');
     const silent = !!options.silent;
     const fetchOptions = Object.assign({}, options);
     delete fetchOptions.silent; // don't forward to fetch()
-    var serverUser = null;
-    try { serverUser = window.__RX_AUTH_USER || null; } catch (e) { serverUser = null; }
-    const headers = Object.assign({
-        'Content-Type': 'application/json'
-    }, fetchOptions.headers || {});
-    if (token && !serverUser) {
-        headers.Authorization = 'Bearer ' + token;
-    } else if (serverUser && headers.Authorization) {
-        delete headers.Authorization;
-    }
+    var hasFormDataBody = typeof FormData !== 'undefined' && fetchOptions.body instanceof FormData;
+    const headers = Object.assign(
+        hasFormDataBody ? {} : { 'Content-Type': 'application/json' },
+        fetchOptions.headers || {}
+    );
+    if (headers.Authorization) delete headers.Authorization;
 
-    var res = await fetch(url, Object.assign({}, fetchOptions, { headers, credentials: fetchOptions.credentials || 'include' }));
+    var targetUrl = (/^https?:\/\//i.test(String(url || '')) || typeof window.rxUrl !== 'function') ? url : window.rxUrl(url);
+    var res = await fetch(targetUrl, Object.assign({}, fetchOptions, { headers, credentials: fetchOptions.credentials || 'include' }));
 
     // 401 = token expired / invalid → logout
     if (res.status === 401) {
         localStorage.removeItem('token');
+        localStorage.removeItem('rxToken');
         localStorage.removeItem('user');
         window.rxNav('/login');
         return null;
@@ -969,33 +965,7 @@ function getCurrentAuthUser() {
         if (serverUser.roleId === undefined && serverUser.Role && serverUser.Role.id !== undefined) serverUser.roleId = serverUser.Role.id;
         return serverUser;
     }
-
-    var user = null;
-    try { user = JSON.parse(localStorage.getItem('user') || 'null'); } catch (e) { user = null; }
-    var tokenUser = decodeJwtPayload(localStorage.getItem('token'));
-
-    if (!user && tokenUser) {
-        user = {
-            id: tokenUser.id,
-            username: tokenUser.username,
-            firstName: tokenUser.firstName,
-            lastName: tokenUser.lastName,
-            role: tokenUser.role,
-            roleId: tokenUser.roleId,
-            permissions: tokenUser.permissions,
-            isMaster: tokenUser.isMaster
-        };
-    }
-    if (!user) return null;
-
-    if (tokenUser) {
-        user._tokenRole = tokenUser.role;
-        user._tokenRoleId = tokenUser.roleId;
-        if (!user.role && tokenUser.role) user.role = tokenUser.role;
-        if (user.roleId === undefined && tokenUser.roleId !== undefined) user.roleId = tokenUser.roleId;
-        if (!user.permissions && tokenUser.permissions) user.permissions = tokenUser.permissions;
-    }
-    return user;
+    return null;
 }
 
 function isAdministratorUser(user) {
@@ -2098,11 +2068,8 @@ function setupNotifications() {
 
 async function fetchNotifications() {
     try {
-        var token = localStorage.getItem('token');
-        if (!token) return;
-        var res = await fetch(window.rxUrl('/api/audit-logs?limit=20&page=1'), {
-            headers: { 'Authorization': 'Bearer ' + token }
-        });
+        var res = await fetchWithAuth('/api/audit-logs?limit=20&page=1', { silent: true });
+        if (!res) return;
         if (!res.ok) return;
         var json = await res.json();
         _notifData = (json.data || json || []).slice(0, 20);

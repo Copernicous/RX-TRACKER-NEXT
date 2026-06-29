@@ -30,6 +30,10 @@
 %>
 <!-- xa-base: FortiGate rewrites <a href> — used by base.js to compute proxy path prefix -->
 <a id="xa-base" href="/login" style="display:none" aria-hidden="true"></a>
+<script>
+    window.__RX_AUTH_USER = <%- JSON.stringify(locals.currentUser || null).replace(/</g, '\\u003c') %>;
+    window.__RX_AUTH_PERMS = <%- JSON.stringify(locals.userPerms || null).replace(/</g, '\\u003c') %>;
+</script>
 <% if (locals.isStaging) { %>
 <script>
     document.documentElement.classList.add('rx-staging-env');
@@ -205,10 +209,8 @@
 // Hidden automatically for roles without active_users permission (API returns 403)
 (function() {
     function _loadOnlineBadge() {
-        var token = localStorage.getItem('rxToken') || localStorage.getItem('token');
-        if (!token) return;
         var url = typeof window.rxUrl === 'function' ? window.rxUrl('/api/active-sessions') : '/api/active-sessions';
-        fetch(url, { headers: { 'Authorization': 'Bearer ' + token } })
+        fetch(url, { credentials: 'include' })
             .then(function(r) {
                 if (!r.ok) return null;
                 return r.json();

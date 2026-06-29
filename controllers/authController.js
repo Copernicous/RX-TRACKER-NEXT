@@ -5,8 +5,14 @@ const settings = require('../services/settingsService');
 const { BUILT_IN_DEFAULTS } = require('../middleware/rbac');
 
 // ── Account lockout constants ─────────────────────────────────────────────────
-const MAX_FAILED_ATTEMPTS = 10;
-const LOCKOUT_MINUTES     = 15;
+const FALLBACK_MAX_FAILED_ATTEMPTS = 5;
+const LOCKOUT_MINUTES              = 15;
+
+function getMaxFailedAttempts() {
+    const configured = parseInt(settings.get('max_failed_logins') || process.env.MAX_FAILED_LOGINS || FALLBACK_MAX_FAILED_ATTEMPTS, 10);
+    if (!Number.isFinite(configured)) return FALLBACK_MAX_FAILED_ATTEMPTS;
+    return Math.min(Math.max(configured, 1), 20);
+}
 
 exports.login = async (req, res) => {
     try {
@@ -39,9 +45,10 @@ exports.login = async (req, res) => {
         const validPassword = await user.validPassword(password);
         if (!validPassword) {
             // Increment failed attempts
+            const maxFailedAttempts = getMaxFailedAttempts();
             const newCount = (user.failedLoginCount || 0) + 1;
             const updates  = { failedLoginCount: newCount };
-            if (newCount >= MAX_FAILED_ATTEMPTS) {
+            if (newCount >= maxFailedAttempts) {
                 updates.lockedUntil = new Date(Date.now() + LOCKOUT_MINUTES * 60 * 1000);
             }
             await user.update(updates);
@@ -52,7 +59,7 @@ exports.login = async (req, res) => {
                 date:      new Date(),
                 time:      new Date().toTimeString().split(' ')[0],
                 module:    'Authentication',
-                action:    `Login Failed (attempt ${newCount}${newCount >= MAX_FAILED_ATTEMPTS ? ' — account locked' : ''})`,
+                action:    `Login Failed (attempt ${newCount}/${maxFailedAttempts}${newCount >= maxFailedAttempts ? ' - account locked' : ''})`,
                 ipAddress: req.ip
             }).catch(() => {});
 
@@ -139,7 +146,6 @@ async function issueFullToken(user, req, res) {
 
     res.json({
         message: 'Login successful',
-        token,
         user: {
             id:          user.id,
             username:    user.username,

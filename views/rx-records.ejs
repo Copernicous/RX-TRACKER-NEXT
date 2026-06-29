@@ -2157,7 +2157,7 @@
                 var userRole = '';
                 var rxPerms = { canAdd: false, canEdit: false, canDelete: false, canUndo: false, canWarehouse: false, canOverrideExpired: false };
                 try {
-                    var u = JSON.parse(localStorage.getItem('user'));
+                    var u = typeof getCurrentAuthUser === 'function' ? getCurrentAuthUser() : (window.__RX_AUTH_USER || null);
                     if (u && u.role) userRole = u.role;
                     if (userRole === 'Administrator') {
                         rxPerms = { canAdd: true, canEdit: true, canDelete: true, canUndo: true, canWarehouse: true, canOverrideExpired: true };

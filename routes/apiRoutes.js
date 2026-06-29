@@ -12,6 +12,12 @@ const errorLogController = require('../controllers/errorLogController');
 const sessionTracker = require('../services/sessionTracker');
 const { getWritableRoot } = require('../utils/runtimePaths');
 
+function getCookie(cookieHeader, name) {
+    if (!cookieHeader) return null;
+    const match = cookieHeader.match(new RegExp('(?:^|;)\\s*' + name + '=([^;]+)'));
+    return match ? decodeURIComponent(match[1]) : null;
+}
+
 const pharmacyController = require('../controllers/pharmacyController');
 const patientTransportController = require('../controllers/patientTransportController');
 const pharmacyTransportController = require('../controllers/pharmacyTransportController');
@@ -98,48 +104,6 @@ const pathMap = {
     '/rx-records': 'rx_records',
     '/medication-catalog': 'medication_catalog'
 };
-
-const DOCUMENT_MAX_MB = parseInt(process.env.DOCUMENT_UPLOAD_MAX_MB || '25', 10);
-const DOCUMENT_ALLOWED_TYPES = new Map([
-    ['.jpg',  ['image/jpeg']],
-    ['.jpeg', ['image/jpeg']],
-    ['.png',  ['image/png']],
-    ['.gif',  ['image/gif']],
-    ['.webp', ['image/webp']],
-    ['.bmp',  ['image/bmp']],
-    ['.tif',  ['image/tiff']],
-    ['.tiff', ['image/tiff']],
-    ['.pdf',  ['application/pdf']],
-    ['.doc',  ['application/msword']],
-    ['.docx', ['application/vnd.openxmlformats-officedocument.wordprocessingml.document']],
-    ['.xls',  ['application/vnd.ms-excel']],
-    ['.xlsx', ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']],
-    ['.csv',  ['text/csv', 'application/csv']],
-    ['.txt',  ['text/plain']]
-]);
-const documentUpload = multer({
-    storage: multer.memoryStorage(),
-    limits: {
-        fileSize: Math.max(DOCUMENT_MAX_MB, 1) * 1024 * 1024,
-        files: 10
-    },
-    fileFilter: function(req, file, cb) {
-        const ext = path.extname(file.originalname || '').toLowerCase();
-        const allowedMimes = DOCUMENT_ALLOWED_TYPES.get(ext);
-        const mime = String(file.mimetype || '').toLowerCase();
-        if (!allowedMimes || !allowedMimes.includes(mime)) {
-            return cb(new Error('Only pictures, PDFs, Office files, CSV, and text documents are accepted.'));
-        }
-        cb(null, true);
-    }
-}).array('files', 10);
-
-function handleDocumentUpload(req, res, next) {
-    documentUpload(req, res, function(err) {
-        if (err) return res.status(400).json({ error: err.message });
-        next();
-    });
-}
 
 // Helper function to generate CRUD routes
 // POST (create) uses 'add', PUT (update) uses 'edit' — intentionally separate
@@ -274,7 +238,10 @@ router.post('/auth/logout', auth, async (req, res) => {
     } catch (e) { /* non-fatal */ }
     // Remove from active sessions tracker immediately
     if (req.user) sessionTracker.remove(req.user.id);
-    res.clearCookie('rxToken', { path: '/', sameSite: 'none', secure: true });  // clear FortiGate-compatible cookie auth
+    res.clearCookie('rxToken', { path: '/', sameSite: 'lax' });
+    res.clearCookie('rxToken', { path: '/', sameSite: 'none', secure: true });
+    res.clearCookie('rxCsrf', { path: '/', sameSite: 'lax' });
+    res.clearCookie('rxCsrf', { path: '/', sameSite: 'none', secure: true });
     res.status(200).json({ message: 'Logged out.' });
 });
 
@@ -503,12 +470,12 @@ router.delete('/backups/site/history/:id', adminOnly, (req, res) => {
 // ---- Error Boundary Logging ----
 // Frontend can POST without being authenticated (token optional — anonymous errors still useful)
 router.post('/errors', (req, res, next) => {
-    // Try to decode token if present but don't block unauthenticated
-    const authHeader = req.headers['authorization'];
-    if (authHeader) {
+    // Try to decode the auth cookie if present but don't block unauthenticated logs.
+    const cookieToken = getCookie(req.headers.cookie, 'rxToken');
+    if (cookieToken) {
         try {
             const jwt = require('jsonwebtoken');
-            req.user = jwt.verify(authHeader.split(' ')[1], process.env.JWT_SECRET);
+            req.user = jwt.verify(cookieToken, process.env.JWT_SECRET);
         } catch {}
     }
     next();

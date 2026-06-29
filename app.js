@@ -112,6 +112,7 @@ const bodyParser  = require('body-parser');
 const path        = require('path');
 const helmet      = require('helmet');
 const rateLimit   = require('express-rate-limit');
+const crypto      = require('crypto');
 const db          = require('./models');
 const packageInfo = require('./package.json');
 
@@ -316,6 +317,60 @@ app.use(function(req, res, next) {
     res.setHeader('Cache-Control', 'no-store, no-cache, no-transform, must-revalidate, proxy-revalidate');
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', '0');
+    next();
+});
+
+function parseCookieHeader(cookieHeader) {
+    const cookies = {};
+    if (!cookieHeader) return cookies;
+    cookieHeader.split(';').forEach(function(pair) {
+        const idx = pair.indexOf('=');
+        if (idx < 0) return;
+        const key = pair.slice(0, idx).trim();
+        const raw = pair.slice(idx + 1).trim();
+        try {
+            cookies[key] = decodeURIComponent(raw);
+        } catch (e) {
+            cookies[key] = raw;
+        }
+    });
+    return cookies;
+}
+
+function csrfCookieOptions(req) {
+    const secure = isSecureRequest(req);
+    return {
+        httpOnly: false,
+        path: '/',
+        sameSite: secure ? 'none' : 'lax',
+        secure: secure || process.env.FORCE_HTTPS === 'true'
+    };
+}
+
+function shouldSkipCsrf(req) {
+    const pathOnly = String(req.path || '').split('?')[0];
+    return pathOnly === '/api/auth/login'
+        || pathOnly === '/api/auth/login/2fa'
+        || pathOnly === '/api/version';
+}
+
+// CSRF protection for cookie-authenticated unsafe requests.
+app.use(function(req, res, next) {
+    const cookies = parseCookieHeader(req.headers.cookie);
+    let csrfToken = cookies.rxCsrf;
+    if (!csrfToken || csrfToken.length < 24) {
+        csrfToken = crypto.randomBytes(32).toString('base64url');
+        res.cookie('rxCsrf', csrfToken, csrfCookieOptions(req));
+    }
+
+    const method = String(req.method || 'GET').toUpperCase();
+    const safeMethod = method === 'GET' || method === 'HEAD' || method === 'OPTIONS';
+    if (safeMethod || shouldSkipCsrf(req) || !cookies.rxToken) return next();
+
+    const submitted = String(req.headers['x-csrf-token'] || '');
+    if (!submitted || submitted !== csrfToken) {
+        return res.status(403).json({ message: 'CSRF validation failed. Refresh the page and try again.' });
+    }
     next();
 });
 

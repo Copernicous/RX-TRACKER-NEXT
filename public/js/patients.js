@@ -196,17 +196,6 @@ var allPatients = [];
         }
     }
 
-    function patientDecodeJwtPayload(token) {
-        try {
-            if (!token || token.split('.').length < 2) return null;
-            var payload = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
-            while (payload.length % 4) payload += '=';
-            return JSON.parse(atob(payload));
-        } catch (e) {
-            return null;
-        }
-    }
-
     function patientCurrentUserIsAdmin() {
         var serverUser = null;
         try { serverUser = window.__RX_AUTH_USER || null; } catch (e) { serverUser = null; }
@@ -221,22 +210,7 @@ var allPatients = [];
             return serverRole === 'administrator' || serverRoleId === 1;
         }
 
-        var user = null;
-        try { user = JSON.parse(localStorage.getItem('user') || 'null'); } catch (e) { user = null; }
-        var tokenUser = patientDecodeJwtPayload(localStorage.getItem('token'));
-        var userRole = String(
-            (user && (user.role || user.roleName || (user.Role && user.Role.name))) || ''
-        ).trim().toLowerCase();
-        var tokenRole = String((tokenUser && tokenUser.role) || '').trim().toLowerCase();
-        var userRoleId = Number(
-            user && user.roleId !== undefined ? user.roleId :
-            (user && user.Role && user.Role.id !== undefined ? user.Role.id : NaN)
-        );
-        var tokenRoleId = Number(tokenUser && tokenUser.roleId !== undefined ? tokenUser.roleId : NaN);
-        if (tokenUser && (tokenRole || !isNaN(tokenRoleId))) {
-            return tokenRole === 'administrator' || tokenRoleId === 1;
-        }
-        return userRole === 'administrator' || tokenRole === 'administrator' || userRoleId === 1 || tokenRoleId === 1;
+        return false;
     }
 
     function patientFullPageAccess() {
@@ -253,7 +227,7 @@ var allPatients = [];
         try {
             user = typeof getCurrentAuthUser === 'function'
                 ? getCurrentAuthUser()
-                : JSON.parse(localStorage.getItem('user') || '{}');
+                : null;
         } catch(e) {
             user = null;
         }
@@ -320,7 +294,6 @@ var allPatients = [];
 
             window.__RX_AUTH_USER = freshUser;
             window.__RX_AUTH_PERMS = permissions;
-            localStorage.setItem('user', JSON.stringify(freshUser));
         } catch (e) {
             // Keep existing auth state if the profile refresh fails.
         }
@@ -2277,10 +2250,11 @@ var allPatients = [];
     var notesPatientId = null;
     var notesModal = null;
 
-    // Helper: read patient_notes permission from current user's stored perms
+    // Helper: read patient_notes permission from current server-auth user.
     function getNotesPerms() {
         try {
-            const u = JSON.parse(localStorage.getItem('user') || '{}');
+            const u = typeof getCurrentAuthUser === 'function' ? getCurrentAuthUser() : window.__RX_AUTH_USER;
+            if (!u) return { canAdd: false, canEdit: false, canDelete: false };
             // Admins and Supervisors always have full note access
             if (u.role === 'Administrator' || u.role === 'Supervisor') {
                 return { canAdd: true, canEdit: true, canDelete: true };
@@ -2291,7 +2265,7 @@ var allPatients = [];
                 canEdit:   np.canEdit   !== undefined ? !!np.canEdit   : false,
                 canDelete: np.canDelete !== undefined ? !!np.canDelete : false
             };
-        } catch(e) { return { canAdd: true, canEdit: true, canDelete: false }; }
+        } catch(e) { return { canAdd: false, canEdit: false, canDelete: false }; }
     }
 
     async function openNotesModal(patientId, patientName) {
@@ -2331,7 +2305,6 @@ var allPatients = [];
     function renderNotes(notes) {
         const container = document.getElementById('notesListContainer');
         const countLabel = document.getElementById('notesCountLabel');
-        const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
         const np = getNotesPerms();
 
         countLabel.textContent = notes.length + ' note' + (notes.length !== 1 ? 's' : '');

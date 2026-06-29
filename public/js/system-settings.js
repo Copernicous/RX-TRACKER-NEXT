@@ -63,7 +63,7 @@ function renderSettingsTable(s) {
     const tbody = document.getElementById('allSettingsBody');
     const entries = Object.entries(s);
     if (!entries.length) { tbody.innerHTML = '<tr><td colspan="2" class="text-muted text-center">No settings found</td></tr>'; return; }
-    tbody.innerHTML = (function(){ var _en=''; entries.forEach(function(_e){ var k=_e[0],v=_e[1]; _en+='<tr><td><code>'+k+'</code></td><td><span class="tz-badge">'+(v||'—')+'</span></td></tr>'; }); return _en; })();
+    tbody.innerHTML = (function(){ var _en=''; entries.forEach(function(_e){ var k=_e[0],v=_e[1]; _en+='<tr><td><code>'+safeHtml(k)+'</code></td><td><span class="tz-badge">'+safeHtml(v||'-')+'</span></td></tr>'; }); return _en; })();
 }
 
 async function loadSettings() {
@@ -315,11 +315,13 @@ function renderEmailAlertUsers(users, subscriptions) {
     }
     wrap.innerHTML = users.map(user => {
         const userSub = subscriptions[user.id] || getDefaultUserSubscriptions();
+        const fullName = ((user.firstName || '') + ' ' + (user.lastName || '')).trim();
+        const emailLine = '@' + (user.username || '') + (user.email ? ' \u2022 ' + user.email : '');
         return `
             <tr>
                 <td>
-                    <div class="fw-semibold">${user.firstName || ''} ${user.lastName || ''}</div>
-                    <div class="text-muted small">@${user.username || ''} ${user.email ? '&bull; ' + user.email : ''}</div>
+                    <div class="fw-semibold">${safeHtml(fullName)}</div>
+                    <div class="text-muted small">${safeHtml(emailLine)}</div>
                 </td>
                 ${flatRules.map(rule => `<td class="text-center"><input class="form-check-input email-user-enabled" type="checkbox" data-user-id="${user.id}" data-field="${rule.key}" ${userSub[rule.key] ? 'checked' : ''}></td>`).join('')}
             </tr>
@@ -331,13 +333,19 @@ function populateEmailAlertUserInspector(users) {
     const select = document.getElementById('inspectEmailAlertUser');
     if (!select) return;
     const currentValue = select.value;
-    const options = ['<option value="">Choose a user...</option>'];
+    select.innerHTML = '';
+    const placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.textContent = 'Choose a user...';
+    select.appendChild(placeholder);
     users.forEach(user => {
         const name = ((user.firstName || '') + ' ' + (user.lastName || '')).trim() || user.username || ('User #' + user.id);
         const email = user.email ? ' - ' + user.email : '';
-        options.push('<option value="' + user.id + '">' + name + ' (@' + (user.username || '') + ')' + email + '</option>');
+        const opt = document.createElement('option');
+        opt.value = String(user.id);
+        opt.textContent = name + ' (@' + (user.username || '') + ')' + email;
+        select.appendChild(opt);
     });
-    select.innerHTML = options.join('');
     if (currentValue) select.value = currentValue;
 }
 
@@ -542,7 +550,7 @@ async function sendTestEmailAlert() {
         if (res && res.ok) {
             if (result) {
                 result.className = 'alert alert-success mt-3 mb-0 py-2 small';
-                result.innerHTML = '<i class="fas fa-check me-1"></i>' + (data.message || 'Sample alert sent.') + ' Recipients: <strong>' + (data.recipients || []).join(', ') + '</strong>';
+                result.innerHTML = '<i class="fas fa-check me-1"></i>' + safeHtml(data.message || 'Sample alert sent.') + ' Recipients: <strong>' + safeHtml((data.recipients || []).join(', ')) + '</strong>';
             }
             showToast('Sample alert email sent.', 'success');
         } else {
@@ -551,7 +559,7 @@ async function sendTestEmailAlert() {
     } catch (e) {
         if (result) {
             result.className = 'alert alert-danger mt-3 mb-0 py-2 small';
-            result.innerHTML = '<i class="fas fa-times me-1"></i>' + e.message;
+            result.innerHTML = '<i class="fas fa-times me-1"></i>' + safeHtml(e.message);
         }
         showToast(e.message, 'danger');
     } finally {
@@ -575,8 +583,8 @@ function renderInspectedUserAlertConfig(data) {
     });
 
     const lines = [];
-    lines.push('<div class="fw-semibold mb-2">' + ((user.firstName || '') + ' ' + (user.lastName || '')).trim() + ' (@' + (user.username || '') + ')</div>');
-    lines.push('<div class="mb-2">Email: <strong>' + (user.email || 'No email') + '</strong></div>');
+    lines.push('<div class="fw-semibold mb-2">' + safeHtml(((user.firstName || '') + ' ' + (user.lastName || '')).trim()) + ' (@' + safeHtml(user.username || '') + ')</div>');
+    lines.push('<div class="mb-2">Email: <strong>' + safeHtml(user.email || 'No email') + '</strong></div>');
     lines.push('<div class="mb-2">Master alerts: <strong>' + (data.alertsEnabled ? 'Enabled' : 'Disabled') + '</strong></div>');
     lines.push('<div class="mb-2">Enabled rules for this user: <strong>' + enabled.length + '</strong></div>');
     if (enabled.length) {
@@ -623,7 +631,7 @@ async function inspectEmailAlertUserConfig() {
             throw new Error(data.error || 'Failed to load user configuration');
         }
     } catch (e) {
-        if (wrap) wrap.innerHTML = '<span class="text-danger">' + e.message + '</span>';
+        if (wrap) wrap.innerHTML = '<span class="text-danger">' + safeHtml(e.message) + '</span>';
         showToast(e.message, 'danger');
     } finally {
         if (btn) {
@@ -742,13 +750,19 @@ populateEmailAlertUserInspector = function(users) {
     const select = document.getElementById('inspectEmailAlertUser');
     if (!select) return;
     const currentValue = select.value;
-    const options = ['<option value="">Choose a user...</option>'];
+    select.innerHTML = '';
+    const placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.textContent = 'Choose a user...';
+    select.appendChild(placeholder);
     users.forEach(function(user) {
         const name = ((user.firstName || '') + ' ' + (user.lastName || '')).trim() || user.username || ('User #' + user.id);
         const email = user.email ? ' - ' + user.email : '';
-        options.push('<option value="' + user.id + '">' + safeHtml(name) + ' (@' + safeHtml(user.username || '') + ')' + safeHtml(email) + '</option>');
+        const opt = document.createElement('option');
+        opt.value = String(user.id);
+        opt.textContent = name + ' (@' + (user.username || '') + ')' + email;
+        select.appendChild(opt);
     });
-    select.innerHTML = options.join('');
     if (currentValue) select.value = currentValue;
 };
 
@@ -785,7 +799,7 @@ renderInspectedUserAlertConfig = function(data) {
 document.addEventListener('DOMContentLoaded', async () => {
     initApp();
 
-    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    const user = typeof getCurrentAuthUser === 'function' ? getCurrentAuthUser() : (window.__RX_AUTH_USER || {});
     if (user.role !== 'Administrator') {
         document.getElementById('settingsContent')?.classList.add('d-none');
         document.getElementById('adminGuard')?.classList.remove('d-none');
@@ -918,7 +932,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 currentSettings = data.settings;
                 renderSettingsTable(currentSettings);
                 showSaved('securitySaveOk');
-                showToast('Security settings saved. Restart server to apply session timeout.', 'success');
+                showToast('Security settings saved. New login lockout threshold applies immediately.', 'success');
             } else {
                 var err = await res.json();
                 showToast(err.error || 'Failed to save security settings', 'danger');
@@ -1001,13 +1015,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (res.ok && data.ok) {
                 if (alert) {
                     alert.className = 'alert alert-success mt-3 mb-0';
-                    alert.innerHTML = '<i class="fas fa-check-circle me-2"></i><strong>Connection successful!</strong> SMTP is working with <strong>' + (data.user || 'your account') + '</strong>.';
+                    alert.innerHTML = '<i class="fas fa-check-circle me-2"></i><strong>Connection successful!</strong> SMTP is working with <strong>' + safeHtml(data.user || 'your account') + '</strong>.';
                 }
             } else { throw new Error(data.error || 'Unknown error'); }
         } catch(e) {
             if (alert) {
                 alert.className = 'alert alert-danger mt-3 mb-0';
-                alert.innerHTML = '<i class="fas fa-times-circle me-2"></i><strong>Connection failed:</strong> ' + e.message + '<br><small class="text-muted mt-1 d-block">Check your email, password, and port. For Gmail use an App Password.</small>';
+                alert.innerHTML = '<i class="fas fa-times-circle me-2"></i><strong>Connection failed:</strong> ' + safeHtml(e.message) + '<br><small class="text-muted mt-1 d-block">Check your email, password, and port. For Gmail use an App Password.</small>';
             }
         } finally {
             btn.disabled = false;
@@ -1034,13 +1048,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (res.ok && data.ok) {
                 if (alert) {
                     alert.className = 'alert alert-success mt-2 mb-0 py-2 small';
-                    alert.innerHTML = '<i class="fas fa-check me-1"></i>Test email sent to <strong>' + to + '</strong>! Check your inbox.';
+                    alert.innerHTML = '<i class="fas fa-check me-1"></i>Test email sent to <strong>' + safeHtml(to) + '</strong>! Check your inbox.';
                 }
             } else { throw new Error(data.error || 'Unknown error'); }
         } catch(e) {
             if (alert) {
                 alert.className = 'alert alert-danger mt-2 mb-0 py-2 small';
-                alert.innerHTML = '<i class="fas fa-times me-1"></i>' + e.message;
+                alert.innerHTML = '<i class="fas fa-times me-1"></i>' + safeHtml(e.message);
             }
         } finally {
             btn.disabled = false;

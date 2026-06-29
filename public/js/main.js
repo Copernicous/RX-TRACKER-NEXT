@@ -61,9 +61,10 @@ document.addEventListener('DOMContentLoaded', function() {
                     body: JSON.stringify({ username: username, password: password })
                 });
                 var data = await res.json();
-                if (res.ok) {
-                    localStorage.setItem('token', data.token);
-                    localStorage.setItem('user', JSON.stringify(data.user));
+                if (res.ok && data.user) {
+                    localStorage.removeItem('token');
+                    localStorage.removeItem('rxToken');
+                    localStorage.removeItem('user');
                     window.rxNav('/dashboard');
                 } else {
                     showToast(data.message || 'Login failed', 'danger');
@@ -76,11 +77,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Auth Check on Protected Pages
     if (!loginForm) {
-        var token = localStorage.getItem('token');
-        if (!token) {
+        var user = window.__RX_AUTH_USER || null;
+        if (!user) {
             window.rxNav('/login');
         } else {
-            var user = JSON.parse(localStorage.getItem('user'));
             var userGreeting = document.getElementById('userGreeting');
             if (userGreeting && user) {
                 userGreeting.innerText = 'Hello, ' + user.firstName;
@@ -93,6 +93,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (logoutBtn) {
         logoutBtn.addEventListener('click', function() {
             localStorage.removeItem('token');
+            localStorage.removeItem('rxToken');
             localStorage.removeItem('user');
             window.rxNav('/login');
         });
@@ -103,18 +104,20 @@ document.addEventListener('DOMContentLoaded', function() {
 // Pass options.silent = true to suppress the 403 toast for background/init calls
 async function fetchWithAuth(url, options) {
     options = options || {};
-    var token = localStorage.getItem('token');
     var silent = !!options.silent;
     var fetchOptions = Object.assign({}, options);
     delete fetchOptions.silent; // don't send to fetch()
-    var headers = Object.assign({
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + token
+    var hasFormDataBody = typeof FormData !== 'undefined' && fetchOptions.body instanceof FormData;
+    var headers = Object.assign(hasFormDataBody ? {} : {
+        'Content-Type': 'application/json'
     }, fetchOptions.headers || {});
-    var res = await fetch(url, Object.assign({}, fetchOptions, { headers: headers }));
+    if (headers.Authorization) delete headers.Authorization;
+    var targetUrl = (/^https?:\/\//i.test(String(url || '')) || typeof window.rxUrl !== 'function') ? url : window.rxUrl(url);
+    var res = await fetch(targetUrl, Object.assign({}, fetchOptions, { headers: headers, credentials: fetchOptions.credentials || 'include' }));
     // 401 = token expired / invalid -> logout
     if (res.status === 401) {
         localStorage.removeItem('token');
+        localStorage.removeItem('rxToken');
         localStorage.removeItem('user');
         window.rxNav('/login');
         throw new Error('Unauthorized');

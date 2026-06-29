@@ -8,20 +8,10 @@ function getCookie(cookieHeader, name) {
 }
 
 module.exports = (req, res, next) => {
-    // 1. Try Authorization: Bearer header (standard JWT)
-    let token = null;
-    const authHeader = req.headers.authorization;
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-        token = authHeader.split(' ')[1];
-    }
-
-    // 2. Fallback: rxToken cookie — passes through FortiGate SSL VPN when Bearer header is stripped
+    // Cookie-only authentication: the full JWT stays in the HttpOnly rxToken cookie.
+    const token = getCookie(req.headers.cookie, 'rxToken');
     if (!token) {
-        token = getCookie(req.headers.cookie, 'rxToken');
-    }
-
-    if (!token) {
-        return res.status(401).json({ message: 'Authorization token required' });
+        return res.status(401).json({ message: 'Authentication cookie required' });
     }
 
     jwt.verify(token, process.env.JWT_SECRET, async (err, decoded) => {

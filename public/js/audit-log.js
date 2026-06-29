@@ -102,7 +102,7 @@ function showActivityTab() {
 document.addEventListener('DOMContentLoaded', async function() {
     initApp();
     try {
-        var _u = JSON.parse(localStorage.getItem('user') || '{}');
+        var _u = typeof getCurrentAuthUser === 'function' ? getCurrentAuthUser() : (window.__RX_AUTH_USER || {});
         if (_u.role === 'Administrator') {
             isAdmin = true;
             document.getElementById('adminZone').classList.remove('d-none');
@@ -504,10 +504,9 @@ async function loadPage() {
     updateSelCount();
 
     try {
-        const token = localStorage.getItem('token');
         var _uAlQuery0 = '/api/audit-logs?' + buildParams(false).toString();
-        const res = await fetch(_uAlQuery0, {
-            headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json', 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
+        const res = await fetchWithAuth(_uAlQuery0, {
+            headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
         });
         if (!res) { showBody('<tr><td colspan="10" class="text-center text-danger py-4">Not authenticated.</td></tr>'); return; }
         if (res.status === 401 || res.status === 403) { window.rxNav('/login'); return; }
@@ -927,7 +926,7 @@ var _errAllData = [];         // full current dataset for export
 var _errSelected = new Set(); // selected IDs
 
 async function loadErrors() {
-    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    const user = typeof getCurrentAuthUser === 'function' ? getCurrentAuthUser() : (window.__RX_AUTH_USER || {});
     if (user.role !== 'Administrator') return;
 
     document.getElementById('errorLogSection').style.display = 'block';

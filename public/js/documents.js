@@ -16,8 +16,7 @@
     }
 
     function getAuthHeaders() {
-        var token = localStorage.getItem('token') || '';
-        return token ? { 'Authorization': 'Bearer ' + token } : {};
+        return {};
     }
 
     function toAppUrl(path) {
@@ -33,6 +32,7 @@
         return fetch(toAppUrl(url), options).then(function(res) {
             if (res.status === 401) {
                 localStorage.removeItem('token');
+                localStorage.removeItem('rxToken');
                 localStorage.removeItem('user');
                 window.rxNav('/login');
                 return null;
@@ -112,13 +112,17 @@
                 ? ' by ' + escapeHtml(doc.uploadedBy.name || doc.uploadedBy.username)
                 : '';
 
+            var downloadAction = doc.downloadUrl
+                ? '<a class="btn btn-sm btn-outline-primary" target="_blank" rel="noopener" href="' + escapeHtml(toAppUrl(doc.downloadUrl)) + '" title="Open / download"><i class="fas fa-download"></i></a>'
+                : '<span class="badge bg-secondary">Download disabled</span>';
+
             html += '<div class="list-group-item px-0 d-flex align-items-center gap-2" data-doc-id="' + doc.id + '">' +
                 '<i class="fas ' + icon + ' text-primary" style="width:20px"></i>' +
                 '<div class="flex-grow-1" style="min-width:0">' +
                     '<div class="fw-semibold text-truncate">' + escapeHtml(doc.originalName) + provider + '</div>' +
                     '<div class="text-muted small">' + formatBytes(doc.sizeBytes) + (date ? ' &middot; ' + escapeHtml(date) : '') + by + '</div>' +
                 '</div>' +
-                '<a class="btn btn-sm btn-outline-primary" target="_blank" rel="noopener" href="' + escapeHtml(toAppUrl(doc.downloadUrl)) + '" title="Open / download"><i class="fas fa-download"></i></a>';
+                downloadAction;
             if (allowDelete) {
                 html += '<button type="button" class="btn btn-sm btn-outline-danger rx-doc-delete" data-doc-id="' + doc.id + '" title="Delete"><i class="fas fa-trash"></i></button>';
             }
@@ -156,45 +160,6 @@
             });
     }
 
-    function upload(options) {
-        var inputEl = typeof options.inputEl === 'string' ? document.getElementById(options.inputEl) : options.inputEl;
-        var statusEl = typeof options.statusEl === 'string' ? document.getElementById(options.statusEl) : options.statusEl;
-        if (!options.ownerId) {
-            setStatus(statusEl, 'Save the record first, then upload files.', 'warning');
-            return;
-        }
-        if (!inputEl || !inputEl.files || !inputEl.files.length) {
-            setStatus(statusEl, 'Choose one or more files first.', 'warning');
-            return;
-        }
-
-        var form = new FormData();
-        Array.prototype.forEach.call(inputEl.files, function(file) {
-            form.append('files', file);
-        });
-        setStatus(statusEl, '<i class="fas fa-spinner fa-spin me-1"></i>Uploading...', 'muted');
-
-        rawFetch(endpoint(options.ownerType, options.ownerId), {
-            method: 'POST',
-            body: form
-        }).then(function(res) {
-            if (!res) return null;
-            if (!res.ok) {
-                return readJson(res, 'Upload failed. Please refresh the page and try again.').catch(function() { return {}; }).then(function(err) {
-                    throw new Error(err.error || err.message || 'Upload failed.');
-                });
-            }
-            return readJson(res, 'Upload finished, but the server returned an unexpected response. Please refresh the document list.');
-        }).then(function() {
-            inputEl.value = '';
-            setStatus(statusEl, 'Uploaded successfully.', 'success');
-            if (typeof showToast === 'function') showToast('Document uploaded.', 'success');
-            return load(options);
-        }).catch(function(err) {
-            setStatus(statusEl, escapeHtml(err.message || 'Upload failed.'), 'danger');
-        });
-    }
-
     function deleteDocument(options, documentId) {
         if (!documentId) return;
         if (!confirm('Delete this uploaded document?')) return;
@@ -214,13 +179,13 @@
         var inputEl = typeof options.inputEl === 'string' ? document.getElementById(options.inputEl) : options.inputEl;
         var buttonEl = typeof options.buttonEl === 'string' ? document.getElementById(options.buttonEl) : options.buttonEl;
         var statusEl = typeof options.statusEl === 'string' ? document.getElementById(options.statusEl) : options.statusEl;
-        var uploadAllowed = options.canUpload !== undefined ? !!options.canUpload : canUploadHere();
+        var uploadAllowed = false;
         setStatus(statusEl, '', 'muted');
 
         if (inputEl) inputEl.disabled = !uploadAllowed || !options.ownerId;
         if (buttonEl) {
             buttonEl.disabled = !uploadAllowed || !options.ownerId;
-            buttonEl.onclick = function() { upload(options); };
+            buttonEl.onclick = null;
         }
 
         var uploadWrap = typeof options.uploadWrapEl === 'string' ? document.getElementById(options.uploadWrapEl) : options.uploadWrapEl;
@@ -231,7 +196,6 @@
 
     window.rxDocuments = {
         bind: bind,
-        load: load,
-        upload: upload
+        load: load
     };
 })();

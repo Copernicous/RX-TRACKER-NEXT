@@ -6,8 +6,11 @@ const bcrypt    = require('bcryptjs');
 const jwt       = require('jsonwebtoken');
 const db        = require('../models');
 const { issueFullToken } = require('./authController');
+const settings  = require('../services/settingsService');
 
 const APP_NAME = process.env.APP_NAME || 'Patient RX';
+const FALLBACK_MAX_FAILED_ATTEMPTS = 5;
+const LOCKOUT_MINUTES = 15;
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 function _auditLog(userId, action, ip) {
@@ -16,6 +19,12 @@ function _auditLog(userId, action, ip) {
         time: new Date().toTimeString().split(' ')[0],
         module: 'Authentication', action, ipAddress: ip
     }).catch(() => {});
+}
+
+function _maxFailedAttempts() {
+    const configured = parseInt(settings.get('max_failed_logins') || process.env.MAX_FAILED_LOGINS || FALLBACK_MAX_FAILED_ATTEMPTS, 10);
+    if (!Number.isFinite(configured)) return FALLBACK_MAX_FAILED_ATTEMPTS;
+    return Math.min(Math.max(configured, 1), 20);
 }
 
 // Generate 8 random one-time recovery codes (plain + hashed pair)
@@ -197,9 +206,10 @@ exports.verifyLogin = async (req, res) => {
         }
 
         // ── Both failed ───────────────────────────────────────────────────────
+        const maxFailedAttempts = _maxFailedAttempts();
         const newCount = (user.failedLoginCount || 0) + 1;
         const updates  = { failedLoginCount: newCount };
-        if (newCount >= 10) updates.lockedUntil = new Date(Date.now() + 15 * 60 * 1000);
+        if (newCount >= maxFailedAttempts) updates.lockedUntil = new Date(Date.now() + LOCKOUT_MINUTES * 60 * 1000);
         await user.update(updates);
 
         return res.status(401).json({

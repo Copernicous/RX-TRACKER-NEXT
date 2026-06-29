@@ -958,9 +958,8 @@ function changePassword() {
                 showToast('Password changed! Signing you out now…', 'success');
                 setTimeout(function() {
                     localStorage.removeItem('token');
+                    localStorage.removeItem('rxToken');
                     localStorage.removeItem('user');
-                    // Expire the JS-writable rxToken cookie
-                    document.cookie = 'rxToken=; path=/; max-age=0; SameSite=Lax';
                     window.rxNav('/login?reason=password-changed');
                 }, 1200); // brief delay so the toast is visible
             } else { showChangePasswordError(data.message || 'Failed.'); }
@@ -1190,7 +1189,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Audit log permission check
     window._auditLogAllowed = (function() {
         try {
-            var u = JSON.parse(localStorage.getItem('user'));
+            var u = typeof getCurrentAuthUser === 'function' ? getCurrentAuthUser() : (window.__RX_AUTH_USER || null);
             if (!u) return false;
             var perms = u.permissions || getRoleDefaultPermissions(u.role);
             var p = perms['audit_log'];

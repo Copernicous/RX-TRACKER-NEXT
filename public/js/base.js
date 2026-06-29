@@ -77,21 +77,60 @@ function sanitizeCsvCell(val) {
     return '"' + s.replace(/"/g, '""') + '"';
 }
 
+function rxReadCookie(name) {
+    var parts = String(document.cookie || '').split(';');
+    for (var i = 0; i < parts.length; i++) {
+        var pair = parts[i].trim();
+        if (pair.indexOf(name + '=') === 0) {
+            try { return decodeURIComponent(pair.slice(name.length + 1)); }
+            catch (e) { return pair.slice(name.length + 1); }
+        }
+    }
+    return '';
+}
+
+window.rxCsrfToken = function() {
+    return rxReadCookie('rxCsrf');
+};
+
+window.rxCsrfHeaders = function(headers) {
+    var merged = Object.assign({}, headers || {});
+    var token = window.rxCsrfToken ? window.rxCsrfToken() : '';
+    if (token) merged['X-CSRF-Token'] = token;
+    return merged;
+};
+
+(function() {
+    if (!window.fetch) return;
+    var originalFetch = window.fetch.bind(window);
+    window.fetch = function(resource, init) {
+        init = init || {};
+        var method = String(init.method || (resource instanceof Request ? resource.method : 'GET') || 'GET').toUpperCase();
+        var unsafe = ['POST', 'PUT', 'PATCH', 'DELETE'].indexOf(method) !== -1;
+        if (unsafe) {
+            var sameOrigin = typeof resource === 'string'
+                ? (resource.indexOf('/') === 0 || resource.indexOf(window.location.origin) === 0 || (window.RX_BASE && resource.indexOf(window.RX_BASE) === 0))
+                : resource instanceof Request && (resource.url.indexOf(window.location.origin) === 0 || (window.RX_BASE && resource.url.indexOf(window.RX_BASE) === 0));
+            if (sameOrigin) init.headers = window.rxCsrfHeaders(init.headers || {});
+        }
+        return originalFetch(resource, init);
+    };
+})();
+
 // ─── Active Session Heartbeat ─────────────────────────────────────────────────
 // Sends the current page title + URL to the server every 30s so the
 // "Who's Online" dashboard (active-users page) can track logged-in users.
 // Uses the rxUrl() helper from base.js for FortiGate proxy compatibility.
 (function () {
     function _rxHeartbeat() {
-        var token = localStorage.getItem('rxToken') || localStorage.getItem('token');
-        if (!token) return; // not logged in — skip silently
+        var currentUser = window.__RX_AUTH_USER || null;
+        if (!currentUser) return; // not logged in - skip silently
         var url = typeof window.rxUrl === 'function' ? window.rxUrl('/api/heartbeat') : '/api/heartbeat';
         fetch(url, {
             method: 'POST',
             credentials: 'include',
             headers: {
-                'Content-Type': 'application/json',
-                'Authorization': 'Bearer ' + token
+                'Content-Type': 'application/json'
             },
             body: JSON.stringify({
                 currentPage: document.title.replace(/ - Patient RX System$/, '').trim(),
@@ -117,17 +156,16 @@ function sanitizeCsvCell(val) {
 // severity: 'error' | 'warning' | 'info'
 window.logClientError = function (message, detail, severity) {
     try {
-        var token = localStorage.getItem('rxToken') || localStorage.getItem('token');
-        if (!token) return; // not authenticated — skip
+        if (!window.__RX_AUTH_USER) return; // not authenticated - skip
         var url = typeof window.rxUrl === 'function' ? window.rxUrl('/api/errors') : '/api/errors';
         var stack = detail || '';
         // Append page context to make the log actionable
         stack += '\n\nPage: ' + document.title + ' (' + window.location.pathname + ')';
         fetch(url, {
             method: 'POST',
+            credentials: 'include',
             headers: {
-                'Content-Type': 'application/json',
-                'Authorization': 'Bearer ' + token
+                'Content-Type': 'application/json'
             },
             body: JSON.stringify({
                 message:  message  || 'Unknown client error',

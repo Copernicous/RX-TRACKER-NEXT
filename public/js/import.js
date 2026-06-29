@@ -129,7 +129,7 @@
     document.addEventListener('DOMContentLoaded', () => {
         initApp();
 
-        const user = JSON.parse(localStorage.getItem('user') || '{}');
+        const user = typeof getCurrentAuthUser === 'function' ? getCurrentAuthUser() : (window.__RX_AUTH_USER || {});
         const allowedRoles = ['Administrator', 'Supervisor'];
         if (!user.role || !allowedRoles.includes(user.role)) {
             document.getElementById('accessDeniedPanel').classList.remove('d-none');
@@ -326,17 +326,16 @@
         confirmBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Importing...';
 
         try {
-            const token    = localStorage.getItem('token');
             const fileInput = document.getElementById('csvFile');
             const formData  = new FormData();
             formData.append('file', fileInput.files[0]);
 
-            const res = await fetch(window.rxUrl('/api/import/' + currentDataset), {
+            const res = await fetchWithAuth('/api/import/' + currentDataset, {
                 method: 'POST',
-                headers: { 'Authorization': 'Bearer ' + token },
                 body: formData
             });
 
+            if (!res) return;
             if (res.status === 401 || res.status === 403) { window.rxNav('/login'); return; }
             const data = await res.json();
             if (res.ok) {
@@ -362,10 +361,9 @@
     }
 
     function downloadTemplate() {
-        const token = localStorage.getItem('token');
-        const url   = window.rxUrl('/api/import/template/' + currentDataset);
-        fetch(url, { headers: { 'Authorization': 'Bearer ' + token } })
-        .then(r => { if (r.status === 401 || r.status === 403) { window.rxNav('/login'); return; } return r.blob(); })
+        const url   = '/api/import/template/' + currentDataset;
+        fetchWithAuth(url, { headers: {} })
+        .then(r => { if (!r) return null; if (r.status === 401 || r.status === 403) { window.rxNav('/login'); return; } return r.blob(); })
         .then(blob => {
             if (!blob) return;
             const url2 = window.URL.createObjectURL(blob);

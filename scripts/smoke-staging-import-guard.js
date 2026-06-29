@@ -90,17 +90,27 @@ async function login() {
     const body = await parseJsonResponse(res, 'Login');
     assert(res.ok, 'Login failed for ' + username + ': ' + (body.message || JSON.stringify(body)));
     assert(!body.requires2FA, 'The staging smoke user requires 2FA. Use STAGING_SMOKE_USER/STAGING_SMOKE_PASS with an import-capable test user.');
-    assert(body.token, 'Login did not return a bearer token.');
-    return body.token;
+    const setCookie = res.headers.get('set-cookie') || '';
+    const rxToken = (setCookie.match(/rxToken=([^;]+)/) || [])[1];
+    const rxCsrf = (setCookie.match(/rxCsrf=([^;]+)/) || [])[1];
+    assert(rxToken, 'Login did not return an rxToken cookie.');
+    assert(rxCsrf, 'Login did not return an rxCsrf cookie.');
+    return {
+        cookie: 'rxToken=' + rxToken + '; rxCsrf=' + rxCsrf,
+        csrfToken: decodeURIComponent(rxCsrf)
+    };
 }
 
-async function importPatients(rows, token, label) {
+async function importPatients(rows, session, label) {
     const form = new FormData();
     form.append('file', new Blob([buildCsv(rows)], { type: 'text/csv' }), label + '.csv');
 
     const res = await fetch(baseUrl + '/api/import/patients', {
         method: 'POST',
-        headers: { Authorization: 'Bearer ' + token },
+        headers: {
+            Cookie: session.cookie,
+            'X-CSRF-Token': session.csrfToken
+        },
         body: form
     });
     const body = await parseJsonResponse(res, 'Patient import ' + label);

@@ -625,7 +625,7 @@ setup.bat</code></pre>
 <script>
     document.addEventListener('DOMContentLoaded', async () => {
         initApp();
-        const user = JSON.parse(localStorage.getItem('user') || '{}');
+        const user = typeof getCurrentAuthUser === 'function' ? getCurrentAuthUser() : (window.__RX_AUTH_USER || {});
         if (user.role !== 'Administrator') {
             document.getElementById('accessDeniedPanel').classList.remove('d-none');
         } else {
@@ -1036,13 +1036,15 @@ setup.bat</code></pre>
         pctLabel.textContent   = '0%';
         statusLbl.textContent  = 'Uploading…';
 
-        var token = (document.cookie.match(/rxToken=([^;]+)/) || [])[1] || '';
         var fd    = new FormData();
         fd.append('dumpFile', file);
 
         var xhr = new XMLHttpRequest();
         xhr.open('POST', window.rxUrl('/api/backups/restore'));
-        xhr.setRequestHeader('Authorization', 'Bearer ' + token);
+        xhr.withCredentials = true;
+        if (window.rxCsrfToken && window.rxCsrfToken()) {
+            xhr.setRequestHeader('X-CSRF-Token', window.rxCsrfToken());
+        }
 
         xhr.upload.onprogress = function(e) {
             if (e.lengthComputable) {

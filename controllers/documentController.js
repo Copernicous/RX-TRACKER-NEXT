@@ -47,7 +47,7 @@ function serializeAttachment(row) {
         uploadedBy: uploader,
         createdAt: doc.createdAt,
         updatedAt: doc.updatedAt,
-        downloadUrl: '/api/documents/' + doc.id + '/download'
+        downloadUrl: doc.provider === 'drive' ? null : '/api/documents/' + doc.id + '/download'
     };
 }
 
@@ -117,57 +117,12 @@ async function listForOwner(req, res, ownerType, ownerId) {
     }
 }
 
-async function uploadForOwner(req, res, ownerType, ownerId) {
-    try {
-        const owner = await ensureOwner(ownerType, ownerId);
-        const files = Array.isArray(req.files) ? req.files : [];
-        if (!files.length) return res.status(400).json({ error: 'Choose at least one picture or document.' });
-
-        const saved = [];
-        for (const file of files) {
-            const stored = await storage.upload(file, ownerType, ownerId, owner);
-            const row = await db.DocumentAttachment.create({
-                ownerType,
-                patientId: ownerType === 'patient' ? ownerId : null,
-                rxRecordId: ownerType === 'rx-record' ? ownerId : null,
-                originalName: file.originalname || stored.storedName,
-                storedName: stored.storedName,
-                mimeType: file.mimetype || 'application/octet-stream',
-                sizeBytes: file.size || 0,
-                provider: stored.provider,
-                driveFileId: stored.driveFileId,
-                localPath: stored.localPath,
-                uploadedByUserId: req.user ? req.user.id : null
-            });
-            saved.push(row);
-        }
-
-        const ids = saved.map((row) => row.id);
-        const rows = await db.DocumentAttachment.findAll({
-            where: { id: ids },
-            include: listInclude(),
-            order: [['createdAt', 'DESC']]
-        });
-        res.status(201).json(rows.map(serializeAttachment));
-    } catch (err) {
-        res.status(err.status || 500).json({ error: err.message });
-    }
-}
-
 exports.listPatientDocuments = async (req, res) => {
     await listForOwner(req, res, 'patient', parseInt(req.params.id, 10));
 };
 
-exports.uploadPatientDocuments = async (req, res) => {
-    await uploadForOwner(req, res, 'patient', parseInt(req.params.id, 10));
-};
-
 exports.listRxDocuments = async (req, res) => {
     await listForOwner(req, res, 'rx-record', parseInt(req.params.id, 10));
-};
-
-exports.uploadRxDocuments = async (req, res) => {
-    await uploadForOwner(req, res, 'rx-record', parseInt(req.params.id, 10));
 };
 
 exports.downloadDocument = async (req, res) => {

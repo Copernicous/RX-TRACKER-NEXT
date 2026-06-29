@@ -301,7 +301,7 @@
                     document.getElementById('loginForm').classList.add('d-none');
                     document.getElementById('twoFAStep').classList.remove('d-none');
                     setTimeout(() => document.getElementById('twoFACode').focus(), 100);
-                } else if (res.ok && data.token) {
+                } else if (res.ok && data.user) {
                     loginSuccess(data);
                 } else {
                     showLoginError(errorMsg, data.message || 'Invalid username or password.');
@@ -347,7 +347,7 @@
                 });
                 const data = await res.json();
 
-                if (res.ok && data.token) {
+                if (res.ok && data.user) {
                     loginSuccess(data);
                 } else {
                     showError(errEl, data.message || 'Invalid code. Please try again.');
@@ -370,24 +370,10 @@
             document.getElementById('loginForm').classList.remove('d-none');
         }
 
-        function setRxTokenCookie(token, maxAge) {
-            const sameSite = window.location.protocol === 'https:' ? 'None' : 'Lax';
-            const secure = window.location.protocol === 'https:' ? '; Secure' : '';
-            // Use proxy-aware base path as cookie path so the cookie is sent
-            // with all requests through the FortiGate VPN proxy prefix.
-            var cookiePath = window.RX_BASE
-                ? window.RX_BASE.replace(/^https?:\/\/[^/]+/, '') || '/'
-                : '/';
-            document.cookie = 'rxToken=' + encodeURIComponent(token) +
-                '; path=' + cookiePath + '; max-age=' + maxAge +
-                '; SameSite=' + sameSite + secure;
-        }
-
         function loginSuccess(data) {
-            localStorage.setItem('token', data.token);
-            localStorage.setItem('user', JSON.stringify(data.user));
-            const maxAge = 86400;
-            setRxTokenCookie(data.token, maxAge);
+            localStorage.removeItem('token');
+            localStorage.removeItem('rxToken');
+            localStorage.removeItem('user');
             window.rxNav('/dashboard');
         }
 
@@ -409,7 +395,11 @@
         }
 
         function showError(el, msg) {
-            el.innerHTML = '<i class="fas fa-exclamation-circle me-1"></i>' + msg;
+            el.textContent = '';
+            var icon = document.createElement('i');
+            icon.className = 'fas fa-exclamation-circle me-1';
+            el.appendChild(icon);
+            el.appendChild(document.createTextNode(msg || 'Error'));
             el.className = 'mb-3 login-notice login-notice-error';
             // IMPROVE-01: shake the card on error
             shakeLoginCard();

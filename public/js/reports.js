@@ -29,9 +29,8 @@
     // ─── Load Data ───────────────────────────────────────────────────────────────
     async function loadReportData() {
         try {
-            const tok = localStorage.getItem('token');
-            const hdr = { 'Authorization': 'Bearer ' + tok };
-            const wfRes = await fetch(window.rxUrl('/api/lookup/workflow-actions'), { headers: hdr }).then(r => r.json());
+            const wf = await fetchWithAuth('/api/lookup/workflow-actions');
+            const wfRes = wf && wf.ok ? await wf.json() : [];
             allWorkflowActions = Array.isArray(wfRes)  ? wfRes  : [];
             buildAutocompletes();
             await Promise.all([renderPatientReport(), renderRxActionReport()]);
@@ -47,8 +46,8 @@
     }
 
     async function fetchReportJson(url) {
-        const tok = localStorage.getItem('token');
-        const res = await fetch(window.rxUrl(url), { headers: { 'Authorization': 'Bearer ' + tok } });
+        const res = await fetchWithAuth(url);
+        if (!res) throw new Error('Report API authentication failed');
         if (!res.ok) throw new Error('Report API ' + res.status);
         return res.json();
     }

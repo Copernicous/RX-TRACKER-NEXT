@@ -203,10 +203,6 @@ document.addEventListener('DOMContentLoaded', function () {
     initApp(); // wire up logout, auth guard, theme, session timeout, etc.
 
     // ── Helpers ──────────────────────────────────────────────────────
-    function getToken() {
-        return localStorage.getItem('rxToken') || localStorage.getItem('token') || '';
-    }
-
     function idleStatus(ms) {
         if (ms < 2 * 60 * 1000)  return 'active';
         if (ms < 5 * 60 * 1000)  return 'idle';
@@ -368,10 +364,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // ── Fetch & refresh ─────────────────────────────────────────────
     function loadSessions() {
-        var token = getToken();
-        if (!token) return;
         var url = typeof window.rxUrl === 'function' ? window.rxUrl('/api/active-sessions') : '/api/active-sessions';
-        fetch(url, { headers: { 'Authorization': 'Bearer ' + token } })
+        fetch(url, { credentials: 'include' })
             .then(function(r) {
                 if (!r.ok) throw new Error('HTTP ' + r.status);
                 return r.json();

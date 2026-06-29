@@ -10,8 +10,11 @@
  * emailService reads from settingsService first, falling back to process.env.
  */
 
+const crypto = require('crypto');
+
 // ── Sensitive keys — never returned to the frontend ──────────────────────────
 const SENSITIVE_KEYS = new Set(['smtp_pass']);
+const ENCRYPTED_PREFIX = 'enc:v1:';
 
 const DEFAULT_EMAIL_ALERT_RULES = JSON.stringify({
     failed_login_threshold: false,
@@ -43,7 +46,7 @@ const DEFAULTS = {
     smtp_host:     process.env.SMTP_HOST   || 'smtp.gmail.com',
     smtp_port:     process.env.SMTP_PORT   || '587',
     smtp_user:     process.env.SMTP_USER   || '',
-    smtp_pass:     process.env.SMTP_PASS   || '',   // stored encrypted in next iteration; stored plaintext for now
+    smtp_pass:     process.env.SMTP_PASS   || '',
     smtp_from_name:process.env.SMTP_FROM_NAME || 'Patient RX System',
     // Email alert conditions. These are configuration only until alert jobs are enabled.
     email_alerts_enabled:              'false',
@@ -99,12 +102,27 @@ exports.load = async () => {
         if (!_db) _db = require('../models');
         const rows = await _db.SystemSetting.findAll();
         for (const row of rows) {
-            _cache[row.key] = row.value;
+            const decrypted = _decryptSettingValue(row.key, row.value);
+            _cache[row.key] = decrypted;
+
+            // Migrate any existing plaintext sensitive value to encrypted storage.
+            if (SENSITIVE_KEYS.has(row.key) && row.value && !_isEncryptedValue(row.value)) {
+                const encrypted = _encryptSettingValue(row.key, row.value);
+                if (encrypted !== row.value) {
+                    row.value = encrypted;
+                    await row.save();
+                    console.log(`[Settings] Encrypted sensitive setting at rest: ${row.key}`);
+                }
+            }
         }
         // Seed default rows for any missing keys
         for (const [key, value] of Object.entries(DEFAULTS)) {
             if (!rows.find(r => r.key === key)) {
-                await _db.SystemSetting.create({ key, value, description: `Default: ${key}` });
+                await _db.SystemSetting.create({
+                    key,
+                    value: _encryptSettingValue(key, value),
+                    description: `Default: ${key}`
+                });
                 _cache[key] = value;
             }
         }
@@ -130,8 +148,9 @@ exports.get = (key) => {
  */
 exports.set = async (key, value) => {
     if (!_db) _db = require('../models');
-    const [row] = await _db.SystemSetting.findOrCreate({ where: { key }, defaults: { value } });
-    row.value = value;
+    const storedValue = _encryptSettingValue(key, value);
+    const [row] = await _db.SystemSetting.findOrCreate({ where: { key }, defaults: { value: storedValue } });
+    row.value = storedValue;
     await row.save();
     _cache[key] = value;
 
@@ -167,6 +186,62 @@ exports.isSmtpConfigured = () => {
 function _applyTimezone(tz) {
     if (!tz) return;
     process.env.TZ = tz;
+}
+
+function _isEncryptedValue(value) {
+    return String(value || '').startsWith(ENCRYPTED_PREFIX);
+}
+
+function _encryptionSecret() {
+    return process.env.SETTINGS_ENCRYPTION_KEY || process.env.JWT_SECRET || process.env.DB_PASS || '';
+}
+
+function _encryptionKey() {
+    const secret = _encryptionSecret();
+    if (!secret) return null;
+    return crypto.createHash('sha256').update('patient-rx-settings:' + secret).digest();
+}
+
+function _encryptSettingValue(key, value) {
+    const plain = String(value == null ? '' : value);
+    if (!SENSITIVE_KEYS.has(key) || !plain || _isEncryptedValue(plain)) return plain;
+    const keyBytes = _encryptionKey();
+    if (!keyBytes) {
+        console.warn(`[Settings] ${key} is not encrypted at rest because no encryption secret is configured.`);
+        return plain;
+    }
+    const iv = crypto.randomBytes(12);
+    const cipher = crypto.createCipheriv('aes-256-gcm', keyBytes, iv);
+    const ciphertext = Buffer.concat([cipher.update(plain, 'utf8'), cipher.final()]);
+    const tag = cipher.getAuthTag();
+    return ENCRYPTED_PREFIX + [
+        iv.toString('base64url'),
+        tag.toString('base64url'),
+        ciphertext.toString('base64url')
+    ].join(':');
+}
+
+function _decryptSettingValue(key, value) {
+    const raw = String(value == null ? '' : value);
+    if (!SENSITIVE_KEYS.has(key) || !raw || !_isEncryptedValue(raw)) return raw;
+    const keyBytes = _encryptionKey();
+    if (!keyBytes) {
+        console.warn(`[Settings] ${key} could not be decrypted because no encryption secret is configured.`);
+        return '';
+    }
+    try {
+        const parts = raw.slice(ENCRYPTED_PREFIX.length).split(':');
+        if (parts.length !== 3) throw new Error('Invalid encrypted setting format');
+        const iv = Buffer.from(parts[0], 'base64url');
+        const tag = Buffer.from(parts[1], 'base64url');
+        const ciphertext = Buffer.from(parts[2], 'base64url');
+        const decipher = crypto.createDecipheriv('aes-256-gcm', keyBytes, iv);
+        decipher.setAuthTag(tag);
+        return Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString('utf8');
+    } catch (e) {
+        console.warn(`[Settings] Could not decrypt ${key}: ${e.message}`);
+        return '';
+    }
 }
 
 /** Push SMTP settings from cache into process.env so nodemailer picks them up */
