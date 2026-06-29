@@ -133,13 +133,13 @@ async function issueFullToken(user, req, res) {
         path: '/',
         maxAge: 8 * 60 * 60 * 1000  // 8 hours, matches JWT expiry
     };
-    const isSecureRequest = requestSecurity.isSecureRequest(req);
-    if (isSecureRequest) {
+    const secureCookieContext = requestSecurity.shouldTreatAsSecure(req);
+    if (secureCookieContext) {
         cookieOptions.sameSite = 'none';
         cookieOptions.secure = true;
     } else {
         cookieOptions.sameSite = 'lax';
-        cookieOptions.secure = requestSecurity.shouldUseSecureCookie(req);
+        cookieOptions.secure = false;
     }
 
     res.cookie('rxToken', token, cookieOptions);

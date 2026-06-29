@@ -148,7 +148,7 @@ function isSecureRequest(req) {
 // -- HTTPS redirect (enable with FORCE_HTTPS=true in .env) --------------------
 if (process.env.FORCE_HTTPS === 'true') {
     app.use((req, res, next) => {
-        if (isSecureRequest(req) || requestSecurity.shouldAllowLocalHttp(req)) return next();
+        if (isSecureRequest(req) || requestSecurity.shouldAllowLocalHttp(req) || requestSecurity.shouldAllowBackendHttp(req)) return next();
         return res.redirect(301, 'https://' + req.headers.host + req.url);
     });
 }
@@ -338,7 +338,7 @@ function parseCookieHeader(cookieHeader) {
 }
 
 function csrfCookieOptions(req) {
-    const secure = isSecureRequest(req);
+    const secure = requestSecurity.shouldTreatAsSecure(req);
     return {
         httpOnly: false,
         path: '/',

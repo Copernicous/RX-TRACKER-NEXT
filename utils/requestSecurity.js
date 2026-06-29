@@ -28,14 +28,25 @@ function shouldAllowLocalHttp(req) {
     return process.env.HTTPS_ALLOW_LOCAL_HTTP === 'true' && isLoopbackHost(req);
 }
 
-function shouldUseSecureCookie(req) {
+function shouldAllowBackendHttp(req) {
+    return process.env.HTTPS_ALLOW_BACKEND_HTTP === 'true' && !isLoopbackHost(req);
+}
+
+function shouldTreatAsSecure(req) {
     if (isSecureRequest(req)) return true;
-    return process.env.FORCE_HTTPS === 'true' && !shouldAllowLocalHttp(req);
+    if (shouldAllowLocalHttp(req)) return false;
+    return process.env.HTTPS_ASSUME_PROXY_HTTPS === 'true';
+}
+
+function shouldUseSecureCookie(req) {
+    return shouldTreatAsSecure(req);
 }
 
 module.exports = {
     isSecureRequest,
     isLoopbackHost,
     shouldAllowLocalHttp,
+    shouldAllowBackendHttp,
+    shouldTreatAsSecure,
     shouldUseSecureCookie
 };
