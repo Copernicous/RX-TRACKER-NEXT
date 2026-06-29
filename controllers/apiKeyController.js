@@ -1,5 +1,6 @@
 const crypto = require('crypto');
 const db = require('../models');
+const securityAlertService = require('../services/securityAlertService');
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -74,6 +75,15 @@ exports.generate = async (req, res) => {
             expiresAt
         });
 
+        securityAlertService.recordApiKeyChanged({
+            req,
+            user: req.user,
+            action: 'created',
+            apiKeyId: apiKey.id,
+            apiKeyName: apiKey.name,
+            keyPrefix: apiKey.keyPrefix
+        }).catch(() => {});
+
         res.status(201).json({
             message: 'API key generated. Copy it now — it will NOT be shown again.',
             id:         apiKey.id,
@@ -96,6 +106,14 @@ exports.toggle = async (req, res) => {
         if (!key) return res.status(404).json({ error: 'API key not found.' });
         key.isActive = !key.isActive;
         await key.save();
+        securityAlertService.recordApiKeyChanged({
+            req,
+            user: req.user,
+            action: key.isActive ? 'enabled' : 'disabled',
+            apiKeyId: key.id,
+            apiKeyName: key.name,
+            keyPrefix: key.keyPrefix
+        }).catch(() => {});
         res.json({ id: key.id, isActive: key.isActive });
     } catch (e) { res.status(500).json({ error: e.message }); }
 };
@@ -108,7 +126,16 @@ exports.remove = async (req, res) => {
     try {
         const key = await db.ApiKey.findByPk(req.params.id);
         if (!key) return res.status(404).json({ error: 'API key not found.' });
+        const alertContext = {
+            req,
+            user: req.user,
+            action: 'deleted',
+            apiKeyId: key.id,
+            apiKeyName: key.name,
+            keyPrefix: key.keyPrefix
+        };
         await key.destroy();
+        securityAlertService.recordApiKeyChanged(alertContext).catch(() => {});
         res.status(204).send();
     } catch (e) { res.status(500).json({ error: e.message }); }
 };

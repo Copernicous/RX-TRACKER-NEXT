@@ -93,6 +93,7 @@ async function main() {
     const settingsService = readRel('services/settingsService.js');
     const documentController = readRel('controllers/documentController.js');
     const apiRoutes = readRel('routes/apiRoutes.js');
+    const securityAlertService = readRel('services/securityAlertService.js');
     const patientModel = readRel('models/patient.js');
     const rxModel = readRel('models/rxrecord.js');
     const packageJson = readRel('package.json');
@@ -190,19 +191,21 @@ async function main() {
         'Inspect app.js/package.json for CSRF middleware after cookie-only auth is implemented.'
     );
 
-    const serverSideAlertCode = allJsUnder('controllers') + '\n' + allJsUnder('services') + '\n' + allJsUnder('middleware');
     const hasAlertConfig = has(settingsService, 'DEFAULT_EMAIL_ALERT_RULES');
-    const hasOnlyConfigAndTest = hasAlertConfig
-        && has(serverSideAlertCode, 'sendTestEmailAlert')
-        && !/failed_login_threshold[\s\S]{0,120}(AuditLog|cron|schedule|notify|sendEmail)/i.test(serverSideAlertCode.replace(/DEFAULT_EMAIL_ALERT_RULES[\s\S]*?\}\);/m, ''));
+    const hasAlertService = has(securityAlertService, 'recordFailedLogin')
+        && has(securityAlertService, 'recordPermissionDenied')
+        && has(securityAlertService, 'recordCriticalError')
+        && has(securityAlertService, 'recordBackupFailure')
+        && has(securityAlertService, 'recordBackupMissing')
+        && has(securityAlertService, 'emailService.sendEmail');
     addResult(
         10,
         'Automatic security alert detection wiring',
-        hasOnlyConfigAndTest ? 'WARN' : 'INFO',
-        hasOnlyConfigAndTest
-            ? 'Email alert rules and test-send exist; automatic background/event detection was not found.'
-            : 'Alert code needs manual review; this script found more than config/test references.',
-        'Enable an alert in staging and trigger the condition, or inspect services/controllers for scheduled/event alert sender.'
+        hasAlertConfig && hasAlertService ? 'PASS' : 'WARN',
+        hasAlertConfig && hasAlertService
+            ? 'securityAlertService wires configured rules to failed-login, permission-denied, critical-error, backup, settings, API-key, and admin-login events.'
+            : 'Email alert rules exist, but the automatic server-side alert service/event hooks were not found.',
+        'Run npm run staging:security-alerts, or inspect services/securityAlertService.js and the auth/RBAC/error/backup hooks.'
     );
 
     if (has(helpJs, 'stored in the database in encrypted form') && !has(settingsService, 'ENCRYPTED_PREFIX')) {

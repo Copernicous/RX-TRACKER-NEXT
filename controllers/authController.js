@@ -4,6 +4,7 @@ const db       = require('../models');
 const settings = require('../services/settingsService');
 const { BUILT_IN_DEFAULTS } = require('../middleware/rbac');
 const requestSecurity = require('../utils/requestSecurity');
+const securityAlertService = require('../services/securityAlertService');
 
 // ── Account lockout constants ─────────────────────────────────────────────────
 const FALLBACK_MAX_FAILED_ATTEMPTS = 5;
@@ -32,6 +33,12 @@ exports.login = async (req, res) => {
         const invalidMsg = 'Invalid credentials or inactive account.';
 
         if (!user || !user.isActive) {
+            securityAlertService.recordFailedLogin({
+                req,
+                username,
+                reason: user ? 'inactive_account' : 'unknown_username',
+                stage: 'password'
+            }).catch(() => {});
             return res.status(401).json({ message: invalidMsg });
         }
 
@@ -62,6 +69,17 @@ exports.login = async (req, res) => {
                 module:    'Authentication',
                 action:    `Login Failed (attempt ${newCount}/${maxFailedAttempts}${newCount >= maxFailedAttempts ? ' - account locked' : ''})`,
                 ipAddress: req.ip
+            }).catch(() => {});
+
+            securityAlertService.recordFailedLogin({
+                req,
+                user,
+                username: user.username,
+                count: newCount,
+                maxFailedAttempts,
+                lockoutMinutes: LOCKOUT_MINUTES,
+                reason: 'invalid_password',
+                stage: 'password'
             }).catch(() => {});
 
             return res.status(401).json({ message: invalidMsg });
@@ -126,6 +144,8 @@ async function issueFullToken(user, req, res) {
         action:    'Login',
         ipAddress: req.ip
     }).catch(() => {});
+
+    securityAlertService.recordAdminLogin({ req, user }).catch(() => {});
 
     // Set rxToken cookie so it passes through FortiGate SSL portal (which may strip Authorization headers) and can still be used across a proxy boundary.
     const cookieOptions = {

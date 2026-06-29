@@ -15,6 +15,7 @@
     "staging:check": "node scripts/check-staging-config.js",
     "staging:cycle-context-smoke": "node scripts/smoke-staging-cycle-context.js",
     "staging:import-smoke": "node scripts/smoke-staging-import-guard.js",
+    "staging:security-alerts": "node scripts/smoke-staging-security-alerts.js",
     "staging:security-hardening": "node scripts/smoke-staging-security-hardening.js",
     "staging:start": "node scripts/start-staging.js",
     "smoke:qa": "node qa/smoke-qa.js",

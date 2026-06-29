@@ -14,6 +14,8 @@
  */
 
 // ─── Hardcoded seed defaults (used ONLY during startup migration to seed DB) ──
+const securityAlertService = require('../services/securityAlertService');
+
 const BUILT_IN_DEFAULTS = {
     Administrator: () => {
         const full = { visible: true, canAdd: true, canEdit: true, canDelete: true, canExport: true, canUndo: false, canOverrideExpired: false };
@@ -160,10 +162,24 @@ exports.userCanOverrideExpired = async (req, moduleKey) => {
     return !!(perm.visible && perm.canOverrideExpired);
 };
 
+function recordPermissionDenied(req, details) {
+    securityAlertService.recordPermissionDenied({
+        req,
+        moduleKey: details.moduleKey || null,
+        requiredAction: details.requiredAction || null,
+        reason: details.reason || 'access_denied'
+    }).catch(() => {});
+}
+
 // ─── requireRole ─────────────────────────────────────────────────────────────
 exports.requireRole = (roles) => {
     return (req, res, next) => {
         if (!req.user || !roles.includes(req.user.role)) {
+            recordPermissionDenied(req, {
+                moduleKey: 'role',
+                requiredAction: roles.join(','),
+                reason: 'role_required'
+            });
             return res.status(403).json({ message: 'Access denied: insufficient permissions' });
         }
         next();
@@ -186,6 +202,11 @@ exports.requireRole = (roles) => {
 exports.requireMaster = (req, res, next) => {
     // req.user is populated by auth.js (API) or webAuth.js (web pages)
     if (!req.user || req.user.isMaster !== true) {
+        recordPermissionDenied(req, {
+            moduleKey: 'backoffice',
+            requiredAction: 'master',
+            reason: 'master_required'
+        });
         // For XHR / API requests return JSON; for page requests redirect
         const wantsJson = req.headers['accept'] && req.headers['accept'].includes('application/json');
         if (wantsJson || req.path.startsWith('/api/')) {
@@ -219,19 +240,20 @@ exports.requirePermission = (moduleKey, requiredAction) => {
             const perm = await getRequestPermission(req, moduleKey);
 
             if (!perm.visible) {
+                recordPermissionDenied(req, { moduleKey, requiredAction, reason: 'module_hidden' });
                 return res.status(403).json({ message: `Access denied: ${moduleKey} module is hidden.` });
             }
 
             if (requiredAction === 'read')      return next();
-            if (requiredAction === 'add'       && !perm.canAdd)       return res.status(403).json({ message: `Access denied: you cannot add records to ${moduleKey}.` });
-            if (requiredAction === 'edit'      && !perm.canEdit)      return res.status(403).json({ message: `Access denied: you cannot edit ${moduleKey}.` });
-            if (requiredAction === 'write'     && !perm.canAdd && !perm.canEdit) return res.status(403).json({ message: `Access denied: you cannot write to ${moduleKey}.` });
-            if (requiredAction === 'writeOrOverrideExpired' && !perm.canAdd && !perm.canEdit && !perm.canOverrideExpired) return res.status(403).json({ message: `Access denied: you cannot write to ${moduleKey} or override expired locks.` });
-            if (requiredAction === 'delete'    && !perm.canDelete)    return res.status(403).json({ message: `Access denied: you cannot delete from ${moduleKey}.` });
-            if (requiredAction === 'export'    && !perm.canExport)    return res.status(403).json({ message: `Access denied: you cannot export ${moduleKey}.` });
-            if (requiredAction === 'undo'      && !perm.canUndo)      return res.status(403).json({ message: `Access denied: you cannot undo workflow steps.` });
-            if (requiredAction === 'warehouse' && !perm.canWarehouse) return res.status(403).json({ message: `Access denied: you cannot return RX records to warehouse.` });
-            if (requiredAction === 'overrideExpired' && !perm.canOverrideExpired) return res.status(403).json({ message: `Access denied: you cannot override expired 90-day locks.` });
+            if (requiredAction === 'add'       && !perm.canAdd)       { recordPermissionDenied(req, { moduleKey, requiredAction, reason: 'missing_add' }); return res.status(403).json({ message: `Access denied: you cannot add records to ${moduleKey}.` }); }
+            if (requiredAction === 'edit'      && !perm.canEdit)      { recordPermissionDenied(req, { moduleKey, requiredAction, reason: 'missing_edit' }); return res.status(403).json({ message: `Access denied: you cannot edit ${moduleKey}.` }); }
+            if (requiredAction === 'write'     && !perm.canAdd && !perm.canEdit) { recordPermissionDenied(req, { moduleKey, requiredAction, reason: 'missing_write' }); return res.status(403).json({ message: `Access denied: you cannot write to ${moduleKey}.` }); }
+            if (requiredAction === 'writeOrOverrideExpired' && !perm.canAdd && !perm.canEdit && !perm.canOverrideExpired) { recordPermissionDenied(req, { moduleKey, requiredAction, reason: 'missing_write_or_override' }); return res.status(403).json({ message: `Access denied: you cannot write to ${moduleKey} or override expired locks.` }); }
+            if (requiredAction === 'delete'    && !perm.canDelete)    { recordPermissionDenied(req, { moduleKey, requiredAction, reason: 'missing_delete' }); return res.status(403).json({ message: `Access denied: you cannot delete from ${moduleKey}.` }); }
+            if (requiredAction === 'export'    && !perm.canExport)    { recordPermissionDenied(req, { moduleKey, requiredAction, reason: 'missing_export' }); return res.status(403).json({ message: `Access denied: you cannot export ${moduleKey}.` }); }
+            if (requiredAction === 'undo'      && !perm.canUndo)      { recordPermissionDenied(req, { moduleKey, requiredAction, reason: 'missing_undo' }); return res.status(403).json({ message: `Access denied: you cannot undo workflow steps.` }); }
+            if (requiredAction === 'warehouse' && !perm.canWarehouse) { recordPermissionDenied(req, { moduleKey, requiredAction, reason: 'missing_warehouse' }); return res.status(403).json({ message: `Access denied: you cannot return RX records to warehouse.` }); }
+            if (requiredAction === 'overrideExpired' && !perm.canOverrideExpired) { recordPermissionDenied(req, { moduleKey, requiredAction, reason: 'missing_override_expired' }); return res.status(403).json({ message: `Access denied: you cannot override expired 90-day locks.` }); }
 
             next();
         } catch (e) {

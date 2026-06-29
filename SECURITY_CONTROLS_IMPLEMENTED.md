@@ -105,6 +105,7 @@ Patient and RX data are stored on the local server/PostgreSQL. The application d
 | Settings audit logging | Setting changes write audit records, with password/secret/token/key values redacted in audit payloads. | `controllers/settingsController.js` |
 | Email alert recipients | Email alerts support global recipients plus per-user granular subscriptions. | `services/settingsService.js`, `controllers/settingsController.js`, `public/js/system-settings.js` |
 | Email alert user inspection | Admins can inspect one user's alert configuration in plain language. | `controllers/settingsController.js`, `public/js/system-settings.js` |
+| Automatic security alert detection | Enabled alert rules are wired to server events for failed-login thresholds, account lockouts, missing-auth spikes, permission-denied spikes, admin logins, security setting changes, API key changes, backup failures, missing scheduled backups, critical errors, and email configuration failures. | `services/securityAlertService.js`, `controllers/authController.js`, `controllers/twoFactorController.js`, `middleware/auth.js`, `middleware/rbac.js`, `routes/apiRoutes.js`, `controllers/errorLogController.js`, `services/backupService.js` |
 
 ### Audit, Activity, And Monitoring
 
@@ -173,8 +174,6 @@ These are the items still pending after the staging hardening pass.
 2. Session timeout is still primarily front-end idle enforcement. Users are redirected after inactivity, and the auth cookie/JWT still has an 8-hour absolute expiry. Recommended fix: add server-side idle session tracking or rotate/refresh tokens with an idle timeout if stricter inactivity enforcement is required.
 
 3. PostgreSQL patient/RX column-level encryption is not implemented. Patient names, phones, addresses, notes, service dates, and RX workflow data are stored normally in PostgreSQL. Current protection should rely on BitLocker/full-disk encryption, restricted Windows/PostgreSQL accounts, secure backups, and limited server access. Future option: add application-level encryption for selected sensitive columns if required.
-
-4. Security alerts are configurable, but not every alert rule is wired to automatic background detection yet. Recommended fix: connect enabled rules to scheduled jobs or event hooks for failed-login spikes, backup missing, permission-denied spikes, critical-error spikes, and similar events.
 
 ## Practical Production Verification
 
