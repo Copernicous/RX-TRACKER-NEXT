@@ -20,7 +20,7 @@ Patient and RX data are stored on the local server/PostgreSQL. The application d
 | Reverse proxy trust is limited | Express trusts only the first proxy hop, intended for the FortiGate/reverse proxy path. This reduces spoofing risk from arbitrary `X-Forwarded-*` headers. | `app.js` |
 | Optional HTTPS enforcement | If `FORCE_HTTPS=true`, HTTP requests redirect to HTTPS and Helmet HSTS is enabled. If HTTPS is not configured, upgrade-insecure-requests is intentionally omitted. | `app.js` |
 | Helmet security headers | Helmet is enabled with CSP, frame/object restrictions, base URI and form-action restrictions, and HSTS when HTTPS is forced. | `app.js` |
-| Content Security Policy | CSP limits default/script/style/image/connect sources. `frameSrc` and `objectSrc` are blocked. `frameAncestors` is restricted to self. | `app.js` |
+| Content Security Policy | CSP limits default/script/style/image/connect sources. Inline `<script>` and `<style>` blocks require a per-request nonce. `frameSrc` and `objectSrc` are blocked. `frameAncestors` is restricted to self. | `app.js` |
 | CORS allowlist | `APP_ORIGIN` supports a comma-separated allowlist. Production refuses to start if `APP_ORIGIN` is missing, preventing open credentialed CORS. | `app.js` |
 | No proxy/browser caching of app pages | Responses set `Cache-Control: no-store, no-cache, no-transform`, `Pragma: no-cache`, and `Expires: 0`. This reduces stale page and proxy transformation problems. | `app.js` |
 | Local assets | Bootstrap, Font Awesome, and app assets are served locally instead of external CDNs. | `views`, `public/assets` |
@@ -158,6 +158,7 @@ These are the security protections or indicators that users see in the applicati
 | `APP_ORIGIN` | Allowed browser origins for credentialed CORS | Required in production; comma-separated allowlist |
 | `FORCE_HTTPS` | Enforce HTTPS redirect and HSTS | Only active when set to `true` |
 | `JWT_SECRET` | Signs/verifies JWT tokens | Required for secure auth; must be strong and private |
+| `CSP_ALLOW_INLINE_ATTRS` | Legacy inline event/style attribute compatibility | Defaults to allowed so existing `onclick`, `onchange`, and `style=""` attributes keep working; set to `false` only after those attributes are refactored |
 | `SESSION_TIMEOUT_MINUTES` / `session_timeout_minutes` | Server-side idle timeout and front-end warning timing | Default 30 minutes; clamped to 1-480 minutes |
 | `MAX_FAILED_LOGINS` / `max_failed_logins` | Failed-login threshold setting | Login and 2FA lockout paths read this setting; valid range is 1-20 |
 | `require_2fa` | Global 2FA enforcement | Defaults to true; if false, users with 2FA configured skip code prompt |
@@ -170,7 +171,7 @@ These are the security protections or indicators that users see in the applicati
 
 These are the items still pending after the staging hardening pass.
 
-1. CSP still allows inline scripts/styles. CSP uses `'unsafe-inline'` because the current app still has inline handlers and inline scripts. Recommended fix: move inline scripts/handlers into static JS files and then switch to a nonce-based or stricter CSP.
+1. Legacy inline event/style attributes remain for compatibility. CSP now requires nonces for inline script/style blocks, but `script-src-attr` and `style-src-attr` still allow legacy `onclick`, `onchange`, and `style=""` attributes so existing pages keep working. Recommended fix: refactor those attributes into static JavaScript event listeners and CSS classes, then set `CSP_ALLOW_INLINE_ATTRS=false`.
 
 2. PostgreSQL patient/RX column-level encryption is not implemented. Patient names, phones, addresses, notes, service dates, and RX workflow data are stored normally in PostgreSQL. Current protection should rely on BitLocker/full-disk encryption, restricted Windows/PostgreSQL accounts, secure backups, and limited server access. Future option: add application-level encryption for selected sensitive columns if required.
 
@@ -187,10 +188,11 @@ Use this checklist after each security-related release:
 7. Confirm the browser does not receive/store a full JWT in `localStorage` or a JavaScript-readable `rxToken` cookie.
 8. Confirm unsafe API requests without the `X-CSRF-Token` header return 403.
 9. Confirm logout clears the session and writes an Authentication / Logout audit entry.
-10. Set the staging session timeout to 1 minute, stop using the app, and confirm API/page access requires login again after the idle period.
-11. Confirm System Settings returns masked SMTP password values only and stores `smtp_pass` encrypted in the database.
-12. Confirm patient/RX document upload controls are absent.
-13. Confirm old Drive-backed document rows do not expose Drive download links.
-14. Confirm Audit Log and User Activity Log are visible only to authorized roles.
-15. Confirm Backup Management is Administrator-only.
-16. Confirm Back Office is blocked unless `isMaster=true`.
+10. Confirm `/login` response headers show CSP `script-src` and `style-src` with `nonce-...` values and without broad `unsafe-inline`.
+11. Set the staging session timeout to 1 minute, stop using the app, and confirm API/page access requires login again after the idle period.
+12. Confirm System Settings returns masked SMTP password values only and stores `smtp_pass` encrypted in the database.
+13. Confirm patient/RX document upload controls are absent.
+14. Confirm old Drive-backed document rows do not expose Drive download links.
+15. Confirm Audit Log and User Activity Log are visible only to authorized roles.
+16. Confirm Backup Management is Administrator-only.
+17. Confirm Back Office is blocked unless `isMaster=true`.

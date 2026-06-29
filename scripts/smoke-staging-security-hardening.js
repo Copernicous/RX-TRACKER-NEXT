@@ -23,6 +23,14 @@ function has(text, pattern) {
     return pattern instanceof RegExp ? pattern.test(text) : text.includes(pattern);
 }
 
+function getDirective(csp, name) {
+    const prefix = name + ' ';
+    return String(csp || '')
+        .split(';')
+        .map(part => part.trim())
+        .find(part => part === name || part.indexOf(prefix) === 0) || '';
+}
+
 async function fetchText(urlPath) {
     const res = await fetch(baseUrl + urlPath, { redirect: 'manual' });
     const text = await res.text().catch(() => '');
@@ -102,6 +110,15 @@ async function main() {
     const packageJson = readRel('package.json');
 
     const csp = login.res.headers.get('content-security-policy') || '';
+    const scriptSrc = getDirective(csp, 'script-src');
+    const styleSrc = getDirective(csp, 'style-src');
+    const scriptSrcAttr = getDirective(csp, 'script-src-attr');
+    const styleSrcAttr = getDirective(csp, 'style-src-attr');
+    const cspUsesNonces = /'nonce-[^']+'/.test(scriptSrc) && /'nonce-[^']+'/.test(styleSrc);
+    const cspBlocksBroadInline = !scriptSrc.includes("'unsafe-inline'") && !styleSrc.includes("'unsafe-inline'");
+    const cspHasLegacyAttrCompat = scriptSrcAttr.includes("'unsafe-inline'") || styleSrcAttr.includes("'unsafe-inline'");
+    const nonceMatch = csp.match(/'nonce-([^']+)'/);
+    const loginHtmlHasNonce = nonceMatch ? login.text.includes('nonce="' + nonceMatch[1] + '"') : false;
     addResult(
         1,
         'Browser-readable auth token compatibility',
@@ -114,10 +131,12 @@ async function main() {
 
     addResult(
         2,
-        'CSP allows inline script/style',
-        csp.includes("'unsafe-inline'") || has(appServer, "'unsafe-inline'") ? 'WARN' : 'PASS',
-        csp ? 'Live CSP: ' + csp : 'Helmet CSP source checked in app.js.',
-        'Open DevTools > Network > /login > Response Headers > Content-Security-Policy.'
+        'CSP nonce-based script/style blocks',
+        cspUsesNonces && cspBlocksBroadInline && loginHtmlHasNonce ? 'PASS' : 'WARN',
+        csp
+            ? 'Live CSP uses script/style nonces; login HTML nonce injection ' + (loginHtmlHasNonce ? 'confirmed' : 'missing') + '; legacy inline attributes ' + (cspHasLegacyAttrCompat ? 'remain allowed for compatibility' : 'are blocked') + '. Header: ' + csp
+            : 'Helmet CSP source checked in app.js.',
+        'Open DevTools > Network > /login > Response Headers > Content-Security-Policy; confirm script-src/style-src use nonce values and not broad unsafe-inline.'
     );
 
     const settingsHasRiskyTable = has(settingsJs, "'<code>'+k+'</code>") || has(settingsJs, '${user.firstName || \'\'} ${user.lastName || \'\'}');
