@@ -9,6 +9,20 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 - No unreleased changes.
 
+## [2.0.68] - 2026-06-29
+
+### [HOTFIX-68] Dark-mode edit patient contrast fix
+**Files changed:** Patient Management UI, Patient Timeline UI, shared CSS, release metadata
+
+- Fixed the low-contrast `RX #` badge shown in Service Date History on the Edit Patient screen when dark mode is enabled.
+- Applied the same readable badge styling to the Patient Timeline Service Date History so related RX pills stay consistent across both screens.
+- Added dedicated light/dark theme styles for service-history RX badges instead of relying on Bootstrap `bg-light text-dark`, which conflicted with the app dark-mode overrides.
+- Bumped production package version to `2.0.68`.
+
+**Database impact:**
+- No schema changes and no data changes are introduced.
+- Existing patients, RX records, service-date history, workflow records, settings, and audit data are preserved.
+
 ## [2.0.67] - 2026-06-29
 
 ### [RELEASE-67] Security hardening and document upload removal
