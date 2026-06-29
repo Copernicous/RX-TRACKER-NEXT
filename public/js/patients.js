@@ -95,7 +95,7 @@ var allPatients = [];
         if (rx.serviceDate) detail.push('Svc ' + (window.fmtDate(rx.serviceDate) || rx.serviceDate));
         if (rx.pharmacyName) detail.push(rx.pharmacyName);
         if (rx.workflowStepCount) detail.push(rx.workflowStepCount + ' step' + (rx.workflowStepCount === 1 ? '' : 's'));
-        return '<span class="badge bg-light text-dark border me-1 mb-1" title="' + patientEscapeHtml(detail.join(' | ')) + '">' + label + '</span>';
+        return '<span class="badge svc-history-rx-badge me-1 mb-1" title="' + patientEscapeHtml(detail.join(' | ')) + '">' + label + '</span>';
     }
 
     function serviceDateHistoryRxGroup(label, records, count) {
@@ -104,7 +104,7 @@ var allPatients = [];
         if (!count) return '';
         var shown = records.slice(0, 6).map(serviceDateHistoryRxBadge).join('');
         if (count > records.length || count > 6) {
-            shown += '<span class="badge bg-light text-muted border me-1 mb-1">+' + patientEscapeHtml(count - Math.min(records.length, 6)) + ' more</span>';
+            shown += '<span class="badge svc-history-rx-more-badge me-1 mb-1">+' + patientEscapeHtml(count - Math.min(records.length, 6)) + ' more</span>';
         }
         return '<div class="mt-1"><span class="text-muted me-1">' + patientEscapeHtml(label) + ':</span> ' + shown + '</div>';
     }

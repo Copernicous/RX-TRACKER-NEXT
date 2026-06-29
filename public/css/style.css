@@ -596,6 +596,36 @@ body.rx-staging-env .navbar::after {
     border-radius: 6px;
 }
 
+.svc-history-rx-badge,
+.svc-history-rx-more-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    line-height: 1.25;
+    font-weight: 700;
+    background-color: #eaf3ff !important;
+    border: 1px solid rgba(74,144,226,0.32) !important;
+    color: #17426a !important;
+}
+
+.svc-history-rx-more-badge {
+    background-color: #f1f5f9 !important;
+    border-color: rgba(100,116,139,0.28) !important;
+    color: #475569 !important;
+}
+
+[data-theme="dark"] .svc-history-rx-badge {
+    background-color: rgba(74,144,226,0.20) !important;
+    border-color: rgba(147,197,253,0.45) !important;
+    color: #dbeafe !important;
+}
+
+[data-theme="dark"] .svc-history-rx-more-badge {
+    background-color: rgba(148,163,184,0.16) !important;
+    border-color: rgba(203,213,225,0.28) !important;
+    color: #d7dee8 !important;
+}
+
 /* ---------- Pagination ---------- */
 .pagination .page-link {
     color: var(--primary);
