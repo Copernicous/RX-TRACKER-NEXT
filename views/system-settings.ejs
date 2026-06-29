@@ -636,6 +636,32 @@
                         </div>
                     </div>
 
+                    <div class="glass-card p-4 mb-4 setting-card" style="border-left-color:#14b8a6;">
+                        <div class="d-flex align-items-start gap-3">
+                            <div class="setting-icon" style="background:rgba(20,184,166,.12);color:#14b8a6;">
+                                <i class="fas fa-vial-circle-check"></i>
+                            </div>
+                            <div class="flex-grow-1">
+                                <h6 class="mb-1 fw-bold">Send Sample Alert</h6>
+                                <p class="text-muted small mb-3">Send a sample alert using the saved recipients and per-user subscriptions for one selected condition.</p>
+                                <div class="row g-2 align-items-end">
+                                    <div class="col-md-5">
+                                        <label class="form-label fw-semibold small">Alert Condition</label>
+                                        <select class="form-select form-select-sm" id="testEmailAlertKey">
+                                            <option value="">Choose a condition...</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-auto">
+                                        <button class="btn btn-outline-success btn-sm" id="sendTestEmailAlertBtn" type="button">
+                                            <i class="fas fa-paper-plane me-1"></i>Send Sample Alert
+                                        </button>
+                                    </div>
+                                </div>
+                                <div id="testEmailAlertResult" class="alert d-none mt-3 mb-0 py-2 small" role="alert"></div>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="glass-card p-4 mb-4 setting-card" style="border-left-color:#8b5cf6;">
                         <div class="d-flex align-items-center justify-content-between gap-3 flex-wrap mb-2">
                             <h6 class="fw-bold mb-0"><i class="fas fa-users me-2 text-primary"></i>Per-User Delivery</h6>
@@ -655,6 +681,32 @@
                                     <tr><td colspan="2" class="text-muted text-center py-3">Loading user delivery options...</td></tr>
                                 </tbody>
                             </table>
+                        </div>
+                    </div>
+
+                    <div class="glass-card p-4 mb-4 setting-card" style="border-left-color:#6366f1;">
+                        <div class="d-flex align-items-start gap-3">
+                            <div class="setting-icon" style="background:rgba(99,102,241,.12);color:#6366f1;">
+                                <i class="fas fa-user-check"></i>
+                            </div>
+                            <div class="flex-grow-1">
+                                <h6 class="mb-1 fw-bold">Check One User</h6>
+                                <p class="text-muted small mb-3">Pick a user to see that person’s granular alert configuration in plain language.</p>
+                                <div class="row g-2 align-items-end">
+                                    <div class="col-md-5">
+                                        <label class="form-label fw-semibold small">User</label>
+                                        <select class="form-select form-select-sm" id="inspectEmailAlertUser">
+                                            <option value="">Choose a user...</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-auto">
+                                        <button class="btn btn-outline-primary btn-sm" id="inspectEmailAlertUserBtn" type="button">
+                                            <i class="fas fa-search me-1"></i>Check User Config
+                                        </button>
+                                    </div>
+                                </div>
+                                <div id="inspectEmailAlertResult" class="mt-3 small text-muted">Choose a user to inspect their alert subscriptions.</div>
+                            </div>
                         </div>
                     </div>
 

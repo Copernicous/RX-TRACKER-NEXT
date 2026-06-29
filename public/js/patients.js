@@ -2122,12 +2122,7 @@ var allPatients = [];
             window.rxDocuments.bind({
                 ownerType: 'patient',
                 ownerId: id,
-                inputEl: 'patientDocFiles',
-                buttonEl: 'patientDocUploadBtn',
-                uploadWrapEl: 'patientDocUploadWrap',
-                statusEl: 'patientDocStatus',
                 listEl: 'patientDocumentsList',
-                canUpload: !!(id && _docPerms.canEdit),
                 canDelete: !!_docPerms.canDelete
             });
         }

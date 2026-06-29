@@ -133,6 +133,7 @@ function switchTab(tab) {
 let _emailLoaded = false;
 let _emailAlertsLoaded = false;
 let _emailAlertUsersLoaded = false;
+let _emailAlertUsersCache = [];
 
 const EMAIL_ALERT_RULE_GROUPS = [
     {
@@ -227,6 +228,7 @@ function renderEmailAlertRules(rules) {
     }).join('');
 
     updateEmailAlertsStatus();
+    populateEmailAlertTestSelect();
 }
 
 function collectEmailAlertRules() {
@@ -256,6 +258,22 @@ function updateEmailAlertsStatus() {
         }
     }
     if (countEl) countEl.textContent = activeCount + ' active';
+}
+
+function populateEmailAlertTestSelect() {
+    const select = document.getElementById('testEmailAlertKey');
+    if (!select) return;
+    const currentValue = select.value;
+    const options = ['<option value="">Choose a condition...</option>'];
+    EMAIL_ALERT_RULE_GROUPS.forEach(group => {
+        options.push('<optgroup label="' + group.title + '">');
+        group.rules.forEach(rule => {
+            options.push('<option value="' + rule.key + '">' + rule.title + '</option>');
+        });
+        options.push('</optgroup>');
+    });
+    select.innerHTML = options.join('');
+    if (currentValue) select.value = currentValue;
 }
 
 function parseUserSubscriptions(raw) {
@@ -299,6 +317,20 @@ function renderEmailAlertUsers(users, subscriptions) {
     }).join('');
 }
 
+function populateEmailAlertUserInspector(users) {
+    const select = document.getElementById('inspectEmailAlertUser');
+    if (!select) return;
+    const currentValue = select.value;
+    const options = ['<option value="">Choose a user...</option>'];
+    users.forEach(user => {
+        const name = ((user.firstName || '') + ' ' + (user.lastName || '')).trim() || user.username || ('User #' + user.id);
+        const email = user.email ? ' - ' + user.email : '';
+        options.push('<option value="' + user.id + '">' + name + ' (@' + (user.username || '') + ')' + email + '</option>');
+    });
+    select.innerHTML = options.join('');
+    if (currentValue) select.value = currentValue;
+}
+
 function collectUserAlertSubscriptions() {
     const subs = {};
     document.querySelectorAll('.email-user-enabled').forEach(input => {
@@ -322,7 +354,9 @@ async function loadEmailAlertUsers(force) {
         const users = await userRes.json();
         const settingsData = await settingsRes.json();
         const subscriptions = parseUserSubscriptions(settingsData.email_alert_user_subscriptions);
-        renderEmailAlertUsers(users.filter(u => u.email), subscriptions);
+        _emailAlertUsersCache = users.filter(u => u.email);
+        renderEmailAlertUsers(_emailAlertUsersCache, subscriptions);
+        populateEmailAlertUserInspector(_emailAlertUsersCache);
     } catch (e) {
         console.error('loadEmailAlertUsers:', e);
     }
@@ -467,6 +501,128 @@ async function saveEmailAlertSettings() {
     }
 }
 
+async function sendTestEmailAlert() {
+    const select = document.getElementById('testEmailAlertKey');
+    const alertKey = select?.value || '';
+    const btn = document.getElementById('sendTestEmailAlertBtn');
+    const result = document.getElementById('testEmailAlertResult');
+
+    if (!alertKey) {
+        showToast('Choose an alert condition first.', 'warning');
+        if (select) select.focus();
+        return;
+    }
+
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Sending...';
+    }
+    if (result) result.className = 'alert d-none mt-3 mb-0 py-2 small';
+
+    try {
+        const url = typeof window.rxUrl === 'function'
+            ? window.rxUrl('/api/settings/email-alerts/test')
+            : '/api/settings/email-alerts/test';
+        const res = await fetchWithAuth(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ alertKey })
+        });
+        const data = await res.json();
+        if (res && res.ok) {
+            if (result) {
+                result.className = 'alert alert-success mt-3 mb-0 py-2 small';
+                result.innerHTML = '<i class="fas fa-check me-1"></i>' + (data.message || 'Sample alert sent.') + ' Recipients: <strong>' + (data.recipients || []).join(', ') + '</strong>';
+            }
+            showToast('Sample alert email sent.', 'success');
+        } else {
+            throw new Error(data.error || 'Failed to send sample alert');
+        }
+    } catch (e) {
+        if (result) {
+            result.className = 'alert alert-danger mt-3 mb-0 py-2 small';
+            result.innerHTML = '<i class="fas fa-times me-1"></i>' + e.message;
+        }
+        showToast(e.message, 'danger');
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-paper-plane me-1"></i>Send Sample Alert';
+        }
+        if (result) result.classList.remove('d-none');
+    }
+}
+
+function renderInspectedUserAlertConfig(data) {
+    const wrap = document.getElementById('inspectEmailAlertResult');
+    if (!wrap) return;
+    const user = data.user || {};
+    const enabled = Array.isArray(data.enabledAlertKeys) ? data.enabledAlertKeys : [];
+    const inactiveGlobal = Array.isArray(data.inactiveGlobalAlertKeys) ? data.inactiveGlobalAlertKeys : [];
+    const pretty = {};
+    EMAIL_ALERT_RULE_GROUPS.forEach(group => {
+        group.rules.forEach(rule => { pretty[rule.key] = rule.title; });
+    });
+
+    const lines = [];
+    lines.push('<div class="fw-semibold mb-2">' + ((user.firstName || '') + ' ' + (user.lastName || '')).trim() + ' (@' + (user.username || '') + ')</div>');
+    lines.push('<div class="mb-2">Email: <strong>' + (user.email || 'No email') + '</strong></div>');
+    lines.push('<div class="mb-2">Master alerts: <strong>' + (data.alertsEnabled ? 'Enabled' : 'Disabled') + '</strong></div>');
+    lines.push('<div class="mb-2">Enabled rules for this user: <strong>' + enabled.length + '</strong></div>');
+    if (enabled.length) {
+        lines.push('<div class="mb-2">This user will receive:</div><ul class="mb-2">' + enabled.map(key => '<li>' + (pretty[key] || key) + '</li>').join('') + '</ul>');
+    } else {
+        lines.push('<div class="mb-2 text-warning">This user has no alert subscriptions enabled.</div>');
+    }
+    if (inactiveGlobal.length) {
+        lines.push('<div class="text-warning">These user rules are checked but globally inactive: <strong>' + inactiveGlobal.map(key => pretty[key] || key).join(', ') + '</strong></div>');
+    }
+    wrap.innerHTML = lines.join('');
+}
+
+async function inspectEmailAlertUserConfig() {
+    const select = document.getElementById('inspectEmailAlertUser');
+    const userId = select?.value || '';
+    const btn = document.getElementById('inspectEmailAlertUserBtn');
+    const wrap = document.getElementById('inspectEmailAlertResult');
+    if (!userId) {
+        showToast('Choose a user first.', 'warning');
+        if (select) select.focus();
+        return;
+    }
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Loading...';
+    }
+    if (wrap) wrap.innerHTML = 'Loading user configuration...';
+    try {
+        const url = typeof window.rxUrl === 'function'
+            ? window.rxUrl('/api/settings/email-alerts/user/' + encodeURIComponent(userId))
+            : '/api/settings/email-alerts/user/' + encodeURIComponent(userId);
+        const res = await fetchWithAuth(url);
+        const raw = await res.text();
+        let data;
+        try {
+            data = raw ? JSON.parse(raw) : {};
+        } catch (parseErr) {
+            throw new Error('Server returned HTML instead of JSON. Refresh the page and try again.');
+        }
+        if (res && res.ok) {
+            renderInspectedUserAlertConfig(data);
+        } else {
+            throw new Error(data.error || 'Failed to load user configuration');
+        }
+    } catch (e) {
+        if (wrap) wrap.innerHTML = '<span class="text-danger">' + e.message + '</span>';
+        showToast(e.message, 'danger');
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-search me-1"></i>Check User Config';
+        }
+    }
+}
+
 async function loadEmailSettings() {
     if (_emailLoaded) return;
     _emailLoaded = true;
@@ -571,6 +727,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('saveEmailAlertsBtn')?.addEventListener('click', saveEmailAlertSettings);
     document.getElementById('resetEmailAlertsBtn')?.addEventListener('click', resetEmailAlertConditions);
     document.getElementById('saveEmailAlertUsersBtn')?.addEventListener('click', saveEmailAlertUsers);
+    document.getElementById('sendTestEmailAlertBtn')?.addEventListener('click', sendTestEmailAlert);
+    document.getElementById('inspectEmailAlertUserBtn')?.addEventListener('click', inspectEmailAlertUserConfig);
 
     // ── Save Timezone ──────────────────────────────────────────────────────
     document.getElementById('saveTzBtn')?.addEventListener('click', async () => {

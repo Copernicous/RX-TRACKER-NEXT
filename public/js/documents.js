@@ -95,7 +95,7 @@
         if (!listEl) return;
 
         if (!docs || !docs.length) {
-            listEl.innerHTML = '<div class="text-muted small py-2"><i class="fas fa-folder-open me-1"></i>No pictures or documents uploaded yet.</div>';
+            listEl.innerHTML = '';
             return;
         }
 
@@ -119,9 +119,6 @@
                     '<div class="text-muted small">' + formatBytes(doc.sizeBytes) + (date ? ' &middot; ' + escapeHtml(date) : '') + by + '</div>' +
                 '</div>' +
                 '<a class="btn btn-sm btn-outline-primary" target="_blank" rel="noopener" href="' + escapeHtml(toAppUrl(doc.downloadUrl)) + '" title="Open / download"><i class="fas fa-download"></i></a>';
-            if (doc.driveWebViewLink) {
-                html += '<a class="btn btn-sm btn-outline-success" target="_blank" rel="noopener" href="' + escapeHtml(doc.driveWebViewLink) + '" title="Open in Google Drive"><i class="fab fa-google-drive"></i></a>';
-            }
             if (allowDelete) {
                 html += '<button type="button" class="btn btn-sm btn-outline-danger rx-doc-delete" data-doc-id="' + doc.id + '" title="Delete"><i class="fas fa-trash"></i></button>';
             }
@@ -140,10 +137,10 @@
     function load(options) {
         var listEl = typeof options.listEl === 'string' ? document.getElementById(options.listEl) : options.listEl;
         if (!options.ownerId) {
-            if (listEl) listEl.innerHTML = '<div class="text-muted small py-2"><i class="fas fa-save me-1"></i>Save the record first, then upload pictures or documents.</div>';
+            if (listEl) listEl.innerHTML = '';
             return Promise.resolve([]);
         }
-        if (listEl) listEl.innerHTML = '<div class="text-muted small py-2"><i class="fas fa-spinner fa-spin me-1"></i>Loading documents...</div>';
+        if (listEl) listEl.innerHTML = '';
         return rawFetch(endpoint(options.ownerType, options.ownerId))
             .then(function(res) {
                 if (!res || !res.ok) throw new Error('Could not load documents.');
