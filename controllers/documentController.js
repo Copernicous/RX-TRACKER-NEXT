@@ -44,7 +44,6 @@ function serializeAttachment(row) {
         mimeType: doc.mimeType,
         sizeBytes: Number(doc.sizeBytes || 0),
         provider: doc.provider,
-        driveWebViewLink: doc.driveWebViewLink,
         uploadedBy: uploader,
         createdAt: doc.createdAt,
         updatedAt: doc.updatedAt,
@@ -137,7 +136,6 @@ async function uploadForOwner(req, res, ownerType, ownerId) {
                 sizeBytes: file.size || 0,
                 provider: stored.provider,
                 driveFileId: stored.driveFileId,
-                driveWebViewLink: stored.driveWebViewLink,
                 localPath: stored.localPath,
                 uploadedByUserId: req.user ? req.user.id : null
             });

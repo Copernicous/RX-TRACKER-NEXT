@@ -221,7 +221,7 @@ async function uploadToDrive(file, ownerType, ownerId, owner) {
 
     const created = await driveJson(appendQuery(DRIVE_UPLOAD_BASE + '/files', {
         uploadType: 'multipart',
-        fields: 'id,name,webViewLink,webContentLink'
+        fields: 'id,name'
     }), {
         method: 'POST',
         headers: { 'Content-Type': 'multipart/related; boundary=' + boundary },
@@ -232,7 +232,6 @@ async function uploadToDrive(file, ownerType, ownerId, owner) {
         provider: 'drive',
         storedName,
         driveFileId: created.id,
-        driveWebViewLink: created.webViewLink || null,
         localPath: null
     };
 }
@@ -253,7 +252,6 @@ async function uploadToLocal(file, ownerType, ownerId) {
         provider: 'local',
         storedName,
         driveFileId: null,
-        driveWebViewLink: null,
         localPath: filepath
     };
 }
