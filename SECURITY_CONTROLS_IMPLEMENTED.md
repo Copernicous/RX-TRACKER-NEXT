@@ -1,15 +1,75 @@
 # Patient RX Security Controls Implemented
 
 Inventory date: 2026-06-29
-Application version reviewed: 2.0.68
+Application version reviewed: 2.0.69
 
-This document lists the security controls currently implemented in the Patient RX application code and the security controls visible to users in the front end. It is an engineering inventory, not a legal/HIPAA compliance certification.
+This document lists the security controls currently implemented in the Patient RX application code and the security controls visible to users in the front end. It also captures the reusable hardening pattern that should be considered for future internal business applications. It is an engineering inventory, not a legal/HIPAA compliance certification.
 
 ## Summary
 
 The application is protected mainly by cookie-only authenticated access, role-based permissions, security headers, CSRF protection, CORS restrictions, rate limits, 2FA support, audit logging, document upload removal, SMTP secret encryption at rest, and admin/master-admin separation.
 
 Patient and RX data are stored on the local server/PostgreSQL. The application does not currently encrypt individual patient columns inside PostgreSQL. Protection at rest depends on the server/database/storage controls, such as Windows BitLocker, PostgreSQL storage security, backups security, and OS permissions.
+
+## Reusable Baseline For Future Projects
+
+Use this as the starting security checklist for other internal web applications, especially apps exposed through FortiGate, a reverse proxy, or another SSL VPN portal.
+
+### Recommended Default Pattern
+
+| Area | Recommended baseline | Why it matters |
+| --- | --- | --- |
+| Authentication tokens | Store session/JWT tokens only in server-set `HttpOnly` cookies. Do not write full tokens to `localStorage`, `sessionStorage`, or JavaScript-readable cookies. | Reduces token theft risk if an XSS issue appears later. |
+| Cookie flags | Use `HttpOnly`, `Secure`, and appropriate `SameSite` values. For cross-proxy HTTPS portal paths, use `SameSite=None; Secure`. | Keeps auth cookies protected while still allowing SSL VPN/reverse proxy flows to work. |
+| CSRF | Add CSRF protection for unsafe methods when using cookie auth. A same-origin CSRF cookie plus `X-CSRF-Token` header is a practical pattern. | Prevents another site from causing a logged-in browser to submit unwanted actions. |
+| CORS | Require an explicit production `APP_ORIGIN` allowlist. Fail closed if it is missing in production. | Prevents accidental credentialed cross-origin access. |
+| Reverse proxy trust | Trust only the expected proxy hop and centralize request-security decisions in a helper. | Avoids inconsistent HTTPS/cookie behavior and reduces forged header risk. |
+| HTTPS behind proxy | Treat browser-facing HTTPS separately from the internal backend protocol. `Browser HTTPS -> Proxy -> HTTP backend` can be acceptable on a trusted LAN when configured explicitly. | Prevents broken redirects while keeping browser cookies secure. |
+| Security headers | Use Helmet or equivalent headers, including CSP, frame/object restrictions, nosniff, referrer policy, and HSTS only when HTTPS is stable. | Adds browser-side guardrails against clickjacking, content sniffing, and injection impact. |
+| RBAC | Enforce role/permission checks on the server for every sensitive API, not only in the UI. | Hidden buttons are helpful UX, but server checks are the real control. |
+| Audit logging | Log authentication, authorization failures, settings changes, data changes, and admin actions with user/IP/context. Redact secrets. | Enables investigation and accountability without leaking sensitive values. |
+| Secrets at rest | Mask secrets in API responses and encrypt sensitive settings such as SMTP passwords before database storage. | Prevents casual disclosure through browser/API/DB inspection. |
+| Uploads | Avoid uploads unless required. If required, use size limits, allowlists, malware scanning where possible, attachment disposition, and no inline rendering of untrusted files. | File uploads are a common attack surface and should be minimized. |
+| Backups | Restrict backup/restore to admins, validate restore file types, protect backup files, and test restore paths. | Backups often contain the full dataset and must be treated like production data. |
+| Data at rest | Use disk encryption such as BitLocker on the server. Add column/application encryption only when the data type or compliance need justifies it. | Protects local database files and backups if the machine or disk is lost. |
+
+### FortiGate / Reverse Proxy Pattern
+
+For this application, the working production pattern is:
+
+`Browser HTTPS -> FortiGate SSL VPN -> internal HTTP -> Node app`
+
+This means the public browser URL should start with `https://rx.camperos.net:10443`, while the FortiGate backend/bookmark can use internal protocol `HTTP` to the app server. The `/http/192.168.x.x:<port>/...` segment in a FortiGate proxy URL describes the internal backend hop, not the browser security level.
+
+Use internal backend `HTTPS` only if the app server or an internal reverse proxy is actually serving TLS on that backend port. If the Node app is plain HTTP and the FortiGate bookmark uses backend `HTTPS`, the connection fails or redirects to an unusable internal HTTPS URL.
+
+Recommended environment pattern for FortiGate SSL VPN with an internal HTTP backend:
+
+```env
+APP_ORIGIN=https://rx.yourdomain.example:10443
+FORCE_HTTPS=true
+HTTPS_ALLOW_LOCAL_HTTP=false
+HTTPS_ALLOW_BACKEND_HTTP=true
+HTTPS_ASSUME_PROXY_HTTPS=true
+ENABLE_HSTS=true
+```
+
+For staging or local smoke tests, keep local HTTP available only when needed:
+
+```env
+HTTPS_ALLOW_LOCAL_HTTP=true
+ENABLE_HSTS=false
+```
+
+### Do Not Copy Blindly
+
+Before reusing these controls in another project, decide whether that project needs stricter controls than Patient RX:
+
+1. If users access the app directly without a proxy, configure real HTTPS on the app server or a local reverse proxy and do not enable internal backend HTTP exceptions.
+2. If the app stores highly sensitive identifiers, payment data, diagnoses, prescriptions, or regulated health information, consider application-level column encryption in addition to disk encryption.
+3. If the app allows file uploads, keep upload code isolated, heavily validated, and monitored. Do not expose untrusted uploads inline in the browser.
+4. If strict inactivity logout is required, add server-side idle session expiry instead of relying only on front-end idle redirects.
+5. If the app can be embedded or accessed across domains, review CSP, `frame-ancestors`, cookie `SameSite`, and proxy rewrite behavior before deployment.
 
 ## Server And Code Controls
 
@@ -18,7 +78,9 @@ Patient and RX data are stored on the local server/PostgreSQL. The application d
 | Control | Current implementation | Code location |
 | --- | --- | --- |
 | Reverse proxy trust is limited | Express trusts only the first proxy hop, intended for the FortiGate/reverse proxy path. This reduces spoofing risk from arbitrary `X-Forwarded-*` headers. | `app.js` |
-| Optional HTTPS enforcement | If `FORCE_HTTPS=true`, HTTP requests redirect to HTTPS and Helmet HSTS is enabled. If HTTPS is not configured, upgrade-insecure-requests is intentionally omitted. | `app.js` |
+| Centralized proxy security decisions | `utils/requestSecurity.js` centralizes secure-request detection, loopback HTTP allowance, backend HTTP allowance, and secure-cookie decisions so auth and CSRF cookies behave consistently behind FortiGate. | `utils/requestSecurity.js`, `app.js`, `controllers/authController.js` |
+| Optional HTTPS enforcement | If `FORCE_HTTPS=true`, HTTP requests redirect to HTTPS unless they are explicitly allowed local smoke-test traffic or explicitly allowed proxy-backend HTTP traffic. HSTS is enabled only when configured. | `app.js`, `utils/requestSecurity.js` |
+| FortiGate internal HTTP backend support | Staging/production can support `Browser HTTPS -> FortiGate -> internal HTTP -> Node app` while still setting `Secure; SameSite=None` cookies for the browser-facing session. | `utils/requestSecurity.js`, `app.js`, `controllers/authController.js` |
 | Helmet security headers | Helmet is enabled with CSP, frame/object restrictions, base URI and form-action restrictions, and HSTS when HTTPS is forced. | `app.js` |
 | Content Security Policy | CSP limits default/script/style/image/connect sources. `frameSrc` and `objectSrc` are blocked. `frameAncestors` is restricted to self. | `app.js` |
 | CORS allowlist | `APP_ORIGIN` supports a comma-separated allowlist. Production refuses to start if `APP_ORIGIN` is missing, preventing open credentialed CORS. | `app.js` |
@@ -30,7 +92,8 @@ Patient and RX data are stored on the local server/PostgreSQL. The application d
 | Control | Current implementation | Code location |
 | --- | --- | --- |
 | Cookie-only JWT authentication | APIs require the JWT in the HttpOnly `rxToken` cookie. Browser-readable Bearer-token auth was removed from the front end and shared auth middleware. | `middleware/auth.js`, `controllers/authController.js`, `public/js/app.js`, `public/js/base.js` |
-| CSRF protection | Unsafe cookie-authenticated requests require an `X-CSRF-Token` header matching the same-origin `rxCsrf` cookie. | `app.js`, `public/js/base.js` |
+| Secure auth cookie flags | `rxToken` is set as `HttpOnly`. Behind an HTTPS proxy path it is set with `Secure; SameSite=None`; on allowed local HTTP it uses local-safe cookie settings. | `controllers/authController.js`, `utils/requestSecurity.js` |
+| CSRF protection | Unsafe cookie-authenticated requests require an `X-CSRF-Token` header matching the same-origin `rxCsrf` cookie. The CSRF cookie follows the same proxy-aware secure-cookie decision as auth. | `app.js`, `public/js/base.js`, `utils/requestSecurity.js` |
 | Web page login gate | Protected HTML pages redirect to `/login` if there is no valid web auth cookie. | `routes/webRoutes.js`, `middleware/webAuth.js` |
 | JWT expiry | Full login tokens expire after 8 hours. | `controllers/authController.js` |
 | Token invalidation after password change | Tokens include `tv` token version. Password changes increment `tokenVersion`, invalidating old tokens. | `middleware/auth.js`, `controllers/authController.js` |
@@ -154,7 +217,11 @@ These are the security protections or indicators that users see in the applicati
 | Parameter/setting | Purpose | Current behavior |
 | --- | --- | --- |
 | `APP_ORIGIN` | Allowed browser origins for credentialed CORS | Required in production; comma-separated allowlist |
-| `FORCE_HTTPS` | Enforce HTTPS redirect and HSTS | Only active when set to `true` |
+| `FORCE_HTTPS` | Enforce HTTPS redirects for non-secure requests | Only active when set to `true`; respects explicit local/backend HTTP allowances |
+| `HTTPS_ALLOW_LOCAL_HTTP` | Allows loopback HTTP for local smoke testing | Use only for local/staging testing; production should normally be `false` |
+| `HTTPS_ALLOW_BACKEND_HTTP` | Allows a trusted reverse proxy to reach the app over internal HTTP without a redirect | Useful for FortiGate SSL VPN when browser-to-FortiGate is HTTPS and FortiGate-to-app is HTTP |
+| `HTTPS_ASSUME_PROXY_HTTPS` | Treats the trusted backend HTTP hop as browser-facing HTTPS for cookie decisions | Allows `Secure; SameSite=None` cookies through HTTPS proxy portals even when the internal backend hop is HTTP |
+| `ENABLE_HSTS` | Enables/disables HSTS when HTTPS enforcement is active | Enable only after the public HTTPS URL is stable; disable during staging/proxy troubleshooting |
 | `JWT_SECRET` | Signs/verifies JWT tokens | Required for secure auth; must be strong and private |
 | `SESSION_TIMEOUT_MINUTES` / `session_timeout_minutes` | Front-end idle timeout | Default 30 minutes; clamped by API to 5-480 minutes |
 | `MAX_FAILED_LOGINS` / `max_failed_logins` | Failed-login threshold setting | Login and 2FA lockout paths read this setting; valid range is 1-20 |
@@ -195,3 +262,5 @@ Use this checklist after each security-related release:
 13. Confirm Audit Log and User Activity Log are visible only to authorized roles.
 14. Confirm Backup Management is Administrator-only.
 15. Confirm Back Office is blocked unless `isMaster=true`.
+16. For FortiGate/proxy deployments, confirm the browser URL is HTTPS while the internal backend protocol matches what the app actually serves.
+17. For FortiGate/proxy deployments, confirm `rxToken` is `HttpOnly`, `Secure`, and `SameSite=None` when accessed through the public HTTPS proxy URL.
