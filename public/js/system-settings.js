@@ -19,6 +19,16 @@ const TZ_GROUPS = {
 let currentSettings = {};
 let clockInterval   = null;
 
+function safeHtml(value) {
+    if (typeof escHtml === 'function') return escHtml(value);
+    return String(value == null ? '' : value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#x27;');
+}
+
 function updateClocks(tz) {
     tz = tz || currentSettings.app_timezone || 'UTC';
     const now = new Date();
@@ -688,6 +698,86 @@ function copyToClipboard(text, btn) {
         setTimeout(() => { btn.innerHTML = orig; }, 1800);
     });
 }
+
+// Safe re-definitions for dynamic admin HTML that includes DB/user values.
+renderSettingsTable = function(s) {
+    const tbody = document.getElementById('allSettingsBody');
+    const entries = Object.entries(s || {});
+    if (!entries.length) {
+        tbody.innerHTML = '<tr><td colspan="2" class="text-muted text-center">No settings found</td></tr>';
+        return;
+    }
+    tbody.innerHTML = entries.map(function(entry) {
+        return '<tr><td><code>' + safeHtml(entry[0]) + '</code></td><td><span class="tz-badge">' + safeHtml(entry[1] || '-') + '</span></td></tr>';
+    }).join('');
+};
+
+renderEmailAlertUsers = function(users, subscriptions) {
+    const thead = document.getElementById('emailAlertUserHead');
+    const wrap = document.getElementById('emailAlertUserList');
+    if (!wrap) return;
+    const flatRules = EMAIL_ALERT_RULE_GROUPS.flatMap(group => group.rules);
+    if (thead) {
+        thead.innerHTML = '<tr><th style="min-width:220px;">User</th>' +
+            flatRules.map(rule => '<th class="text-center" style="min-width:120px;">' + safeHtml(rule.title) + '</th>').join('') +
+            '</tr>';
+    }
+    if (!users.length) {
+        wrap.innerHTML = '<tr><td colspan="' + (1 + flatRules.length) + '" class="text-muted small py-3">No users with email addresses were found.</td></tr>';
+        return;
+    }
+    wrap.innerHTML = users.map(function(user) {
+        const userSub = subscriptions[user.id] || getDefaultUserSubscriptions();
+        return '<tr><td><div class="fw-semibold">' +
+            safeHtml(user.firstName || '') + ' ' + safeHtml(user.lastName || '') +
+            '</div><div class="text-muted small">@' + safeHtml(user.username || '') +
+            (user.email ? ' &bull; ' + safeHtml(user.email) : '') +
+            '</div></td>' +
+            flatRules.map(rule => '<td class="text-center"><input class="form-check-input email-user-enabled" type="checkbox" data-user-id="' + user.id + '" data-field="' + rule.key + '" ' + (userSub[rule.key] ? 'checked' : '') + '></td>').join('') +
+            '</tr>';
+    }).join('');
+};
+
+populateEmailAlertUserInspector = function(users) {
+    const select = document.getElementById('inspectEmailAlertUser');
+    if (!select) return;
+    const currentValue = select.value;
+    const options = ['<option value="">Choose a user...</option>'];
+    users.forEach(function(user) {
+        const name = ((user.firstName || '') + ' ' + (user.lastName || '')).trim() || user.username || ('User #' + user.id);
+        const email = user.email ? ' - ' + user.email : '';
+        options.push('<option value="' + user.id + '">' + safeHtml(name) + ' (@' + safeHtml(user.username || '') + ')' + safeHtml(email) + '</option>');
+    });
+    select.innerHTML = options.join('');
+    if (currentValue) select.value = currentValue;
+};
+
+renderInspectedUserAlertConfig = function(data) {
+    const wrap = document.getElementById('inspectEmailAlertResult');
+    if (!wrap) return;
+    const user = data.user || {};
+    const enabled = Array.isArray(data.enabledAlertKeys) ? data.enabledAlertKeys : [];
+    const inactiveGlobal = Array.isArray(data.inactiveGlobalAlertKeys) ? data.inactiveGlobalAlertKeys : [];
+    const pretty = {};
+    EMAIL_ALERT_RULE_GROUPS.forEach(group => {
+        group.rules.forEach(rule => { pretty[rule.key] = rule.title; });
+    });
+
+    const lines = [];
+    lines.push('<div class="fw-semibold mb-2">' + safeHtml((((user.firstName || '') + ' ' + (user.lastName || '')).trim())) + ' (@' + safeHtml(user.username || '') + ')</div>');
+    lines.push('<div class="mb-2">Email: <strong>' + safeHtml(user.email || 'No email') + '</strong></div>');
+    lines.push('<div class="mb-2">Master alerts: <strong>' + (data.alertsEnabled ? 'Enabled' : 'Disabled') + '</strong></div>');
+    lines.push('<div class="mb-2">Enabled rules for this user: <strong>' + enabled.length + '</strong></div>');
+    if (enabled.length) {
+        lines.push('<div class="mb-2">This user will receive:</div><ul class="mb-2">' + enabled.map(key => '<li>' + safeHtml(pretty[key] || key) + '</li>').join('') + '</ul>');
+    } else {
+        lines.push('<div class="mb-2 text-warning">This user has no alert subscriptions enabled.</div>');
+    }
+    if (inactiveGlobal.length) {
+        lines.push('<div class="text-warning">These user rules are checked but globally inactive: <strong>' + safeHtml(inactiveGlobal.map(key => pretty[key] || key).join(', ')) + '</strong></div>');
+    }
+    wrap.innerHTML = lines.join('');
+};
 
 // ────────────────────────────────────────────────────────────────────────────
 // DOMContentLoaded — wire up all buttons and init
