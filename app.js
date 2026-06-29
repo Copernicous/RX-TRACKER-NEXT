@@ -115,6 +115,7 @@ const rateLimit   = require('express-rate-limit');
 const crypto      = require('crypto');
 const db          = require('./models');
 const packageInfo = require('./package.json');
+const requestSecurity = require('./utils/requestSecurity');
 
 // Start backup scheduler on boot
 require('./services/backupService');
@@ -136,19 +137,18 @@ const app = express();
 // [LOCK] Trust proxy -- 1st hop only (FortiGate). Prevents IP spoofing via forged X-Forwarded-For [LOCK]
 app.set('trust proxy', 1);
 
+const ENABLE_STRICT_HTTPS_HEADERS = process.env.FORCE_HTTPS === 'true'
+    && process.env.HTTPS_ALLOW_LOCAL_HTTP !== 'true'
+    && process.env.ENABLE_HSTS !== 'false';
+
 function isSecureRequest(req) {
-    if (req.secure) return true;
-    const forwardedProto = (req.headers['x-forwarded-proto'] || req.headers['x-forwarded-protocol'] || '').toLowerCase();
-    if (forwardedProto.includes('https')) return true;
-    if ((req.headers['front-end-https'] || '').toLowerCase() === 'on') return true;
-    if (req.headers['x-arr-ssl']) return true;
-    return false;
+    return requestSecurity.isSecureRequest(req);
 }
 
 // -- HTTPS redirect (enable with FORCE_HTTPS=true in .env) --------------------
 if (process.env.FORCE_HTTPS === 'true') {
     app.use((req, res, next) => {
-        if (isSecureRequest(req)) return next();
+        if (isSecureRequest(req) || requestSecurity.shouldAllowLocalHttp(req)) return next();
         return res.redirect(301, 'https://' + req.headers.host + req.url);
     });
 }
@@ -172,11 +172,11 @@ app.use(helmet({
             formAction:     ["'self'"],
             frameAncestors: ["'self'"],
             // upgradeInsecureRequests intentionally omitted -- only add when HTTPS is configured
-            ...(process.env.FORCE_HTTPS === 'true' ? { upgradeInsecureRequests: [] } : {})
+            ...(ENABLE_STRICT_HTTPS_HEADERS ? { upgradeInsecureRequests: [] } : {})
         }
     },
     crossOriginOpenerPolicy: false,
-    hsts: process.env.FORCE_HTTPS === 'true'
+    hsts: ENABLE_STRICT_HTTPS_HEADERS
         ? { maxAge: 31536000, includeSubDomains: true, preload: true }
         : false,
     crossOriginEmbedderPolicy: false // Allow CDN assets
@@ -343,7 +343,7 @@ function csrfCookieOptions(req) {
         httpOnly: false,
         path: '/',
         sameSite: secure ? 'none' : 'lax',
-        secure: secure || process.env.FORCE_HTTPS === 'true'
+        secure: requestSecurity.shouldUseSecureCookie(req)
     };
 }
 

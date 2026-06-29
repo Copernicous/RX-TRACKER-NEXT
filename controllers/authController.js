@@ -3,6 +3,7 @@ const jwt      = require('jsonwebtoken');
 const db       = require('../models');
 const settings = require('../services/settingsService');
 const { BUILT_IN_DEFAULTS } = require('../middleware/rbac');
+const requestSecurity = require('../utils/requestSecurity');
 
 // ── Account lockout constants ─────────────────────────────────────────────────
 const FALLBACK_MAX_FAILED_ATTEMPTS = 5;
@@ -132,14 +133,13 @@ async function issueFullToken(user, req, res) {
         path: '/',
         maxAge: 8 * 60 * 60 * 1000  // 8 hours, matches JWT expiry
     };
-    const forwardedProto = (req.headers['x-forwarded-proto'] || req.headers['x-forwarded-protocol'] || '').toLowerCase();
-    const isSecureRequest = req.secure || forwardedProto.includes('https') || (req.headers['front-end-https'] || '').toLowerCase() === 'on' || !!req.headers['x-arr-ssl'];
+    const isSecureRequest = requestSecurity.isSecureRequest(req);
     if (isSecureRequest) {
         cookieOptions.sameSite = 'none';
         cookieOptions.secure = true;
     } else {
         cookieOptions.sameSite = 'lax';
-        cookieOptions.secure = process.env.FORCE_HTTPS === 'true';
+        cookieOptions.secure = requestSecurity.shouldUseSecureCookie(req);
     }
 
     res.cookie('rxToken', token, cookieOptions);
