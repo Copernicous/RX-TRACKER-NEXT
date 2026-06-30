@@ -395,12 +395,6 @@ var allPatients = [];
 
 
         document.getElementById('addPatientBtn').addEventListener('click', () => openPatientModal(null));
-        var addPatientRxBtn = document.getElementById('addPatientRxBtn');
-        if (addPatientRxBtn) {
-            addPatientRxBtn.addEventListener('click', function() {
-                openPatientModal(null, { focusAddRx: true });
-            });
-        }
 
     // ── Patient modal soft-lock ───────────────────────────────────────────────
     let _modalLockPatientId = null;
@@ -620,10 +614,6 @@ var allPatients = [];
             setRoleActionDisabled(exportPatientsBtn, !patPerms.canExport, 'Export disabled for this role.');
         }
         if (!patPerms.canAdd)   { const b = document.getElementById('addPatientBtn');       if(b) b.classList.add('d-none'); }
-        if (!patPerms.canAdd || !canAddRxAfterPatientCreate()) {
-            const b = document.getElementById('addPatientRxBtn');
-            if (b) b.classList.add('d-none');
-        }
     });
 
 
@@ -2091,12 +2081,6 @@ var allPatients = [];
             patientModalCanUseAddRxShortcut = canAddRxAfterPatientCreate();
         }
         updateSaveAddRxButtonState();
-        if (!id && options.focusAddRx) {
-            setTimeout(function() {
-                var addRxBtn = document.getElementById('savePatientAddRxBtn');
-                if (addRxBtn && addRxBtn.style.display !== 'none') addRxBtn.focus();
-            }, 150);
-        }
         if (window.rxDocuments) {
             var _docPerms = getPatientModalPerms();
             window.rxDocuments.bind({

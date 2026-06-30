@@ -9,6 +9,23 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 - No unreleased changes.
 
+## [2.0.70] - 2026-06-30
+
+### [HOTFIX-70] Patient add shortcut cleanup and RX role wording
+**Files changed:** Patients UI, Roles UI, staging validation docs, release metadata
+
+- Removed the redundant Patient List toolbar button labeled `Add Patient + RX`.
+- Kept the Patient modal `Save & Add RX` workflow, which remains available after creating a patient or changing an existing patient service date when the user has both Patients Add and RX Records Add/Complete permission.
+- Clarified the Roles editor for RX Records by renaming the workflow permission column to `Add RX / Complete`.
+- Replaced the RX Records `Add New` dash-only cell with a `See Add RX / Complete` hint so administrators understand that adding RX records is controlled by the workflow permission.
+- Added a Roles editor note explaining that adding RX records and completing RX workflow steps currently share `rx_records.canAdd`.
+- Bumped production package version to `2.0.70`.
+
+**Database impact:**
+- No schema changes and no data changes are introduced.
+- Existing patients, RX records, workflow records, roles, permissions, settings, and audit data are preserved.
+- No role permission behavior changed; this release only clarifies the UI and removes a redundant shortcut.
+
 ## [2.0.69] - 2026-06-30
 
 ### [RELEASE-69] Security hardening, FortiGate support, role controls, and staging bug fixes

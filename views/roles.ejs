@@ -106,6 +106,10 @@
                 <!-- Permission Matrix Editor -->
                 <label class="form-label fw-bold"><i class="fas fa-key me-2"></i>Permissions</label>
                 <p class="text-muted small">Configure exactly what this role can see and do in each section of the system.</p>
+                <p class="text-muted small mb-2">
+                    <strong>RX Records note:</strong> adding a new RX record and completing RX workflow steps are controlled by
+                    <strong>Add RX / Complete</strong>. The separate <strong>Add New</strong> column is not used for RX Records.
+                </p>
 
                 <div class="table-responsive">
                     <table class="table table-bordered table-sm align-middle" id="permEditorTable" style="font-size:.85rem">
@@ -113,13 +117,13 @@
                             <tr>
                                 <th style="min-width:180px">Section</th>
                                 <th class="text-center" style="width:70px" title="Can see this section in the menu">Visible</th>
-                                <th class="text-center" style="width:70px" title="Can CREATE new records (POST)">Add New</th>
+                                <th class="text-center" style="width:80px" title="Can CREATE new records (POST). RX Records uses Add RX / Complete instead.">Add New</th>
                                 <th class="text-center" style="width:70px" title="Can EDIT existing records (PUT)">Edit</th>
                                 <th class="text-center" style="width:70px" title="Can delete records">Delete</th>
                                 <th class="text-center" style="width:70px" title="Can export data to CSV">Export</th>
                                 <th class="text-center" style="width:70px" title="Can print or save PDF from app print buttons">Print</th>
                                 <th class="text-center" style="width:70px" title="Can select and copy visible screen data">Copy</th>
-                                <th class="text-center" style="width:80px" title="Can complete RX workflow steps (RX Records only)">Complete</th>
+                                <th class="text-center" style="width:105px" title="RX Records only: can add RX records and complete workflow steps">Add RX / Complete</th>
                                 <th class="text-center" style="width:70px" title="Can undo the last workflow step (RX Records only)">Undo</th>
                                 <th class="text-center" style="width:90px" title="Can return RX to warehouse (RX Records only)">Warehouse</th>
                                 <th class="text-center" style="width:90px" title="Can override 90-day expired locks">Override</th>

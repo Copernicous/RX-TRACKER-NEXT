@@ -185,6 +185,7 @@ function renderMatrix() {
         '<div class="table-responsive"><table class="table table-bordered table-sm align-middle mb-0" style="font-size:.8rem"><thead class="table-dark"><tr><th style="min-width:160px">Module</th>' + _thHtml + '</tr></thead><tbody>' + rows + '</tbody></table></div>' +
         '<div class="d-flex flex-wrap gap-3 mt-3 small text-muted">' +
         '<span>' + badge(true,'plus-circle','success') + ' Add New</span>' +
+        '<span><i class="fas fa-info-circle text-info me-1"></i>RX Records Add New is controlled by Add RX / Complete</span>' +
         '<span>' + badge(true,'edit','primary') + ' Edit Existing</span>' +
         '<span>' + badge(true,'trash','danger') + ' Delete</span>' +
         '<span>' + badge(true,'file-csv','info') + ' Export</span>' +
@@ -261,6 +262,7 @@ function buildPermEditor(perms) {
     var _mHtml = '';
     var dash = '<span class="text-muted">\u2014</span>';
     var dashCell = '<td class="text-center">' + dash + '</td>';
+    var rxAddDashCell = '<td class="text-center" title="RX Records uses Add RX / Complete instead of a separate Add New checkbox"><span class="badge bg-info" style="font-size:.58rem">See Add RX / Complete</span></td>';
 
     for (var _mi2 = 0; _mi2 < MODULE_DEFS.length; _mi2++) {
         var m = MODULE_DEFS[_mi2];
@@ -295,11 +297,11 @@ function buildPermEditor(perms) {
         }
 
         var workflowCells = m.hasWorkflow
-            ? '<td class="text-center" title="Can complete workflow steps"><input type="checkbox" class="form-check-input perm-canadd" ' + (p.canAdd ? 'checked' : '') + '></td><td class="text-center" title="Can undo last workflow step"><input type="checkbox" class="form-check-input perm-canundo" ' + (p.canUndo ? 'checked' : '') + '></td><td class="text-center" title="Can return to warehouse"><input type="checkbox" class="form-check-input perm-canwarehouse" ' + (p.canWarehouse ? 'checked' : '') + '></td>'
+            ? '<td class="text-center" title="Can add RX records and complete workflow steps"><input type="checkbox" class="form-check-input perm-canadd" ' + (p.canAdd ? 'checked' : '') + '></td><td class="text-center" title="Can undo last workflow step"><input type="checkbox" class="form-check-input perm-canundo" ' + (p.canUndo ? 'checked' : '') + '></td><td class="text-center" title="Can return to warehouse"><input type="checkbox" class="form-check-input perm-canwarehouse" ' + (p.canWarehouse ? 'checked' : '') + '></td>'
             : '<td class="text-center">' + dash + '</td><td class="text-center">' + dash + '</td><td class="text-center">' + dash + '</td>';
 
         var addCell = m.hasWorkflow
-            ? '<td class="text-center">' + dash + '</td>'
+            ? rxAddDashCell
             : '<td class="text-center"><input type="checkbox" class="form-check-input perm-canadd" ' + (p.canAdd ? 'checked' : '') + '></td>';
         var overrideCell = m.hasOverrideExpired
             ? '<td class="text-center" title="Can override 90-day expired locks"><input type="checkbox" class="form-check-input perm-canoverrideexpired" ' + (p.canOverrideExpired ? 'checked' : '') + '></td>'
