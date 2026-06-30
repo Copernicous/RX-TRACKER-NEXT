@@ -10,6 +10,7 @@ const fs   = require('fs');
 const multer = require('multer');
 const errorLogController = require('../controllers/errorLogController');
 const sessionTracker = require('../services/sessionTracker');
+const sessionIdleService = require('../services/sessionIdleService');
 const { getWritableRoot } = require('../utils/runtimePaths');
 
 function getCookie(cookieHeader, name) {
@@ -42,6 +43,16 @@ const snapshotController = require('../controllers/snapshotController');
 const roleController = require('../controllers/roleController');
 const documentController = require('../controllers/documentController');
 const { isServiceDateOverrideEnabled } = require('../utils/globalSettings');
+const securityAlertService = require('../services/securityAlertService');
+
+function recordPermissionDenied(req, details) {
+    securityAlertService.recordPermissionDenied({
+        req,
+        moduleKey: details.moduleKey || null,
+        requiredAction: details.requiredAction || null,
+        reason: details.reason || 'access_denied'
+    }).catch(() => {});
+}
 
 // ── Public routes (no auth required) — must be declared BEFORE router.use(auth) ──
 router.get('/version', (req, res) => {
@@ -238,6 +249,7 @@ router.post('/auth/logout', auth, async (req, res) => {
     } catch (e) { /* non-fatal */ }
     // Remove from active sessions tracker immediately
     if (req.user) sessionTracker.remove(req.user.id);
+    sessionIdleService.end(req.authToken, req.user);
     res.clearCookie('rxToken', { path: '/', sameSite: 'lax' });
     res.clearCookie('rxToken', { path: '/', sameSite: 'none', secure: true });
     res.clearCookie('rxCsrf', { path: '/', sameSite: 'lax' });
@@ -247,6 +259,12 @@ router.post('/auth/logout', auth, async (req, res) => {
 
 // ── Active User Sessions (Who's Online) ──────────────────────────────────────
 // POST /api/heartbeat — any authenticated user; updates their session entry
+// POST /api/session/activity - user-driven activity extends the server-side idle timer.
+router.post('/session/activity', auth, (req, res) => {
+    sessionIdleService.touch(req.authToken, req.user);
+    res.status(204).end();
+});
+
 router.post('/heartbeat', auth, (req, res) => {
     const { currentPage, currentUrl } = req.body || {};
     // Capture real IP — x-forwarded-for first (FortiGate/proxy), then direct
@@ -274,7 +292,14 @@ router.get('/search', searchController.search);
 
 // ---- Backup Management (Admin only) ----
 function adminOnly(req, res, next) {
-    if (!req.user || req.user.role !== 'Administrator') return res.status(403).json({ error: 'Admins only' });
+    if (!req.user || req.user.role !== 'Administrator') {
+        recordPermissionDenied(req, {
+            moduleKey: 'admin',
+            requiredAction: 'administrator',
+            reason: 'admin_required'
+        });
+        return res.status(403).json({ error: 'Admins only' });
+    }
     next();
 }
 
@@ -284,6 +309,11 @@ function adminOnly(req, res, next) {
 // Recovery: UPDATE "Users" SET "isMaster" = true WHERE "username" = 'your_username';
 function masterOnly(req, res, next) {
     if (!req.user || req.user.isMaster !== true) {
+        recordPermissionDenied(req, {
+            moduleKey: 'backoffice',
+            requiredAction: 'master',
+            reason: 'master_required'
+        });
         return res.status(403).json({ error: 'Master admin access required. Contact your system administrator.' });
     }
     next();

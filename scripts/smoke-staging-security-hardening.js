@@ -23,6 +23,14 @@ function has(text, pattern) {
     return pattern instanceof RegExp ? pattern.test(text) : text.includes(pattern);
 }
 
+function getDirective(csp, name) {
+    const prefix = name + ' ';
+    return String(csp || '')
+        .split(';')
+        .map(part => part.trim())
+        .find(part => part === name || part.indexOf(prefix) === 0) || '';
+}
+
 async function fetchText(urlPath) {
     const res = await fetch(baseUrl + urlPath, { redirect: 'manual' });
     const text = await res.text().catch(() => '');
@@ -89,15 +97,28 @@ async function main() {
     const loginEjs = readRel('views/login.ejs');
     const appServer = readRel('app.js');
     const authController = readRel('controllers/authController.js');
+    const authMiddleware = readRel('middleware/auth.js');
+    const webAuthMiddleware = readRel('middleware/webAuth.js');
     const twoFactorController = readRel('controllers/twoFactorController.js');
     const settingsService = readRel('services/settingsService.js');
+    const sessionIdleService = readRel('services/sessionIdleService.js');
     const documentController = readRel('controllers/documentController.js');
     const apiRoutes = readRel('routes/apiRoutes.js');
+    const securityAlertService = readRel('services/securityAlertService.js');
     const patientModel = readRel('models/patient.js');
     const rxModel = readRel('models/rxrecord.js');
     const packageJson = readRel('package.json');
 
     const csp = login.res.headers.get('content-security-policy') || '';
+    const scriptSrc = getDirective(csp, 'script-src');
+    const styleSrc = getDirective(csp, 'style-src');
+    const scriptSrcAttr = getDirective(csp, 'script-src-attr');
+    const styleSrcAttr = getDirective(csp, 'style-src-attr');
+    const cspUsesNonces = /'nonce-[^']+'/.test(scriptSrc) && /'nonce-[^']+'/.test(styleSrc);
+    const cspBlocksBroadInline = !scriptSrc.includes("'unsafe-inline'") && !styleSrc.includes("'unsafe-inline'");
+    const cspHasLegacyAttrCompat = scriptSrcAttr.includes("'unsafe-inline'") || styleSrcAttr.includes("'unsafe-inline'");
+    const nonceMatch = csp.match(/'nonce-([^']+)'/);
+    const loginHtmlHasNonce = nonceMatch ? login.text.includes('nonce="' + nonceMatch[1] + '"') : false;
     addResult(
         1,
         'Browser-readable auth token compatibility',
@@ -110,10 +131,12 @@ async function main() {
 
     addResult(
         2,
-        'CSP allows inline script/style',
-        csp.includes("'unsafe-inline'") || has(appServer, "'unsafe-inline'") ? 'WARN' : 'PASS',
-        csp ? 'Live CSP: ' + csp : 'Helmet CSP source checked in app.js.',
-        'Open DevTools > Network > /login > Response Headers > Content-Security-Policy.'
+        'CSP nonce-based script/style blocks',
+        cspUsesNonces && cspBlocksBroadInline && loginHtmlHasNonce ? 'PASS' : 'WARN',
+        csp
+            ? 'Live CSP uses script/style nonces; login HTML nonce injection ' + (loginHtmlHasNonce ? 'confirmed' : 'missing') + '; legacy inline attributes ' + (cspHasLegacyAttrCompat ? 'remain allowed for compatibility' : 'are blocked') + '. Header: ' + csp
+            : 'Helmet CSP source checked in app.js.',
+        'Open DevTools > Network > /login > Response Headers > Content-Security-Policy; confirm script-src/style-src use nonce values and not broad unsafe-inline.'
     );
 
     const settingsHasRiskyTable = has(settingsJs, "'<code>'+k+'</code>") || has(settingsJs, '${user.firstName || \'\'} ${user.lastName || \'\'}');
@@ -139,10 +162,20 @@ async function main() {
 
     addResult(
         5,
-        'Session timeout is primarily front-end enforced',
-        has(appJs, 'setupSessionTimeout') && has(authController, "expiresIn: '8h'") ? 'WARN' : 'PASS',
-        'app.js handles idle logout in browser; JWT full token expiry remains 8h.',
-        'Open /js/app.js for setupSessionTimeout and controllers/authController.js for JWT expiresIn.'
+        'Server-side session idle timeout',
+        has(sessionIdleService, 'idle_timeout')
+            && has(authMiddleware, 'sessionIdleService.validate')
+            && has(webAuthMiddleware, 'sessionIdleService.validate')
+            && has(apiRoutes, "/session/activity")
+            && has(appJs, '/api/session/activity') ? 'PASS' : 'WARN',
+        has(sessionIdleService, 'idle_timeout')
+            && has(authMiddleware, 'sessionIdleService.validate')
+            && has(webAuthMiddleware, 'sessionIdleService.validate')
+            && has(apiRoutes, "/session/activity")
+            && has(appJs, '/api/session/activity')
+            ? 'Auth middleware validates server-side idle timeout; user activity endpoint refreshes it.'
+            : 'Idle timeout still appears incomplete or front-end only.',
+        'Inspect services/sessionIdleService.js, middleware/auth.js, middleware/webAuth.js, routes/apiRoutes.js, and /js/app.js.'
     );
 
     const modelText = patientModel + '\n' + rxModel;
@@ -190,19 +223,21 @@ async function main() {
         'Inspect app.js/package.json for CSRF middleware after cookie-only auth is implemented.'
     );
 
-    const serverSideAlertCode = allJsUnder('controllers') + '\n' + allJsUnder('services') + '\n' + allJsUnder('middleware');
     const hasAlertConfig = has(settingsService, 'DEFAULT_EMAIL_ALERT_RULES');
-    const hasOnlyConfigAndTest = hasAlertConfig
-        && has(serverSideAlertCode, 'sendTestEmailAlert')
-        && !/failed_login_threshold[\s\S]{0,120}(AuditLog|cron|schedule|notify|sendEmail)/i.test(serverSideAlertCode.replace(/DEFAULT_EMAIL_ALERT_RULES[\s\S]*?\}\);/m, ''));
+    const hasAlertService = has(securityAlertService, 'recordFailedLogin')
+        && has(securityAlertService, 'recordPermissionDenied')
+        && has(securityAlertService, 'recordCriticalError')
+        && has(securityAlertService, 'recordBackupFailure')
+        && has(securityAlertService, 'recordBackupMissing')
+        && has(securityAlertService, 'emailService.sendEmail');
     addResult(
         10,
         'Automatic security alert detection wiring',
-        hasOnlyConfigAndTest ? 'WARN' : 'INFO',
-        hasOnlyConfigAndTest
-            ? 'Email alert rules and test-send exist; automatic background/event detection was not found.'
-            : 'Alert code needs manual review; this script found more than config/test references.',
-        'Enable an alert in staging and trigger the condition, or inspect services/controllers for scheduled/event alert sender.'
+        hasAlertConfig && hasAlertService ? 'PASS' : 'WARN',
+        hasAlertConfig && hasAlertService
+            ? 'securityAlertService wires configured rules to failed-login, permission-denied, critical-error, backup, settings, API-key, and admin-login events.'
+            : 'Email alert rules exist, but the automatic server-side alert service/event hooks were not found.',
+        'Run npm run staging:security-alerts, or inspect services/securityAlertService.js and the auth/RBAC/error/backup hooks.'
     );
 
     if (has(helpJs, 'stored in the database in encrypted form') && !has(settingsService, 'ENCRYPTED_PREFIX')) {

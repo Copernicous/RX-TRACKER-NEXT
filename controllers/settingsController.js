@@ -3,6 +3,7 @@ const { extractRoutes } = require('../utils/routeInspector');
 const routeManifest  = require('../config/routeManifest');
 const emailService   = require('../services/emailService');
 const db             = require('../models');
+const securityAlertService = require('../services/securityAlertService');
 
 // GET /api/settings — returns all current settings (sensitive keys masked)
 exports.getAll = (req, res) => {
@@ -17,7 +18,7 @@ exports.getTimezones = (req, res) => {
 // GET /api/session-config - authenticated users can read non-sensitive session timing.
 exports.getSessionConfig = (req, res) => {
     const rawMinutes = parseInt(settings.get('session_timeout_minutes') || process.env.SESSION_TIMEOUT_MINUTES || '30', 10);
-    const sessionTimeoutMinutes = Number.isFinite(rawMinutes) ? Math.min(Math.max(rawMinutes, 5), 480) : 30;
+    const sessionTimeoutMinutes = Number.isFinite(rawMinutes) ? Math.min(Math.max(rawMinutes, 1), 480) : 30;
     res.json({
         sessionTimeoutMinutes,
         warningSeconds: 120
@@ -226,6 +227,14 @@ body { font-family: Arial, sans-serif; background: #f4f6fb; margin: 0; padding: 
         });
     } catch (e) {
         console.error('[settings.sendTestEmailAlert]', e.message);
+        securityAlertService.notify('email_config_failure', {
+            event: 'email_config_failure',
+            message: e.message,
+            alertKey: req.body?.alertKey || null,
+            ip: req.ip,
+            userId: req.user?.id || null,
+            username: req.user?.username || null
+        }).catch(() => {});
         res.status(500).json({ error: e.message });
     }
 };
@@ -240,6 +249,18 @@ exports.update = async (req, res) => {
 
         const auditChanges = [];
         for (const [key, value] of Object.entries(updates)) {
+            if (key === 'smtp_pass_clear') {
+                if (String(value) === 'true') {
+                    const previousValue = settings.get('smtp_pass');
+                    await settings.set('smtp_pass', '');
+                    auditChanges.push({
+                        key: 'smtp_pass',
+                        previousValue: maskSettingValue('smtp_pass', previousValue),
+                        newValue: ''
+                    });
+                }
+                continue;
+            }
             // Timezone validation
             if (key === 'app_timezone' && !settings.KNOWN_TIMEZONES.includes(value)) {
                 return res.status(400).json({ error: `Unknown timezone: "${value}". Please select a value from the list.` });
@@ -272,6 +293,17 @@ exports.update = async (req, res) => {
                 previousValue: auditChanges.map(change => ({ key: change.key, value: change.previousValue })),
                 newValue: auditChanges.map(change => ({ key: change.key, value: change.newValue })),
                 ipAddress: req.ip
+            }).catch(() => {});
+        }
+
+        const securityKeys = auditChanges
+            .map(change => change.key)
+            .filter(key => /^(require_2fa|session_timeout_minutes|max_failed_logins|email_alert_|smtp_)/.test(key));
+        if (securityKeys.length) {
+            securityAlertService.recordSettingsChanged({
+                req,
+                user: req.user,
+                changedKeys: securityKeys
             }).catch(() => {});
         }
 

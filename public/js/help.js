@@ -267,6 +267,8 @@ var HELP_SECTIONS = [
 // ─── CSS ──────────────────────────────────────────────────────────────────────
 (function() {
   var s = document.createElement('style');
+  var nonceEl = document.querySelector('script[nonce],style[nonce]');
+  if (nonceEl && nonceEl.nonce) s.setAttribute('nonce', nonceEl.nonce);
   s.textContent = [
     '#helpPanel{position:fixed;top:0;right:-530px;width:510px;height:100vh;',
       'background:var(--card-bg,#fff);z-index:99999;',
@@ -412,11 +414,35 @@ document.addEventListener('DOMContentLoaded', function() {
   // Backdrop
   var overlay = document.createElement('div');
   overlay.id = 'helpOverlay';
+  overlay.style.cssText = [
+    'display:none',
+    'position:fixed',
+    'inset:0',
+    'background:rgba(0,0,0,.3)',
+    'z-index:99998',
+    'backdrop-filter:blur(2px)'
+  ].join(';');
   document.body.appendChild(overlay);
 
   // Panel
   var panel = document.createElement('div');
   panel.id = 'helpPanel';
+  panel.style.cssText = [
+    'position:fixed',
+    'top:0',
+    'right:-530px',
+    'width:510px',
+    'max-width:calc(100vw - 20px)',
+    'height:100vh',
+    'background:var(--card-bg,#fff)',
+    'z-index:99999',
+    'box-shadow:-8px 0 48px rgba(0,0,0,.18)',
+    'display:flex',
+    'flex-direction:column',
+    'transition:right .35s cubic-bezier(.4,0,.2,1)',
+    'border-left:1px solid var(--border-color,#dee2e6)',
+    'overflow:hidden'
+  ].join(';');
   panel.innerHTML =
     '<div class="help-hdr">' +
       '<div style="width:42px;height:42px;border-radius:12px;background:rgba(255,255,255,.15);' +
@@ -484,12 +510,16 @@ document.addEventListener('DOMContentLoaded', function() {
   function openHelp() {
     panel.classList.add('open');
     overlay.classList.add('open');
+    panel.style.right = '0';
+    overlay.style.display = 'block';
     _renderHelp('all', '');
     document.getElementById('helpSearchInput').focus();
   }
   function closeHelp() {
     panel.classList.remove('open');
     overlay.classList.remove('open');
+    panel.style.right = '-530px';
+    overlay.style.display = 'none';
   }
 
   helpBtn.addEventListener('click', function(e) { e.stopPropagation(); openHelp(); });

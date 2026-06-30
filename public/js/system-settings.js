@@ -29,6 +29,54 @@ function safeHtml(value) {
         .replace(/'/g, '&#x27;');
 }
 
+function getFriendlyJsonError(url, status, data) {
+    const path = String(url || '').replace(/^https?:\/\/[^/]+/i, '') || 'the server';
+    if (data && (data.error || data.message)) return data.error || data.message;
+    if (status === 401) return 'Your session expired. Refresh the page and sign in again.';
+    if (status === 403) return 'Your user does not have permission for ' + path + '.';
+    return 'Request failed for ' + path + ' (HTTP ' + status + ').';
+}
+
+async function fetchJsonOrThrow(url, options) {
+    const res = await fetchWithAuth(url, options || {});
+    if (!res) {
+        throw new Error('Request was blocked or your session cannot access this area. Refresh the page and sign in again.');
+    }
+
+    const raw = await res.text();
+    let data = {};
+    if (raw) {
+        try {
+            data = JSON.parse(raw);
+        } catch (parseErr) {
+            const type = (res.headers && res.headers.get && res.headers.get('content-type')) || '';
+            if (type.indexOf('text/html') !== -1 || /^\s*</.test(raw)) {
+                throw new Error('Server returned HTML instead of JSON. Refresh this page through the proxy and sign in again.');
+            }
+            throw new Error('Server returned invalid JSON. Refresh the page and try again.');
+        }
+    }
+
+    if (!res.ok) {
+        throw new Error(getFriendlyJsonError(url, res.status, data));
+    }
+    return data;
+}
+
+function showInlineStatus(id, message, type) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.className = 'alert alert-' + (type || 'warning') + ' mt-3 mb-0 py-2 small';
+    el.innerHTML = '<i class="fas fa-exclamation-triangle me-1"></i>' + safeHtml(message);
+}
+
+function hideInlineStatus(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.className = 'alert d-none mt-3 mb-0 py-2 small';
+    el.innerHTML = '';
+}
+
 function updateClocks(tz) {
     tz = tz || currentSettings.app_timezone || 'UTC';
     const now = new Date();
@@ -67,21 +115,29 @@ function renderSettingsTable(s) {
 }
 
 async function loadSettings() {
-    const res = await fetchWithAuth('/api/settings');
-    if (!res || !res.ok) return;
-    currentSettings = await res.json();
-    const tz = currentSettings.app_timezone || 'America/New_York';
-    document.getElementById('currentTzBadge').textContent = tz;
-    document.getElementById('appNameInput').value = currentSettings.app_name || '';
-    populateTzSelect(tz);
-    renderSettingsTable(currentSettings);
-    updateClocks(tz);
-    initTwoFaToggle(currentSettings.require_2fa !== 'false');
-    // Security settings
-    var sTimeout = document.getElementById('sessionTimeoutInput');
-    var sMaxFail = document.getElementById('maxFailedLoginsInput');
-    if (sTimeout) sTimeout.value = currentSettings.session_timeout_minutes || '30';
-    if (sMaxFail) sMaxFail.value = currentSettings.max_failed_logins || '5';
+    try {
+        currentSettings = await fetchJsonOrThrow('/api/settings', { silent: true });
+        const tz = currentSettings.app_timezone || 'America/New_York';
+        document.getElementById('currentTzBadge').textContent = tz;
+        document.getElementById('appNameInput').value = currentSettings.app_name || '';
+        populateTzSelect(tz);
+        renderSettingsTable(currentSettings);
+        updateClocks(tz);
+        initTwoFaToggle(currentSettings.require_2fa !== 'false');
+        // Security settings
+        var sTimeout = document.getElementById('sessionTimeoutInput');
+        var sMaxFail = document.getElementById('maxFailedLoginsInput');
+        if (sTimeout) sTimeout.value = currentSettings.session_timeout_minutes || '30';
+        if (sMaxFail) sMaxFail.value = currentSettings.max_failed_logins || '5';
+    } catch (e) {
+        const tbody = document.getElementById('allSettingsBody');
+        if (tbody) tbody.innerHTML = '<tr><td colspan="2" class="text-danger text-center py-3">' + safeHtml(e.message) + '</td></tr>';
+        const badge = document.getElementById('currentTzBadge');
+        if (badge) badge.textContent = 'Load failed';
+        populateTzSelect('America/New_York');
+        updateClocks('America/New_York');
+        showToast('System Settings could not load: ' + safeHtml(e.message), 'danger');
+    }
 }
 
 function showSaved(id) {
@@ -131,7 +187,9 @@ function switchTab(tab) {
     document.querySelectorAll('[id^="tab-"]').forEach(t => t.classList.add('d-none'));
     const panel = document.getElementById('tab-' + tab);
     if (panel) panel.classList.remove('d-none');
-    const btn = document.querySelector(`[data-tab="${tab}"]`);
+    const btn = Array.from(document.querySelectorAll('#settingsTabs .nav-link')).find(function(item) {
+        return item.dataset.tab === tab;
+    });
     if (btn) btn.classList.add('active');
     if (tab === 'email') loadEmailSettings();
     if (tab === 'email-alerts') loadEmailAlertSettings();
@@ -144,6 +202,7 @@ let _emailLoaded = false;
 let _emailAlertsLoaded = false;
 let _emailAlertUsersLoaded = false;
 let _emailAlertUsersCache = [];
+let _smtpPassUserIntent = false;
 
 const EMAIL_ALERT_RULE_GROUPS = [
     {
@@ -181,6 +240,62 @@ const EMAIL_ALERT_RULE_GROUPS = [
     }
 ];
 
+function clearSmtpPasswordField(force) {
+    const input = document.getElementById('smtpPass');
+    if (!input) return;
+    if (!force && _smtpPassUserIntent) return;
+    input.value = '';
+    input.defaultValue = '';
+    input.removeAttribute('value');
+}
+
+function initSmtpPasswordField() {
+    const input = document.getElementById('smtpPass');
+    if (!input) return;
+    input.setAttribute('autocomplete', 'new-password');
+    input.setAttribute('data-lpignore', 'true');
+    input.setAttribute('data-1p-ignore', 'true');
+    input.setAttribute('data-bwignore', 'true');
+    input.readOnly = true;
+    clearSmtpPasswordField(true);
+
+    input.addEventListener('focus', function() {
+        input.readOnly = false;
+    });
+    input.addEventListener('keydown', function() {
+        _smtpPassUserIntent = true;
+    });
+    input.addEventListener('paste', function() {
+        _smtpPassUserIntent = true;
+    });
+    input.addEventListener('drop', function() {
+        _smtpPassUserIntent = true;
+    });
+
+    [100, 500, 1500].forEach(function(delay) {
+        setTimeout(function() {
+            clearSmtpPasswordField(false);
+        }, delay);
+    });
+}
+
+function getIntentionalSmtpPassword() {
+    const input = document.getElementById('smtpPass');
+    if (!input) return '';
+    if (!_smtpPassUserIntent) {
+        clearSmtpPasswordField(true);
+        return '';
+    }
+    return input.value || '';
+}
+
+function resetSmtpPasswordIntent() {
+    _smtpPassUserIntent = false;
+    const input = document.getElementById('smtpPass');
+    if (input) input.readOnly = true;
+    clearSmtpPasswordField(true);
+}
+
 function getDefaultEmailAlertRules() {
     const rules = {};
     EMAIL_ALERT_RULE_GROUPS.forEach(group => {
@@ -217,24 +332,20 @@ function renderEmailAlertRules(rules) {
     wrap.innerHTML = EMAIL_ALERT_RULE_GROUPS.map(group => {
         const items = group.rules.map(rule => {
             const checked = rules[rule.key] ? 'checked' : '';
-            return `
-                <div class="col-xl-4 col-md-6">
-                    <div class="email-alert-rule h-100">
-                        <div class="form-check form-switch mb-0">
-                            <input class="form-check-input email-alert-rule-input" type="checkbox" id="emailAlertRule_${rule.key}" data-rule="${rule.key}" ${checked}>
-                            <label class="form-check-label w-100" for="emailAlertRule_${rule.key}">
-                                <div class="email-alert-rule-title">${rule.title}</div>
-                                <div class="email-alert-rule-desc">${rule.desc}</div>
-                            </label>
-                        </div>
-                    </div>
-                </div>
-            `;
+            return '<div class="col-xl-4 col-md-6">' +
+                '<div class="email-alert-rule h-100">' +
+                    '<div class="form-check form-switch mb-0">' +
+                        '<input class="form-check-input email-alert-rule-input" type="checkbox" id="emailAlertRule_' + safeHtml(rule.key) + '" data-rule="' + safeHtml(rule.key) + '" ' + checked + '>' +
+                        '<label class="form-check-label w-100" for="emailAlertRule_' + safeHtml(rule.key) + '">' +
+                            '<div class="email-alert-rule-title">' + safeHtml(rule.title) + '</div>' +
+                            '<div class="email-alert-rule-desc">' + safeHtml(rule.desc) + '</div>' +
+                        '</label>' +
+                    '</div>' +
+                '</div>' +
+            '</div>';
         }).join('');
-        return `
-            <div class="email-alert-group-title">${group.title}</div>
-            <div class="row g-2">${items}</div>
-        `;
+        return '<div class="email-alert-group-title">' + safeHtml(group.title) + '</div>' +
+            '<div class="row g-2">' + items + '</div>';
     }).join('');
 
     updateEmailAlertsStatus();
@@ -302,30 +413,28 @@ function renderEmailAlertUsers(users, subscriptions) {
     if (!wrap) return;
     const flatRules = EMAIL_ALERT_RULE_GROUPS.flatMap(group => group.rules);
     if (thead) {
-        thead.innerHTML = `
-            <tr>
-                <th style="min-width:220px;">User</th>
-                ${flatRules.map(rule => `<th class="text-center" style="min-width:120px;">${rule.title}</th>`).join('')}
-            </tr>
-        `;
+        thead.innerHTML = '<tr><th style="min-width:220px;">User</th>' +
+            flatRules.map(function(rule) {
+                return '<th class="text-center" style="min-width:120px;">' + safeHtml(rule.title) + '</th>';
+            }).join('') +
+            '</tr>';
     }
     if (!users.length) {
-        wrap.innerHTML = `<tr><td colspan="${1 + flatRules.length}" class="text-muted small py-3">No users with email addresses were found.</td></tr>`;
+        wrap.innerHTML = '<tr><td colspan="' + (1 + flatRules.length) + '" class="text-muted small py-3">No users with email addresses were found.</td></tr>';
         return;
     }
     wrap.innerHTML = users.map(user => {
         const userSub = subscriptions[user.id] || getDefaultUserSubscriptions();
         const fullName = ((user.firstName || '') + ' ' + (user.lastName || '')).trim();
         const emailLine = '@' + (user.username || '') + (user.email ? ' \u2022 ' + user.email : '');
-        return `
-            <tr>
-                <td>
-                    <div class="fw-semibold">${safeHtml(fullName)}</div>
-                    <div class="text-muted small">${safeHtml(emailLine)}</div>
-                </td>
-                ${flatRules.map(rule => `<td class="text-center"><input class="form-check-input email-user-enabled" type="checkbox" data-user-id="${user.id}" data-field="${rule.key}" ${userSub[rule.key] ? 'checked' : ''}></td>`).join('')}
-            </tr>
-        `;
+        return '<tr><td>' +
+            '<div class="fw-semibold">' + safeHtml(fullName) + '</div>' +
+            '<div class="text-muted small">' + safeHtml(emailLine) + '</div>' +
+            '</td>' +
+            flatRules.map(function(rule) {
+                return '<td class="text-center"><input class="form-check-input email-user-enabled" type="checkbox" data-user-id="' + safeHtml(user.id) + '" data-field="' + safeHtml(rule.key) + '" ' + (userSub[rule.key] ? 'checked' : '') + '></td>';
+            }).join('') +
+            '</tr>';
     }).join('');
 }
 
@@ -362,50 +471,60 @@ function collectUserAlertSubscriptions() {
 
 async function loadEmailAlertUsers(force) {
     if (_emailAlertUsersLoaded && !force) return;
-    _emailAlertUsersLoaded = true;
+    const wrap = document.getElementById('emailAlertUserList');
+    const flatRules = EMAIL_ALERT_RULE_GROUPS.flatMap(group => group.rules);
+    if (wrap) {
+        wrap.innerHTML = '<tr><td colspan="' + (1 + flatRules.length) + '" class="text-muted text-center py-3"><i class="fas fa-spinner fa-spin me-1"></i>Loading user delivery options...</td></tr>';
+    }
     try {
-        const [userRes, settingsRes] = await Promise.all([
-            fetchWithAuth('/api/users?includeInactive=true'),
-            fetchWithAuth('/api/settings')
+        const [users, settingsData] = await Promise.all([
+            fetchJsonOrThrow('/api/users?includeInactive=true', { silent: true }),
+            fetchJsonOrThrow('/api/settings', { silent: true })
         ]);
-        if (!userRes || !userRes.ok || !settingsRes || !settingsRes.ok) return;
-        const users = await userRes.json();
-        const settingsData = await settingsRes.json();
         const subscriptions = parseUserSubscriptions(settingsData.email_alert_user_subscriptions);
         _emailAlertUsersCache = users.filter(u => u.email);
         renderEmailAlertUsers(_emailAlertUsersCache, subscriptions);
         populateEmailAlertUserInspector(_emailAlertUsersCache);
+        _emailAlertUsersLoaded = true;
     } catch (e) {
+        _emailAlertUsersLoaded = false;
+        if (wrap) {
+            wrap.innerHTML = '<tr><td colspan="' + (1 + flatRules.length) + '" class="text-danger text-center py-3">' + safeHtml(e.message) + '</td></tr>';
+        }
+        populateEmailAlertUserInspector([]);
+        showInlineStatus('emailAlertsLoadError', 'Could not load per-user email alert settings: ' + e.message, 'warning');
         console.error('loadEmailAlertUsers:', e);
     }
 }
 
 async function saveEmailAlertUsers() {
     const subs = collectUserAlertSubscriptions();
-    const res = await fetchWithAuth('/api/settings', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email_alert_user_subscriptions: JSON.stringify(subs) })
-    });
-    if (res && res.ok) {
-        const data = await res.json();
+    try {
+        const data = await fetchJsonOrThrow('/api/settings', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email_alert_user_subscriptions: JSON.stringify(subs) })
+        });
         currentSettings = data.settings;
         renderSettingsTable(currentSettings);
         _emailAlertUsersLoaded = false;
+        hideInlineStatus('emailAlertsLoadError');
         showToast('Per-user alert subscriptions saved.', 'success');
-    } else {
-        const err = await res.json();
-        showToast(err.error || 'Failed to save user alert subscriptions', 'danger');
+    } catch (e) {
+        showToast(e.message || 'Failed to save user alert subscriptions', 'danger');
     }
 }
 
 async function loadEmailAlertSettings(force) {
     if (_emailAlertsLoaded && !force) return;
-    _emailAlertsLoaded = true;
+    hideInlineStatus('emailAlertsLoadError');
+    const badge = document.getElementById('emailAlertsStatusBadge');
+    if (badge) {
+        badge.className = 'badge bg-secondary';
+        badge.textContent = 'Loading...';
+    }
     try {
-        const res = await fetchWithAuth('/api/settings');
-        if (!res || !res.ok) return;
-        const data = await res.json();
+        const data = await fetchJsonOrThrow('/api/settings', { silent: true });
         currentSettings = data;
 
         const enabled = data.email_alerts_enabled === 'true';
@@ -424,10 +543,19 @@ async function loadEmailAlertSettings(force) {
         if (digest) digest.value = data.email_alert_digest_time || '08:00';
 
         renderEmailAlertRules(parseEmailAlertRules(data.email_alert_rules));
+        _emailAlertsLoaded = true;
         loadEmailAlertUsers(force).catch(() => {});
     } catch(e) {
+        _emailAlertsLoaded = false;
+        const wrap = document.getElementById('emailAlertRuleGroups');
+        if (wrap) wrap.innerHTML = '<div class="text-danger small py-3">' + safeHtml(e.message) + '</div>';
+        if (badge) {
+            badge.className = 'badge bg-warning text-dark';
+            badge.textContent = 'Load failed';
+        }
         console.error('loadEmailAlertSettings:', e);
-        showToast('Could not load email alert settings', 'danger');
+        showInlineStatus('emailAlertsLoadError', 'Could not load email alert settings: ' + e.message, 'warning');
+        showToast('Could not load email alert settings: ' + safeHtml(e.message), 'danger');
     }
 }
 
@@ -485,7 +613,7 @@ async function saveEmailAlertSettings() {
     }
 
     try {
-        const res = await fetchWithAuth('/api/settings', {
+        const data = await fetchJsonOrThrow('/api/settings', {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -498,19 +626,14 @@ async function saveEmailAlertSettings() {
                 email_alert_digest_time: digestTime
             })
         });
-        if (res && res.ok) {
-            const data = await res.json();
-            currentSettings = data.settings;
-            renderSettingsTable(currentSettings);
-            showSaved('emailAlertsSaveOk');
-            updateEmailAlertsStatus();
-            showToast('Email alert settings saved.', 'success');
-        } else {
-            const err = await res.json();
-            showToast(err.error || 'Failed to save email alert settings', 'danger');
-        }
+        currentSettings = data.settings;
+        renderSettingsTable(currentSettings);
+        hideInlineStatus('emailAlertsLoadError');
+        showSaved('emailAlertsSaveOk');
+        updateEmailAlertsStatus();
+        showToast('Email alert settings saved.', 'success');
     } catch(e) {
-        showToast('Network error: ' + e.message, 'danger');
+        showToast(e.message || 'Failed to save email alert settings', 'danger');
     } finally {
         if (btn) {
             btn.disabled = false;
@@ -538,23 +661,19 @@ async function sendTestEmailAlert() {
     if (result) result.className = 'alert d-none mt-3 mb-0 py-2 small';
 
     try {
-        const url = typeof window.rxUrl === 'function'
-            ? window.rxUrl('/api/settings/email-alerts/test')
-            : '/api/settings/email-alerts/test';
-        const res = await fetchWithAuth(url, {
+        const data = await fetchJsonOrThrow('/api/settings/email-alerts/test', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ alertKey })
         });
-        const data = await res.json();
-        if (res && res.ok) {
+        if (data.ok !== false) {
             if (result) {
                 result.className = 'alert alert-success mt-3 mb-0 py-2 small';
                 result.innerHTML = '<i class="fas fa-check me-1"></i>' + safeHtml(data.message || 'Sample alert sent.') + ' Recipients: <strong>' + safeHtml((data.recipients || []).join(', ')) + '</strong>';
             }
             showToast('Sample alert email sent.', 'success');
         } else {
-            throw new Error(data.error || 'Failed to send sample alert');
+            throw new Error(data.error || data.message || 'Failed to send sample alert');
         }
     } catch (e) {
         if (result) {
@@ -614,22 +733,8 @@ async function inspectEmailAlertUserConfig() {
     }
     if (wrap) wrap.innerHTML = 'Loading user configuration...';
     try {
-        const url = typeof window.rxUrl === 'function'
-            ? window.rxUrl('/api/settings/email-alerts/user/' + encodeURIComponent(userId))
-            : '/api/settings/email-alerts/user/' + encodeURIComponent(userId);
-        const res = await fetchWithAuth(url);
-        const raw = await res.text();
-        let data;
-        try {
-            data = raw ? JSON.parse(raw) : {};
-        } catch (parseErr) {
-            throw new Error('Server returned HTML instead of JSON. Refresh the page and try again.');
-        }
-        if (res && res.ok) {
-            renderInspectedUserAlertConfig(data);
-        } else {
-            throw new Error(data.error || 'Failed to load user configuration');
-        }
+        const data = await fetchJsonOrThrow('/api/settings/email-alerts/user/' + encodeURIComponent(userId));
+        renderInspectedUserAlertConfig(data);
     } catch (e) {
         if (wrap) wrap.innerHTML = '<span class="text-danger">' + safeHtml(e.message) + '</span>';
         showToast(e.message, 'danger');
@@ -643,11 +748,16 @@ async function inspectEmailAlertUserConfig() {
 
 async function loadEmailSettings() {
     if (_emailLoaded) return;
-    _emailLoaded = true;
+    hideInlineStatus('emailLoadError');
+    resetSmtpPasswordIntent();
+    const badge = document.getElementById('emailStatusBadge');
+    if (badge) {
+        badge.className = 'badge bg-secondary';
+        badge.textContent = 'Loading...';
+    }
     try {
-        const res = await fetchWithAuth('/api/settings/email-status');
-        if (!res || !res.ok) return;
-        const d = await res.json();
+        const d = await fetchJsonOrThrow('/api/settings/email-status', { silent: true });
+        _emailLoaded = true;
 
         document.getElementById('smtpHost').value     = d.smtp_host      || '';
         document.getElementById('smtpPort').value     = d.smtp_port      || '587';
@@ -657,15 +767,15 @@ async function loadEmailSettings() {
         const hint = document.getElementById('smtpPassHint');
         if (hint) {
             if (d.smtp_pass_set) {
-                hint.textContent = '(password already saved — leave blank to keep)';
+                hint.textContent = '(saved on server - field stays blank)';
                 hint.style.color = '#22c55e';
             } else {
                 hint.textContent = '(not set)';
                 hint.style.color = '#f59e0b';
             }
         }
+        clearSmtpPasswordField(true);
 
-        const badge = document.getElementById('emailStatusBadge');
         if (badge) {
             if (d.configured) {
                 badge.className = 'badge bg-success';
@@ -679,7 +789,21 @@ async function loadEmailSettings() {
         if (d.smtp_host && d.smtp_host.includes('gmail')) {
             document.getElementById('gmailGuide')?.classList.remove('d-none');
         }
-    } catch(e) { console.error('loadEmailSettings:', e); }
+    } catch(e) {
+        _emailLoaded = false;
+        if (badge) {
+            badge.className = 'badge bg-warning text-dark';
+            badge.textContent = 'Load failed';
+        }
+        const hint = document.getElementById('smtpPassHint');
+        if (hint) {
+            hint.textContent = '(current saved password could not be checked)';
+            hint.style.color = '#f59e0b';
+        }
+        showInlineStatus('emailLoadError', 'Could not load current SMTP settings: ' + e.message, 'warning');
+        showToast('Could not load Email Setup: ' + safeHtml(e.message), 'danger');
+        console.error('loadEmailSettings:', e);
+    }
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -807,6 +931,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     await loadSettings();
+    initSmtpPasswordField();
 
     clockInterval = setInterval(() => {
         const tz = document.getElementById('tzSelect')?.value || currentSettings.app_timezone || 'UTC';
@@ -841,19 +966,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         const btn = document.getElementById('saveTzBtn');
         btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Saving...';
         try {
-            const res = await fetchWithAuth('/api/settings', { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ app_timezone:tz }) });
-            if (res && res.ok) {
-                const data = await res.json();
-                currentSettings = data.settings;
-                document.getElementById('currentTzBadge').textContent = tz;
-                renderSettingsTable(currentSettings);
-                showSaved('tzSaveOk');
-                showToast('Timezone updated to ' + tz, 'success');
-            } else {
-                const err = await res.json();
-                showToast(err.error || 'Failed to save timezone', 'danger');
-            }
-        } catch(e) { showToast('Network error', 'danger'); }
+            const data = await fetchJsonOrThrow('/api/settings', { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ app_timezone:tz }) });
+            currentSettings = data.settings;
+            document.getElementById('currentTzBadge').textContent = tz;
+            renderSettingsTable(currentSettings);
+            showSaved('tzSaveOk');
+            showToast('Timezone updated to ' + tz, 'success');
+        } catch(e) { showToast(e.message || 'Failed to save timezone', 'danger'); }
         finally { btn.disabled = false; btn.innerHTML = '<i class="fas fa-save me-1"></i>Save Timezone'; }
     });
 
@@ -864,15 +983,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         const btn = document.getElementById('saveNameBtn');
         btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Saving...';
         try {
-            const res = await fetchWithAuth('/api/settings', { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ app_name:name }) });
-            if (res && res.ok) {
-                const data = await res.json();
-                currentSettings = data.settings;
-                renderSettingsTable(currentSettings);
-                showSaved('nameSaveOk');
-                showToast('App name updated!', 'success');
-            } else { showToast('Failed to save name', 'danger'); }
-        } catch(e) { showToast('Network error', 'danger'); }
+            const data = await fetchJsonOrThrow('/api/settings', { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ app_name:name }) });
+            currentSettings = data.settings;
+            renderSettingsTable(currentSettings);
+            showSaved('nameSaveOk');
+            showToast('App name updated!', 'success');
+        } catch(e) { showToast(e.message || 'Failed to save name', 'danger'); }
         finally { btn.disabled = false; btn.innerHTML = '<i class="fas fa-save me-1"></i>Save Name'; }
     });
 
@@ -882,19 +998,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         const btn = document.getElementById('saveTwoFaBtn');
         btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Saving...';
         try {
-            const res = await fetchWithAuth('/api/settings', {
+            const data = await fetchJsonOrThrow('/api/settings', {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ require_2fa: String(enabled) })
             });
-            if (res && res.ok) {
-                const data = await res.json();
-                currentSettings = data.settings;
-                renderSettingsTable(currentSettings);
-                showSaved('twoFaSaveOk');
-                showToast('2FA setting ' + (enabled ? 'enabled' : 'disabled') + ' globally', enabled ? 'success' : 'warning');
-            } else { showToast('Failed to save 2FA setting', 'danger'); }
-        } catch(e) { showToast('Network error', 'danger'); }
+            currentSettings = data.settings;
+            renderSettingsTable(currentSettings);
+            showSaved('twoFaSaveOk');
+            showToast('2FA setting ' + (enabled ? 'enabled' : 'disabled') + ' globally', enabled ? 'success' : 'warning');
+        } catch(e) { showToast(e.message || 'Failed to save 2FA setting', 'danger'); }
         finally { btn.disabled = false; btn.innerHTML = '<i class="fas fa-save me-1"></i>Save 2FA Setting'; }
     });
 
@@ -919,7 +1032,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         var btn = document.getElementById('saveSecurityBtn');
         btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Saving...';
         try {
-            var res = await fetchWithAuth('/api/settings', {
+            var data = await fetchJsonOrThrow('/api/settings', {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -927,17 +1040,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                     max_failed_logins:       String(maxFails)
                 })
             });
-            if (res && res.ok) {
-                var data = await res.json();
-                currentSettings = data.settings;
-                renderSettingsTable(currentSettings);
-                showSaved('securitySaveOk');
-                showToast('Security settings saved. New login lockout threshold applies immediately.', 'success');
-            } else {
-                var err = await res.json();
-                showToast(err.error || 'Failed to save security settings', 'danger');
-            }
-        } catch(e) { showToast('Network error: ' + e.message, 'danger'); }
+            currentSettings = data.settings;
+            renderSettingsTable(currentSettings);
+            showSaved('securitySaveOk');
+            showToast('Security settings saved. New login lockout threshold applies immediately.', 'success');
+        } catch(e) { showToast(e.message || 'Failed to save security settings', 'danger'); }
         finally { btn.disabled = false; btn.innerHTML = '<i class="fas fa-save me-1"></i>Save Security Settings'; }
     });
 
@@ -975,32 +1082,67 @@ document.addEventListener('DOMContentLoaded', async () => {
                 smtp_user:      document.getElementById('smtpUser').value.trim(),
                 smtp_from_name: document.getElementById('smtpFromName').value.trim()
             };
-            const pass = document.getElementById('smtpPass').value;
+            const pass = getIntentionalSmtpPassword();
             if (pass) payload.smtp_pass = pass;
 
-            const res = await fetchWithAuth('/api/settings', {
+            const data = await fetchJsonOrThrow('/api/settings', {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             });
-            if (res && res.ok) {
-                showSaved('smtpSaveOk');
-                showToast('Email settings saved!', 'success');
-                document.getElementById('smtpPass').value = '';
-                const hint = document.getElementById('smtpPassHint');
-                if (pass && hint) { hint.textContent = '(password saved)'; hint.style.color = '#22c55e'; }
-                const badge = document.getElementById('emailStatusBadge');
-                if (badge && payload.smtp_user) {
-                    badge.className = 'badge bg-success';
-                    badge.innerHTML = '<i class="fas fa-check me-1"></i>Configured';
-                }
-                _emailLoaded = false;
-            } else {
-                const err = await res.json();
-                showToast(err.error || 'Failed to save settings', 'danger');
+            currentSettings = data.settings || currentSettings;
+            if (data.settings) renderSettingsTable(currentSettings);
+            hideInlineStatus('emailLoadError');
+            showSaved('smtpSaveOk');
+            showToast('Email settings saved!', 'success');
+            resetSmtpPasswordIntent();
+            const hint = document.getElementById('smtpPassHint');
+            if (pass && hint) { hint.textContent = '(saved on server - field stays blank)'; hint.style.color = '#22c55e'; }
+            const badge = document.getElementById('emailStatusBadge');
+            if (badge && payload.smtp_user) {
+                badge.className = 'badge bg-success';
+                badge.innerHTML = '<i class="fas fa-check me-1"></i>Configured';
             }
-        } catch(e) { showToast('Network error: ' + e.message, 'danger'); }
+            _emailLoaded = false;
+        } catch(e) { showToast(e.message || 'Failed to save email settings', 'danger'); }
         finally { btn.disabled = false; btn.innerHTML = '<i class="fas fa-save me-1"></i>Save Settings'; }
+    });
+
+    document.getElementById('clearSmtpPassBtn')?.addEventListener('click', async () => {
+        const btn = document.getElementById('clearSmtpPassBtn');
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Clearing...';
+        }
+        try {
+            const data = await fetchJsonOrThrow('/api/settings', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ smtp_pass_clear: 'true' })
+            });
+            currentSettings = data.settings || currentSettings;
+            if (data.settings) renderSettingsTable(currentSettings);
+            resetSmtpPasswordIntent();
+            const hint = document.getElementById('smtpPassHint');
+            if (hint) {
+                hint.textContent = '(not set)';
+                hint.style.color = '#f59e0b';
+            }
+            const badge = document.getElementById('emailStatusBadge');
+            if (badge) {
+                badge.className = 'badge bg-warning text-dark';
+                badge.innerHTML = '<i class="fas fa-exclamation-triangle me-1"></i>Not Configured';
+            }
+            _emailLoaded = false;
+            showToast('Saved SMTP password cleared.', 'success');
+        } catch(e) {
+            showToast(e.message || 'Failed to clear saved SMTP password', 'danger');
+        } finally {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-key me-1"></i>Clear Saved Password';
+            }
+        }
     });
 
     // ── Email: Test SMTP connection ────────────────────────────────────────
@@ -1010,14 +1152,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Testing...';
         if (alert) alert.className = 'alert d-none mt-3 mb-0';
         try {
-            const res  = await fetchWithAuth('/api/email-report/test', { method: 'POST' });
-            const data = await res.json();
-            if (res.ok && data.ok) {
+            const data = await fetchJsonOrThrow('/api/email-report/test', { method: 'POST' });
+            if (data.ok) {
                 if (alert) {
                     alert.className = 'alert alert-success mt-3 mb-0';
                     alert.innerHTML = '<i class="fas fa-check-circle me-2"></i><strong>Connection successful!</strong> SMTP is working with <strong>' + safeHtml(data.user || 'your account') + '</strong>.';
                 }
-            } else { throw new Error(data.error || 'Unknown error'); }
+            } else { throw new Error(data.error || data.message || 'Unknown error'); }
         } catch(e) {
             if (alert) {
                 alert.className = 'alert alert-danger mt-3 mb-0';
@@ -1039,18 +1180,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Sending...';
         if (alert) alert.className = 'alert d-none mt-2 mb-0 py-2 small';
         try {
-            const res  = await fetchWithAuth('/api/email-report', {
+            const data = await fetchJsonOrThrow('/api/email-report', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ to, reportType:'summary', subject:'Patient RX System — Test Email' })
+                body: JSON.stringify({ to, reportType:'summary', subject:'Patient RX System - Test Email' })
             });
-            const data = await res.json();
-            if (res.ok && data.ok) {
+            if (data.ok) {
                 if (alert) {
                     alert.className = 'alert alert-success mt-2 mb-0 py-2 small';
                     alert.innerHTML = '<i class="fas fa-check me-1"></i>Test email sent to <strong>' + safeHtml(to) + '</strong>! Check your inbox.';
                 }
-            } else { throw new Error(data.error || 'Unknown error'); }
+            } else { throw new Error(data.error || data.message || 'Unknown error'); }
         } catch(e) {
             if (alert) {
                 alert.className = 'alert alert-danger mt-2 mb-0 py-2 small';

@@ -7,6 +7,17 @@ function requireWebLogin(req, res, next) {
     return res.redirect('/login');
 }
 
+function requireVisibleModule(moduleKey) {
+    return (req, res, next) => {
+        if (!res.locals || !res.locals.currentUser) return res.redirect('/login');
+        if (res.locals.isAdmin) return next();
+        const perms = res.locals.userPerms || {};
+        const modulePerm = perms[moduleKey] || {};
+        if (modulePerm.visible === true) return next();
+        return res.redirect('/dashboard');
+    };
+}
+
 // Root → redirect to login
 router.get('/', (req, res) => res.redirect('/login'));
 
@@ -40,7 +51,7 @@ router.get('/users', requireWebLogin, (req, res) => {
     res.render('crud', { title: 'User Management', module: 'users', apiEndpoint: '/api/users', activePage: 'users' });
 });
 
-router.get('/roles', requireWebLogin, (req, res) => {
+router.get('/roles', requireWebLogin, requireVisibleModule('users'), (req, res) => {
     res.render('roles', { title: 'Roles Management', activePage: 'roles' });
 });
 

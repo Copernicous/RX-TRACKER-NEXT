@@ -208,6 +208,7 @@
 // Who's Online badge — polls active sessions count every 30s
 // Hidden automatically for roles without active_users permission (API returns 403)
 (function() {
+    if (!document.getElementById('sidebarOnlineBadge')) return;
     function _loadOnlineBadge() {
         var url = typeof window.rxUrl === 'function' ? window.rxUrl('/api/active-sessions') : '/api/active-sessions';
         fetch(url, { credentials: 'include' })

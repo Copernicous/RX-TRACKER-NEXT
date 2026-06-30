@@ -140,10 +140,20 @@ app.set('trust proxy', 1);
 const ENABLE_STRICT_HTTPS_HEADERS = process.env.FORCE_HTTPS === 'true'
     && process.env.HTTPS_ALLOW_LOCAL_HTTP !== 'true'
     && process.env.ENABLE_HSTS !== 'false';
+const ALLOW_LEGACY_INLINE_ATTRS = process.env.CSP_ALLOW_INLINE_ATTRS !== 'false';
+
+function cspNonceDirective(req, res) {
+    return "'nonce-" + res.locals.cspNonce + "'";
+}
 
 function isSecureRequest(req) {
     return requestSecurity.isSecureRequest(req);
 }
+
+app.use(function(req, res, next) {
+    res.locals.cspNonce = crypto.randomBytes(16).toString('base64url');
+    next();
+});
 
 // -- HTTPS redirect (enable with FORCE_HTTPS=true in .env) --------------------
 if (process.env.FORCE_HTTPS === 'true') {
@@ -159,9 +169,10 @@ app.use(helmet({
         useDefaults: false,  // Prevent Helmet adding upgrade-insecure-requests by default
         directives: {
             defaultSrc:     ["'self'"],
-            scriptSrc:      ["'self'", "'unsafe-inline'"],   // CDN removed -- all JS served locally
-            scriptSrcAttr:  ["'unsafe-inline'"],             // Required: app uses inline onclick handlers
-            styleSrc:       ["'self'", "'unsafe-inline'"],   // CDN removed -- all CSS served locally
+            scriptSrc:      ["'self'", cspNonceDirective],   // Inline script blocks must carry this request nonce.
+            scriptSrcAttr:  ALLOW_LEGACY_INLINE_ATTRS ? ["'unsafe-inline'"] : ["'none'"], // Compatibility for legacy onclick/onchange handlers.
+            styleSrc:       ["'self'", cspNonceDirective],   // Inline style blocks must carry this request nonce.
+            styleSrcAttr:   ALLOW_LEGACY_INLINE_ATTRS ? ["'unsafe-inline'"] : ["'none'"], // Compatibility for existing style="" attributes.
             fontSrc:        ["'self'", 'data:'],              // allow inline/base64-encoded fonts
             workerSrc:      ["'self'", 'blob:'],              // allow blob workers
             imgSrc:         ["'self'", 'data:', 'blob:'],
@@ -273,6 +284,14 @@ function isStagingEnvironment() {
     return /\bstaging\b|\bstage\b/i.test(markers);
 }
 
+function addCspNonceToHtml(html, nonce) {
+    if (!nonce || typeof html !== 'string') return html;
+    const attr = ' nonce="' + String(nonce).replace(/"/g, '') + '"';
+    return html
+        .replace(/<script(?![^>]*\bnonce=)(?![^>]*\bsrc=)([^>]*)>/gi, '<script' + attr + '$1>')
+        .replace(/<style(?![^>]*\bnonce=)([^>]*)>/gi, '<style' + attr + '$1>');
+}
+
 // Expose build/version/environment info to all EJS templates
 app.use(function(req, res, next) {
     res.locals.appBuild = APP_BUILD;
@@ -300,10 +319,21 @@ app.get('/favicon.ico', (req, res) => {
 // Force UTF-8 charset on all HTML responses -- required for FortiGate SSL web access
 // and any reverse proxy that rewrites HTML (prevents a" garbled characters)
 app.use((req, res, next) => {
-    const orig = res.setHeader.bind(res);
     res.render = ((origRender) => function(view, options, callback) {
+        if (typeof options === 'function') {
+            callback = options;
+            options = undefined;
+        }
         res.setHeader('Content-Type', 'text/html; charset=UTF-8');
-        return origRender.call(this, view, options, callback);
+        return origRender.call(this, view, options, function(err, html) {
+            if (err) {
+                if (callback) return callback(err);
+                return next(err);
+            }
+            const rendered = addCspNonceToHtml(html, res.locals.cspNonce);
+            if (callback) return callback(null, rendered);
+            return res.send(rendered);
+        });
     })(res.render);
     next();
 });

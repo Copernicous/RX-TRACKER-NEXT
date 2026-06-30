@@ -6,7 +6,7 @@
  * The startup migration in app.js seeds the initial defaults for the 4 built-in roles.
  *
  * Permission object shape per module:
- *   { visible, canAdd, canEdit, canDelete, canExport, canUndo, canWarehouse, canOverrideExpired }
+ *   { visible, canAdd, canEdit, canDelete, canExport, canPrint, canCopy, canUndo, canWarehouse, canOverrideExpired }
  *
  * canAdd  → can CREATE new records (POST)
  * canEdit → can MODIFY existing records (PUT/PATCH)
@@ -14,15 +14,17 @@
  */
 
 // ─── Hardcoded seed defaults (used ONLY during startup migration to seed DB) ──
+const securityAlertService = require('../services/securityAlertService');
+
 const BUILT_IN_DEFAULTS = {
     Administrator: () => {
-        const full = { visible: true, canAdd: true, canEdit: true, canDelete: true, canExport: true, canUndo: false, canOverrideExpired: false };
+        const full = { visible: true, canAdd: true, canEdit: true, canDelete: true, canExport: true, canCopy: true, canUndo: false, canOverrideExpired: false };
         return {
-            dashboard:          { visible: true,  canAdd: false, canEdit: false, canDelete: false, canExport: true,  canUndo: false },
+            dashboard:          { visible: true,  canAdd: false, canEdit: false, canDelete: false, canExport: true,  canCopy: true, canUndo: false },
             patients:           { ...full, canOverrideExpired: true },
             rx_records:         { ...full, canUndo: true, canWarehouse: true, canOverrideExpired: true },
-            reports:            { visible: true,  canAdd: false, canEdit: false, canDelete: false, canExport: true,  canUndo: false },
-            audit_log:          { visible: true,  canAdd: false, canEdit: false, canDelete: false, canExport: false, canUndo: false },
+            reports:            { visible: true,  canAdd: false, canEdit: false, canDelete: false, canExport: true,  canCopy: true, canUndo: false },
+            audit_log:          { visible: true,  canAdd: false, canEdit: false, canDelete: false, canExport: false, canCopy: true, canUndo: false },
             import:             { ...full },
             pharmacies:         { ...full },
             patient_transport:  { ...full },
@@ -30,24 +32,24 @@ const BUILT_IN_DEFAULTS = {
             workflow_actions:   { ...full },
             clinics:            { ...full },
             medication_catalog: { ...full },
-            patient_notes:      { visible: true,  canAdd: true,  canEdit: false, canDelete: true,  canExport: false, canUndo: false },
+            patient_notes:      { visible: true,  canAdd: true,  canEdit: false, canDelete: true,  canExport: false, canCopy: true, canUndo: false },
             users:              { ...full },
             backups:            { ...full },
             system_settings:    { ...full },
-            active_users:       { visible: true,  canAdd: false, canEdit: false, canDelete: false, canExport: false, canUndo: false }
+            active_users:       { visible: true,  canAdd: false, canEdit: false, canDelete: false, canExport: false, canCopy: true, canUndo: false }
         };
     },
     Supervisor: () => {
-        const full = { visible: true, canAdd: true, canEdit: true, canDelete: true,  canExport: true,  canUndo: false, canOverrideExpired: false };
-        const add  = { visible: true, canAdd: true, canEdit: true, canDelete: false, canExport: true,  canUndo: false, canOverrideExpired: false };
-        const view = { visible: true, canAdd: false, canEdit: false, canDelete: false, canExport: true, canUndo: false, canOverrideExpired: false };
-        const hide = { visible: false, canAdd: false, canEdit: false, canDelete: false, canExport: false, canUndo: false, canOverrideExpired: false };
+        const full = { visible: true, canAdd: true, canEdit: true, canDelete: true,  canExport: true,  canCopy: true, canUndo: false, canOverrideExpired: false };
+        const add  = { visible: true, canAdd: true, canEdit: true, canDelete: false, canExport: true,  canCopy: true, canUndo: false, canOverrideExpired: false };
+        const view = { visible: true, canAdd: false, canEdit: false, canDelete: false, canExport: true, canCopy: true, canUndo: false, canOverrideExpired: false };
+        const hide = { visible: false, canAdd: false, canEdit: false, canDelete: false, canExport: false, canCopy: false, canUndo: false, canOverrideExpired: false };
         return {
-            dashboard:          { visible: true,  canAdd: false, canEdit: false, canDelete: false, canExport: true,  canUndo: false },
+            dashboard:          { visible: true,  canAdd: false, canEdit: false, canDelete: false, canExport: true,  canCopy: true, canUndo: false },
             patients:           { ...full },
             rx_records:         { ...full, canUndo: true, canWarehouse: true },
             reports:            { ...view },
-            audit_log:          { visible: true,  canAdd: false, canEdit: false, canDelete: false, canExport: false, canUndo: false },
+            audit_log:          { visible: true,  canAdd: false, canEdit: false, canDelete: false, canExport: false, canCopy: true, canUndo: false },
             import:             { ...add },
             pharmacies:         { ...full },
             patient_transport:  { ...full },
@@ -55,19 +57,19 @@ const BUILT_IN_DEFAULTS = {
             workflow_actions:   { ...add },
             clinics:            { ...full },
             medication_catalog: { ...full },
-            patient_notes:      { visible: true,  canAdd: true,  canEdit: false, canDelete: true,  canExport: false, canUndo: false },
+            patient_notes:      { visible: true,  canAdd: true,  canEdit: false, canDelete: true,  canExport: false, canCopy: true, canUndo: false },
             users:              { ...hide },
             backups:            { ...hide },
             system_settings:    { ...hide },
-            active_users:       { visible: true,  canAdd: false, canEdit: false, canDelete: false, canExport: false, canUndo: false }
+            active_users:       { visible: true,  canAdd: false, canEdit: false, canDelete: false, canExport: false, canCopy: true, canUndo: false }
         };
     },
     Operator: () => {
-        const addOnly = { visible: true, canAdd: true,  canEdit: false, canDelete: false, canExport: true,  canUndo: false, canOverrideExpired: false };
-        const view    = { visible: true, canAdd: false, canEdit: false, canDelete: false, canExport: true,  canUndo: false, canOverrideExpired: false };
-        const hide    = { visible: false, canAdd: false, canEdit: false, canDelete: false, canExport: false, canUndo: false, canOverrideExpired: false };
+        const addOnly = { visible: true, canAdd: true,  canEdit: false, canDelete: false, canExport: true,  canCopy: true, canUndo: false, canOverrideExpired: false };
+        const view    = { visible: true, canAdd: false, canEdit: false, canDelete: false, canExport: true,  canCopy: true, canUndo: false, canOverrideExpired: false };
+        const hide    = { visible: false, canAdd: false, canEdit: false, canDelete: false, canExport: false, canCopy: false, canUndo: false, canOverrideExpired: false };
         return {
-            dashboard:          { visible: true,  canAdd: false, canEdit: false, canDelete: false, canExport: true,  canUndo: false },
+            dashboard:          { visible: true,  canAdd: false, canEdit: false, canDelete: false, canExport: true,  canCopy: true, canUndo: false },
             patients:           { ...addOnly },
             rx_records:         { ...addOnly, canUndo: false, canWarehouse: false },
             reports:            { ...view },
@@ -79,7 +81,7 @@ const BUILT_IN_DEFAULTS = {
             workflow_actions:   { ...hide },
             clinics:            { ...view },
             medication_catalog: { ...view },
-            patient_notes:      { visible: true,  canAdd: true,  canEdit: false, canDelete: false, canExport: false, canUndo: false },
+            patient_notes:      { visible: true,  canAdd: true,  canEdit: false, canDelete: false, canExport: false, canCopy: true, canUndo: false },
             users:              { ...hide },
             backups:            { ...hide },
             system_settings:    { ...hide },
@@ -87,10 +89,10 @@ const BUILT_IN_DEFAULTS = {
         };
     },
     'Read Only': () => {
-        const view = { visible: true,  canAdd: false, canEdit: false, canDelete: false, canExport: true,  canUndo: false, canOverrideExpired: false };
-        const hide = { visible: false, canAdd: false, canEdit: false, canDelete: false, canExport: false, canUndo: false, canOverrideExpired: false };
+        const view = { visible: true,  canAdd: false, canEdit: false, canDelete: false, canExport: true,  canCopy: true, canUndo: false, canOverrideExpired: false };
+        const hide = { visible: false, canAdd: false, canEdit: false, canDelete: false, canExport: false, canCopy: false, canUndo: false, canOverrideExpired: false };
         return {
-            dashboard:          { visible: true,  canAdd: false, canEdit: false, canDelete: false, canExport: true,  canUndo: false },
+            dashboard:          { visible: true,  canAdd: false, canEdit: false, canDelete: false, canExport: true,  canCopy: true, canUndo: false },
             patients:           { ...view },
             rx_records:         { ...view, canUndo: false, canWarehouse: false },
             reports:            { ...view },
@@ -102,7 +104,7 @@ const BUILT_IN_DEFAULTS = {
             workflow_actions:   { ...view },
             clinics:            { ...hide },
             medication_catalog: { ...view },
-            patient_notes:      { visible: true,  canAdd: false, canEdit: false, canDelete: false, canExport: false, canUndo: false },
+            patient_notes:      { visible: true,  canAdd: false, canEdit: false, canDelete: false, canExport: false, canCopy: true, canUndo: false },
             users:              { ...hide },
             backups:            { ...hide },
             system_settings:    { ...hide },
@@ -120,12 +122,14 @@ function normalizePermission(rawPerm) {
         canEdit:            !!rawPerm.canEdit,
         canDelete:          !!rawPerm.canDelete,
         canExport:          !!rawPerm.canExport,
+        canPrint:           rawPerm.canPrint !== undefined ? !!rawPerm.canPrint : !!rawPerm.canExport,
+        canCopy:            rawPerm.canCopy !== undefined ? !!rawPerm.canCopy : true,
         canUndo:            !!rawPerm.canUndo,
         canWarehouse:       rawPerm.canWarehouse !== undefined ? !!rawPerm.canWarehouse : !!rawPerm.canEdit,
         canOverrideExpired: !!rawPerm.canOverrideExpired
     } : {
         visible: false, canAdd: false, canEdit: false, canDelete: false,
-        canExport: false, canUndo: false, canWarehouse: false, canOverrideExpired: false
+        canExport: false, canPrint: false, canCopy: false, canUndo: false, canWarehouse: false, canOverrideExpired: false
     };
 }
 
@@ -134,7 +138,7 @@ async function getRequestPermission(req, moduleKey) {
     if (req.user.role === 'Administrator') {
         return {
             visible: true, canAdd: true, canEdit: true, canDelete: true,
-            canExport: true, canUndo: true, canWarehouse: true, canOverrideExpired: true
+            canExport: true, canPrint: true, canCopy: true, canUndo: true, canWarehouse: true, canOverrideExpired: true
         };
     }
 
@@ -160,10 +164,24 @@ exports.userCanOverrideExpired = async (req, moduleKey) => {
     return !!(perm.visible && perm.canOverrideExpired);
 };
 
+function recordPermissionDenied(req, details) {
+    securityAlertService.recordPermissionDenied({
+        req,
+        moduleKey: details.moduleKey || null,
+        requiredAction: details.requiredAction || null,
+        reason: details.reason || 'access_denied'
+    }).catch(() => {});
+}
+
 // ─── requireRole ─────────────────────────────────────────────────────────────
 exports.requireRole = (roles) => {
     return (req, res, next) => {
         if (!req.user || !roles.includes(req.user.role)) {
+            recordPermissionDenied(req, {
+                moduleKey: 'role',
+                requiredAction: roles.join(','),
+                reason: 'role_required'
+            });
             return res.status(403).json({ message: 'Access denied: insufficient permissions' });
         }
         next();
@@ -186,6 +204,11 @@ exports.requireRole = (roles) => {
 exports.requireMaster = (req, res, next) => {
     // req.user is populated by auth.js (API) or webAuth.js (web pages)
     if (!req.user || req.user.isMaster !== true) {
+        recordPermissionDenied(req, {
+            moduleKey: 'backoffice',
+            requiredAction: 'master',
+            reason: 'master_required'
+        });
         // For XHR / API requests return JSON; for page requests redirect
         const wantsJson = req.headers['accept'] && req.headers['accept'].includes('application/json');
         if (wantsJson || req.path.startsWith('/api/')) {
@@ -206,6 +229,8 @@ exports.requireMaster = (req, res, next) => {
  *   'write'  → canAdd OR canEdit (backward-compat alias)
  *   'delete' → canDelete
  *   'export' → canExport
+ *   'print'  → canPrint
+ *   'copy'   → canCopy
  *   'undo'   → canUndo
  */
 exports.requirePermission = (moduleKey, requiredAction) => {
@@ -219,19 +244,22 @@ exports.requirePermission = (moduleKey, requiredAction) => {
             const perm = await getRequestPermission(req, moduleKey);
 
             if (!perm.visible) {
+                recordPermissionDenied(req, { moduleKey, requiredAction, reason: 'module_hidden' });
                 return res.status(403).json({ message: `Access denied: ${moduleKey} module is hidden.` });
             }
 
             if (requiredAction === 'read')      return next();
-            if (requiredAction === 'add'       && !perm.canAdd)       return res.status(403).json({ message: `Access denied: you cannot add records to ${moduleKey}.` });
-            if (requiredAction === 'edit'      && !perm.canEdit)      return res.status(403).json({ message: `Access denied: you cannot edit ${moduleKey}.` });
-            if (requiredAction === 'write'     && !perm.canAdd && !perm.canEdit) return res.status(403).json({ message: `Access denied: you cannot write to ${moduleKey}.` });
-            if (requiredAction === 'writeOrOverrideExpired' && !perm.canAdd && !perm.canEdit && !perm.canOverrideExpired) return res.status(403).json({ message: `Access denied: you cannot write to ${moduleKey} or override expired locks.` });
-            if (requiredAction === 'delete'    && !perm.canDelete)    return res.status(403).json({ message: `Access denied: you cannot delete from ${moduleKey}.` });
-            if (requiredAction === 'export'    && !perm.canExport)    return res.status(403).json({ message: `Access denied: you cannot export ${moduleKey}.` });
-            if (requiredAction === 'undo'      && !perm.canUndo)      return res.status(403).json({ message: `Access denied: you cannot undo workflow steps.` });
-            if (requiredAction === 'warehouse' && !perm.canWarehouse) return res.status(403).json({ message: `Access denied: you cannot return RX records to warehouse.` });
-            if (requiredAction === 'overrideExpired' && !perm.canOverrideExpired) return res.status(403).json({ message: `Access denied: you cannot override expired 90-day locks.` });
+            if (requiredAction === 'add'       && !perm.canAdd)       { recordPermissionDenied(req, { moduleKey, requiredAction, reason: 'missing_add' }); return res.status(403).json({ message: `Access denied: you cannot add records to ${moduleKey}.` }); }
+            if (requiredAction === 'edit'      && !perm.canEdit)      { recordPermissionDenied(req, { moduleKey, requiredAction, reason: 'missing_edit' }); return res.status(403).json({ message: `Access denied: you cannot edit ${moduleKey}.` }); }
+            if (requiredAction === 'write'     && !perm.canAdd && !perm.canEdit) { recordPermissionDenied(req, { moduleKey, requiredAction, reason: 'missing_write' }); return res.status(403).json({ message: `Access denied: you cannot write to ${moduleKey}.` }); }
+            if (requiredAction === 'writeOrOverrideExpired' && !perm.canAdd && !perm.canEdit && !perm.canOverrideExpired) { recordPermissionDenied(req, { moduleKey, requiredAction, reason: 'missing_write_or_override' }); return res.status(403).json({ message: `Access denied: you cannot write to ${moduleKey} or override expired locks.` }); }
+            if (requiredAction === 'delete'    && !perm.canDelete)    { recordPermissionDenied(req, { moduleKey, requiredAction, reason: 'missing_delete' }); return res.status(403).json({ message: `Access denied: you cannot delete from ${moduleKey}.` }); }
+            if (requiredAction === 'export'    && !perm.canExport)    { recordPermissionDenied(req, { moduleKey, requiredAction, reason: 'missing_export' }); return res.status(403).json({ message: `Access denied: you cannot export ${moduleKey}.` }); }
+            if (requiredAction === 'print'     && !perm.canPrint)     { recordPermissionDenied(req, { moduleKey, requiredAction, reason: 'missing_print' }); return res.status(403).json({ message: `Access denied: you cannot print ${moduleKey}.` }); }
+            if (requiredAction === 'copy'      && !perm.canCopy)      { recordPermissionDenied(req, { moduleKey, requiredAction, reason: 'missing_copy' }); return res.status(403).json({ message: `Access denied: you cannot copy from ${moduleKey}.` }); }
+            if (requiredAction === 'undo'      && !perm.canUndo)      { recordPermissionDenied(req, { moduleKey, requiredAction, reason: 'missing_undo' }); return res.status(403).json({ message: `Access denied: you cannot undo workflow steps.` }); }
+            if (requiredAction === 'warehouse' && !perm.canWarehouse) { recordPermissionDenied(req, { moduleKey, requiredAction, reason: 'missing_warehouse' }); return res.status(403).json({ message: `Access denied: you cannot return RX records to warehouse.` }); }
+            if (requiredAction === 'overrideExpired' && !perm.canOverrideExpired) { recordPermissionDenied(req, { moduleKey, requiredAction, reason: 'missing_override_expired' }); return res.status(403).json({ message: `Access denied: you cannot override expired 90-day locks.` }); }
 
             next();
         } catch (e) {

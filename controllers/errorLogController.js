@@ -1,12 +1,13 @@
 'use strict';
 const db = require('../models');
 const { Op } = require('sequelize');
+const securityAlertService = require('../services/securityAlertService');
 
 // POST /api/errors  — called by frontend boundary
 exports.logFrontend = async (req, res) => {
     try {
         const { message, stack, url, severity = 'error' } = req.body;
-        await db.ErrorLog.create({
+        const errorLog = await db.ErrorLog.create({
             source:    'frontend',
             severity,
             message:   message || 'Unknown error',
@@ -16,6 +17,16 @@ exports.logFrontend = async (req, res) => {
             userId:    req.user ? req.user.id : null,
             ipAddress: req.ip
         });
+        if (severity === 'error') {
+            securityAlertService.recordCriticalError({
+                req,
+                source: 'frontend',
+                severity,
+                message: errorLog.message,
+                stack: errorLog.stack,
+                user: req.user || null
+            }).catch(() => {});
+        }
         res.json({ ok: true });
     } catch (e) {
         res.status(500).json({ error: 'Failed to log error' });
@@ -93,5 +104,15 @@ exports.clearResolved = async (req, res) => {
 exports.logBackend = async ({ message, stack, url, userId, ipAddress, severity = 'error' }) => {
     try {
         await db.ErrorLog.create({ source: 'backend', severity, message, stack, url, userId, ipAddress });
+        if (severity === 'error') {
+            securityAlertService.recordCriticalError({
+                source: 'backend',
+                severity,
+                message,
+                stack,
+                ip: ipAddress,
+                user: userId ? { id: userId } : null
+            }).catch(() => {});
+        }
     } catch {}   // never throw from error logger
 };

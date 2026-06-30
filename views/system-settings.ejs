@@ -426,6 +426,7 @@
                                 <div id="emailStatusBadge" class="badge bg-secondary">Loading...</div>
                             </div>
                         </div>
+                        <div id="emailLoadError" class="alert d-none mt-3 mb-0 py-2 small" role="alert"></div>
                     </div>
 
                     <!-- Provider quick-fill buttons -->
@@ -473,7 +474,7 @@
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label fw-semibold small">Email Address (Username)</label>
-                                <input type="email" class="form-control form-control-sm" id="smtpUser" placeholder="youremail@gmail.com">
+                                <input type="email" class="form-control form-control-sm" id="smtpUser" name="smtp_email_username" autocomplete="off" placeholder="youremail@gmail.com">
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label fw-semibold small">
@@ -481,12 +482,12 @@
                                     <span class="text-muted" style="font-weight:400;font-size:.72rem" id="smtpPassHint">&nbsp;</span>
                                 </label>
                                 <div class="input-group input-group-sm">
-                                    <input type="password" class="form-control form-control-sm" id="smtpPass" placeholder="Leave blank to keep current password">
+                                    <input type="password" class="form-control form-control-sm" id="smtpPass" name="smtp_app_password_new" autocomplete="new-password" autocapitalize="none" spellcheck="false" data-lpignore="true" data-1p-ignore="true" data-bwignore="true" value="" placeholder="Enter new password only">
                                     <button class="btn btn-outline-secondary" type="button" id="togglePassBtn" title="Show/hide password">
                                         <i class="fas fa-eye"></i>
                                     </button>
                                 </div>
-                                <div class="form-text">Leave blank to keep the currently saved password.</div>
+                                <div class="form-text" id="smtpPassHelp">This field is always blank. Type a new password only if you want to replace the saved one.</div>
                             </div>
                         </div>
 
@@ -508,6 +509,9 @@
                             </button>
                             <button class="btn btn-outline-secondary btn-sm" id="testSmtpSettingsBtn">
                                 <i class="fas fa-plug me-1"></i>Test Connection
+                            </button>
+                            <button class="btn btn-outline-danger btn-sm" id="clearSmtpPassBtn" type="button">
+                                <i class="fas fa-key me-1"></i>Clear Saved Password
                             </button>
                             <div class="save-indicator" id="smtpSaveOk">
                                 <i class="fas fa-check-circle"></i> Saved!
@@ -561,6 +565,7 @@
                                 <div id="emailAlertsStatusBadge" class="badge bg-secondary">Loading...</div>
                             </div>
                         </div>
+                        <div id="emailAlertsLoadError" class="alert d-none mt-3 mb-0 py-2 small" role="alert"></div>
                     </div>
 
                     <div class="glass-card p-4 mb-4 setting-card" style="border-left-color:#22c55e;">

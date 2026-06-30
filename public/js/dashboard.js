@@ -651,58 +651,6 @@ function openDrilldown(type) {
     if (dest && dest !== '#') window.location.href = dest;
 }
 
-function exportDashboardReport() {
-    var btn = document.getElementById('exportDashboardBtn');
-    btn.disabled = true;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Exporting...';
-    var results = {};
-    var keys    = ['active','inactive','totalRx','pending','noRx'];
-    var apis    = [_api.ap, _api.ip, _api.tr, _api.pr, _api.nr];
-    var done    = 0;
-    var failed  = false;
-
-    function finish() {
-        if (failed) { showToast('Export failed', 'danger'); btn.disabled = false; btn.innerHTML = '<i class="fas fa-file-csv me-1"></i>Export Report'; return; }
-        var headers = ['Section','Patient/RX ID','Name','Status','DOB / Arrival Date','Service Date','Clinic / Pharmacy'];
-        var rows = [];
-        var addPatient = function(section, list, status) {
-            for (var i = 0; i < list.length; i++) {
-                var p = list[i];
-                rows.push([section, p.patientCode || p.id, (p.firstName || '') + ' ' + (p.lastName || ''), status, p.dob || '', p.serviceDate || '', p.Clinic ? p.Clinic.name : '']);
-            }
-        };
-        var addRx = function(section, list, status) {
-            for (var i = 0; i < list.length; i++) {
-                var rx = list[i];
-                rows.push([section, '#' + rx.id, rx.Patient ? rx.Patient.firstName + ' ' + rx.Patient.lastName : '', status, rx.arrivalDate || '', rx.serviceDate || '', rx.Pharmacy ? rx.Pharmacy.name : '']);
-            }
-        };
-        addPatient('Active Patients',    results.active   || [], 'Active');
-        addPatient('Inactive Patients',  results.inactive || [], 'Inactive');
-        addPatient('No RX Records',      results.noRx     || [], 'Active');
-        addRx('RX Records',         results.totalRx  || [], 'RX');
-        addRx('Pending Deliveries', results.pending  || [], 'Pending');
-        exportToCsv('dashboard_report_' + new Date().toISOString().slice(0,10) + '.csv', headers, rows);
-        showToast('Dashboard report exported!', 'success');
-        btn.disabled = false;
-        btn.innerHTML = '<i class="fas fa-file-csv me-1"></i>Export Report';
-    }
-
-    for (var ki = 0; ki < keys.length; ki++) {
-        (function(key, url) {
-            fetchWithAuth(url).then(function(r) { return r.json(); }).then(function(data) {
-                results[key] = data;
-                done++;
-                if (done === keys.length) finish();
-            }).catch(function() {
-                failed = true;
-                done++;
-                if (done === keys.length) finish();
-            });
-        })(keys[ki], apis[ki]);
-    }
-}
-
 function exportRecentActivity() {
     var rows = [];
     var trs  = document.querySelectorAll('#recentActivityBody tr');
@@ -715,34 +663,42 @@ function exportRecentActivity() {
     showToast('Recent activity exported!', 'success');
 }
 
-function exportTrendCsv() {
-    if (!window._lastChartData || !window._lastChartData.dailyTrends) {
-        showToast('No trend data to export.', 'warning');
-        return;
-    }
-    var d = window._lastChartData.dailyTrends;
+function trendSeriesValue(series, index) {
+    if (!series || typeof series.length !== 'number' || index < 0 || index >= series.length) return 0;
+    var value = series[index];
+    if (value === '' || value === null || value === undefined) return 0;
+    var num = Number(value);
+    return isNaN(num) ? 0 : num;
+}
+
+function buildTrendExportRows(dailyTrends) {
+    var labels = dailyTrends && dailyTrends.labels ? dailyTrends.labels : [];
     var rows = [];
-    for (var i = 0; i < (d.labels || []).length; i++) {
+    for (var i = 0; i < labels.length; i++) {
         rows.push([
-            d.labels[i] || '',
-            d.activePatients ? d.activePatients[i] : '',
-            d.inactivePatients ? d.inactivePatients[i] : '',
-            d.newPatientsToday ? d.newPatientsToday[i] : '',
-            d.rxRecords ? d.rxRecords[i] : '',
-            d.newRXToday ? d.newRXToday[i] : '',
-            d.pendingDeliveries ? d.pendingDeliveries[i] : '',
-            d.completedRX ? d.completedRX[i] : '',
-            d.patientsWithNoRx ? d.patientsWithNoRx[i] : '',
-            d.eligibleNow ? d.eligibleNow[i] : '',
-            d.expiringIn7 ? d.expiringIn7[i] : '',
-            d.inWindow ? d.inWindow[i] : '',
-            d.noServiceDate ? d.noServiceDate[i] : '',
-            d.workflowCompletionRate ? d.workflowCompletionRate[i] : '',
-            d.workflowStepsCompletedDaily ? d.workflowStepsCompletedDaily[i] : (d.workflowStepsToday ? d.workflowStepsToday[i] : ''),
-            d.serviceDateEntries ? d.serviceDateEntries[i] : (d.serviceDateChanges ? d.serviceDateChanges[i] : '')
+            labels[i] || '',
+            trendSeriesValue(dailyTrends.activePatients, i),
+            trendSeriesValue(dailyTrends.inactivePatients, i),
+            trendSeriesValue(dailyTrends.newPatientsToday, i),
+            trendSeriesValue(dailyTrends.rxRecords, i),
+            trendSeriesValue(dailyTrends.newRXToday, i),
+            trendSeriesValue(dailyTrends.pendingDeliveries, i),
+            trendSeriesValue(dailyTrends.completedRX, i),
+            trendSeriesValue(dailyTrends.patientsWithNoRx, i),
+            trendSeriesValue(dailyTrends.eligibleNow, i),
+            trendSeriesValue(dailyTrends.expiringIn7, i),
+            trendSeriesValue(dailyTrends.inWindow, i),
+            trendSeriesValue(dailyTrends.noServiceDate, i),
+            trendSeriesValue(dailyTrends.workflowCompletionRate, i),
+            trendSeriesValue(dailyTrends.workflowStepsCompletedDaily || dailyTrends.workflowStepsToday, i),
+            trendSeriesValue(dailyTrends.serviceDateEntries || dailyTrends.serviceDateChanges, i)
         ]);
     }
-    exportToCsv('dashboard_trends_' + new Date().toISOString().slice(0,10) + '.csv', [
+    return rows;
+}
+
+function exportTrendCsv() {
+    var headers = [
         'Date',
         'Active Patients',
         'Inactive Patients',
@@ -759,8 +715,30 @@ function exportTrendCsv() {
         'Workflow Completion Rate',
         'Workflow Steps Completed',
         'Service Date Entries'
-    ], rows);
-    showToast('Trend data exported!', 'success');
+    ];
+    var exportName = 'dashboard_trends_' + new Date().toISOString().slice(0,10) + '.csv';
+    var query = buildTrendQuery();
+
+    fetchWithAuth(_api.charts + query).then(function(res) {
+        if (!res || !res.ok) throw new Error('Trend export fetch failed');
+        return res.json();
+    }).then(function(data) {
+        if (!data || !data.dailyTrends || !(data.dailyTrends.labels || []).length) {
+            throw new Error('No trend data');
+        }
+        window._lastChartData = data;
+        var rows = buildTrendExportRows(data.dailyTrends);
+        exportToCsv(exportName, headers, rows);
+        showToast('Trend data exported!', 'success');
+    }).catch(function() {
+        if (!window._lastChartData || !window._lastChartData.dailyTrends || !(window._lastChartData.dailyTrends.labels || []).length) {
+            showToast('No trend data to export.', 'warning');
+            return;
+        }
+        var fallbackRows = buildTrendExportRows(window._lastChartData.dailyTrends);
+        exportToCsv(exportName, headers, fallbackRows);
+        showToast('Trend data exported from the current dashboard view.', 'warning');
+    });
 }
 
 // =====================================================================
@@ -1202,8 +1180,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Export buttons
-    var expDash = document.getElementById('exportDashboardBtn');
-    if (expDash) expDash.addEventListener('click', exportDashboardReport);
     var expAct = document.getElementById('exportActivityBtn');
     if (expAct) expAct.addEventListener('click', exportRecentActivity);
     var trendExport = document.getElementById('trendExportBtn');

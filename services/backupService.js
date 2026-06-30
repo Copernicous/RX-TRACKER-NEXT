@@ -5,6 +5,7 @@ const { spawn, spawnSync } = require('child_process');
 const path      = require('path');
 const fs        = require('fs');
 const { getAppRoot, getWritableRoot } = require('../utils/runtimePaths');
+const securityAlertService = require('./securityAlertService');
 
 // ── Writable root ─────────────────────────────────────────────────────────────
 // Defaults to the app/exe folder. Staging/test copies can set APP_WRITABLE_ROOT
@@ -127,6 +128,9 @@ function appendLog(entry) {
     entries.unshift(entry);
     if (entries.length > 100) entries.splice(100);
     writeLog(entries);
+    if (entry && entry.status === 'failed') {
+        securityAlertService.recordBackupFailure({ kind: 'database', entry }).catch(() => {});
+    }
 }
 
 // ── pg_dump runner ────────────────────────────────────────────────────────────
@@ -322,6 +326,9 @@ function appendSiteLog(entry) {
     entries.unshift(entry);
     if (entries.length > 50) entries.splice(50);
     try { fs.writeFileSync(path.join(dir, 'site-backup.log.json'), JSON.stringify(entries, null, 2)); } catch {}
+    if (entry && entry.status === 'failed') {
+        securityAlertService.recordBackupFailure({ kind: 'site', entry }).catch(() => {});
+    }
 }
 function pruneOldSiteBackups() {
     try {
@@ -523,6 +530,47 @@ const DEFAULT_SITE_SCHEDULE = process.env.SITE_BACKUP_SCHEDULE || '0 3 * * 0';
 // BUG-28: read persisted site schedule from settings.json before falling back to .env
 const _persistedSiteSchedule = (() => { try { return readSettings().siteBackupSchedule; } catch { return null; } })();
 startSiteBackupScheduler(_persistedSiteSchedule || DEFAULT_SITE_SCHEDULE);
+
+function isBackupScheduleEnabled(schedule) {
+    return !!schedule && schedule !== 'off';
+}
+
+function latestSuccessfulBackup(entries) {
+    return (entries || [])
+        .filter(entry => entry && entry.status === 'success' && entry.timestamp)
+        .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))[0] || null;
+}
+
+function maybeAlertMissingBackup(kind, schedule, entries, expectedWindowHours) {
+    if (!isBackupScheduleEnabled(schedule)) return;
+    const latest = latestSuccessfulBackup(entries);
+    const now = Date.now();
+    const latestTime = latest ? new Date(latest.timestamp).getTime() : 0;
+    const missing = !latest || !Number.isFinite(latestTime) || (now - latestTime) > expectedWindowHours * 60 * 60 * 1000;
+    if (!missing) return;
+    securityAlertService.recordBackupMissing({
+        kind,
+        schedule,
+        lastSuccessAt: latest ? latest.timestamp : null,
+        expectedWindowHours
+    }).catch(() => {});
+}
+
+function checkMissingBackups() {
+    try {
+        maybeAlertMissingBackup('database', _currentSchedule || DEFAULT_SCHEDULE, syncLogWithDisk(), 26);
+    } catch {}
+    try {
+        maybeAlertMissingBackup('site', _siteBackupSchedule || DEFAULT_SITE_SCHEDULE, syncSiteLogWithDisk(), 8 * 24);
+    } catch {}
+}
+
+if (process.env.SECURITY_ALERT_BACKUP_MONITOR !== 'false') {
+    const firstCheck = setTimeout(checkMissingBackups, 5 * 60 * 1000);
+    const interval = setInterval(checkMissingBackups, 60 * 60 * 1000);
+    if (firstCheck.unref) firstCheck.unref();
+    if (interval.unref) interval.unref();
+}
 
 // ── Restore from a .dump file ─────────────────────────────────────────────────
 // Strategy: DROP the target DB entirely, recreate it empty, then pg_restore.

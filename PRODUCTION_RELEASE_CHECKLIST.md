@@ -29,6 +29,7 @@ Use this list every time a new production version is compiled, tagged, uploaded 
 
 ## Local Validation
 
+- [ ] Update the affected user-facing documentation before shipping the change (checklist, operations note, release note, or page-specific doc as needed).
 - [ ] Run `dist/server.exe --v` and confirm it prints the expected version.
 - [ ] Run targeted smoke checks for changed pages or APIs.
 - [ ] Confirm no unwanted files are staged with `git status --short`.
@@ -47,7 +48,8 @@ Use this list every time a new production version is compiled, tagged, uploaded 
 
 - [ ] Copy `dist/server-update-<version>.zip` to the production upload/staging path.
 - [ ] On the production machine, stop the running service or app.
-- [ ] Back up the current production app folder or confirm the scheduled backup completed.
+- [ ] Back up the current production app folder or confirm the scheduled backup completed before applying the update.
+- [ ] Record the backup filename, path, or timestamp used for this deployment: `__________`.
 - [ ] Extract `server-update-<version>.zip` into the production app path.
 - [ ] Confirm production `.env` is present next to `server.exe` and has the required production values.
 - [ ] Start the service or app.

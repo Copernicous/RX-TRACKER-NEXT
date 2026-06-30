@@ -7,6 +7,7 @@ const jwt       = require('jsonwebtoken');
 const db        = require('../models');
 const { issueFullToken } = require('./authController');
 const settings  = require('../services/settingsService');
+const securityAlertService = require('../services/securityAlertService');
 
 const APP_NAME = process.env.APP_NAME || 'Patient RX';
 const FALLBACK_MAX_FAILED_ATTEMPTS = 5;
@@ -211,6 +212,17 @@ exports.verifyLogin = async (req, res) => {
         const updates  = { failedLoginCount: newCount };
         if (newCount >= maxFailedAttempts) updates.lockedUntil = new Date(Date.now() + LOCKOUT_MINUTES * 60 * 1000);
         await user.update(updates);
+
+        securityAlertService.recordFailedLogin({
+            req,
+            user,
+            username: user.username,
+            count: newCount,
+            maxFailedAttempts,
+            lockoutMinutes: LOCKOUT_MINUTES,
+            reason: 'invalid_2fa_code',
+            stage: '2fa'
+        }).catch(() => {});
 
         return res.status(401).json({
             message: 'Invalid authenticator code. You can also use a backup code if you don\'t have your device.'

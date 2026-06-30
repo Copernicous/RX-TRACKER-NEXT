@@ -254,6 +254,26 @@ body.rx-staging-env .navbar::after {
 
 #content.sidebar-hidden { margin-left: 0; }
 
+body.rx-copy-disabled #content .table,
+body.rx-copy-disabled #content .glass-card,
+body.rx-copy-disabled #content .card,
+body.rx-copy-disabled #content .timeline,
+body.rx-copy-disabled #content .list-group,
+body.rx-copy-disabled #content .stat-card {
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+body.rx-copy-disabled #content input,
+body.rx-copy-disabled #content textarea,
+body.rx-copy-disabled #content select,
+body.rx-copy-disabled #content [contenteditable="true"],
+body.rx-copy-disabled #content [contenteditable=""],
+body.rx-copy-disabled #content .rx-copy-allowed {
+    -webkit-user-select: text;
+    user-select: text;
+}
+
 /* ---------- Navbar ---------- */
 .navbar {
     background: var(--surface) !important;

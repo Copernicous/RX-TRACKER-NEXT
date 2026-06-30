@@ -206,6 +206,7 @@ function applyTheme(theme, btn) {
 
 // ----- Global Search -----
 function setupGlobalSearch() {
+    if (window.location && window.location.pathname === '/dashboard') return;
     var themeBtn = document.getElementById('themeToggle');
     if (!themeBtn) return;
 
@@ -536,9 +537,27 @@ function setupSessionTimeout() {
     let WARN_SECONDS = 120;
     let idleTimer, warnTimer, countdownTimer;
     const ACTIVITY_KEY = 'rxLastActivityAt';
+    const SERVER_ACTIVITY_MS = 60 * 1000;
+    let lastServerActivityPing = 0;
+
+    function notifyServerActivity(force) {
+        if (!getCurrentAuthUser()) return;
+        var now = Date.now();
+        if (!force && now - lastServerActivityPing < SERVER_ACTIVITY_MS) return;
+        lastServerActivityPing = now;
+        try {
+            fetch(window.rxUrl ? window.rxUrl('/api/session/activity') : '/api/session/activity', {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                keepalive: true
+            }).catch(function() {});
+        } catch(e) {}
+    }
 
     function markActivity() {
         try { localStorage.setItem(ACTIVITY_KEY, String(Date.now())); } catch(e) {}
+        notifyServerActivity(false);
     }
 
     function lastActivityAt() {
@@ -552,7 +571,7 @@ function setupSessionTimeout() {
         var cleanWarning = parseInt(warningSeconds, 10);
         if (!Number.isFinite(cleanMinutes)) cleanMinutes = 30;
         if (!Number.isFinite(cleanWarning)) cleanWarning = 120;
-        cleanMinutes = Math.min(Math.max(cleanMinutes, 5), 480);
+        cleanMinutes = Math.min(Math.max(cleanMinutes, 1), 480);
         cleanWarning = Math.min(Math.max(cleanWarning, 30), Math.max(cleanMinutes * 60 - 30, 30));
         IDLE_MS = cleanMinutes * 60 * 1000;
         WARN_SECONDS = cleanWarning;
@@ -582,7 +601,7 @@ function setupSessionTimeout() {
                 '<h5 class="modal-title text-warning"><i class="fas fa-clock me-2"></i>Session Expiring Soon</h5>' +
               '</div>' +
               '<div class="modal-body text-center py-4">' +
-                '<p class="mb-2">You have been idle for <strong>28 minutes</strong>.</p>' +
+                '<p class="mb-2">You have been idle close to the configured session limit.</p>' +
                 '<p class="text-muted">You will be automatically logged out in <strong id="sessionCountdown">2:00</strong>.</p>' +
               '</div>' +
               '<div class="modal-footer justify-content-center">' +
@@ -596,6 +615,7 @@ function setupSessionTimeout() {
 
         document.getElementById('sessionStayBtn').addEventListener('click', function() {
             var _wm=bootstrap.Modal.getInstance(document.getElementById('sessionWarnModal'));if(_wm)_wm.hide();
+            notifyServerActivity(true);
             resetTimers();
         });
         document.getElementById('sessionLogoutNowBtn').addEventListener('click', performLogout);
@@ -940,7 +960,7 @@ async function refreshTable() {
 // Permissions helper — returns current-page perms
 // =============================================
 function getFullPageAccess() {
-    return { visible: true, canAdd: true, canEdit: true, canDelete: true, canExport: true, canUndo: true, canWarehouse: true, canOverrideExpired: true };
+    return { visible: true, canAdd: true, canEdit: true, canDelete: true, canExport: true, canPrint: true, canCopy: true, canUndo: true, canWarehouse: true, canOverrideExpired: true };
 }
 
 function decodeJwtPayload(token) {
@@ -1006,6 +1026,7 @@ function getPagePerms() {
             '/active-users':       'active_users'
         };
         var key = sidebarMapping[window.location.pathname];
+        if (!key && /^\/patients\/\d+\/timeline\/?$/.test(window.location.pathname)) key = 'patients';
         if (!key) return fullAccess;
         var perms = user.permissions || getRoleDefaultPermissions(user.role);
         // Dashboard always visible
@@ -1020,11 +1041,108 @@ function getPagePerms() {
             canEdit:      p.canEdit      !== undefined ? !!p.canEdit      : false,
             canDelete:    p.canDelete    !== undefined ? !!p.canDelete    : false,
             canExport:    p.canExport    !== undefined ? !!p.canExport    : false,
+            canPrint:     p.canPrint     !== undefined ? !!p.canPrint     : !!p.canExport,
+            canCopy:      p.canCopy      !== undefined ? !!p.canCopy      : true,
             canUndo:      p.canUndo      !== undefined ? !!p.canUndo      : false,
             canWarehouse: p.canWarehouse !== undefined ? !!p.canWarehouse : !!p.canEdit,  // fallback for old data
             canOverrideExpired: p.canOverrideExpired !== undefined ? !!p.canOverrideExpired : false
         };
     } catch (e) { return fullAccess; }
+}
+
+function setRoleActionDisabled(el, disabled, message) {
+    if (!el) return;
+    if (disabled) {
+        el.classList.remove('d-none');
+        el.disabled = true;
+        el.setAttribute('aria-disabled', 'true');
+        el.setAttribute('title', message || 'Disabled for this role.');
+        el.classList.add('disabled');
+    } else {
+        el.disabled = false;
+        el.removeAttribute('aria-disabled');
+        if (el.getAttribute('title') === 'Disabled for this role.' ||
+            el.getAttribute('title') === 'Export disabled for this role.' ||
+            el.getAttribute('title') === 'Print disabled for this role.') {
+            el.removeAttribute('title');
+        }
+        el.classList.remove('disabled');
+    }
+}
+
+function setRoleActionDisabledByIds(ids, disabled, message) {
+    for (var i = 0; i < ids.length; i++) {
+        setRoleActionDisabled(document.getElementById(ids[i]), disabled, message);
+    }
+}
+
+function setRoleActionDisabledBySelector(selector, disabled, message) {
+    var els = document.querySelectorAll(selector);
+    for (var i = 0; i < els.length; i++) {
+        setRoleActionDisabled(els[i], disabled, message);
+    }
+}
+
+var rxCopyProtection = {
+    enabled: false,
+    initialized: false,
+    message: 'Screen copy disabled for this role.',
+    lastNoticeAt: 0
+};
+
+function isCopyAllowedTarget(target) {
+    if (!target) return false;
+    var el = target.nodeType === 1 ? target : target.parentElement;
+    if (!el) return false;
+    return !!el.closest('input, textarea, select, [contenteditable="true"], [contenteditable=""], .rx-copy-allowed');
+}
+
+function shouldBlockScreenCopy(target) {
+    if (!rxCopyProtection.enabled) return false;
+    if (isCopyAllowedTarget(target)) return false;
+    var root = document.getElementById('content') || document.body;
+    var el = target && target.nodeType === 1 ? target : (target ? target.parentElement : null);
+    return !!(root && el && root.contains(el));
+}
+
+function showCopyBlockedNotice() {
+    var now = Date.now();
+    if (now - rxCopyProtection.lastNoticeAt < 2000) return;
+    rxCopyProtection.lastNoticeAt = now;
+    if (typeof showToast === 'function') {
+        showToast(rxCopyProtection.message, 'warning');
+    }
+}
+
+function setupCopyProtectionHandlers() {
+    if (rxCopyProtection.initialized) return;
+    rxCopyProtection.initialized = true;
+
+    ['copy', 'cut', 'contextmenu', 'dragstart', 'selectstart'].forEach(function(eventName) {
+        document.addEventListener(eventName, function(event) {
+            if (!shouldBlockScreenCopy(event.target)) return;
+            event.preventDefault();
+            if (event.clipboardData) {
+                try { event.clipboardData.setData('text/plain', ''); } catch (e) {}
+            }
+            showCopyBlockedNotice();
+        }, true);
+    });
+
+    document.addEventListener('keydown', function(event) {
+        var key = String(event.key || '').toLowerCase();
+        var isCopyShortcut = (event.ctrlKey || event.metaKey) && (key === 'c' || key === 'x' || key === 'insert');
+        if (!isCopyShortcut || !shouldBlockScreenCopy(event.target)) return;
+        event.preventDefault();
+        showCopyBlockedNotice();
+    }, true);
+}
+
+function setScreenCopyProtection(disabled, message) {
+    setupCopyProtectionHandlers();
+    rxCopyProtection.enabled = !!disabled;
+    rxCopyProtection.message = message || 'Screen copy disabled for this role.';
+    document.body.classList.toggle('rx-copy-disabled', rxCopyProtection.enabled);
 }
 
 function renderTable() {
@@ -1103,7 +1221,7 @@ function renderTable() {
 
     // Hide / show export & add buttons based on permissions
     var expBtn = document.getElementById('exportCsvBtn');
-    if (expBtn) { if (!p.canExport) expBtn.classList.add('d-none'); else expBtn.classList.remove('d-none'); }
+    if (expBtn) setRoleActionDisabled(expBtn, !p.canExport, 'Export disabled for this role.');
     var addBtn = document.getElementById('addNewBtn');
     if (addBtn) { if (!p.canAdd) addBtn.classList.add('d-none'); else addBtn.classList.remove('d-none'); }
 
@@ -1324,23 +1442,45 @@ async function saveRecord() {
     if (!config) return;
     var form = document.getElementById('crudForm');
     var body = {};
+    var validationError = null;
+    var validationEl = null;
 
     config.fields.forEach(function(f) {
+        if (validationError) return;
         var el = form.querySelector('[name="' + f.key + '"]');
         if (!el) return;
+
+        var rawValue = f.type === 'checkbox' ? el.checked : el.value;
+        if (f.required && f.type !== 'checkbox' && String(rawValue || '').trim() === '') {
+            validationError = f.label + ' is required.';
+            validationEl = el;
+            return;
+        }
+
         if (f.type === 'checkbox') {
             body[f.key] = el.checked;
+        } else if (f.type === 'password' && el.value === '') {
+            // Blank password means "leave unchanged" when editing an existing user.
+            if (!crudState.editingId) body[f.key] = null;
         } else if (f.type === 'number' || (f.type === 'select' && f.numeric)) {
-            if (el.value !== '') body[f.key] = Number(el.value);
+            body[f.key] = el.value === '' ? null : Number(el.value);
         } else if (f.type === 'select') {
             // For selects that store numeric IDs (like roleId), convert to number if the value looks numeric
             if (el.value !== '') {
                 body[f.key] = isNaN(Number(el.value)) ? el.value : Number(el.value);
+            } else {
+                body[f.key] = null;
             }
         } else {
-            if (el.value !== '') body[f.key] = el.value;
+            body[f.key] = el.value === '' ? null : el.value;
         }
     });
+
+    if (validationError) {
+        showToast(validationError, 'danger');
+        if (validationEl && typeof validationEl.focus === 'function') validationEl.focus();
+        return;
+    }
 
     if (crudState.module === 'users') {
         var permissions = {};
@@ -1812,13 +1952,19 @@ function getPermissionsHTML(existingPermissions) {
 
 function applyReadOnlyRestrictions() {
     var user = getCurrentAuthUser();
-    if (!user) return;
-    if (isAdministratorUser(user)) return;
+    if (!user) {
+        setScreenCopyProtection(false);
+        return;
+    }
+    if (isAdministratorUser(user)) {
+        setScreenCopyProtection(false);
+        return;
+    }
 
     var permissions = user.permissions || getRoleDefaultPermissions(user.role);
     // Dashboard always visible
     if (permissions.dashboard) permissions.dashboard.visible = true;
-    else permissions.dashboard = { visible: true, canEdit: false, canDelete: false, canExport: true };
+    else permissions.dashboard = { visible: true, canEdit: false, canDelete: false, canExport: true, canPrint: true, canCopy: true };
 
     var sidebarMapping = {
         '/dashboard':         'dashboard',
@@ -1831,12 +1977,21 @@ function applyReadOnlyRestrictions() {
         '/pharmacy-transport':'pharmacy_transport',
         '/workflow-actions':  'workflow_actions',
         '/clinics':           'clinics',
-        '/users':             'users'
+        '/medication-catalog':'medication_catalog',
+        '/users':             'users',
+        '/audit-log':         'audit_log',
+        '/backups':           'backups',
+        '/system-settings':   'system_settings',
+        '/active-users':      'active_users'
     };
 
     var currentPath = window.location.pathname;
     var key = sidebarMapping[currentPath];
-    if (!key) return;
+    if (!key && /^\/patients\/\d+\/timeline\/?$/.test(currentPath)) key = 'patients';
+    if (!key) {
+        setScreenCopyProtection(false);
+        return;
+    }
 
     // Defaults: everything allowed ONLY when no permission object is stored
     var rawP = permissions[key];
@@ -1847,19 +2002,48 @@ function applyReadOnlyRestrictions() {
             canEdit:   rawP.canEdit   !== undefined ? !!rawP.canEdit   : false,
             canDelete: rawP.canDelete !== undefined ? !!rawP.canDelete : false,
             canExport: rawP.canExport !== undefined ? !!rawP.canExport : false,
+            canPrint:  rawP.canPrint  !== undefined ? !!rawP.canPrint  : !!rawP.canExport,
+            canCopy:   rawP.canCopy   !== undefined ? !!rawP.canCopy   : true,
             canUndo:   rawP.canUndo   !== undefined ? !!rawP.canUndo   : false
           }
-        : { visible: true, canAdd: true, canEdit: true, canDelete: true, canExport: true, canUndo: true };
+        : { visible: true, canAdd: true, canEdit: true, canDelete: true, canExport: true, canPrint: true, canCopy: true, canUndo: true };
 
-    // ---- hide EXPORT buttons ----
-    if (!perm.canExport) {
-        var exportIds = ['exportCsvBtn','exportPatientsCsvBtn','exportRxListCsvBtn',
-                         'exportPatientCsv','exportRxCsv','drilldownCsvBtn'];
-        exportIds.forEach(function(id) {
-            var el = document.getElementById(id);
-            if (el) el.classList.add('d-none');
-        });
-    }
+    setScreenCopyProtection(!perm.canCopy, 'Screen copy disabled for this role.');
+
+    // ---- disable EXPORT / PRINT buttons while keeping them visible ----
+    setRoleActionDisabledByIds([
+        'exportCsvBtn',
+        'exportPatientsCsvBtn',
+        'doExportBtn',
+        'rxHistoryExportAllBtn',
+        'exportRxListCsvBtn',
+        'exportPatientCsv',
+        'exportPatientXls',
+        'exportRxCsv',
+        'exportRxXls',
+        'trendExportBtn',
+        'exportActivityBtn',
+        'drilldownCsvBtn',
+        'exportTimelineCsvBtn',
+        'exportServiceHistoryBtn',
+        'exportBtn',
+        'paExportBtn'
+    ], !perm.canExport, 'Export disabled for this role.');
+    setRoleActionDisabledBySelector('[data-rxhist-export], [data-svc-history-export], [data-role-action="export"]', !perm.canExport, 'Export disabled for this role.');
+
+    setRoleActionDisabledByIds([
+        'printPatientBtn',
+        'printRxBtn',
+        'exportPatientPdf',
+        'exportRxPdf',
+        'rxHistoryPrintAllBtn',
+        'printTimelineBtn',
+        'printServiceHistoryBtn',
+        'doPrintBtn',
+        'doPrintRxBtn',
+        'rxDetailPrintBtn'
+    ], !perm.canPrint, 'Print disabled for this role.');
+    setRoleActionDisabledBySelector('[data-rxhist-print], [data-svc-history-print], [data-role-action="print"]', !perm.canPrint, 'Print disabled for this role.');
 
     // ---- hide ADD buttons (requires canAdd) ----
     if (!perm.canAdd) {
@@ -2006,6 +2190,9 @@ const NOTIF_ICONS = {
 function setupNotifications() {
     var themeBtn = document.getElementById('themeToggle');
     if (!themeBtn) return;
+    var user = typeof getCurrentAuthUser === 'function' ? getCurrentAuthUser() : null;
+    var auditPerm = user && user.permissions ? user.permissions.audit_log : null;
+    if (!user || (!isAdministratorUser(user) && !(auditPerm && auditPerm.visible === true))) return;
 
     var bellWrapper = document.createElement('div');
     bellWrapper.id = 'notifWrapper';

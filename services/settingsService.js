@@ -246,9 +246,9 @@ function _decryptSettingValue(key, value) {
 
 /** Push SMTP settings from cache into process.env so nodemailer picks them up */
 function _applySmtp() {
-    if (_cache['smtp_host'])     process.env.SMTP_HOST      = _cache['smtp_host'];
-    if (_cache['smtp_port'])     process.env.SMTP_PORT      = _cache['smtp_port'];
-    if (_cache['smtp_user'])     process.env.SMTP_USER      = _cache['smtp_user'];
-    if (_cache['smtp_pass'])     process.env.SMTP_PASS      = _cache['smtp_pass'];
-    if (_cache['smtp_from_name'])process.env.SMTP_FROM_NAME = _cache['smtp_from_name'];
+    process.env.SMTP_HOST      = _cache['smtp_host'] || '';
+    process.env.SMTP_PORT      = _cache['smtp_port'] || '';
+    process.env.SMTP_USER      = _cache['smtp_user'] || '';
+    process.env.SMTP_PASS      = _cache['smtp_pass'] || '';
+    process.env.SMTP_FROM_NAME = _cache['smtp_from_name'] || '';
 }
