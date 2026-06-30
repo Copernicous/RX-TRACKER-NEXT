@@ -377,6 +377,23 @@ function csrfCookieOptions(req) {
     };
 }
 
+function csrfTokenFromAuthCookie(authToken) {
+    if (!authToken) return '';
+    const secret = process.env.CSRF_SECRET || process.env.JWT_SECRET;
+    if (!secret) return '';
+    return crypto
+        .createHmac('sha256', String(secret))
+        .update('rx-csrf-v1:')
+        .update(String(authToken))
+        .digest('base64url');
+}
+
+function csrfSafeEqual(a, b) {
+    const left = Buffer.from(String(a || ''), 'utf8');
+    const right = Buffer.from(String(b || ''), 'utf8');
+    return left.length > 0 && left.length === right.length && crypto.timingSafeEqual(left, right);
+}
+
 function shouldSkipCsrf(req) {
     const pathOnly = String(req.path || '').split('?')[0];
     return pathOnly === '/api/auth/login'
@@ -387,11 +404,15 @@ function shouldSkipCsrf(req) {
 // CSRF protection for cookie-authenticated unsafe requests.
 app.use(function(req, res, next) {
     const cookies = parseCookieHeader(req.headers.cookie);
-    let csrfToken = cookies.rxCsrf;
-    if (!csrfToken || csrfToken.length < 24) {
+    const signedCsrfToken = csrfTokenFromAuthCookie(cookies.rxToken);
+    let csrfToken = signedCsrfToken || cookies.rxCsrf;
+    if (csrfToken && csrfToken !== cookies.rxCsrf) {
+        res.cookie('rxCsrf', csrfToken, csrfCookieOptions(req));
+    } else if (!csrfToken || csrfToken.length < 24) {
         csrfToken = crypto.randomBytes(32).toString('base64url');
         res.cookie('rxCsrf', csrfToken, csrfCookieOptions(req));
     }
+    res.locals.csrfToken = csrfToken;
 
     const method = String(req.method || 'GET').toUpperCase();
     const safeMethod = method === 'GET' || method === 'HEAD' || method === 'OPTIONS';
@@ -402,7 +423,10 @@ app.use(function(req, res, next) {
         req.headers['x-rx-csrf-token'] ||
         ((req.body && typeof req.body === 'object') ? (req.body._csrf || req.body.csrfToken || '') : '')
     );
-    if (!submitted || submitted !== csrfToken) {
+    const valid = csrfSafeEqual(submitted, csrfToken)
+        || csrfSafeEqual(submitted, signedCsrfToken)
+        || csrfSafeEqual(submitted, cookies.rxCsrf);
+    if (!valid) {
         return res.status(403).json({ message: 'CSRF validation failed. Refresh the page and try again.' });
     }
     next();
