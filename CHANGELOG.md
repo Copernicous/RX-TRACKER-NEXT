@@ -9,19 +9,54 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 - No unreleased changes.
 
-## [2.0.69] - 2026-06-29
+## [2.0.69] - 2026-06-30
 
-### [RELEASE-69] Security hardening and FortiGate proxy HTTPS support
-**Files changed:** web/API access hardening, document handling, System Settings security, FortiGate proxy handling, release metadata
+### [RELEASE-69] Security hardening, FortiGate support, role controls, and staging bug fixes
+**Files changed:** web/API access hardening, document handling, System Settings security, FortiGate proxy handling, role permissions, dashboard UI, Clinics/Pharmacies CRUD, release packaging, release metadata
+**Commit references:** `e3a99ed`, `8613e9a`, `b1a25e2`, `aa822c6`, `b24ef14`, `7c7635e`, `07dd17a`, `5fc6700`
+
+#### Security, auth, and proxy hardening
 
 - Promoted the tested security hardening from staging/development into production.
 - Switched browser authentication to server-set `HttpOnly` cookies and removed browser-readable full-token compatibility paths.
 - Added dedicated CSRF protection for cookie-authenticated unsafe requests.
+- Added nonce-based CSP handling for inline script/style blocks while keeping legacy inline event/style attributes compatible until they are refactored.
+- Added FortiGate-aware HTTPS handling so the browser can use HTTPS through the proxy while the internal Node backend remains HTTP.
+- Centralized proxy/secure-request decisions so auth cookies, CSRF cookies, HTTPS redirects, and FortiGate backend behavior use the same rules.
+- Added server-side idle-session enforcement for authenticated API requests and protected web pages, with `/api/session/activity` refreshing user activity.
+- Added safe HTTPS/proxy environment keys to `.env.example`.
 - Added safer rendering for System Settings user/settings tables and documented the implemented security controls.
 - Encrypted SMTP passwords at rest when saved through System Settings.
 - Removed document upload routes/UI and disabled Google Drive document API usage for uploads.
-- Added FortiGate-aware HTTPS handling so the browser can use HTTPS through the proxy while the internal Node backend remains HTTP.
-- Added safe HTTPS/proxy environment keys to `.env.example`.
+
+#### Security monitoring and admin alerts
+
+- Added automatic security alert detection for failed-login thresholds, account lockouts, missing-auth spikes, permission-denied spikes, admin logins, security setting changes, API key changes, backup failures, missing scheduled backups, critical errors, and email configuration failures.
+- Wired alert detection through auth, 2FA, RBAC, API key, backup, settings, and error paths.
+- Added staging smoke coverage for security-alert wiring.
+
+#### Roles, permissions, dashboard cleanup, and copy protection
+
+- Added granular role controls for Print, Export, and Copy permissions.
+- Added role-controlled screen copy protection so selected roles can be prevented from copying, cutting, selecting, context-menu copying, or dragging visible app data.
+- Added server-side permission default/fallback handling so missing role flags default safely and do not break admin/read-only login.
+- Fixed read/admin role permission edge cases caused by Print/Export permission changes, including admin login after disabling patient Print/Export.
+- Updated role matrix/help documentation to explain Print, Export, and Copy permission behavior.
+- Removed unused Dashboard export/search controls because the dashboard no longer exposes valid export/print actions.
+- Prevented stale dashboard export behavior from producing misleading zero-valued exports.
+- Kept Print/Export controls off Dashboard because Dashboard has no current print/export actions.
+- Fixed the Roles editor blur/backdrop issue where editing/saving roles could leave the screen dimmed or stack modal backdrops.
+
+#### Clinics, Pharmacies, and CRUD validation
+
+- Fixed Clinics editing so optional fields can be cleared back to blank/null while required Name validation remains enforced.
+- Fixed Pharmacies editing so optional fields can be cleared back to blank/null while required Name validation remains enforced.
+- Updated shared CRUD save handling so cleared optional text/select/number fields are submitted as `null` instead of being silently omitted.
+- Preserved the special blank-password behavior for editing users so leaving the password field blank does not overwrite an existing password.
+
+#### Release packaging
+
+- Hardened the release zip packaging step so `server.exe` is added with a read-sharing file stream instead of relying on PowerShell `Compress-Archive`, which can fail on freshly built `.exe` files.
 - Bumped production package version to `2.0.69`.
 
 **Database impact:**
@@ -29,6 +64,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 - Existing patient, RX, workflow, audit, report, and settings data are preserved.
 - SMTP password values are encrypted when saved through System Settings after this release.
 - Existing production documents are not expected for this deployment; document uploads remain disabled.
+- Role permission JSON may include `canPrint`, `canExport`, and `canCopy` flags; existing roles keep safe defaults where a flag is missing.
 
 ## [2.0.68] - 2026-06-29
 
