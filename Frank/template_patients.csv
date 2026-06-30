@@ -1,2 +1,0 @@
-firstName,lastName,dob,phone,address,serviceDate,patientTransportCompany,pharmacyTransportCompany,notes,isActive
-John,Doe,1985-05-15,123-456-7890,"123 Main St, Springfield",2026-01-01,Health Transit,Pharmacy Express,Allergic to penicillin,true
