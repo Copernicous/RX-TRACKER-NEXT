@@ -18,6 +18,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 - Added a safe plain-text fallback when the browser Markdown renderer is unavailable or fails.
 - Added proxy-friendlier relative static asset paths on the Changelog page.
 - Added a timeout and friendly unavailable state for the Git Commits panel so it cannot stay on a permanent loading spinner.
+- Added `NEW_SERVER_SETUP_RECOVERY.md` to document fresh-server setup, PostgreSQL preparation, first-use admin seeding, admin recovery SQL, password reset, and database restore steps.
 - Bumped production package version to `2.0.71`.
 
 **Database impact:**

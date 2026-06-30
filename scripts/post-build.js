@@ -10,6 +10,7 @@
  *   Readme.txt          — release summary / verification notes
  *   DEFERRED-ITEMS.txt  — security / tech-debt tracking
  *   OPERATIONS_MANUAL.md — admin and recovery procedures
+ *   NEW_SERVER_SETUP_RECOVERY.md — new server install and recovery runbook
  *   install-service.ps1 — Windows Service installer
  *   uninstall-service.ps1 — Windows Service remover
  */
@@ -36,6 +37,7 @@ const filesToCopy = [
     'PRODUCTION_RELEASE_CHECKLIST.md',
     'DEFERRED-ITEMS.txt',
     'OPERATIONS_MANUAL.md',
+    'NEW_SERVER_SETUP_RECOVERY.md',
     'install-service.ps1',
     'uninstall-service.ps1',
 ];
