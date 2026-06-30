@@ -11,19 +11,25 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [2.0.71] - 2026-06-30
 
-### [HOTFIX-71] Production changelog loading fallback
-**Files changed:** Changelog page, staging validation docs, release metadata
+### [RELEASE-71] Proxy 2FA, Data Import permission, changelog fallback, and packaging safety
+**Files changed:** Changelog page, auth/CSRF middleware, dashboard shell scripts, Data Import access, release packaging, fresh-server recovery docs, release metadata
 
 - Fixed the Changelog page so Release Notes render before optional shared app initialization.
 - Added a safe plain-text fallback when the browser Markdown renderer is unavailable or fails.
 - Added proxy-friendlier relative static asset paths on the Changelog page.
 - Added a timeout and friendly unavailable state for the Git Commits panel so it cannot stay on a permanent loading spinner.
 - Added `NEW_SERVER_SETUP_RECOVERY.md` to document fresh-server setup, PostgreSQL preparation, first-use admin seeding, admin recovery SQL, password reset, and database restore steps.
+- Hardened release packaging so update zips include approved deployment files only and never include real `.env`, `.env.staging`, database dumps, SQL exports, or local runtime artifacts.
+- Fixed Data Import access for copied/custom administrator-style roles by enforcing the role permission instead of hard-coded role names.
+- Hardened CSRF handling for proxied requests by allowing CSRF tokens from headers, JSON/FormData body, and a session-bound dashboard token.
+- Added versioned dashboard script URLs so FortiGate/browser cache loads the current dashboard JavaScript after a restart.
+- Fixed 2FA activation through FortiGate by allowing only TOTP-protected 2FA actions to bypass CSRF transport checks; the current authenticator code is still required.
 - Bumped production package version to `2.0.71`.
 
 **Database impact:**
 - No schema changes and no data changes are introduced.
 - Existing patients, RX records, users, roles, permissions, settings, backups, audit logs, and changelog data are preserved.
+- Existing users keep their current 2FA state in production; the staging-only 2FA reset was not included in this release package.
 
 ## [2.0.70] - 2026-06-30
 
