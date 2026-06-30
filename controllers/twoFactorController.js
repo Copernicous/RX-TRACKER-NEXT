@@ -240,7 +240,8 @@ exports.adminReset = async (req, res) => {
     try {
         if (req.user.role !== 'Administrator') return res.status(403).json({ message: 'Admin only.' });
 
-        const target = await db.User.findByPk(req.params.userId);
+        const targetUserId = req.params.id || req.params.userId;
+        const target = await db.User.findByPk(targetUserId);
         if (!target) return res.status(404).json({ message: 'User not found.' });
 
         await target.update({ twoFactorEnabled: false, twoFactorSecret: null, backupCodes: null });
@@ -258,7 +259,8 @@ exports.adminUnlock = async (req, res) => {
     try {
         if (req.user.role !== 'Administrator') return res.status(403).json({ message: 'Admin only.' });
 
-        const target = await db.User.findByPk(req.params.userId);
+        const targetUserId = req.params.id || req.params.userId;
+        const target = await db.User.findByPk(targetUserId);
         if (!target) return res.status(404).json({ message: 'User not found.' });
 
         await target.update({ failedLoginCount: 0, lockedUntil: null });
