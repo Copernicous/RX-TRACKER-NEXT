@@ -398,6 +398,12 @@ function shouldSkipCsrf(req) {
     const pathOnly = String(req.path || '').split('?')[0];
     return pathOnly === '/api/auth/login'
         || pathOnly === '/api/auth/login/2fa'
+        // These actions are already protected by the current TOTP code. Keeping
+        // CSRF on them breaks FortiGate proxy users when the portal rewrites or
+        // drops CSRF transport details between QR setup and confirmation.
+        || pathOnly === '/api/auth/2fa/enable'
+        || pathOnly === '/api/auth/2fa/disable'
+        || pathOnly === '/api/auth/2fa/regenerate-backup-codes'
         || pathOnly === '/api/version';
 }
 
