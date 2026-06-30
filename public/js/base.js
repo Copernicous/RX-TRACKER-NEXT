@@ -93,26 +93,105 @@ window.rxCsrfToken = function() {
     return rxReadCookie('rxCsrf');
 };
 
+function rxHeadersToObject(headers) {
+    var merged = {};
+    if (!headers) return merged;
+    if (typeof Headers !== 'undefined' && headers instanceof Headers) {
+        headers.forEach(function(value, key) {
+            merged[key] = value;
+        });
+        return merged;
+    }
+    if (Array.isArray(headers)) {
+        for (var i = 0; i < headers.length; i++) {
+            if (headers[i] && headers[i].length >= 2) merged[headers[i][0]] = headers[i][1];
+        }
+        return merged;
+    }
+    return Object.assign({}, headers || {});
+}
+
+function rxGetHeader(headers, name) {
+    var lookup = String(name || '').toLowerCase();
+    var merged = rxHeadersToObject(headers);
+    for (var key in merged) {
+        if (Object.prototype.hasOwnProperty.call(merged, key) && String(key).toLowerCase() === lookup) {
+            return String(merged[key] || '');
+        }
+    }
+    return '';
+}
+
+function rxIsUnsafeMethod(method) {
+    return ['POST', 'PUT', 'PATCH', 'DELETE'].indexOf(String(method || 'GET').toUpperCase()) !== -1;
+}
+
+function rxIsAppRequest(resource) {
+    var url = '';
+    if (typeof resource === 'string') {
+        url = resource;
+    } else if (typeof Request !== 'undefined' && resource instanceof Request) {
+        url = resource.url;
+    }
+    return url.indexOf('/') === 0 ||
+        url.indexOf(window.location.origin) === 0 ||
+        (window.RX_BASE && url.indexOf(window.RX_BASE) === 0);
+}
+
 window.rxCsrfHeaders = function(headers) {
-    var merged = Object.assign({}, headers || {});
+    var merged = rxHeadersToObject(headers);
     var token = window.rxCsrfToken ? window.rxCsrfToken() : '';
-    if (token) merged['X-CSRF-Token'] = token;
+    if (token) {
+        merged['X-CSRF-Token'] = token;
+        merged['X-RX-CSRF-Token'] = token;
+    }
     return merged;
+};
+
+window.rxApplyCsrf = function(resource, init) {
+    init = init || {};
+    var method = String(init.method || (typeof Request !== 'undefined' && resource instanceof Request ? resource.method : 'GET') || 'GET').toUpperCase();
+    if (!rxIsUnsafeMethod(method) || !rxIsAppRequest(resource)) return init;
+
+    var token = window.rxCsrfToken ? window.rxCsrfToken() : '';
+    if (!token) return init;
+
+    init.headers = window.rxCsrfHeaders(init.headers || {});
+
+    if (typeof FormData !== 'undefined' && init.body instanceof FormData) {
+        if (!init.body.has('_csrf')) init.body.append('_csrf', token);
+        return init;
+    }
+
+    var contentType = rxGetHeader(init.headers, 'Content-Type');
+    var isJson = !contentType || contentType.toLowerCase().indexOf('application/json') !== -1;
+    if (!isJson) return init;
+
+    if (init.body == null || init.body === '') {
+        init.headers['Content-Type'] = contentType || 'application/json';
+        init.body = JSON.stringify({ _csrf: token });
+        return init;
+    }
+
+    if (typeof init.body !== 'string') return init;
+
+    try {
+        var data = JSON.parse(init.body);
+        if (data && typeof data === 'object' && !Array.isArray(data)) {
+            if (!data._csrf) data._csrf = token;
+            init.body = JSON.stringify(data);
+        }
+    } catch (e) {
+        // Non-JSON string body; keep the request unchanged.
+    }
+    return init;
 };
 
 (function() {
     if (!window.fetch) return;
     var originalFetch = window.fetch.bind(window);
     window.fetch = function(resource, init) {
-        init = init || {};
-        var method = String(init.method || (resource instanceof Request ? resource.method : 'GET') || 'GET').toUpperCase();
-        var unsafe = ['POST', 'PUT', 'PATCH', 'DELETE'].indexOf(method) !== -1;
-        if (unsafe) {
-            var sameOrigin = typeof resource === 'string'
-                ? (resource.indexOf('/') === 0 || resource.indexOf(window.location.origin) === 0 || (window.RX_BASE && resource.indexOf(window.RX_BASE) === 0))
-                : resource instanceof Request && (resource.url.indexOf(window.location.origin) === 0 || (window.RX_BASE && resource.url.indexOf(window.RX_BASE) === 0));
-            if (sameOrigin) init.headers = window.rxCsrfHeaders(init.headers || {});
-        }
+        init = window.rxApplyCsrf ? window.rxApplyCsrf(resource, init || {}) : (init || {});
         return originalFetch(resource, init);
     };
 })();

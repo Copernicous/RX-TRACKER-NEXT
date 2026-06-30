@@ -113,7 +113,9 @@ async function fetchWithAuth(url, options) {
     }, fetchOptions.headers || {});
     if (headers.Authorization) delete headers.Authorization;
     var targetUrl = (/^https?:\/\//i.test(String(url || '')) || typeof window.rxUrl !== 'function') ? url : window.rxUrl(url);
-    var res = await fetch(targetUrl, Object.assign({}, fetchOptions, { headers: headers, credentials: fetchOptions.credentials || 'include' }));
+    var requestOptions = Object.assign({}, fetchOptions, { headers: headers, credentials: fetchOptions.credentials || 'include' });
+    if (typeof window.rxApplyCsrf === 'function') requestOptions = window.rxApplyCsrf(targetUrl, requestOptions);
+    var res = await fetch(targetUrl, requestOptions);
     // 401 = token expired / invalid -> logout
     if (res.status === 401) {
         localStorage.removeItem('token');

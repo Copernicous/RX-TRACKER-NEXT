@@ -397,7 +397,11 @@ app.use(function(req, res, next) {
     const safeMethod = method === 'GET' || method === 'HEAD' || method === 'OPTIONS';
     if (safeMethod || shouldSkipCsrf(req) || !cookies.rxToken) return next();
 
-    const submitted = String(req.headers['x-csrf-token'] || '');
+    const submitted = String(
+        req.headers['x-csrf-token'] ||
+        req.headers['x-rx-csrf-token'] ||
+        ((req.body && typeof req.body === 'object') ? (req.body._csrf || req.body.csrfToken || '') : '')
+    );
     if (!submitted || submitted !== csrfToken) {
         return res.status(403).json({ message: 'CSRF validation failed. Refresh the page and try again.' });
     }
