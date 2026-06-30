@@ -90,10 +90,9 @@ function rxReadCookie(name) {
 }
 
 window.rxCsrfToken = function() {
-    var cookieToken = rxReadCookie('rxCsrf');
-    if (cookieToken) return cookieToken;
     var meta = document.querySelector('meta[name="rx-csrf-token"]');
-    return meta && meta.content ? meta.content : '';
+    if (meta && meta.content) return meta.content;
+    return rxReadCookie('rxCsrf');
 };
 
 function rxHeadersToObject(headers) {
