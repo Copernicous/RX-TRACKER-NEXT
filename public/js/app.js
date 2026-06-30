@@ -1442,23 +1442,45 @@ async function saveRecord() {
     if (!config) return;
     var form = document.getElementById('crudForm');
     var body = {};
+    var validationError = null;
+    var validationEl = null;
 
     config.fields.forEach(function(f) {
+        if (validationError) return;
         var el = form.querySelector('[name="' + f.key + '"]');
         if (!el) return;
+
+        var rawValue = f.type === 'checkbox' ? el.checked : el.value;
+        if (f.required && f.type !== 'checkbox' && String(rawValue || '').trim() === '') {
+            validationError = f.label + ' is required.';
+            validationEl = el;
+            return;
+        }
+
         if (f.type === 'checkbox') {
             body[f.key] = el.checked;
+        } else if (f.type === 'password' && el.value === '') {
+            // Blank password means "leave unchanged" when editing an existing user.
+            if (!crudState.editingId) body[f.key] = null;
         } else if (f.type === 'number' || (f.type === 'select' && f.numeric)) {
-            if (el.value !== '') body[f.key] = Number(el.value);
+            body[f.key] = el.value === '' ? null : Number(el.value);
         } else if (f.type === 'select') {
             // For selects that store numeric IDs (like roleId), convert to number if the value looks numeric
             if (el.value !== '') {
                 body[f.key] = isNaN(Number(el.value)) ? el.value : Number(el.value);
+            } else {
+                body[f.key] = null;
             }
         } else {
-            if (el.value !== '') body[f.key] = el.value;
+            body[f.key] = el.value === '' ? null : el.value;
         }
     });
+
+    if (validationError) {
+        showToast(validationError, 'danger');
+        if (validationEl && typeof validationEl.focus === 'function') validationEl.focus();
+        return;
+    }
 
     if (crudState.module === 'users') {
         var permissions = {};

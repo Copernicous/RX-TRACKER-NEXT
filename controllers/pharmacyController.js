@@ -1,6 +1,35 @@
 const db = require('../models');
 
 const Model = db.Pharmacy;
+const TEXT_FIELDS = ['address', 'phone', 'contactPerson', 'notes'];
+
+function hasOwn(obj, key) {
+    return Object.prototype.hasOwnProperty.call(obj || {}, key);
+}
+
+function cleanText(value) {
+    if (value === undefined) return undefined;
+    if (value === null) return null;
+    const text = String(value).trim();
+    return text === '' ? null : text;
+}
+
+function pharmacyPayload(body, requireName) {
+    const payload = {};
+    if (hasOwn(body, 'name')) {
+        const name = cleanText(body.name);
+        if (!name) throw new Error('Pharmacy name is required.');
+        payload.name = name;
+    } else if (requireName) {
+        throw new Error('Pharmacy name is required.');
+    }
+
+    TEXT_FIELDS.forEach(field => {
+        if (hasOwn(body, field)) payload[field] = cleanText(body[field]);
+    });
+    if (hasOwn(body, 'isActive')) payload.isActive = body.isActive !== false;
+    return payload;
+}
 
 exports.getAll = async (req, res) => {
     try {
@@ -21,14 +50,14 @@ exports.getOne = async (req, res) => {
 
 exports.create = async (req, res) => {
     try {
-        const data = await Model.create({ ...req.body, isActive: true });
+        const data = await Model.create({ ...pharmacyPayload(req.body, true), isActive: true });
         res.status(201).json(data);
     } catch (err) { res.status(400).json({ error: err.message }); }
 };
 
 exports.update = async (req, res) => {
     try {
-        const [updated] = await Model.update(req.body, { where: { id: req.params.id } });
+        const [updated] = await Model.update(pharmacyPayload(req.body, false), { where: { id: req.params.id } });
         if (!updated) return res.status(404).json({ message: 'Not found' });
         const data = await Model.findByPk(req.params.id);
         res.json(data);

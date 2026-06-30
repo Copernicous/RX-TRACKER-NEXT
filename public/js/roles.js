@@ -32,9 +32,31 @@ var roleDefaults = {};
 // ── Init ──────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', function() {
     if (typeof initApp === 'function') initApp();
+    initRoleModalCleanup();
     loadRoles();
     loadDefaults();
 });
+
+function cleanupOrphanedRoleBackdrops() {
+    if (document.querySelector('.modal.show')) return;
+    document.querySelectorAll('.modal-backdrop').forEach(function(el) { el.remove(); });
+    document.body.classList.remove('modal-open');
+    document.body.style.removeProperty('overflow');
+    document.body.style.removeProperty('padding-right');
+}
+
+function initRoleModalCleanup() {
+    var roleModalEl = document.getElementById('roleModal');
+    var deleteModalEl = document.getElementById('deleteRoleModal');
+    if (roleModalEl) roleModalEl.addEventListener('hidden.bs.modal', cleanupOrphanedRoleBackdrops);
+    if (deleteModalEl) deleteModalEl.addEventListener('hidden.bs.modal', cleanupOrphanedRoleBackdrops);
+}
+
+function getBootstrapModal(id) {
+    var modalEl = document.getElementById(id);
+    if (!modalEl || !window.bootstrap || !bootstrap.Modal) return null;
+    return bootstrap.Modal.getOrCreateInstance(modalEl);
+}
 
 async function loadRoles() {
     var res = await fetchWithAuth('/api/roles');
@@ -82,15 +104,15 @@ function renderRolesTable() {
     }
     tbody.innerHTML = _rHtml;
 
-    // Wire up buttons via event delegation
-    tbody.addEventListener('click', function(ev) {
+    // Assign once per render so refreshes do not stack duplicate modal handlers.
+    tbody.onclick = function(ev) {
         var editBtn = ev.target.closest('[data-edit-role]');
         var dupBtn  = ev.target.closest('[data-dup-role]');
         var delBtn2 = ev.target.closest('[data-del-role]');
-        if (editBtn)  openRoleModal(parseInt(editBtn.getAttribute('data-edit-role'), 10));
-        if (dupBtn)   duplicateRole(parseInt(dupBtn.getAttribute('data-dup-role'), 10), dupBtn.getAttribute('data-dup-name'));
-        if (delBtn2)  promptDelete(parseInt(delBtn2.getAttribute('data-del-role'), 10), delBtn2.getAttribute('data-del-name'));
-    });
+        if (editBtn)  { ev.preventDefault(); openRoleModal(parseInt(editBtn.getAttribute('data-edit-role'), 10)); return; }
+        if (dupBtn)   { ev.preventDefault(); duplicateRole(parseInt(dupBtn.getAttribute('data-dup-role'), 10), dupBtn.getAttribute('data-dup-name')); return; }
+        if (delBtn2)  { ev.preventDefault(); promptDelete(parseInt(delBtn2.getAttribute('data-del-role'), 10), delBtn2.getAttribute('data-del-name')); }
+    };
 }
 
 // ── Permission Matrix (read-only overview) ────────────────────────────────────
@@ -215,14 +237,16 @@ async function openRoleModal(id) {
         _tplHtml += '<button class="btn btn-sm btn-outline-' + (templateColors[rn] || 'info') + '" data-tpl="' + rn + '" type="button"><i class="fas fa-magic me-1"></i>' + rn + '</button>';
     }
     templateDiv.innerHTML = _tplHtml;
-    templateDiv.addEventListener('click', function(ev) {
+    templateDiv.onclick = function(ev) {
         var _b = ev.target.closest('[data-tpl]');
         if (_b) applyTemplate(_b.getAttribute('data-tpl'));
-    });
+    };
 
     buildPermEditor(currentPerms);
 
-    new bootstrap.Modal(document.getElementById('roleModal')).show();
+    cleanupOrphanedRoleBackdrops();
+    var roleModal = getBootstrapModal('roleModal');
+    if (roleModal) roleModal.show();
 }
 
 function applyTemplate(roleName) {
@@ -349,7 +373,8 @@ async function saveRole() {
         var data = res ? await res.json() : null;
         if (res && res.ok) {
             showToast((data && data.message) || 'Role saved.', 'success');
-            bootstrap.Modal.getInstance(document.getElementById('roleModal')).hide();
+            var roleModal = getBootstrapModal('roleModal');
+            if (roleModal) roleModal.hide();
             await loadRoles();
             await loadDefaults();
         } else {
@@ -383,13 +408,16 @@ function promptDelete(id, name) {
     deletingId = id;
     document.getElementById('deleteRoleBody').innerHTML =
         'Delete role <strong>' + name + '</strong>? This cannot be undone. Users with this role must be reassigned first.';
-    new bootstrap.Modal(document.getElementById('deleteRoleModal')).show();
+    cleanupOrphanedRoleBackdrops();
+    var deleteModal = getBootstrapModal('deleteRoleModal');
+    if (deleteModal) deleteModal.show();
 }
 
 document.getElementById('confirmDeleteRoleBtn').addEventListener('click', async function() {
     var res  = await fetchWithAuth('/api/roles/' + deletingId, { method: 'DELETE' });
     var data = res ? await res.json() : null;
-    bootstrap.Modal.getInstance(document.getElementById('deleteRoleModal')).hide();
+    var deleteModal = getBootstrapModal('deleteRoleModal');
+    if (deleteModal) deleteModal.hide();
     if (res && res.ok) {
         showToast((data && data.message) || 'Role deleted.', 'success');
         await loadRoles();
