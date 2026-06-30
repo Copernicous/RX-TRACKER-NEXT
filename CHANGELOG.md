@@ -9,6 +9,21 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 - No unreleased changes.
 
+## [2.0.71] - 2026-06-30
+
+### [HOTFIX-71] Production changelog loading fallback
+**Files changed:** Changelog page, staging validation docs, release metadata
+
+- Fixed the Changelog page so Release Notes render before optional shared app initialization.
+- Added a safe plain-text fallback when the browser Markdown renderer is unavailable or fails.
+- Added proxy-friendlier relative static asset paths on the Changelog page.
+- Added a timeout and friendly unavailable state for the Git Commits panel so it cannot stay on a permanent loading spinner.
+- Bumped production package version to `2.0.71`.
+
+**Database impact:**
+- No schema changes and no data changes are introduced.
+- Existing patients, RX records, users, roles, permissions, settings, backups, audit logs, and changelog data are preserved.
+
 ## [2.0.70] - 2026-06-30
 
 ### [HOTFIX-70] Patient add shortcut cleanup and RX role wording

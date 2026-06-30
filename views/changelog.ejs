@@ -5,11 +5,11 @@
     <script>!function(){var t=localStorage.getItem("rxTheme");if(t)document.documentElement.setAttribute("data-theme",t)}();</script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Changelog - Patient RX System</title>
-    <link href="/assets/bootstrap.min.css" rel="stylesheet">
-    <link href="/assets/inter.css" rel="stylesheet">
-    <link rel="stylesheet" href="/assets/fontawesome.all.min.css">
-    <link rel="stylesheet" href="/css/style.css">
-    <script src="/assets/marked.min.js"></script>
+    <link href="assets/bootstrap.min.css" rel="stylesheet">
+    <link href="assets/inter.css" rel="stylesheet">
+    <link rel="stylesheet" href="assets/fontawesome.all.min.css">
+    <link rel="stylesheet" href="css/style.css">
+    <script src="assets/marked.min.js"></script>
     <style>
         /* ── Markdown styles ── */
         .changelog-body h2 {
@@ -29,6 +29,8 @@
         [data-theme="dark"] .changelog-body td{border-bottom-color:rgba(255,255,255,.05);}
         .changelog-body strong{font-weight:700;}
         .changelog-body hr{margin:1.8rem 0;opacity:.12;}
+        .changelog-plain-text{white-space:pre-wrap;font-size:.82rem;line-height:1.55;color:var(--text,#1e293b);background:rgba(15,23,42,.03);border:1px solid rgba(148,163,184,.25);border-radius:10px;padding:16px;max-height:none;}
+        [data-theme="dark"] .changelog-plain-text{background:rgba(255,255,255,.04);color:var(--text,#e2e8f0);border-color:rgba(255,255,255,.08);}
 
         /* ── Git log styles ── */
         .commit-card{border-radius:10px;border:1px solid var(--border,rgba(0,0,0,.08));margin-bottom:10px;overflow:hidden;transition:box-shadow .15s;}
@@ -157,39 +159,110 @@
 </div>
 
 <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index:1100"></div>
-<script src="/assets/bootstrap.bundle.min.js"></script>
+<script src="assets/bootstrap.bundle.min.js"></script>
 <a id="xa-base" href="/login" style="display:none"></a>
-<script src="/js/base.js"></script>
-<script src="/js/app.js"></script>
-<script src="/js/help.js"></script>
+<script src="js/base.js"></script>
+<script src="js/app.js"></script>
+<script src="js/help.js"></script>
 <script>
     var _gitCommits = [];
 
     document.addEventListener('DOMContentLoaded', async () => {
-        initApp();
+        renderChangelog();
+
+        try {
+            if (typeof initApp === 'function') initApp();
+        } catch(e) {
+            reportChangelogError('Changelog initApp failed', e);
+        }
 
         // Version info
         try {
-            var vr = await fetchWithAuth(window.rxUrl('/api/version'));
-            var vd = await vr.json();
-            document.getElementById('currentVersion').textContent = 'v' + vd.version;
-            document.getElementById('nodeVersion').textContent   = vd.node;
-            var s = vd.uptime, h = Math.floor(s/3600), m = Math.floor((s%3600)/60);
+            var vd = await appFetchJson('/api/version', { timeoutMs: 7000, silent: true });
+            document.getElementById('currentVersion').textContent = 'v' + (vd.version || 'unknown');
+            document.getElementById('nodeVersion').textContent   = vd.node || 'unknown';
+            var s = vd.uptime || 0, h = Math.floor(s/3600), m = Math.floor((s%3600)/60);
             document.getElementById('uptimeDisplay').textContent = h > 0 ? h+'h '+m+'m' : m+'m';
-        } catch {}
-
-        // Render markdown changelog
-        var raw = <%- JSON.stringify(markdown || '') %>;
-        if (raw.trim()) {
-            document.getElementById('changelogContent').innerHTML = marked.parse(raw);
-        } else {
-            document.getElementById('changelogContent').innerHTML =
-                '<p class="text-muted text-center py-4"><i class="fas fa-exclamation-circle me-1"></i>No CHANGELOG.md found next to server.exe.</p>';
+        } catch(e) {
+            reportChangelogError('Changelog version load failed', e);
         }
 
         // Pre-load git log silently
         loadGitLog();
     });
+
+    function appUrl(path) {
+        return typeof window.rxUrl === 'function' ? window.rxUrl(path) : path;
+    }
+
+    async function appFetchJson(path, options) {
+        options = options || {};
+        var timeoutMs = options.timeoutMs || 8000;
+        var controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+        var timer = controller ? setTimeout(function() { controller.abort(); }, timeoutMs) : null;
+        try {
+            var fetchOptions = { credentials: 'include' };
+            if (controller) fetchOptions.signal = controller.signal;
+            if (options.silent) fetchOptions.silent = true;
+
+            var res = typeof fetchWithAuth === 'function'
+                ? await fetchWithAuth(appUrl(path), fetchOptions)
+                : await fetch(appUrl(path), fetchOptions);
+            if (!res) throw new Error('Request blocked or unauthorized.');
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            return await res.json();
+        } finally {
+            if (timer) clearTimeout(timer);
+        }
+    }
+
+    function reportChangelogError(message, err) {
+        try {
+            if (window.logClientError) {
+                window.logClientError(message, err && (err.stack || err.message) || '', 'warning');
+            }
+        } catch(e) {}
+    }
+
+    function localEscHtml(value) {
+        if (typeof escHtml === 'function') return escHtml(value);
+        return String(value == null ? '' : value)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#x27;');
+    }
+
+    function renderPlainChangelog(raw, reason) {
+        var notice = reason
+            ? '<div class="alert alert-warning"><i class="fas fa-exclamation-triangle me-2"></i>' + localEscHtml(reason) + '</div>'
+            : '';
+        return notice + '<pre class="changelog-plain-text">' + localEscHtml(raw) + '</pre>';
+    }
+
+    function renderChangelog() {
+        var box = document.getElementById('changelogContent');
+        if (!box) return;
+
+        var raw = <%- JSON.stringify(markdown || '').replace(/</g, '\\u003c').replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029') %>;
+        if (!raw.trim()) {
+            box.innerHTML = '<p class="text-muted text-center py-4"><i class="fas fa-exclamation-circle me-1"></i>No CHANGELOG.md found next to server.exe.</p>';
+            return;
+        }
+
+        try {
+            var renderer = window.marked || (typeof marked !== 'undefined' ? marked : null);
+            if (!renderer || typeof renderer.parse !== 'function') {
+                box.innerHTML = renderPlainChangelog(raw, 'Formatted changelog renderer did not load. Showing plain-text changelog instead.');
+                return;
+            }
+            box.innerHTML = renderer.parse(raw);
+        } catch(e) {
+            box.innerHTML = renderPlainChangelog(raw, 'Formatted changelog failed to render. Showing plain-text changelog instead.');
+            reportChangelogError('Changelog markdown render failed', e);
+        }
+    }
 
     function showTab(name) {
         ['changelog','gitlog'].forEach(function(t) {
@@ -203,8 +276,7 @@
         var box = document.getElementById('gitLogContent');
         box.innerHTML = '<div class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin fa-2x d-block mb-2"></i>Running git log…</div>';
         try {
-            var res  = await fetchWithAuth(window.rxUrl('/api/git-log?n=' + n));
-            var data = await res.json();
+            var data = await appFetchJson('/api/git-log?n=' + n, { timeoutMs: 8000, silent: true });
             if (!data.available) {
                 box.innerHTML = '<div class="alert alert-info"><i class="fas fa-info-circle me-2"></i>' +
                     (data.reason || 'Git log not available in this environment.') +
@@ -215,7 +287,10 @@
             document.getElementById('commitCount').textContent = data.commits.length;
             renderGitLog(data.commits);
         } catch(e) {
-            box.innerHTML = '<div class="alert alert-danger">Failed to load git log: ' + e.message + '</div>';
+            document.getElementById('commitCount').textContent = '0';
+            box.innerHTML = '<div class="alert alert-info"><i class="fas fa-info-circle me-2"></i>Git commit history is not available right now.' +
+                '<br><small class="d-block mt-1">' + localEscHtml(e.message || 'Request timed out.') + '</small></div>';
+            reportChangelogError('Changelog git log load failed', e);
         }
     }
 
