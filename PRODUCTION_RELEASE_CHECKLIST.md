@@ -18,14 +18,15 @@ Use this list every time a new production version is compiled, tagged, uploaded 
 - [ ] Add a top entry to `CHANGELOG.md`.
 - [ ] Add tag-specific GitHub release notes at `.github/releases/v<version>.md`.
 - [ ] Confirm `.env.example` contains any new safe, non-secret config keys.
-- [ ] Confirm the real `.env` exists on the build machine and production machine, but is not committed to Git.
+- [ ] Confirm the real `.env` exists on the build machine and production machine, but is not committed to Git or packaged in release zips.
 
 ## Build Package
 
 - [ ] Run `npm run build:exe`.
 - [ ] Confirm `dist/server.exe` exists.
 - [ ] Confirm `dist/server-update-<version>.zip` exists.
-- [ ] Confirm the zip opens and includes `server.exe`, `.env`, `.env.example`, `CHANGELOG.md`, `RELEASE_NOTES-v<version>.md`, `PRODUCTION_RELEASE_CHECKLIST.md`, `RX-Manager.bat`, `OPERATIONS_MANUAL.md`, `DEFERRED-ITEMS.txt`, `install-service.ps1`, and `uninstall-service.ps1`.
+- [ ] Confirm the zip opens and includes `server.exe`, `.env.example`, `CHANGELOG.md`, `RELEASE_NOTES-v<version>.md`, `PRODUCTION_RELEASE_CHECKLIST.md`, `RX-Manager.bat`, `OPERATIONS_MANUAL.md`, `DEFERRED-ITEMS.txt`, `install-service.ps1`, and `uninstall-service.ps1`.
+- [ ] Confirm the zip does not include `.env`, `.env.staging`, database dumps, secrets, or Git bundles.
 
 ## Local Validation
 
@@ -51,7 +52,7 @@ Use this list every time a new production version is compiled, tagged, uploaded 
 - [ ] Back up the current production app folder or confirm the scheduled backup completed before applying the update.
 - [ ] Record the backup filename, path, or timestamp used for this deployment: `__________`.
 - [ ] Extract `server-update-<version>.zip` into the production app path.
-- [ ] Confirm production `.env` is present next to `server.exe` and has the required production values.
+- [ ] Confirm production `.env` is still present next to `server.exe`; updates must preserve this file and not replace it.
 - [ ] Start the service or app.
 - [ ] Run `server.exe --v` on production and confirm the expected version.
 - [ ] Open `/login` and changed production pages through the normal production URL or FortiGate URL.

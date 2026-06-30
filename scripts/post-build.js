@@ -4,7 +4,7 @@
  * production server into dist/ so it is a self-contained package.
  *
  * Files copied:
- *   .env                — environment config (required to run)
+ *   .env.example        - environment template (copy to .env on the server)
  *   RX-Manager.bat      — production management menu
  *   CHANGELOG.md        — version history / what changed
  *   Readme.txt          — release summary / verification notes
@@ -29,7 +29,6 @@ if (!fs.existsSync(distDir)) {
 }
 
 const filesToCopy = [
-    '.env',
     '.env.example',
     'RX-Manager.bat',
     'CHANGELOG.md',
@@ -74,6 +73,14 @@ console.log('dist/ is ready: ' + copied + ' file(s) copied' + (skipped ? ', ' + 
 const updateFiles = ['server.exe', ...filesToCopy, releaseNotesTarget]
     .map(file => path.join(distDir, file))
     .filter(file => fs.existsSync(file));
+
+const forbiddenPackageEntries = new Set(['.env', '.env.staging']);
+for (const file of updateFiles) {
+    const entryName = path.basename(file);
+    if (forbiddenPackageEntries.has(entryName)) {
+        throw new Error('Refusing to package secret environment file: ' + entryName);
+    }
+}
 
 const updateZip = path.join(distDir, 'server-update-' + packageInfo.version + '.zip');
 if (updateFiles.length > 0) {
@@ -124,4 +131,4 @@ if (updateFiles.length > 0) {
     });
     console.log('✓ server-update-' + packageInfo.version + '.zip  →  dist/server-update-' + packageInfo.version + '.zip');
 }
-console.log('Deploy the entire dist\\ folder to the production server.');
+console.log('Deploy dist\\server-update-' + packageInfo.version + '.zip or approved dist files only; keep production .env unchanged.');

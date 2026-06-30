@@ -633,10 +633,10 @@ if %ERRORLEVEL% EQU 0 (
     echo  ================================================
     echo.
     echo  [OK] Executable: %APP_DIR%\dist\server.exe
-    echo  [OK] Config:      %APP_DIR%\dist\.env  (auto-copied)
+    echo  [OK] Config:      production .env is preserved, not packaged
     echo.
     echo  Use Option [20] to deploy dist\ to the app root.
-    echo  Or copy dist\server.exe + dist\.env to the target machine.
+    echo  Or copy dist\server.exe to the target machine and keep its .env.
     echo.
     for %%F in ("%APP_DIR%\dist\server.exe") do echo  File size: %%~zF bytes
 ) else (
@@ -661,8 +661,8 @@ echo  ================================================
 echo   DEPLOY EXE TO PRODUCTION (app root)
 echo  ================================================
 echo.
-echo  Copies dist\server.exe and dist\.env into the app
-echo  root folder so RX-Manager.bat [1] picks them up.
+echo  Copies dist\server.exe into the app root folder.
+echo  The production .env is preserved and will not be overwritten.
 echo.
 if not exist "%APP_DIR%\dist\server.exe" (
     echo  [ERROR] dist\server.exe not found.
@@ -673,9 +673,8 @@ if not exist "%APP_DIR%\dist\server.exe" (
 )
 echo  Files to copy:
 for %%F in ("%APP_DIR%\dist\server.exe") do echo    server.exe  (%%~zF bytes)
-echo    .env
 echo.
-set /p "CONF=  Deploy now? This will overwrite server.exe and .env in the app root. (Y/N): "
+set /p "CONF=  Deploy now? This will overwrite server.exe only and keep .env unchanged. (Y/N): "
 if /i NOT "%CONF%"=="Y" goto :MainMenu
 echo.
 echo  Stopping server first...
@@ -683,9 +682,8 @@ taskkill /FI "WINDOWTITLE eq PatientRX-Server" /F >nul 2>&1
 taskkill /FI "IMAGENAME eq server.exe" /F >nul 2>&1
 timeout /t 2 /nobreak >nul
 copy /Y "%APP_DIR%\dist\server.exe" "%APP_DIR%\server.exe" >nul
-if exist "%APP_DIR%\dist\.env" copy /Y "%APP_DIR%\dist\.env" "%APP_DIR%\.env" >nul
 echo  [OK] server.exe deployed.
-echo  [OK] .env deployed.
+echo  [OK] .env preserved.
 echo.
 set /p "RST=  Start server now? (Y/N): "
 if /i "%RST%"=="Y" goto :StartServer
