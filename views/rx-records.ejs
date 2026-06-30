@@ -429,7 +429,7 @@
             </div>
             <div class="modal-footer">
                 <button class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                <button class="btn btn-primary" onclick="doPrintRx()"><i class="fas fa-print me-2"></i>Print / Save PDF</button>
+                <button class="btn btn-primary" id="doPrintRxBtn" onclick="doPrintRx()"><i class="fas fa-print me-2"></i>Print / Save PDF</button>
             </div>
         </div>
     </div>
@@ -1078,8 +1078,9 @@
 
         // Permissions
         var rxPerms = getPagePerms();
-        if (!rxPerms.canExport) {
-            var expBtn = document.getElementById('exportRxListCsvBtn'); if (expBtn) expBtn.classList.add('d-none');
+        var expBtn = document.getElementById('exportRxListCsvBtn');
+        if (expBtn && typeof setRoleActionDisabled === 'function') {
+            setRoleActionDisabled(expBtn, !rxPerms.canExport, 'Export disabled for this role.');
         }
         if (!rxPerms.canAdd) {
             var addBtn = document.getElementById('addRxBtn'); if (addBtn) addBtn.classList.add('d-none');
@@ -1531,7 +1532,7 @@
                 } else {
                     b = document.createElement('button'); b.className = (canEd||canAdd||canUnd||canWh) ? 'btn btn-sm btn-outline-info me-1' : 'btn btn-sm btn-outline-secondary me-1'; b.title = 'Workflow'; b.innerHTML = '<i class="fas fa-tasks"></i>'; b.dataset.id = rxid; b.addEventListener('click', function() { openWorkflow(parseInt(this.dataset.id)); }); td.appendChild(b);
                     b = document.createElement('button'); b.className = 'btn btn-sm btn-outline-secondary me-1'; b.title = 'View History'; b.innerHTML = '<i class="fas fa-history"></i>'; b.dataset.id = rxid; b.addEventListener('click', function() { openRxHistory(parseInt(this.dataset.id)); }); td.appendChild(b);
-                    b = document.createElement('button'); b.className = 'btn btn-sm btn-outline-primary me-1'; b.title = 'Print / Export'; b.innerHTML = '<i class="fas fa-print"></i>'; b.dataset.id = rxid; b.addEventListener('click', function() { printRxRecord(parseInt(this.dataset.id)); }); td.appendChild(b);
+                    b = document.createElement('button'); b.className = 'btn btn-sm btn-outline-primary me-1'; b.title = 'Print / Export'; b.innerHTML = '<i class="fas fa-print"></i>'; b.dataset.id = rxid; b.dataset.roleAction = 'print'; if (typeof setRoleActionDisabled === 'function') { setRoleActionDisabled(b, !getPagePerms().canPrint, 'Print disabled for this role.'); } b.addEventListener('click', function() { printRxRecord(parseInt(this.dataset.id)); }); td.appendChild(b);
                     if (canDel) { b = document.createElement('button'); b.className = 'btn btn-sm btn-outline-danger'; b.title = 'Hide Record'; b.innerHTML = '<i class="fas fa-eye-slash"></i>'; b.dataset.id = rxid; b.addEventListener('click', function() { deleteRx(parseInt(this.dataset.id)); }); td.appendChild(b); }
                 }
             });

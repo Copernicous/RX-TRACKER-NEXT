@@ -20,9 +20,14 @@
         await loadReportData();
         setupReportExports();
 
-        ['exportPatientCsv','exportPatientXls','exportPatientPdf','exportRxCsv','exportRxXls','exportRxPdf'].forEach(id => {
+        const reportPerms = typeof getPagePerms === 'function' ? getPagePerms() : { canExport: true, canPrint: true };
+        ['exportPatientCsv','exportPatientXls','exportRxCsv','exportRxXls'].forEach(id => {
             const el = document.getElementById(id);
-            if (el && typeof window.userPerms !== 'undefined' && !window.userPerms.canExport) el.style.display = 'none';
+            if (el && typeof setRoleActionDisabled === 'function') setRoleActionDisabled(el, !reportPerms.canExport, 'Export disabled for this role.');
+        });
+        ['exportPatientPdf','exportRxPdf','printPatientBtn','printRxBtn'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el && typeof setRoleActionDisabled === 'function') setRoleActionDisabled(el, !reportPerms.canPrint, 'Print disabled for this role.');
         });
     });
 

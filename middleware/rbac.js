@@ -6,7 +6,7 @@
  * The startup migration in app.js seeds the initial defaults for the 4 built-in roles.
  *
  * Permission object shape per module:
- *   { visible, canAdd, canEdit, canDelete, canExport, canUndo, canWarehouse, canOverrideExpired }
+ *   { visible, canAdd, canEdit, canDelete, canExport, canPrint, canUndo, canWarehouse, canOverrideExpired }
  *
  * canAdd  → can CREATE new records (POST)
  * canEdit → can MODIFY existing records (PUT/PATCH)
@@ -122,12 +122,13 @@ function normalizePermission(rawPerm) {
         canEdit:            !!rawPerm.canEdit,
         canDelete:          !!rawPerm.canDelete,
         canExport:          !!rawPerm.canExport,
+        canPrint:           rawPerm.canPrint !== undefined ? !!rawPerm.canPrint : !!rawPerm.canExport,
         canUndo:            !!rawPerm.canUndo,
         canWarehouse:       rawPerm.canWarehouse !== undefined ? !!rawPerm.canWarehouse : !!rawPerm.canEdit,
         canOverrideExpired: !!rawPerm.canOverrideExpired
     } : {
         visible: false, canAdd: false, canEdit: false, canDelete: false,
-        canExport: false, canUndo: false, canWarehouse: false, canOverrideExpired: false
+        canExport: false, canPrint: false, canUndo: false, canWarehouse: false, canOverrideExpired: false
     };
 }
 
@@ -136,7 +137,7 @@ async function getRequestPermission(req, moduleKey) {
     if (req.user.role === 'Administrator') {
         return {
             visible: true, canAdd: true, canEdit: true, canDelete: true,
-            canExport: true, canUndo: true, canWarehouse: true, canOverrideExpired: true
+            canExport: true, canPrint: true, canUndo: true, canWarehouse: true, canOverrideExpired: true
         };
     }
 
@@ -227,6 +228,7 @@ exports.requireMaster = (req, res, next) => {
  *   'write'  → canAdd OR canEdit (backward-compat alias)
  *   'delete' → canDelete
  *   'export' → canExport
+ *   'print'  → canPrint
  *   'undo'   → canUndo
  */
 exports.requirePermission = (moduleKey, requiredAction) => {
@@ -251,6 +253,7 @@ exports.requirePermission = (moduleKey, requiredAction) => {
             if (requiredAction === 'writeOrOverrideExpired' && !perm.canAdd && !perm.canEdit && !perm.canOverrideExpired) { recordPermissionDenied(req, { moduleKey, requiredAction, reason: 'missing_write_or_override' }); return res.status(403).json({ message: `Access denied: you cannot write to ${moduleKey} or override expired locks.` }); }
             if (requiredAction === 'delete'    && !perm.canDelete)    { recordPermissionDenied(req, { moduleKey, requiredAction, reason: 'missing_delete' }); return res.status(403).json({ message: `Access denied: you cannot delete from ${moduleKey}.` }); }
             if (requiredAction === 'export'    && !perm.canExport)    { recordPermissionDenied(req, { moduleKey, requiredAction, reason: 'missing_export' }); return res.status(403).json({ message: `Access denied: you cannot export ${moduleKey}.` }); }
+            if (requiredAction === 'print'     && !perm.canPrint)     { recordPermissionDenied(req, { moduleKey, requiredAction, reason: 'missing_print' }); return res.status(403).json({ message: `Access denied: you cannot print ${moduleKey}.` }); }
             if (requiredAction === 'undo'      && !perm.canUndo)      { recordPermissionDenied(req, { moduleKey, requiredAction, reason: 'missing_undo' }); return res.status(403).json({ message: `Access denied: you cannot undo workflow steps.` }); }
             if (requiredAction === 'warehouse' && !perm.canWarehouse) { recordPermissionDenied(req, { moduleKey, requiredAction, reason: 'missing_warehouse' }); return res.status(403).json({ message: `Access denied: you cannot return RX records to warehouse.` }); }
             if (requiredAction === 'overrideExpired' && !perm.canOverrideExpired) { recordPermissionDenied(req, { moduleKey, requiredAction, reason: 'missing_override_expired' }); return res.status(403).json({ message: `Access denied: you cannot override expired 90-day locks.` }); }

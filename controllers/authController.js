@@ -2,10 +2,10 @@
 const jwt      = require('jsonwebtoken');
 const db       = require('../models');
 const settings = require('../services/settingsService');
-const { BUILT_IN_DEFAULTS } = require('../middleware/rbac');
 const requestSecurity = require('../utils/requestSecurity');
 const securityAlertService = require('../services/securityAlertService');
 const sessionIdleService = require('../services/sessionIdleService');
+const { getRolePermissions } = require('../services/rolePermissionService');
 
 // ── Account lockout constants ─────────────────────────────────────────────────
 const FALLBACK_MAX_FAILED_ATTEMPTS = 5;
@@ -116,8 +116,7 @@ exports.issueFullToken = issueFullToken;
 
 async function issueFullToken(user, req, res) {
     // Permissions come from the Role record — fall back to built-in if not yet seeded
-    const rolePerms = user.Role.permissions ||
-        (BUILT_IN_DEFAULTS[user.Role.name] ? BUILT_IN_DEFAULTS[user.Role.name]() : {});
+    const rolePerms = getRolePermissions(user.Role);
 
     const sid = sessionIdleService.createSessionId();
     const token = jwt.sign(
@@ -126,8 +125,8 @@ async function issueFullToken(user, req, res) {
             username:    user.username,
             firstName:   user.firstName,
             lastName:    user.lastName,
+            roleId:      user.roleId,
             role:        user.Role.name,
-            permissions: rolePerms,
             tv:          user.tokenVersion || 0,
             sid:         sid,
             // MASTER admin flag — controls /backoffice access.

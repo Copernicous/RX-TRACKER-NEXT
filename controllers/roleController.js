@@ -4,14 +4,14 @@ const { BUILT_IN_DEFAULTS } = require('../middleware/rbac');
 /**
  * normalizePermissions — ensures consistency in a permissions object.
  *
- * Rule: if any action flag is enabled (canAdd/canEdit/canDelete/canExport/canUndo),
+ * Rule: if any action flag is enabled (canAdd/canEdit/canDelete/canExport/canPrint/canUndo),
  * the module must also be visible. This prevents the broken state where
  * canAdd=true but visible=false causes "module is hidden" API errors.
  */
 function normalizePermissions(perms) {
     if (!perms || typeof perms !== 'object') return perms || null;
     const normalized = {};
-    const actions = ['canAdd', 'canEdit', 'canDelete', 'canExport', 'canUndo', 'canWarehouse', 'canOverrideExpired'];
+    const actions = ['canAdd', 'canEdit', 'canDelete', 'canExport', 'canPrint', 'canUndo', 'canWarehouse', 'canOverrideExpired'];
     for (const [key, mod] of Object.entries(perms)) {
         if (!mod || typeof mod !== 'object') { normalized[key] = mod; continue; }
         const hasAction = actions.some(a => mod[a] === true);
@@ -20,6 +20,20 @@ function normalizePermissions(perms) {
             // Auto-set visible when any action is enabled
             visible: hasAction ? true : !!mod.visible
         };
+        if (key === 'dashboard') {
+            normalized[key] = {
+                ...normalized[key],
+                visible: true,
+                canAdd: false,
+                canEdit: false,
+                canDelete: false,
+                canExport: false,
+                canPrint: false,
+                canUndo: false,
+                canWarehouse: false,
+                canOverrideExpired: false
+            };
+        }
     }
     return normalized;
 }

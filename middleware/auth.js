@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
 const securityAlertService = require('../services/securityAlertService');
 const sessionIdleService = require('../services/sessionIdleService');
+const { loadUserAuthContext, hydrateDecodedUser } = require('../services/rolePermissionService');
 
 function clearAuthCookies(res) {
     res.clearCookie('rxToken', { path: '/', sameSite: 'lax' });
@@ -17,7 +18,7 @@ function getCookie(cookieHeader, name) {
 }
 
 module.exports = (req, res, next) => {
-    // Cookie-only authentication: the full JWT stays in the HttpOnly rxToken cookie.
+    // Cookie-only authentication: the compact JWT stays in the HttpOnly rxToken cookie.
     const token = getCookie(req.headers.cookie, 'rxToken');
     if (!token) {
         securityAlertService.recordMissingAuth({ req, reason: 'missing_auth_cookie' }).catch(() => {});
@@ -39,10 +40,15 @@ module.exports = (req, res, next) => {
         // This closes the bypass where a stolen old token remained valid after
         // a password change because it lacked the tv claim.
         try {
-            const db   = require('../models');
-            const user = await db.User.findByPk(decoded.id, { attributes: ['tokenVersion'] });
-            if (!user) {
+            const context = await loadUserAuthContext(decoded.id);
+            if (!context || !context.user) {
                 securityAlertService.recordMissingAuth({ req, reason: 'token_user_not_found' }).catch(() => {});
+                return res.status(401).json({ message: 'Session expired. Please log in again.' });
+            }
+            const user = context.user;
+            if (user.isActive === false) {
+                securityAlertService.recordMissingAuth({ req, reason: 'inactive_token_user' }).catch(() => {});
+                clearAuthCookies(res);
                 return res.status(401).json({ message: 'Session expired. Please log in again.' });
             }
             const dbVersion    = user.tokenVersion || 0;
@@ -58,6 +64,7 @@ module.exports = (req, res, next) => {
                 // Token version doesn't match DB — password was changed, old token invalid.
                 return res.status(401).json({ message: 'Session expired. Please log in again.' });
             }
+            hydrateDecodedUser(decoded, context);
         } catch (_e) {
             // Only swallow genuine DB-unavailable errors (ECONNREFUSED, ETIMEDOUT, etc.)
             // Re-throw programmer errors (wrong path, missing module, etc.) so they surface.

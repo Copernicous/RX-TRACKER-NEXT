@@ -206,6 +206,7 @@ function applyTheme(theme, btn) {
 
 // ----- Global Search -----
 function setupGlobalSearch() {
+    if (window.location && window.location.pathname === '/dashboard') return;
     var themeBtn = document.getElementById('themeToggle');
     if (!themeBtn) return;
 
@@ -959,7 +960,7 @@ async function refreshTable() {
 // Permissions helper — returns current-page perms
 // =============================================
 function getFullPageAccess() {
-    return { visible: true, canAdd: true, canEdit: true, canDelete: true, canExport: true, canUndo: true, canWarehouse: true, canOverrideExpired: true };
+    return { visible: true, canAdd: true, canEdit: true, canDelete: true, canExport: true, canPrint: true, canUndo: true, canWarehouse: true, canOverrideExpired: true };
 }
 
 function decodeJwtPayload(token) {
@@ -1025,6 +1026,7 @@ function getPagePerms() {
             '/active-users':       'active_users'
         };
         var key = sidebarMapping[window.location.pathname];
+        if (!key && /^\/patients\/\d+\/timeline\/?$/.test(window.location.pathname)) key = 'patients';
         if (!key) return fullAccess;
         var perms = user.permissions || getRoleDefaultPermissions(user.role);
         // Dashboard always visible
@@ -1039,11 +1041,45 @@ function getPagePerms() {
             canEdit:      p.canEdit      !== undefined ? !!p.canEdit      : false,
             canDelete:    p.canDelete    !== undefined ? !!p.canDelete    : false,
             canExport:    p.canExport    !== undefined ? !!p.canExport    : false,
+            canPrint:     p.canPrint     !== undefined ? !!p.canPrint     : !!p.canExport,
             canUndo:      p.canUndo      !== undefined ? !!p.canUndo      : false,
             canWarehouse: p.canWarehouse !== undefined ? !!p.canWarehouse : !!p.canEdit,  // fallback for old data
             canOverrideExpired: p.canOverrideExpired !== undefined ? !!p.canOverrideExpired : false
         };
     } catch (e) { return fullAccess; }
+}
+
+function setRoleActionDisabled(el, disabled, message) {
+    if (!el) return;
+    if (disabled) {
+        el.classList.remove('d-none');
+        el.disabled = true;
+        el.setAttribute('aria-disabled', 'true');
+        el.setAttribute('title', message || 'Disabled for this role.');
+        el.classList.add('disabled');
+    } else {
+        el.disabled = false;
+        el.removeAttribute('aria-disabled');
+        if (el.getAttribute('title') === 'Disabled for this role.' ||
+            el.getAttribute('title') === 'Export disabled for this role.' ||
+            el.getAttribute('title') === 'Print disabled for this role.') {
+            el.removeAttribute('title');
+        }
+        el.classList.remove('disabled');
+    }
+}
+
+function setRoleActionDisabledByIds(ids, disabled, message) {
+    for (var i = 0; i < ids.length; i++) {
+        setRoleActionDisabled(document.getElementById(ids[i]), disabled, message);
+    }
+}
+
+function setRoleActionDisabledBySelector(selector, disabled, message) {
+    var els = document.querySelectorAll(selector);
+    for (var i = 0; i < els.length; i++) {
+        setRoleActionDisabled(els[i], disabled, message);
+    }
 }
 
 function renderTable() {
@@ -1122,7 +1158,7 @@ function renderTable() {
 
     // Hide / show export & add buttons based on permissions
     var expBtn = document.getElementById('exportCsvBtn');
-    if (expBtn) { if (!p.canExport) expBtn.classList.add('d-none'); else expBtn.classList.remove('d-none'); }
+    if (expBtn) setRoleActionDisabled(expBtn, !p.canExport, 'Export disabled for this role.');
     var addBtn = document.getElementById('addNewBtn');
     if (addBtn) { if (!p.canAdd) addBtn.classList.add('d-none'); else addBtn.classList.remove('d-none'); }
 
@@ -1837,7 +1873,7 @@ function applyReadOnlyRestrictions() {
     var permissions = user.permissions || getRoleDefaultPermissions(user.role);
     // Dashboard always visible
     if (permissions.dashboard) permissions.dashboard.visible = true;
-    else permissions.dashboard = { visible: true, canEdit: false, canDelete: false, canExport: true };
+    else permissions.dashboard = { visible: true, canEdit: false, canDelete: false, canExport: true, canPrint: true };
 
     var sidebarMapping = {
         '/dashboard':         'dashboard',
@@ -1850,11 +1886,17 @@ function applyReadOnlyRestrictions() {
         '/pharmacy-transport':'pharmacy_transport',
         '/workflow-actions':  'workflow_actions',
         '/clinics':           'clinics',
-        '/users':             'users'
+        '/medication-catalog':'medication_catalog',
+        '/users':             'users',
+        '/audit-log':         'audit_log',
+        '/backups':           'backups',
+        '/system-settings':   'system_settings',
+        '/active-users':      'active_users'
     };
 
     var currentPath = window.location.pathname;
     var key = sidebarMapping[currentPath];
+    if (!key && /^\/patients\/\d+\/timeline\/?$/.test(currentPath)) key = 'patients';
     if (!key) return;
 
     // Defaults: everything allowed ONLY when no permission object is stored
@@ -1866,19 +1908,45 @@ function applyReadOnlyRestrictions() {
             canEdit:   rawP.canEdit   !== undefined ? !!rawP.canEdit   : false,
             canDelete: rawP.canDelete !== undefined ? !!rawP.canDelete : false,
             canExport: rawP.canExport !== undefined ? !!rawP.canExport : false,
+            canPrint:  rawP.canPrint  !== undefined ? !!rawP.canPrint  : !!rawP.canExport,
             canUndo:   rawP.canUndo   !== undefined ? !!rawP.canUndo   : false
           }
-        : { visible: true, canAdd: true, canEdit: true, canDelete: true, canExport: true, canUndo: true };
+        : { visible: true, canAdd: true, canEdit: true, canDelete: true, canExport: true, canPrint: true, canUndo: true };
 
-    // ---- hide EXPORT buttons ----
-    if (!perm.canExport) {
-        var exportIds = ['exportCsvBtn','exportPatientsCsvBtn','exportRxListCsvBtn',
-                         'exportPatientCsv','exportRxCsv','drilldownCsvBtn'];
-        exportIds.forEach(function(id) {
-            var el = document.getElementById(id);
-            if (el) el.classList.add('d-none');
-        });
-    }
+    // ---- disable EXPORT / PRINT buttons while keeping them visible ----
+    setRoleActionDisabledByIds([
+        'exportCsvBtn',
+        'exportPatientsCsvBtn',
+        'doExportBtn',
+        'rxHistoryExportAllBtn',
+        'exportRxListCsvBtn',
+        'exportPatientCsv',
+        'exportPatientXls',
+        'exportRxCsv',
+        'exportRxXls',
+        'trendExportBtn',
+        'exportActivityBtn',
+        'drilldownCsvBtn',
+        'exportTimelineCsvBtn',
+        'exportServiceHistoryBtn',
+        'exportBtn',
+        'paExportBtn'
+    ], !perm.canExport, 'Export disabled for this role.');
+    setRoleActionDisabledBySelector('[data-rxhist-export], [data-svc-history-export], [data-role-action="export"]', !perm.canExport, 'Export disabled for this role.');
+
+    setRoleActionDisabledByIds([
+        'printPatientBtn',
+        'printRxBtn',
+        'exportPatientPdf',
+        'exportRxPdf',
+        'rxHistoryPrintAllBtn',
+        'printTimelineBtn',
+        'printServiceHistoryBtn',
+        'doPrintBtn',
+        'doPrintRxBtn',
+        'rxDetailPrintBtn'
+    ], !perm.canPrint, 'Print disabled for this role.');
+    setRoleActionDisabledBySelector('[data-rxhist-print], [data-svc-history-print], [data-role-action="print"]', !perm.canPrint, 'Print disabled for this role.');
 
     // ---- hide ADD buttons (requires canAdd) ----
     if (!perm.canAdd) {
@@ -2025,6 +2093,9 @@ const NOTIF_ICONS = {
 function setupNotifications() {
     var themeBtn = document.getElementById('themeToggle');
     if (!themeBtn) return;
+    var user = typeof getCurrentAuthUser === 'function' ? getCurrentAuthUser() : null;
+    var auditPerm = user && user.permissions ? user.permissions.audit_log : null;
+    if (!user || (!isAdministratorUser(user) && !(auditPerm && auditPerm.visible === true))) return;
 
     var bellWrapper = document.createElement('div');
     bellWrapper.id = 'notifWrapper';

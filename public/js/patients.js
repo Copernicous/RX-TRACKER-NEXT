@@ -214,7 +214,7 @@ var allPatients = [];
     }
 
     function patientFullPageAccess() {
-        return { visible: true, canAdd: true, canEdit: true, canDelete: true, canExport: true, canUndo: true, canWarehouse: true, canOverrideExpired: true };
+        return { visible: true, canAdd: true, canEdit: true, canDelete: true, canExport: true, canPrint: true, canUndo: true, canWarehouse: true, canOverrideExpired: true };
     }
 
     function getPatientModalPerms() {
@@ -615,7 +615,10 @@ var allPatients = [];
 
         // Apply permissions to top-level buttons
         const patPerms = getPatientModalPerms();
-        if (!patPerms.canExport) { const b = document.getElementById('exportPatientsCsvBtn'); if(b) b.classList.add('d-none'); }
+        const exportPatientsBtn = document.getElementById('exportPatientsCsvBtn');
+        if (exportPatientsBtn && typeof setRoleActionDisabled === 'function') {
+            setRoleActionDisabled(exportPatientsBtn, !patPerms.canExport, 'Export disabled for this role.');
+        }
         if (!patPerms.canAdd)   { const b = document.getElementById('addPatientBtn');       if(b) b.classList.add('d-none'); }
         if (!patPerms.canAdd || !canAddRxAfterPatientCreate()) {
             const b = document.getElementById('addPatientRxBtn');
@@ -1412,6 +1415,10 @@ var allPatients = [];
                 btnPrint.title = 'Print / PDF';
                 btnPrint.innerHTML = '<i class="fas fa-print"></i>';
                 btnPrint.dataset.pid = p.id;
+                btnPrint.dataset.roleAction = 'print';
+                if (typeof setRoleActionDisabled === 'function') {
+                    setRoleActionDisabled(btnPrint, !getPatientModalPerms().canPrint, 'Print disabled for this role.');
+                }
                 btnPrint.addEventListener('click', function() { printPatientRecord(parseInt(this.dataset.pid)); });
                 tdAct.appendChild(btnPrint);
 
@@ -1879,8 +1886,8 @@ var allPatients = [];
                 html += '</span>';
                 html += '<div class="d-flex align-items-center gap-2 flex-wrap">';
                 html += '<span style="background:' + cycleBg + ';color:#fff;font-size:.72rem;padding:2px 10px;border-radius:12px;font-weight:600">' + cycleLabel + '</span>';
-                html += '<button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2" data-rxhist-print="' + rx.id + '" title="Print this service date cycle"><i class="fas fa-print"></i></button>';
-                html += '<button type="button" class="btn btn-sm btn-outline-success py-0 px-2" data-rxhist-export="' + rx.id + '" title="Export this service date cycle CSV"><i class="fas fa-file-csv"></i></button>';
+                html += '<button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2" data-role-action="print" data-rxhist-print="' + rx.id + '" title="Print this service date cycle"><i class="fas fa-print"></i></button>';
+                html += '<button type="button" class="btn btn-sm btn-outline-success py-0 px-2" data-role-action="export" data-rxhist-export="' + rx.id + '" title="Export this service date cycle CSV"><i class="fas fa-file-csv"></i></button>';
                 html += '</div>';
                 html += '</div>';
 

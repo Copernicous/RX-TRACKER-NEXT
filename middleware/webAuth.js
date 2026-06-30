@@ -12,6 +12,7 @@
  */
 const jwt = require('jsonwebtoken');
 const sessionIdleService = require('../services/sessionIdleService');
+const { loadUserAuthContext, hydrateDecodedUser } = require('../services/rolePermissionService');
 
 function clearAuthCookies(res) {
     res.clearCookie('rxToken', { path: '/', sameSite: 'lax' });
@@ -38,7 +39,7 @@ function parseCookies(cookieHeader) {
     return cookies;
 }
 
-module.exports = (req, res, next) => {
+module.exports = async (req, res, next) => {
     res.locals.currentUser = null;
     res.locals.userPerms   = null;
     res.locals.isAdmin     = false;
@@ -55,6 +56,12 @@ module.exports = (req, res, next) => {
             clearAuthCookies(res);
             return next();
         }
+        const context = await loadUserAuthContext(decoded.id);
+        if (!context || !context.user || context.user.isActive === false) {
+            clearAuthCookies(res);
+            return next();
+        }
+        hydrateDecodedUser(decoded, context);
         sessionIdleService.touch(token, decoded);
         req.user               = decoded;          // allow middleware like requireMaster to read req.user
         req.authToken          = token;
