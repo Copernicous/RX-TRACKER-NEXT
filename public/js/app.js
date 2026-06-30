@@ -960,7 +960,7 @@ async function refreshTable() {
 // Permissions helper — returns current-page perms
 // =============================================
 function getFullPageAccess() {
-    return { visible: true, canAdd: true, canEdit: true, canDelete: true, canExport: true, canPrint: true, canUndo: true, canWarehouse: true, canOverrideExpired: true };
+    return { visible: true, canAdd: true, canEdit: true, canDelete: true, canExport: true, canPrint: true, canCopy: true, canUndo: true, canWarehouse: true, canOverrideExpired: true };
 }
 
 function decodeJwtPayload(token) {
@@ -1042,6 +1042,7 @@ function getPagePerms() {
             canDelete:    p.canDelete    !== undefined ? !!p.canDelete    : false,
             canExport:    p.canExport    !== undefined ? !!p.canExport    : false,
             canPrint:     p.canPrint     !== undefined ? !!p.canPrint     : !!p.canExport,
+            canCopy:      p.canCopy      !== undefined ? !!p.canCopy      : true,
             canUndo:      p.canUndo      !== undefined ? !!p.canUndo      : false,
             canWarehouse: p.canWarehouse !== undefined ? !!p.canWarehouse : !!p.canEdit,  // fallback for old data
             canOverrideExpired: p.canOverrideExpired !== undefined ? !!p.canOverrideExpired : false
@@ -1080,6 +1081,68 @@ function setRoleActionDisabledBySelector(selector, disabled, message) {
     for (var i = 0; i < els.length; i++) {
         setRoleActionDisabled(els[i], disabled, message);
     }
+}
+
+var rxCopyProtection = {
+    enabled: false,
+    initialized: false,
+    message: 'Screen copy disabled for this role.',
+    lastNoticeAt: 0
+};
+
+function isCopyAllowedTarget(target) {
+    if (!target) return false;
+    var el = target.nodeType === 1 ? target : target.parentElement;
+    if (!el) return false;
+    return !!el.closest('input, textarea, select, [contenteditable="true"], [contenteditable=""], .rx-copy-allowed');
+}
+
+function shouldBlockScreenCopy(target) {
+    if (!rxCopyProtection.enabled) return false;
+    if (isCopyAllowedTarget(target)) return false;
+    var root = document.getElementById('content') || document.body;
+    var el = target && target.nodeType === 1 ? target : (target ? target.parentElement : null);
+    return !!(root && el && root.contains(el));
+}
+
+function showCopyBlockedNotice() {
+    var now = Date.now();
+    if (now - rxCopyProtection.lastNoticeAt < 2000) return;
+    rxCopyProtection.lastNoticeAt = now;
+    if (typeof showToast === 'function') {
+        showToast(rxCopyProtection.message, 'warning');
+    }
+}
+
+function setupCopyProtectionHandlers() {
+    if (rxCopyProtection.initialized) return;
+    rxCopyProtection.initialized = true;
+
+    ['copy', 'cut', 'contextmenu', 'dragstart', 'selectstart'].forEach(function(eventName) {
+        document.addEventListener(eventName, function(event) {
+            if (!shouldBlockScreenCopy(event.target)) return;
+            event.preventDefault();
+            if (event.clipboardData) {
+                try { event.clipboardData.setData('text/plain', ''); } catch (e) {}
+            }
+            showCopyBlockedNotice();
+        }, true);
+    });
+
+    document.addEventListener('keydown', function(event) {
+        var key = String(event.key || '').toLowerCase();
+        var isCopyShortcut = (event.ctrlKey || event.metaKey) && (key === 'c' || key === 'x' || key === 'insert');
+        if (!isCopyShortcut || !shouldBlockScreenCopy(event.target)) return;
+        event.preventDefault();
+        showCopyBlockedNotice();
+    }, true);
+}
+
+function setScreenCopyProtection(disabled, message) {
+    setupCopyProtectionHandlers();
+    rxCopyProtection.enabled = !!disabled;
+    rxCopyProtection.message = message || 'Screen copy disabled for this role.';
+    document.body.classList.toggle('rx-copy-disabled', rxCopyProtection.enabled);
 }
 
 function renderTable() {
@@ -1867,13 +1930,19 @@ function getPermissionsHTML(existingPermissions) {
 
 function applyReadOnlyRestrictions() {
     var user = getCurrentAuthUser();
-    if (!user) return;
-    if (isAdministratorUser(user)) return;
+    if (!user) {
+        setScreenCopyProtection(false);
+        return;
+    }
+    if (isAdministratorUser(user)) {
+        setScreenCopyProtection(false);
+        return;
+    }
 
     var permissions = user.permissions || getRoleDefaultPermissions(user.role);
     // Dashboard always visible
     if (permissions.dashboard) permissions.dashboard.visible = true;
-    else permissions.dashboard = { visible: true, canEdit: false, canDelete: false, canExport: true, canPrint: true };
+    else permissions.dashboard = { visible: true, canEdit: false, canDelete: false, canExport: true, canPrint: true, canCopy: true };
 
     var sidebarMapping = {
         '/dashboard':         'dashboard',
@@ -1897,7 +1966,10 @@ function applyReadOnlyRestrictions() {
     var currentPath = window.location.pathname;
     var key = sidebarMapping[currentPath];
     if (!key && /^\/patients\/\d+\/timeline\/?$/.test(currentPath)) key = 'patients';
-    if (!key) return;
+    if (!key) {
+        setScreenCopyProtection(false);
+        return;
+    }
 
     // Defaults: everything allowed ONLY when no permission object is stored
     var rawP = permissions[key];
@@ -1909,9 +1981,12 @@ function applyReadOnlyRestrictions() {
             canDelete: rawP.canDelete !== undefined ? !!rawP.canDelete : false,
             canExport: rawP.canExport !== undefined ? !!rawP.canExport : false,
             canPrint:  rawP.canPrint  !== undefined ? !!rawP.canPrint  : !!rawP.canExport,
+            canCopy:   rawP.canCopy   !== undefined ? !!rawP.canCopy   : true,
             canUndo:   rawP.canUndo   !== undefined ? !!rawP.canUndo   : false
           }
-        : { visible: true, canAdd: true, canEdit: true, canDelete: true, canExport: true, canPrint: true, canUndo: true };
+        : { visible: true, canAdd: true, canEdit: true, canDelete: true, canExport: true, canPrint: true, canCopy: true, canUndo: true };
+
+    setScreenCopyProtection(!perm.canCopy, 'Screen copy disabled for this role.');
 
     // ---- disable EXPORT / PRINT buttons while keeping them visible ----
     setRoleActionDisabledByIds([

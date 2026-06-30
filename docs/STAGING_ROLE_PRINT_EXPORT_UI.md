@@ -64,3 +64,20 @@ The global Help/User Manual drawer could appear as normal page content at the bo
 Read-only users should not call admin-only background APIs. The notification bell now initializes only when Audit Log is visible for the role, and the sidebar "Who's Online" poll starts only when the online badge is actually rendered. This prevents avoidable 403 noise for read-only sessions.
 
 The `/roles` web route now also redirects server-side to `/dashboard` unless the user is an administrator or has the User Management module visible. This prevents restricted users from briefly loading the Roles page scripts before the client-side redirect runs.
+
+## 2026-06-30 Screen Copy Block Staging Pass
+
+This staging pass adds a separate `Copy` role permission for visible screen data.
+
+Behavior:
+
+- `Copy` appears as its own checkbox in Roles Management.
+- If `Copy` is off for the current page module, the page blocks normal text selection, Ctrl/Cmd+C, cut, right-click context menu, and drag-copy inside the main content area.
+- Form controls remain usable, so users can still type into search fields, filters, and inputs.
+- Existing roles that do not yet have `canCopy` default to copy allowed, so rollout does not unexpectedly lock users down.
+
+Limitations:
+
+- This is a browser/UI control, not DRM.
+- It cannot stop screenshots, phone photos, browser developer tools, or users manually retyping visible information.
+- Backend API response bodies are not changed in this pass.

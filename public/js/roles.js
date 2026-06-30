@@ -122,6 +122,7 @@ function renderMatrix() {
                 badge(perm.canExport,'file-csv',   'info')    +
                 badge(perm.canPrint !== undefined ? perm.canPrint : perm.canExport, 'print', 'secondary');
         }
+        actionBadges += badge(perm.canCopy !== undefined ? perm.canCopy : true, 'copy', 'warning');
         actionBadges +=
             (perm.canUndo ? badge(true,'undo','warning') : '') +
             (perm.canOverrideExpired ? badge(true,'unlock-alt','dark') : '');
@@ -166,6 +167,7 @@ function renderMatrix() {
         '<span>' + badge(true,'trash','danger') + ' Delete</span>' +
         '<span>' + badge(true,'file-csv','info') + ' Export</span>' +
         '<span>' + badge(true,'print','secondary') + ' Print</span>' +
+        '<span>' + badge(true,'copy','warning') + ' Copy</span>' +
         '<span>' + badge(true,'undo','warning') + ' Undo</span>' +
         '<span>' + badge(true,'unlock-alt','dark') + ' Override 90-Day</span>' +
         '<span><span class="badge bg-danger" style="font-size:.62rem"><i class="fas fa-eye-slash"></i></span> Hidden</span>' +
@@ -238,31 +240,33 @@ function buildPermEditor(perms) {
 
     for (var _mi2 = 0; _mi2 < MODULE_DEFS.length; _mi2++) {
         var m = MODULE_DEFS[_mi2];
-        var p = perms[m.key] || { visible: false, canAdd: false, canEdit: false, canDelete: false, canExport: false, canPrint: false, canUndo: false, canWarehouse: false, canOverrideExpired: false };
+        var p = perms[m.key] || { visible: false, canAdd: false, canEdit: false, canDelete: false, canExport: false, canPrint: false, canCopy: true, canUndo: false, canWarehouse: false, canOverrideExpired: false };
         if (p.canAdd === undefined) p.canAdd = p.canEdit;
         if (p.canPrint === undefined) p.canPrint = p.canExport;
+        if (p.canCopy === undefined) p.canCopy = true;
         if (p.canWarehouse === undefined) p.canWarehouse = p.canEdit;
         if (p.canOverrideExpired === undefined) p.canOverrideExpired = false;
 
         var groupRow = '';
         if (m.group !== lastGroup) {
             lastGroup = m.group;
-            groupRow = '<tr style="background:rgba(255,255,255,.02)"><td colspan="11" class="fw-bold py-1 px-2" style="font-size:.7rem;text-transform:uppercase;color:' + (GROUP_COLORS[m.group] || '#aaa') + '">' + m.group + '</td></tr>';
+            groupRow = '<tr style="background:rgba(255,255,255,.02)"><td colspan="12" class="fw-bold py-1 px-2" style="font-size:.7rem;text-transform:uppercase;color:' + (GROUP_COLORS[m.group] || '#aaa') + '">' + m.group + '</td></tr>';
         }
+        var copyCell = '<td class="text-center" title="Can select and copy visible screen data"><input type="checkbox" class="form-check-input perm-cancopy" ' + (p.canCopy ? 'checked' : '') + '></td>';
 
         if (m.visibleLocked) {
             var exportPrintCells = m.noExportPrint
                 ? dashCell + dashCell
                 : '<td class="text-center"><input type="checkbox" class="form-check-input perm-canexport" ' + (p.canExport ? 'checked' : '') + '></td><td class="text-center"><input type="checkbox" class="form-check-input perm-canprint" ' + (p.canPrint ? 'checked' : '') + '></td>';
-            _mHtml += groupRow + '<tr data-module="' + m.key + '"><td class="ps-3 fw-semibold">' + m.label + ' <span class="badge bg-secondary ms-1" style="font-size:.6rem">Always On</span></td><td class="text-center"><input type="checkbox" class="form-check-input perm-visible" checked disabled></td>' + dashCell + dashCell + dashCell + exportPrintCells + dashCell + dashCell + dashCell + dashCell + '</tr>';
+            _mHtml += groupRow + '<tr data-module="' + m.key + '"><td class="ps-3 fw-semibold">' + m.label + ' <span class="badge bg-secondary ms-1" style="font-size:.6rem">Always On</span></td><td class="text-center"><input type="checkbox" class="form-check-input perm-visible" checked disabled></td>' + dashCell + dashCell + dashCell + exportPrintCells + copyCell + dashCell + dashCell + dashCell + dashCell + '</tr>';
             continue;
         }
         if (m.visibleOnly) {
-            _mHtml += groupRow + '<tr data-module="' + m.key + '"><td class="ps-3 fw-semibold">' + m.label + ' <span class="badge bg-info ms-1" style="font-size:.6rem">View only</span></td><td class="text-center"><input type="checkbox" class="form-check-input perm-visible" ' + (p.visible ? 'checked' : '') + '></td>' + dashCell + dashCell + dashCell + '<td class="text-center"><input type="checkbox" class="form-check-input perm-canexport" ' + (p.canExport ? 'checked' : '') + '></td><td class="text-center"><input type="checkbox" class="form-check-input perm-canprint" ' + (p.canPrint ? 'checked' : '') + '></td>' + dashCell + dashCell + dashCell + dashCell + '</tr>';
+            _mHtml += groupRow + '<tr data-module="' + m.key + '"><td class="ps-3 fw-semibold">' + m.label + ' <span class="badge bg-info ms-1" style="font-size:.6rem">View only</span></td><td class="text-center"><input type="checkbox" class="form-check-input perm-visible" ' + (p.visible ? 'checked' : '') + '></td>' + dashCell + dashCell + dashCell + '<td class="text-center"><input type="checkbox" class="form-check-input perm-canexport" ' + (p.canExport ? 'checked' : '') + '></td><td class="text-center"><input type="checkbox" class="form-check-input perm-canprint" ' + (p.canPrint ? 'checked' : '') + '></td>' + copyCell + dashCell + dashCell + dashCell + dashCell + '</tr>';
             continue;
         }
         if (m.notesOnly) {
-            _mHtml += groupRow + '<tr data-module="' + m.key + '" style="background:rgba(255,193,7,.04)"><td class="ps-3 fw-semibold">' + m.label + ' <span class="badge bg-warning text-dark ms-1" style="font-size:.6rem">Per-patient</span></td><td class="text-center"><span class="text-muted" title="Always visible">\u2014</span></td><td class="text-center" title="Can add new notes"><input type="checkbox" class="form-check-input perm-canadd" ' + (p.canAdd ? 'checked' : '') + '></td><td class="text-center" title="Cannot edit existing notes (immutable)"><span class="text-muted">\u2014</span></td><td class="text-center" title="Can delete notes"><input type="checkbox" class="form-check-input perm-candelete" ' + (p.canDelete ? 'checked' : '') + '></td>' + dashCell + dashCell + dashCell + dashCell + dashCell + dashCell + '</tr>';
+            _mHtml += groupRow + '<tr data-module="' + m.key + '" style="background:rgba(255,193,7,.04)"><td class="ps-3 fw-semibold">' + m.label + ' <span class="badge bg-warning text-dark ms-1" style="font-size:.6rem">Per-patient</span></td><td class="text-center"><span class="text-muted" title="Always visible">\u2014</span></td><td class="text-center" title="Can add new notes"><input type="checkbox" class="form-check-input perm-canadd" ' + (p.canAdd ? 'checked' : '') + '></td><td class="text-center" title="Cannot edit existing notes (immutable)"><span class="text-muted">\u2014</span></td><td class="text-center" title="Can delete notes"><input type="checkbox" class="form-check-input perm-candelete" ' + (p.canDelete ? 'checked' : '') + '></td>' + dashCell + dashCell + copyCell + dashCell + dashCell + dashCell + dashCell + '</tr>';
             continue;
         }
 
@@ -286,6 +290,7 @@ function buildPermEditor(perms) {
                 '<td class="text-center"><input type="checkbox" class="form-check-input perm-candelete" ' + (p.canDelete ? 'checked' : '') + '></td>' +
                 '<td class="text-center"><input type="checkbox" class="form-check-input perm-canexport" ' + (p.canExport ? 'checked' : '') + '></td>' +
                 '<td class="text-center"><input type="checkbox" class="form-check-input perm-canprint" ' + (p.canPrint ? 'checked' : '') + '></td>' +
+                copyCell +
                 workflowCells +
                 overrideCell +
             '</tr>';
@@ -305,6 +310,7 @@ function readPermEditor() {
             canDelete:    cb('.perm-candelete'),
             canExport:    cb('.perm-canexport'),
             canPrint:     cb('.perm-canprint'),
+            canCopy:      cb('.perm-cancopy'),
             canUndo:      cb('.perm-canundo'),
             canWarehouse: cb('.perm-canwarehouse'),
             canOverrideExpired: cb('.perm-canoverrideexpired')
