@@ -130,8 +130,7 @@
         initApp();
 
         const user = typeof getCurrentAuthUser === 'function' ? getCurrentAuthUser() : (window.__RX_AUTH_USER || {});
-        const allowedRoles = ['Administrator', 'Supervisor'];
-        if (!user.role || !allowedRoles.includes(user.role)) {
+        if (!userCanImport(user)) {
             document.getElementById('accessDeniedPanel').classList.remove('d-none');
         } else {
             document.getElementById('importPanel').classList.remove('d-none');
@@ -159,6 +158,21 @@
             document.getElementById('uploadBtn').disabled = false;
         });
     });
+
+    function userCanImport(user) {
+        if (!user) return false;
+
+        try {
+            if (typeof getPagePerms === 'function') {
+                const pagePerms = getPagePerms();
+                return !!(pagePerms && pagePerms.visible && (pagePerms.canAdd || pagePerms.canEdit));
+            }
+        } catch (e) {}
+
+        const permissions = user.permissions || window.__RX_AUTH_PERMS || {};
+        const importPerm = permissions.import || {};
+        return !!(importPerm.visible && (importPerm.canAdd || importPerm.canEdit));
+    }
 
     function selectDataset(dataset) {
         currentDataset = dataset;
