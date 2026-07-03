@@ -35,7 +35,7 @@
             process.exit(1);
         }
         // Load .env then reset the password
-        require('dotenv').config();
+        require('dotenv').config({ override: true });
         var bcryptRp = require('bcryptjs');
         var dbRp     = require('./models');
         dbRp.sequelize.authenticate().then(async function() {
@@ -57,7 +57,7 @@
 })();
 
 
-require('dotenv').config();
+require('dotenv').config({ override: true });
 
 // -- Log file setup (LOG_FILE=true in .env enables file logging) ----------------
 var _logStream = null;    // Morgan HTTP access log stream
