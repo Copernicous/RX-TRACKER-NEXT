@@ -206,37 +206,52 @@ const loginLimiter = rateLimit({
 // Trust FortiGate SSL VPN and reverse proxy chain -- allows Express to correctly read
 // X-Forwarded-For (real client IP) and X-Forwarded-Proto (https) headers.
 
-// SEC-01: CORS — locked to explicit origin allowlist.
-// APP_ORIGIN supports comma-separated values for multi-origin setups.
-// FortiGate origin: https://rx.camperos.net:10443
-// Dev origin:       http://localhost:3000
-// Example .env:     APP_ORIGIN=https://rx.camperos.net:10443,http://192.168.60.21:3000,http://localhost:3000
+// SEC-01: CORS - locked to explicit origin allowlist.
+// APP_ORIGIN and APP_ORIGINS support comma-separated values for multi-origin setups.
+// Example .env:
+// APP_ORIGINS=http://localhost:3050,http://127.0.0.1:3050,http://192.168.15.12:3050
 (function() {
-    const rawOrigin = process.env.APP_ORIGIN || '';
+    function normalizeOrigin(value) {
+        return String(value || '').trim().replace(/\/+$/, '');
+    }
+
+    function parseOrigins(value) {
+        return String(value || '')
+            .split(/[,\s]+/)
+            .map(normalizeOrigin)
+            .filter(Boolean);
+    }
+
+    const allowed = Array.from(new Set(
+        []
+            .concat(parseOrigins(process.env.APP_ORIGIN))
+            .concat(parseOrigins(process.env.APP_ORIGINS))
+            .concat(parseOrigins(process.env.CORS_ORIGINS))
+            .concat(parseOrigins(process.env.ALLOWED_ORIGINS))
+    ));
     let corsOrigin;
-    if (rawOrigin.trim()) {
-        // Parse comma-separated allowlist
-        const allowed = rawOrigin.split(',').map(function(o) { return o.trim(); }).filter(Boolean);
+    if (allowed.length) {
         corsOrigin = function(origin, callback) {
             // Allow same-origin / server-to-server requests (no Origin header)
             if (!origin) return callback(null, true);
-            if (allowed.indexOf(origin) !== -1) return callback(null, true);
-            callback(new Error('CORS: origin not allowed — ' + origin));
+            if (allowed.indexOf(normalizeOrigin(origin)) !== -1) return callback(null, true);
+            callback(new Error('CORS: origin not allowed - ' + origin + '. Add this URL to APP_ORIGINS in .env.'));
         };
+        console.log('[CORS] Allowed origins: ' + allowed.join(', '));
     } else if (process.env.NODE_ENV === 'production') {
-        // SEC-04: Fail CLOSED in production — never open credentialed CORS without explicit origin.
+        // SEC-04: Fail CLOSED in production - never open credentialed CORS without explicit origin.
         console.error('');
-        console.error('═══════════════════════════════════════════════════════════');
-        console.error('  FATAL: APP_ORIGIN is not set in production mode.');
+        console.error('===========================================================');
+        console.error('  FATAL: APP_ORIGIN/APP_ORIGINS is not set in production mode.');
         console.error('  Refusing to start with open CORS (origin: true).');
-        console.error('  Set APP_ORIGIN in .env, e.g.:');
-        console.error('    APP_ORIGIN=https://rx.camperos.net:10443,http://192.168.60.21:3000');
-        console.error('═══════════════════════════════════════════════════════════');
+        console.error('  Set APP_ORIGINS in .env, e.g.:');
+        console.error('    APP_ORIGINS=https://rx.camperos.net:10443,http://192.168.15.12:3050');
+        console.error('===========================================================');
         console.error('');
         process.exit(1);
     } else {
-        // Development / test — warn but allow open (local dev convenience)
-        console.warn('[WARN] APP_ORIGIN not set — CORS is open (development mode only).');
+        // Development / test - warn but allow open (local dev convenience)
+        console.warn('[WARN] APP_ORIGIN/APP_ORIGINS not set - CORS is open (development mode only).');
         corsOrigin = true;
     }
     app.use(cors({ origin: corsOrigin, credentials: true }));
