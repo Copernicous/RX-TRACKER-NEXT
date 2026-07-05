@@ -1220,6 +1220,7 @@ var allPatients = [];
 
             // Col: Patient Code
             var tdCode = document.createElement('td');
+            tdCode.dataset.label = 'Patient ID';
             var codeEl = document.createElement('code');
             codeEl.textContent = p.patientCode || p.id;
             tdCode.appendChild(codeEl);
@@ -1227,6 +1228,7 @@ var allPatients = [];
 
             // Col: Name
             var tdName = document.createElement('td');
+            tdName.dataset.label = 'Full Name';
             var strong = document.createElement('strong');
             strong.textContent = (p.firstName || '') + ' ' + (p.lastName || '');
             tdName.appendChild(strong);
@@ -1234,6 +1236,7 @@ var allPatients = [];
 
             // Col: Clinic
             var tdClinic = document.createElement('td');
+            tdClinic.dataset.label = 'Location / Clinic';
             if (p.Clinic) {
                 var clinicSpan = document.createElement('span');
                 // Custom style: deep teal bg + white text — readable in both light & dark mode
@@ -1249,16 +1252,19 @@ var allPatients = [];
 
             // Col: DOB
             var tdDob = document.createElement('td');
+            tdDob.dataset.label = 'DOB';
             tdDob.textContent = window.fmtDate(p.dob) || '\u2014';
             tr.appendChild(tdDob);
 
             // Col: Phone
             var tdPhone = document.createElement('td');
+            tdPhone.dataset.label = 'Phone';
             tdPhone.textContent = p.phone || '\u2014';
             tr.appendChild(tdPhone);
 
             // Col: Service Date
             var tdSvc = document.createElement('td');
+            tdSvc.dataset.label = 'Service Date';
             tdSvc.textContent = window.fmtDate(p.serviceDate) || '\u2014';
             tr.appendChild(tdSvc);
 
@@ -1268,6 +1274,7 @@ var allPatients = [];
             // daysLeft 8-14 → expiring soon (yellow warning)
             // daysLeft > 14 → in active window (plain date)
             var tdNext = document.createElement('td');
+            tdNext.dataset.label = 'Next Svc Date';
             if (p.serviceDate) {
                 var _sd   = new Date(p.serviceDate); _sd.setHours(0,0,0,0);
                 var _exp  = new Date(_sd.getTime() + 90 * 864e5);
@@ -1291,6 +1298,7 @@ var allPatients = [];
 
             // Col: Status
             var tdStatus = document.createElement('td');
+            tdStatus.dataset.label = 'Status';
             var statusSpan = document.createElement('span');
             if (p.isDeleted) {
                 statusSpan.className = 'badge bg-danger';
@@ -1307,6 +1315,8 @@ var allPatients = [];
 
             // Col: Actions
             var tdAct = document.createElement('td');
+            tdAct.dataset.label = 'Actions';
+            tdAct.className = 'rx-mobile-actions';
 
             if (p.isDeleted) {
                 if (pp.canDelete) {
