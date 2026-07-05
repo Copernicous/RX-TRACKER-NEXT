@@ -9,6 +9,27 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 - No unreleased changes.
 
+## [2.0.72] - 2026-07-05
+
+### [RELEASE-72] Development setup hardening, configurable CORS, mobile layout, and backoffice 2FA fix
+**Files changed:** Windows setup flow, environment loading, CORS configuration, database setup validation, dashboard/mobile CSS, Patients table, RX Records table, release metadata
+**Commit references:** `9e6d656`, `d4b8c71`, `ed73519`, `d73dc4d`, `df28f85`, `3bddd1f`, `65ccdc4`
+
+- Fixed the Backoffice 2FA reset lookup so the target user is resolved correctly.
+- Hardened the Windows setup workflow and added a development database connection check script.
+- Forced setup and app startup paths to load `.env` overrides consistently, reducing stale environment variable issues during setup, migrations, and local development.
+- Made the performance indexes migration safer for fresh installs and repeat setup flows.
+- Added configurable CORS origin support through `APP_ORIGINS`, `CORS_ORIGINS`, or `ALLOWED_ORIGINS`, while preserving `APP_ORIGIN` compatibility.
+- Added `.env.example` guidance for multi-origin LAN/local browser URLs.
+- Added mobile-only layout refinements for dashboards, workflow cards, menus, selectors, Patients, and RX Records so phone screens use smaller cards, scaled icons, readable labels, and card-style tables.
+- Bumped production package version to `2.0.72`.
+
+**Database impact:**
+- No destructive schema changes and no data resets are introduced.
+- Existing patients, RX records, users, roles, permissions, settings, backups, audit logs, and changelog data are preserved.
+- Existing production environments using `APP_ORIGIN` continue to work; new multi-origin deployments can use `APP_ORIGINS`.
+- Existing database migrations remain compatible; setup/migration handling is safer for new installs.
+
 ## [2.0.71] - 2026-06-30
 
 ### [RELEASE-71] Proxy 2FA, Data Import permission, changelog fallback, and packaging safety
