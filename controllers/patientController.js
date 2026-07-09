@@ -229,13 +229,25 @@ function buildPatientFacets(rows) {
     }, {});
 }
 
-function patientInclude() {
+function patientInclude(options) {
+    options = options || {};
+    const noteInclude = options.includeFullNotes
+        ? {
+            model: db.PatientNote,
+            as: 'PatientNotes',
+            attributes: ['id', 'note', 'createdAt', 'userId'],
+            include: [{ model: db.User, as: 'Author', attributes: ['id', 'firstName', 'lastName', 'username'] }],
+            order: [['createdAt', 'DESC'], ['id', 'DESC']],
+            separate: true
+        }
+        : { model: db.PatientNote, as: 'PatientNotes', attributes: ['id'] };
+
     return [
         db.PatientTransportCompany,
         db.PharmacyTransportCompany,
         db.Clinic,
         db.Pharmacy,
-        { model: db.PatientNote, as: 'PatientNotes', attributes: ['id'] },
+        noteInclude,
         {
             model: db.RXRecord,
             attributes: ['id'],
@@ -277,7 +289,7 @@ exports.getAll = async (req, res) => {
 
         const data = await db.Patient.findAll({
             where: whereClause,
-            include: patientInclude()
+            include: patientInclude({ includeFullNotes: req.query.exportAll === 'true' })
         });
         let rows = enrichPatientRows(data, totalWorkflowSteps);
 

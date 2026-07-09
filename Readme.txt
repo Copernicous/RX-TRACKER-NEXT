@@ -1,53 +1,50 @@
-Patient RX System v2.0.72
+Patient RX System v2.0.73
 =========================
 
-Production Release: Development Setup, Mobile Layout, CORS, And Backoffice 2FA
+Production Release: Patient CSV Notes Export
 
-This package includes every production improvement through v2.0.72. The main
-updates in this release are safer setup/environment handling, configurable CORS
-origins, phone-friendly Patients/RX layouts, and a Backoffice 2FA reset lookup
-fix.
+This package includes every production improvement through v2.0.73. The main
+update in this release is that Patient List CSV exports now include patient
+notes.
 
 Included improvements
 ---------------------
 
-v2.0.72 - setup, mobile, CORS, and Backoffice 2FA
-- Windows setup flow is hardened for local development and deployment prep.
-- Setup migrations and app startup now load .env overrides consistently.
-- Performance index migration handling is safer for fresh installs.
-- APP_ORIGINS, CORS_ORIGINS, and ALLOWED_ORIGINS are supported for multi-origin
-  browser access while APP_ORIGIN remains supported.
-- Dashboard, RX Workflow Pipeline, Patients, and RX Records receive mobile-only
-  layout improvements for phone screens.
-- Patients and RX Records tables become readable card rows on small screens.
-- Backoffice 2FA reset resolves the selected user correctly.
+v2.0.73 - patient CSV notes export
+- The Patient List CSV export column selector now includes Notes.
+- The Notes column includes the main patient record notes.
+- The Notes column also includes all separate Patient Notes modal entries.
+- Multiple notes are combined into one CSV cell using " | " between entries.
+- Note date and author context are included when available.
+- Full note text is loaded only for full Patient List export requests, so normal
+  Patient List loading remains lightweight.
 
 Database impact
 ---------------
 
 - No destructive schema changes are included.
 - No production data reset is included.
-- Existing patients, RX records, users, roles, permissions, settings, backups,
-  audit logs, and changelog data are preserved.
-- Existing production APP_ORIGIN values continue to work. Use APP_ORIGINS when
-  production needs to allow multiple browser URLs.
+- Existing patients, patient notes, RX records, users, roles, permissions,
+  settings, backups, audit logs, and changelog data are preserved.
+- This release changes CSV output only; stored patient and note data are not
+  modified.
 
 Production verification
 -----------------------
 
 After installing this package:
 
-1. Confirm /api/version shows 2.0.72.
-2. Login on desktop and confirm Dashboard, Patients, and RX Records load.
-3. Open the site from a phone-width browser viewport.
-4. Confirm Dashboard cards and RX Workflow Pipeline fit without clipped icons.
-5. Confirm Patients rows are readable card rows with tappable actions.
-6. Confirm RX Records rows and workflow actions are readable on phone width.
-7. Confirm the production .env contains the browser origin users type.
-8. If available, run a controlled Backoffice 2FA reset for a test user.
+1. Confirm /api/version shows 2.0.73.
+2. Login and open Patients.
+3. Open the Patient List Export CSV column selector.
+4. Confirm Notes appears as an exportable column and is selected by default.
+5. Export a patient with main record notes and multiple Patient Notes entries.
+6. Confirm the CSV keeps that patient on one row and combines notes in the
+   Notes column.
+7. Confirm Patients still loads normally and note-count badges still display.
 
 Production package
 ------------------
 
-- Deploy dist/server-update-2.0.72.zip or approved dist files only.
+- Deploy dist/server-update-2.0.73.zip or approved dist files only.
 - Keep the production .env unchanged and next to server.exe.

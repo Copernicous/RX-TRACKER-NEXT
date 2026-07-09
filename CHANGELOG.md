@@ -9,6 +9,23 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 - No unreleased changes.
 
+## [2.0.73] - 2026-07-09
+
+### [RELEASE-73] Patient CSV notes export
+**Files changed:** Patients export UI, patient export API, release metadata
+
+- Added a `Notes` column to the Patient List CSV export column selector.
+- Included the main patient record notes in the exported `Notes` column.
+- Included all separate Patient Notes modal entries in the same exported `Notes` column.
+- Combined multiple notes into one CSV cell using a readable separator so spreadsheet tools keep each patient on one row.
+- Loaded full Patient Notes details only for full patient export requests, keeping normal Patient List loading lightweight while preserving existing note-count badges.
+- Bumped production package version to `2.0.73`.
+
+**Database impact:**
+- No schema changes and no data resets are introduced.
+- Existing patient notes, patient records, RX records, users, roles, permissions, settings, backups, audit logs, and changelog data are preserved.
+- Export behavior changes only the generated CSV content; stored data is not modified.
+
 ## [2.0.72] - 2026-07-05
 
 ### [RELEASE-72] Development setup hardening, configurable CORS, mobile layout, and backoffice 2FA fix

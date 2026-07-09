@@ -505,6 +505,33 @@ var allPatients = [];
         });
 
         // ── Export with Column Selector ─────────────────────────────────────────
+        function cleanCsvNoteText(value) {
+            return String(value || '').replace(/\s+/g, ' ').trim();
+        }
+
+        function patientNoteAuthorName(note) {
+            var author = note && note.Author ? note.Author : null;
+            if (!author) return '';
+            return cleanCsvNoteText([author.firstName, author.lastName].filter(Boolean).join(' ') || author.username || '');
+        }
+
+        function exportPatientNotes(patient) {
+            var parts = [];
+            var mainNote = cleanCsvNoteText(patient && patient.notes);
+            if (mainNote) parts.push('Patient record: ' + mainNote);
+
+            var noteRows = patient && Array.isArray(patient.PatientNotes) ? patient.PatientNotes : [];
+            noteRows.forEach(function(note) {
+                var noteText = cleanCsvNoteText(note && note.note);
+                if (!noteText) return;
+                var date = window.fmtDate(note.createdAt) || '';
+                var author = patientNoteAuthorName(note);
+                var context = [date, author].filter(Boolean).join(' - ');
+                parts.push((context ? '[' + context + '] ' : '') + noteText);
+            });
+            return parts.join(' | ');
+        }
+
         const EXPORT_COLS = [
             { key: 'patientCode',  label: 'Patient ID',        fn: p => p.patientCode || p.id },
             { key: 'firstName',   label: 'First Name',         fn: p => p.firstName || '' },
@@ -513,6 +540,7 @@ var allPatients = [];
             { key: 'phone',       label: 'Phone',              fn: p => p.phone     || '' },
             { key: 'address',     label: 'Address',            fn: p => p.address   || '' },
             { key: 'serviceDate', label: 'Service Date',       fn: p => p.serviceDate || '' },
+            { key: 'notes',       label: 'Notes',              fn: p => exportPatientNotes(p) },
             { key: 'status',      label: 'Status',             fn: p => p.isDeleted ? 'Deleted' : (p.isActive ? 'Active' : 'Inactive') },
             { key: 'clinic',      label: 'Clinic',             fn: p => p.Clinic ? p.Clinic.name : '' },
             { key: 'patTrans',    label: 'Patient Transport',  fn: p => p.PatientTransportCompany ? (p.PatientTransportCompany.contactPerson || p.PatientTransportCompany.companyName || '') : '' },
