@@ -15,6 +15,7 @@
 - Backoffice cleanup preview/purge for Call Center calls, notes, service-date events, and stale locks.
 - Backoffice service-date-history delete repair so reverted Call Center patients can return to the available queue.
 - Queue reopen handling for reverted Call Center patients that still have same-day call history.
+- Service-date cycle status repair when Backoffice reverts a Call Center service-date entry.
 - Call Center sidebar placement below RX Records.
 - Restricted `/api/version` and sensitive API access for Call Center users.
 - Full staging smoke/click coverage for the Call Center workflow and existing dashboard/report cards.

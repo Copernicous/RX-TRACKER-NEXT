@@ -11,6 +11,9 @@ const logDashboardService = require('../services/logDashboardService');
 const {
     recordPatientServiceDateChange
 } = require('../services/patientServiceDateHistoryService');
+const {
+    syncPatientServiceDateCycles
+} = require('../services/patientServiceDateCycleService');
 
 function readSettings() {
     return fileSettings.readSettings();
@@ -1346,6 +1349,15 @@ function isCallCenterEligibleServiceDate(value) {
     return serviceDate < cutoff.toISOString().slice(0, 10);
 }
 
+function serviceDateCycleEnd(value) {
+    const serviceDate = parseDate(value);
+    if (!serviceDate) return null;
+    const end = new Date(`${serviceDate}T00:00:00`);
+    if (isNaN(end.getTime())) return null;
+    end.setDate(end.getDate() + 90);
+    return end;
+}
+
 function requestIp(req) {
     return req.headers['x-forwarded-for'] || req.ip || (req.connection && req.connection.remoteAddress) || null;
 }
@@ -1362,7 +1374,8 @@ async function prepareServiceDateHistoryDelete(idList, transaction, req) {
         restoredPatients: 0,
         removedServiceDateAuditLogs: 0,
         removedCallCenterLocks: 0,
-        reopenedQueuePatients: 0
+        reopenedQueuePatients: 0,
+        closedServiceDateCycles: 0
     };
     const callCenterRows = histories.filter((row) =>
         String(row.changeSource || '').trim().toLowerCase() === 'call center'
@@ -1388,6 +1401,25 @@ async function prepareServiceDateHistoryDelete(idList, transaction, req) {
         });
         if (patient && newServiceDate && parseDate(patient.serviceDate) === newServiceDate) {
             await patient.update({ serviceDate: previousServiceDate || null }, { transaction });
+            const [closedCycles] = await db.PatientServiceDateCycle.update({
+                status: 'historical',
+                endedAt: serviceDateCycleEnd(newServiceDate)
+            }, {
+                where: {
+                    patientId,
+                    serviceDate: newServiceDate,
+                    status: 'active'
+                },
+                transaction
+            });
+            result.closedServiceDateCycles += closedCycles || 0;
+            await syncPatientServiceDateCycles(patient, {
+                transaction,
+                userId: req && req.user && req.user.id ? req.user.id : null,
+                source: 'Backoffice Call Center Queue Repair',
+                contextChangeReason: 'Backoffice deleted Call Center service date history',
+                metadata: { callCenterQueueRepair: true }
+            });
             result.restoredPatients += 1;
             if (
                 patient.isActive === true &&

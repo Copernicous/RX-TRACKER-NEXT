@@ -59,6 +59,7 @@ async function cleanup(created) {
         await db.CallCenterLock.destroy({ where: { patientId: { [Op.in]: patientIds } } }).catch(() => {});
         await db.AuditLog.destroy({ where: { recordId: { [Op.in]: patientIds }, module: 'Call Center' } }).catch(() => {});
         await db.PatientServiceDateHistory.destroy({ where: { patientId: { [Op.in]: patientIds } } }).catch(() => {});
+        await db.PatientServiceDateCycle.destroy({ where: { patientId: { [Op.in]: patientIds } } }).catch(() => {});
         await db.Patient.destroy({ where: { id: { [Op.in]: patientIds } } }).catch(() => {});
     }
     if (created.users.length) {
@@ -138,6 +139,14 @@ async function main() {
 
         await patient.update({ serviceDate: newServiceDate });
         await createAudit(callCenterUser, patient, 'Service Date Added', 10, { serviceDate: newServiceDate });
+        await db.PatientServiceDateCycle.create({
+            patientId: patient.id,
+            serviceDate: newServiceDate,
+            status: 'active',
+            source: 'Call Center',
+            startedAt: new Date(`${newServiceDate}T00:00:00`),
+            metadata: { regression: RUN_ID }
+        });
         const history = await db.PatientServiceDateHistory.create({
             patientId: patient.id,
             previousServiceDate: oldServiceDate,
@@ -159,9 +168,21 @@ async function main() {
         assert.strictEqual(deleteRes.statusCode, 200, 'Backoffice delete failed: ' + JSON.stringify(deleteRes.body));
         assert.strictEqual(deleteRes.body.results.callCenterQueueRepair.restoredPatients, 1, 'Patient service date was not restored.');
         assert.strictEqual(deleteRes.body.results.callCenterQueueRepair.reopenedQueuePatients, 1, 'Queue reopen marker was not created.');
+        assert.strictEqual(deleteRes.body.results.callCenterQueueRepair.closedServiceDateCycles, 1, 'Undone service date cycle was not closed.');
 
         const reloaded = await db.Patient.findByPk(patient.id);
         assert.strictEqual(reloaded.serviceDate, oldServiceDate, 'Patient service date should return to previous eligible date.');
+
+        const undoneCycle = await db.PatientServiceDateCycle.findOne({
+            where: { patientId: patient.id, serviceDate: newServiceDate }
+        });
+        assert.strictEqual(undoneCycle.status, 'historical', 'Undone service date cycle should become historical.');
+
+        const restoredCycle = await db.PatientServiceDateCycle.findOne({
+            where: { patientId: patient.id, serviceDate: oldServiceDate }
+        });
+        assert(restoredCycle, 'Restored previous service date cycle should exist.');
+        assert.strictEqual(restoredCycle.status, 'active', 'Restored previous service date cycle should be active.');
 
         const serviceDateAuditCount = await db.AuditLog.count({
             where: { module: 'Call Center', action: 'Service Date Added', recordId: patient.id }

@@ -25,6 +25,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 - Added Backoffice Call Center cleanup preview/purge controls for calls, Call Center notes, service-date event history, and stale locks.
 - Added Backoffice repair behavior when deleting Call Center service-date history rows so matching stale Call Center service-date audit blockers and locks are removed and the patient can return to the available queue when the previous service date is restored.
 - Fixed the Backoffice service-date-history delete repair so restored eligible patients return to the Call Center queue even when they still have same-day call history.
+- Synced service-date cycle status during the Backoffice repair so the reverted old service date becomes the active cycle and the undone Call Center service-date cycle becomes historical.
 - Moved the regular-user Call Center sidebar item below RX Records.
 - Restricted `/api/version` and sensitive APIs so unauthenticated users receive `401`, Call Center users receive `403`, and administrators retain access.
 - Added automated staging smoke coverage for Call Center API restrictions, full UI click paths, dashboard cards, calculators, drilldowns, exports, reports, URL injection defense, repeat calls, and service-date removal from the active queue.
