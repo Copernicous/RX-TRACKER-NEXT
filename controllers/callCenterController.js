@@ -19,6 +19,7 @@ const MODULE_NAME = 'Call Center';
 const CALL_ACTION = 'Called';
 const NOTE_ACTION = 'Note Added';
 const SERVICE_DATE_ACTION = 'Service Date Added';
+const QUEUE_REOPENED_ACTION = 'Queue Reopened';
 const CALL_LOCK_TTL_MS = 10 * 60 * 1000;
 
 function localDateOnly(date) {
@@ -345,19 +346,40 @@ async function getCallHistoryForPatients(patientIds) {
 
 async function getCalledTodayPatientIdSet() {
     const range = todayRange();
-    const logs = await db.AuditLog.findAll({
-        where: {
-            module: MODULE_NAME,
-            action: CALL_ACTION,
-            recordId: { [Op.ne]: null },
-            createdAt: { [Op.between]: [range.from, range.to] }
-        },
-        attributes: ['recordId']
+    const [logs, reopenedLogs] = await Promise.all([
+        db.AuditLog.findAll({
+            where: {
+                module: MODULE_NAME,
+                action: CALL_ACTION,
+                recordId: { [Op.ne]: null },
+                createdAt: { [Op.between]: [range.from, range.to] }
+            },
+            attributes: ['recordId', 'createdAt']
+        }),
+        db.AuditLog.findAll({
+            where: {
+                module: MODULE_NAME,
+                action: QUEUE_REOPENED_ACTION,
+                recordId: { [Op.ne]: null },
+                createdAt: { [Op.between]: [range.from, range.to] }
+            },
+            attributes: ['recordId', 'createdAt']
+        })
+    ]);
+    const reopenedAtByPatient = new Map();
+    reopenedLogs.forEach((log) => {
+        const id = parseInt(log.recordId, 10);
+        const openedAt = log.createdAt ? new Date(log.createdAt) : null;
+        if (!Number.isFinite(id) || !openedAt || isNaN(openedAt.getTime())) return;
+        const current = reopenedAtByPatient.get(id);
+        if (!current || openedAt > current) reopenedAtByPatient.set(id, openedAt);
     });
     const set = new Set();
     logs.forEach((log) => {
         const id = parseInt(log.recordId, 10);
-        if (Number.isFinite(id)) set.add(id);
+        const calledAt = log.createdAt ? new Date(log.createdAt) : null;
+        const reopenedAt = reopenedAtByPatient.get(id);
+        if (Number.isFinite(id) && (!reopenedAt || (calledAt && calledAt > reopenedAt))) set.add(id);
     });
     return set;
 }

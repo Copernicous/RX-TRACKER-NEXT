@@ -1337,7 +1337,20 @@ function auditServiceDateValue(value) {
     return parseDate(payload.serviceDate || payload.newServiceDate);
 }
 
-async function prepareServiceDateHistoryDelete(idList, transaction) {
+function isCallCenterEligibleServiceDate(value) {
+    const serviceDate = parseDate(value);
+    if (!serviceDate) return false;
+    const cutoff = new Date();
+    cutoff.setHours(0, 0, 0, 0);
+    cutoff.setDate(cutoff.getDate() - 90);
+    return serviceDate < cutoff.toISOString().slice(0, 10);
+}
+
+function requestIp(req) {
+    return req.headers['x-forwarded-for'] || req.ip || (req.connection && req.connection.remoteAddress) || null;
+}
+
+async function prepareServiceDateHistoryDelete(idList, transaction, req) {
     const histories = await db.PatientServiceDateHistory.findAll({
         where: { id: { [Op.in]: idList } },
         transaction,
@@ -1348,7 +1361,8 @@ async function prepareServiceDateHistoryDelete(idList, transaction) {
         callCenterRows: 0,
         restoredPatients: 0,
         removedServiceDateAuditLogs: 0,
-        removedCallCenterLocks: 0
+        removedCallCenterLocks: 0,
+        reopenedQueuePatients: 0
     };
     const callCenterRows = histories.filter((row) =>
         String(row.changeSource || '').trim().toLowerCase() === 'call center'
@@ -1360,6 +1374,7 @@ async function prepareServiceDateHistoryDelete(idList, transaction) {
         .map((row) => parseInt(row.patientId, 10))
         .filter((id) => Number.isFinite(id))));
     const auditIdsToDelete = [];
+    const reopenedQueuePatientIds = new Set();
 
     for (const history of callCenterRows) {
         const patientId = parseInt(history.patientId, 10);
@@ -1374,6 +1389,28 @@ async function prepareServiceDateHistoryDelete(idList, transaction) {
         if (patient && newServiceDate && parseDate(patient.serviceDate) === newServiceDate) {
             await patient.update({ serviceDate: previousServiceDate || null }, { transaction });
             result.restoredPatients += 1;
+            if (
+                patient.isActive === true &&
+                patient.isDeleted !== true &&
+                isCallCenterEligibleServiceDate(previousServiceDate)
+            ) {
+                reopenedQueuePatientIds.add(patientId);
+                await db.AuditLog.create({
+                    userId: req && req.user && req.user.id ? req.user.id : null,
+                    module: 'Call Center',
+                    action: 'Queue Reopened',
+                    recordId: patientId,
+                    previousValue: {
+                        serviceDate: newServiceDate,
+                        serviceDateHistoryId: history.id
+                    },
+                    newValue: {
+                        serviceDate: previousServiceDate,
+                        reason: 'Backoffice deleted Call Center service date history'
+                    },
+                    ipAddress: req ? requestIp(req) : null
+                }, { transaction });
+            }
         }
 
         const logs = await db.AuditLog.findAll({
@@ -1408,6 +1445,7 @@ async function prepareServiceDateHistoryDelete(idList, transaction) {
         result.removedCallCenterLocks = deletedLocks || 0;
     }
 
+    result.reopenedQueuePatients = reopenedQueuePatientIds.size;
     return result;
 }
 
@@ -1427,7 +1465,7 @@ exports.deleteRows = async (req, res) => {
 
     try {
         if (tableName === 'PatientServiceDateHistories') {
-            results.callCenterQueueRepair = await prepareServiceDateHistoryDelete(idList, t);
+            results.callCenterQueueRepair = await prepareServiceDateHistoryDelete(idList, t, req);
         }
 
         // Handle children first (list is ordered: grandchildren before direct children)

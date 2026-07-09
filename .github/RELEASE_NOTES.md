@@ -14,6 +14,7 @@
 - Reports > Analytics & Export > Call Center Report with advanced filters, totals, history, sorting, CSV export, and Excel export.
 - Backoffice cleanup preview/purge for Call Center calls, notes, service-date events, and stale locks.
 - Backoffice service-date-history delete repair so reverted Call Center patients can return to the available queue.
+- Queue reopen handling for reverted Call Center patients that still have same-day call history.
 - Call Center sidebar placement below RX Records.
 - Restricted `/api/version` and sensitive API access for Call Center users.
 - Full staging smoke/click coverage for the Call Center workflow and existing dashboard/report cards.

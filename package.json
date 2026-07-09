@@ -22,6 +22,7 @@
     "staging:full-smoke": "node scripts/smoke-staging-full.js",
     "staging:start": "node scripts/start-staging.js",
     "smoke:qa": "node qa/smoke-qa.js",
+    "test:call-center-queue-reopen": "node scripts/test-call-center-queue-reopen.js",
     "test:rx-override": "node scripts/test-rx-override-permissions.js",
     "drive:auth": "node scripts/setup-google-drive-oauth.js",
     "db:migrate": "sequelize-cli db:migrate",
