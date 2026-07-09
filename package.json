@@ -1,6 +1,6 @@
 {
   "name": "patient-rx-system",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "description": "Patient RX Delivery Management System",
   "main": "app.js",
   "scripts": {
@@ -23,6 +23,7 @@
     "staging:start": "node scripts/start-staging.js",
     "smoke:qa": "node qa/smoke-qa.js",
     "test:call-center-queue-reopen": "node scripts/test-call-center-queue-reopen.js",
+    "test:patient-double-update": "node scripts/test-patient-service-date-double-update.js",
     "test:rx-override": "node scripts/test-rx-override-permissions.js",
     "drive:auth": "node scripts/setup-google-drive-oauth.js",
     "db:migrate": "sequelize-cli db:migrate",

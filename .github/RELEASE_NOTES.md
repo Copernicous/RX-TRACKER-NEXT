@@ -1,5 +1,20 @@
 # Release Notes
 
+## v3.0.1 (2026-07-09)
+
+### What's Fixed
+
+- Normal Patient service-date updates now use a row-level database lock so duplicate/concurrent saves create only one Patient Service Date History entry.
+- Added automated regression coverage for concurrent normal Patient service-date saves.
+- Kept the Call Center Backoffice queue repair follow-up in the release stream, including restored queue visibility and service-date cycle status repair.
+
+### QA & Validation
+
+- Run `npm run test:patient-double-update`.
+- Run `npm run test:call-center-queue-reopen`.
+- Run `npm run test:rx-override`.
+- Run `npm run db:test`.
+
 ## v3.0.0 (2026-07-09)
 
 ### What's New

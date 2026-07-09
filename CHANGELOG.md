@@ -9,6 +9,21 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 - No unreleased changes.
 
+## [3.0.1] - 2026-07-09
+
+### [RELEASE-301] Patient service-date update locking and Call Center queue repair follow-up
+**Files changed:** Patient update controller, Call Center queue repair regression tests, release metadata
+
+- Added row-level locking around normal Patient updates so duplicate or concurrent saves of the same service-date change create only one Patient Service Date History entry.
+- Added a regression test for concurrent normal Patient service-date updates.
+- Preserved the v3.0.0 Call Center Backoffice queue repair behavior, including queue reopen handling and service-date cycle status repair.
+- Bumped production package version to `3.0.1`.
+
+**Database impact:**
+- No schema changes and no destructive data reset are introduced.
+- Existing patients, RX records, users, roles, permissions, settings, backups, audit logs, and changelog data are preserved.
+- Patient service-date history remains append-only, but duplicate concurrent history rows for the same normal Patient service-date update are prevented.
+
 ## [3.0.0] - 2026-07-09
 
 ### [RELEASE-300] Dedicated Call Center workspace, analytics, restrictions, and smoke coverage
