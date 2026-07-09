@@ -35,6 +35,23 @@
         }
         .pag-bar .pag-left  { display: flex; align-items: center; gap: 8px; }
         .pag-bar .pag-right { display: flex; align-items: center; gap: 4px; }
+        .cc-history-cell {
+            min-width: 280px;
+            max-width: 420px;
+        }
+        .cc-history-mini {
+            max-height: 110px;
+            overflow: auto;
+            font-size: .78rem;
+            line-height: 1.35;
+            color: var(--text-muted);
+        }
+        .cc-report-metric {
+            border: 1px solid var(--border-color, #dee2e6);
+            border-radius: 8px;
+            padding: 8px 10px;
+            min-width: 110px;
+        }
     </style>
 </head>
 <body>
@@ -62,6 +79,9 @@
                 </li>
                 <li class="nav-item">
                     <a class="nav-link" data-bs-toggle="tab" href="#rxActionReport"><i class="fas fa-tasks me-1"></i>RX Action Report</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" data-bs-toggle="tab" href="#callCenterReport"><i class="fas fa-headset me-1"></i>Call Center Report</a>
                 </li>
                 <li class="nav-item ms-auto d-flex align-items-center gap-2">
                     <button class="btn btn-sm btn-outline-primary" id="emailReportBtn" title="Email this report">
@@ -319,6 +339,147 @@
                                 </thead>
                                 <tbody id="rxActionBody">
                                     <tr><td colspan="8" class="text-center text-muted py-4">Loading...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- CALL CENTER REPORT TAB -->
+                <div class="tab-pane fade" id="callCenterReport">
+                    <div class="glass-card p-4">
+                        <div class="d-flex align-items-center justify-content-between mb-2">
+                            <span class="fw-bold small text-muted text-uppercase" style="letter-spacing:.05em">
+                                <i class="fas fa-filter me-1"></i>Call Center Filters
+                            </span>
+                            <div class="d-flex align-items-center gap-2">
+                                <span id="ccrBadge" class="badge rounded-pill bg-primary" style="display:none;font-size:.7rem">0 filters</span>
+                                <button class="btn btn-link btn-sm text-muted p-0" onclick="togglePanel('ccrAdv','ccrChevron','ccrAdvOpen')" style="font-size:.78rem;text-decoration:none">
+                                    <i class="fas fa-sliders-h me-1"></i>Advanced <i class="fas fa-chevron-down ms-1" id="ccrChevron"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="row g-2 mb-2 align-items-end">
+                            <div class="col-md-2">
+                                <label class="form-label small fw-bold mb-1">Activity From</label>
+                                <input type="date" class="form-control form-control-sm" id="ccrDateFrom">
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label small fw-bold mb-1">Activity To</label>
+                                <input type="date" class="form-control form-control-sm" id="ccrDateTo">
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label small fw-bold mb-1">User</label>
+                                <select class="form-select form-select-sm" id="ccrUser">
+                                    <option value="">All Users</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label small fw-bold mb-1">Activity Type</label>
+                                <select class="form-select form-select-sm" id="ccrActionType">
+                                    <option value="">All Activity</option>
+                                    <option value="calls">Calls</option>
+                                    <option value="repeats">Repeat Calls</option>
+                                    <option value="service_dates">Service Dates</option>
+                                    <option value="notes">Notes</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label small fw-bold mb-1">Patient ID</label>
+                                <input type="text" class="form-control form-control-sm" id="ccrPatientCode" placeholder="PAT..." autocomplete="off">
+                            </div>
+                            <div class="col-md-2 d-flex align-items-end gap-2">
+                                <button class="btn btn-primary btn-sm" onclick="ccrPage=1;renderCallCenterReport()" title="Search"><i class="fas fa-search"></i></button>
+                                <button class="btn btn-outline-secondary btn-sm" onclick="clearCallCenterFilters()" title="Clear"><i class="fas fa-times"></i></button>
+                                <button class="btn btn-outline-success btn-sm flex-grow-1" id="exportCcCsv"><i class="fas fa-file-csv me-1"></i>CSV</button>
+                                <button class="btn btn-outline-primary btn-sm" id="exportCcXls" title="Export Excel"><i class="fas fa-file-excel"></i></button>
+                                <button class="btn btn-outline-secondary btn-sm" title="Print" id="printCcBtn"><i class="fas fa-print"></i></button>
+                            </div>
+                        </div>
+
+                        <div id="ccrAdv" style="display:none;border-top:1px solid var(--border-color,#dee2e6);padding-top:10px;margin-top:2px">
+                            <div class="row g-2 align-items-end">
+                                <div class="col-md-2">
+                                    <label class="form-label small fw-bold mb-1">First Name</label>
+                                    <input type="text" class="form-control form-control-sm" id="ccrFirstName" placeholder="First..." autocomplete="off">
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small fw-bold mb-1">Last Name</label>
+                                    <input type="text" class="form-control form-control-sm" id="ccrLastName" placeholder="Last..." autocomplete="off">
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small fw-bold mb-1">Phone</label>
+                                    <input type="text" class="form-control form-control-sm" id="ccrPhone" placeholder="Phone..." autocomplete="off">
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small fw-bold mb-1">Clinic</label>
+                                    <input type="text" class="form-control form-control-sm" id="ccrClinic" placeholder="Clinic..." autocomplete="off">
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small fw-bold mb-1">Service From</label>
+                                    <input type="date" class="form-control form-control-sm" id="ccrServiceFrom">
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small fw-bold mb-1">Service To</label>
+                                    <input type="date" class="form-control form-control-sm" id="ccrServiceTo">
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small fw-bold mb-1">Patient Status</label>
+                                    <select class="form-select form-select-sm" id="ccrStatus">
+                                        <option value="">All</option>
+                                        <option value="Active">Active</option>
+                                        <option value="Inactive">Inactive</option>
+                                        <option value="Deleted">Deleted</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="d-flex flex-wrap gap-2 my-3" id="ccrMetrics">
+                            <div class="cc-report-metric"><div class="small text-muted fw-bold">Patients</div><div class="fs-5 fw-bold" id="ccrMPatients">--</div></div>
+                            <div class="cc-report-metric"><div class="small text-muted fw-bold">Calls</div><div class="fs-5 fw-bold" id="ccrMCalls">--</div></div>
+                            <div class="cc-report-metric"><div class="small text-muted fw-bold">Repeat</div><div class="fs-5 fw-bold" id="ccrMRepeats">--</div></div>
+                            <div class="cc-report-metric"><div class="small text-muted fw-bold">Dates</div><div class="fs-5 fw-bold" id="ccrMDates">--</div></div>
+                            <div class="cc-report-metric"><div class="small text-muted fw-bold">Notes</div><div class="fs-5 fw-bold" id="ccrMNotes">--</div></div>
+                        </div>
+
+                        <div class="pag-bar" id="ccrPagBar">
+                            <div class="pag-left">
+                                <label class="small text-muted mb-0">Show</label>
+                                <select class="form-select form-select-sm" style="width:auto" id="ccrPageSize" onchange="ccrChangeSize(this.value)">
+                                    <option value="10" selected>10</option>
+                                    <option value="20">20</option>
+                                    <option value="50">50</option>
+                                    <option value="100">100</option>
+                                </select>
+                                <span class="small text-muted" id="ccrReportCount"></span>
+                            </div>
+                            <div class="pag-right">
+                                <nav><ul class="pagination pagination-sm mb-0" id="ccrPagNav"></ul></nav>
+                            </div>
+                        </div>
+
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle" id="ccReportTable">
+                                <thead>
+                                    <tr>
+                                        <th style="cursor:pointer" onclick="sortCallCenterReport('patientCode')">Patient ID <i class="fas fa-sort text-muted" style="opacity:.3" id="ccrIcon_patientCode"></i></th>
+                                        <th style="cursor:pointer" onclick="sortCallCenterReport('lastName')">Patient <i class="fas fa-sort text-muted" style="opacity:.3" id="ccrIcon_lastName"></i></th>
+                                        <th style="cursor:pointer" onclick="sortCallCenterReport('phone')">Phone <i class="fas fa-sort text-muted" style="opacity:.3" id="ccrIcon_phone"></i></th>
+                                        <th style="cursor:pointer" onclick="sortCallCenterReport('clinicName')">Clinic <i class="fas fa-sort text-muted" style="opacity:.3" id="ccrIcon_clinicName"></i></th>
+                                        <th style="cursor:pointer" onclick="sortCallCenterReport('serviceDate')">Svc Date <i class="fas fa-sort text-muted" style="opacity:.3" id="ccrIcon_serviceDate"></i></th>
+                                        <th style="cursor:pointer" onclick="sortCallCenterReport('users')">Users <i class="fas fa-sort text-muted" style="opacity:.3" id="ccrIcon_users"></i></th>
+                                        <th class="text-end" style="cursor:pointer" onclick="sortCallCenterReport('calls')">Calls <i class="fas fa-sort text-muted" style="opacity:.3" id="ccrIcon_calls"></i></th>
+                                        <th class="text-end" style="cursor:pointer" onclick="sortCallCenterReport('repeatCalls')">Repeat <i class="fas fa-sort text-muted" style="opacity:.3" id="ccrIcon_repeatCalls"></i></th>
+                                        <th class="text-end" style="cursor:pointer" onclick="sortCallCenterReport('serviceDates')">Dates <i class="fas fa-sort text-muted" style="opacity:.3" id="ccrIcon_serviceDates"></i></th>
+                                        <th class="text-end" style="cursor:pointer" onclick="sortCallCenterReport('notes')">Notes <i class="fas fa-sort text-muted" style="opacity:.3" id="ccrIcon_notes"></i></th>
+                                        <th style="cursor:pointer" onclick="sortCallCenterReport('lastActionAt')">Last Activity <i class="fas fa-sort text-muted" style="opacity:.3" id="ccrIcon_lastActionAt"></i></th>
+                                        <th>History / Notes</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="ccReportBody">
+                                    <tr><td colspan="12" class="text-center text-muted py-4">Loading...</td></tr>
                                 </tbody>
                             </table>
                         </div>

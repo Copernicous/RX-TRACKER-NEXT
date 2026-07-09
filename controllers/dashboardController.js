@@ -16,6 +16,21 @@ function localDateString(d) {
     return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 }
 
+function localDateOnlyStart(value) {
+    if (!value) return null;
+    const iso = String(value).slice(0, 10);
+    const parts = iso.split('-').map(Number);
+    if (parts.length === 3 && parts.every(Number.isFinite)) {
+        const d = new Date(parts[0], parts[1] - 1, parts[2]);
+        d.setHours(0, 0, 0, 0);
+        return d;
+    }
+    const fallback = new Date(value);
+    if (isNaN(fallback.getTime())) return null;
+    fallback.setHours(0, 0, 0, 0);
+    return fallback;
+}
+
 exports.getStats = async (req, res) => {
     try {
         const dateRange = buildDateRange(req);
@@ -576,7 +591,11 @@ exports.getEligibilityStats = async (req, res) => {
                 noServiceDate++;
                 continue;
             }
-            const svcDay    = new Date(p.serviceDate); svcDay.setHours(0, 0, 0, 0);
+            const svcDay    = localDateOnlyStart(p.serviceDate);
+            if (!svcDay) {
+                noServiceDate++;
+                continue;
+            }
             const expiryDay = new Date(svcDay); expiryDay.setDate(svcDay.getDate() + 90);
             const daysLeft  = Math.ceil((expiryDay - today) / 864e5);
 
@@ -660,7 +679,8 @@ exports.getEligibilityDrilldown = async (req, res) => {
             }
 
             // Canonical 90-day window calculation
-            const svcDay    = new Date(svcDate); svcDay.setHours(0, 0, 0, 0);
+            const svcDay    = localDateOnlyStart(svcDate);
+            if (!svcDay) continue;
             const expiryDay = new Date(svcDay); expiryDay.setDate(svcDay.getDate() + 90);
             const daysLeft  = Math.ceil((expiryDay - today) / 864e5);
 

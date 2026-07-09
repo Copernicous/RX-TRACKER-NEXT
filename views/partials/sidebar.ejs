@@ -7,6 +7,7 @@
   // Build a visible-set from userPerms
   const UP      = locals.userPerms || null;
   const isAdmin = locals.isAdmin || (locals.currentUser && locals.currentUser.role === 'Administrator');
+  const isCallCenterSidebar = !!(locals.currentUser && String(locals.currentUser.role || '').trim().toLowerCase() === 'call center');
 
   // Returns true if visible:
   //   • No UP (no token)     → permissive (JS redirect handles auth)
@@ -20,6 +21,7 @@
   }
 
   const ap = locals.activePage || '';
+  const hideVersionSidebar = isCallCenterSidebar || ap === 'call-center';
   const refActive   = ['pharmacies','patient-transport','pharmacy-transport','clinics','workflow-actions','medication-catalog'].includes(ap);
   const rptActive   = ['reports','audit-log'].includes(ap);
   const adminActive = ['roles','users','system-settings','backups','import','active-users'].includes(ap);
@@ -48,6 +50,11 @@
         <% } %>
     </div>
     <ul class="list-unstyled components">
+        <% if (isCallCenterSidebar) { %>
+        <li class="<%= ap === 'call-center' ? 'active' : '' %>">
+            <a href="/call-center"><i class="fas fa-headset me-2"></i>Call Center</a>
+        </li>
+        <% } else { %>
 
         <li class="<%= ap === 'dashboard' ? 'active' : '' %>">
             <a href="/dashboard"><i class="fas fa-tachometer-alt me-2"></i>Dashboard</a>
@@ -62,6 +69,12 @@
         <% if (!UP || sv('rx_records')) { %>
         <li class="<%= ap === 'rx-records' ? 'active' : '' %>">
             <a href="/rx-records"><i class="fas fa-prescription me-2"></i>RX Records</a>
+        </li>
+        <% } %>
+
+        <% if (!UP || sv('call_center')) { %>
+        <li class="<%= ap === 'call-center' ? 'active' : '' %>">
+            <a href="/call-center"><i class="fas fa-headset me-2"></i>Call Center</a>
         </li>
         <% } %>
 
@@ -173,9 +186,11 @@
         </li>
         <% } %>
 
+        <% } %>
     </ul>
 
     <!-- Version badge -->
+    <% if (!hideVersionSidebar) { %>
     <div id="sidebarVersion" style="
         position: absolute; bottom: 0; left: 0; right: 0;
         padding: 10px 16px;
@@ -191,8 +206,10 @@
             Changelog <i class="fas fa-external-link-alt ms-1" style="font-size:.6rem"></i>
         </a>
     </div>
+    <% } %>
 </nav>
 
+<% if (!hideVersionSidebar) { %>
 <script>
 // Fetch and display version in sidebar — non-blocking, fails silently
 (function() {
@@ -229,3 +246,4 @@
     setInterval(_loadOnlineBadge, 30000);
 })();
 </script>
+<% } %>

@@ -25,6 +25,7 @@ const pharmacyTransportController = require('../controllers/pharmacyTransportCon
 const userController = require('../controllers/userController');
 const workflowActionController = require('../controllers/workflowActionController');
 const patientController = require('../controllers/patientController');
+const callCenterController = require('../controllers/callCenterController');
 const rxController = require('../controllers/rxController');
 const dashboardController = require('../controllers/dashboardController');
 const reportController = require('../controllers/reportController');
@@ -44,6 +45,7 @@ const roleController = require('../controllers/roleController');
 const documentController = require('../controllers/documentController');
 const { isServiceDateOverrideEnabled } = require('../utils/globalSettings');
 const securityAlertService = require('../services/securityAlertService');
+const { isCallCenterRole } = require('../utils/callCenterAccess');
 
 function recordPermissionDenied(req, details) {
     securityAlertService.recordPermissionDenied({
@@ -54,9 +56,7 @@ function recordPermissionDenied(req, details) {
     }).catch(() => {});
 }
 
-// ── Public routes (no auth required) — must be declared BEFORE router.use(auth) ──
-router.get('/version', (req, res) => {
-    // Bust require() cache so nodemon restarts always serve the current version.
+function sendVersionResponse(req, res) {
     const pkgPath = require.resolve('../package.json');
     delete require.cache[pkgPath];
     const pkg = require('../package.json');
@@ -67,10 +67,46 @@ router.get('/version', (req, res) => {
         uptime:    Math.floor(process.uptime()),
         buildDate: new Date().toISOString().slice(0, 10)
     });
-});
+}
 
+function restrictCallCenterApi(req, res, next) {
+    if (!isCallCenterRole(req.user)) return next();
+
+    const p = req.path || '';
+    const allowed =
+        p.startsWith('/call-center') ||
+        p === '/auth/logout' ||
+        p === '/session-config' ||
+        p === '/session/activity' ||
+        p === '/heartbeat' ||
+        p === '/errors';
+
+    if (allowed) return next();
+
+    recordPermissionDenied(req, {
+        moduleKey: 'call_center',
+        requiredAction: 'restricted_api',
+        reason: 'call_center_url_injection'
+    });
+    return res.status(403).json({ message: 'Call Center users can only access the Call Center workspace.' });
+}
+
+// ── Public routes (no auth required) — must be declared BEFORE router.use(auth) ──
 // All remaining API routes require authentication
 router.use(auth);
+router.use(restrictCallCenterApi);
+
+router.get('/version', adminOnly, sendVersionResponse);
+
+router.get('/call-center/patients', callCenterController.requireAccess, callCenterController.listPatients);
+router.post('/call-center/patients/:id/claim', callCenterController.requireWriteAccess, callCenterController.claimPatient);
+router.post('/call-center/patients/:id/actions', callCenterController.requireWriteAccess, callCenterController.savePatientAction);
+router.post('/call-center/locks/refresh', callCenterController.requireWriteAccess, callCenterController.refreshLocks);
+router.post('/call-center/locks/release', callCenterController.requireWriteAccess, callCenterController.releaseLocks);
+router.get('/call-center/metrics/queue', callCenterController.requireAccess, callCenterController.getQueueMetrics);
+router.get('/call-center/metrics/me', callCenterController.requireAccess, callCenterController.getMyMetrics);
+router.get('/call-center/metrics/drilldown', callCenterController.requireReviewAccess, callCenterController.getReviewDrilldown);
+router.get('/call-center/metrics/review', callCenterController.requireReviewAccess, callCenterController.getReviewMetrics);
 
 // ── Lookup endpoint — auth-only, NO visibility check ─────────────────────────
 // Used by forms (patient, RX records, etc.) to populate dropdowns.
@@ -221,6 +257,7 @@ router.get('/dashboard/eligibility-drilldown/:filter', rbac.requirePermission('d
 router.get('/reports/patients', rbac.requirePermission('reports', 'read'), reportController.getPatientReport);
 router.get('/reports/rx-receipts', rbac.requirePermission('reports', 'read'), reportController.getRXReceiptReport);
 router.get('/reports/rx-actions', rbac.requirePermission('reports', 'read'), reportController.getRXActionReport);
+router.get('/reports/call-center', rbac.requirePermission('reports', 'read'), reportController.getCallCenterReport);
 
 // Audit Log — controlled by its own audit_log permission
 router.get('/audit-logs',              rbac.requirePermission('audit_log', 'read'),  auditLogController.getAll);
@@ -555,6 +592,8 @@ router.get('/admin/orphans',            masterOnly, adminController.getOrphans);
 router.delete('/admin/orphans',         masterOnly, adminController.cleanOrphans);
 router.get('/admin/duplicates',         masterOnly, adminController.getDuplicates);
 router.get('/admin/audit-logs',         masterOnly, adminController.getAuditLogs);
+router.get('/admin/call-center-cleanup', masterOnly, adminController.getCallCenterCleanupPreview);
+router.delete('/admin/call-center-cleanup', masterOnly, adminController.purgeCallCenterCleanup);
 // System Settings
 router.get('/admin/settings',           masterOnly, adminController.getSettings);
 router.post('/admin/settings',          masterOnly, adminController.saveSettings);

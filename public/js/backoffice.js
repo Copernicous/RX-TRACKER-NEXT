@@ -635,9 +635,9 @@ async function executePurge() {
 // TAB SWITCHER
 // ══════════════════════════════════════════════════════════════════════════
 function switchTab(tab) {
-    var tabs  = ['tables','schema','orphans','dupes','audit','settings','backups','health','locks','users','apikeys','errlog','logdash','analytics'];
-    var ids   = { tables:'tablesContent', schema:'schemaContent', orphans:'orphanContent', dupes:'dupesContent', audit:'auditContent', settings:'settingsContent', backups:'backupsContent', health:'healthContent', locks:'locksContent', users:'usersContent', apikeys:'apiKeysContent', errlog:'errlogContent', logdash:'logdashContent', analytics:'analyticsContent' };
-    var btns  = { tables:'tabTables', schema:'tabSchema', orphans:'tabOrphans', dupes:'tabDupes', audit:'tabAudit', settings:'tabSettings', backups:'tabBackups', health:'tabHealth', locks:'tabLocks', users:'tabUsers', apikeys:'tabApiKeys', errlog:'tabErrlog', logdash:'tabLogdash', analytics:'tabAnalytics' };
+    var tabs  = ['tables','schema','orphans','dupes','audit','cccleanup','settings','backups','health','locks','users','apikeys','errlog','logdash','analytics'];
+    var ids   = { tables:'tablesContent', schema:'schemaContent', orphans:'orphanContent', dupes:'dupesContent', audit:'auditContent', cccleanup:'cccleanupContent', settings:'settingsContent', backups:'backupsContent', health:'healthContent', locks:'locksContent', users:'usersContent', apikeys:'apiKeysContent', errlog:'errlogContent', logdash:'logdashContent', analytics:'analyticsContent' };
+    var btns  = { tables:'tabTables', schema:'tabSchema', orphans:'tabOrphans', dupes:'tabDupes', audit:'tabAudit', cccleanup:'tabCcCleanup', settings:'tabSettings', backups:'tabBackups', health:'tabHealth', locks:'tabLocks', users:'tabUsers', apikeys:'tabApiKeys', errlog:'tabErrlog', logdash:'tabLogdash', analytics:'tabAnalytics' };
     tabs.forEach(function(t) {
         document.getElementById(btns[t]).classList.toggle('active', t === tab);
         var el = document.getElementById(ids[t]);
@@ -648,6 +648,7 @@ function switchTab(tab) {
     if (tab === 'orphans'   && !orphanData)      loadOrphans();
     if (tab === 'dupes'     && !dupesData)       loadDupes();
     if (tab === 'audit'     && !auditLoaded)     loadAuditLogs(1);
+    if (tab === 'cccleanup')                     loadCcCleanupPreview();
     if (tab === 'settings'  && !settingsLoaded)  loadSettings();
     if (tab === 'backups'   && !backupsLoaded)   loadBackups();
     if (tab === 'health'    && !healthLoaded)    loadHealth();

@@ -2142,3 +2142,119 @@ function exportAnalyticsCSV() {
         toast('Download started.', 'success');
     }).catch(function(e) { toast('Export error: '+e.message,'danger'); });
 }
+
+// Call Center Cleanup
+function _ccCleanEsc(v) {
+    return String(v === undefined || v === null ? '' : v)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function ccCleanupPayload() {
+    function val(id) { var el = document.getElementById(id); return el ? el.value : ''; }
+    return {
+        target: val('ccCleanTarget') || 'all',
+        from: val('ccCleanFrom'),
+        to: val('ccCleanTo'),
+        userId: val('ccCleanUserId'),
+        patientId: val('ccCleanPatientId'),
+        lockScope: val('ccCleanLockScope') || 'stale'
+    };
+}
+
+function ccCleanupQuery() {
+    var p = ccCleanupPayload();
+    var parts = [];
+    Object.keys(p).forEach(function(k) {
+        if (p[k] !== undefined && p[k] !== null && String(p[k]).trim() !== '') {
+            parts.push(encodeURIComponent(k) + '=' + encodeURIComponent(p[k]));
+        }
+    });
+    return parts.length ? '?' + parts.join('&') : '';
+}
+
+function checkCcCleanupConfirm() {
+    var btn = document.getElementById('ccCleanPurgeBtn');
+    var input = document.getElementById('ccCleanConfirm');
+    if (btn) btn.disabled = !input || input.value !== 'PURGE CALL CENTER';
+}
+
+async function loadCcCleanupPreview() {
+    var countsEl = document.getElementById('ccCleanCounts');
+    var prevEl = document.getElementById('ccCleanPreview');
+    if (countsEl) countsEl.innerHTML = '<div class="stat-pill"><div class="num"><span class="spinner-sm"></span></div><div class="lbl">Loading</div></div>';
+    if (prevEl) prevEl.innerHTML = '<p style="text-align:center;padding:2rem;color:var(--text-muted)"><i class="fas fa-spinner fa-spin me-2"></i>Loading preview...</p>';
+    try {
+        var res = await apiFetch('/api/admin/call-center-cleanup' + ccCleanupQuery());
+        var data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Preview failed');
+        renderCcCleanupPreview(data);
+    } catch(e) {
+        if (prevEl) prevEl.innerHTML = '<p style="padding:2rem;color:#fca5a5">' + _ccCleanEsc(e.message) + '</p>';
+        toast('Call Center cleanup preview failed: ' + e.message, 'danger');
+    }
+    checkCcCleanupConfirm();
+}
+
+function renderCcCleanupPreview(data) {
+    var c = data.counts || {};
+    var countsEl = document.getElementById('ccCleanCounts');
+    if (countsEl) {
+        countsEl.innerHTML =
+            '<div class="stat-pill"><div class="num" style="color:#38bdf8">' + (c.callEvents || 0).toLocaleString() + '</div><div class="lbl">Call Events</div></div>' +
+            '<div class="stat-pill"><div class="num" style="color:#eab308">' + (c.callCenterNotes || 0).toLocaleString() + '</div><div class="lbl">Call Center Notes</div></div>' +
+            '<div class="stat-pill"><div class="num" style="color:#a78bfa">' + ((c.noteAuditEvents || 0) + (c.serviceDateAuditEvents || 0)).toLocaleString() + '</div><div class="lbl">Audit Events</div></div>' +
+            '<div class="stat-pill"><div class="num" style="color:#10b981">' + (c.serviceDateHistoryEvents || 0).toLocaleString() + '</div><div class="lbl">Service Date History</div></div>' +
+            '<div class="stat-pill"><div class="num" style="color:#94a3b8">' + (c.locks || 0).toLocaleString() + '</div><div class="lbl">Locks</div></div>' +
+            '<div class="stat-pill"><div class="num" style="color:#ef4444">' + (c.total || 0).toLocaleString() + '</div><div class="lbl">Total Matched</div></div>';
+    }
+
+    var rows = data.preview || [];
+    var html = '<div class="schema-card" style="padding:1rem"><div style="font-weight:700;margin-bottom:0.65rem">Recent Call Center Audit Preview</div>';
+    if (!rows.length) {
+        html += '<p style="color:var(--text-muted);padding:1rem;text-align:center">No recent Call Center audit rows found.</p>';
+    } else {
+        html += '<div style="overflow:auto"><table class="bo-table"><thead><tr><th>ID</th><th>Date</th><th>Action</th><th>Patient</th><th>User</th></tr></thead><tbody>';
+        rows.forEach(function(r) {
+            var user = r.userName || r.username || '';
+            html += '<tr><td>' + _ccCleanEsc(r.id) + '</td><td>' + _ccCleanEsc(new Date(r.createdAt).toLocaleString()) + '</td><td>' + _ccCleanEsc(r.action) + '</td><td>' + _ccCleanEsc(r.patientName || r.patientId || '') + '</td><td>' + _ccCleanEsc(user) + '</td></tr>';
+        });
+        html += '</tbody></table></div>';
+    }
+    html += '</div>';
+    var prevEl = document.getElementById('ccCleanPreview');
+    if (prevEl) prevEl.innerHTML = html;
+}
+
+async function purgeCcCleanup() {
+    var input = document.getElementById('ccCleanConfirm');
+    if (!input || input.value !== 'PURGE CALL CENTER') {
+        toast('Type PURGE CALL CENTER first.', 'warning');
+        return;
+    }
+    if (!confirm('Permanently purge matching Call Center cleanup data? This cannot be undone.')) return;
+    var body = ccCleanupPayload();
+    body.confirmText = input.value;
+    var btn = document.getElementById('ccCleanPurgeBtn');
+    if (btn) btn.disabled = true;
+    try {
+        var res = await apiFetch('/api/admin/call-center-cleanup', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+        var data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Purge failed');
+        toast('Call Center cleanup purge completed.', 'success');
+        input.value = '';
+        checkCcCleanupConfirm();
+        await loadCcCleanupPreview();
+        if (typeof loadStats === 'function') loadStats();
+    } catch(e) {
+        toast('Call Center cleanup purge failed: ' + e.message, 'danger');
+    }
+    checkCcCleanupConfirm();
+}

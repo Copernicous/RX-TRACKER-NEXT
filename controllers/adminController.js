@@ -75,6 +75,14 @@ const TABLE_META = [
         dependsOn: ['Patients']
     },
     {
+        key: 'CallCenterLocks',
+        label: 'Call Center Locks',
+        icon: 'fas fa-headset',
+        color: '#38bdf8',
+        description: 'Hard claims that prevent two Call Center users calling the same patient',
+        dependsOn: ['Patients']
+    },
+    {
         key: 'Patients',
         label: 'Patients',
         icon: 'fas fa-user-injured',
@@ -275,6 +283,9 @@ exports.purge = async (req, res) => {
             }
             if (!tables.includes('PatientLocks')) {
                 await db.sequelize.query('DELETE FROM "PatientLocks" WHERE "patientId" IN (SELECT id FROM "Patients")', { transaction: t });
+            }
+            if (!tables.includes('CallCenterLocks')) {
+                await db.sequelize.query('DELETE FROM "CallCenterLocks" WHERE "patientId" IN (SELECT id FROM "Patients")', { transaction: t });
             }
             if (!tables.includes('RXRecords')) {
                 await db.sequelize.query('DELETE FROM "RXRecords" WHERE "patientId" IN (SELECT id FROM "Patients")', { transaction: t });
@@ -517,6 +528,330 @@ exports.releaseExpiredLocks = async (req, res) => {
         const rows = await db.sequelize.query(`DELETE FROM "PatientLocks" WHERE "expiresAt" < NOW() RETURNING id`, { type: QueryTypes.SELECT });
         res.json({ success: true, released: Array.isArray(rows) ? rows.length : 0 });
     } catch (e) { res.status(500).json({ error: e.message }); }
+};
+
+function ccCleanupInput(source) {
+    source = source || {};
+    const target = ['all', 'calls', 'notes', 'service_dates', 'locks'].includes(source.target) ? source.target : 'all';
+    const lockScope = source.lockScope === 'all' ? 'all' : 'stale';
+    const userId = parseInt(source.userId || '', 10);
+    const patientId = parseInt(source.patientId || '', 10);
+    return {
+        target,
+        lockScope,
+        from: parseDate(source.from) || null,
+        to: parseDate(source.to) || null,
+        userId: Number.isFinite(userId) ? userId : null,
+        patientId: Number.isFinite(patientId) ? patientId : null
+    };
+}
+
+function ccWhere(input, config, replacements) {
+    const clauses = [];
+    if (config.base) clauses.push(config.base);
+    if (input.from) {
+        replacements[config.prefix + 'From'] = input.from + ' 00:00:00';
+        clauses.push(config.dateCol + ' >= :' + config.prefix + 'From');
+    }
+    if (input.to) {
+        replacements[config.prefix + 'To'] = input.to + ' 23:59:59';
+        clauses.push(config.dateCol + ' <= :' + config.prefix + 'To');
+    }
+    if (input.userId && config.userCol) {
+        replacements[config.prefix + 'UserId'] = input.userId;
+        clauses.push(config.userCol + ' = :' + config.prefix + 'UserId');
+    }
+    if (input.patientId && config.patientCol) {
+        replacements[config.prefix + 'PatientId'] = input.patientId;
+        clauses.push(config.patientCol + ' = :' + config.prefix + 'PatientId');
+    }
+    if (config.lockScope && input.lockScope === 'stale') {
+        clauses.push('"expiresAt" < NOW()');
+    }
+    return clauses.length ? clauses.join(' AND ') : '1=1';
+}
+
+async function ccCount(sql, replacements) {
+    const row = await db.sequelize.query(sql, {
+        type: QueryTypes.SELECT,
+        replacements
+    });
+    return parseInt((row[0] && row[0].count) || 0, 10) || 0;
+}
+
+function ccWantsTarget(input, target) {
+    return input.target === 'all' || input.target === target;
+}
+
+async function ccCleanupCounts(input) {
+    const counts = {
+        callEvents: 0,
+        callCenterNotes: 0,
+        noteAuditEvents: 0,
+        serviceDateAuditEvents: 0,
+        serviceDateHistoryEvents: 0,
+        locks: 0
+    };
+
+    let rep = {};
+    if (ccWantsTarget(input, 'calls')) {
+        counts.callEvents = await ccCount(
+            `SELECT COUNT(*)::int AS count FROM "AuditLogs" WHERE ${ccWhere(input, {
+                prefix: 'call',
+                base: `"module" = 'Call Center' AND "action" = 'Called'`,
+                dateCol: `"createdAt"`,
+                userCol: `"userId"`,
+                patientCol: `"recordId"`
+            }, rep)}`,
+            rep
+        );
+    }
+
+    rep = {};
+    if (ccWantsTarget(input, 'notes')) {
+        counts.callCenterNotes = await ccCount(
+            `SELECT COUNT(*)::int AS count FROM "PatientNotes" WHERE ${ccWhere(input, {
+                prefix: 'note',
+                base: `"source" = 'Call Center'`,
+                dateCol: `"createdAt"`,
+                userCol: `"userId"`,
+                patientCol: `"patientId"`
+            }, rep)}`,
+            rep
+        );
+        rep = {};
+        counts.noteAuditEvents = await ccCount(
+            `SELECT COUNT(*)::int AS count FROM "AuditLogs" WHERE ${ccWhere(input, {
+                prefix: 'noteAudit',
+                base: `"module" = 'Call Center' AND "action" = 'Note Added'`,
+                dateCol: `"createdAt"`,
+                userCol: `"userId"`,
+                patientCol: `"recordId"`
+            }, rep)}`,
+            rep
+        );
+    }
+
+    rep = {};
+    if (ccWantsTarget(input, 'service_dates')) {
+        counts.serviceDateAuditEvents = await ccCount(
+            `SELECT COUNT(*)::int AS count FROM "AuditLogs" WHERE ${ccWhere(input, {
+                prefix: 'svcAudit',
+                base: `"module" = 'Call Center' AND "action" = 'Service Date Added'`,
+                dateCol: `"createdAt"`,
+                userCol: `"userId"`,
+                patientCol: `"recordId"`
+            }, rep)}`,
+            rep
+        );
+        rep = {};
+        counts.serviceDateHistoryEvents = await ccCount(
+            `SELECT COUNT(*)::int AS count FROM "PatientServiceDateHistories" WHERE ${ccWhere(input, {
+                prefix: 'svcHist',
+                base: `"changeSource" = 'Call Center'`,
+                dateCol: `"createdAt"`,
+                userCol: `"changedByUserId"`,
+                patientCol: `"patientId"`
+            }, rep)}`,
+            rep
+        );
+    }
+
+    rep = {};
+    if (ccWantsTarget(input, 'locks')) {
+        counts.locks = await ccCount(
+            `SELECT COUNT(*)::int AS count FROM "CallCenterLocks" WHERE ${ccWhere(input, {
+                prefix: 'lock',
+                dateCol: `"createdAt"`,
+                userCol: `"userId"`,
+                patientCol: `"patientId"`,
+                lockScope: true
+            }, rep)}`,
+            rep
+        );
+    }
+
+    counts.total = counts.callEvents + counts.callCenterNotes + counts.noteAuditEvents +
+        counts.serviceDateAuditEvents + counts.serviceDateHistoryEvents + counts.locks;
+    return counts;
+}
+
+exports.getCallCenterCleanupPreview = async (req, res) => {
+    try {
+        const input = ccCleanupInput(req.query || {});
+        const counts = await ccCleanupCounts(input);
+        let preview = [];
+        if (input.target === 'locks') {
+            const rep = {};
+            preview = await db.sequelize.query(`
+                SELECT l.id, l."createdAt", 'Lock' AS action, l."patientId",
+                       p."firstName" || ' ' || p."lastName" AS "patientName",
+                       u."firstName" || ' ' || u."lastName" AS "userName", u.username
+                FROM "CallCenterLocks" l
+                LEFT JOIN "Patients" p ON p.id = l."patientId"
+                LEFT JOIN "Users" u ON u.id = l."userId"
+                WHERE ${ccWhere(input, {
+                    prefix: 'previewLock',
+                    dateCol: `l."createdAt"`,
+                    userCol: `l."userId"`,
+                    patientCol: `l."patientId"`,
+                    lockScope: true
+                }, rep)}
+                ORDER BY l."createdAt" DESC
+                LIMIT 20
+            `, { type: QueryTypes.SELECT, replacements: rep });
+        } else {
+            const actions = [];
+            if (ccWantsTarget(input, 'calls')) actions.push('Called');
+            if (ccWantsTarget(input, 'notes')) actions.push('Note Added');
+            if (ccWantsTarget(input, 'service_dates')) actions.push('Service Date Added');
+            const rep = { previewActions: actions.length ? actions : ['Called', 'Note Added', 'Service Date Added'] };
+            preview = await db.sequelize.query(`
+                SELECT al.id, al."createdAt", al.action, al."recordId" AS "patientId",
+                       p."firstName" || ' ' || p."lastName" AS "patientName",
+                       u."firstName" || ' ' || u."lastName" AS "userName", u.username
+                FROM "AuditLogs" al
+                LEFT JOIN "Patients" p ON p.id = al."recordId"
+                LEFT JOIN "Users" u ON u.id = al."userId"
+                WHERE ${ccWhere(input, {
+                    prefix: 'previewAudit',
+                    base: `al."module" = 'Call Center' AND al."action" IN (:previewActions)`,
+                    dateCol: `al."createdAt"`,
+                    userCol: `al."userId"`,
+                    patientCol: `al."recordId"`
+                }, rep)}
+                ORDER BY al."createdAt" DESC
+                LIMIT 20
+            `, { type: QueryTypes.SELECT, replacements: rep });
+        }
+        res.json({ input, counts, preview });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+};
+
+async function ccDeleteReturning(sql, replacements, transaction) {
+    const rows = await db.sequelize.query(sql, {
+        type: QueryTypes.SELECT,
+        replacements,
+        transaction
+    });
+    return Array.isArray(rows) ? rows.length : 0;
+}
+
+exports.purgeCallCenterCleanup = async (req, res) => {
+    const input = ccCleanupInput(req.body || {});
+    if ((req.body && req.body.confirmText) !== 'PURGE CALL CENTER') {
+        return res.status(400).json({ error: 'Type PURGE CALL CENTER to confirm.' });
+    }
+
+    const t = await db.sequelize.transaction();
+    try {
+        const results = {};
+        let rep = {};
+
+        if (ccWantsTarget(input, 'calls')) {
+            results.callEvents = await ccDeleteReturning(
+                `DELETE FROM "AuditLogs" WHERE ${ccWhere(input, {
+                    prefix: 'callDel',
+                    base: `"module" = 'Call Center' AND "action" = 'Called'`,
+                    dateCol: `"createdAt"`,
+                    userCol: `"userId"`,
+                    patientCol: `"recordId"`
+                }, rep)} RETURNING id`,
+                rep,
+                t
+            );
+        }
+
+        rep = {};
+        if (ccWantsTarget(input, 'notes')) {
+            results.callCenterNotes = await ccDeleteReturning(
+                `DELETE FROM "PatientNotes" WHERE ${ccWhere(input, {
+                    prefix: 'noteDel',
+                    base: `"source" = 'Call Center'`,
+                    dateCol: `"createdAt"`,
+                    userCol: `"userId"`,
+                    patientCol: `"patientId"`
+                }, rep)} RETURNING id`,
+                rep,
+                t
+            );
+            rep = {};
+            results.noteAuditEvents = await ccDeleteReturning(
+                `DELETE FROM "AuditLogs" WHERE ${ccWhere(input, {
+                    prefix: 'noteAuditDel',
+                    base: `"module" = 'Call Center' AND "action" = 'Note Added'`,
+                    dateCol: `"createdAt"`,
+                    userCol: `"userId"`,
+                    patientCol: `"recordId"`
+                }, rep)} RETURNING id`,
+                rep,
+                t
+            );
+        }
+
+        rep = {};
+        if (ccWantsTarget(input, 'service_dates')) {
+            results.serviceDateAuditEvents = await ccDeleteReturning(
+                `DELETE FROM "AuditLogs" WHERE ${ccWhere(input, {
+                    prefix: 'svcAuditDel',
+                    base: `"module" = 'Call Center' AND "action" = 'Service Date Added'`,
+                    dateCol: `"createdAt"`,
+                    userCol: `"userId"`,
+                    patientCol: `"recordId"`
+                }, rep)} RETURNING id`,
+                rep,
+                t
+            );
+            rep = {};
+            results.serviceDateHistoryEvents = await ccDeleteReturning(
+                `DELETE FROM "PatientServiceDateHistories" WHERE ${ccWhere(input, {
+                    prefix: 'svcHistDel',
+                    base: `"changeSource" = 'Call Center'`,
+                    dateCol: `"createdAt"`,
+                    userCol: `"changedByUserId"`,
+                    patientCol: `"patientId"`
+                }, rep)} RETURNING id`,
+                rep,
+                t
+            );
+        }
+
+        rep = {};
+        if (ccWantsTarget(input, 'locks')) {
+            results.locks = await ccDeleteReturning(
+                `DELETE FROM "CallCenterLocks" WHERE ${ccWhere(input, {
+                    prefix: 'lockDel',
+                    dateCol: `"createdAt"`,
+                    userCol: `"userId"`,
+                    patientCol: `"patientId"`,
+                    lockScope: true
+                }, rep)} RETURNING id`,
+                rep,
+                t
+            );
+        }
+
+        await t.commit();
+
+        try {
+            await db.AuditLog.create({
+                userId: req.user?.id || null,
+                date: new Date(),
+                time: new Date().toTimeString().split(' ')[0],
+                module: 'Back Office',
+                action: 'Call Center Cleanup Purge',
+                newValue: { input, results },
+                ipAddress: req.ip
+            });
+        } catch (_e) {}
+
+        res.json({ success: true, input, results });
+    } catch (e) {
+        await t.rollback();
+        res.status(500).json({ error: e.message });
+    }
 };
 
 exports.searchPatientsForServiceDateOverride = async (req, res) => {
@@ -929,6 +1264,7 @@ const FK_CHILDREN = {
         { table: 'PatientNotes',         col: 'patientId',   action: 'cascade' },
         { table: 'PatientServiceDateHistories', col: 'patientId', action: 'cascade' },
         { table: 'PatientLocks',         col: 'patientId',   action: 'cascade' },
+        { table: 'CallCenterLocks',      col: 'patientId',   action: 'cascade' },
     ],
     RXRecords: [
         // Children of RXRecords — delete in safe order
@@ -991,6 +1327,90 @@ exports.getRowImpact = async (req, res) => {
     }
 };
 
+function auditServiceDateValue(value) {
+    if (!value) return null;
+    let payload = value;
+    if (typeof payload === 'string') {
+        try { payload = JSON.parse(payload); } catch (_e) { payload = {}; }
+    }
+    if (!payload || typeof payload !== 'object') return null;
+    return parseDate(payload.serviceDate || payload.newServiceDate);
+}
+
+async function prepareServiceDateHistoryDelete(idList, transaction) {
+    const histories = await db.PatientServiceDateHistory.findAll({
+        where: { id: { [Op.in]: idList } },
+        transaction,
+        lock: transaction.LOCK.UPDATE
+    });
+    const result = {
+        inspected: histories.length,
+        callCenterRows: 0,
+        restoredPatients: 0,
+        removedServiceDateAuditLogs: 0,
+        removedCallCenterLocks: 0
+    };
+    const callCenterRows = histories.filter((row) =>
+        String(row.changeSource || '').trim().toLowerCase() === 'call center'
+    );
+    result.callCenterRows = callCenterRows.length;
+    if (!callCenterRows.length) return result;
+
+    const patientIds = Array.from(new Set(callCenterRows
+        .map((row) => parseInt(row.patientId, 10))
+        .filter((id) => Number.isFinite(id))));
+    const auditIdsToDelete = [];
+
+    for (const history of callCenterRows) {
+        const patientId = parseInt(history.patientId, 10);
+        if (!Number.isFinite(patientId)) continue;
+
+        const previousServiceDate = parseDate(history.previousServiceDate);
+        const newServiceDate = parseDate(history.newServiceDate);
+        const patient = await db.Patient.findByPk(patientId, {
+            transaction,
+            lock: transaction.LOCK.UPDATE
+        });
+        if (patient && newServiceDate && parseDate(patient.serviceDate) === newServiceDate) {
+            await patient.update({ serviceDate: previousServiceDate || null }, { transaction });
+            result.restoredPatients += 1;
+        }
+
+        const logs = await db.AuditLog.findAll({
+            where: {
+                module: 'Call Center',
+                action: 'Service Date Added',
+                recordId: patientId
+            },
+            attributes: ['id', 'newValue'],
+            transaction
+        });
+        logs.forEach((log) => {
+            if (!newServiceDate || auditServiceDateValue(log.newValue) === newServiceDate) {
+                auditIdsToDelete.push(log.id);
+            }
+        });
+    }
+
+    if (auditIdsToDelete.length) {
+        const deletedLogs = await db.AuditLog.destroy({
+            where: { id: { [Op.in]: Array.from(new Set(auditIdsToDelete)) } },
+            transaction
+        });
+        result.removedServiceDateAuditLogs = deletedLogs || 0;
+    }
+
+    if (patientIds.length && db.CallCenterLock) {
+        const deletedLocks = await db.CallCenterLock.destroy({
+            where: { patientId: { [Op.in]: patientIds } },
+            transaction
+        });
+        result.removedCallCenterLocks = deletedLocks || 0;
+    }
+
+    return result;
+}
+
 // DELETE /api/admin/rows — delete specific rows by ID, with cascade/null handling
 exports.deleteRows = async (req, res) => {
     const { tableName, ids } = req.body;
@@ -1006,6 +1426,10 @@ exports.deleteRows = async (req, res) => {
     const results = { deleted: 0, cascaded: {}, nulled: {} };
 
     try {
+        if (tableName === 'PatientServiceDateHistories') {
+            results.callCenterQueueRepair = await prepareServiceDateHistoryDelete(idList, t);
+        }
+
         // Handle children first (list is ordered: grandchildren before direct children)
         for (const child of children) {
             if (child.action === 'cascade') {

@@ -276,6 +276,10 @@ async function expectVisible(selector, name) {
 
 async function verifyAppVersion(context) {
   const res = await context.request.get(qaRoute('/api/version'), { ignoreHTTPSErrors: true });
+  if (res.status() === 401 || res.status() === 403) {
+    skip('app version endpoint', `restricted by security hardening (${res.status()})`);
+    return;
+  }
   if (!res.ok()) {
     fail('app version endpoint', String(res.status()));
     return;

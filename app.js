@@ -418,8 +418,7 @@ function shouldSkipCsrf(req) {
         // drops CSRF transport details between QR setup and confirmation.
         || pathOnly === '/api/auth/2fa/enable'
         || pathOnly === '/api/auth/2fa/disable'
-        || pathOnly === '/api/auth/2fa/regenerate-backup-codes'
-        || pathOnly === '/api/version';
+        || pathOnly === '/api/auth/2fa/regenerate-backup-codes';
 }
 
 // CSRF protection for cookie-authenticated unsafe requests.
@@ -660,8 +659,8 @@ const startServer = async () => {
         await db.sequelize.query('ALTER TABLE "Roles" ADD COLUMN IF NOT EXISTS "description" VARCHAR(255);');
         console.log('Database verified: Roles custom columns ready.');
 
-        // Mark the 4 built-in roles as system (non-deletable)
-        await db.sequelize.query('UPDATE "Roles" SET "isSystem" = true WHERE name IN (\'Administrator\',\'Supervisor\',\'Operator\',\'Read Only\');');
+        // Mark the built-in roles as system (non-deletable)
+        await db.sequelize.query('UPDATE "Roles" SET "isSystem" = true WHERE name IN (\'Administrator\',\'Supervisor\',\'Operator\',\'Read Only\',\'Call Center\');');
 
         // Seed / re-seed permissions for each built-in role.
         // Re-seeds if: (a) no permissions yet, OR (b) canAdd is missing (new field added today)
@@ -723,6 +722,27 @@ const startServer = async () => {
 
     } catch (e) {
         console.warn('Startup migration warning (Roles custom columns, non-fatal):', e.message);
+    }
+
+    // Dedicated hard claims for Call Center work queue.
+    try {
+        await db.sequelize.query(`
+            CREATE TABLE IF NOT EXISTS "CallCenterLocks" (
+                "id" SERIAL PRIMARY KEY,
+                "patientId" INTEGER NOT NULL UNIQUE,
+                "userId" INTEGER NOT NULL,
+                "lockedAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+                "expiresAt" TIMESTAMP WITH TIME ZONE NOT NULL,
+                "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+                "updatedAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+            );
+        `);
+        await db.sequelize.query('CREATE UNIQUE INDEX IF NOT EXISTS "uq_call_center_locks_patient" ON "CallCenterLocks" ("patientId");');
+        await db.sequelize.query('CREATE INDEX IF NOT EXISTS "idx_call_center_locks_user" ON "CallCenterLocks" ("userId");');
+        await db.sequelize.query('CREATE INDEX IF NOT EXISTS "idx_call_center_locks_expires" ON "CallCenterLocks" ("expiresAt");');
+        console.log('Database verified: CallCenterLocks table ready.');
+    } catch (e) {
+        console.warn('Startup migration warning (CallCenterLocks, non-fatal):', e.message);
     }
 
     await db.sequelize.sync();
@@ -832,13 +852,21 @@ const startServer = async () => {
         console.warn('Startup migration warning (PatientServiceDateHistories, non-fatal):', e.message);
     }
 
+    try {
+        await db.sequelize.query('ALTER TABLE "PatientNotes" ADD COLUMN IF NOT EXISTS "source" VARCHAR(60) DEFAULT \'Patient\';');
+        await db.sequelize.query('UPDATE "PatientNotes" SET "source" = \'Patient\' WHERE "source" IS NULL OR "source" = \'\';');
+        console.log('Database verified: PatientNotes.source ready.');
+    } catch (e) {
+        console.warn('Startup migration warning (PatientNotes.source, non-fatal):', e.message);
+    }
+
     // -- Auto-seed Roles + default admin on a brand-new database --------------
     try {
         const bcrypt = require('bcryptjs');
         const { BUILT_IN_DEFAULTS } = require('./middleware/rbac');
 
-        // 1. Ensure the 4 built-in roles exist
-        const builtInNames = ['Administrator', 'Supervisor', 'Operator', 'Read Only'];
+        // 1. Ensure the built-in roles exist
+        const builtInNames = ['Administrator', 'Supervisor', 'Operator', 'Read Only', 'Call Center'];
         let adminRole = null;
         for (const name of builtInNames) {
             const [role] = await db.Role.findOrCreate({

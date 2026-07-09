@@ -23,6 +23,7 @@ const modelFiles = [
   require('./RXHistory.js'),
   require('./apikey.js'),
   require('./auditlog.js'),
+  require('./callcenterlock.js'),
   require('./clinic.js'),
   require('./dailysnapshot.js'),
   require('./documentattachment.js'),

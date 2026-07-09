@@ -9,6 +9,32 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 - No unreleased changes.
 
+## [3.0.0] - 2026-07-09
+
+### [RELEASE-300] Dedicated Call Center workspace, analytics, restrictions, and smoke coverage
+**Files changed:** Call Center workspace, dashboard analytics, reports, backoffice cleanup, role permissions, API restrictions, smoke tests, release metadata
+
+- Added a dedicated `/call-center` workspace for Call Center users with no dashboard access, no export access from the queue, and no patient detail navigation.
+- Added a restricted Call Center queue showing only active 90-day eligible patients, with sortable columns, search, and pagination limited to 5 or 10 rows.
+- Added Call Center actions for marking calls, recording repeat call history with date/user attribution, entering append-only Call Center notes, and assigning new service dates.
+- Added hard Call Center patient claims through `CallCenterLocks` so multiple agents cannot work the same patient at the same time.
+- Added Call Center audit logging for calls, notes, service-date changes, lock activity, and restricted URL/API attempts.
+- Added separate note source tracking so Call Center notes are distinguishable from normal patient notes and include author/date context.
+- Added dashboard Call Center Metrics below RX Workflow Pipeline with date presets, custom ranges, chart type selection, user scope, CSV export, and drilldown popups with sorting/export.
+- Added a Reports > Analytics & Export > Call Center Report with advanced filtering, totals, patient/user/call/note/service-date history, sorting, CSV export, and Excel export.
+- Added Backoffice Call Center cleanup preview/purge controls for calls, Call Center notes, service-date event history, and stale locks.
+- Added Backoffice repair behavior when deleting Call Center service-date history rows so matching stale Call Center service-date audit blockers and locks are removed and the patient can return to the available queue when the previous service date is restored.
+- Moved the regular-user Call Center sidebar item below RX Records.
+- Restricted `/api/version` and sensitive APIs so unauthenticated users receive `401`, Call Center users receive `403`, and administrators retain access.
+- Added automated staging smoke coverage for Call Center API restrictions, full UI click paths, dashboard cards, calculators, drilldowns, exports, reports, URL injection defense, repeat calls, and service-date removal from the active queue.
+- Bumped production package version to `3.0.0`.
+
+**Database impact:**
+- Adds startup verification for the `CallCenterLocks` table and related indexes.
+- Adds `PatientNotes.source` startup verification so Call Center notes can be separated from normal patient notes.
+- No destructive data reset is introduced.
+- Existing patients, RX records, users, roles, permissions, settings, backups, audit logs, and changelog data are preserved.
+
 ## [2.0.73] - 2026-07-09
 
 ### [RELEASE-73] Patient CSV notes export

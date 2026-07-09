@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <meta name="rx-csrf-token" content="<%= csrfToken || '' %>">
+    <script>!function(){var t=localStorage.getItem("rxTheme");if(t)document.documentElement.setAttribute("data-theme",t)}();</script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Call Center - Patient RX System</title>
+    <link href="/assets/bootstrap.min.css" rel="stylesheet">
+    <link href="/assets/inter.css" rel="stylesheet">
+    <link rel="stylesheet" href="/assets/fontawesome.all.min.css">
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        body.rx-call-center-page #content,
+        body.rx-call-center-page .cc-copy-locked {
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+        }
+        body.rx-call-center-page input,
+        body.rx-call-center-page textarea,
+        body.rx-call-center-page select,
+        body.rx-call-center-page button {
+            -webkit-user-select: auto;
+            -moz-user-select: auto;
+            -ms-user-select: auto;
+            user-select: auto;
+        }
+        .cc-toolbar {
+            display: grid;
+            grid-template-columns: minmax(220px, 1fr) auto auto auto;
+            gap: 10px;
+            align-items: end;
+        }
+        .cc-metrics {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(150px, 1fr));
+            gap: 12px;
+        }
+        .cc-metric {
+            min-height: 92px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: var(--card-bg, var(--surface));
+            padding: 14px 16px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            transition: border-color .15s, box-shadow .15s, transform .15s;
+        }
+        .cc-metric:hover {
+            border-color: #4a90e2;
+            box-shadow: 0 8px 24px rgba(0,0,0,.12);
+            transform: translateY(-1px);
+        }
+        .cc-metric.active {
+            border-color: #4a90e2;
+            box-shadow: 0 0 0 2px rgba(74,144,226,.16);
+        }
+        .cc-metric:hover .cc-metric-icon {
+            opacity: .85;
+        }
+        .cc-metric-icon {
+            flex: 0 0 42px;
+            width: 42px;
+            font-size: 2rem;
+            line-height: 1;
+            text-align: center;
+        }
+        .cc-metric-body {
+            min-width: 0;
+        }
+        .cc-metric .label {
+            color: var(--text-muted);
+            font-size: .72rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .03em;
+        }
+        .cc-metric .value {
+            font-size: 1.8rem;
+            font-weight: 800;
+            line-height: 1.15;
+            margin-top: 5px;
+        }
+        .cc-metric-link {
+            color: var(--primary);
+            font-size: .72rem;
+            font-weight: 700;
+            margin-top: 2px;
+        }
+        .cc-list-subtitle {
+            color: var(--text-muted);
+            font-size: .78rem;
+            margin-top: 2px;
+        }
+        .cc-table {
+            table-layout: fixed;
+        }
+        .cc-table th,
+        .cc-table td {
+            vertical-align: middle;
+        }
+        .cc-name-cell {
+            font-weight: 800;
+            color: var(--text-color);
+        }
+        .cc-phone {
+            font-variant-numeric: tabular-nums;
+            white-space: nowrap;
+        }
+        .cc-note-preview {
+            max-height: 74px;
+            overflow: auto;
+            white-space: pre-wrap;
+            word-break: break-word;
+            color: var(--text-muted);
+            font-size: .82rem;
+        }
+        .cc-history-list {
+            font-size: .78rem;
+            color: var(--text-muted);
+            line-height: 1.45;
+        }
+        .cc-row-note {
+            min-height: 72px;
+            resize: vertical;
+        }
+        .cc-called-wrap {
+            width: 44px;
+            height: 36px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: rgba(25, 135, 84, .08);
+        }
+        .cc-sort {
+            border: 0;
+            background: transparent;
+            color: inherit;
+            font: inherit;
+            font-weight: 800;
+            padding: 0;
+            text-align: inherit;
+        }
+        .cc-sort i {
+            opacity: .45;
+            margin-left: 4px;
+        }
+        .cc-sort.active i {
+            opacity: 1;
+            color: #4a90e2;
+        }
+        .cc-pagination {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        @media (max-width: 1100px) {
+            .cc-metrics { grid-template-columns: repeat(2, minmax(150px, 1fr)); }
+            .cc-toolbar { grid-template-columns: 1fr 1fr; }
+        }
+        @media (max-width: 700px) {
+            .cc-metrics { grid-template-columns: 1fr; }
+            .cc-toolbar { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body class="rx-call-center-page">
+<div class="wrapper">
+    <%- include('partials/sidebar') %>
+    <div id="content" class="cc-copy-locked">
+        <nav class="navbar navbar-expand-lg px-4 mb-3">
+            <button type="button" id="sidebarCollapse" class="btn btn-primary btn-sm" title="Menu">
+                <i class="fas fa-bars"></i>
+            </button>
+            <span class="ms-3 fw-bold fs-5"><i class="fas fa-headset me-2 text-info"></i>Call Center</span>
+            <div class="ms-auto d-flex align-items-center gap-2">
+                <button id="themeToggle" class="btn btn-outline-secondary btn-sm" title="Theme"><i class="fas fa-moon"></i></button>
+                <span id="userGreeting" class="text-muted small"></span>
+                <button id="logoutBtn" class="btn btn-danger btn-sm"><i class="fas fa-sign-out-alt me-1"></i>Logout</button>
+            </div>
+        </nav>
+
+        <div class="container-fluid px-4 pb-4">
+            <div class="cc-metrics mb-3">
+                <div class="cc-metric active" data-view="queue" data-card="queue" id="ccCardQueue">
+                    <div class="cc-metric-icon" style="color:#198754"><i class="fas fa-user-check"></i></div>
+                    <div class="cc-metric-body">
+                        <div class="label">Eligible Now</div>
+                        <div class="value" id="ccMetricEligible">--</div>
+                        <div class="cc-metric-link"><i class="fas fa-external-link-alt me-1"></i>View queue</div>
+                    </div>
+                </div>
+                <div class="cc-metric" data-view="called-today" data-card="calls" id="ccCardCalls">
+                    <div class="cc-metric-icon" style="color:#38bdf8"><i class="fas fa-phone-alt"></i></div>
+                    <div class="cc-metric-body">
+                        <div class="label">Calls This Login</div>
+                        <div class="value" id="ccMetricCalls">--</div>
+                        <div class="cc-metric-link"><i class="fas fa-external-link-alt me-1"></i>View calls</div>
+                    </div>
+                </div>
+                <div class="cc-metric" data-view="patients-called" data-card="patients" id="ccCardPatientsCalled">
+                    <div class="cc-metric-icon" style="color:#4a90e2"><i class="fas fa-users"></i></div>
+                    <div class="cc-metric-body">
+                        <div class="label">Patients This Login</div>
+                        <div class="value" id="ccMetricUnique">--</div>
+                        <div class="cc-metric-link"><i class="fas fa-external-link-alt me-1"></i>View patients</div>
+                    </div>
+                </div>
+                <div class="cc-metric" data-view="service-dates-today" data-card="dates" id="ccCardServiceDates">
+                    <div class="cc-metric-icon" style="color:#20c997"><i class="fas fa-calendar-plus"></i></div>
+                    <div class="cc-metric-body">
+                        <div class="label">Dates This Login</div>
+                        <div class="value" id="ccMetricDates">--</div>
+                        <div class="cc-metric-link"><i class="fas fa-external-link-alt me-1"></i>View dates</div>
+                    </div>
+                </div>
+                <div class="cc-metric" data-view="service-dates-today" data-card="efficiency" id="ccCardEfficiency">
+                    <div class="cc-metric-icon" style="color:#ffc107"><i class="fas fa-tachometer-alt"></i></div>
+                    <div class="cc-metric-body">
+                        <div class="label">Efficiency</div>
+                        <div class="value" id="ccMetricEfficiency">--</div>
+                        <div class="cc-metric-link"><i class="fas fa-external-link-alt me-1"></i>View dates</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="glass-card p-3 mb-3">
+                <div class="cc-toolbar">
+                    <div>
+                        <label class="form-label small fw-bold text-muted mb-1" for="ccSearch">Search</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="fas fa-search"></i></span>
+                            <input id="ccSearch" type="search" class="form-control" autocomplete="off">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="form-label small fw-bold text-muted mb-1" for="ccPageSize">Show</label>
+                        <select id="ccPageSize" class="form-select">
+                            <option value="5">5</option>
+                            <option value="10" selected>10</option>
+                        </select>
+                    </div>
+                    <button id="ccSearchBtn" class="btn btn-primary"><i class="fas fa-filter me-1"></i>Apply</button>
+                    <button id="ccRefreshBtn" class="btn btn-outline-secondary" title="Refresh"><i class="fas fa-sync-alt"></i></button>
+                </div>
+            </div>
+
+            <div class="glass-card p-0 overflow-hidden">
+                <div class="d-flex align-items-center justify-content-between px-3 py-3 border-bottom" style="border-color:var(--border)!important">
+                    <div>
+                        <div class="fw-bold"><i class="fas fa-list-alt me-2 text-info"></i><span id="ccListTitle">New Call Queue</span></div>
+                        <div class="cc-list-subtitle" id="ccListSubtitle">Patients ready for the next call.</div>
+                    </div>
+                    <span class="badge rounded-pill bg-secondary" id="ccRangeLabel">--</span>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0 cc-table">
+                        <thead>
+                            <tr>
+                                <th style="width:13%"><button class="cc-sort" data-sort="firstName" type="button">First Name<i class="fas fa-sort"></i></button></th>
+                                <th style="width:14%"><button class="cc-sort" data-sort="lastName" type="button">Last Name<i class="fas fa-sort"></i></button></th>
+                                <th style="width:12%"><button class="cc-sort" data-sort="phone" type="button">Phone<i class="fas fa-sort"></i></button></th>
+                                <th style="width:14%"><button class="cc-sort" data-sort="notes" type="button">Notes<i class="fas fa-sort"></i></button></th>
+                                <th style="width:11%"><button class="cc-sort" data-sort="serviceDate" type="button">New Service Date<i class="fas fa-sort"></i></button></th>
+                                <th style="width:17%">Add Note</th>
+                                <th style="width:8%" class="text-center"><button class="cc-sort" data-sort="status" type="button">Called<i class="fas fa-sort"></i></button></th>
+                                <th style="width:13%"><button class="cc-sort" data-sort="lastCall" type="button">Call Dates<i class="fas fa-sort"></i></button></th>
+                                <th style="width:8%" class="text-end">Save</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ccPatientRows">
+                            <tr><td colspan="9" class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin me-2"></i>Loading</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="cc-pagination px-3 py-3 border-top" style="border-color:var(--border)!important">
+                    <div class="text-muted small" id="ccPageLabel">--</div>
+                    <div class="d-flex gap-2">
+                        <button id="ccPrevBtn" class="btn btn-outline-secondary btn-sm"><i class="fas fa-chevron-left me-1"></i>Prev</button>
+                        <button id="ccNextBtn" class="btn btn-outline-primary btn-sm">Next<i class="fas fa-chevron-right ms-1"></i></button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="x-api-urls" aria-hidden="true" class="d-none">
+    <a id="xa-base" href="/login"></a>
+    <a id="xa-cc-patients" href="/api/call-center/patients"></a>
+    <a id="xa-cc-metrics" href="/api/call-center/metrics/queue"></a>
+    <a id="xa-cc-lock-refresh" href="/api/call-center/locks/refresh"></a>
+    <a id="xa-cc-lock-release" href="/api/call-center/locks/release"></a>
+    <a id="xa-cc-logout" href="/api/auth/logout"></a>
+</div>
+
+<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index:1100"></div>
+<script src="/assets/bootstrap.bundle.min.js"></script>
+<script src="/js/base.js?v=<%= appBuild %>"></script>
+<script src="/js/app.js?v=<%= appBuild %>"></script>
+<script src="/js/call-center.js?v=<%= appBuild %>"></script>
+</body>
+</html>

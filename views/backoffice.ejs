@@ -415,6 +415,7 @@
         <button class="tab-btn" id="tabOrphans" onclick="switchTab('orphans')"><i class="fas fa-unlink"></i>Orphans</button>
         <button class="tab-btn" id="tabDupes" onclick="switchTab('dupes')"><i class="fas fa-users"></i>Duplicates</button>
         <button class="tab-btn" id="tabAudit" onclick="switchTab('audit')"><i class="fas fa-history"></i>Audit Log</button>
+        <button class="tab-btn" id="tabCcCleanup" onclick="switchTab('cccleanup')"><i class="fas fa-headset"></i>Call Center Cleanup</button>
         <button class="tab-btn" id="tabSettings" onclick="switchTab('settings')"><i class="fas fa-cog"></i>Settings</button>
         <button class="tab-btn" id="tabBackups" onclick="switchTab('backups')"><i class="fas fa-save"></i>Backups</button>
         <button class="tab-btn" id="tabHealth" onclick="switchTab('health')"><i class="fas fa-heartbeat"></i>Health</button>
@@ -567,6 +568,49 @@
     </div>
 
     <!-- ══ System Settings Panel ══ -->
+    <div id="cccleanupContent" class="schema-wrap">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:0.75rem">
+            <div>
+                <div style="font-size:1rem;font-weight:700">Call Center Cleanup</div>
+                <div style="font-size:0.75rem;color:var(--text-muted)">Preview and purge only Call Center calls, notes, service-date event logs, or stale claims</div>
+            </div>
+            <button class="btn-bo btn-bo-primary" onclick="loadCcCleanupPreview()"><i class="fas fa-calculator me-1"></i>Preview Counts</button>
+        </div>
+        <div style="background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);border-radius:8px;padding:0.75rem 1rem;margin-bottom:1rem;color:#fbbf24;font-size:0.78rem">
+            <strong>Important:</strong> service-date cleanup removes Call Center event/history logs only. It does not revert a patient's current service date.
+        </div>
+        <div class="schema-card" style="padding:1rem;margin-bottom:1rem">
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(175px,1fr));gap:0.65rem">
+                <select id="ccCleanTarget" class="schema-search" style="margin:0">
+                    <option value="all">All Call Center Data</option>
+                    <option value="calls">Calls Only</option>
+                    <option value="notes">Call Center Notes Only</option>
+                    <option value="service_dates">Service-Date Events Only</option>
+                    <option value="locks">Call Center Locks Only</option>
+                </select>
+                <input type="date" id="ccCleanFrom" class="schema-search" style="margin:0" title="From date">
+                <input type="date" id="ccCleanTo" class="schema-search" style="margin:0" title="To date">
+                <input type="number" id="ccCleanUserId" class="schema-search" style="margin:0" min="1" placeholder="User ID">
+                <input type="number" id="ccCleanPatientId" class="schema-search" style="margin:0" min="1" placeholder="Patient ID">
+                <select id="ccCleanLockScope" class="schema-search" style="margin:0">
+                    <option value="stale">Stale locks only</option>
+                    <option value="all">All locks</option>
+                </select>
+            </div>
+        </div>
+        <div id="ccCleanCounts" class="stats-row" style="margin-bottom:1rem"></div>
+        <div class="schema-card" style="padding:1rem;margin-bottom:1rem">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:0.75rem;flex-wrap:wrap">
+                <div style="font-size:0.78rem;color:var(--text-muted)">Type <code>PURGE CALL CENTER</code> to enable permanent deletion for the previewed filter.</div>
+                <input type="text" id="ccCleanConfirm" class="schema-search" style="margin:0;max-width:260px" placeholder="PURGE CALL CENTER" oninput="checkCcCleanupConfirm()">
+                <button class="btn-bo btn-bo-danger" id="ccCleanPurgeBtn" disabled onclick="purgeCcCleanup()"><i class="fas fa-trash-alt me-1"></i>Purge Matching Data</button>
+            </div>
+        </div>
+        <div id="ccCleanPreview">
+            <p style="text-align:center;padding:3rem;color:var(--text-muted)"><i class="fas fa-headset" style="display:block;font-size:2rem;opacity:.3;margin-bottom:1rem"></i>Click Preview Counts to inspect matching Call Center cleanup data.</p>
+        </div>
+    </div>
+
     <div id="settingsContent" class="schema-wrap">
         <div style="font-size:1rem;font-weight:700;margin-bottom:0.25rem">System Settings</div>
         <div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:1.5rem">Configure application and backup behaviour</div>

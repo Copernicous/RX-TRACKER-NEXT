@@ -4,6 +4,7 @@ const db = require('../models');
 
 const PAGE_TITLES = [
     [/^\/dashboard\/?$/, 'Dashboard'],
+    [/^\/call-center\/?$/, 'Call Center'],
     [/^\/pharmacies\/?$/, 'Pharmacies'],
     [/^\/patient-transport\/?$/, 'Patient Transport Companies'],
     [/^\/pharmacy-transport\/?$/, 'Pharmacy Transport Companies'],

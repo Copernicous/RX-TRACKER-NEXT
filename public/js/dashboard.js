@@ -12,6 +12,8 @@ var _api = (function() {
         charts:   _h('xa-charts'),
         rxp:      _h('xa-rxp'),
         elig:     _h('xa-elig'),
+        ccReview: _h('xa-cc-review'),
+        ccDrill:  _h('xa-cc-drilldown'),
         drill:    _h('xa-drill'),
         eligBase: _h('xa-elig-base'),
         ap:       _h('xa-ap'),
@@ -32,6 +34,10 @@ var drilldownModal = null, drilldownCurrentData = [], drilldownType = '';
 var _dashFrom = '', _dashTo = '';
 var _trendPreset = '30d', _trendFrom = '', _trendTo = '';
 var _trendChartType = 'line';
+var _ccHistoryPreset = '30d', _ccHistoryFrom = '', _ccHistoryTo = '';
+var _ccHistoryChartType = 'line', _ccHistoryUserId = '';
+var _ccDrilldownSort = { key: '', dir: 'asc' };
+var _ccReviewRequestSeq = 0;
 var _accountModal = null;
 
 // =====================================================================
@@ -237,6 +243,708 @@ function refreshDashboard() {
     }).then(function() {
         loadRxPipeline();
     });
+}
+
+function _ccEsc(value) {
+    return String(value === undefined || value === null ? '' : value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function getCcHistoryPresetRange(preset) {
+    var now = new Date();
+    var today = _fmtDate(now);
+    if (preset === 'all') return { from: '', to: '' };
+    if (preset === '7d') {
+        var s7 = new Date(now);
+        s7.setDate(now.getDate() - 6);
+        return { from: _fmtDate(s7), to: today };
+    }
+    if (preset === '90d') {
+        var s90 = new Date(now);
+        s90.setDate(now.getDate() - 89);
+        return { from: _fmtDate(s90), to: today };
+    }
+    var s30 = new Date(now);
+    s30.setDate(now.getDate() - 29);
+    return { from: _fmtDate(s30), to: today };
+}
+
+function syncCcHistoryUi() {
+    var fromEl = document.getElementById('ccHistoryFrom');
+    var toEl = document.getElementById('ccHistoryTo');
+    if (fromEl) fromEl.value = _ccHistoryFrom || '';
+    if (toEl) toEl.value = _ccHistoryTo || '';
+    var btns = document.querySelectorAll('.cc-history-range-btn');
+    for (var i = 0; i < btns.length; i++) {
+        var active = btns[i].getAttribute('data-cc-history-range') === _ccHistoryPreset;
+        btns[i].classList.toggle('active', active);
+    }
+    var typeEl = document.getElementById('ccHistoryChartType');
+    if (typeEl) typeEl.value = _ccHistoryChartType;
+    var userEl = document.getElementById('ccHistoryUser');
+    if (userEl) userEl.value = _ccHistoryUserId || '';
+}
+
+function setCcHistoryPreset(preset) {
+    _ccHistoryPreset = preset || '30d';
+    var range = getCcHistoryPresetRange(_ccHistoryPreset);
+    _ccHistoryFrom = range.from;
+    _ccHistoryTo = range.to;
+    syncCcHistoryUi();
+    loadCallCenterReviewMetrics();
+}
+
+function validateCcHistoryRange() {
+    var fromEl = document.getElementById('ccHistoryFrom');
+    var toEl = document.getElementById('ccHistoryTo');
+    if (!fromEl || !toEl) return true;
+    var from = fromEl.value;
+    var to = toEl.value;
+    if (from && to && from > to) {
+        showToast('Call Center range From date cannot be after To date.', 'warning');
+        toEl.value = from;
+        return false;
+    }
+    return true;
+}
+
+function buildCallCenterReviewQuery() {
+    var parts = [];
+    var today = _fmtDate(new Date());
+    if (_ccHistoryPreset === 'all') {
+        parts.push('from=1900-01-01');
+        parts.push('to=' + encodeURIComponent(today));
+        parts.push('historyRange=all');
+    } else {
+        if (_ccHistoryFrom) parts.push('from=' + encodeURIComponent(_ccHistoryFrom));
+        if (_ccHistoryTo) parts.push('to=' + encodeURIComponent(_ccHistoryTo));
+        if (_ccHistoryFrom) parts.push('historyFrom=' + encodeURIComponent(_ccHistoryFrom));
+        if (_ccHistoryTo) parts.push('historyTo=' + encodeURIComponent(_ccHistoryTo));
+    }
+    if (_ccHistoryUserId) parts.push('historyUserId=' + encodeURIComponent(_ccHistoryUserId));
+    return parts.length ? '?' + parts.join('&') : '';
+}
+
+function buildCallCenterDrilldownQuery(metric) {
+    var query = buildCallCenterReviewQuery();
+    return query + (query ? '&' : '?') + 'metric=' + encodeURIComponent(metric || 'calls');
+}
+
+function formatCcDateTime(value) {
+    if (!value) return '--';
+    var d = new Date(value);
+    if (isNaN(d.getTime())) return String(value);
+    return d.toLocaleString([], { month: '2-digit', day: '2-digit', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+}
+
+function ccHasNumber(value) {
+    return value !== null && value !== undefined && value !== '' && !isNaN(Number(value));
+}
+
+function ccRound1(value) {
+    return Math.round(Number(value || 0) * 10) / 10;
+}
+
+function normalizeCcTotals(totals) {
+    totals = totals || {};
+    var calls = Number(totals.calls || 0);
+    var patients = Number(totals.uniquePatientsCalled || 0);
+    var dates = Number(totals.serviceDates || 0);
+    var repeats = Number(totals.repeatCalls || 0);
+    var notes = Number(totals.notes || 0);
+    return {
+        calls: calls,
+        uniquePatientsCalled: patients,
+        serviceDates: dates,
+        repeatCalls: repeats,
+        notes: notes,
+        efficiency: ccHasNumber(totals.efficiency) ? Number(totals.efficiency) : (calls ? Math.round((dates / calls) * 100) : null),
+        conversionRate: ccHasNumber(totals.conversionRate) ? Number(totals.conversionRate) : (patients ? Math.round((dates / patients) * 100) : null),
+        repeatRate: ccHasNumber(totals.repeatRate) ? Number(totals.repeatRate) : (calls ? Math.round((repeats / calls) * 100) : null),
+        callsPerServiceDate: ccHasNumber(totals.callsPerServiceDate) ? Number(totals.callsPerServiceDate) : (dates ? ccRound1(calls / dates) : null),
+        notesPerCall: ccHasNumber(totals.notesPerCall) ? Number(totals.notesPerCall) : (calls ? ccRound1(notes / calls) : null),
+        lastActionAt: totals.lastActionAt || null
+    };
+}
+
+function ccMetricText(value, suffix) {
+    if (!ccHasNumber(value)) return '--';
+    return String(value) + (suffix || '');
+}
+
+function populateCcHistoryUsers(users) {
+    var sel = document.getElementById('ccHistoryUser');
+    if (!sel) return;
+    var current = _ccHistoryUserId || sel.value || '';
+    var seen = {};
+    var html = '<option value="">All Users Combined</option>';
+    users = users || [];
+    for (var i = 0; i < users.length; i++) {
+        var u = users[i] || {};
+        if (!u.userId || seen[String(u.userId)]) continue;
+        seen[String(u.userId)] = true;
+        html += '<option value="' + _ccEsc(u.userId) + '">' + _ccEsc(u.user || ('User ' + u.userId)) + '</option>';
+    }
+    if (current && !seen[String(current)]) {
+        html += '<option value="' + _ccEsc(current) + '">User ' + _ccEsc(current) + '</option>';
+    }
+    sel.innerHTML = html;
+    sel.value = current;
+}
+
+function selectedCcHistoryUserLabel() {
+    var sel = document.getElementById('ccHistoryUser');
+    if (!sel) return 'All Users';
+    var option = sel.options[sel.selectedIndex];
+    return option && option.text ? option.text : 'All Users Combined';
+}
+
+function renderCallCenterReviewCharts(data) {
+    if (typeof Chart === 'undefined') return;
+    var history = data && data.history ? data.history : null;
+    var series = history && history.series ? history.series : {};
+    var labels = series.labels || [];
+    var range = history && history.range ? history.range : null;
+    var rangeEl = document.getElementById('ccReviewHistoryRange');
+    if (rangeEl && range) rangeEl.textContent = range.from === range.to ? range.from : range.from + ' to ' + range.to;
+
+    var activityCanvas = document.getElementById('ccReviewActivityChart');
+    var efficiencyCanvas = document.getElementById('ccReviewEfficiencyChart');
+    if (activityCanvas && Chart.getChart(activityCanvas)) Chart.getChart(activityCanvas).destroy();
+    if (efficiencyCanvas && Chart.getChart(efficiencyCanvas)) Chart.getChart(efficiencyCanvas).destroy();
+    if (!labels.length) return;
+
+    var isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    var tc = isDark ? '#c9d1d9' : '#444';
+    var gc = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)';
+    var chartType = _ccHistoryChartType === 'bar' ? 'bar' : 'line';
+    var pointRadius = chartType === 'bar' ? 0 : 1.5;
+    var lineTension = chartType === 'bar' ? 0 : 0.25;
+    Chart.defaults.color = tc;
+
+    var commonOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: { legend: { position: 'bottom' } },
+        scales: {
+            x: { grid: { color: gc }, ticks: { color: tc, maxRotation: 0, autoSkip: true } },
+            y: { grid: { color: gc }, ticks: { color: tc, precision: 0 }, beginAtZero: true }
+        }
+    };
+
+    if (activityCanvas) {
+        new Chart(activityCanvas.getContext('2d'), {
+            type: chartType,
+            data: {
+                labels: labels,
+                datasets: [
+                    { label: 'Calls', data: series.calls || [], borderColor: 'rgba(56,189,248,0.9)', backgroundColor: 'rgba(56,189,248,0.55)', tension: lineTension, fill: false, pointRadius: pointRadius },
+                    { label: 'Patients', data: series.uniquePatientsCalled || [], borderColor: 'rgba(74,144,226,0.9)', backgroundColor: 'rgba(74,144,226,0.55)', tension: lineTension, fill: false, pointRadius: pointRadius },
+                    { label: 'Service Dates', data: series.serviceDates || [], borderColor: 'rgba(32,201,151,0.9)', backgroundColor: 'rgba(32,201,151,0.55)', tension: lineTension, fill: false, pointRadius: pointRadius },
+                    { label: 'Repeat Calls', data: series.repeatCalls || [], borderColor: 'rgba(245,166,35,0.9)', backgroundColor: 'rgba(245,166,35,0.55)', tension: lineTension, fill: false, pointRadius: pointRadius }
+                ]
+            },
+            options: commonOptions
+        });
+    }
+
+    if (efficiencyCanvas) {
+        new Chart(efficiencyCanvas.getContext('2d'), {
+            type: chartType,
+            data: {
+                labels: labels,
+                datasets: [
+                    { label: 'Efficiency %', data: series.efficiency || [], borderColor: 'rgba(255,193,7,0.95)', backgroundColor: 'rgba(255,193,7,0.55)', tension: lineTension, fill: false, pointRadius: pointRadius },
+                    { label: 'Conversion %', data: series.conversionRate || [], borderColor: 'rgba(32,201,151,0.95)', backgroundColor: 'rgba(32,201,151,0.5)', tension: lineTension, fill: false, pointRadius: pointRadius },
+                    { label: 'Repeat %', data: series.repeatRate || [], borderColor: 'rgba(245,166,35,0.95)', backgroundColor: 'rgba(245,166,35,0.5)', tension: lineTension, fill: false, pointRadius: pointRadius },
+                    { label: 'Notes', data: series.notes || [], borderColor: 'rgba(155,89,182,0.9)', backgroundColor: 'rgba(155,89,182,0.5)', tension: lineTension, fill: false, pointRadius: pointRadius, yAxisID: 'yActivity' }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: { legend: { position: 'bottom' } },
+                scales: {
+                    x: { grid: { color: gc }, ticks: { color: tc, maxRotation: 0, autoSkip: true } },
+                    y: { grid: { color: gc }, ticks: { color: tc, precision: 0 }, beginAtZero: true, suggestedMax: 100 },
+                    yActivity: { position: 'right', grid: { drawOnChartArea: false }, ticks: { color: tc, precision: 0 }, beginAtZero: true }
+                }
+            }
+        });
+    }
+}
+
+function loadCallCenterReviewMetrics() {
+    if (!_api.ccReview) return;
+    var requestSeq = ++_ccReviewRequestSeq;
+    return fetchWithAuth(_api.ccReview + buildCallCenterReviewQuery(), { silent: true }).then(function(res) {
+        if (!res || !res.ok) return;
+        return res.json().then(function(data) {
+            if (requestSeq !== _ccReviewRequestSeq) return;
+            window._lastCallCenterReviewData = data;
+            var row = document.getElementById('callCenterReviewRow');
+            var card = document.getElementById('callCenterReviewCard');
+            if (row) row.classList.remove('d-none');
+            if (card) card.classList.remove('d-none');
+            var totals = normalizeCcTotals(data.totals || {});
+            var setTxt = function(id, val) { var el = document.getElementById(id); if (el) el.textContent = val; };
+            setTxt('ccReviewCalls', totals.calls);
+            setTxt('ccReviewUnique', totals.uniquePatientsCalled);
+            setTxt('ccReviewDates', totals.serviceDates);
+            setTxt('ccReviewRepeats', totals.repeatCalls);
+            setTxt('ccReviewEfficiency', ccMetricText(totals.efficiency, '%'));
+            setTxt('ccReviewConversion', ccMetricText(totals.conversionRate, '%'));
+            setTxt('ccReviewRepeatRate', ccMetricText(totals.repeatRate, '%'));
+            setTxt('ccReviewCallsPerDate', ccMetricText(totals.callsPerServiceDate, ''));
+            setTxt('ccReviewNotesPerCall', ccMetricText(totals.notesPerCall, ''));
+            setTxt('ccReviewLastActivity', formatCcDateTime(totals.lastActionAt));
+            if (data.range) setTxt('ccReviewRange', data.range.from === data.range.to ? data.range.from : data.range.from + ' to ' + data.range.to);
+            populateCcHistoryUsers(data.history && data.history.users ? data.history.users : data.users);
+            setTxt('ccReviewScope', _ccHistoryUserId ? ('Scope: ' + selectedCcHistoryUserLabel()) : 'Scope: All Users');
+            renderCallCenterReviewCharts(data);
+
+            var tbody = document.getElementById('ccReviewUsers');
+            if (!tbody) return;
+            var users = data.users || [];
+            if (!users.length) {
+                tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted">No call center activity for this range</td></tr>';
+                return;
+            }
+            var html = '';
+            for (var i = 0; i < users.length; i++) {
+                var u = normalizeCcTotals(users[i] || {});
+                u.user = users[i].user || 'User';
+                u.lastActionAt = users[i].lastActionAt || null;
+                html += '<tr>' +
+                    '<td>' + _ccEsc(u.user || 'User') + '</td>' +
+                    '<td class="text-end">' + (u.calls || 0) + '</td>' +
+                    '<td class="text-end">' + (u.uniquePatientsCalled || 0) + '</td>' +
+                    '<td class="text-end">' + (u.serviceDates || 0) + '</td>' +
+                    '<td class="text-end">' + (u.notes || 0) + '</td>' +
+                    '<td class="text-end">' + ccMetricText(u.efficiency, '%') + '</td>' +
+                    '<td class="text-end">' + ccMetricText(u.conversionRate, '%') + '</td>' +
+                    '<td class="text-end">' + ccMetricText(u.repeatRate, '%') + '</td>' +
+                    '<td class="text-end">' + _ccEsc(formatCcDateTime(u.lastActionAt)) + '</td>' +
+                    '</tr>';
+            }
+            tbody.innerHTML = html;
+        });
+    }).catch(function(e) {
+        console.warn('Call Center metrics failed:', e);
+    });
+}
+
+function ccDrilldownSummary(data) {
+    var totals = data && data.totals ? data.totals : {};
+    var parts = [];
+    parts.push((totals.patients || 0) + ' patients');
+    parts.push((totals.calls || 0) + ' calls');
+    parts.push((totals.serviceDates || 0) + ' service dates');
+    parts.push((totals.notes || 0) + ' notes');
+    if (totals.repeatCalls) parts.push(totals.repeatCalls + ' repeat calls');
+    return parts.join(' / ');
+}
+
+function ccDrilldownName(row) {
+    row = row || {};
+    return ((row.firstName || '') + ' ' + (row.lastName || '')).trim();
+}
+
+function ccDrilldownSortValue(row, key) {
+    row = row || {};
+    if (key === 'patientCode') return row.patientCode || ('PAT-' + row.id);
+    if (key === 'name') return ccDrilldownName(row);
+    if (key === 'phone') return row.phone || '';
+    if (key === 'clinicName') return row.clinicName || '';
+    if (key === 'serviceDate') return row.serviceDate || '';
+    if (key === 'calls') return Number(row.calls || 0);
+    if (key === 'repeatCalls') return Number(row.repeatCalls || 0);
+    if (key === 'serviceDates') return Number(row.serviceDates || 0);
+    if (key === 'notes') return Number(row.notes || 0);
+    if (key === 'lastActionAt') return row.lastActionAt ? new Date(row.lastActionAt).getTime() : 0;
+    return '';
+}
+
+function ccDrilldownDefaultSortDir(key) {
+    return ['calls', 'repeatCalls', 'serviceDates', 'notes', 'lastActionAt', 'serviceDate'].indexOf(key) !== -1 ? 'desc' : 'asc';
+}
+
+function getSortedCallCenterDrilldownRows(data) {
+    var rows = data && data.rows ? data.rows.slice() : [];
+    if (!_ccDrilldownSort || !_ccDrilldownSort.key) return rows;
+    var key = _ccDrilldownSort.key;
+    var dir = _ccDrilldownSort.dir === 'desc' ? -1 : 1;
+    rows.sort(function(a, b) {
+        var av = ccDrilldownSortValue(a, key);
+        var bv = ccDrilldownSortValue(b, key);
+        if (typeof av === 'number' || typeof bv === 'number') {
+            av = Number(av || 0);
+            bv = Number(bv || 0);
+            return (av - bv) * dir;
+        }
+        av = String(av || '').toLowerCase();
+        bv = String(bv || '').toLowerCase();
+        if (av < bv) return -1 * dir;
+        if (av > bv) return 1 * dir;
+        return 0;
+    });
+    return rows;
+}
+
+function ccDrilldownSortIcon(key) {
+    if (!_ccDrilldownSort || _ccDrilldownSort.key !== key) return '<i class="fas fa-sort"></i>';
+    return _ccDrilldownSort.dir === 'desc' ? '<i class="fas fa-sort-down"></i>' : '<i class="fas fa-sort-up"></i>';
+}
+
+function ccDrilldownHeader(label, key, className) {
+    var active = _ccDrilldownSort && _ccDrilldownSort.key === key ? ' active' : '';
+    return '<th class="' + (className || '') + '"><button class="cc-drill-sort' + active + '" type="button" data-cc-drill-sort="' + _ccEsc(key) + '">' + _ccEsc(label) + ccDrilldownSortIcon(key) + '</button></th>';
+}
+
+function ccHistoryLine(kind, item) {
+    item = item || {};
+    var when = formatCcDateTime(item.at);
+    var user = item.user || '';
+    if (kind === 'note') {
+        return when + (user ? ' - ' + user : '') + ': ' + (item.note || '');
+    }
+    if (kind === 'serviceDate') {
+        return when + (user ? ' - ' + user : '') + (item.serviceDate ? ' -> ' + item.serviceDate : '');
+    }
+    return when + (user ? ' - ' + user : '');
+}
+
+function ccHistoryCsv(items, kind) {
+    items = items || [];
+    var parts = [];
+    for (var i = 0; i < items.length; i++) parts.push(ccHistoryLine(kind, items[i]));
+    return parts.join(' | ');
+}
+
+function ccHistoryHtml(items, kind) {
+    items = items || [];
+    if (!items.length) return '<div class="text-muted">--</div>';
+    var html = '';
+    for (var i = 0; i < items.length; i++) {
+        html += '<div class="mb-1">' + _ccEsc(ccHistoryLine(kind, items[i])) + '</div>';
+    }
+    return html;
+}
+
+function renderCcPatientHistory(row) {
+    row = row || {};
+    return '<tr class="cc-drill-history-row"><td colspan="10">' +
+        '<div class="cc-drill-history-grid">' +
+            '<div class="cc-drill-history-box">' +
+                '<div class="cc-drill-history-title"><i class="fas fa-phone-alt me-1 text-info"></i>Call History</div>' +
+                '<div class="cc-drill-history-list">' + ccHistoryHtml(row.callHistory || [], 'call') + '</div>' +
+            '</div>' +
+            '<div class="cc-drill-history-box">' +
+                '<div class="cc-drill-history-title"><i class="fas fa-calendar-plus me-1 text-success"></i>Service Date History</div>' +
+                '<div class="cc-drill-history-list">' + ccHistoryHtml(row.serviceDateHistory || [], 'serviceDate') + '</div>' +
+            '</div>' +
+            '<div class="cc-drill-history-box">' +
+                '<div class="cc-drill-history-title"><i class="fas fa-sticky-note me-1 text-warning"></i>Call Center Notes</div>' +
+                '<div class="cc-drill-history-list">' + ccHistoryHtml(row.noteHistory || [], 'note') + '</div>' +
+            '</div>' +
+        '</div>' +
+        '</td></tr>';
+}
+
+function bindCallCenterDrilldownSort() {
+    var buttons = document.querySelectorAll('.cc-drill-sort[data-cc-drill-sort]');
+    for (var i = 0; i < buttons.length; i++) {
+        (function(btn) {
+            btn.addEventListener('click', function() {
+                var key = btn.getAttribute('data-cc-drill-sort') || '';
+                if (!key) return;
+                if (_ccDrilldownSort.key === key) {
+                    _ccDrilldownSort.dir = _ccDrilldownSort.dir === 'desc' ? 'asc' : 'desc';
+                } else {
+                    _ccDrilldownSort.key = key;
+                    _ccDrilldownSort.dir = ccDrilldownDefaultSortDir(key);
+                }
+                if (window._lastCallCenterDrilldownData) renderCallCenterDrilldown(window._lastCallCenterDrilldownData);
+            });
+        })(buttons[i]);
+    }
+}
+
+function renderCallCenterDrilldown(data) {
+    var rows = getSortedCallCenterDrilldownRows(data);
+    var titleEl = document.getElementById('drilldownTitle');
+    var bodyEl = document.getElementById('drilldownBody');
+    var fullBtn = document.getElementById('drilldownFullPageBtn');
+    var exportBtn = document.getElementById('ccDrilldownExportBtn');
+    if (titleEl) titleEl.textContent = data && data.title ? data.title : 'Call Center Patients';
+    if (fullBtn) fullBtn.classList.add('d-none');
+    if (exportBtn) exportBtn.classList.remove('d-none');
+    if (!bodyEl) return;
+
+    var rangeText = data && data.range ? (data.range.from === data.range.to ? data.range.from : data.range.from + ' to ' + data.range.to) : '';
+    var userText = selectedCcHistoryUserLabel();
+    var html = '<div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">' +
+        '<div><div class="small text-muted">' + _ccEsc(data.description || '') + '</div>' +
+        '<div class="small text-muted">Scope: ' + _ccEsc(userText) + (rangeText ? ' / ' + _ccEsc(rangeText) : '') + '</div></div>' +
+        '<span class="badge bg-secondary">' + _ccEsc(ccDrilldownSummary(data)) + '</span>' +
+        '</div>';
+
+    if (!rows.length) {
+        bodyEl.innerHTML = html + '<div class="text-center text-muted py-4">No patients found for this card and range.</div>';
+        return;
+    }
+
+    html += '<div class="table-responsive"><table class="table table-sm table-hover align-middle mb-0">' +
+        '<thead><tr>' +
+        ccDrilldownHeader('Patient ID', 'patientCode') +
+        ccDrilldownHeader('Name', 'name') +
+        ccDrilldownHeader('Phone', 'phone') +
+        ccDrilldownHeader('Clinic', 'clinicName') +
+        ccDrilldownHeader('Service Date', 'serviceDate') +
+        ccDrilldownHeader('Calls', 'calls', 'text-end') +
+        ccDrilldownHeader('Repeat', 'repeatCalls', 'text-end') +
+        ccDrilldownHeader('Dates', 'serviceDates', 'text-end') +
+        ccDrilldownHeader('Notes', 'notes', 'text-end') +
+        ccDrilldownHeader('Last Activity', 'lastActionAt') +
+        '</tr></thead><tbody>';
+    for (var i = 0; i < rows.length; i++) {
+        var r = rows[i] || {};
+        var name = ccDrilldownName(r);
+        html += '<tr>' +
+            '<td class="fw-semibold">' + _ccEsc(r.patientCode || ('PAT-' + r.id)) + '</td>' +
+            '<td>' + _ccEsc(name || '--') + '</td>' +
+            '<td>' + _ccEsc(r.phone || '--') + '</td>' +
+            '<td>' + _ccEsc(r.clinicName || '--') + '</td>' +
+            '<td>' + _ccEsc(r.serviceDate || '--') + '</td>' +
+            '<td class="text-end">' + _ccEsc(r.calls || 0) + '</td>' +
+            '<td class="text-end">' + _ccEsc(r.repeatCalls || 0) + '</td>' +
+            '<td class="text-end">' + _ccEsc(r.serviceDates || 0) + '</td>' +
+            '<td class="text-end">' + _ccEsc(r.notes || 0) + '</td>' +
+            '<td><div>' + _ccEsc(formatCcDateTime(r.lastActionAt)) + '</div>' +
+                '<small class="text-muted">' + _ccEsc(r.lastActionBy || '') + '</small></td>' +
+            '</tr>';
+        html += renderCcPatientHistory(r);
+    }
+    html += '</tbody></table></div>';
+    bodyEl.innerHTML = html;
+    bindCallCenterDrilldownSort();
+}
+
+function ccDrilldownFilename(data) {
+    var title = data && data.title ? data.title : 'call_center_patients';
+    var metric = data && data.metric ? data.metric : 'drilldown';
+    var cleanTitle = String(title).replace(/[^a-z0-9]+/gi, '_').replace(/^_+|_+$/g, '').toLowerCase() || 'call_center';
+    return cleanTitle + '_' + metric + '_' + new Date().toISOString().slice(0,10) + '.csv';
+}
+
+function exportCallCenterDrilldownCsv() {
+    var data = window._lastCallCenterDrilldownData || {};
+    var rows = getSortedCallCenterDrilldownRows(data);
+    if (!rows.length) {
+        showToast('No Call Center patients to export.', 'warning');
+        return;
+    }
+    var rangeText = data.range ? (data.range.from === data.range.to ? data.range.from : data.range.from + ' to ' + data.range.to) : '';
+    var scopeText = selectedCcHistoryUserLabel();
+    var csvRows = [];
+    for (var i = 0; i < rows.length; i++) {
+        var r = rows[i] || {};
+        var name = ((r.firstName || '') + ' ' + (r.lastName || '')).trim();
+        csvRows.push([
+            data.title || '',
+            rangeText,
+            scopeText,
+            r.patientCode || ('PAT-' + r.id),
+            name,
+            r.phone || '',
+            r.clinicName || '',
+            r.serviceDate || '',
+            r.calls || 0,
+            r.repeatCalls || 0,
+            r.serviceDates || 0,
+            r.notes || 0,
+            formatCcDateTime(r.lastActionAt),
+            r.lastActionBy || '',
+            ccHistoryCsv(r.callHistory || [], 'call'),
+            ccHistoryCsv(r.serviceDateHistory || [], 'serviceDate'),
+            ccHistoryCsv(r.noteHistory || [], 'note')
+        ]);
+    }
+    exportToCsv(
+        ccDrilldownFilename(data),
+        ['Drilldown', 'Range', 'Scope', 'Patient ID', 'Name', 'Phone', 'Clinic', 'Service Date', 'Calls', 'Repeat Calls', 'Service Dates', 'Notes', 'Last Activity', 'Last Activity By', 'Call History', 'Service Date History', 'Call Center Notes'],
+        csvRows
+    );
+}
+
+function openCallCenterReviewDrilldown(metric) {
+    if (!_api.ccDrill) return;
+    var bodyEl = document.getElementById('drilldownBody');
+    var titleEl = document.getElementById('drilldownTitle');
+    var fullBtn = document.getElementById('drilldownFullPageBtn');
+    var exportBtn = document.getElementById('ccDrilldownExportBtn');
+    window._lastCallCenterDrilldownData = null;
+    _ccDrilldownSort = { key: '', dir: 'asc' };
+    if (titleEl) titleEl.textContent = 'Call Center Patients';
+    if (fullBtn) fullBtn.classList.add('d-none');
+    if (exportBtn) exportBtn.classList.add('d-none');
+    if (bodyEl) bodyEl.innerHTML = '<p class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin me-2"></i>Loading patients...</p>';
+    if (!drilldownModal) drilldownModal = new bootstrap.Modal(document.getElementById('drilldownModal'));
+    drilldownModal.show();
+
+    fetchWithAuth(_api.ccDrill + buildCallCenterDrilldownQuery(metric), { silent: true }).then(function(res) {
+        if (!res || !res.ok) throw new Error('Failed');
+        return res.json();
+    }).then(function(data) {
+        window._lastCallCenterDrilldownData = data;
+        drilldownCurrentData = data.rows || [];
+        renderCallCenterDrilldown(data);
+    }).catch(function() {
+        if (bodyEl) bodyEl.innerHTML = '<div class="text-center text-danger py-4">Could not load Call Center patients.</div>';
+    });
+}
+
+function initCallCenterDrilldownCards() {
+    var cards = document.querySelectorAll('.cc-kpi-clickable[data-cc-drilldown]');
+    var exportBtn = document.getElementById('ccDrilldownExportBtn');
+    if (exportBtn) exportBtn.addEventListener('click', exportCallCenterDrilldownCsv);
+    for (var i = 0; i < cards.length; i++) {
+        (function(card) {
+            card.addEventListener('click', function() {
+                openCallCenterReviewDrilldown(card.getAttribute('data-cc-drilldown') || 'calls');
+            });
+            card.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    openCallCenterReviewDrilldown(card.getAttribute('data-cc-drilldown') || 'calls');
+                }
+            });
+        })(cards[i]);
+    }
+}
+
+function ccSeriesValue(series, key, index) {
+    if (!series || !series[key] || typeof series[key].length !== 'number') return 0;
+    var value = series[key][index];
+    if (value === '' || value === null || value === undefined) return 0;
+    var num = Number(value);
+    return isNaN(num) ? 0 : num;
+}
+
+function exportCallCenterReviewCsv() {
+    var data = window._lastCallCenterReviewData;
+    var history = data && data.history ? data.history : null;
+    var series = history && history.series ? history.series : null;
+    var labels = series && series.labels ? series.labels : [];
+    if (!labels.length) {
+        showToast('No Call Center history to export.', 'warning');
+        return;
+    }
+    var userSelect = document.getElementById('ccHistoryUser');
+    var userLabel = userSelect && userSelect.value ? userSelect.options[userSelect.selectedIndex].text : 'All Users Combined';
+    var rows = [];
+    for (var i = 0; i < labels.length; i++) {
+        rows.push([
+            labels[i] || '',
+            userLabel,
+            ccSeriesValue(series, 'calls', i),
+            ccSeriesValue(series, 'uniquePatientsCalled', i),
+            ccSeriesValue(series, 'serviceDates', i),
+            ccSeriesValue(series, 'repeatCalls', i),
+            ccSeriesValue(series, 'notes', i),
+            ccSeriesValue(series, 'efficiency', i),
+            ccSeriesValue(series, 'conversionRate', i),
+            ccSeriesValue(series, 'repeatRate', i),
+            ccSeriesValue(series, 'callsPerServiceDate', i),
+            ccSeriesValue(series, 'notesPerCall', i)
+        ]);
+    }
+    var cleanUser = userLabel.replace(/[^a-z0-9]+/gi, '-').replace(/^-+|-+$/g, '').toLowerCase() || 'combined';
+    exportToCsv(
+        'call_center_metrics_' + cleanUser + '_' + new Date().toISOString().slice(0,10) + '.csv',
+        ['Date', 'User Filter', 'Calls', 'Patients Called', 'Service Dates', 'Repeat Calls', 'Notes', 'Efficiency %', 'Conversion %', 'Repeat Rate %', 'Calls / Service Date', 'Notes / Call'],
+        rows
+    );
+}
+
+function initCallCenterReviewControls() {
+    var savedType = localStorage.getItem('rxCcHistoryChartType');
+    if (savedType === 'bar' || savedType === 'line') _ccHistoryChartType = savedType;
+
+    var rangeBtns = document.querySelectorAll('.cc-history-range-btn');
+    for (var i = 0; i < rangeBtns.length; i++) {
+        (function(btn) {
+            btn.addEventListener('click', function() {
+                setCcHistoryPreset(btn.getAttribute('data-cc-history-range') || '30d');
+            });
+        })(rangeBtns[i]);
+    }
+
+    var typeEl = document.getElementById('ccHistoryChartType');
+    if (typeEl) {
+        typeEl.value = _ccHistoryChartType;
+        typeEl.addEventListener('change', function() {
+            _ccHistoryChartType = this.value === 'bar' ? 'bar' : 'line';
+            localStorage.setItem('rxCcHistoryChartType', _ccHistoryChartType);
+            if (window._lastCallCenterReviewData) renderCallCenterReviewCharts(window._lastCallCenterReviewData);
+        });
+    }
+
+    var userEl = document.getElementById('ccHistoryUser');
+    if (userEl) {
+        userEl.addEventListener('change', function() {
+            _ccHistoryUserId = this.value || '';
+            loadCallCenterReviewMetrics();
+        });
+    }
+
+    var fromEl = document.getElementById('ccHistoryFrom');
+    var toEl = document.getElementById('ccHistoryTo');
+    if (fromEl) {
+        fromEl.addEventListener('change', function() {
+            if (!validateCcHistoryRange()) return;
+            _ccHistoryFrom = this.value;
+            _ccHistoryTo = toEl ? toEl.value : '';
+            _ccHistoryPreset = 'custom';
+            syncCcHistoryUi();
+        });
+    }
+    if (toEl) {
+        toEl.addEventListener('change', function() {
+            if (!validateCcHistoryRange()) return;
+            _ccHistoryFrom = fromEl ? fromEl.value : '';
+            _ccHistoryTo = this.value;
+            _ccHistoryPreset = 'custom';
+            syncCcHistoryUi();
+        });
+    }
+
+    var applyBtn = document.getElementById('ccHistoryApplyBtn');
+    if (applyBtn) {
+        applyBtn.addEventListener('click', function() {
+            if (!validateCcHistoryRange()) return;
+            _ccHistoryFrom = fromEl ? fromEl.value : '';
+            _ccHistoryTo = toEl ? toEl.value : '';
+            if (_ccHistoryFrom || _ccHistoryTo) {
+                _ccHistoryPreset = 'custom';
+            } else if (_ccHistoryPreset === 'custom') {
+                _ccHistoryPreset = '30d';
+            }
+            syncCcHistoryUi();
+            loadCallCenterReviewMetrics();
+        });
+    }
+
+    var exportBtn = document.getElementById('ccHistoryExportBtn');
+    if (exportBtn) exportBtn.addEventListener('click', exportCallCenterReviewCsv);
+
+    setCcHistoryPreset('30d');
 }
 
 // =====================================================================
@@ -1191,6 +1899,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Load eligibility widget independently
     loadEligibility();
+    initCallCenterReviewControls();
+    initCallCenterDrilldownCards();
 
     // ISSUE-03 FIX: Re-render charts on theme toggle so dark/light colors update
     var _themeBtn = document.getElementById('themeToggle');
@@ -1203,6 +1913,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (barCanvas   && Chart.getChart(barCanvas))   Chart.getChart(barCanvas).destroy();
                     if (donutCanvas && Chart.getChart(donutCanvas)) Chart.getChart(donutCanvas).destroy();
                     renderCharts(window._lastChartData);
+                }
+                if (window._lastCallCenterReviewData) {
+                    renderCallCenterReviewCharts(window._lastCallCenterReviewData);
                 }
             }, 60);
         });

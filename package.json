@@ -1,6 +1,6 @@
 {
   "name": "patient-rx-system",
-  "version": "2.0.73",
+  "version": "3.0.0",
   "description": "Patient RX Delivery Management System",
   "main": "app.js",
   "scripts": {
@@ -17,6 +17,9 @@
     "staging:import-smoke": "node scripts/smoke-staging-import-guard.js",
     "staging:security-alerts": "node scripts/smoke-staging-security-alerts.js",
     "staging:security-hardening": "node scripts/smoke-staging-security-hardening.js",
+    "staging:call-center-security": "node scripts/smoke-staging-call-center-security.js",
+    "staging:ui-click-smoke": "node scripts/smoke-staging-ui-clicks.js",
+    "staging:full-smoke": "node scripts/smoke-staging-full.js",
     "staging:start": "node scripts/start-staging.js",
     "smoke:qa": "node qa/smoke-qa.js",
     "test:rx-override": "node scripts/test-rx-override-permissions.js",

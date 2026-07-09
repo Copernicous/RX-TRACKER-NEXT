@@ -374,7 +374,8 @@
             localStorage.removeItem('token');
             localStorage.removeItem('rxToken');
             localStorage.removeItem('user');
-            window.rxNav('/dashboard');
+            var role = data && data.user ? String(data.user.role || '').trim().toLowerCase() : '';
+            window.rxNav(role === 'call center' ? '/call-center' : '/dashboard');
         }
 
         function showLoginError(el, msg) {
