@@ -501,6 +501,17 @@ app.use('/api/settings',            settingsLimiter);
 app.use('/api/auth',    authRoutes);
 app.use('/api/auth',    twoFactorRoutes);
 app.use('/api/import',  importRoutes);
+const PORT = process.env.PORT || 3000;
+app.get('/api/healthz', async (req, res) => {
+    let database = 'ok';
+    try { await db.sequelize.authenticate(); } catch { database = 'unreachable'; }
+    res.status(database === 'ok' ? 200 : 503).json({
+        status: database === 'ok' ? 'ok' : 'degraded',
+        project: 'RX-TRACKER', version: require('./package.json').version,
+        pid: process.pid, uptimeMs: Math.round(process.uptime() * 1000),
+        database, httpPort: Number(PORT)
+    });
+});
 app.use('/api',         apiRoutes);
 app.use('/',            webAuth, userActivityLogger, webRoutes);   // webAuth decodes rxToken cookie -> res.locals.userPerms
 
@@ -524,7 +535,6 @@ app.use(async (err, req, res, next) => {
     res.status(500).json({ error: 'Internal server error' });
 });
 
-const PORT = process.env.PORT || 3000;
 
 // -- Auto-create database if it doesn't exist ----------------------------------
 // Connects to the always-present 'postgres' default database first, then issues
