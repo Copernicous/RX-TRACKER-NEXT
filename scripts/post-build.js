@@ -5,7 +5,8 @@
  *
  * Files copied:
  *   .env.example        - environment template (copy to .env on the server)
- *   RX-Manager.bat      — production management menu
+ *   PROJECT-CONTROL.bat — production project/service control launcher
+ *   project-control.json — project control configuration
  *   CHANGELOG.md        — version history / what changed
  *   Readme.txt          — release summary / verification notes
  *   DEFERRED-ITEMS.txt  — security / tech-debt tracking
@@ -30,7 +31,8 @@ if (!fs.existsSync(distDir)) {
 
 const filesToCopy = [
     '.env.example',
-    'RX-Manager.bat',
+    'PROJECT-CONTROL.bat',
+    'project-control.json',
     'CHANGELOG.md',
     'Readme.txt',
     'PRODUCTION_RELEASE_CHECKLIST.md',
