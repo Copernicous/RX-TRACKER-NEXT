@@ -6,7 +6,6 @@
   "scripts": {
     "start": "node app.js",
     "dev": "nodemon app.js",
-    "qa:menu": "qa\\qa-menu.bat",
     "qa:start": "node qa/start-local-qa.js",
     "qa:seed": "node qa/seed-qa-data.js",
     "qa:status": "node qa/status.js",
@@ -112,6 +111,7 @@
     "morgan": "^1.11.0",
     "multer": "^2.2.0",
     "node-cron": "^4.4.1",
+    "node-windows": "^1.0.0-beta.8",
     "nodemailer": "^9.0.1",
     "pg": "^8.22.0",
     "pg-hstore": "^2.3.4",
