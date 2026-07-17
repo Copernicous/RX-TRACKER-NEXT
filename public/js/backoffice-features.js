@@ -110,6 +110,7 @@ async function loadSettings() {
         document.getElementById('sRetentionDays').value  = data.backupRetentionDays || 30;
         document.getElementById('sSessionTimeout').value = data.sessionTimeoutMinutes || 60;
         document.getElementById('sMaxLogin').value       = data.maxLoginAttempts || 5;
+        document.getElementById('sServiceWindowDays').value = data.serviceWindowDays || 90;
         var cb = document.getElementById('sMaintenanceMode');
         cb.checked = !!data.maintenanceMode;
         var svcCb = document.getElementById('sServiceDateOverrideEnabled');
@@ -136,12 +137,14 @@ async function saveSettings(e) {
             backupRetentionDays:   parseInt(document.getElementById('sRetentionDays').value, 10),
             sessionTimeoutMinutes: parseInt(document.getElementById('sSessionTimeout').value, 10),
             maxLoginAttempts:      parseInt(document.getElementById('sMaxLogin').value, 10),
+            serviceWindowDays:     parseInt(document.getElementById('sServiceWindowDays').value, 10),
             maintenanceMode:       document.getElementById('sMaintenanceMode').checked,
             serviceDateOverrideEnabled: document.getElementById('sServiceDateOverrideEnabled').checked
         };
         var res  = await apiFetch('/api/admin/settings', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
         var data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Save failed');
+        window.SERVICE_WINDOW_DAYS = Number(data.settings && data.settings.serviceWindowDays) || 90;
         var msg = document.getElementById('settingsSavedMsg');
         msg.textContent = '\u2714 Settings saved'; msg.style.opacity = '1';
         setTimeout(function() { msg.style.opacity = '0'; }, 3000);
@@ -1023,7 +1026,7 @@ function _svcOverrideWindowHtml(patient) {
     }
     var sd = new Date(String(patient.serviceDate).slice(0,10) + 'T12:00:00');
     sd.setHours(0,0,0,0);
-    var exp = new Date(sd.getTime() + 90 * 864e5);
+    var exp = new Date(sd.getTime() + (Number(window.SERVICE_WINDOW_DAYS) || 90) * 864e5);
     var now = new Date(); now.setHours(0,0,0,0);
     var daysLeft = Math.ceil((exp - now) / 864e5);
     if (daysLeft >= 0) {

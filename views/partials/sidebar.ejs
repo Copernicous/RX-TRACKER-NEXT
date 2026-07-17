@@ -3,6 +3,7 @@
   Uses res.locals.userPerms set by middleware/webAuth.js from the rxToken cookie.
   If userPerms is null (no cookie yet), all items are shown and client JS handles auth redirect.
 %>
+<script nonce="<%= cspNonce %>">window.SERVICE_WINDOW_DAYS = <%= Number(locals.serviceWindowDays) || 90 %>;</script>
 <%
   // Build a visible-set from userPerms
   const UP      = locals.userPerms || null;

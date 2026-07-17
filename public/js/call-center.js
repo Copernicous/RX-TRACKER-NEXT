@@ -17,6 +17,7 @@
 
     var lockedPatientIds = [];
     var lockHeartbeatTimer = null;
+    var serviceWindowDays = Number(window.SERVICE_WINDOW_DAYS) || 90;
 
     var state = {
         page: 1,
@@ -29,7 +30,8 @@
         view: 'queue',
         activeCard: 'queue',
         sort: '',
-        dir: 'asc'
+        dir: 'asc',
+        eligibilityCutoff: ''
     };
 
     var cardTitles = {
@@ -152,7 +154,10 @@
         if (!res || !res.ok) return;
         var data = await res.json();
         var totals = data.totals || {};
-        setText('ccMetricEligible', data.availableEligibleTotal !== undefined ? data.availableEligibleTotal : (data.eligibleTotal || 0));
+        serviceWindowDays = Number(data.serviceWindowDays) || serviceWindowDays;
+        state.eligibilityCutoff = data.eligibilityCutoff || state.eligibilityCutoff;
+        setText('ccEligibleWindowLabel', 'Eligible on day ' + serviceWindowDays);
+        setText('ccMetricEligible', data.eligibleTotal || 0);
         setText('ccMetricCalls', totals.calls || 0);
         setText('ccMetricUnique', totals.uniquePatientsCalled || 0);
         setText('ccMetricDates', totals.serviceDates || 0);
@@ -170,6 +175,9 @@
             return;
         }
         var data = await res.json();
+        serviceWindowDays = Number(data.serviceWindowDays) || serviceWindowDays;
+        state.eligibilityCutoff = data.eligibilityCutoff || state.eligibilityCutoff;
+        setText('ccEligibleWindowLabel', 'Eligible on day ' + serviceWindowDays);
         state.page = data.page || 1;
         state.pageSize = data.pageSize || state.pageSize;
         state.total = data.total || 0;
@@ -178,7 +186,9 @@
         state.activityLabel = data.activityLabel || '';
         state.view = data.view || state.view;
         renderRows(data.rows || []);
-        lockedPatientIds = state.view === 'queue' ? (data.rows || []).map(function(row) { return row.id; }) : lockedPatientIds.filter(function() { return false; });
+        lockedPatientIds = (state.view === 'queue' && data.locksAcquired !== false)
+            ? (data.rows || []).map(function(row) { return row.id; })
+            : lockedPatientIds.filter(function() { return false; });
         renderPaging();
         renderActiveView();
     }
@@ -203,7 +213,8 @@
                 '<td><div class="cc-name-cell">' + esc(row.lastName) + '</div></td>' +
                 '<td><span class="cc-phone">' + esc(row.phone) + '</span></td>' +
                 '<td><div class="cc-note-preview">' + renderNotes(row) + '</div></td>' +
-                '<td><input type="date" class="form-control form-control-sm cc-new-date" data-field="newServiceDate"' + disabled + '></td>' +
+                '<td><input type="date" class="form-control form-control-sm cc-new-date" data-field="newServiceDate"' +
+                    (state.eligibilityCutoff ? ' min="' + esc(state.eligibilityCutoff) + '"' : '') + disabled + '></td>' +
                 '<td><textarea class="form-control form-control-sm cc-row-note" data-field="note" maxlength="4000"' + disabled + '></textarea></td>' +
                 '<td class="text-center"><label class="cc-called-wrap" title="' + (state.view === 'queue' ? 'Called' : 'Call again') + '"><input type="checkbox" class="form-check-input cc-called" data-field="called"' + disabled + '></label></td>' +
                 '<td>' + renderCallHistory(row) + '</td>' +

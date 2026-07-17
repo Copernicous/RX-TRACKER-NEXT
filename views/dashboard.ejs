@@ -438,7 +438,7 @@
             <div class="row g-3 mb-4" id="eligibilityRow">
                 <div class="col-12">
                     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-                        <h6 class="mb-0"><i class="fas fa-calendar-check me-2" style="color:#198754"></i>90-Day Service Eligibility</h6>
+                        <h6 class="mb-0"><i class="fas fa-calendar-check me-2" style="color:#198754"></i><%= serviceWindowDays %>-Day Service Eligibility</h6>
                         <div class="d-flex align-items-center gap-2">
                             <span class="badge rounded-pill" style="background:rgba(25,135,84,.12);color:#198754;font-size:.7rem" id="eligLastUpdated"></span>
                             <button class="btn btn-outline-secondary btn-sm" onclick="loadEligibility()" title="Refresh"><i class="fas fa-sync-alt"></i></button>
@@ -590,6 +590,16 @@
                             <button class="btn btn-outline-success btn-sm" id="ccHistoryExportBtn"><i class="fas fa-file-csv me-1"></i>Export CSV</button>
                         </div>
                         <div class="row g-3 mb-3">
+                            <div class="col-md">
+                                <div class="cc-kpi-card cc-kpi-clickable" role="button" tabindex="0" onclick="openEligDrilldown('eligible')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openEligDrilldown('eligible')}" title="View eligible patients">
+                                    <div class="cc-kpi-icon" style="background:rgba(25,135,84,.14);color:#198754"><i class="fas fa-user-check"></i></div>
+                                    <div>
+                                        <div class="text-muted small fw-bold">Eligible Now</div>
+                                        <div class="fs-3 fw-bold" id="ccReviewEligible">&mdash;</div>
+                                        <small class="text-muted d-block">Eligible queue patients now</small>
+                                    </div>
+                                </div>
+                            </div>
                             <div class="col-md">
                                 <div class="cc-kpi-card cc-kpi-clickable" role="button" tabindex="0" data-cc-drilldown="calls" title="View patients behind Calls">
                                     <div class="cc-kpi-icon" style="background:rgba(56,189,248,.14);color:#38bdf8"><i class="fas fa-phone-alt"></i></div>

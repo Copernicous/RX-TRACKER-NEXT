@@ -1,7 +1,8 @@
 const db = require('../models');
 const { Op } = require('sequelize');
 const { parseDate } = require('../utils/dateUtils');
-const { isServiceDateOverrideEnabled } = require('../utils/globalSettings');
+const { isServiceDateOverrideEnabled, getServiceWindowDays } = require('../utils/globalSettings');
+const { evaluateServiceWindow } = require('../utils/serviceWindowEligibility');
 const { getRequestPermission } = require('../middleware/rbac');
 const {
     attachRelatedRxServiceRecords,
@@ -93,7 +94,7 @@ function isWorkflowCycleNeedsAction(serviceDate, rxRecords, totalWorkflowSteps) 
     svcDay.setHours(0, 0, 0, 0);
 
     const svcExpiry = new Date(svcDay);
-    svcExpiry.setDate(svcExpiry.getDate() + 90);
+    svcExpiry.setDate(svcExpiry.getDate() + getServiceWindowDays());
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -127,13 +128,8 @@ function patientHasAnyField(patient, fields) {
 }
 
 function patientEligibilityStatus(patient, todayMs) {
-    if (!patient.serviceDate) return { key: 'none', daysLeft: null };
-    const svcMs = new Date(patient.serviceDate).setHours(0, 0, 0, 0);
-    const expMs = svcMs + 90 * 864e5;
-    const daysLeft = Math.ceil((expMs - todayMs) / 864e5);
-    if (daysLeft < 0) return { key: 'eligible', daysLeft };
-    if (daysLeft <= 7) return { key: 'expiring', daysLeft };
-    return { key: 'window', daysLeft };
+    const result = evaluateServiceWindow(patient.serviceDate, new Date(todayMs));
+    return { key: result.status, daysLeft: result.daysLeft === undefined ? null : result.daysLeft };
 }
 
 function matchesPatientQuery(patient, query) {
@@ -181,6 +177,10 @@ function matchesPatientQuery(patient, query) {
     }
 
     if (eligibility) {
+        // Eligibility queues and dashboard totals are defined for active
+        // patients only. Keep the Patients filter population identical to the
+        // Call Center and dashboard even when Status remains set to "All".
+        if (patient.isActive !== true) return false;
         if (eligibility === 'needsAction') return !!patient.needsAction;
         const statusInfo = patientEligibilityStatus(patient, new Date().setHours(0, 0, 0, 0));
         if (statusInfo.key !== eligibility) return false;
@@ -192,7 +192,7 @@ function matchesPatientQuery(patient, query) {
 function patientSortValue(patient, sortKey) {
     if (sortKey === 'firstName') return cleanLower((patient.firstName || '') + ' ' + (patient.lastName || ''));
     if (sortKey === 'Clinic.name') return cleanLower(patient.Clinic && patient.Clinic.name);
-    if (sortKey === 'nextSvcDate') return patient.serviceDate ? new Date(patient.serviceDate).getTime() + 90 * 864e5 : -8640000000000000;
+    if (sortKey === 'nextSvcDate') return patient.serviceDate ? new Date(patient.serviceDate).getTime() + getServiceWindowDays() * 864e5 : -8640000000000000;
     if (sortKey === 'isActive') return patient.isActive ? 1 : 0;
     return patient[sortKey];
 }
@@ -499,12 +499,12 @@ async function updatePatientLegacy(req, res) {
                 currentDate.setHours(0, 0, 0, 0);
 
                 const windowExpiry = new Date(prevDate);
-                windowExpiry.setDate(windowExpiry.getDate() + 90);
+                windowExpiry.setDate(windowExpiry.getDate() + getServiceWindowDays());
 
                 if (currentDate <= windowExpiry) {
                     const daysRemaining = Math.ceil((windowExpiry.getTime() - currentDate.getTime()) / (1000 * 3600 * 24));
                     return res.status(400).json({
-                        error: `A new Service Date can only be assigned after the active 90-day window expires on ${windowExpiry.toLocaleDateString()}. ${daysRemaining} day${daysRemaining !== 1 ? 's' : ''} remaining.`
+                        error: `A new Service Date can only be assigned after the active ${getServiceWindowDays()}-day window expires on ${windowExpiry.toLocaleDateString()}. ${daysRemaining} day${daysRemaining !== 1 ? 's' : ''} remaining.`
                     });
                 }
             }
@@ -656,11 +656,11 @@ async function lockedUpdatePatient(req, res) {
                 currentDate.setHours(0, 0, 0, 0);
 
                 const windowExpiry = new Date(prevDate);
-                windowExpiry.setDate(windowExpiry.getDate() + 90);
+                windowExpiry.setDate(windowExpiry.getDate() + getServiceWindowDays());
 
                 if (currentDate <= windowExpiry) {
                     const daysRemaining = Math.ceil((windowExpiry.getTime() - currentDate.getTime()) / (1000 * 3600 * 24));
-                    throw httpError(400, `A new Service Date can only be assigned after the active 90-day window expires on ${windowExpiry.toLocaleDateString()}. ${daysRemaining} day${daysRemaining !== 1 ? 's' : ''} remaining.`);
+                    throw httpError(400, `A new Service Date can only be assigned after the active ${getServiceWindowDays()}-day window expires on ${windowExpiry.toLocaleDateString()}. ${daysRemaining} day${daysRemaining !== 1 ? 's' : ''} remaining.`);
                 }
             }
 

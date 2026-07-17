@@ -313,6 +313,7 @@ app.use(function(req, res, next) {
     res.locals.appVersion = packageInfo.version;
     res.locals.appEnvironment = getAppEnvironment();
     res.locals.isStaging = isStagingEnvironment();
+    res.locals.serviceWindowDays = require('./utils/globalSettings').getServiceWindowDays();
     next();
 });
 
@@ -779,7 +780,7 @@ const startServer = async () => {
                 CASE WHEN p."serviceDate" = x."serviceDate" THEN 'active' ELSE 'historical' END,
                 'Startup Backfill',
                 x."serviceDate"::timestamp with time zone,
-                CASE WHEN p."serviceDate" = x."serviceDate" THEN NULL ELSE (x."serviceDate"::timestamp with time zone + INTERVAL '90 days') END,
+                CASE WHEN p."serviceDate" = x."serviceDate" THEN NULL ELSE (x."serviceDate"::timestamp with time zone + INTERVAL '${require('./utils/globalSettings').getServiceWindowDays()} days') END,
                 '{"backfilled":true}'::json,
                 NOW(),
                 NOW()
@@ -794,7 +795,7 @@ const startServer = async () => {
         await db.sequelize.query(`
             UPDATE "PatientServiceDateCycles" c
             SET "status" = CASE WHEN p."serviceDate" = c."serviceDate" THEN 'active' ELSE 'historical' END,
-                "endedAt" = CASE WHEN p."serviceDate" = c."serviceDate" THEN NULL ELSE (c."serviceDate"::timestamp with time zone + INTERVAL '90 days') END,
+                "endedAt" = CASE WHEN p."serviceDate" = c."serviceDate" THEN NULL ELSE (c."serviceDate"::timestamp with time zone + INTERVAL '${require('./utils/globalSettings').getServiceWindowDays()} days') END,
                 "updatedAt" = NOW()
             FROM "Patients" p
             WHERE p."id" = c."patientId";

@@ -1,5 +1,44 @@
 # Release Notes
 
+## v3.0.5 (2026-07-17)
+
+- Call Center eligibility begins on the exact day configured in Backoffice.
+- Dashboard, Patients, snapshots, and Call Center share the same inclusive boundary.
+- Added configurable exact-day regression coverage.
+
+## v3.0.4 (2026-07-17)
+
+### What's Fixed
+
+- Removed the remaining fixed Call Center eligible-since offset.
+- Added configured-window and cutoff metadata to Call Center queue/metrics responses.
+- Aligned Patients eligibility filters with the active-patient population used by Dashboard and Call Center.
+
+### QA & Validation
+
+- Run `npm run test:service-window`.
+- Run `npm run test:call-center-queue-reopen`.
+- Build and verify `dist/server-update-3.0.4.zip`.
+
+## v3.0.3 (2026-07-17)
+
+### What's New
+
+- The patient service window is configurable from Backoffice Settings.
+- The setting accepts 1 through 365 days and defaults to 90.
+- Eligibility, service-date locks, workflow deadlines, imports, Call Center queues, dashboards, snapshots, cycle end dates, and patient/RX screens use the shared value.
+- Call Center queue/metrics responses include the configured window and cutoff, and the Call Center date input enforces that same boundary.
+- Setting changes are persisted and audit-logged.
+
+### QA & Validation
+
+- Run `npm run test:service-window`.
+- Run `npm run test:workflow-date`.
+- Run `npm run test:rx-override`.
+- Run `npm run test:call-center-queue-reopen`.
+- Run `npm run test:backoffice-patient-delete`.
+- Build with `npm run build:exe` and verify `dist/server-update-3.0.3.zip`.
+
 ## v3.0.1 (2026-07-09)
 
 ### What's Fixed

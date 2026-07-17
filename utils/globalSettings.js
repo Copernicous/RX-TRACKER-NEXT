@@ -14,7 +14,8 @@ const DEFAULT_SETTINGS = {
     sessionTimeoutMinutes: 60,
     maxLoginAttempts: 5,
     maintenanceMode: false,
-    serviceDateOverrideEnabled: false
+    serviceDateOverrideEnabled: false,
+    serviceWindowDays: 90
 };
 
 function ensureSettingsDir() {
@@ -51,10 +52,16 @@ function isServiceDateOverrideEnabled() {
     return readSettings().serviceDateOverrideEnabled === true;
 }
 
+function getServiceWindowDays() {
+    const value = Number.parseInt(readSettings().serviceWindowDays, 10);
+    return Number.isInteger(value) && value >= 1 && value <= 365 ? value : DEFAULT_SETTINGS.serviceWindowDays;
+}
+
 module.exports = {
     DEFAULT_SETTINGS,
     SETTINGS_PATH,
     readSettings,
     writeSettings,
-    isServiceDateOverrideEnabled
+    isServiceDateOverrideEnabled,
+    getServiceWindowDays
 };

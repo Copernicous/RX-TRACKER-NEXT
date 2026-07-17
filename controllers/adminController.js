@@ -336,12 +336,16 @@ exports.getSettings = (req, res) => {
 
 exports.saveSettings = (req, res) => {
     try {
-        const allowed = ['backupPath','backupRetentionDays','appName','sessionTimeoutMinutes','maxLoginAttempts','maintenanceMode','serviceDateOverrideEnabled'];
+        const allowed = ['backupPath','backupRetentionDays','appName','sessionTimeoutMinutes','maxLoginAttempts','maintenanceMode','serviceDateOverrideEnabled','serviceWindowDays'];
         const current = readSettings();
         const next    = { ...current };
         for (const key of allowed) if (req.body[key] !== undefined) next[key] = req.body[key];
         next.maintenanceMode = next.maintenanceMode === true || next.maintenanceMode === 'true';
         next.serviceDateOverrideEnabled = next.serviceDateOverrideEnabled === true || next.serviceDateOverrideEnabled === 'true';
+        next.serviceWindowDays = Number.parseInt(next.serviceWindowDays, 10);
+        if (!Number.isInteger(next.serviceWindowDays) || next.serviceWindowDays < 1 || next.serviceWindowDays > 365) {
+            return res.status(400).json({ error: 'Service window days must be a whole number from 1 to 365.' });
+        }
         if (next.backupPath) { try { fs.mkdirSync(next.backupPath, { recursive: true }); } catch {} }
         fileSettings.writeSettings(next);
         if (current.serviceDateOverrideEnabled !== next.serviceDateOverrideEnabled) {
@@ -355,6 +359,19 @@ exports.saveSettings = (req, res) => {
                 previousValue: { serviceDateOverrideEnabled: current.serviceDateOverrideEnabled },
                 newValue:      { serviceDateOverrideEnabled: next.serviceDateOverrideEnabled },
                 ipAddress:     req.ip || (req.socket ? req.socket.remoteAddress : 'unknown')
+            }).catch(function() {});
+        }
+        if (Number(current.serviceWindowDays || 90) !== next.serviceWindowDays) {
+            db.AuditLog.create({
+                userId: req.user ? req.user.id : null,
+                date: new Date().toISOString().split('T')[0],
+                time: new Date().toTimeString().split(' ')[0],
+                module: 'Backoffice',
+                action: 'Service Window Days Changed',
+                recordId: null,
+                previousValue: { serviceWindowDays: Number(current.serviceWindowDays || 90) },
+                newValue: { serviceWindowDays: next.serviceWindowDays },
+                ipAddress: req.ip || (req.socket ? req.socket.remoteAddress : 'unknown')
             }).catch(function() {});
         }
         res.json({ success: true, settings: next });
@@ -1258,6 +1275,9 @@ exports.getTableData = async (req, res) => {
 // IMPORTANT: list grandchildren BEFORE their parents so the delete order is safe
 const FK_CHILDREN = {
     Patients: [
+        // Attachment metadata must be removed before its patient/RX owners.
+        { table: 'DocumentAttachments', col: 'rxRecordId', action: 'cascade', via: 'RXRecords' },
+        { table: 'DocumentAttachments', col: 'patientId',  action: 'cascade', impactExcludeVia: { col: 'rxRecordId', via: 'RXRecords' } },
         // Grandchildren of RXRecords must be cleaned BEFORE RXRecords is deleted
         { table: 'RXHistories',          col: 'rxRecordId',  action: 'cascade', via: 'RXRecords' },
         { table: 'RXWorkflowTrackings',  col: 'rxRecordId',  action: 'cascade', via: 'RXRecords' },
@@ -1266,6 +1286,7 @@ const FK_CHILDREN = {
         { table: 'RXRecords',            col: 'patientId',   action: 'cascade' },
         { table: 'PatientNotes',         col: 'patientId',   action: 'cascade' },
         { table: 'PatientServiceDateHistories', col: 'patientId', action: 'cascade' },
+        { table: 'PatientServiceDateCycles', col: 'patientId', action: 'cascade' },
         { table: 'PatientLocks',         col: 'patientId',   action: 'cascade' },
         { table: 'CallCenterLocks',      col: 'patientId',   action: 'cascade' },
     ],
@@ -1315,8 +1336,20 @@ exports.getRowImpact = async (req, res) => {
         for (const child of children) {
             const idList = ids.map(id => parseInt(id, 10)).filter(n => !isNaN(n));
             if (!idList.length) continue;
+            let whereSql = `"${child.col}" IN (:ids)`;
+            if (child.via) {
+                const viaLink = children.find(c => c.table === child.via && !c.via);
+                if (!viaLink) continue;
+                whereSql = `"${child.col}" IN (SELECT id FROM "${child.via}" WHERE "${viaLink.col}" IN (:ids))`;
+            }
+            if (child.impactExcludeVia) {
+                const viaLink = children.find(c => c.table === child.impactExcludeVia.via && !c.via);
+                if (!viaLink) continue;
+                whereSql += ` AND ("${child.impactExcludeVia.col}" IS NULL OR "${child.impactExcludeVia.col}" NOT IN (` +
+                    `SELECT id FROM "${child.impactExcludeVia.via}" WHERE "${viaLink.col}" IN (:ids)))`;
+            }
             const [row] = await db.sequelize.query(
-                `SELECT COUNT(*) AS cnt FROM "${child.table}" WHERE "${child.col}" IN (:ids)`,
+                `SELECT COUNT(*) AS cnt FROM "${child.table}" WHERE ${whereSql}`,
                 { type: QueryTypes.SELECT, replacements: { ids: idList } }
             );
             const cnt = parseInt(row.cnt, 10);
@@ -1345,7 +1378,7 @@ function isCallCenterEligibleServiceDate(value) {
     if (!serviceDate) return false;
     const cutoff = new Date();
     cutoff.setHours(0, 0, 0, 0);
-    cutoff.setDate(cutoff.getDate() - 90);
+    cutoff.setDate(cutoff.getDate() - fileSettings.getServiceWindowDays());
     return serviceDate < cutoff.toISOString().slice(0, 10);
 }
 
@@ -1354,7 +1387,7 @@ function serviceDateCycleEnd(value) {
     if (!serviceDate) return null;
     const end = new Date(`${serviceDate}T00:00:00`);
     if (isNaN(end.getTime())) return null;
-    end.setDate(end.getDate() + 90);
+    end.setDate(end.getDate() + fileSettings.getServiceWindowDays());
     return end;
 }
 
@@ -1444,7 +1477,6 @@ async function prepareServiceDateHistoryDelete(idList, transaction, req) {
                 }, { transaction });
             }
         }
-
         const logs = await db.AuditLog.findAll({
             where: {
                 module: 'Call Center',
@@ -1488,7 +1520,7 @@ exports.deleteRows = async (req, res) => {
     if (!validKeys.has(tableName)) return res.status(400).json({ error: `Unknown table: ${tableName}` });
     if (!ids || !ids.length) return res.status(400).json({ error: 'No IDs provided.' });
 
-    const idList = ids.map(id => parseInt(id, 10)).filter(n => !isNaN(n));
+    const idList = Array.from(new Set(ids.map(id => parseInt(id, 10)).filter(n => !isNaN(n))));
     if (!idList.length) return res.status(400).json({ error: 'No valid IDs.' });
 
     const children = FK_CHILDREN[tableName] || [];
@@ -1496,6 +1528,19 @@ exports.deleteRows = async (req, res) => {
     const results = { deleted: 0, cascaded: {}, nulled: {} };
 
     try {
+        // Lock and validate every requested row before touching dependencies. This
+        // prevents a misleading success response when IDs are stale or incorrect.
+        const targets = await db.sequelize.query(
+            `SELECT id FROM "${tableName}" WHERE id IN (:ids) FOR UPDATE`,
+            { type: QueryTypes.SELECT, replacements: { ids: idList }, transaction: t }
+        );
+        if (targets.length !== idList.length) {
+            await t.rollback();
+            return res.status(404).json({
+                error: `Delete aborted: requested ${idList.length} row(s), but found ${targets.length}. Nothing was deleted.`
+            });
+        }
+
         if (tableName === 'PatientServiceDateHistories') {
             results.callCenterQueueRepair = await prepareServiceDateHistoryDelete(idList, t, req);
         }
@@ -1519,11 +1564,11 @@ exports.deleteRows = async (req, res) => {
                 } else {
                     sql = `DELETE FROM "${child.table}" WHERE "${child.col}" IN (:ids)`;
                 }
-                const [rows] = await db.sequelize.query(
+                const rows = await db.sequelize.query(
                     sql + ' RETURNING id',
                     { type: QueryTypes.SELECT, replacements: { ids: idList }, transaction: t }
                 );
-                results.cascaded[child.table] = Array.isArray(rows) ? rows.length : 0;
+                results.cascaded[child.table] = (results.cascaded[child.table] || 0) + rows.length;
             } else if (child.action === 'null') {
                 await db.sequelize.query(
                     `UPDATE "${child.table}" SET "${child.col}" = NULL WHERE "${child.col}" IN (:ids)`,
@@ -1534,11 +1579,23 @@ exports.deleteRows = async (req, res) => {
         }
 
         // Delete main rows
-        const [deleted] = await db.sequelize.query(
+        const deleted = await db.sequelize.query(
             `DELETE FROM "${tableName}" WHERE id IN (:ids) RETURNING id`,
             { type: QueryTypes.SELECT, replacements: { ids: idList }, transaction: t }
         );
-        results.deleted = Array.isArray(deleted) ? deleted.length : 0;
+        results.deleted = deleted.length;
+
+        if (results.deleted !== idList.length) {
+            throw new Error(`Delete verification failed: expected ${idList.length} row(s), deleted ${results.deleted}.`);
+        }
+
+        const remaining = await db.sequelize.query(
+            `SELECT id FROM "${tableName}" WHERE id IN (:ids)`,
+            { type: QueryTypes.SELECT, replacements: { ids: idList }, transaction: t }
+        );
+        if (remaining.length) {
+            throw new Error(`Delete verification failed: ${remaining.length} target row(s) still exist.`);
+        }
 
         await t.commit();
 

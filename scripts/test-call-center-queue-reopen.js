@@ -127,6 +127,34 @@ async function main() {
         });
         created.patients.push(patient);
 
+        await db.CallCenterLock.create({
+            patientId: patient.id,
+            userId: adminUser.id,
+            lockedAt: new Date(),
+            expiresAt: new Date(Date.now() + 10 * 60 * 1000)
+        });
+        const adminLockedRes = makeRes();
+        await callCenterController.listPatients({
+            query: { q: patient.lastName, page: 1, pageSize: 10 },
+            user: { id: callCenterUser.id, role: 'Call Center' },
+            authToken: `${RUN_ID}-admin-lock-token`
+        }, adminLockedRes);
+        assert.strictEqual(adminLockedRes.statusCode, 200, 'Call Center list failed with admin-held lock: ' + JSON.stringify(adminLockedRes.body));
+        assert.strictEqual(adminLockedRes.body.total, 1, 'Admin-held queue locks should not hide eligible patients from Call Center agents.');
+        assert((adminLockedRes.body.rows || []).some((row) => row.id === patient.id), 'Call Center agent should see patient even if an admin viewed the queue first.');
+        const reassignedLock = await db.CallCenterLock.findOne({ where: { patientId: patient.id } });
+        assert.strictEqual(reassignedLock.userId, callCenterUser.id, 'Queue lock should be reassigned to the Call Center agent.');
+
+        const adminReviewRes = makeRes();
+        await callCenterController.listPatients({
+            query: { q: patient.lastName, page: 1, pageSize: 10 },
+            user: { id: adminUser.id, role: 'Administrator' },
+            authToken: `${RUN_ID}-admin-review-token`
+        }, adminReviewRes);
+        assert.strictEqual(adminReviewRes.statusCode, 200, 'Admin Call Center review list failed: ' + JSON.stringify(adminReviewRes.body));
+        assert.strictEqual(adminReviewRes.body.total, 1, 'Agent-held queue locks should not hide eligible patients from admin review.');
+        assert.strictEqual(adminReviewRes.body.locksAcquired, false, 'Admin review should not acquire Call Center queue locks.');
+
         await createAudit(callCenterUser, patient, 'Called', 20);
         const calledOnlyRes = makeRes();
         await callCenterController.listPatients({
@@ -135,7 +163,11 @@ async function main() {
             authToken: `${RUN_ID}-called-only-token`
         }, calledOnlyRes);
         assert.strictEqual(calledOnlyRes.statusCode, 200, 'Call Center called-only list failed: ' + JSON.stringify(calledOnlyRes.body));
-        assert.strictEqual(calledOnlyRes.body.total, 0, 'Called-only patient should remain hidden from the new queue.');
+        assert.strictEqual(calledOnlyRes.body.total, 1, 'Called-only eligible patient should remain in the queue until a new service date is accepted.');
+        const calledOnlyRow = (calledOnlyRes.body.rows || []).find((row) => row.id === patient.id);
+        assert(calledOnlyRow, 'Called-only eligible patient should be returned in the queue.');
+        assert.strictEqual(calledOnlyRow.calledToday, true, 'Called-only row should still show that a call was already made today.');
+        assert.strictEqual(calledOnlyRow.calledTodayCount, 1, 'Called-only row should keep today call count history.');
 
         await patient.update({ serviceDate: newServiceDate });
         await createAudit(callCenterUser, patient, 'Service Date Added', 10, { serviceDate: newServiceDate });

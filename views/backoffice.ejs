@@ -638,6 +638,11 @@
                     <label style="font-size:0.72rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.07em">Max Login Attempts</label>
                     <input type="number" id="sMaxLogin" class="schema-search" style="margin:0.4rem 0 0" min="1" max="20" placeholder="5">
                 </div>
+                <div class="schema-card" style="padding:1rem;border-color:rgba(59,130,246,0.28);background:rgba(59,130,246,0.04)">
+                    <label style="font-size:0.72rem;color:#60a5fa;text-transform:uppercase;letter-spacing:.07em">Service Window (Days)</label>
+                    <input type="number" id="sServiceWindowDays" class="schema-search" style="margin:0.4rem 0 0" min="1" max="365" step="1" placeholder="90" required>
+                    <div style="font-size:0.68rem;color:var(--text-muted);margin-top:0.3rem">Controls eligibility, service-date locks, workflow deadlines, and dashboard status. Default: 90.</div>
+                </div>
                 <div class="schema-card" style="padding:1rem;display:flex;align-items:center;justify-content:space-between">
                     <div>
                         <label style="font-size:0.72rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.07em">Maintenance Mode</label>
@@ -651,8 +656,8 @@
                 </div>
                 <div class="schema-card" style="padding:1rem;display:flex;align-items:center;justify-content:space-between;border-color:rgba(245,158,11,0.28);background:rgba(245,158,11,0.04)">
                     <div>
-                        <label style="font-size:0.72rem;color:#fbbf24;text-transform:uppercase;letter-spacing:.07em">Global 90-Day Override</label>
-                        <div style="font-size:0.68rem;color:var(--text-muted);margin-top:0.25rem">Temporarily lifts all 90-day service-date block checks (patient service date + RX workflows) during import corrections.</div>
+                        <label style="font-size:0.72rem;color:#fbbf24;text-transform:uppercase;letter-spacing:.07em">Global Service Window Override</label>
+                        <div style="font-size:0.68rem;color:var(--text-muted);margin-top:0.25rem">Temporarily lifts service-window block checks (patient service date + RX workflows) during import corrections.</div>
                     </div>
                     <label style="position:relative;display:inline-block;width:44px;height:24px;cursor:pointer">
                         <input type="checkbox" id="sServiceDateOverrideEnabled" style="opacity:0;width:0;height:0">

@@ -69,6 +69,16 @@ function formatDate(input) {
     return `${m}/${d}/${y}`;
 }
 
+/** Convert a YYYY-MM-DD calendar value to a Date without UTC day rollback. */
+function parseLocalDateOnly(input) {
+    const iso = parseDate(input);
+    if (!iso || String(input).trim() !== iso) return null;
+    const [year, month, day] = iso.split('-').map(Number);
+    const date = new Date(year, month - 1, day, 12, 0, 0, 0);
+    if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) return null;
+    return date;
+}
+
 /** Internal: validate year/month/day are in sensible ranges */
 function _validParts(y, m, d) {
     const yi = parseInt(y, 10);
@@ -79,4 +89,4 @@ function _validParts(y, m, d) {
            di >= 1   && di <= 31;
 }
 
-module.exports = { parseDate, formatDate };
+module.exports = { parseDate, formatDate, parseLocalDateOnly };

@@ -1,5 +1,6 @@
 var allPatients = [];
     var serviceDateOverrideEnabled = false;
+    var serviceWindowDays = Number(window.SERVICE_WINDOW_DAYS) || 90;
     var filteredPatients = [];
     var currentPage = 1;
     var pageSize = 10;
@@ -383,7 +384,7 @@ var allPatients = [];
                     var labelMap = {
                         'eligible':  'Eligible Now (window expired)',
                         'expiring':  'Window expiring within 7 days',
-                        'window':    'In active 90-day window',
+                        'window':    'In active ' + serviceWindowDays + '-day window',
                         'none':      'No service date set',
                         'needsAction': 'Needs Action (expired window + open workflow)'
                     };
@@ -830,7 +831,7 @@ var allPatients = [];
                 groups.push({
                     key: 'needsAction',
                     icon: 'fas fa-exclamation-triangle text-warning',
-                    message: 'There are ' + patientPlural(patientNeedsActionCount, 'patient') + ' past the 90-day window with incomplete RX workflow.',
+                    message: 'There are ' + patientPlural(patientNeedsActionCount, 'patient') + ' past the ' + serviceWindowDays + '-day window with incomplete RX workflow.',
                     detail: 'Open workflow after the service window expired',
                     actionLabel: 'Show Patients'
                 });
@@ -842,7 +843,7 @@ var allPatients = [];
                     groups.push({
                         key: 'eligible',
                         icon: 'fas fa-check-circle text-success',
-                        message: 'There are ' + patientPlural(eligibility.eligibleNow, 'patient') + ' past the 90-day service window.',
+                        message: 'There are ' + patientPlural(eligibility.eligibleNow, 'patient') + ' past the ' + serviceWindowDays + '-day service window.',
                         detail: 'Eligible now for a new service cycle',
                         actionLabel: 'Show Patients'
                     });
@@ -851,7 +852,7 @@ var allPatients = [];
                     groups.push({
                         key: 'expiring',
                         icon: 'fas fa-hourglass-half text-danger',
-                        message: 'There are ' + patientPlural(eligibility.expiringIn7, 'patient') + ' with 7 days or less left in the 90-day window.',
+                        message: 'There are ' + patientPlural(eligibility.expiringIn7, 'patient') + ' with 7 days or less left in the ' + serviceWindowDays + '-day window.',
                         detail: 'Service window closing soon',
                         actionLabel: 'Show Patients'
                     });
@@ -1036,7 +1037,7 @@ var allPatients = [];
                 return false;
             } else {
                 var svcMs = new Date(p.serviceDate).setHours(0,0,0,0);
-                var exp90 = svcMs + 90 * 864e5;
+                var exp90 = svcMs + serviceWindowDays * 864e5;
                 var dl90 = Math.ceil((exp90 - todayMs) / 864e5);
                 if (elig === 'eligible' && dl90 >= 0) return false;
                 if (elig === 'expiring' && (dl90 < 0 || dl90 > 7)) return false;
@@ -1146,6 +1147,9 @@ var allPatients = [];
             // Source of truth: patient.serviceDate (not latest RX serviceDate)
             // daysLeft = days until expiry (negative = already past = eligible)
             if (elig) {
+                // Match the server, dashboard, and Call Center population:
+                // service-window eligibility applies to active patients only.
+                if (p.isActive !== true) return false;
                 if (!p.serviceDate) {
                     // 'none' = patient has no serviceDate
                     if (elig !== 'none') return false;
@@ -1153,14 +1157,14 @@ var allPatients = [];
                     return false;
                 } else {
                     var _svcMs  = new Date(p.serviceDate).setHours(0,0,0,0);
-                    var _exp90  = _svcMs + 90 * 864e5;
+                    var _exp90  = _svcMs + serviceWindowDays * 864e5;
                     var _dl90   = Math.ceil((_exp90 - _todayMs) / 864e5);
                     // eligible: window fully expired (daysLeft < 0)
-                    if (elig === 'eligible' && _dl90 >= 0)          return false;
+                    if (elig === 'eligible' && _dl90 > 0)           return false;
                     // expiring: 0-7 days remaining (matches backend <=7)
-                    if (elig === 'expiring' && (_dl90 < 0 || _dl90 > 7)) return false;
+                    if (elig === 'expiring' && (_dl90 <= 0 || _dl90 > 7)) return false;
                     // window: active window with > 7 days remaining
-                    if (elig === 'window'   && (_dl90 < 0 || _dl90 <= 7)) return false;
+                    if (elig === 'window'   && (_dl90 <= 0 || _dl90 <= 7)) return false;
                     // none: handled above - if patient has serviceDate, exclude
                     if (elig === 'none')                             return false;
                 }
@@ -1178,8 +1182,8 @@ var allPatients = [];
                 valB = b.Clinic ? b.Clinic.name : '';
             } else if (pSortCol === 'nextSvcDate') {
                 // Sort by days remaining until 90-day expiry (numeric)
-                var _epA = a.serviceDate ? new Date(a.serviceDate).getTime() + 90*864e5 : null;
-                var _epB = b.serviceDate ? new Date(b.serviceDate).getTime() + 90*864e5 : null;
+                var _epA = a.serviceDate ? new Date(a.serviceDate).getTime() + serviceWindowDays*864e5 : null;
+                var _epB = b.serviceDate ? new Date(b.serviceDate).getTime() + serviceWindowDays*864e5 : null;
                 valA = _epA !== null ? Math.round((_epA - Date.now()) / 864e5) : -9999;
                 valB = _epB !== null ? Math.round((_epB - Date.now()) / 864e5) : -9999;
             }
@@ -1305,7 +1309,7 @@ var allPatients = [];
             tdNext.dataset.label = 'Next Svc Date';
             if (p.serviceDate) {
                 var _sd   = new Date(p.serviceDate); _sd.setHours(0,0,0,0);
-                var _exp  = new Date(_sd.getTime() + 90 * 864e5);
+                var _exp  = new Date(_sd.getTime() + serviceWindowDays * 864e5);
                 var _now  = new Date(); _now.setHours(0,0,0,0);
                 var _dl   = Math.round((_exp - _now) / 864e5);
                 var _es   = _exp.toLocaleDateString();
@@ -1759,7 +1763,7 @@ var allPatients = [];
         var status = rxHistoryWorkflowStatus(rx);
         var statusColor = status.label === 'Complete' ? '#198754' : status.done > 0 ? '#fd7e14' : '#6c757d';
         var svcDate = rx.serviceDate || '';
-        var expDate = svcDate ? new Date(new Date(svcDate).getTime() + 90 * 864e5) : null;
+        var expDate = svcDate ? new Date(new Date(svcDate).getTime() + serviceWindowDays * 864e5) : null;
         var pharmacy = rx.Pharmacy ? rx.Pharmacy.name : 'None';
         return '<div style="border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;margin:14px 0;background:#fff">' +
             '<div style="background:#1a2234;color:#fff;padding:10px 14px;display:flex;justify-content:space-between;gap:10px;align-items:center">' +
@@ -1809,7 +1813,7 @@ var allPatients = [];
         var headers = ['RX ID', 'Service Date', 'Next Available', 'Arrival Date', 'Pharmacy', 'Workflow', 'Status', 'Medications'];
         var rows = records.map(function(rx) {
             var status = rxHistoryWorkflowStatus(rx);
-            var expDate = rx.serviceDate ? new Date(new Date(rx.serviceDate).getTime() + 90 * 864e5) : null;
+            var expDate = rx.serviceDate ? new Date(new Date(rx.serviceDate).getTime() + serviceWindowDays * 864e5) : null;
             return [
                 rx.id,
                 rx.serviceDate || '',
@@ -1887,7 +1891,7 @@ var allPatients = [];
             var html = '<div class="p-3">';
             patRx.forEach(function(rx, idx) {
                 var svcD    = rx.serviceDate || null;
-                var expDate = svcD ? new Date(new Date(svcD).getTime() + 90 * 864e5) : null;
+                var expDate = svcD ? new Date(new Date(svcD).getTime() + serviceWindowDays * 864e5) : null;
                 var expStr  = expDate ? expDate.toLocaleDateString() : '\u2014';
                 var dLeft   = expDate ? Math.round((expDate - new Date()) / 864e5) : null;
                 var isNewest = idx === 0;
@@ -1965,7 +1969,7 @@ var allPatients = [];
         var val = inp.value;
         if (!val) { el.innerHTML = ''; return; }
         var sd   = new Date(val); sd.setHours(0,0,0,0);
-        var exp  = new Date(sd.getTime() + 90 * 864e5);
+        var exp  = new Date(sd.getTime() + serviceWindowDays * 864e5);
         var now  = new Date(); now.setHours(0,0,0,0);
         var dl   = Math.round((exp - now) / 864e5);
         var es   = exp.toLocaleDateString();
@@ -2018,13 +2022,13 @@ var allPatients = [];
             if (canBypassServiceDateLock) return false;
             if (!patient || !patient.serviceDate) return false;
             var sd  = new Date(patient.serviceDate); sd.setHours(0,0,0,0);
-            var exp = new Date(sd.getTime() + 90 * 864e5);
+            var exp = new Date(sd.getTime() + serviceWindowDays * 864e5);
             var now = new Date(); now.setHours(0,0,0,0);
             return now <= exp;
         })();
         if (isLocked && patient && patient.serviceDate) {
             var sd      = new Date(patient.serviceDate); sd.setHours(0,0,0,0);
-            var exp     = new Date(sd.getTime() + 90 * 864e5);
+            var exp     = new Date(sd.getTime() + serviceWindowDays * 864e5);
             var now     = new Date(); now.setHours(0,0,0,0);
             var dLeft   = Math.ceil((exp - now) / 864e5);
             if (banner)   banner.style.display = '';
@@ -2737,7 +2741,7 @@ var allPatients = [];
             srchPhone: 'Phone', srchStatus: 'Status', srchClinic: 'Clinic',
             srchPatientCode: 'Patient ID', srchPatientTransport: 'Patient Transport',
             srchPharmacyTransport: 'Pharmacy Transport', srchPharmacy: 'Pharmacy', srchServiceFrom: 'From',
-            srchServiceTo: 'To', srchEligibility: '90-Day Eligibility',
+            srchServiceTo: 'To', srchEligibility: serviceWindowDays + '-Day Eligibility',
             srchMissingInfo: 'Missing Info'
         };
         var _chipIds = [...basicIds, ...advancedIds, 'srchStatus','srchClinic']

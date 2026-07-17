@@ -9,6 +9,70 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 - No unreleased changes.
 
+## [3.0.5] - 2026-07-17
+
+### [RELEASE-305] Exact configurable-day Call Center eligibility
+**Files changed:** Shared service-window eligibility policy, Call Center controller/UI, regression tests, release metadata
+
+- Call Center eligibility now begins on the exact day configured in Backoffice: day 80 for an 80-day setting, day 90 for a 90-day setting, or day N for a custom N-day setting.
+- Dashboard, Patients, snapshots, and Call Center now use the same shared inclusive configured-day boundary.
+- Removed the separate database cutoff comparison from Call Center patient selection.
+- Updated the Call Center card label to show the exact configured eligibility day.
+- Added deterministic boundary regression coverage.
+
+**Database impact:**
+- No migration or data reset is required.
+
+## [3.0.4] - 2026-07-17
+
+### [RELEASE-304] Call Center and Patient eligibility alignment
+**Files changed:** Call Center API/UI, Patient eligibility filtering, configurable-window regression test, release metadata
+
+- Fixed the remaining Call Center fixed-offset calculation so `eligibleSince` uses the configured service window plus the inclusive boundary day.
+- Call Center queue and metrics responses now include `serviceWindowDays` and the server-calculated `eligibilityCutoff`.
+- The Call Center screen displays the configured window and applies the server cutoff to new-service-date inputs.
+- Aligned the Patients page eligibility filter with Dashboard and Call Center rules by limiting service-window eligibility categories to active patients, even when the separate Status filter is set to `All`.
+- Added regression guards for the former fixed 91-day Call Center offset and active-patient population alignment.
+
+**Database impact:**
+- No migration or data reset is required.
+- Existing settings and patient history are preserved.
+
+## [3.0.3] - 2026-07-17
+
+### [RELEASE-303] Configurable patient service window
+**Files changed:** Backoffice settings, shared settings utilities, patient/RX eligibility controllers, Call Center queue, imports, dashboard and snapshot metrics, service-date cycles, patient/RX UI, regression tests, release metadata
+
+- Replaced the fixed operational 90-day service window with a Backoffice-configurable value.
+- Added **Backoffice > Settings > Service Window (Days)** with whole-number validation from 1 through 365 and a backward-compatible default of 90.
+- Applied the configured value to patient eligibility, service-date locks, RX workflow deadlines, arrival-date validation, Call Center eligibility, import validation, dashboard/drilldown calculations, daily snapshots, service-date cycle end dates, and startup cycle repair.
+- Corrected the Call Center `eligibleSince` value to use the configured window instead of the former fixed 91-day offset, and added shared window/cutoff metadata to Call Center queue and metrics responses.
+- The Call Center screen now displays the configured window and applies the server cutoff to new-service-date inputs.
+- Updated patient, RX, dashboard, and Backoffice displays to use the configured value.
+- Service-window changes are persisted in the existing settings file and recorded in the audit log.
+- Added `npm run test:service-window` coverage for defaults, custom persistence, boundary values, invalid-value fallback, and rule wiring.
+
+**Database impact:**
+- No database migration or data reset is required.
+- Existing installations continue using 90 days until an administrator changes the setting.
+- Changing the value recalculates runtime eligibility and deadlines from existing service dates; it does not rewrite service-date history.
+
+## [3.0.2] - 2026-07-16
+
+### [RELEASE-302] RX workflow date correction and Backoffice patient deletion repair
+**Files changed:** RX workflow controller, Backoffice controller, shared date utilities, regression tests, release metadata
+
+- Fixed workflow completion-date overrides rolling back one day when a date selected in Eastern Time was parsed as midnight UTC.
+- Workflow override values are now validated as `YYYY-MM-DD` calendar dates and stored at local noon so the selected day remains stable through database and browser timezone conversion.
+- Added a timezone regression test covering today's date and invalid calendar input.
+- Fixed Backoffice permanent patient deletion when document attachments or patient service-date cycles still reference the patient or their RX records.
+- Patient deletion now validates and locks every target first, verifies the exact number deleted, confirms no target remains, and rolls back the transaction if verification fails.
+- Added regression coverage for active, inactive, soft-deleted, missing, incomplete, and still-present patient deletion cases.
+
+**Database impact:**
+- No schema migration or data reset is required.
+- Existing records are preserved. Dates previously saved incorrectly must be corrected manually if needed.
+
 ## [3.0.1] - 2026-07-09
 
 ### [RELEASE-301] Patient service-date update locking and Call Center queue repair follow-up

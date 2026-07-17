@@ -59,7 +59,7 @@
                         <input type="text" class="form-control form-control-sm" id="srchPhone" placeholder="Phone" oninput="liveFilter()">
                     </div>
                     <div class="col-md-2">
-                        <label class="form-label small fw-bold"><i class="fas fa-check-circle me-1 text-success"></i>90-Day Eligibility</label>
+                        <label class="form-label small fw-bold"><i class="fas fa-check-circle me-1 text-success"></i><%= serviceWindowDays %>-Day Eligibility</label>
                         <select class="form-select form-select-sm" id="srchEligibility" onchange="liveFilter()">
                             <option value="">All Patients</option>
                             <option value="eligible">&#x2705; Eligible Now</option>
@@ -229,7 +229,7 @@
                         <div class="col-md-4">
                             <label class="form-label">Service Date</label>
                             <div class="input-group">
-                                <span class="input-group-text" id="svcDateLockIcon" title="Locked — active 90-day window"
+                                <span class="input-group-text" id="svcDateLockIcon" title="Locked — active <%= serviceWindowDays %>-day window"
                                       style="display:none;background:rgba(234,179,8,.15);border-color:rgba(234,179,8,.4);color:#b45309">
                                     <i class="fas fa-lock"></i>
                                 </span>
@@ -241,13 +241,13 @@
                                     <div class="d-flex align-items-start gap-2">
                                         <i class="fas fa-lock mt-1" style="color:#b45309;flex-shrink:0"></i>
                                         <div>
-                                            <strong style="color:#92400e">Service Date Locked — 90-Day Window Active</strong>
+                                            <strong style="color:#92400e">Service Date Locked — <%= serviceWindowDays %>-Day Window Active</strong>
                                             <div class="text-muted mt-1" id="svcDateLockDetail"></div>
                                         </div>
                                     </div>
                                 </div>
                             </div>
-                            <small class="text-muted mt-1 d-block"><i class="fas fa-info-circle me-1"></i>This date starts the 90-day window and auto-fills new RX records</small>
+                            <small class="text-muted mt-1 d-block"><i class="fas fa-info-circle me-1"></i>This date starts the <%= serviceWindowDays %>-day window and auto-fills new RX records</small>
                         </div>
 
                         <div class="col-12">

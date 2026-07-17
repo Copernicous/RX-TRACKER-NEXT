@@ -14,12 +14,16 @@ const {
     syncPatientServiceDateCycles
 } = require('../services/patientServiceDateCycleService');
 const sessionIdleService = require('../services/sessionIdleService');
+const { getServiceWindowDays } = require('../utils/globalSettings');
+const {
+    getEligibilityCutoffIso,
+    evaluateServiceWindow
+} = require('../utils/serviceWindowEligibility');
 
 const MODULE_NAME = 'Call Center';
 const CALL_ACTION = 'Called';
 const NOTE_ACTION = 'Note Added';
 const SERVICE_DATE_ACTION = 'Service Date Added';
-const QUEUE_REOPENED_ACTION = 'Queue Reopened';
 const CALL_LOCK_TTL_MS = 10 * 60 * 1000;
 
 function localDateOnly(date) {
@@ -72,9 +76,7 @@ function currentSessionTodayRange(req) {
 }
 
 function eligibilityCutoffIso() {
-    const d = todayStart();
-    d.setDate(d.getDate() - 90);
-    return localDateOnly(d);
+    return getEligibilityCutoffIso();
 }
 
 function addDaysIso(iso, days) {
@@ -101,6 +103,28 @@ function getUserLabel(user) {
     return full || user.username || `User ${user.id}`;
 }
 
+function isQueueWorker(user) {
+    const role = normalizeRoleName(user);
+    if (role === 'administrator' || role === 'supervisor') return false;
+    if (role === 'call center') return true;
+    const p = user && user.permissions && user.permissions.call_center;
+    return !!(p && p.canAdd);
+}
+
+function lockHolderToUser(lock) {
+    const plain = lock && typeof lock.toJSON === 'function' ? lock.toJSON() : lock;
+    const holder = plain && plain.User ? plain.User : null;
+    if (!holder) return null;
+    return {
+        id: holder.id,
+        username: holder.username,
+        firstName: holder.firstName,
+        lastName: holder.lastName,
+        role: holder.Role ? holder.Role.name : holder.role,
+        permissions: holder.Role ? holder.Role.permissions : holder.permissions
+    };
+}
+
 function requestIp(req) {
     return req.headers['x-forwarded-for'] || req.ip || (req.connection && req.connection.remoteAddress) || null;
 }
@@ -117,7 +141,6 @@ function baseEligibleWhere() {
         [Op.and]: [
             { isActive: true },
             { serviceDate: { [Op.ne]: null } },
-            { serviceDate: { [Op.lt]: eligibilityCutoffIso() } },
             { [Op.or]: [{ isDeleted: false }, { isDeleted: null }] }
         ]
     };
@@ -126,9 +149,7 @@ function baseEligibleWhere() {
 function isEligiblePatient(patient) {
     if (!patient || patient.isActive !== true) return false;
     if (patient.isDeleted === true) return false;
-    const serviceDate = dateOnly(patient.serviceDate);
-    if (!serviceDate) return false;
-    return serviceDate < eligibilityCutoffIso();
+    return evaluateServiceWindow(patient.serviceDate).eligible;
 }
 
 function patientMatchesSearch(patient, q) {
@@ -219,10 +240,18 @@ async function getActiveLockedPatientIds(excludeUserId) {
     if (excludeUserId) where.userId = { [Op.ne]: excludeUserId };
     const locks = await db.CallCenterLock.findAll({
         where,
-        attributes: ['patientId']
+        attributes: ['patientId'],
+        include: [{
+            model: db.User,
+            as: 'User',
+            attributes: ['id', 'username', 'firstName', 'lastName'],
+            required: false,
+            include: [{ model: db.Role, attributes: ['name', 'permissions'], required: false }]
+        }]
     });
     const set = new Set();
     locks.forEach((lock) => {
+        if (!isQueueWorker(lockHolderToUser(lock))) return;
         const id = parseInt(lock.patientId, 10);
         if (Number.isFinite(id)) set.add(id);
     });
@@ -246,15 +275,24 @@ async function acquireCallCenterLock(patientId, req, options) {
     if (lock && new Date(lock.expiresAt) > now && lock.userId !== userId) {
         const withUser = await db.CallCenterLock.findOne({
             where: { patientId },
-            include: [{ model: db.User, as: 'User', attributes: ['id', 'firstName', 'lastName', 'username'], required: false }],
+            include: [{
+                model: db.User,
+                as: 'User',
+                attributes: ['id', 'firstName', 'lastName', 'username'],
+                required: false,
+                include: [{ model: db.Role, attributes: ['name', 'permissions'], required: false }]
+            }],
             transaction
         });
-        return {
-            ok: false,
-            status: 409,
-            error: 'This patient is already claimed by another Call Center user.',
-            lock: serializeLock(withUser || lock)
-        };
+        const holderIsQueueWorker = isQueueWorker(lockHolderToUser(withUser || lock));
+        if (holderIsQueueWorker) {
+            return {
+                ok: false,
+                status: 409,
+                error: 'This patient is already claimed by another Call Center user.',
+                lock: serializeLock(withUser || lock)
+            };
+        }
     }
 
     if (lock) {
@@ -344,46 +382,6 @@ async function getCallHistoryForPatients(patientIds) {
     return map;
 }
 
-async function getCalledTodayPatientIdSet() {
-    const range = todayRange();
-    const [logs, reopenedLogs] = await Promise.all([
-        db.AuditLog.findAll({
-            where: {
-                module: MODULE_NAME,
-                action: CALL_ACTION,
-                recordId: { [Op.ne]: null },
-                createdAt: { [Op.between]: [range.from, range.to] }
-            },
-            attributes: ['recordId', 'createdAt']
-        }),
-        db.AuditLog.findAll({
-            where: {
-                module: MODULE_NAME,
-                action: QUEUE_REOPENED_ACTION,
-                recordId: { [Op.ne]: null },
-                createdAt: { [Op.between]: [range.from, range.to] }
-            },
-            attributes: ['recordId', 'createdAt']
-        })
-    ]);
-    const reopenedAtByPatient = new Map();
-    reopenedLogs.forEach((log) => {
-        const id = parseInt(log.recordId, 10);
-        const openedAt = log.createdAt ? new Date(log.createdAt) : null;
-        if (!Number.isFinite(id) || !openedAt || isNaN(openedAt.getTime())) return;
-        const current = reopenedAtByPatient.get(id);
-        if (!current || openedAt > current) reopenedAtByPatient.set(id, openedAt);
-    });
-    const set = new Set();
-    logs.forEach((log) => {
-        const id = parseInt(log.recordId, 10);
-        const calledAt = log.createdAt ? new Date(log.createdAt) : null;
-        const reopenedAt = reopenedAtByPatient.get(id);
-        if (Number.isFinite(id) && (!reopenedAt || (calledAt && calledAt > reopenedAt))) set.add(id);
-    });
-    return set;
-}
-
 function auditServiceDate(value) {
     if (!value) return null;
     const payload = typeof value === 'string'
@@ -392,28 +390,6 @@ function auditServiceDate(value) {
         })()
         : value;
     return parseDate(payload.serviceDate || payload.newServiceDate);
-}
-
-async function getServiceDateAssignedPatientIdSet(patientIds) {
-    const ids = parsePatientIds(patientIds);
-    const set = new Set();
-    if (!ids.length) return set;
-
-    const logs = await db.AuditLog.findAll({
-        where: {
-            module: MODULE_NAME,
-            action: SERVICE_DATE_ACTION,
-            recordId: { [Op.in]: ids }
-        },
-        attributes: ['recordId', 'newValue']
-    });
-    const cutoff = eligibilityCutoffIso();
-    logs.forEach((log) => {
-        const id = parseInt(log.recordId, 10);
-        const serviceDate = auditServiceDate(log.newValue);
-        if (Number.isFinite(id) && serviceDate && serviceDate >= cutoff) set.add(id);
-    });
-    return set;
 }
 
 async function getRecentNotesForPatients(patientIds) {
@@ -469,8 +445,8 @@ function serializePatient(patient, callHistory, noteHistory) {
         phone: plain.phone || '',
         serviceDate,
         serviceDateDisplay: formatDate(serviceDate),
-        eligibleSince: addDaysIso(serviceDate, 91),
-        eligibleSinceDisplay: formatDate(addDaysIso(serviceDate, 91)),
+        eligibleSince: evaluateServiceWindow(serviceDate).eligibleSince,
+        eligibleSinceDisplay: formatDate(evaluateServiceWindow(serviceDate).eligibleSince),
         notes: notes.map((item) => `[${item.source || 'Patient'}] ${item.note || ''}`).join('\n\n'),
         noteEntries: notes,
         isCurrentlyEligible: currentlyEligible,
@@ -586,15 +562,12 @@ exports.listPatients = async (req, res) => {
             order: [['serviceDate', 'ASC'], ['lastName', 'ASC'], ['firstName', 'ASC'], ['id', 'ASC']]
         });
 
-        const candidateIds = rows.map((row) => row.id);
-        const [calledTodayIds, serviceDateAssignedIds, lockedByOthers] = await Promise.all([
-            getCalledTodayPatientIdSet(),
-            getServiceDateAssignedPatientIdSet(candidateIds),
-            getActiveLockedPatientIds(req.user && req.user.id)
-        ]);
+        const shouldClaimRows = isQueueWorker(req.user);
+        const lockedByOthers = shouldClaimRows
+            ? await getActiveLockedPatientIds(req.user && req.user.id)
+            : new Set();
         let filtered = rows.filter((row) =>
-            !calledTodayIds.has(row.id) &&
-            !serviceDateAssignedIds.has(row.id) &&
+            isEligiblePatient(row) &&
             !lockedByOthers.has(row.id) &&
             patientMatchesSearch(row, q)
         );
@@ -608,6 +581,10 @@ exports.listPatients = async (req, res) => {
         const start = (page - 1) * paging.pageSize;
         const pageRows = [];
         for (let i = start; i < filtered.length && pageRows.length < paging.pageSize; i += 1) {
+            if (!shouldClaimRows) {
+                pageRows.push(filtered[i]);
+                continue;
+            }
             const claim = await acquireCallCenterLock(filtered[i].id, req);
             if (claim.ok) pageRows.push(filtered[i]);
         }
@@ -621,6 +598,9 @@ exports.listPatients = async (req, res) => {
             total,
             totalPages,
             view: 'queue',
+            serviceWindowDays: getServiceWindowDays(),
+            eligibilityCutoff: eligibilityCutoffIso(),
+            locksAcquired: shouldClaimRows,
             rows: pageRows.map((row) => serializePatient(row, callHistory, noteHistory))
         });
     } catch (err) {
@@ -666,6 +646,8 @@ async function listActivityPatients(req, res, view) {
             total: 0,
             totalPages: 1,
             view,
+            serviceWindowDays: getServiceWindowDays(),
+            eligibilityCutoff: eligibilityCutoffIso(),
             activityTotal,
             activityLabel,
             rows: []
@@ -700,6 +682,8 @@ async function listActivityPatients(req, res, view) {
         total,
         totalPages,
         view,
+        serviceWindowDays: getServiceWindowDays(),
+        eligibilityCutoff: eligibilityCutoffIso(),
         activityTotal,
         activityLabel,
         rows: pageRows.map((row) => serializePatient(row, callHistory, noteHistory))
@@ -719,9 +703,10 @@ exports.savePatientAction = async (req, res) => {
     if (newServiceDateRaw && !newServiceDate) {
         return res.status(400).json({ error: 'Invalid new service date.' });
     }
-    if (newServiceDate && newServiceDate < eligibilityCutoffIso()) {
+    if (newServiceDate && newServiceDate <= eligibilityCutoffIso()) {
+        const minimumDate = addDaysIso(eligibilityCutoffIso(), 1);
         return res.status(400).json({
-            error: `New service date must be ${formatDate(eligibilityCutoffIso())} or later so the patient leaves the 90-day eligible queue.`
+            error: `New service date must be ${formatDate(minimumDate)} or later so the patient leaves the ${getServiceWindowDays()}-day eligible queue.`
         });
     }
     if (!called && !note && !newServiceDate) {
@@ -833,23 +818,21 @@ exports.savePatientAction = async (req, res) => {
 };
 
 async function eligibleTotal() {
-    return db.Patient.count({ where: baseEligibleWhere() });
+    const patients = await db.Patient.findAll({
+        attributes: ['serviceDate', 'isActive', 'isDeleted'],
+        where: baseEligibleWhere()
+    });
+    return patients.filter(isEligiblePatient).length;
 }
 
 async function availableEligibleTotal(userId) {
     const patients = await db.Patient.findAll({
-        attributes: ['id'],
+        attributes: ['id', 'serviceDate', 'isActive', 'isDeleted'],
         where: baseEligibleWhere()
     });
-    const candidateIds = patients.map((patient) => patient.id);
-    const [calledTodayIds, serviceDateAssignedIds, lockedByOthers] = await Promise.all([
-        getCalledTodayPatientIdSet(),
-        getServiceDateAssignedPatientIdSet(candidateIds),
-        getActiveLockedPatientIds(userId)
-    ]);
-    return patients.filter((patient) =>
-        !calledTodayIds.has(patient.id) &&
-        !serviceDateAssignedIds.has(patient.id) &&
+    const eligiblePatients = patients.filter(isEligiblePatient);
+    const lockedByOthers = await getActiveLockedPatientIds(userId);
+    return eligiblePatients.filter((patient) =>
         !lockedByOthers.has(patient.id)
     ).length;
 }
@@ -1125,6 +1108,8 @@ async function metricsFor(req, userOnly, options) {
     const summary = summarizeMetrics(logs);
     const result = {
         range: { from: range.fromIso, to: range.toIso },
+        serviceWindowDays: getServiceWindowDays(),
+        eligibilityCutoff: eligibilityCutoffIso(),
         eligibleTotal: await eligibleTotal(),
         availableEligibleTotal: await availableEligibleTotal(req.user && req.user.id),
         totals: summary.totals,

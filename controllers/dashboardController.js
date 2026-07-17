@@ -1,5 +1,7 @@
 const db = require('../models');
 const { Op, fn, col, literal } = require('sequelize');
+const { getServiceWindowDays } = require('../utils/globalSettings');
+const { evaluateServiceWindow } = require('../utils/serviceWindowEligibility');
 
 // ── Helper: build a date-range WHERE clause from ?from= / ?to= params ─────────
 function buildDateRange(req) {
@@ -473,9 +475,9 @@ exports.getChartData = async (req, res) => {
                 if (!serviceDate) {
                     noServiceDate++;
                 } else {
-                    const expiryDate = localDateString(new Date(new Date(serviceDate + 'T00:00:00').getTime() + 90 * 86400000));
+                    const expiryDate = localDateString(new Date(new Date(serviceDate + 'T00:00:00').getTime() + getServiceWindowDays() * 86400000));
                     const daysLeft = daysFromTo(date, expiryDate);
-                    if (daysLeft < 0) eligibleNow++;
+                    if (daysLeft <= 0) eligibleNow++;
                     else if (daysLeft <= 7) expiringIn7++;
                     else inWindow++;
                 }
@@ -591,15 +593,14 @@ exports.getEligibilityStats = async (req, res) => {
                 noServiceDate++;
                 continue;
             }
-            const svcDay    = localDateOnlyStart(p.serviceDate);
-            if (!svcDay) {
+            const eligibility = evaluateServiceWindow(p.serviceDate, today);
+            if (!eligibility.serviceDate) {
                 noServiceDate++;
                 continue;
             }
-            const expiryDay = new Date(svcDay); expiryDay.setDate(svcDay.getDate() + 90);
-            const daysLeft  = Math.ceil((expiryDay - today) / 864e5);
+            const daysLeft = eligibility.daysLeft;
 
-            if (daysLeft < 0) {
+            if (eligibility.eligible) {
                 // Window fully expired — patient is eligible for a new service
                 eligibleNow++;
                 eligibleList.push({
@@ -607,7 +608,7 @@ exports.getEligibilityStats = async (req, res) => {
                     patientCode:   p.patientCode,
                     name:          (p.firstName || '') + ' ' + (p.lastName || ''),
                     lastService:   p.serviceDate,
-                    eligibleSince: expiryDay.toISOString().slice(0, 10),
+                    eligibleSince: eligibility.eligibleSince,
                     daysPastDue:   Math.abs(daysLeft)
                 });
             } else if (daysLeft <= 7) {
@@ -628,7 +629,8 @@ exports.getEligibilityStats = async (req, res) => {
             inWindow,
             noServiceDate,
             total: patients.length,
-            eligibleList: eligibleList.slice(0, 20)
+            eligibleList: eligibleList.slice(0, 20),
+            serviceWindowDays: getServiceWindowDays()
         });
     } catch (error) { res.status(500).json({ error: error.message }); }
 };
@@ -679,10 +681,9 @@ exports.getEligibilityDrilldown = async (req, res) => {
             }
 
             // Canonical 90-day window calculation
-            const svcDay    = localDateOnlyStart(svcDate);
-            if (!svcDay) continue;
-            const expiryDay = new Date(svcDay); expiryDay.setDate(svcDay.getDate() + 90);
-            const daysLeft  = Math.ceil((expiryDay - today) / 864e5);
+            const eligibility = evaluateServiceWindow(svcDate, today);
+            if (!eligibility.serviceDate) continue;
+            const daysLeft = eligibility.daysLeft;
 
             const matches = (
                 (filter === 'eligible' && daysLeft < 0)       ||  // window expired
@@ -698,7 +699,7 @@ exports.getEligibilityDrilldown = async (req, res) => {
                     lastName:     p.lastName,
                     phone:        p.phone,
                     serviceDate:  svcDate,
-                    expiryDate:   expiryDay.toISOString().slice(0, 10),
+                    expiryDate:   eligibility.expiryDate,
                     daysLeft:     daysLeft,
                     daysPastDue:  daysLeft < 0 ? Math.abs(daysLeft) : 0,
                     status:       filter,

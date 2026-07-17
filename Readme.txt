@@ -1,12 +1,32 @@
-Patient RX System v3.0.0
+Patient RX System v3.0.5
 =========================
 
-Production Release: Dedicated Call Center Workspace And Analytics
+Production Release: Exact Configurable-Day Call Center Eligibility
 
-This package includes every production improvement through v3.0.0. The main
-update in this release is the dedicated restricted Call Center workflow, plus
-dashboard metrics, reports, cleanup tools, API restrictions, and automated
-smoke/click validation.
+This package includes every production improvement through v3.0.5. Call Center
+eligibility now begins on the exact day configured in Backoffice and matches
+Dashboard and Patients eligibility. No migration is required.
+
+v3.0.5 - exact configurable eligibility day
+- An 80-day setting becomes eligible on day 80.
+- A 90-day setting becomes eligible on day 90.
+- Any custom N-day setting becomes eligible on day N.
+
+v3.0.4 - eligibility alignment
+- Removes the remaining fixed Call Center eligible-since offset.
+- Returns the configured window and cutoff through Call Center APIs.
+- Limits Patient eligibility categories to active patients, matching the
+  Dashboard and Call Center totals.
+
+v3.0.3 - configurable patient service window
+- Adds Backoffice > Settings > Service Window (Days).
+- Accepts whole numbers from 1 through 365 and defaults to 90.
+- Applies the value to eligibility, locks, workflows, imports, Call Center,
+  dashboard metrics, snapshots, service-date cycles, and patient/RX displays.
+- Call Center eligible-since dates and new-service-date limits use the same
+  configured window and server cutoff.
+- Persists and audit-logs setting changes.
+- Preserves all existing patient, RX, workflow, and service-date history.
 
 Included improvements
 ---------------------
@@ -48,26 +68,27 @@ Production verification
 
 After installing this package:
 
-1. Confirm /api/version shows 3.0.0 for an administrator.
+1. Confirm /api/version shows 3.0.5 for an administrator.
 2. Confirm /api/version returns 403 for a Call Center user.
 3. Login as a Call Center user and confirm it opens /call-center directly.
 4. Confirm dashboard URL injection redirects the Call Center user back to
    /call-center.
-5. Confirm the queue only shows eligible active patients and page size offers
+5. Confirm Backoffice Settings shows Service Window (Days), defaulting to 90.
+6. Confirm the queue only shows eligible active patients and page size offers
    only 5 or 10.
-6. Mark a patient called more than once and confirm multiple call timestamps
+7. Mark a patient called more than once and confirm multiple call timestamps
    are retained.
-7. Add a Call Center note and confirm author/date/source context appears in
+8. Add a Call Center note and confirm author/date/source context appears in
    review/reporting.
-8. Enter a new service date and confirm the patient leaves the active queue
+9. Enter a new service date and confirm the patient leaves the active queue
    after refresh/login.
-9. Confirm Dashboard Call Center Metrics cards, charts, drilldowns, sorting,
+10. Confirm Dashboard Call Center Metrics cards, charts, drilldowns, sorting,
    and CSV export.
-10. Confirm Reports > Analytics & Export > Call Center Report filters, totals,
+11. Confirm Reports > Analytics & Export > Call Center Report filters, totals,
     sorting, CSV export, and Excel export.
 
 Production package
 ------------------
 
-- Deploy dist/server-update-3.0.0.zip or approved dist files only.
+- Deploy dist/server-update-3.0.5.zip or approved dist files only.
 - Keep the production .env unchanged and next to server.exe.

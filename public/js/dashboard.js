@@ -494,6 +494,7 @@ function loadCallCenterReviewMetrics() {
             if (card) card.classList.remove('d-none');
             var totals = normalizeCcTotals(data.totals || {});
             var setTxt = function(id, val) { var el = document.getElementById(id); if (el) el.textContent = val; };
+            setTxt('ccReviewEligible', data.eligibleTotal || 0);
             setTxt('ccReviewCalls', totals.calls);
             setTxt('ccReviewUnique', totals.uniquePatientsCalled);
             setTxt('ccReviewDates', totals.serviceDates);
@@ -979,9 +980,9 @@ function goEligFilter(filter) {
 // =====================================================================
 function openEligDrilldown(filter) {
     var titles = {
-        'eligible': 'Eligible Now — 90-Day Window Expired',
+        'eligible': 'Eligible Now — ' + (Number(window.SERVICE_WINDOW_DAYS) || 90) + '-Day Window Expired',
         'expiring': 'Window Expiring ≤ 7 Days',
-        'window':   'In Active 90-Day Window',
+        'window':   'In Active ' + (Number(window.SERVICE_WINDOW_DAYS) || 90) + '-Day Window',
         'none':     'No Service Date Set'
     };
     var pageLinks = {
