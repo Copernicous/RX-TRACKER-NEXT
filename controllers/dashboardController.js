@@ -1,6 +1,6 @@
 const db = require('../models');
 const { Op, fn, col, literal } = require('sequelize');
-const { getServiceWindowDays } = require('../utils/globalSettings');
+const { getServiceWindowDays, getCallCenterLeadDays } = require('../utils/globalSettings');
 const { evaluateServiceWindow } = require('../utils/serviceWindowEligibility');
 
 // ── Helper: build a date-range WHERE clause from ?from= / ?to= params ─────────
@@ -478,7 +478,7 @@ exports.getChartData = async (req, res) => {
                     const expiryDate = localDateString(new Date(new Date(serviceDate + 'T00:00:00').getTime() + getServiceWindowDays() * 86400000));
                     const daysLeft = daysFromTo(date, expiryDate);
                     if (daysLeft <= 0) eligibleNow++;
-                    else if (daysLeft <= 7) expiringIn7++;
+                    else if (daysLeft <= getCallCenterLeadDays()) expiringIn7++;
                     else inWindow++;
                 }
                 if (!rxCreatedByPatient[patient.id]) patientsWithNoRx++;
@@ -611,8 +611,8 @@ exports.getEligibilityStats = async (req, res) => {
                     eligibleSince: eligibility.eligibleSince,
                     daysPastDue:   Math.abs(daysLeft)
                 });
-            } else if (daysLeft <= 7) {
-                // Window closing soon (0–7 days left)
+            } else if (daysLeft <= getCallCenterLeadDays()) {
+                // Inside the configured Call Center lead window before day 90.
                 expiringIn7++;
             } else {
                 // Active window, > 7 days remaining
@@ -630,7 +630,8 @@ exports.getEligibilityStats = async (req, res) => {
             noServiceDate,
             total: patients.length,
             eligibleList: eligibleList.slice(0, 20),
-            serviceWindowDays: getServiceWindowDays()
+            serviceWindowDays: getServiceWindowDays(),
+            callCenterLeadDays: getCallCenterLeadDays()
         });
     } catch (error) { res.status(500).json({ error: error.message }); }
 };
@@ -687,8 +688,8 @@ exports.getEligibilityDrilldown = async (req, res) => {
 
             const matches = (
                 (filter === 'eligible' && daysLeft < 0)       ||  // window expired
-                (filter === 'expiring' && daysLeft >= 0 && daysLeft <= 7) ||  // closing soon
-                (filter === 'window'   && daysLeft > 7)        // active, plenty of time
+                (filter === 'expiring' && daysLeft > 0 && daysLeft <= getCallCenterLeadDays()) ||
+                (filter === 'window'   && daysLeft > getCallCenterLeadDays())
             );
 
             if (matches) {

@@ -438,7 +438,7 @@
             <div class="row g-3 mb-4" id="eligibilityRow">
                 <div class="col-12">
                     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-                        <h6 class="mb-0"><i class="fas fa-calendar-check me-2" style="color:#198754"></i><%= serviceWindowDays %>-Day Service Eligibility</h6>
+                        <h6 class="mb-0"><i class="fas fa-calendar-check me-2" style="color:#198754"></i>90-Day Service Eligibility</h6>
                         <div class="d-flex align-items-center gap-2">
                             <span class="badge rounded-pill" style="background:rgba(25,135,84,.12);color:#198754;font-size:.7rem" id="eligLastUpdated"></span>
                             <button class="btn btn-outline-secondary btn-sm" onclick="loadEligibility()" title="Refresh"><i class="fas fa-sync-alt"></i></button>
@@ -462,7 +462,7 @@
                     <div class="glass-card p-3 d-flex align-items-center stat-card-clickable" onclick="openEligDrilldown('expiring')" title="Click to view patients expiring within 7 days">
                         <div class="me-3 card-icon" style="font-size:2rem;color:#dc3545"><i class="fas fa-hourglass-half"></i></div>
                         <div>
-                            <div class="text-muted small">Window &le;7 Days Left</div>
+                            <div class="text-muted small">Call Pre-Eligibility (&le;<%= callCenterLeadDays %> Days)</div>
                             <div class="fs-2 fw-bold" id="eligExpiringCount">&mdash;</div>
                             <small class="text-muted d-block mt-1" id="eligExpiringNote">Active patients only, inactive excluded</small>
                             <small class="text-danger"><i class="fas fa-external-link-alt me-1"></i>View patients</small>

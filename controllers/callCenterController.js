@@ -14,10 +14,12 @@ const {
     syncPatientServiceDateCycles
 } = require('../services/patientServiceDateCycleService');
 const sessionIdleService = require('../services/sessionIdleService');
-const { getServiceWindowDays } = require('../utils/globalSettings');
+const { getServiceWindowDays, getCallCenterLeadDays } = require('../utils/globalSettings');
 const {
     getEligibilityCutoffIso,
-    evaluateServiceWindow
+    evaluateServiceWindow,
+    isCallCenterCandidate,
+    getCallCenterThresholdDays
 } = require('../utils/serviceWindowEligibility');
 
 const MODULE_NAME = 'Call Center';
@@ -149,7 +151,7 @@ function baseEligibleWhere() {
 function isEligiblePatient(patient) {
     if (!patient || patient.isActive !== true) return false;
     if (patient.isDeleted === true) return false;
-    return evaluateServiceWindow(patient.serviceDate).eligible;
+    return isCallCenterCandidate(patient.serviceDate);
 }
 
 function patientMatchesSearch(patient, q) {
@@ -599,6 +601,8 @@ exports.listPatients = async (req, res) => {
             totalPages,
             view: 'queue',
             serviceWindowDays: getServiceWindowDays(),
+            callCenterLeadDays: getCallCenterLeadDays(),
+            callCenterThresholdDays: getCallCenterThresholdDays(),
             eligibilityCutoff: eligibilityCutoffIso(),
             locksAcquired: shouldClaimRows,
             rows: pageRows.map((row) => serializePatient(row, callHistory, noteHistory))
@@ -647,6 +651,8 @@ async function listActivityPatients(req, res, view) {
             totalPages: 1,
             view,
             serviceWindowDays: getServiceWindowDays(),
+            callCenterLeadDays: getCallCenterLeadDays(),
+            callCenterThresholdDays: getCallCenterThresholdDays(),
             eligibilityCutoff: eligibilityCutoffIso(),
             activityTotal,
             activityLabel,
@@ -683,6 +689,8 @@ async function listActivityPatients(req, res, view) {
         totalPages,
         view,
         serviceWindowDays: getServiceWindowDays(),
+        callCenterLeadDays: getCallCenterLeadDays(),
+        callCenterThresholdDays: getCallCenterThresholdDays(),
         eligibilityCutoff: eligibilityCutoffIso(),
         activityTotal,
         activityLabel,
@@ -1109,6 +1117,8 @@ async function metricsFor(req, userOnly, options) {
     const result = {
         range: { from: range.fromIso, to: range.toIso },
         serviceWindowDays: getServiceWindowDays(),
+        callCenterLeadDays: getCallCenterLeadDays(),
+        callCenterThresholdDays: getCallCenterThresholdDays(),
         eligibilityCutoff: eligibilityCutoffIso(),
         eligibleTotal: await eligibleTotal(),
         availableEligibleTotal: await availableEligibleTotal(req.user && req.user.id),

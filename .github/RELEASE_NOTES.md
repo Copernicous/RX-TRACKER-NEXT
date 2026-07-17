@@ -1,5 +1,17 @@
 # Release Notes
 
+## v3.0.7 (2026-07-17)
+
+- Dashboard pre-eligibility uses the configured Call Center lead value.
+- Call Queue and Dashboard pre-eligibility populations are aligned.
+
+## v3.0.6 (2026-07-17)
+
+- Service eligibility is fixed at 90 days.
+- Backoffice configures Call Center Lead Days.
+- Call threshold equals 90 minus the lead value.
+- Existing threshold value 80 upgrades to lead 10.
+
 ## v3.0.5 (2026-07-17)
 
 - Call Center eligibility begins on the exact day configured in Backoffice.

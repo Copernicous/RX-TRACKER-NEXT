@@ -1,7 +1,7 @@
 'use strict';
 
 const { parseDate } = require('./dateUtils');
-const { getServiceWindowDays } = require('./globalSettings');
+const { getServiceWindowDays, getCallCenterLeadDays } = require('./globalSettings');
 
 function localIsoDate(date) {
     const d = date instanceof Date ? new Date(date) : new Date(date || Date.now());
@@ -41,7 +41,7 @@ function evaluateServiceWindow(serviceDate, today) {
         (new Date(`${expiryIso}T12:00:00`).getTime() - new Date(`${todayIso}T12:00:00`).getTime()) / 864e5
     );
     return {
-        status: eligible ? 'eligible' : (daysLeft <= 7 ? 'expiring' : 'window'),
+        status: eligible ? 'eligible' : (daysLeft <= getCallCenterLeadDays() ? 'expiring' : 'window'),
         eligible,
         serviceDate: cleanServiceDate,
         cutoff,
@@ -52,9 +52,20 @@ function evaluateServiceWindow(serviceDate, today) {
     };
 }
 
+function isCallCenterCandidate(serviceDate, today) {
+    const result = evaluateServiceWindow(serviceDate, today);
+    return !!result.serviceDate && result.daysLeft <= getCallCenterLeadDays();
+}
+
+function getCallCenterThresholdDays() {
+    return getServiceWindowDays() - getCallCenterLeadDays();
+}
+
 module.exports = {
     localIsoDate,
     addDaysIso,
     getEligibilityCutoffIso,
-    evaluateServiceWindow
+    evaluateServiceWindow,
+    isCallCenterCandidate,
+    getCallCenterThresholdDays
 };

@@ -1,6 +1,7 @@
 var allPatients = [];
     var serviceDateOverrideEnabled = false;
     var serviceWindowDays = Number(window.SERVICE_WINDOW_DAYS) || 90;
+    var callCenterLeadDays = Number(window.CALL_CENTER_LEAD_DAYS) || 0;
     var filteredPatients = [];
     var currentPage = 1;
     var pageSize = 10;
@@ -852,7 +853,7 @@ var allPatients = [];
                     groups.push({
                         key: 'expiring',
                         icon: 'fas fa-hourglass-half text-danger',
-                        message: 'There are ' + patientPlural(eligibility.expiringIn7, 'patient') + ' with 7 days or less left in the ' + serviceWindowDays + '-day window.',
+                        message: 'There are ' + patientPlural(eligibility.expiringIn7, 'patient') + ' inside the ' + callCenterLeadDays + '-day Call Center pre-eligibility window before day 90.',
                         detail: 'Service window closing soon',
                         actionLabel: 'Show Patients'
                     });
@@ -1162,9 +1163,9 @@ var allPatients = [];
                     // eligible: window fully expired (daysLeft < 0)
                     if (elig === 'eligible' && _dl90 > 0)           return false;
                     // expiring: 0-7 days remaining (matches backend <=7)
-                    if (elig === 'expiring' && (_dl90 <= 0 || _dl90 > 7)) return false;
+                    if (elig === 'expiring' && (_dl90 <= 0 || _dl90 > callCenterLeadDays)) return false;
                     // window: active window with > 7 days remaining
-                    if (elig === 'window'   && (_dl90 <= 0 || _dl90 <= 7)) return false;
+                    if (elig === 'window'   && _dl90 <= callCenterLeadDays) return false;
                     // none: handled above - if patient has serviceDate, exclude
                     if (elig === 'none')                             return false;
                 }

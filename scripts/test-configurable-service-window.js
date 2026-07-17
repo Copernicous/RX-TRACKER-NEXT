@@ -13,37 +13,36 @@ try {
 
     assert.strictEqual(settings.getServiceWindowDays(), 90, 'Missing setting must default to 90 days.');
 
-    settings.writeSettings({ ...settings.DEFAULT_SETTINGS, serviceWindowDays: 60 });
-    assert.strictEqual(settings.getServiceWindowDays(), 60, 'A valid custom window must be persisted and returned.');
+    settings.writeSettings({ ...settings.DEFAULT_SETTINGS, serviceWindowDays: 90, callCenterLeadDays: 10 });
+    assert.strictEqual(settings.getServiceWindowDays(), 90, 'Service eligibility must remain fixed at 90 days.');
+    assert.strictEqual(settings.getCallCenterLeadDays(), 10, 'Call Center lead days must be persisted.');
     const eligibility = require('../utils/serviceWindowEligibility');
     assert.strictEqual(
-        eligibility.evaluateServiceWindow('2026-04-30', new Date('2026-07-01T12:00:00')).eligible,
+        eligibility.evaluateServiceWindow('2026-04-02', new Date('2026-07-01T12:00:00')).eligible,
         true,
-        'A service date older than the configured window must be eligible.'
+        'A patient must become service eligible on fixed day 90.'
     );
     assert.strictEqual(
-        eligibility.evaluateServiceWindow('2026-05-02', new Date('2026-07-01T12:00:00')).eligible,
+        eligibility.isCallCenterCandidate('2026-04-12', new Date('2026-07-01T12:00:00')),
         true,
-        'A patient must become eligible on the exact configured eligibility day.'
+        'A 10-day lead must place a patient in Call Center on day 80.'
     );
     assert.strictEqual(
-        eligibility.evaluateServiceWindow('2026-04-30', new Date('2026-07-01T12:00:00')).eligibleSince,
-        '2026-06-29',
-        'Eligible-since must be the exact configured eligibility day.'
+        eligibility.isCallCenterCandidate('2026-04-13', new Date('2026-07-01T12:00:00')),
+        false,
+        'A patient before day 80 must remain outside Call Center.'
     );
+    assert.strictEqual(eligibility.getCallCenterThresholdDays(), 80, '90 minus a 10-day lead must equal day 80.');
 
-    settings.writeSettings({ ...settings.DEFAULT_SETTINGS, serviceWindowDays: 1 });
-    assert.strictEqual(settings.getServiceWindowDays(), 1, 'The minimum supported window must be accepted.');
+    settings.writeSettings({ ...settings.DEFAULT_SETTINGS, serviceWindowDays: 75 });
+    assert.strictEqual(settings.getCallCenterLeadDays(), 15, 'Legacy threshold 75 must migrate to a 15-day lead.');
 
-    settings.writeSettings({ ...settings.DEFAULT_SETTINGS, serviceWindowDays: 365 });
-    assert.strictEqual(settings.getServiceWindowDays(), 365, 'The maximum supported window must be accepted.');
-
-    for (const invalid of [0, 366, -1, 'invalid', null]) {
-        settings.writeSettings({ ...settings.DEFAULT_SETTINGS, serviceWindowDays: invalid });
+    for (const invalid of [-1, 90, 366, 'invalid', null]) {
+        settings.writeSettings({ ...settings.DEFAULT_SETTINGS, serviceWindowDays: 90, callCenterLeadDays: invalid });
         assert.strictEqual(
-            settings.getServiceWindowDays(),
-            90,
-            `Invalid value ${String(invalid)} must safely fall back to 90 days.`
+            settings.getCallCenterLeadDays(),
+            10,
+            `Invalid lead value ${String(invalid)} must safely fall back to 10 days.`
         );
     }
 
@@ -56,7 +55,7 @@ try {
         'services/patientServiceDateCycleService.js': 'getServiceWindowDays',
         'services/snapshotService.js': 'getServiceWindowDays',
         'utils/serviceWindowEligibility.js': 'evaluateServiceWindow',
-        'views/backoffice.ejs': 'sServiceWindowDays'
+        'views/backoffice.ejs': 'sCallCenterLeadDays'
     };
 
     for (const [relativeFile, marker] of Object.entries(requiredWiring)) {
@@ -64,10 +63,16 @@ try {
         assert(source.includes(marker), `${relativeFile} is missing configurable service-window wiring.`);
     }
 
+    const dashboardSource = fs.readFileSync(path.join(__dirname, '..', 'controllers/dashboardController.js'), 'utf8');
+    assert(
+        dashboardSource.includes('daysLeft <= getCallCenterLeadDays()'),
+        'Dashboard pre-eligibility totals must use the configured Call Center lead value.'
+    );
+
     const callCenterSource = fs.readFileSync(path.join(__dirname, '..', 'controllers/callCenterController.js'), 'utf8');
     assert(
-        callCenterSource.includes('evaluateServiceWindow(patient.serviceDate).eligible'),
-        'Call Center eligibility must use the shared configured-day evaluator.'
+        callCenterSource.includes('isCallCenterCandidate(patient.serviceDate)'),
+        'Call Center eligibility must use the shared 90-minus-lead evaluator.'
     );
     assert(
         !callCenterSource.includes('addDaysIso(serviceDate, 91)'),
@@ -85,7 +90,7 @@ try {
         'Browser-side Patient eligibility filtering must use the active-patient population.'
     );
 
-    console.log('PASS: configurable service window defaults, validation fallback, persistence, and rule wiring.');
+    console.log('PASS: fixed 90-day eligibility and configurable Call Center lead-window behavior.');
 } finally {
     fs.rmSync(tempRoot, { recursive: true, force: true });
 }

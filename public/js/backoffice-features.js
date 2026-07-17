@@ -110,7 +110,7 @@ async function loadSettings() {
         document.getElementById('sRetentionDays').value  = data.backupRetentionDays || 30;
         document.getElementById('sSessionTimeout').value = data.sessionTimeoutMinutes || 60;
         document.getElementById('sMaxLogin').value       = data.maxLoginAttempts || 5;
-        document.getElementById('sServiceWindowDays').value = data.serviceWindowDays || 90;
+        document.getElementById('sCallCenterLeadDays').value = data.callCenterLeadDays === undefined ? 10 : data.callCenterLeadDays;
         var cb = document.getElementById('sMaintenanceMode');
         cb.checked = !!data.maintenanceMode;
         var svcCb = document.getElementById('sServiceDateOverrideEnabled');
@@ -137,14 +137,15 @@ async function saveSettings(e) {
             backupRetentionDays:   parseInt(document.getElementById('sRetentionDays').value, 10),
             sessionTimeoutMinutes: parseInt(document.getElementById('sSessionTimeout').value, 10),
             maxLoginAttempts:      parseInt(document.getElementById('sMaxLogin').value, 10),
-            serviceWindowDays:     parseInt(document.getElementById('sServiceWindowDays').value, 10),
+            callCenterLeadDays:    parseInt(document.getElementById('sCallCenterLeadDays').value, 10),
             maintenanceMode:       document.getElementById('sMaintenanceMode').checked,
             serviceDateOverrideEnabled: document.getElementById('sServiceDateOverrideEnabled').checked
         };
         var res  = await apiFetch('/api/admin/settings', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
         var data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Save failed');
-        window.SERVICE_WINDOW_DAYS = Number(data.settings && data.settings.serviceWindowDays) || 90;
+        window.SERVICE_WINDOW_DAYS = 90;
+        window.CALL_CENTER_LEAD_DAYS = Number(data.settings && data.settings.callCenterLeadDays) || 0;
         var msg = document.getElementById('settingsSavedMsg');
         msg.textContent = '\u2714 Settings saved'; msg.style.opacity = '1';
         setTimeout(function() { msg.style.opacity = '0'; }, 3000);

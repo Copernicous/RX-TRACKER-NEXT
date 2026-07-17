@@ -981,7 +981,7 @@ function goEligFilter(filter) {
 function openEligDrilldown(filter) {
     var titles = {
         'eligible': 'Eligible Now — ' + (Number(window.SERVICE_WINDOW_DAYS) || 90) + '-Day Window Expired',
-        'expiring': 'Window Expiring ≤ 7 Days',
+        'expiring': 'Call Pre-Eligibility — Final ' + (Number(window.CALL_CENTER_LEAD_DAYS) || 0) + ' Days',
         'window':   'In Active ' + (Number(window.SERVICE_WINDOW_DAYS) || 90) + '-Day Window',
         'none':     'No Service Date Set'
     };

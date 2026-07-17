@@ -1,11 +1,11 @@
-Patient RX System v3.0.5
+Patient RX System v3.0.7
 =========================
 
-Production Release: Exact Configurable-Day Call Center Eligibility
+Production Release: Fixed 90-Day Eligibility With Configurable Call Lead
 
-This package includes every production improvement through v3.0.5. Call Center
-eligibility now begins on the exact day configured in Backoffice and matches
-Dashboard and Patients eligibility. No migration is required.
+Service eligibility stays fixed at 90 days. Backoffice Call Center Lead Days
+controls when calling begins: 90 minus the configured lead. Lead 10 starts on
+day 80. No migration or data reset is required.
 
 v3.0.5 - exact configurable eligibility day
 - An 80-day setting becomes eligible on day 80.
@@ -68,7 +68,7 @@ Production verification
 
 After installing this package:
 
-1. Confirm /api/version shows 3.0.5 for an administrator.
+1. Confirm /api/version shows 3.0.7 for an administrator.
 2. Confirm /api/version returns 403 for a Call Center user.
 3. Login as a Call Center user and confirm it opens /call-center directly.
 4. Confirm dashboard URL injection redirects the Call Center user back to
@@ -90,5 +90,5 @@ After installing this package:
 Production package
 ------------------
 
-- Deploy dist/server-update-3.0.5.zip or approved dist files only.
+- Deploy dist/server-update-3.0.7.zip or approved dist files only.
 - Keep the production .env unchanged and next to server.exe.

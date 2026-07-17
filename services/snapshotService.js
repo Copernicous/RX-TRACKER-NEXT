@@ -5,7 +5,7 @@
  * Call captureSnapshot() manually or let the cron trigger it at 00:05 each night.
  */
 const { QueryTypes } = require('sequelize');
-const { getServiceWindowDays } = require('../utils/globalSettings');
+const { getServiceWindowDays, getCallCenterLeadDays } = require('../utils/globalSettings');
 
 let _db = null;
 let _trendSchemaReady = null;
@@ -147,8 +147,8 @@ async function captureSnapshot(forDate) {
     const [elig] = await seq.query(`
         SELECT
             COUNT(*) FILTER (WHERE "isActive" = true AND "serviceDate" IS NOT NULL AND (("serviceDate"::date + INTERVAL '${getServiceWindowDays()} days')::date <= CAST(:snapshotDate AS date))) AS "eligibleNow",
-            COUNT(*) FILTER (WHERE "isActive" = true AND "serviceDate" IS NOT NULL AND (("serviceDate"::date + INTERVAL '${getServiceWindowDays()} days')::date > CAST(:snapshotDate AS date)) AND (("serviceDate"::date + INTERVAL '${getServiceWindowDays()} days')::date <= CAST(:snapshotDate AS date) + INTERVAL '7 days')) AS "expiringIn7",
-            COUNT(*) FILTER (WHERE "isActive" = true AND "serviceDate" IS NOT NULL AND (("serviceDate"::date + INTERVAL '${getServiceWindowDays()} days')::date > CAST(:snapshotDate AS date) + INTERVAL '7 days')) AS "inWindow",
+            COUNT(*) FILTER (WHERE "isActive" = true AND "serviceDate" IS NOT NULL AND (("serviceDate"::date + INTERVAL '${getServiceWindowDays()} days')::date > CAST(:snapshotDate AS date)) AND (("serviceDate"::date + INTERVAL '${getServiceWindowDays()} days')::date <= CAST(:snapshotDate AS date) + INTERVAL '${getCallCenterLeadDays()} days')) AS "expiringIn7",
+            COUNT(*) FILTER (WHERE "isActive" = true AND "serviceDate" IS NOT NULL AND (("serviceDate"::date + INTERVAL '${getServiceWindowDays()} days')::date > CAST(:snapshotDate AS date) + INTERVAL '${getCallCenterLeadDays()} days')) AS "inWindow",
             COUNT(*) FILTER (WHERE "isActive" = true AND "serviceDate" IS NULL) AS "noServiceDate",
             COUNT(*) FILTER (
                 WHERE "isActive" = true

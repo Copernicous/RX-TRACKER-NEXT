@@ -314,6 +314,7 @@ app.use(function(req, res, next) {
     res.locals.appEnvironment = getAppEnvironment();
     res.locals.isStaging = isStagingEnvironment();
     res.locals.serviceWindowDays = require('./utils/globalSettings').getServiceWindowDays();
+    res.locals.callCenterLeadDays = require('./utils/globalSettings').getCallCenterLeadDays();
     next();
 });
 

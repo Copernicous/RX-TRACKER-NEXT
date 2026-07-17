@@ -336,15 +336,17 @@ exports.getSettings = (req, res) => {
 
 exports.saveSettings = (req, res) => {
     try {
-        const allowed = ['backupPath','backupRetentionDays','appName','sessionTimeoutMinutes','maxLoginAttempts','maintenanceMode','serviceDateOverrideEnabled','serviceWindowDays'];
+        const allowed = ['backupPath','backupRetentionDays','appName','sessionTimeoutMinutes','maxLoginAttempts','maintenanceMode','serviceDateOverrideEnabled','callCenterLeadDays'];
         const current = readSettings();
+        const currentLeadDays = fileSettings.getCallCenterLeadDays();
         const next    = { ...current };
         for (const key of allowed) if (req.body[key] !== undefined) next[key] = req.body[key];
         next.maintenanceMode = next.maintenanceMode === true || next.maintenanceMode === 'true';
         next.serviceDateOverrideEnabled = next.serviceDateOverrideEnabled === true || next.serviceDateOverrideEnabled === 'true';
-        next.serviceWindowDays = Number.parseInt(next.serviceWindowDays, 10);
-        if (!Number.isInteger(next.serviceWindowDays) || next.serviceWindowDays < 1 || next.serviceWindowDays > 365) {
-            return res.status(400).json({ error: 'Service window days must be a whole number from 1 to 365.' });
+        next.serviceWindowDays = 90;
+        next.callCenterLeadDays = Number.parseInt(next.callCenterLeadDays, 10);
+        if (!Number.isInteger(next.callCenterLeadDays) || next.callCenterLeadDays < 0 || next.callCenterLeadDays > 89) {
+            return res.status(400).json({ error: 'Call Center lead days must be a whole number from 0 to 89.' });
         }
         if (next.backupPath) { try { fs.mkdirSync(next.backupPath, { recursive: true }); } catch {} }
         fileSettings.writeSettings(next);
@@ -361,16 +363,16 @@ exports.saveSettings = (req, res) => {
                 ipAddress:     req.ip || (req.socket ? req.socket.remoteAddress : 'unknown')
             }).catch(function() {});
         }
-        if (Number(current.serviceWindowDays || 90) !== next.serviceWindowDays) {
+        if (currentLeadDays !== next.callCenterLeadDays) {
             db.AuditLog.create({
                 userId: req.user ? req.user.id : null,
                 date: new Date().toISOString().split('T')[0],
                 time: new Date().toTimeString().split(' ')[0],
                 module: 'Backoffice',
-                action: 'Service Window Days Changed',
+                action: 'Call Center Lead Days Changed',
                 recordId: null,
-                previousValue: { serviceWindowDays: Number(current.serviceWindowDays || 90) },
-                newValue: { serviceWindowDays: next.serviceWindowDays },
+                previousValue: { callCenterLeadDays: currentLeadDays },
+                newValue: { callCenterLeadDays: next.callCenterLeadDays },
                 ipAddress: req.ip || (req.socket ? req.socket.remoteAddress : 'unknown')
             }).catch(function() {});
         }

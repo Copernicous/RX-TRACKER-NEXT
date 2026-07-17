@@ -194,9 +194,9 @@
                 <div class="cc-metric active" data-view="queue" data-card="queue" id="ccCardQueue">
                     <div class="cc-metric-icon" style="color:#198754"><i class="fas fa-user-check"></i></div>
                     <div class="cc-metric-body">
-                        <div class="label">Eligible Now</div>
+                        <div class="label">Call Queue</div>
                         <div class="value" id="ccMetricEligible">--</div>
-                        <div class="text-muted small" id="ccEligibleWindowLabel">Eligible on day <%= serviceWindowDays %></div>
+                        <div class="text-muted small" id="ccEligibleWindowLabel">Calling from day <%= serviceWindowDays - callCenterLeadDays %> · Service eligible day <%= serviceWindowDays %></div>
                         <div class="cc-metric-link"><i class="fas fa-external-link-alt me-1"></i>View queue</div>
                     </div>
                 </div>

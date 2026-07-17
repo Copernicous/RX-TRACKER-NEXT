@@ -18,6 +18,7 @@
     var lockedPatientIds = [];
     var lockHeartbeatTimer = null;
     var serviceWindowDays = Number(window.SERVICE_WINDOW_DAYS) || 90;
+    var callCenterLeadDays = Number(window.CALL_CENTER_LEAD_DAYS) || 0;
 
     var state = {
         page: 1,
@@ -155,8 +156,9 @@
         var data = await res.json();
         var totals = data.totals || {};
         serviceWindowDays = Number(data.serviceWindowDays) || serviceWindowDays;
+        callCenterLeadDays = Number(data.callCenterLeadDays) || 0;
         state.eligibilityCutoff = data.eligibilityCutoff || state.eligibilityCutoff;
-        setText('ccEligibleWindowLabel', 'Eligible on day ' + serviceWindowDays);
+        setText('ccEligibleWindowLabel', 'Calling from day ' + (serviceWindowDays - callCenterLeadDays) + ' · Service eligible day ' + serviceWindowDays);
         setText('ccMetricEligible', data.eligibleTotal || 0);
         setText('ccMetricCalls', totals.calls || 0);
         setText('ccMetricUnique', totals.uniquePatientsCalled || 0);
@@ -176,8 +178,9 @@
         }
         var data = await res.json();
         serviceWindowDays = Number(data.serviceWindowDays) || serviceWindowDays;
+        callCenterLeadDays = Number(data.callCenterLeadDays) || 0;
         state.eligibilityCutoff = data.eligibilityCutoff || state.eligibilityCutoff;
-        setText('ccEligibleWindowLabel', 'Eligible on day ' + serviceWindowDays);
+        setText('ccEligibleWindowLabel', 'Calling from day ' + (serviceWindowDays - callCenterLeadDays) + ' · Service eligible day ' + serviceWindowDays);
         state.page = data.page || 1;
         state.pageSize = data.pageSize || state.pageSize;
         state.total = data.total || 0;

@@ -9,6 +9,30 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 - No unreleased changes.
 
+## [3.0.7] - 2026-07-17
+
+### [RELEASE-307] Dashboard Call Pre-Eligibility lead-value correction
+
+- Fixed the Dashboard summary still classifying pre-eligible patients with a hard-coded seven-day boundary.
+- Dashboard Call Pre-Eligibility now uses the same Backoffice lead value as Call Center.
+- Renamed the Call Center metric from Eligible Now to Call Queue to distinguish calling eligibility from fixed 90-day service eligibility.
+- Added a regression guard for the shared lead-value comparison.
+
+**Database impact:** None.
+
+## [3.0.6] - 2026-07-17
+
+### [RELEASE-306] Fixed 90-day service eligibility with configurable Call Center lead days
+
+- Restored service eligibility, workflow deadlines, locks, and service cycles to the fixed 90-day business rule.
+- Replaced the ambiguous service-window setting with **Call Center Lead Days**.
+- Call Center entry is calculated as `90 - lead days`; a value of 10 starts calling on day 80.
+- Patients from the calling threshold through day 89 are Call Pre-Eligibility; day 90+ is Service Eligible.
+- Existing production setting value 80 is interpreted as a 10-day lead for upgrade compatibility.
+- Dashboard and Patient amber notices show the complete pre-eligibility group without day-by-day splitting.
+
+**Database impact:** No migration or data reset required.
+
 ## [3.0.5] - 2026-07-17
 
 ### [RELEASE-305] Exact configurable-day Call Center eligibility
