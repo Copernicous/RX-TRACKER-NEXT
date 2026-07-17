@@ -9,6 +9,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 - No unreleased changes.
 
+## [3.0.8] - 2026-07-17
+
+### [RELEASE-308] Call Pre-Eligibility cutoff date display
+
+- Dashboard Call Pre-Eligibility now displays the effective Call Queue cutoff date.
+- The date is calculated server-side from fixed day 90 minus Backoffice Call Center Lead Days.
+- Example: July 17 with lead 10 displays `Service Date on or before 04/28/2026`.
+
+**Database impact:** None.
+
 ## [3.0.7] - 2026-07-17
 
 ### [RELEASE-307] Dashboard Call Pre-Eligibility lead-value correction

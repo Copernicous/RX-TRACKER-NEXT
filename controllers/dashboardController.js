@@ -1,7 +1,7 @@
 const db = require('../models');
 const { Op, fn, col, literal } = require('sequelize');
 const { getServiceWindowDays, getCallCenterLeadDays } = require('../utils/globalSettings');
-const { evaluateServiceWindow } = require('../utils/serviceWindowEligibility');
+const { evaluateServiceWindow, getCallCenterCutoffIso } = require('../utils/serviceWindowEligibility');
 
 // ── Helper: build a date-range WHERE clause from ?from= / ?to= params ─────────
 function buildDateRange(req) {
@@ -631,7 +631,8 @@ exports.getEligibilityStats = async (req, res) => {
             total: patients.length,
             eligibleList: eligibleList.slice(0, 20),
             serviceWindowDays: getServiceWindowDays(),
-            callCenterLeadDays: getCallCenterLeadDays()
+            callCenterLeadDays: getCallCenterLeadDays(),
+            callCenterCutoffDate: getCallCenterCutoffIso(today)
         });
     } catch (error) { res.status(500).json({ error: error.message }); }
 };

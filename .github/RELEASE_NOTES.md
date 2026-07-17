@@ -1,5 +1,9 @@
 # Release Notes
 
+## v3.0.8 (2026-07-17)
+
+- Dashboard Call Pre-Eligibility displays the effective Call Queue Service Date cutoff.
+
 ## v3.0.7 (2026-07-17)
 
 - Dashboard pre-eligibility uses the configured Call Center lead value.

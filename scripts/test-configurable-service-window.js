@@ -33,6 +33,11 @@ try {
         'A patient before day 80 must remain outside Call Center.'
     );
     assert.strictEqual(eligibility.getCallCenterThresholdDays(), 80, '90 minus a 10-day lead must equal day 80.');
+    assert.strictEqual(
+        eligibility.getCallCenterCutoffIso(new Date('2026-07-17T12:00:00')),
+        '2026-04-28',
+        'A 10-day lead on July 17 must produce an April 28 Call Queue cutoff.'
+    );
 
     settings.writeSettings({ ...settings.DEFAULT_SETTINGS, serviceWindowDays: 75 });
     assert.strictEqual(settings.getCallCenterLeadDays(), 15, 'Legacy threshold 75 must migrate to a 15-day lead.');

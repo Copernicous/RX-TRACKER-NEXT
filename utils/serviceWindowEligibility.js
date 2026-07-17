@@ -61,11 +61,17 @@ function getCallCenterThresholdDays() {
     return getServiceWindowDays() - getCallCenterLeadDays();
 }
 
+function getCallCenterCutoffIso(today) {
+    const todayIso = localIsoDate(today || new Date());
+    return addDaysIso(todayIso, -getCallCenterThresholdDays());
+}
+
 module.exports = {
     localIsoDate,
     addDaysIso,
     getEligibilityCutoffIso,
     evaluateServiceWindow,
     isCallCenterCandidate,
-    getCallCenterThresholdDays
+    getCallCenterThresholdDays,
+    getCallCenterCutoffIso
 };

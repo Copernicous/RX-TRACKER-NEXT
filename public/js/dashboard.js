@@ -1022,6 +1022,12 @@ function loadEligibility() {
         countUp('eligExpiringCount', d.expiringIn7   || 0, 600);
         countUp('eligInWindowCount', d.inWindow      || 0, 600);
         countUp('eligNoDateCount',   d.noServiceDate || 0, 600);
+        var cutoffNote = document.getElementById('eligExpiringNote');
+        if (cutoffNote) {
+            var cutoff = d.callCenterCutoffDate ? new Date(d.callCenterCutoffDate + 'T12:00:00') : null;
+            var cutoffLabel = cutoff && !isNaN(cutoff.getTime()) ? cutoff.toLocaleDateString() : '—';
+            cutoffNote.textContent = 'Call Queue: Service Date on or before ' + cutoffLabel;
+        }
         if (luEl) luEl.textContent = 'Updated ' + new Date().toLocaleTimeString();
     }).catch(function() {
         if (luEl) luEl.textContent = 'Load failed';
