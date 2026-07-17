@@ -69,9 +69,14 @@ try {
     }
 
     const dashboardSource = fs.readFileSync(path.join(__dirname, '..', 'controllers/dashboardController.js'), 'utf8');
+    const dashboardBrowserSource = fs.readFileSync(path.join(__dirname, '..', 'public/js/dashboard.js'), 'utf8');
     assert(
         dashboardSource.includes('daysLeft <= getCallCenterLeadDays()'),
         'Dashboard pre-eligibility totals must use the configured Call Center lead value.'
+    );
+    assert(
+        !dashboardBrowserSource.includes("setNote('eligExpiringNote', 'Active patients only, inactive excluded')"),
+        'Dashboard stats refresh must not overwrite the Call Queue cutoff date.'
     );
 
     const callCenterSource = fs.readFileSync(path.join(__dirname, '..', 'controllers/callCenterController.js'), 'utf8');

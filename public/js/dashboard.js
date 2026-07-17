@@ -213,7 +213,6 @@ function refreshDashboard() {
             setTxt('pendingDeliveriesCount', safe(data.pendingDeliveriesCount));
             var setNote = function(id, val) { var el = document.getElementById(id); if (el) el.textContent = val; };
             setNote('eligNowNote', 'Active patients only, inactive excluded');
-            setNote('eligExpiringNote', 'Active patients only, inactive excluded');
             setNote('eligWindowNote', 'Active patients only, inactive excluded');
             setNote('eligNoDateNote', 'Active patients only, inactive excluded');
 

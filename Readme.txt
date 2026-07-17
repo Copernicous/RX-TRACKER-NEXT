@@ -1,4 +1,4 @@
-Patient RX System v3.0.8
+Patient RX System v3.0.9
 =========================
 
 Production Release: Fixed 90-Day Eligibility With Configurable Call Lead
@@ -68,7 +68,7 @@ Production verification
 
 After installing this package:
 
-1. Confirm /api/version shows 3.0.8 for an administrator.
+1. Confirm /api/version shows 3.0.9 for an administrator.
 2. Confirm /api/version returns 403 for a Call Center user.
 3. Login as a Call Center user and confirm it opens /call-center directly.
 4. Confirm dashboard URL injection redirects the Call Center user back to
@@ -90,5 +90,5 @@ After installing this package:
 Production package
 ------------------
 
-- Deploy dist/server-update-3.0.8.zip or approved dist files only.
+- Deploy dist/server-update-3.0.9.zip or approved dist files only.
 - Keep the production .env unchanged and next to server.exe.

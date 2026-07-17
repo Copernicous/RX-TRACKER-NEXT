@@ -1,5 +1,9 @@
 # Release Notes
 
+## v3.0.9 (2026-07-17)
+
+- Preserves the Call Queue cutoff date during Dashboard refresh.
+
 ## v3.0.8 (2026-07-17)
 
 - Dashboard Call Pre-Eligibility displays the effective Call Queue Service Date cutoff.

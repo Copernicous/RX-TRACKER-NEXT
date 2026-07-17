@@ -9,6 +9,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 - No unreleased changes.
 
+## [3.0.9] - 2026-07-17
+
+### [RELEASE-309] Preserve Dashboard Call Queue cutoff date
+
+- Prevented the general Dashboard stats refresh from overwriting the Call Pre-Eligibility cutoff date.
+- Added regression coverage for the competing refresh paths.
+
+**Database impact:** None.
+
 ## [3.0.8] - 2026-07-17
 
 ### [RELEASE-308] Call Pre-Eligibility cutoff date display
