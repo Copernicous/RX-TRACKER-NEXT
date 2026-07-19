@@ -18,6 +18,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 - Preserved launcher-provided staging variables when the root `.env` is read and added fail-fast checks for the expected staging port, database, and writable root.
 - Corrected PostgreSQL tool caching so `pg_dump`, `psql`, and `pg_restore` are cached independently.
 - Corrected the asynchronous git-log response path so timeout/error/close events cannot send multiple responses.
+- Removed a duplicated Back Office template tail that rendered duplicate Analytics, data-viewer, impact-confirmation, and purge-confirmation IDs.
 
 ### Security
 

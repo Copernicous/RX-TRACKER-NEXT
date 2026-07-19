@@ -1054,174 +1054,6 @@
     </div>
 
     <!-- ══ Analytics Panel ══ -->
-    <div id="analyticsContent" class="schema-wrap">
-        <!-- Header -->
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:0.75rem">
-            <div>
-                <div style="font-size:1rem;font-weight:700">📊 Daily Analytics</div>
-                <div style="font-size:0.75rem;color:var(--text-muted)">Automated daily snapshots &mdash; captured every night at 00:05</div>
-            </div>
-            <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
-                <input type="date" id="anlFrom" class="schema-search" style="margin:0" onchange="loadAnalytics()">
-                <input type="date" id="anlTo"   class="schema-search" style="margin:0" onchange="loadAnalytics()">
-                <button class="btn-bo btn-bo-outline" onclick="loadAnalytics()"><i class="fas fa-sync-alt me-1"></i>Refresh</button>
-                <button class="btn-bo" style="background:rgba(16,185,129,.12);color:#10b981;border:1px solid rgba(16,185,129,.3);font-size:0.78rem" onclick="captureNowSnapshot()"><i class="fas fa-camera me-1"></i>Capture Now</button>
-                <button class="btn-bo btn-bo-outline" style="font-size:0.78rem" onclick="exportAnalyticsCSV()"><i class="fas fa-file-csv me-1"></i>Export CSV</button>
-            </div>
-        </div>
-
-        <!-- KPI Cards (latest snapshot) -->
-        <div id="anlKpiCards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:0.65rem;margin-bottom:1.5rem"></div>
-
-        <!-- Charts 2×2 grid -->
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.5rem" id="anlChartGrid">
-            <!-- Chart 1: Patients -->
-            <div class="schema-card" style="padding:1rem">
-                <div style="font-size:0.78rem;font-weight:600;margin-bottom:0.75rem;color:var(--text-muted)"><i class="fas fa-user-injured me-1" style="color:#6366f1"></i>PATIENTS OVER TIME</div>
-                <canvas id="chartPatients" height="180"></canvas>
-            </div>
-            <!-- Chart 2: RX Activity -->
-            <div class="schema-card" style="padding:1rem">
-                <div style="font-size:0.78rem;font-weight:600;margin-bottom:0.75rem;color:var(--text-muted)"><i class="fas fa-prescription-bottle-alt me-1" style="color:#f59e0b"></i>RX RECORDS ACTIVITY</div>
-                <canvas id="chartRX" height="180"></canvas>
-            </div>
-            <!-- Chart 3: Workflow -->
-            <div class="schema-card" style="padding:1rem">
-                <div style="font-size:0.78rem;font-weight:600;margin-bottom:0.75rem;color:var(--text-muted)"><i class="fas fa-tasks me-1" style="color:#10b981"></i>WORKFLOW COMPLETION RATE %</div>
-                <canvas id="chartWorkflow" height="180"></canvas>
-            </div>
-            <!-- Chart 4: Errors & Audit -->
-            <div class="schema-card" style="padding:1rem">
-                <div style="font-size:0.78rem;font-weight:600;margin-bottom:0.75rem;color:var(--text-muted)"><i class="fas fa-exclamation-triangle me-1" style="color:#ef4444"></i>ERRORS & AUDIT EVENTS / DAY</div>
-                <canvas id="chartActivity" height="180"></canvas>
-            </div>
-        </div>
-
-        <!-- Raw data table -->
-        <div style="font-size:0.75rem;font-weight:600;color:var(--text-muted);margin-bottom:0.5rem;text-transform:uppercase;letter-spacing:.06em">Snapshot Records</div>
-        <div id="anlTableWrap"><p style="text-align:center;padding:3rem;color:var(--text-muted)"><i class="fas fa-spinner fa-spin me-2"></i>Loading...</p></div>
-    </div>
-
-<!-- Access Denied -->
-<div class="main-wrap" id="deniedWrap" style="display:none">
-    <div class="denied-screen">
-        <div style="font-size:3.5rem;color:var(--red);opacity:.7"><i class="fas fa-ban"></i></div>
-        <h3>Access Denied</h3>
-        <p style="color:var(--text-muted)">This page is restricted to <strong style="color:#fca5a5">Administrator</strong> accounts only.</p>
-        <a href="/dashboard" class="btn-bo btn-bo-outline"><i class="fas fa-arrow-left me-1"></i>Return to Dashboard</a>
-    </div>
-</div>
-
-<!-- ═══════════════════════════════════════════════════════════════════════ -->
-<!-- Data Viewer Overlay                                                     -->
-<!-- ═══════════════════════════════════════════════════════════════════════ -->
-<div class="viewer-overlay" id="viewerOverlay">
-
-    <!-- Viewer Header -->
-    <div class="viewer-header">
-        <div class="viewer-title">
-            <div id="viewerIcon" style="width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:0.85rem"></div>
-            <div>
-                <h5 id="viewerTitle">Table</h5>
-                <div style="font-size:0.7rem;color:var(--text-muted)" id="viewerDesc"></div>
-            </div>
-            <span class="v-badge" id="viewerBadge">0 records</span>
-        </div>
-        <div class="viewer-actions">
-            <button class="btn-bo btn-bo-danger" id="viewerDeleteSelBtn" style="display:none" onclick="openImpactModal()">
-                <i class="fas fa-trash-alt me-1"></i>Delete <span id="viewerDelCount">0</span> selected
-            </button>
-            <button class="btn-bo btn-bo-success" id="viewerExportBtn" onclick="exportCurrentTable()">
-                <i class="fas fa-file-csv me-1"></i>Export CSV
-            </button>
-            <button class="btn-bo btn-bo-outline" onclick="closeViewer()">
-                <i class="fas fa-times me-1"></i>Close
-            </button>
-        </div>
-    </div>
-
-    <!-- Toolbar -->
-    <div class="viewer-toolbar">
-        <input type="text" class="viewer-search" id="viewerSearch" placeholder="Search in any column..." oninput="applyViewerFilter()">
-        <div class="col-toggle-wrap">
-            <button class="col-toggle-btn" id="colToggleBtn" onclick="toggleColDropdown()">
-                <i class="fas fa-columns me-1"></i>Columns <i class="fas fa-chevron-down ms-1" style="font-size:0.65rem"></i>
-            </button>
-            <div class="col-dropdown" id="colDropdown"></div>
-        </div>
-        <div style="display:flex;align-items:center;gap:0.4rem;margin-left:auto">
-            <span style="font-size:0.73rem;color:var(--text-muted)">Rows/page:</span>
-            <select class="pag-size" id="pageSizeSelect" onchange="changePageSize()">
-                <option value="20" selected>20</option>
-                <option value="50">50</option>
-                <option value="100">100</option>
-                <option value="250">250</option>
-                <option value="0">All</option>
-            </select>
-        </div>
-        <span class="viewer-info" id="viewerInfo"></span>
-    </div>
-
-    <!-- Selection Bar -->
-    <div class="sel-bar" id="selBar">
-        <span class="sel-bar-info" id="selBarText">0 rows selected</span>
-        <button class="btn-bo btn-bo-danger" onclick="openImpactModal()" style="padding:0.3rem 0.7rem;font-size:0.75rem">
-            <i class="fas fa-trash-alt me-1"></i>Delete Selected
-        </button>
-        <button class="btn-bo btn-bo-outline" onclick="clearRowSelection()" style="padding:0.3rem 0.7rem;font-size:0.75rem">Cancel</button>
-    </div>
-
-    <!-- Table Body -->
-    <div class="viewer-body">
-        <div id="viewerTableWrap" style="min-height:200px">
-            <p class="no-rows"><i class="fas fa-spinner fa-spin me-2"></i>Loading...</p>
-        </div>
-    </div>
-
-    <!-- Pagination Footer -->
-    <div class="viewer-footer">
-        <span class="pag-info" id="pagInfo"></span>
-        <div class="pag-controls" id="pagControls"></div>
-    </div>
-</div>
-
-<!-- ═══════════════════════════════════════════════════════════════ -->
-<!-- Row Delete Impact Modal                                                  -->
-<!-- ═══════════════════════════════════════════════════════════════ -->
-<div class="bo-modal-backdrop" id="impactBackdrop">
-    <div class="bo-modal" style="max-width:560px">
-        <div class="bo-modal-header">
-            <i class="fas fa-exclamation-triangle" style="color:#f59e0b;font-size:1.1rem"></i>
-            <h5 style="color:#fde68a">Impact Analysis &mdash; Confirm Row Deletion</h5>
-        </div>
-        <div class="bo-modal-body">
-            <p style="font-size:0.8rem;color:var(--text-muted);margin-bottom:1rem">
-                Deleting <strong id="impactRowCount" style="color:var(--text)">0</strong> row(s) from
-                <strong id="impactTableName" style="color:#a5b4fc"></strong> will also affect:
-            </p>
-            <div id="impactList" style="background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:0.75rem;margin-bottom:1rem;min-height:60px">
-                <p style="color:var(--text-muted);font-size:0.8rem;text-align:center"><i class="fas fa-spinner fa-spin me-2"></i>Analyzing impact...</p>
-            </div>
-            <div style="background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.15);border-radius:8px;padding:0.75rem;margin-bottom:1rem;font-size:0.78rem;color:#fca5a5">
-                <i class="fas fa-exclamation-circle me-1"></i>
-                <span id="impactWarning">This action is <strong>permanent and irreversible</strong>.</span>
-            </div>
-            <div class="confirm-input-wrap">
-                <label>Type <code>CONFIRM</code> to proceed:</label>
-                <input type="text" class="confirm-input" id="impactPhrase" placeholder="CONFIRM" autocomplete="off" oninput="checkImpactPhrase()">
-            </div>
-        </div>
-        <div class="bo-modal-footer">
-            <button class="btn-bo btn-bo-outline" onclick="closeImpactModal()"><i class="fas fa-times me-1"></i>Cancel</button>
-            <button class="btn-bo btn-bo-danger" id="impactDeleteBtn" disabled onclick="executeRowDelete()">
-                <span id="impactSpinner" class="spinner-sm" style="display:none"></span>
-                <i class="fas fa-trash-alt me-1" id="impactIcon"></i>Delete Rows
-            </button>
-        </div>
-    </div>
-</div>
-
-<!-- ═══════════════════════════════════════════════════════════════ -->
 <!-- ================== API KEYS PANEL ================== -->
 <div id="apiKeysContent" class="schema-wrap">
   <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:1.25rem;flex-wrap:wrap">
@@ -1369,37 +1201,6 @@
 </div>
 <!-- ================== END API KEYS PANEL ================== -->
 
-<!-- Purge Confirm Modal                                                      -->
-<!-- ═══════════════════════════════════════════════════════════════════════ -->
-<div class="bo-modal-backdrop" id="confirmBackdrop">
-    <div class="bo-modal">
-        <div class="bo-modal-header">
-            <i class="fas fa-exclamation-triangle" style="color:#ef4444;font-size:1.1rem"></i>
-            <h5>Confirm Permanent Deletion</h5>
-        </div>
-        <div class="bo-modal-body">
-            <p style="font-size:0.8rem;color:#fca5a5;margin-bottom:0.875rem">You are about to <strong>permanently delete</strong> the following data. This action cannot be undone.</p>
-            <div class="delete-summary" id="confirmSummary"></div>
-            <div class="confirm-input-wrap">
-                <label>Step 1 &mdash; Type <code>DELETE FOREVER</code> to confirm:</label>
-                <input type="text" class="confirm-input" id="confirmPhrase" placeholder="DELETE FOREVER" autocomplete="off" oninput="checkPhrase()">
-            </div>
-            <!-- BO-05: Second confirmation layer -->
-            <div class="confirm-input-wrap" style="margin-top:0.75rem">
-                <label>Step 2 &mdash; Type your <code id="usernameHint" style="color:#a5b4fc">username</code> to authorize:</label>
-                <input type="text" class="confirm-input" id="confirmUsername" placeholder="Your username" autocomplete="off" oninput="checkPhrase()">
-            </div>
-        </div>
-        <div class="bo-modal-footer">
-            <button class="btn-bo btn-bo-outline" onclick="closeConfirm()"><i class="fas fa-times me-1"></i>Cancel</button>
-            <button class="btn-bo btn-bo-danger" id="confirmPurgeBtn" disabled onclick="executePurge()">
-                <span id="purgeSpinner" class="spinner-sm" style="display:none"></span>
-                <i class="fas fa-skull-crossbones me-1" id="purgeIcon"></i>Permanently Delete
-            </button>
-        </div>
-    </div>
-</div>
-    <!-- ══ Analytics Panel ══ -->
     <div id="analyticsContent" class="schema-wrap">
         <!-- Header -->
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:0.75rem">
@@ -1465,6 +1266,9 @@
         <div style="font-size:0.75rem;font-weight:600;color:var(--text-muted);margin-bottom:0.5rem;text-transform:uppercase;letter-spacing:.06em">Snapshot Records</div>
         <div id="anlTableWrap"><p style="text-align:center;padding:3rem;color:var(--text-muted)"><i class="fas fa-spinner fa-spin me-2"></i>Loading...</p></div>
     </div>
+
+
+</div><!-- /mainWrap -->
 
 <!-- Access Denied -->
 <div class="main-wrap" id="deniedWrap" style="display:none">
