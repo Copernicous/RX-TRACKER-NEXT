@@ -7,6 +7,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+## [3.0.10] - 2026-07-19
+
+### [RELEASE-310] Security hardening, FortiGate compatibility, staging safety, and audit reliability
+
 ### Fixed
 
 - Restored `public/js/app.js` from accidental UTF-16LE output to UTF-8 so FortiGate no longer corrupts the shared browser script and dashboard data requests execute normally.
@@ -19,6 +23,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 - Corrected PostgreSQL tool caching so `pg_dump`, `psql`, and `pg_restore` are cached independently.
 - Corrected the asynchronous git-log response path so timeout/error/close events cannot send multiple responses.
 - Removed a duplicated Back Office template tail that rendered duplicate Analytics, data-viewer, impact-confirmation, and purge-confirmation IDs.
+- Preserved Back Office row-deletion and purge targets, counts, cascade results, user, IP, and timestamps in the existing audit schema.
+- Aligned `PROJECT-CONTROL.bat` with the production-safe NOC/CORE/ALARM launcher pattern: PowerShell prerequisite check, stable working directory, and exact exit-code propagation.
+- Packaged the PowerShell controller and version metadata required by `PROJECT-CONTROL.bat`, recognized the compiled `PatientRXSystem` service plus legacy service IDs, and corrected the package checklist to verify the actual launcher.
 
 ### Security
 

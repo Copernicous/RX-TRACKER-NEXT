@@ -25,7 +25,8 @@ Use this list every time a new production version is compiled, tagged, uploaded 
 - [ ] Run `npm run build:exe`.
 - [ ] Confirm `dist/server.exe` exists.
 - [ ] Confirm `dist/server-update-<version>.zip` exists.
-- [ ] Confirm the zip opens and includes `server.exe`, `.env.example`, `CHANGELOG.md`, `RELEASE_NOTES-v<version>.md`, `PRODUCTION_RELEASE_CHECKLIST.md`, `RX-Manager.bat`, `OPERATIONS_MANUAL.md`, `DEFERRED-ITEMS.txt`, `install-service.ps1`, and `uninstall-service.ps1`.
+- [ ] Confirm the zip opens and includes `server.exe`, `.env.example`, `CHANGELOG.md`, `RELEASE_NOTES-v<version>.md`, `PRODUCTION_RELEASE_CHECKLIST.md`, `PROJECT-CONTROL.bat`, `scripts/project-control.ps1`, `project-control.json`, `package.json`, `OPERATIONS_MANUAL.md`, `DEFERRED-ITEMS.txt`, `install-service.ps1`, and `uninstall-service.ps1`.
+- [ ] Extract the zip into an isolated folder and run `PROJECT-CONTROL.bat version`; confirm it reports the release version without missing-file errors.
 - [ ] Confirm the zip does not include `.env`, `.env.staging`, database dumps, secrets, or Git bundles.
 
 ## Local Validation

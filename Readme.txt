@@ -1,11 +1,19 @@
-Patient RX System v3.0.9
+Patient RX System v3.0.10
 =========================
 
-Production Release: Fixed 90-Day Eligibility With Configurable Call Lead
+Production Release: Security Hardening and FortiGate Compatibility
 
-Service eligibility stays fixed at 90 days. Backoffice Call Center Lead Days
-controls when calling begins: 90 minus the configured lead. Lead 10 starts on
-day 80. No migration or data reset is required.
+This release hardens authenticated changes, staging destructive operations,
+backup/restore processing, and FortiGate proxy compatibility. It also fixes
+Call Center CSRF claim/save failures, duplicate login submission, duplicate
+Back Office modal/menu markup, and missing Back Office deletion audit details.
+
+PROJECT-CONTROL.bat now uses the same production-safe launcher pattern as NOC,
+CORE, and ALARM: PowerShell prerequisite validation, stable working directory,
+exact command exit-code propagation, required controller packaging, and
+compiled/legacy RX service detection.
+
+No database migration or data reset is required.
 
 v3.0.5 - exact configurable eligibility day
 - An 80-day setting becomes eligible on day 80.
@@ -68,7 +76,7 @@ Production verification
 
 After installing this package:
 
-1. Confirm /api/version shows 3.0.9 for an administrator.
+1. Confirm /api/version shows 3.0.10 for an administrator.
 2. Confirm /api/version returns 403 for a Call Center user.
 3. Login as a Call Center user and confirm it opens /call-center directly.
 4. Confirm dashboard URL injection redirects the Call Center user back to
@@ -87,8 +95,19 @@ After installing this package:
 11. Confirm Reports > Analytics & Export > Call Center Report filters, totals,
     sorting, CSV export, and Excel export.
 
+Security and proxy verification
+-------------------------------
+
+1. Through FortiGate, add and update a disposable patient.
+2. Claim and save a disposable Call Center patient.
+3. Add a disposable RX record.
+4. Permanently delete only disposable test data from Back Office and confirm
+   the Audit Log retains the table name, record IDs, counts, and cascades.
+5. Run PROJECT-CONTROL.bat and confirm the menu opens and command failures
+   return a non-zero exit code.
+
 Production package
 ------------------
 
-- Deploy dist/server-update-3.0.9.zip or approved dist files only.
+- Deploy dist/server-update-3.0.10.zip or approved dist files only.
 - Keep the production .env unchanged and next to server.exe.

@@ -1,5 +1,18 @@
 # Release Notes
 
+## v3.0.10 (2026-07-19)
+
+- Hardens authenticated writes with strict CSRF validation plus a one-time stale-token recovery that never replays a successful request.
+- Keeps navigation, assets, APIs, and authentication on the public FortiGate proxy path without leaking requests to the internal host.
+- Adds staging-only destructive-action confirmation and fail-closed staging token-version validation.
+- Hardens workflow input validation, database/bootstrap quoting, and backup/restore command transport.
+- Fixes Call Center claim/save failures, duplicate login submission, backup/restore tool selection, and duplicate Back Office modal/menu markup.
+- Preserves Back Office delete and purge target IDs, counts, cascades, user, IP, and timestamps in Audit Logs.
+- Aligns and packages `PROJECT-CONTROL.bat` with the production-safe NOC/CORE/ALARM launcher pattern and recognizes compiled plus legacy RX service IDs.
+- Adds public JavaScript encoding/syntax checks, isolated staging reset/restore testing, and full FortiGate proxy smoke coverage.
+
+No database migration or production data reset is required.
+
 ## v3.0.9 (2026-07-17)
 
 - Preserves the Call Queue cutoff date during Dashboard refresh.

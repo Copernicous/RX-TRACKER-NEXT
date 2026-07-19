@@ -9,16 +9,25 @@ $State=Join-Path $Root 'runtime\project-control\state.json'
 function Fail($m){Write-Host "ERROR: $m" -ForegroundColor Red;exit 1}
 function Admin{$i=[Security.Principal.WindowsIdentity]::GetCurrent();$p=New-Object Security.Principal.WindowsPrincipal($i);$p.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)}
 function NeedAdmin{if(-not(Admin)){Fail 'Run Project Control from an Administrator terminal.'}}
-function Service{Get-Service -Name $M.serviceId -ErrorAction SilentlyContinue}
+function Service{
+  $service=Get-Service -Name $M.serviceId -ErrorAction SilentlyContinue
+  if($service){return $service}
+  foreach($legacyId in @($M.legacyServiceIds)){
+    if(-not$legacyId){continue}
+    $service=Get-Service -Name ([string]$legacyId) -ErrorAction SilentlyContinue
+    if($service){return $service}
+  }
+  return $null
+}
 function Port{$p=[int]$M.defaultPort;$e=Join-Path $Root '.env';if(Test-Path $e){$l=Get-Content $e|?{$_ -match '^\s*PORT\s*=\s*(\d+)'}|select -Last 1;if($l -match '(\d+)'){$p=[int]$Matches[1]}};$p}
 function Health{try{Invoke-RestMethod "http://127.0.0.1:$(Port)$($M.healthPath)" -TimeoutSec 8}catch{$null}}
 function Listener{$p=Port;Get-NetTCPConnection -State Listen -LocalPort $p -ErrorAction SilentlyContinue|select -First 1}
-function Status{$s=Service;$h=Health;$l=Listener;Write-Host "Project          : $($M.project)";Write-Host "Installed version: $((Get-Content -Raw (Join-Path $Root 'package.json')|ConvertFrom-Json).version)";Write-Host "Service          : $($M.serviceName)";Write-Host "Service ID       : $($M.serviceId)";Write-Host "Service state    : $(if($s){$s.Status}else{'not installed'})";Write-Host "Health           : $(if($h){'ok'}else{'unreachable'})";if($h){Write-Host "PID              : $($h.pid)";Write-Host "Uptime           : $([TimeSpan]::FromMilliseconds($h.uptimeMs))"};Write-Host "HTTP port        : $(Port)";Write-Host "Listener         : $(if($l){"LISTENING (PID $($l.OwningProcess))"}else{'not listening'})"}
-function StopRuntime{$s=Service;if($s){NeedAdmin};if($s -and $s.Status-ne'Stopped'){Stop-Service $M.serviceId -Force};Start-Sleep 2;$h=Health;if($h){$l=Listener;if(-not$l -or [int]$l.OwningProcess-ne[int]$h.pid){Fail 'Health PID does not own the configured port.'};Stop-Process -Id ([int]$h.pid) -Force;Start-Sleep 2};if(Health){Fail 'RX Tracker still answers after stop.'};Status}
-function StartRuntime{NeedAdmin;$s=Service;if(-not$s){Fail '0-RX-TRACKER is not installed.'};if($s.Status-ne'Running'){Start-Service $M.serviceId};$d=(Get-Date).AddSeconds(30);do{Start-Sleep 1;$h=Health}while(-not$h-and(Get-Date)-lt$d);if(-not$h){Fail 'RX Tracker did not become healthy.'};Status}
+function Status{$s=Service;$h=Health;$l=Listener;Write-Host "Project          : $($M.project)";Write-Host "Installed version: $((Get-Content -Raw (Join-Path $Root 'package.json')|ConvertFrom-Json).version)";Write-Host "Service          : $($M.serviceName)";Write-Host "Service ID       : $(if($s){$s.Name}else{$M.serviceId})";Write-Host "Service state    : $(if($s){$s.Status}else{'not installed'})";Write-Host "Health           : $(if($h){'ok'}else{'unreachable'})";if($h){Write-Host "PID              : $($h.pid)";Write-Host "Uptime           : $([TimeSpan]::FromMilliseconds($h.uptimeMs))"};Write-Host "HTTP port        : $(Port)";Write-Host "Listener         : $(if($l){"LISTENING (PID $($l.OwningProcess))"}else{'not listening'})"}
+function StopRuntime{$s=Service;if($s){NeedAdmin};if($s -and $s.Status-ne'Stopped'){Stop-Service -Name $s.Name -Force};Start-Sleep 2;$h=Health;if($h){$l=Listener;if(-not$l -or [int]$l.OwningProcess-ne[int]$h.pid){Fail 'Health PID does not own the configured port.'};Stop-Process -Id ([int]$h.pid) -Force;Start-Sleep 2};if(Health){Fail 'RX Tracker still answers after stop.'};Status}
+function StartRuntime{NeedAdmin;$s=Service;if(-not$s){Fail "$($M.serviceId) is not installed."};if($s.Status-ne'Running'){Start-Service -Name $s.Name};$d=(Get-Date).AddSeconds(30);do{Start-Sleep 1;$h=Health}while(-not$h-and(Get-Date)-lt$d);if(-not$h){Fail 'RX Tracker did not become healthy.'};Status}
 function RestartRuntime{StopRuntime;StartRuntime}
-function Install{NeedAdmin;if(Service){Write-Host '0-RX-TRACKER is already installed.';return};& node (Join-Path $Root 'scripts\windows-service.js') install;if($LASTEXITCODE){exit $LASTEXITCODE};return}
-function Remove{NeedAdmin;StopRuntime;& node (Join-Path $Root 'scripts\windows-service.js') uninstall;if($LASTEXITCODE){exit $LASTEXITCODE};return}
+function Install{NeedAdmin;if(Service){Write-Host "$($M.serviceName) is already installed.";return};$compiledInstaller=Join-Path $Root 'install-service.ps1';if((Test-Path (Join-Path $Root 'server.exe'))-and(Test-Path $compiledInstaller)){& powershell.exe -NoProfile -ExecutionPolicy Bypass -File $compiledInstaller;exit $LASTEXITCODE};& node (Join-Path $Root 'scripts\windows-service.js') install;if($LASTEXITCODE){exit $LASTEXITCODE};return}
+function Remove{NeedAdmin;StopRuntime;$compiledUninstaller=Join-Path $Root 'uninstall-service.ps1';if((Test-Path (Join-Path $Root 'server.exe'))-and(Test-Path $compiledUninstaller)){& powershell.exe -NoProfile -ExecutionPolicy Bypass -File $compiledUninstaller;exit $LASTEXITCODE};& node (Join-Path $Root 'scripts\windows-service.js') uninstall;if($LASTEXITCODE){exit $LASTEXITCODE};return}
 function SetPort{if(-not$Value){Write-Host "RX Tracker HTTP port: $(Port)";return};$n=0;if(-not[int]::TryParse($Value,[ref]$n)-or$n-lt1-or$n-gt65535){Fail 'Port must be 1-65535.'};$e=Join-Path $Root '.env';if(-not(Test-Path $e)){Fail '.env does not exist.'};Copy-Item $e "$e.project-control-backup" -Force;$lines=@(Get-Content $e);$found=$false;$lines=@($lines|%{if($_-match'^\s*PORT\s*='){$found=$true;"PORT=$n"}else{$_}});if(-not$found){$lines+="PORT=$n"};Set-Content $e $lines -Encoding UTF8;Write-Host "Port set to $n; restart to apply."}
 function CheckUpdate{& git -C $Root fetch --tags --prune origin;if($LASTEXITCODE){Fail 'Git fetch failed.'};$t=& git -C $Root tag --list $M.releaseTagPattern --merged origin/main --sort=-version:refname|select -First 1;$c=& git -C $Root describe --tags --exact-match HEAD 2>$null;Write-Host "Current: $(if($c){$c}else{& git -C $Root rev-parse --short HEAD})";Write-Host "Latest : $t"}
 function Clean{if(@(& git -C $Root status --porcelain).Count){Fail 'Checkout has uncommitted changes.'}}

@@ -310,12 +310,19 @@ exports.purge = async (req, res) => {
         try {
             // Use validated labels from TABLE_META (not raw user input) to prevent log injection
             var _validatedLabels = toDelete.map(function(t) { return t.label; }).join(', ');
+            var _purgeAuditNow = new Date();
             await db.AuditLog.create({
                 userId: req.user?.id || null,
+                date: _purgeAuditNow,
+                time: _purgeAuditNow.toTimeString().split(' ')[0],
+                module: 'Back Office',
                 action: 'BACKOFFICE_PURGE',
-                entity: 'ADMIN',
-                entityId: null,
-                details: `Purged tables: ${_validatedLabels}. Counts: ${JSON.stringify(results)}`
+                previousValue: {
+                    tableNames: toDelete.map(function(t) { return t.key; }),
+                    tableLabels: _validatedLabels
+                },
+                newValue: { results: results },
+                ipAddress: req.ip
             });
         } catch(e) { /* non-fatal */ }
 
@@ -1603,12 +1610,24 @@ exports.deleteRows = async (req, res) => {
 
         // Audit log
         try {
+            const auditNow = new Date();
             await db.AuditLog.create({
                 userId: req.user?.id || null,
+                date: auditNow,
+                time: auditNow.toTimeString().split(' ')[0],
+                module: 'Back Office',
                 action: 'BACKOFFICE_ROW_DELETE',
-                entity: tableName,
-                entityId: null,
-                details: `Deleted ${results.deleted} rows [${idList.join(',')}]. Cascaded: ${JSON.stringify(results.cascaded)}`
+                recordId: idList.length === 1 ? idList[0] : null,
+                previousValue: {
+                    tableName: tableName,
+                    ids: idList
+                },
+                newValue: {
+                    deleted: results.deleted,
+                    cascaded: results.cascaded,
+                    nulled: results.nulled
+                },
+                ipAddress: req.ip
             });
         } catch(e) { /* non-fatal */ }
 

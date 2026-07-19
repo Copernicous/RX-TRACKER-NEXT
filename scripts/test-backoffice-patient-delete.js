@@ -28,6 +28,7 @@ async function runCase(options) {
         async rollback() { this.rolledBack = true; }
     };
     const calls = [];
+    let auditPayload = null;
     const originalTransaction = db.sequelize.transaction;
     const originalQuery = db.sequelize.query;
     const originalAuditCreate = db.AuditLog.create;
@@ -51,17 +52,21 @@ async function runCase(options) {
         }
         throw new Error(`Unexpected SQL in test: ${normalized}`);
     };
-    db.AuditLog.create = async () => ({ id: 1 });
+    db.AuditLog.create = async (payload) => {
+        auditPayload = payload;
+        return { id: 1 };
+    };
 
     const req = {
         body: { tableName: 'Patients', ids: ids.map(String) },
-        user: { id: 7 }
+        user: { id: 7 },
+        ip: '127.0.0.1'
     };
     const res = makeResponse();
 
     try {
         await adminController.deleteRows(req, res);
-        return { res, transaction, calls };
+        return { res, transaction, calls, auditPayload };
     } finally {
         db.sequelize.transaction = originalTransaction;
         db.sequelize.query = originalQuery;
@@ -82,7 +87,21 @@ async function main() {
         assert.strictEqual(result.transaction.rolledBack, false, `${state}: not rolled back`);
         assert.ok(result.calls.some(c => c.sql.includes('DELETE FROM "DocumentAttachments"')), `${state}: attachments deleted`);
         assert.ok(result.calls.some(c => c.sql.includes('DELETE FROM "PatientServiceDateCycles"')), `${state}: cycles deleted`);
+        assert.strictEqual(result.auditPayload.module, 'Back Office', `${state}: audit module`);
+        assert.strictEqual(result.auditPayload.action, 'BACKOFFICE_ROW_DELETE', `${state}: audit action`);
+        assert.strictEqual(result.auditPayload.recordId, stateId, `${state}: audit record ID`);
+        assert.deepStrictEqual(result.auditPayload.previousValue, {
+            tableName: 'Patients',
+            ids: [stateId]
+        }, `${state}: audit target details`);
+        assert.strictEqual(result.auditPayload.newValue.deleted, 1, `${state}: audit delete count`);
+        assert.strictEqual(result.auditPayload.ipAddress, '127.0.0.1', `${state}: audit IP`);
     }
+
+    const bulk = await runCase({ ids: [601, 602] });
+    assert.strictEqual(bulk.res.statusCode, 200, 'bulk delete: status');
+    assert.strictEqual(bulk.auditPayload.recordId, null, 'bulk delete: no misleading single record ID');
+    assert.deepStrictEqual(bulk.auditPayload.previousValue.ids, [601, 602], 'bulk delete: all target IDs audited');
 
     const missing = await runCase({ ids: [303], found: false });
     assert.strictEqual(missing.res.statusCode, 404, 'missing target: status');
