@@ -7,6 +7,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+## [3.0.11] - 2026-07-19
+
+### [RELEASE-311] Standardized RX Project Control menu
+
+- Replaced the legacy compact RX menu with the shared NOC/CORE/ALARM Project Control presentation.
+- Added the framed/versioned header, colored section headings, aligned two-column actions, service-specific labels, colored command results, consistent confirmation/cancellation prompts, and press-any-key return behavior.
+- Added explicit Project Control version `1.1.0` to the packaged manifest and version display.
+
+**Database impact:** None.
+
 ## [3.0.10] - 2026-07-19
 
 ### [RELEASE-310] Security hardening, FortiGate compatibility, staging safety, and audit reliability

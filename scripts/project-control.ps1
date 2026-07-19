@@ -40,8 +40,94 @@ function DbTest{& npm run db:test;exit $LASTEXITCODE}
 function DependencyTest{& npm audit --omit=dev;exit $LASTEXITCODE}
 function MigrateService{NeedAdmin;$pm2=Get-Command pm2 -ErrorAction SilentlyContinue;if($pm2){& pm2 delete patient-rx-system 2>$null|Out-Null;& pm2 save 2>$null|Out-Null};if(Service){Write-Host '0-RX-TRACKER is already installed; repairing wrapper registration.';StopRuntime;& node 'scripts/windows-service.js' uninstall;Start-Sleep 2;& node 'scripts/windows-service.js' install;StartRuntime;return};$h=Health;if($h){StopRuntime};Install;StartRuntime}
 function Logs{$d=Join-Path $Root $M.logDirectory;$f=Get-ChildItem $d -File -ErrorAction SilentlyContinue|sort LastWriteTime -Descending|select -First 1;if(-not$f){Fail 'No logs found.'};Get-Content $f.FullName -Tail 100}
-function Confirm($q){(Read-Host "$q Enter Y or YES").Trim()-match'^(?i:y|yes)$'}
-function Run($a,$v=''){$args=@('-NoProfile','-ExecutionPolicy','Bypass','-File',$PSCommandPath,'-Action',$a);if($v){$args+=@('-Value',$v)};& powershell.exe @args;Write-Host "`nExit code: $LASTEXITCODE"}
-function Menu{while($true){Clear-Host;Write-Host '================ RX TRACKER PROJECT CONTROL ================' -ForegroundColor Cyan;Write-Host ' INFORMATION';Write-Host '  1. Status                    2. Uptime';Write-Host '  3. Health details            4. Version information';Write-Host '  5. View logs                 6. Run doctor/validation';Write-Host '  7. Show configured ports     8. Check for release update';Write-Host '';Write-Host ' RUNTIME CONTROL';Write-Host '  9. Start                    10. Stop';Write-Host ' 11. Restart                  12. Install service/runtime';Write-Host ' 13. Remove service/runtime';Write-Host '';Write-Host ' CONFIGURATION AND RELEASES';Write-Host ' 14. Change ports             15. Install latest release';Write-Host ' 16. Roll back release        17. Command help';Write-Host ' 18. Migrate legacy manager';Write-Host '';Write-Host ' SETUP AND DEPENDENCIES';Write-Host ' 19. Project setup            20. Production setup/repair';Write-Host ' 21. Test database/storage    22. Run migrations';Write-Host ' 23. Test dependencies        24. Install/repair dependencies';Write-Host '';Write-Host '  0. Exit';$c=(Read-Host 'Select a menu number').Trim();switch($c){'0'{return};'1'{Run status};'2'{Run uptime};'3'{Run health};'4'{Run version};'5'{Run logs};'6'{Run doctor};'7'{Run port};'8'{Run check-update};'9'{Run start};'10'{if(Confirm 'Stop RX Tracker?'){Run stop}};'11'{if(Confirm 'Restart RX Tracker?'){Run restart}};'12'{if(Confirm 'Install 0-RX-TRACKER?'){Run install-service}};'13'{if(Confirm 'Remove 0-RX-TRACKER?'){Run remove-service}};'14'{$p=Read-Host 'New HTTP port';Run port $p};'15'{if(Confirm 'Install latest tagged release?'){Run update}};'16'{if(Confirm 'Rollback release?'){Run rollback}};'17'{Run help};'18'{if(Confirm 'Migrate or repair the RX Tracker manager?'){Run migrate-service}};'19'{if(Confirm 'Run project setup?'){Run setup}};'20'{if(Confirm 'Run production setup/repair?'){Run production-repair}};'21'{Run db-test};'22'{if(Confirm 'Run database migrations?'){Run migrate}};'23'{Run dependency-test};'24'{if(Confirm 'Install exact dependencies?'){Run dependency-install}};default{Write-Host 'Invalid selection'}};Read-Host 'Press Enter to return to the menu'|Out-Null}}
+function InstalledVersion{[string]((Get-Content -Raw (Join-Path $Root 'package.json')|ConvertFrom-Json).version)}
+function ControlVersion{$v=[string]$M.projectControlVersion;if($v.Trim()){$v}else{'unversioned'}}
+function Confirm($q){
+  Write-Host "`n$q" -ForegroundColor Yellow
+  $a=(Read-Host '[Y] Yes  [N/Enter/any other key] Cancel').Trim()
+  if($a -match '^(?i:y|yes)$'){return $true}
+  Write-Host 'Cancelled. Returning to the menu.' -ForegroundColor DarkYellow
+  $script:MenuCancelled=$true
+  return $false
+}
+function WaitForMenu{
+  Write-Host "`nPress any key to return to the menu..." -ForegroundColor DarkGray
+  [void][Console]::ReadKey($true)
+}
+function Run($a,$v=''){
+  $args=@('-NoProfile','-ExecutionPolicy','Bypass','-File',$PSCommandPath,'-Action',$a)
+  if($v){$args+=@('-Value',$v)}
+  & powershell.exe @args
+  $code=$LASTEXITCODE
+  if($code-eq0){
+    Write-Host "`nCommand completed successfully." -ForegroundColor Green
+  }else{
+    Write-Host "`nCommand failed with exit code $code." -ForegroundColor Red
+  }
+}
+function Menu {
+  while($true){
+    Clear-Host
+    Write-Host '============================================================' -ForegroundColor Cyan
+    Write-Host '              RX TRACKER PROJECT CONTROL' -ForegroundColor Cyan
+    Write-Host " RX Tracker $(InstalledVersion) | Project Control $(ControlVersion)" -ForegroundColor DarkCyan
+    Write-Host '============================================================' -ForegroundColor Cyan
+    Write-Host '------------------------------------------------------------' -ForegroundColor DarkGray
+    Write-Host ' INFORMATION' -ForegroundColor Cyan
+    Write-Host '   1. Status                  2. Uptime'
+    Write-Host '   3. Health details          4. Version information'
+    Write-Host '   5. View logs               6. Run doctor/validation'
+    Write-Host '   7. Show configured port    8. Check for release update'
+    Write-Host ''
+    Write-Host ' SERVICE CONTROL' -ForegroundColor Green
+    Write-Host '   9. Start RX Tracker       10. Stop RX Tracker'
+    Write-Host '  11. Restart RX Tracker     12. Install PatientRXSystem service'
+    Write-Host '  13. Remove service'
+    Write-Host ''
+    Write-Host ' CONFIGURATION AND RELEASES' -ForegroundColor Yellow
+    Write-Host '  14. Change HTTP port       15. Install latest release'
+    Write-Host '  16. Roll back release      17. Command help'
+    Write-Host '  18. Migrate or repair legacy manager'
+    Write-Host ''
+    Write-Host ' SETUP AND DEPENDENCIES' -ForegroundColor Magenta
+    Write-Host '  19. Project setup          20. Production setup/repair'
+    Write-Host '  21. Test PostgreSQL        22. Run database migrations'
+    Write-Host '  23. Test dependencies      24. Install/repair dependencies'
+    Write-Host ''
+    Write-Host '   0. Exit'
+    Write-Host '============================================================' -ForegroundColor Cyan
+    $c=(Read-Host 'Select a menu number').Trim()
+    switch($c){
+      '0'{return}
+      '1'{Run status}
+      '2'{Run uptime}
+      '3'{Run health}
+      '4'{Run version}
+      '5'{Run logs}
+      '6'{Run doctor}
+      '7'{Run port}
+      '8'{Run check-update}
+      '9'{Run start}
+      '10'{if(Confirm 'Stop the verified RX Tracker runtime?'){Run stop}}
+      '11'{if(Confirm 'Restart RX Tracker and verify its health?'){Run restart}}
+      '12'{if(Confirm 'Install the PatientRXSystem Windows service?'){Run install-service}}
+      '13'{if(Confirm 'Stop and remove the PatientRXSystem Windows service?'){Run remove-service}}
+      '14'{$p=(Read-Host 'Enter the new RX Tracker HTTP port (1-65535)').Trim();if($p){Run port $p}else{$script:MenuCancelled=$true}}
+      '15'{if(Confirm 'Install the latest tagged RX Tracker release?'){Run update}}
+      '16'{if(Confirm 'Roll back to the release recorded before the last update?'){Run rollback}}
+      '17'{Run help}
+      '18'{if(Confirm 'Migrate or repair the RX Tracker service manager?'){Run migrate-service}}
+      '19'{if(Confirm 'Run RX Tracker dependency and configuration setup?'){Run setup}}
+      '20'{if(Confirm 'Run the full production setup and repair workflow?'){Run production-repair}}
+      '21'{Run db-test}
+      '22'{if(Confirm 'Apply pending RX Tracker database migrations?'){Run migrate}}
+      '23'{Run dependency-test}
+      '24'{if(Confirm 'Install the exact locked RX Tracker dependencies?'){Run dependency-install}}
+      default{Write-Host "`nInvalid selection. Choose a number from 0 through 24." -ForegroundColor Yellow}
+    }
+    if($script:MenuCancelled){$script:MenuCancelled=$false;continue}
+    WaitForMenu
+  }
+}
 Set-Location $Root
-switch($Action){menu{Menu};status{Status};uptime{$h=Health;if(-not$h){Fail 'Unreachable'};[TimeSpan]::FromMilliseconds($h.uptimeMs)};start{StartRuntime};stop{StopRuntime};restart{RestartRuntime};'install-service'{Install};'remove-service'{Remove};'migrate-service'{MigrateService};setup{Setup};'production-repair'{ProductionRepair};'db-test'{DbTest};migrate{& npm run db:migrate;exit $LASTEXITCODE};'dependency-test'{DependencyTest};'dependency-install'{& npm ci;exit $LASTEXITCODE};port{SetPort};logs{Logs};health{$h=Health;if(-not$h){Fail 'Unreachable'};$h|ConvertTo-Json -Depth 6};'check-update'{CheckUpdate};update{Update};rollback{Rollback};version{Write-Host "Installed: $((Get-Content -Raw package.json|ConvertFrom-Json).version)";$h=Health;Write-Host "Running: $(if($h){$h.version}else{'unreachable'})"};doctor{Doctor};help{Write-Host 'Canonical commands: status uptime health version logs doctor port check-update start stop restart install-service remove-service update rollback help migrate-service setup production-repair db-test migrate dependency-test dependency-install'}}
+switch($Action){menu{Menu};status{Status};uptime{$h=Health;if(-not$h){Fail 'Unreachable'};[TimeSpan]::FromMilliseconds($h.uptimeMs)};start{StartRuntime};stop{StopRuntime};restart{RestartRuntime};'install-service'{Install};'remove-service'{Remove};'migrate-service'{MigrateService};setup{Setup};'production-repair'{ProductionRepair};'db-test'{DbTest};migrate{& npm run db:migrate;exit $LASTEXITCODE};'dependency-test'{DependencyTest};'dependency-install'{& npm ci;exit $LASTEXITCODE};port{SetPort};logs{Logs};health{$h=Health;if(-not$h){Fail 'Unreachable'};$h|ConvertTo-Json -Depth 6};'check-update'{CheckUpdate};update{Update};rollback{Rollback};version{Write-Host "RX Tracker installed: $(InstalledVersion)";$h=Health;Write-Host "RX Tracker running  : $(if($h){$h.version}else{'unreachable'})";Write-Host "Project Control     : $(ControlVersion)"};doctor{Doctor};help{Write-Host 'Canonical commands: status uptime health version logs doctor port check-update start stop restart install-service remove-service update rollback help migrate-service setup production-repair db-test migrate dependency-test dependency-install'}}

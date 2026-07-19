@@ -1,5 +1,13 @@
 # Release Notes
 
+## v3.0.11 (2026-07-19)
+
+- Replaces the legacy compact RX Project Control screen with the standardized NOC/CORE/ALARM menu UI.
+- Adds the framed application/Project Control version header, colored sections, aligned actions, consistent confirmation/cancellation behavior, and colored command results.
+- Includes all v3.0.10 security hardening, FortiGate compatibility, staging safety, backup/restore, CSRF, Back Office audit, and packaging fixes.
+
+No database migration or production data reset is required.
+
 ## v3.0.10 (2026-07-19)
 
 - Hardens authenticated writes with strict CSRF validation plus a one-time stale-token recovery that never replays a successful request.
