@@ -2046,9 +2046,12 @@ function renderAnalyticsPager() {
         pageBtns += btn(String(pages), pages, false, anlPage === pages);
     }
 
-    var sizeOpts = [10, 25, 50, 100].map(function(size) {
-        return '<option value="' + size + '"' + (size === anlPageSize ? ' selected' : '') + '>' + size + '</option>';
-    }).join('');
+    var sizeOpts = '';
+    var pageSizes = [10, 25, 50, 100];
+    for (var i = 0; i < pageSizes.length; i++) {
+        var size = pageSizes[i];
+        sizeOpts += '<option value="' + size + '"' + (size === anlPageSize ? ' selected' : '') + '>' + size + '</option>';
+    }
 
     return '<div style="display:flex;align-items:center;justify-content:space-between;gap:.75rem;flex-wrap:wrap;margin-top:.65rem;font-size:.68rem;color:var(--text-muted)">' +
         '<div>Showing ' + start + '-' + end + ' of ' + total + ' snapshot(s)</div>' +

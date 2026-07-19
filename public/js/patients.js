@@ -104,7 +104,11 @@ var allPatients = [];
         records = Array.isArray(records) ? records : [];
         count = Number(count || records.length || 0);
         if (!count) return '';
-        var shown = records.slice(0, 6).map(serviceDateHistoryRxBadge).join('');
+        var shown = '';
+        var visibleRecords = records.slice(0, 6);
+        for (var i = 0; i < visibleRecords.length; i++) {
+            shown += serviceDateHistoryRxBadge(visibleRecords[i]);
+        }
         if (count > records.length || count > 6) {
             shown += '<span class="badge svc-history-rx-more-badge me-1 mb-1">+' + patientEscapeHtml(count - Math.min(records.length, 6)) + ' more</span>';
         }
@@ -981,7 +985,7 @@ var allPatients = [];
             renderPatients();
         } catch (netErr) {
             document.getElementById('patientsBody').innerHTML =
-                '<tr><td colspan="9" class="text-center py-4"><div class="alert alert-danger mb-0"><strong>Network Error</strong><br><small>' + netErr.message + '</small><br><small class="text-muted">URL attempted: ' + apiUrl + ' | Page origin: ' + window.location.origin + '</small></div></td></tr>';
+                '<tr><td colspan="9" class="text-center py-4"><div class="alert alert-danger mb-0"><strong>Network Error</strong><br><small>' + netErr.message + '</small><br><small class="text-muted">URL attempted: ' + apiUrl + ' | Page origin: ' + (window.rxNativeLocationOrigin ? window.rxNativeLocationOrigin() : '') + '</small></div></td></tr>';
         }
     }
     function patientHasAnyField(p, keys) {
@@ -1744,17 +1748,19 @@ var allPatients = [];
             var status = rxHistoryWorkflowStatus(rx);
             return '<div style="color:#667085;font-size:.85rem">Workflow steps recorded: ' + patientEscapeHtml(status.done) + '</div>';
         }
-        var rows = actions.map(function(action, index) {
+        var rows = '';
+        for (var index = 0; index < actions.length; index++) {
+            var action = actions[index];
             var tracking = trackings[action.id];
             var done = !!tracking;
             var date = done && tracking.completionDate ? window.fmtDate(tracking.completionDate) : 'Pending';
             var by = done && tracking.User ? (' by ' + ((tracking.User.firstName || '') + ' ' + (tracking.User.lastName || '')).trim()) : '';
-            return '<tr>' +
+            rows += '<tr>' +
                 '<td style="padding:6px 8px;border-bottom:1px solid #e5e7eb">' + (index + 1) + '. ' + patientEscapeHtml(action.name || 'Step') + '</td>' +
                 '<td style="padding:6px 8px;border-bottom:1px solid #e5e7eb">' + patientEscapeHtml(date) + patientEscapeHtml(by) + '</td>' +
                 '<td style="padding:6px 8px;border-bottom:1px solid #e5e7eb;color:' + (done ? '#198754' : '#667085') + ';font-weight:700">' + (done ? 'Done' : 'Pending') + '</td>' +
-            '</tr>';
-        }).join('');
+                '</tr>';
+        }
         return '<table style="width:100%;border-collapse:collapse;font-size:.84rem;margin-top:8px">' +
             '<thead><tr style="background:#1a2234;color:#fff"><th style="padding:7px 8px;text-align:left">Step</th><th style="padding:7px 8px;text-align:left">Date / User</th><th style="padding:7px 8px;text-align:left">Status</th></tr></thead>' +
             '<tbody>' + rows + '</tbody></table>';
@@ -1791,7 +1797,10 @@ var allPatients = [];
         }
         var patientName = (_rxHistoryContext && _rxHistoryContext.patientName) || 'Patient';
         var cssUrl = rxHistoryAssetUrl('/assets/inter.css').replace(/"/g, '%22');
-        var cards = records.map(rxHistoryPrintCard).join('');
+        var cards = '';
+        for (var i = 0; i < records.length; i++) {
+            cards += rxHistoryPrintCard(records[i]);
+        }
         var win = window.open('', '_blank', 'width=980,height=760');
         if (!win) {
             if (typeof showToast === 'function') showToast('Popup blocked. Allow popups to print.', 'warning');
@@ -2227,8 +2236,11 @@ var allPatients = [];
                     const rxPath = '/rx-records?patient=' + encodeURIComponent(savedPatient.id) +
                         '&name=' + encodeURIComponent(fullName) +
                         '&addRx=1';
-                    if (typeof window.rxNav === 'function') window.rxNav(rxPath);
-                    else window.location.href = rxPath;
+                    if (typeof window.rxNav === 'function') {
+                        window.rxNav(rxPath);
+                    } else {
+                        window.location.href = rxPath;
+                    }
                 }
             } else {
                 const err = await res.json();

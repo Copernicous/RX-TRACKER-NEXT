@@ -79,14 +79,21 @@ function parseLocalDateOnly(input) {
     return date;
 }
 
-/** Internal: validate year/month/day are in sensible ranges */
+/** Internal: validate year/month/day are valid calendar dates */
 function _validParts(y, m, d) {
     const yi = parseInt(y, 10);
     const mi = parseInt(m, 10);
     const di = parseInt(d, 10);
-    return yi >= 1900 && yi <= 2200 &&
-           mi >= 1   && mi <= 12   &&
-           di >= 1   && di <= 31;
+    if (!(yi >= 1900 && yi <= 2200 &&
+          mi >= 1   && mi <= 12   &&
+          di >= 1   && di <= 31)) {
+        return false;
+    }
+
+    const normalized = new Date(yi, mi - 1, di);
+    return normalized.getFullYear() === yi &&
+           normalized.getMonth() === mi - 1 &&
+           normalized.getDate() === di;
 }
 
 module.exports = { parseDate, formatDate, parseLocalDateOnly };

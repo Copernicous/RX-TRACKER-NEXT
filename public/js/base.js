@@ -10,39 +10,163 @@
 //   window.rxNav(path)  — navigates to a proxy-aware URL (replaces window.location.href)
 
 (function () {
-    var base = '';
+    var base = window.RX_BASE || '';
+
+    function joinKey(parts) {
+        return parts.join('');
+    }
+
+    // FortiGate rewrites direct window.location.href/pathname/origin property
+    // access in downloaded JavaScript so it returns the internal target URL.
+    // Resolve the same native browser properties without spelling those access
+    // patterns in source, preserving the public /proxy/... URL.
+    function getNativeLocation() {
+        try {
+            return window[joinKey(['loc', 'ation'])];
+        } catch (e) {
+            return null;
+        }
+    }
+
+    function getNativeLocationPart(parts) {
+        var locationObject = getNativeLocation();
+        if (!locationObject) return '';
+        try {
+            return String(locationObject[joinKey(parts)] || '');
+        } catch (e) {
+            return '';
+        }
+    }
+
+    function getNativeObjectPart(object, parts) {
+        if (!object) return '';
+        try {
+            return String(object[joinKey(parts)] || '');
+        } catch (e) {
+            return '';
+        }
+    }
+
+    function getOriginFromAbsoluteUrl(value) {
+        var match = String(value || '').match(/^(https?:\/\/[^/]+)/i);
+        return match ? match[1] : '';
+    }
+
+    function getPathnameFromAbsoluteUrl(value) {
+        return String(value || '')
+            .replace(/^https?:\/\/[^/]+/i, '')
+            .replace(/[?#].*$/, '') || '/';
+    }
+
+    function cleanProxyPath(pathname) {
+        return String(pathname || '').replace(/[?#].*$/, '');
+    }
+
+    function splitPath(pathname) {
+        return String(cleanProxyPath(pathname)).split('/').filter(function(part) {
+            return !!part;
+        });
+    }
+
+    function parseProxyPrefixFromPath(pathname) {
+        var parts = splitPath(pathname);
+        var i = -1;
+        for (var j = 0; j < parts.length; j++) {
+            if (parts[j] === 'proxy') {
+                i = j;
+                break;
+            }
+        }
+        if (i === -1 || parts.length <= i + 3) return '';
+        return '/proxy/' + parts[i + 1] + '/' + parts[i + 2] + '/' + parts[i + 3];
+    }
 
     // The anchor xa-base must exist in every page with href="/login"
     // FortiGate rewrites the href to its proxied equivalent.
-    var el = document.getElementById('xa-base');
-    if (el && el.href) {
-        // el.href is the FULLY-RESOLVED URL (browsers always resolve href to absolute)
-        // e.g. "https://rx.camperos.net:10443/proxy/513c244a/http/192.168.15.87:3000/login"
-        var full = el.href;
-        // Strip the "/login" suffix (and any trailing slash) to get base
-        base = full.replace(/\/login\/?$/, '').replace(/\/$/, '');
-    }
-
-    // Fallback: if no anchor or href (direct local access), derive from location
+    var pageHref = getNativeLocationPart(['h', 'ref']);
+    var pagePathname = getNativeLocationPart(['path', 'name'])
+        || getPathnameFromAbsoluteUrl(pageHref);
+    var pageOrigin = getOriginFromAbsoluteUrl(pageHref);
+    var proxyPrefix = parseProxyPrefixFromPath(pagePathname);
+    var anchorBase = '';
     if (!base) {
-        base = window.location.origin;
+        var el = document.getElementById('xa-base');
+        var anchorHref = getNativeObjectPart(el, ['h', 'ref']);
+        if (anchorHref) {
+            // el.href is the FULLY-RESOLVED URL (browsers always resolve href to absolute)
+            // e.g. "https://rx.camperos.net:10443/proxy/513c244a/http/192.168.15.87:3000/login"
+            var full = cleanProxyPath(anchorHref);
+            // Strip the "/login" suffix (and any trailing slash) to get base
+            anchorBase = full.replace(/\/login\/?$/, '').replace(/\/$/, '');
+        }
+    }
+    if (!base && proxyPrefix) {
+        base = pageOrigin + proxyPrefix;
+    }
+    if (!base && anchorBase) base = anchorBase;
+    // Fallback path for responses that do not include xa-base.
+    if (!base) {
+        var fallbackPrefix = parseProxyPrefixFromPath(pagePathname);
+        if (fallbackPrefix) base = pageOrigin + fallbackPrefix;
+    }
+    if (!base) {
+        // Local access (no proxy prefix)
+        base = pageOrigin;
     }
 
     window.RX_BASE = base;
+    window.RX_PROXY_BASE = base;
 
     /**
      * Returns the absolute, proxy-aware URL for an app-root-relative path.
      * path must start with '/', e.g. '/api/auth/login', '/dashboard'
      */
     window.rxUrl = function (path) {
-        return base + path;
+        var value = String(path || '');
+        if (!value) return base;
+        if (value.indexOf('//') === 0) return value;
+        if (/^https?:\/\//i.test(value)) return value;
+        if (/^mailto:|^tel:|^data:|^#/.test(value)) return value;
+        if (value[0] !== '/') return value;
+        // Do not prepend the proxy base twice when FortiGate has already
+        // rewritten a root-relative attribute to /proxy/<session>/....
+        var baseOrigin = getOriginFromAbsoluteUrl(base);
+        var basePath = getPathnameFromAbsoluteUrl(base).replace(/\/$/, '');
+        if (basePath && (value === basePath || value.indexOf(basePath + '/') === 0)) {
+            return baseOrigin + value;
+        }
+        return base + value;
     };
 
     /**
      * Navigates to a proxy-aware URL (hard navigation).
      */
     window.rxNav = function (path) {
-        window.location.href = base + path;
+        var locationObject = getNativeLocation();
+        if (locationObject) {
+            locationObject[joinKey(['h', 'ref'])] = window.rxUrl(path);
+        }
+    };
+
+    window.rxNativeLocationHref = function () {
+        return getNativeLocationPart(['h', 'ref']);
+    };
+
+    window.rxNativeLocationOrigin = function () {
+        return getOriginFromAbsoluteUrl(getNativeLocationPart(['h', 'ref']));
+    };
+
+    window.rxNativeLocationPathname = function () {
+        return getNativeLocationPart(['path', 'name'])
+            || getPathnameFromAbsoluteUrl(getNativeLocationPart(['h', 'ref']));
+    };
+
+    // Read an anchor's resolved public URL without spelling the property or
+    // getAttribute access pattern that FortiGate replaces with get_attr().
+    // FortiGate's replacement deliberately restores the internal target URL,
+    // which bypasses proxy-aware CSRF classification.
+    window.rxElementHref = function (element) {
+        return getNativeObjectPart(element, ['h', 'ref']);
     };
 })();
 
@@ -95,6 +219,18 @@ window.rxCsrfToken = function() {
     return rxReadCookie('rxCsrf');
 };
 
+// A long-lived proxy tab can retain the token embedded in its HTML after the
+// server has refreshed the CSRF cookie (for example after another login or a
+// second proxied backend is opened). Call this only after an explicit CSRF
+// rejection so the server response has had a chance to refresh the cookie.
+window.rxSyncCsrfTokenFromCookie = function() {
+    var token = rxReadCookie('rxCsrf');
+    if (!token) return '';
+    var meta = document.querySelector('meta[name="rx-csrf-token"]');
+    if (meta) meta.content = token;
+    return token;
+};
+
 function rxHeadersToObject(headers) {
     var merged = {};
     if (!headers) return merged;
@@ -133,10 +269,13 @@ function rxIsAppRequest(resource) {
     if (typeof resource === 'string') {
         url = resource;
     } else if (typeof Request !== 'undefined' && resource instanceof Request) {
-        url = resource.url;
+        url = String(resource[['u', 'rl'].join('')] || '');
     }
+    var nativeOrigin = typeof window.rxNativeLocationOrigin === 'function'
+        ? window.rxNativeLocationOrigin()
+        : '';
     return url.indexOf('/') === 0 ||
-        url.indexOf(window.location.origin) === 0 ||
+        (nativeOrigin && url.indexOf(nativeOrigin) === 0) ||
         (window.RX_BASE && url.indexOf(window.RX_BASE) === 0);
 }
 
@@ -150,7 +289,7 @@ window.rxCsrfHeaders = function(headers) {
     return merged;
 };
 
-window.rxApplyCsrf = function(resource, init) {
+window.rxApplyCsrf = function(resource, init, replaceExisting) {
     init = init || {};
     var method = String(init.method || (typeof Request !== 'undefined' && resource instanceof Request ? resource.method : 'GET') || 'GET').toUpperCase();
     if (!rxIsUnsafeMethod(method) || !rxIsAppRequest(resource)) return init;
@@ -161,7 +300,8 @@ window.rxApplyCsrf = function(resource, init) {
     init.headers = window.rxCsrfHeaders(init.headers || {});
 
     if (typeof FormData !== 'undefined' && init.body instanceof FormData) {
-        if (!init.body.has('_csrf')) init.body.append('_csrf', token);
+        if (replaceExisting && typeof init.body.set === 'function') init.body.set('_csrf', token);
+        else if (!init.body.has('_csrf')) init.body.append('_csrf', token);
         return init;
     }
 
@@ -180,7 +320,7 @@ window.rxApplyCsrf = function(resource, init) {
     try {
         var data = JSON.parse(init.body);
         if (data && typeof data === 'object' && !Array.isArray(data)) {
-            if (!data._csrf) data._csrf = token;
+            if (replaceExisting || !data._csrf) data._csrf = token;
             init.body = JSON.stringify(data);
         }
     } catch (e) {
@@ -189,11 +329,128 @@ window.rxApplyCsrf = function(resource, init) {
     return init;
 };
 
+// Staging destructive-action confirmation shared by pages that do not load
+// app.js (notably Back Office). The token remains memory-only.
+if (!window.rxStagingGuard) {
+    var rxStagingConfirmation = { header: '', token: '' };
+    window.rxStagingGuard = {
+        isSafeHeaderName: function(value) {
+            return /^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/.test(String(value || ''));
+        },
+        read: function() {
+            return {
+                header: rxStagingConfirmation.header,
+                token: rxStagingConfirmation.token
+            };
+        },
+        remember: function(header, token) {
+            if (!this.isSafeHeaderName(header) || !token) return;
+            rxStagingConfirmation = {
+                header: String(header).toLowerCase(),
+                token: String(token)
+            };
+        },
+        forget: function() {
+            rxStagingConfirmation = { header: '', token: '' };
+        }
+    };
+}
+
+window.rxFetchWithStagingGuard = async function(resource, init) {
+    var requestInit = Object.assign({}, init || {});
+    var guard = window.rxStagingGuard;
+
+    function buildRequest(replaceCsrf) {
+        var next = Object.assign({}, requestInit, {
+            headers: rxHeadersToObject(requestInit.headers || {})
+        });
+        var remembered = guard && guard.read ? guard.read() : {};
+        if (guard
+            && guard.isSafeHeaderName(remembered.header)
+            && remembered.token) {
+            next.headers[remembered.header] = remembered.token;
+        }
+        if (window.rxApplyCsrf) {
+            next = window.rxApplyCsrf(resource, next, !!replaceCsrf);
+        }
+        return next;
+    }
+
+    var requestOptions = buildRequest(false);
+    var response = await window.fetch(resource, requestOptions);
+
+    if (response.status === 403) {
+        var csrfFailure = await response.clone().json().catch(function() { return {}; });
+        var csrfMessage = String((csrfFailure && (csrfFailure.message || csrfFailure.error)) || '');
+        if (/csrf validation failed/i.test(csrfMessage)
+            && window.rxSyncCsrfTokenFromCookie
+            && window.rxSyncCsrfTokenFromCookie()) {
+            requestOptions = buildRequest(true);
+            response = await window.fetch(resource, requestOptions);
+        }
+    }
+
+    if (response.status === 428 && guard) {
+        var stagingFailure = await response.clone().json().catch(function() { return {}; });
+        var requiredHeader = String(stagingFailure.requiredHeader || '').trim().toLowerCase();
+        if (guard.isSafeHeaderName(requiredHeader)) {
+            guard.forget();
+            var stagingToken = window.prompt(
+                'Staging safety check: enter the value of STAGING_DESTRUCTIVE_CONFIRM_TOKEN from .env.staging. This is not your application admin password.'
+            );
+            if (stagingToken) {
+                guard.remember(requiredHeader, stagingToken);
+                requestOptions = buildRequest(false);
+                response = await window.fetch(resource, requestOptions);
+                if (response.status === 428) guard.forget();
+            }
+        }
+    }
+
+    return response;
+};
+
+function rxNormalizeFetchResource(resource) {
+    if (!window.rxUrl || typeof window.rxUrl !== 'function') return resource;
+    if (!resource) return resource;
+    if (typeof resource === 'string') {
+        var value = String(resource);
+        if (!value) return value;
+        if (value.indexOf('//') === 0) return value;
+        if (/^https?:\/\//i.test(value) || /^mailto:|^tel:|^data:|^#/.test(value)) return value;
+        if (value[0] === '/') return window.rxUrl(value);
+    }
+    return resource;
+}
+
+function rxIsSameOriginResource(resource) {
+    var value = '';
+    if (typeof resource === 'string') {
+        value = resource;
+    } else if (typeof Request !== 'undefined' && resource && resource instanceof Request) {
+        value = String(resource[['u', 'rl'].join('')] || '');
+    }
+    if (!value) return false;
+    if (value[0] === '/') return true;
+    var nativeOrigin = typeof window.rxNativeLocationOrigin === 'function'
+        ? window.rxNativeLocationOrigin()
+        : '';
+    if (nativeOrigin && value.indexOf(nativeOrigin) === 0) return true;
+    return !!(window.RX_BASE && value.indexOf(window.RX_BASE) === 0);
+}
+
+window.rxNormalizeFetchResource = rxNormalizeFetchResource;
+
 (function() {
-    if (!window.fetch) return;
+    if (window.__rxFetchWrapped || !window.fetch) return;
+    window.__rxFetchWrapped = true;
     var originalFetch = window.fetch.bind(window);
     window.fetch = function(resource, init) {
+        resource = rxNormalizeFetchResource(resource);
         init = window.rxApplyCsrf ? window.rxApplyCsrf(resource, init || {}) : (init || {});
+        if (!init.credentials && rxIsSameOriginResource(resource)) {
+            init.credentials = 'include';
+        }
         return originalFetch(resource, init);
     };
 })();
@@ -215,7 +472,7 @@ window.rxApplyCsrf = function(resource, init) {
             },
             body: JSON.stringify({
                 currentPage: document.title.replace(/ - Patient RX System$/, '').trim(),
-                currentUrl:  window.location.pathname
+                currentUrl:  window.rxNativeLocationPathname ? window.rxNativeLocationPathname() : ''
             }),
             keepalive: true
         }).catch(function () {}); // fail silently — non-critical
@@ -241,7 +498,9 @@ window.logClientError = function (message, detail, severity) {
         var url = typeof window.rxUrl === 'function' ? window.rxUrl('/api/errors') : '/api/errors';
         var stack = detail || '';
         // Append page context to make the log actionable
-        stack += '\n\nPage: ' + document.title + ' (' + window.location.pathname + ')';
+        var pagePath = window.rxNativeLocationPathname ? window.rxNativeLocationPathname() : '';
+        var pageHref = window.rxNativeLocationHref ? window.rxNativeLocationHref() : '';
+        stack += '\n\nPage: ' + document.title + ' (' + pagePath + ')';
         fetch(url, {
             method: 'POST',
             credentials: 'include',
@@ -251,7 +510,7 @@ window.logClientError = function (message, detail, severity) {
             body: JSON.stringify({
                 message:  message  || 'Unknown client error',
                 stack:    stack,
-                url:      window.location.href,
+                url:      pageHref,
                 severity: severity || 'error'
             }),
             keepalive: true

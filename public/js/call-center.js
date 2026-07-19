@@ -3,15 +3,22 @@
     'use strict';
 
     var api = (function() {
-        function h(id) {
+        function h(id, fallback) {
             var el = document.getElementById(id);
-            return el ? el.href : '';
+            var raw = typeof window.rxElementHref === 'function'
+                ? window.rxElementHref(el)
+                : '';
+            if (typeof window.rxUrl === 'function' && raw) {
+                return window.rxUrl(String(raw));
+            }
+            if (raw) return raw;
+            return typeof fallback === 'string' ? fallback : '';
         }
         return {
-            patients: h('xa-cc-patients') || '/api/call-center/patients',
-            metrics: h('xa-cc-metrics') || '/api/call-center/metrics/me',
-            lockRefresh: h('xa-cc-lock-refresh') || '/api/call-center/locks/refresh',
-            lockRelease: h('xa-cc-lock-release') || '/api/call-center/locks/release'
+            patients: h('xa-cc-patients', '/api/call-center/patients'),
+            metrics: h('xa-cc-metrics', '/api/call-center/metrics/me'),
+            lockRefresh: h('xa-cc-lock-refresh', '/api/call-center/locks/refresh'),
+            lockRelease: h('xa-cc-lock-release', '/api/call-center/locks/release')
         };
     })();
 
@@ -120,6 +127,14 @@
             if (!res || !res.ok) return;
             var data = await res.json();
             if (data.conflicts && data.conflicts.length) {
+                for (var i = 0; i < data.conflicts.length; i++) {
+                    var conflictId = parseInt(data.conflicts[i] && data.conflicts[i].patientId, 10);
+                    if (Number.isFinite(conflictId)) {
+                        lockedPatientIds = lockedPatientIds.filter(function(id) {
+                            return id !== conflictId;
+                        });
+                    }
+                }
                 toast('One or more patients were claimed by another user. Refreshing queue.', 'warning');
                 loadPatients();
             }
@@ -129,20 +144,38 @@
     async function claimRow(id) {
         id = parseInt(id, 10);
         if (!Number.isFinite(id)) return false;
-        if (lockedPatientIds.indexOf(id) !== -1) return true;
         try {
             var res = await fetchWithAuth(api.patients + '/' + encodeURIComponent(id) + '/claim', {
                 method: 'POST',
                 body: JSON.stringify({}),
                 silent: true
             });
-            var data = res ? await res.json().catch(function() { return {}; }) : {};
+            if (!res) {
+                toast('Could not claim patient. Please retry.', 'warning');
+                return false;
+            }
+            var data = await res.json().catch(function() { return {}; });
             if (res && res.ok) {
-                lockedPatientIds.push(id);
+                if (lockedPatientIds.indexOf(id) === -1) {
+                    lockedPatientIds.push(id);
+                }
                 return true;
             }
+            if (res && res.status === 401) {
+                toast('Could not claim patient. Your session has expired. Please log in again.', 'warning');
+                return false;
+            }
+            if (res && res.status === 403) {
+                var deniedMessage = data && (data.error || data.message) ? (data.error || data.message) : 'Access denied.';
+                toast('Could not claim patient. ' + deniedMessage + '.', 'warning');
+                return false;
+            }
+            lockedPatientIds = lockedPatientIds.filter(function(patientId) {
+                return patientId !== id;
+            });
             var lock = data && data.lock ? (' by ' + (data.lock.user || 'another user')) : '';
-            toast((data && data.error ? data.error : 'This patient is already claimed') + lock + '.', 'warning');
+            var claimError = data && (data.error || data.message) ? (data.error || data.message) : 'This patient is already claimed';
+            toast(claimError + lock + '.', 'warning');
             return false;
         } catch (err) {
             toast('Could not claim patient. Try refreshing.', 'warning');
@@ -347,7 +380,16 @@
                 await loadMetrics();
                 await loadPatients();
             } else {
-                toast((data && (data.error || data.message)) || 'Save failed.', 'danger');
+                if (data && data.lock && Number.isFinite(parseInt(data.lock.patientId, 10))) {
+                    var conflictPatientId = parseInt(data.lock.patientId, 10);
+                    lockedPatientIds = lockedPatientIds.filter(function(patientId) {
+                        return patientId !== conflictPatientId;
+                    });
+                }
+                var lock = data && data.lock ? (' by ' + (data.lock.user || 'another user')) : '';
+                var saveErrorMessage = (data && (data.error || data.message)) || 'Save failed.';
+                toast((saveErrorMessage + lock) || 'Save failed.', 'danger');
+                if (res && res.status === 409) loadPatients();
             }
         } catch (err) {
             toast('Network error.', 'danger');
@@ -417,16 +459,6 @@
             rows.addEventListener('click', function(e) {
                 var btn = e.target.closest('[data-action="save"]');
                 if (btn) saveRow(btn);
-            });
-            rows.addEventListener('focusin', function(e) {
-                if (!e.target.matches('.cc-row-note,.cc-new-date,.cc-called')) return;
-                var tr = e.target.closest('tr[data-id]');
-                if (tr) claimRow(tr.getAttribute('data-id'));
-            });
-            rows.addEventListener('change', function(e) {
-                if (!e.target.matches('.cc-row-note,.cc-new-date,.cc-called')) return;
-                var tr = e.target.closest('tr[data-id]');
-                if (tr) claimRow(tr.getAttribute('data-id'));
             });
         }
         for (var i = 0; i < cards.length; i++) {

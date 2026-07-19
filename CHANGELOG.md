@@ -7,7 +7,33 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
-- No unreleased changes.
+### Fixed
+
+- Restored `public/js/app.js` from accidental UTF-16LE output to UTF-8 so FortiGate no longer corrupts the shared browser script and dashboard data requests execute normally.
+- Disabled an unfinished generated inline proxy bootstrap; proxy URL resolution remains in the syntax-checkable external `public/js/base.js` implementation.
+- Made Call Center and Dashboard API anchors resistant to FortiGate's `getAttribute('href')` rewrite, keeping requests on the public `/proxy/<session>/...` path instead of leaking to the internal host and bypassing CSRF injection.
+- Added one-time CSRF recovery for a rejected stale page token. The failed request has no side effects; the client synchronizes the server-refreshed cookie and retries once without weakening server validation.
+- Applied `no-store`, `no-cache`, and `no-transform` to static assets so the FortiGate portal cannot retain an obsolete `base.js`/`app.js` pair.
+- Normalized proxy navigation and redirects to same-host proxy-relative paths, avoiding forwarded-host/open-redirect behavior.
+- Preserved launcher-provided staging variables when the root `.env` is read and added fail-fast checks for the expected staging port, database, and writable root.
+- Corrected PostgreSQL tool caching so `pg_dump`, `psql`, and `pg_restore` are cached independently.
+- Corrected the asynchronous git-log response path so timeout/error/close events cannot send multiple responses.
+
+### Security
+
+- Added staging-only destructive-operation confirmation with a dedicated request header; the token is held only in page memory and is not accepted from query strings or request bodies.
+- Fail closed in staging when token-version validation cannot reach its backing database.
+- Added workflow payload allowlisting, strict service-date validation, quote-safe database/bootstrap and restore SQL, and safer PowerShell backup argument transport.
+- Removed the duplicate login submit handler that could send more than one authentication request.
+
+### Testing
+
+- Added `npm run check:public-js` and made it the first full-staging-smoke task, rejecting UTF-16, NUL-containing, invalid UTF-8, or syntactically invalid browser JavaScript before release.
+- Made the staging import guard create and remove its own short-lived import-capable account instead of relying on stored/default credentials.
+- Verified the full staging suite on isolated port `3100`/database `patient_rx_staging`.
+- Verified 20 authenticated modules and all 15 public JavaScript files through the live FortiGate proxy with zero internal-host API requests, syntax errors, or page runtime errors.
+
+**Database impact:** None.
 
 ## [3.0.9] - 2026-07-17
 

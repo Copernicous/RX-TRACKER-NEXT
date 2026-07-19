@@ -329,10 +329,14 @@ function renderEmailAlertRules(rules) {
     const wrap = document.getElementById('emailAlertRuleGroups');
     if (!wrap) return;
 
-    wrap.innerHTML = EMAIL_ALERT_RULE_GROUPS.map(group => {
-        const items = group.rules.map(rule => {
+    var groupsHtml = '';
+    for (var groupIndex = 0; groupIndex < EMAIL_ALERT_RULE_GROUPS.length; groupIndex++) {
+        const group = EMAIL_ALERT_RULE_GROUPS[groupIndex];
+        var items = '';
+        for (var ruleIndex = 0; ruleIndex < group.rules.length; ruleIndex++) {
+            const rule = group.rules[ruleIndex];
             const checked = rules[rule.key] ? 'checked' : '';
-            return '<div class="col-xl-4 col-md-6">' +
+            items += '<div class="col-xl-4 col-md-6">' +
                 '<div class="email-alert-rule h-100">' +
                     '<div class="form-check form-switch mb-0">' +
                         '<input class="form-check-input email-alert-rule-input" type="checkbox" id="emailAlertRule_' + safeHtml(rule.key) + '" data-rule="' + safeHtml(rule.key) + '" ' + checked + '>' +
@@ -343,10 +347,11 @@ function renderEmailAlertRules(rules) {
                     '</div>' +
                 '</div>' +
             '</div>';
-        }).join('');
-        return '<div class="email-alert-group-title">' + safeHtml(group.title) + '</div>' +
+        }
+        groupsHtml += '<div class="email-alert-group-title">' + safeHtml(group.title) + '</div>' +
             '<div class="row g-2">' + items + '</div>';
-    }).join('');
+    }
+    wrap.innerHTML = groupsHtml;
 
     updateEmailAlertsStatus();
     populateEmailAlertTestSelect();
@@ -385,15 +390,17 @@ function populateEmailAlertTestSelect() {
     const select = document.getElementById('testEmailAlertKey');
     if (!select) return;
     const currentValue = select.value;
-    const options = ['<option value="">Choose a condition...</option>'];
-    EMAIL_ALERT_RULE_GROUPS.forEach(group => {
-        options.push('<optgroup label="' + group.title + '">');
-        group.rules.forEach(rule => {
-            options.push('<option value="' + rule.key + '">' + rule.title + '</option>');
-        });
-        options.push('</optgroup>');
-    });
-    select.innerHTML = options.join('');
+    var optionsHtml = '<option value="">Choose a condition...</option>';
+    for (var groupIndex = 0; groupIndex < EMAIL_ALERT_RULE_GROUPS.length; groupIndex++) {
+        const group = EMAIL_ALERT_RULE_GROUPS[groupIndex];
+        optionsHtml += '<optgroup label="' + group.title + '">';
+        for (var ruleIndex = 0; ruleIndex < group.rules.length; ruleIndex++) {
+            const rule = group.rules[ruleIndex];
+            optionsHtml += '<option value="' + rule.key + '">' + rule.title + '</option>';
+        }
+        optionsHtml += '</optgroup>';
+    }
+    select.innerHTML = optionsHtml;
     if (currentValue) select.value = currentValue;
 }
 
@@ -413,29 +420,33 @@ function renderEmailAlertUsers(users, subscriptions) {
     if (!wrap) return;
     const flatRules = EMAIL_ALERT_RULE_GROUPS.flatMap(group => group.rules);
     if (thead) {
-        thead.innerHTML = '<tr><th style="min-width:220px;">User</th>' +
-            flatRules.map(function(rule) {
-                return '<th class="text-center" style="min-width:120px;">' + safeHtml(rule.title) + '</th>';
-            }).join('') +
-            '</tr>';
+        var headerHtml = '<tr><th style="min-width:220px;">User</th>';
+        for (var headerIndex = 0; headerIndex < flatRules.length; headerIndex++) {
+            headerHtml += '<th class="text-center" style="min-width:120px;">' + safeHtml(flatRules[headerIndex].title) + '</th>';
+        }
+        thead.innerHTML = headerHtml + '</tr>';
     }
     if (!users.length) {
         wrap.innerHTML = '<tr><td colspan="' + (1 + flatRules.length) + '" class="text-muted small py-3">No users with email addresses were found.</td></tr>';
         return;
     }
-    wrap.innerHTML = users.map(user => {
+    var usersHtml = '';
+    for (var userIndex = 0; userIndex < users.length; userIndex++) {
+        const user = users[userIndex];
         const userSub = subscriptions[user.id] || getDefaultUserSubscriptions();
         const fullName = ((user.firstName || '') + ' ' + (user.lastName || '')).trim();
         const emailLine = '@' + (user.username || '') + (user.email ? ' \u2022 ' + user.email : '');
-        return '<tr><td>' +
+        usersHtml += '<tr><td>' +
             '<div class="fw-semibold">' + safeHtml(fullName) + '</div>' +
             '<div class="text-muted small">' + safeHtml(emailLine) + '</div>' +
-            '</td>' +
-            flatRules.map(function(rule) {
-                return '<td class="text-center"><input class="form-check-input email-user-enabled" type="checkbox" data-user-id="' + safeHtml(user.id) + '" data-field="' + safeHtml(rule.key) + '" ' + (userSub[rule.key] ? 'checked' : '') + '></td>';
-            }).join('') +
-            '</tr>';
-    }).join('');
+            '</td>';
+        for (var ruleIndex = 0; ruleIndex < flatRules.length; ruleIndex++) {
+            const rule = flatRules[ruleIndex];
+            usersHtml += '<td class="text-center"><input class="form-check-input email-user-enabled" type="checkbox" data-user-id="' + safeHtml(user.id) + '" data-field="' + safeHtml(rule.key) + '" ' + (userSub[rule.key] ? 'checked' : '') + '></td>';
+        }
+        usersHtml += '</tr>';
+    }
+    wrap.innerHTML = usersHtml;
 }
 
 function populateEmailAlertUserInspector(users) {
@@ -707,14 +718,23 @@ function renderInspectedUserAlertConfig(data) {
     lines.push('<div class="mb-2">Master alerts: <strong>' + (data.alertsEnabled ? 'Enabled' : 'Disabled') + '</strong></div>');
     lines.push('<div class="mb-2">Enabled rules for this user: <strong>' + enabled.length + '</strong></div>');
     if (enabled.length) {
-        lines.push('<div class="mb-2">This user will receive:</div><ul class="mb-2">' + enabled.map(key => '<li>' + (pretty[key] || key) + '</li>').join('') + '</ul>');
+        var enabledHtml = '';
+        for (var enabledIndex = 0; enabledIndex < enabled.length; enabledIndex++) {
+            var enabledKey = enabled[enabledIndex];
+            enabledHtml += '<li>' + (pretty[enabledKey] || enabledKey) + '</li>';
+        }
+        lines.push('<div class="mb-2">This user will receive:</div><ul class="mb-2">' + enabledHtml + '</ul>');
     } else {
         lines.push('<div class="mb-2 text-warning">This user has no alert subscriptions enabled.</div>');
     }
     if (inactiveGlobal.length) {
         lines.push('<div class="text-warning">These user rules are checked but globally inactive: <strong>' + inactiveGlobal.map(key => pretty[key] || key).join(', ') + '</strong></div>');
     }
-    wrap.innerHTML = lines.join('');
+    var resultHtml = '';
+    for (var lineIndex = 0; lineIndex < lines.length; lineIndex++) {
+        resultHtml += lines[lineIndex];
+    }
+    wrap.innerHTML = resultHtml;
 }
 
 async function inspectEmailAlertUserConfig() {
@@ -839,9 +859,12 @@ renderSettingsTable = function(s) {
         tbody.innerHTML = '<tr><td colspan="2" class="text-muted text-center">No settings found</td></tr>';
         return;
     }
-    tbody.innerHTML = entries.map(function(entry) {
-        return '<tr><td><code>' + safeHtml(entry[0]) + '</code></td><td><span class="tz-badge">' + safeHtml(entry[1] || '-') + '</span></td></tr>';
-    }).join('');
+    var rowsHtml = '';
+    for (var entryIndex = 0; entryIndex < entries.length; entryIndex++) {
+        var entry = entries[entryIndex];
+        rowsHtml += '<tr><td><code>' + safeHtml(entry[0]) + '</code></td><td><span class="tz-badge">' + safeHtml(entry[1] || '-') + '</span></td></tr>';
+    }
+    tbody.innerHTML = rowsHtml;
 };
 
 renderEmailAlertUsers = function(users, subscriptions) {
@@ -850,24 +873,32 @@ renderEmailAlertUsers = function(users, subscriptions) {
     if (!wrap) return;
     const flatRules = EMAIL_ALERT_RULE_GROUPS.flatMap(group => group.rules);
     if (thead) {
-        thead.innerHTML = '<tr><th style="min-width:220px;">User</th>' +
-            flatRules.map(rule => '<th class="text-center" style="min-width:120px;">' + safeHtml(rule.title) + '</th>').join('') +
-            '</tr>';
+        var headerHtml = '<tr><th style="min-width:220px;">User</th>';
+        for (var headerIndex = 0; headerIndex < flatRules.length; headerIndex++) {
+            headerHtml += '<th class="text-center" style="min-width:120px;">' + safeHtml(flatRules[headerIndex].title) + '</th>';
+        }
+        thead.innerHTML = headerHtml + '</tr>';
     }
     if (!users.length) {
         wrap.innerHTML = '<tr><td colspan="' + (1 + flatRules.length) + '" class="text-muted small py-3">No users with email addresses were found.</td></tr>';
         return;
     }
-    wrap.innerHTML = users.map(function(user) {
+    var usersHtml = '';
+    for (var userIndex = 0; userIndex < users.length; userIndex++) {
+        var user = users[userIndex];
         const userSub = subscriptions[user.id] || getDefaultUserSubscriptions();
-        return '<tr><td><div class="fw-semibold">' +
+        usersHtml += '<tr><td><div class="fw-semibold">' +
             safeHtml(user.firstName || '') + ' ' + safeHtml(user.lastName || '') +
             '</div><div class="text-muted small">@' + safeHtml(user.username || '') +
             (user.email ? ' &bull; ' + safeHtml(user.email) : '') +
-            '</div></td>' +
-            flatRules.map(rule => '<td class="text-center"><input class="form-check-input email-user-enabled" type="checkbox" data-user-id="' + user.id + '" data-field="' + rule.key + '" ' + (userSub[rule.key] ? 'checked' : '') + '></td>').join('') +
-            '</tr>';
-    }).join('');
+            '</div></td>';
+        for (var ruleIndex = 0; ruleIndex < flatRules.length; ruleIndex++) {
+            var rule = flatRules[ruleIndex];
+            usersHtml += '<td class="text-center"><input class="form-check-input email-user-enabled" type="checkbox" data-user-id="' + user.id + '" data-field="' + rule.key + '" ' + (userSub[rule.key] ? 'checked' : '') + '></td>';
+        }
+        usersHtml += '</tr>';
+    }
+    wrap.innerHTML = usersHtml;
 };
 
 populateEmailAlertUserInspector = function(users) {
@@ -907,14 +938,23 @@ renderInspectedUserAlertConfig = function(data) {
     lines.push('<div class="mb-2">Master alerts: <strong>' + (data.alertsEnabled ? 'Enabled' : 'Disabled') + '</strong></div>');
     lines.push('<div class="mb-2">Enabled rules for this user: <strong>' + enabled.length + '</strong></div>');
     if (enabled.length) {
-        lines.push('<div class="mb-2">This user will receive:</div><ul class="mb-2">' + enabled.map(key => '<li>' + safeHtml(pretty[key] || key) + '</li>').join('') + '</ul>');
+        var enabledHtml = '';
+        for (var enabledIndex = 0; enabledIndex < enabled.length; enabledIndex++) {
+            var enabledKey = enabled[enabledIndex];
+            enabledHtml += '<li>' + safeHtml(pretty[enabledKey] || enabledKey) + '</li>';
+        }
+        lines.push('<div class="mb-2">This user will receive:</div><ul class="mb-2">' + enabledHtml + '</ul>');
     } else {
         lines.push('<div class="mb-2 text-warning">This user has no alert subscriptions enabled.</div>');
     }
     if (inactiveGlobal.length) {
         lines.push('<div class="text-warning">These user rules are checked but globally inactive: <strong>' + safeHtml(inactiveGlobal.map(key => pretty[key] || key).join(', ')) + '</strong></div>');
     }
-    wrap.innerHTML = lines.join('');
+    var resultHtml = '';
+    for (var lineIndex = 0; lineIndex < lines.length; lineIndex++) {
+        resultHtml += lines[lineIndex];
+    }
+    wrap.innerHTML = resultHtml;
 };
 
 // ────────────────────────────────────────────────────────────────────────────

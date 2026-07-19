@@ -7,11 +7,13 @@ const db = require('../models');
 const backupService = require('../services/backupService');
 const path = require('path');
 const fs   = require('fs');
+const crypto = require('crypto');
 const multer = require('multer');
 const errorLogController = require('../controllers/errorLogController');
 const sessionTracker = require('../services/sessionTracker');
 const sessionIdleService = require('../services/sessionIdleService');
 const { getWritableRoot } = require('../utils/runtimePaths');
+const { spawn } = require('child_process');
 
 function getCookie(cookieHeader, name) {
     if (!cookieHeader) return null;
@@ -46,6 +48,13 @@ const documentController = require('../controllers/documentController');
 const { isServiceDateOverrideEnabled } = require('../utils/globalSettings');
 const securityAlertService = require('../services/securityAlertService');
 const { isCallCenterRole } = require('../utils/callCenterAccess');
+const STAGING_MANIFEST_PATH = path.join(__dirname, '../staging/implementation-manifest.json');
+const STAGING_DESTRUCTIVE_GUARD = String(process.env.STAGING_DESTRUCTIVE_GUARD || '').trim().toLowerCase() === 'true';
+const STAGING_DESTRUCTIVE_CONFIRM_TOKEN = process.env.STAGING_DESTRUCTIVE_CONFIRM_TOKEN || '';
+const STAGING_CONFIRM_HEADER_CANDIDATE = String(process.env.STAGING_CONFIRM_HEADER || 'x-staging-confirm').trim().toLowerCase();
+const STAGING_CONFIRM_HEADER = /^[!#$%&'*+\-.^_`|~0-9a-z]+$/.test(STAGING_CONFIRM_HEADER_CANDIDATE)
+    ? STAGING_CONFIRM_HEADER_CANDIDATE
+    : 'x-staging-confirm';
 
 function recordPermissionDenied(req, details) {
     securityAlertService.recordPermissionDenied({
@@ -67,6 +76,64 @@ function sendVersionResponse(req, res) {
         uptime:    Math.floor(process.uptime()),
         buildDate: new Date().toISOString().slice(0, 10)
     });
+}
+
+function isStagingEnvironment() {
+    const markers = [
+        process.env.APP_ENV,
+        process.env.APP_INSTANCE,
+        process.env.APP_WRITABLE_ROOT,
+        process.env.DB_NAME
+    ].filter(Boolean).join(' ');
+    return /\bstaging\b|\bstage\b/i.test(markers);
+}
+
+function readStagingManifest() {
+    if (!fs.existsSync(STAGING_MANIFEST_PATH)) return null;
+    const raw = fs.readFileSync(STAGING_MANIFEST_PATH, 'utf8');
+    return JSON.parse(raw);
+}
+
+function sendStagingManifestResponse(req, res) {
+    if (!isStagingEnvironment()) {
+        return res.status(404).json({ error: 'Not available outside staging.' });
+    }
+    try {
+        const manifest = readStagingManifest();
+        if (!manifest) {
+            return res.status(404).json({ error: 'Staging implementation manifest not found.' });
+        }
+        res.json(manifest);
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+}
+
+function extractStagingToken(req) {
+    return req.get(STAGING_CONFIRM_HEADER);
+}
+
+function stagingTokenMatches(submitted) {
+    const actual = Buffer.from(String(submitted || ''), 'utf8');
+    const expected = Buffer.from(String(STAGING_DESTRUCTIVE_CONFIRM_TOKEN || ''), 'utf8');
+    return actual.length > 0
+        && actual.length === expected.length
+        && crypto.timingSafeEqual(actual, expected);
+}
+
+function requireStagingDestructiveConfirmation(req, res, next) {
+    if (!isStagingEnvironment() || !STAGING_DESTRUCTIVE_GUARD) return next();
+    if (!STAGING_DESTRUCTIVE_CONFIRM_TOKEN) {
+        return res.status(500).json({ error: 'Staging destructive action guard is enabled but STAGING_DESTRUCTIVE_CONFIRM_TOKEN is not set.' });
+    }
+    const token = extractStagingToken(req);
+    if (!stagingTokenMatches(token)) {
+        return res.status(428).json({
+            error: 'A staging destructive-action confirmation is required.',
+            requiredHeader: STAGING_CONFIRM_HEADER
+        });
+    }
+    next();
 }
 
 function restrictCallCenterApi(req, res, next) {
@@ -97,6 +164,7 @@ router.use(auth);
 router.use(restrictCallCenterApi);
 
 router.get('/version', adminOnly, sendVersionResponse);
+router.get('/staging/implementation-version', adminOnly, sendStagingManifestResponse);
 
 router.get('/call-center/patients', callCenterController.requireAccess, callCenterController.listPatients);
 router.post('/call-center/patients/:id/claim', callCenterController.requireWriteAccess, callCenterController.claimPatient);
@@ -167,11 +235,11 @@ const generateCRUDRoutes = (path, controller, moduleName) => {
     const deleteGuard = (key === 'users' || key === 'workflow_actions')
         ? rbac.requireRole(['Administrator'])
         : rbac.requirePermission(key, 'delete');
-    router.delete(`${path}/:id`, deleteGuard, auditLogger(moduleName), controller.delete);
+    router.delete(`${path}/:id`, deleteGuard, requireStagingDestructiveConfirmation, auditLogger(moduleName), controller.delete);
 };
 
 // Pharmacy purge (admin only) — must be BEFORE generateCRUDRoutes to avoid :id conflict
-router.delete('/pharmacies/purge', rbac.requireRole(['Administrator']), auditLogger('Pharmacies'), pharmacyController.purge);
+router.delete('/pharmacies/purge', rbac.requireRole(['Administrator']), requireStagingDestructiveConfirmation, auditLogger('Pharmacies'), pharmacyController.purge);
 
 generateCRUDRoutes('/pharmacies', pharmacyController, 'Pharmacies');
 router.put('/pharmacies/:id/restore', rbac.requirePermission('pharmacies', 'edit'), auditLogger('Pharmacies'), pharmacyController.restore);
@@ -264,8 +332,8 @@ router.get('/audit-logs',              rbac.requirePermission('audit_log', 'read
 router.get('/audit-logs/users',        rbac.requirePermission('audit_log', 'read'),  auditLogController.getUsers);
 router.get('/audit-logs/modules',      rbac.requirePermission('audit_log', 'read'),  auditLogController.getModules);
 router.get('/audit-logs/actions',      rbac.requirePermission('audit_log', 'read'),  auditLogController.getActions);
-router.delete('/audit-logs/:id',       rbac.requireRole(['Administrator']),           auditLogController.deleteOne);
-router.delete('/audit-logs',           rbac.requireRole(['Administrator']),           auditLogController.bulkDelete);
+router.delete('/audit-logs/:id',       rbac.requireRole(['Administrator']), requireStagingDestructiveConfirmation, auditLogController.deleteOne);
+router.delete('/audit-logs',           rbac.requireRole(['Administrator']), requireStagingDestructiveConfirmation, auditLogController.bulkDelete);
 router.post('/audit-logs/rotate',      rbac.requireRole(['Administrator']),           auditLogController.rotate);
 router.get('/user-activity-logs',       rbac.requirePermission('audit_log', 'read'),  userActivityLogController.getAll);
 router.get('/user-activity-logs/users', rbac.requirePermission('audit_log', 'read'),  userActivityLogController.getUsers);
@@ -378,7 +446,7 @@ const restoreUpload = multer({
     }
 }).single('dumpFile');
 
-router.post('/backups/restore', auth, adminOnly, function(req, res) {
+router.post('/backups/restore', auth, adminOnly, requireStagingDestructiveConfirmation, function(req, res) {
     restoreUpload(req, res, async function(err) {
         if (err) return res.status(400).json({ error: err.message });
         if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
@@ -401,12 +469,12 @@ router.get('/backups/status', adminOnly, (req, res) => {
     res.json(backupService.getStatus());
 });
 
-router.post('/backups/run', adminOnly, async (req, res) => {
+router.post('/backups/run', adminOnly, requireStagingDestructiveConfirmation, async (req, res) => {
     const result = await backupService.runBackup('Manual (' + req.user.username + ')');
     res.json(result);
 });
 
-router.post('/backups/schedule', adminOnly, (req, res) => {
+router.post('/backups/schedule', adminOnly, requireStagingDestructiveConfirmation, (req, res) => {
     const { schedule } = req.body;
     if (!schedule || typeof schedule !== 'string') {
         return res.status(400).json({ error: 'schedule is required' });
@@ -426,7 +494,7 @@ router.get('/backups/download/:filename', adminOnly, (req, res) => {
 });
 
 // ---- Delete a DB backup (file + log entry) ----
-router.delete('/backups/:filename', adminOnly, (req, res) => {
+router.delete('/backups/:filename', adminOnly, requireStagingDestructiveConfirmation, (req, res) => {
     try {
         const filename = path.basename(req.params.filename);
         backupService.deleteBackup(filename);
@@ -444,7 +512,7 @@ router.get('/backups/config', adminOnly, (req, res) => {
     });
 });
 
-router.post('/backups/config', adminOnly, (req, res) => {
+router.post('/backups/config', adminOnly, requireStagingDestructiveConfirmation, (req, res) => {
     const { siteBackupDir, dbBackupDir } = req.body;
     const result = {};
     try {
@@ -476,12 +544,12 @@ router.get('/backups/site/status', adminOnly, (req, res) => {
     res.json(backupService.getSiteBackupStatus());
 });
 
-router.post('/backups/site/run', adminOnly, async (req, res) => {
+router.post('/backups/site/run', adminOnly, requireStagingDestructiveConfirmation, async (req, res) => {
     const result = await backupService.runFullSiteBackup('Manual (' + req.user.username + ')');
     res.json(result);
 });
 
-router.post('/backups/site/schedule', adminOnly, (req, res) => {
+router.post('/backups/site/schedule', adminOnly, requireStagingDestructiveConfirmation, (req, res) => {
     const { schedule } = req.body;
     if (!schedule || typeof schedule !== 'string') {
         return res.status(400).json({ error: 'schedule is required' });
@@ -503,7 +571,7 @@ router.get('/backups/site/download/:filename', adminOnly, (req, res) => {
 });
 
 // ---- Delete a Site backup (file + log entry) ----
-router.delete('/backups/site/:filename', adminOnly, (req, res) => {
+router.delete('/backups/site/:filename', adminOnly, requireStagingDestructiveConfirmation, (req, res) => {
     try {
         const filename = path.basename(req.params.filename);
         backupService.deleteSiteBackup(filename);
@@ -514,7 +582,7 @@ router.delete('/backups/site/:filename', adminOnly, (req, res) => {
 });
 
 // ---- Delete a DB backup history entry by ID (for failed entries with no file) ----
-router.delete('/backups/history/:id', adminOnly, (req, res) => {
+router.delete('/backups/history/:id', adminOnly, requireStagingDestructiveConfirmation, (req, res) => {
     try {
         backupService.deleteBackupHistoryEntry(req.params.id);
         res.status(204).end();
@@ -524,7 +592,7 @@ router.delete('/backups/history/:id', adminOnly, (req, res) => {
 });
 
 // ---- Delete a Site backup history entry by ID ----
-router.delete('/backups/site/history/:id', adminOnly, (req, res) => {
+router.delete('/backups/site/history/:id', adminOnly, requireStagingDestructiveConfirmation, (req, res) => {
     try {
         backupService.deleteBackupSiteHistoryEntry(req.params.id);
         res.status(204).end();
@@ -550,9 +618,9 @@ router.post('/errors', (req, res, next) => {
 
 router.get('/errors',                    auth, adminOnly, errorLogController.getAll);
 router.patch('/errors/bulk-resolve',     auth, adminOnly, errorLogController.bulkResolve);
-router.delete('/errors/bulk-delete',     auth, adminOnly, errorLogController.bulkDelete);
+router.delete('/errors/bulk-delete',     auth, adminOnly, requireStagingDestructiveConfirmation, errorLogController.bulkDelete);
 router.patch('/errors/:id/resolve',      auth, adminOnly, errorLogController.resolve);
-router.delete('/errors',                 auth, adminOnly, errorLogController.clearResolved);
+router.delete('/errors',                 auth, adminOnly, requireStagingDestructiveConfirmation, errorLogController.clearResolved);
 
 // ---- System Settings (Admin only) ----
 router.get('/settings',              adminOnly, settingsController.getAll);
@@ -567,7 +635,7 @@ router.put('/settings',              adminOnly, settingsController.update);
 router.get('/api-keys',            adminOnly, apiKeyController.getAll);
 router.post('/api-keys',           adminOnly, apiKeyController.generate);
 router.patch('/api-keys/:id/toggle', adminOnly, apiKeyController.toggle);
-router.delete('/api-keys/:id',     adminOnly, apiKeyController.remove);
+router.delete('/api-keys/:id',     adminOnly, requireStagingDestructiveConfirmation, apiKeyController.remove);
 
 // ---- Patient Soft Locks (multi-user awareness) ----
 router.get('/patient-locks/:patientId',            rbac.requirePermission('patients', 'read'),  patientLockController.getViewers);
@@ -586,29 +654,29 @@ router.get('/admin/stats',              masterOnly, adminController.getStats);
 router.get('/admin/schema',             masterOnly, adminController.getSchema);
 router.get('/admin/table-data/:tableName', masterOnly, adminController.getTableData);
 router.post('/admin/row-impact',        masterOnly, adminController.getRowImpact);
-router.delete('/admin/rows',            masterOnly, adminController.deleteRows);
-router.delete('/admin/purge',           masterOnly, adminController.purge);
+router.delete('/admin/rows',            masterOnly, requireStagingDestructiveConfirmation, adminController.deleteRows);
+router.delete('/admin/purge',           masterOnly, requireStagingDestructiveConfirmation, adminController.purge);
 router.get('/admin/orphans',            masterOnly, adminController.getOrphans);
-router.delete('/admin/orphans',         masterOnly, adminController.cleanOrphans);
+router.delete('/admin/orphans',         masterOnly, requireStagingDestructiveConfirmation, adminController.cleanOrphans);
 router.get('/admin/duplicates',         masterOnly, adminController.getDuplicates);
 router.get('/admin/audit-logs',         masterOnly, adminController.getAuditLogs);
 router.get('/admin/call-center-cleanup', masterOnly, adminController.getCallCenterCleanupPreview);
-router.delete('/admin/call-center-cleanup', masterOnly, adminController.purgeCallCenterCleanup);
+router.delete('/admin/call-center-cleanup', masterOnly, requireStagingDestructiveConfirmation, adminController.purgeCallCenterCleanup);
 // System Settings
 router.get('/admin/settings',           masterOnly, adminController.getSettings);
 router.post('/admin/settings',          masterOnly, adminController.saveSettings);
 // Backup Manager
 router.post('/admin/backups',           masterOnly, adminController.createBackup);
 router.get('/admin/backups',            masterOnly, adminController.listBackups);
-router.delete('/admin/backups/:name',   masterOnly, adminController.deleteBackup);
+router.delete('/admin/backups/:name',   masterOnly, requireStagingDestructiveConfirmation, adminController.deleteBackup);
 router.get('/admin/backups/:name/:file',masterOnly, adminController.downloadBackupFile);
 // System Health
 router.get('/admin/health',             masterOnly, adminController.getHealth);
 router.get('/admin/log-dashboard',      masterOnly, adminController.getLogDashboard);
 // Lock Manager
 router.get('/admin/locks',              masterOnly, adminController.getLocks);
-router.delete('/admin/locks/:id',       masterOnly, adminController.releaseLock);
-router.delete('/admin/locks',           masterOnly, adminController.releaseExpiredLocks);
+router.delete('/admin/locks/:id',       masterOnly, requireStagingDestructiveConfirmation, adminController.releaseLock);
+router.delete('/admin/locks',           masterOnly, requireStagingDestructiveConfirmation, adminController.releaseExpiredLocks);
 router.get('/admin/service-date-overrides/patients', masterOnly, adminController.searchPatientsForServiceDateOverride);
 router.post('/admin/patients/:id/service-date-override', masterOnly, adminController.overridePatientServiceDate);
 // User Manager
@@ -616,25 +684,24 @@ router.get('/admin/users',              masterOnly, adminController.getUsers);
 router.patch('/admin/users/:id',        masterOnly, adminController.updateUser);
 router.post('/admin/users/:id/reset-password', masterOnly, adminController.adminResetPassword);
 router.post('/admin/users/:id/unlock',          masterOnly, require('../controllers/twoFactorController').adminUnlock);
-router.delete('/admin/users/:id/reset-2fa',    masterOnly, require('../controllers/twoFactorController').adminReset);
+router.delete('/admin/users/:id/reset-2fa',    masterOnly, requireStagingDestructiveConfirmation, require('../controllers/twoFactorController').adminReset);
 
 
 // Error Log Manager
 router.get('/admin/error-logs',            masterOnly, adminController.getErrorLogs);
 router.patch('/admin/error-logs/resolve',  masterOnly, adminController.resolveErrorLogs);
-router.delete('/admin/error-logs',         masterOnly, adminController.purgeErrorLogs);
+router.delete('/admin/error-logs',         masterOnly, requireStagingDestructiveConfirmation, adminController.purgeErrorLogs);
 
 // Daily Metrics Snapshots
 router.get('/admin/snapshots/export',      masterOnly, snapshotController.exportCSV);
 router.get('/admin/snapshots',             masterOnly, snapshotController.getSnapshots);
 router.post('/admin/snapshots/capture',    masterOnly, snapshotController.captureNow);
-router.delete('/admin/snapshots/:date',    masterOnly, snapshotController.deleteSnapshot);
+router.delete('/admin/snapshots/:date',    masterOnly, requireStagingDestructiveConfirmation, snapshotController.deleteSnapshot);
 
 
 // ── Git commit log (admin only) ───────────────────────────────────────────────
 // Returns last N commits with per-file stats for the changelog page
 router.get('/git-log', auth, adminOnly, (req, res) => {
-    const { execSync } = require('child_process');
     const IS_PKG = typeof process.pkg !== 'undefined';
 
     // git is only available in dev mode (not inside server.exe snapshot)
@@ -643,38 +710,81 @@ router.get('/git-log', auth, adminOnly, (req, res) => {
     }
 
     try {
-        const limit  = Math.min(parseInt(req.query.n || '30'), 100);
-        const sep    = '----COMMIT----';
-        const raw    = execSync(
-            `git log --format="${sep}%H|%ad|%an|%s" --date=short --stat -${limit}`,
-            { cwd: path.join(__dirname, '..'), encoding: 'utf8', timeout: 8000 }
-        );
+        const requestedLimit = parseInt(req.query.n || '30', 10);
+        const limit = Number.isFinite(requestedLimit)
+            ? Math.min(Math.max(requestedLimit, 1), 100)
+            : 30;
+        const sep   = '----COMMIT----';
+        const args  = [
+            'log',
+            `--format=${sep}%H|%ad|%an|%s`,
+            '--date=short',
+            '--stat',
+            `-${limit}`
+        ];
 
-        const commits = [];
-        const blocks  = raw.split(sep).filter(b => b.trim());
+        const git = spawn('git', args, {
+            cwd: path.join(__dirname, '..'),
+            env: process.env,
+            stdio: ['ignore', 'pipe', 'pipe'],
+            timeout: 8000
+        });
 
-        for (const block of blocks) {
-            const lines    = block.trim().split('\n');
-            const header   = lines[0].split('|');
-            if (header.length < 4) continue;
-            const [hash, date, author, ...msgParts] = header;
-            const message  = msgParts.join('|');
-
-            // Parse file stats lines (e.g. "  foo/bar.js | 12 ++--")
-            const files = [];
-            for (let i = 1; i < lines.length; i++) {
-                const m = lines[i].match(/^\s+(.+?)\s+\|\s+(\d+)\s*([\+\-]*)/);
-                if (m) {
-                    files.push({ file: m[1].trim(), changes: parseInt(m[2]), diff: m[3] });
-                }
-            }
-            // Summary line (last stat line: "N files changed, X insertions, Y deletions")
-            const summary = lines.find(l => l.includes('changed')) || '';
-
-            commits.push({ hash: hash.trim().substring(0,7), fullHash: hash.trim(), date: date.trim(), author: author.trim(), message: message.trim(), files, summary: summary.trim() });
+        let stdout = '';
+        let stderr = '';
+        let responded = false;
+        function sendOnce(payload) {
+            if (responded) return;
+            responded = true;
+            res.json(payload);
         }
+        git.stdout.on('data', function(chunk) { stdout += chunk.toString(); });
+        git.stderr.on('data', function(chunk) { stderr += chunk.toString(); });
 
-        res.json({ available: true, commits });
+        git.on('error', function(err) {
+            sendOnce({ available: false, commits: [], reason: err.message });
+        });
+
+        git.on('close', function(code) {
+            if (code !== 0) {
+                const reason = stderr.trim() || ('git log exit code ' + code);
+                return sendOnce({ available: false, commits: [], reason });
+            }
+
+            const commits = [];
+            const blocks  = stdout.split(sep).filter((b) => b.trim());
+
+            for (const block of blocks) {
+                const lines    = block.trim().split('\n');
+                const header   = lines[0].split('|');
+                if (header.length < 4) continue;
+                const [hash, date, author, ...msgParts] = header;
+                const message  = msgParts.join('|');
+
+                // Parse file stats lines (e.g. "  foo/bar.js | 12 ++--")
+                const files = [];
+                for (let i = 1; i < lines.length; i++) {
+                    const m = lines[i].match(/^\s+(.+?)\s+\|\s+(\d+)\s*([\+\-]*)/);
+                    if (m) {
+                        files.push({ file: m[1].trim(), changes: parseInt(m[2]), diff: m[3] });
+                    }
+                }
+                // Summary line (last stat line: "N files changed, X insertions, Y deletions")
+                const summary = lines.find(l => l.includes('changed')) || '';
+
+                commits.push({
+                    hash: hash.trim().substring(0, 7),
+                    fullHash: hash.trim(),
+                    date: date.trim(),
+                    author: author.trim(),
+                    message: message.trim(),
+                    files,
+                    summary: summary.trim()
+                });
+            }
+
+            sendOnce({ available: true, commits });
+        });
     } catch (e) {
         res.json({ available: false, commits: [], reason: e.message });
     }

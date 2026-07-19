@@ -3,32 +3,87 @@
 // All async done with Promise chains (.then/.catch). Uses var throughout.
 
 // =====================================================================
-// API URL anchors -- FortiGate rewrites href on <a> elements correctly
+// API URL anchors -- all endpoints resolve to the active proxy/base each use
 // =====================================================================
 var _api = (function() {
-    function _h(id) { var el = document.getElementById(id); return el ? el.href : ''; }
+    function _stripQuery(pathname) {
+        var value = String(pathname || '');
+        var q = value.indexOf('?');
+        return q === -1 ? value : value.substring(0, q);
+    }
+
+    function _parseProxyBase(pathname) {
+        var parts = _stripQuery(String(pathname || '')).split('/').filter(function(part) { return !!part; });
+        for (var j = 0; j < parts.length; j++) {
+            if (parts[j] === 'proxy') {
+                if (parts.length <= j + 3) return '';
+                var origin = typeof window.rxNativeLocationOrigin === 'function'
+                    ? window.rxNativeLocationOrigin()
+                    : '';
+                return origin + '/proxy/' + parts[j + 1] + '/' + parts[j + 2] + '/' + parts[j + 3];
+            }
+        }
+        return '';
+    }
+
+    function _fallbackBase() {
+        var base = (window.RX_BASE || '').replace(/\/$/, '');
+        if (base) return base;
+        var pathname = typeof window.rxNativeLocationPathname === 'function'
+            ? window.rxNativeLocationPathname()
+            : '';
+        return _parseProxyBase(pathname);
+    }
+
+    function _resolve(raw, fallback) {
+        var target = String((raw == null ? '' : raw));
+        if (!target && typeof fallback === 'string') target = fallback;
+        if (!target) return '';
+        if (/^https?:\/\//i.test(target) || /^mailto:|^tel:|^data:|^#/.test(target)) return target;
+        if (typeof window.rxUrl === 'function') return window.rxUrl(target);
+        var base = _fallbackBase();
+        if (base) return base + target;
+        return target;
+    }
+
+    function _entry(id, fallback) {
+        var el = document.getElementById(id);
+        var href = typeof window.rxElementHref === 'function'
+            ? window.rxElementHref(el)
+            : '';
+        return _resolve(href, fallback);
+    }
+
+    function _u(id, fallback) {
+        return function() { return _entry(id, fallback); };
+    }
+
     return {
-        stats:    _h('xa-stats'),
-        charts:   _h('xa-charts'),
-        rxp:      _h('xa-rxp'),
-        elig:     _h('xa-elig'),
-        ccReview: _h('xa-cc-review'),
-        ccDrill:  _h('xa-cc-drilldown'),
-        drill:    _h('xa-drill'),
-        eligBase: _h('xa-elig-base'),
-        ap:       _h('xa-ap'),
-        ip:       _h('xa-ip'),
-        tr:       _h('xa-tr'),
-        pr:       _h('xa-pr'),
-        nr:       _h('xa-nr'),
-        s2fa:     _h('xa-s2fa'),
-        u2fa:     _h('xa-u2fa'),
-        e2fa:     _h('xa-e2fa'),
-        d2fa:     _h('xa-d2fa'),
-        r2fa:     _h('xa-r2fa'),
-        cpw:      _h('xa-cpw')
+        stats:    _u('xa-stats', '/api/dashboard/stats'),
+        charts:   _u('xa-charts', '/api/dashboard/charts'),
+        rxp:      _u('xa-rxp', '/api/dashboard/rx-pipeline'),
+        elig:     _u('xa-elig', '/api/dashboard/eligibility'),
+        ccReview: _u('xa-cc-review', '/api/call-center/metrics/review'),
+        ccDrill:  _u('xa-cc-drilldown', '/api/call-center/metrics/drilldown'),
+        drill:    _u('xa-drill', '/api/dashboard/'),
+        eligBase: _u('xa-elig-base', '/api/dashboard/eligibility-drilldown/'),
+        ap:       _u('xa-ap', '/api/dashboard/active-patients'),
+        ip:       _u('xa-ip', '/api/dashboard/inactive-patients'),
+        tr:       _u('xa-tr', '/api/dashboard/total-rx'),
+        pr:       _u('xa-pr', '/api/dashboard/pending-rx'),
+        nr:       _u('xa-nr', '/api/dashboard/patients-no-rx'),
+        s2fa:     _u('xa-s2fa', '/api/auth/2fa/status'),
+        u2fa:     _u('xa-u2fa', '/api/auth/2fa/setup'),
+        e2fa:     _u('xa-e2fa', '/api/auth/2fa/enable'),
+        d2fa:     _u('xa-d2fa', '/api/auth/2fa/disable'),
+        r2fa:     _u('xa-r2fa', '/api/auth/2fa/regenerate-backup-codes'),
+        cpw:      _u('xa-cpw', '/api/auth/change-password')
     };
 })();
+
+function _uApi(entry, suffix) {
+    return String(entry()) + String(suffix || '');
+}
 
 var drilldownModal = null, drilldownCurrentData = [], drilldownType = '';
 var _dashFrom = '', _dashTo = '';
@@ -186,7 +241,7 @@ function buildTrendQuery() {
 
 function loadDashboardCharts() {
     var q = buildTrendQuery();
-    return fetchWithAuth(_api.charts + q).then(function(chartRes) {
+    return fetchWithAuth(_uApi(_api.charts, q)).then(function(chartRes) {
         if (chartRes && chartRes.ok) {
             return chartRes.json().then(function(chartData) {
                 window._lastChartData = chartData;
@@ -201,7 +256,7 @@ function loadDashboardCharts() {
 // =====================================================================
 function refreshDashboard() {
     var q = buildDateQuery();
-    return fetchWithAuth(_api.stats + q).then(function(res) {
+    return fetchWithAuth(_uApi(_api.stats, q)).then(function(res) {
         if (!res) return;
         return res.json().then(function(data) {
             var safe = function(v) { return (v !== undefined && v !== null) ? v : 0; };
@@ -482,7 +537,7 @@ function renderCallCenterReviewCharts(data) {
 function loadCallCenterReviewMetrics() {
     if (!_api.ccReview) return;
     var requestSeq = ++_ccReviewRequestSeq;
-    return fetchWithAuth(_api.ccReview + buildCallCenterReviewQuery(), { silent: true }).then(function(res) {
+        return fetchWithAuth(_uApi(_api.ccReview, buildCallCenterReviewQuery()), { silent: true }).then(function(res) {
         if (!res || !res.ok) return;
         return res.json().then(function(data) {
             if (requestSeq !== _ccReviewRequestSeq) return;
@@ -798,7 +853,7 @@ function openCallCenterReviewDrilldown(metric) {
     if (!drilldownModal) drilldownModal = new bootstrap.Modal(document.getElementById('drilldownModal'));
     drilldownModal.show();
 
-    fetchWithAuth(_api.ccDrill + buildCallCenterDrilldownQuery(metric), { silent: true }).then(function(res) {
+        fetchWithAuth(_uApi(_api.ccDrill, buildCallCenterDrilldownQuery(metric)), { silent: true }).then(function(res) {
         if (!res || !res.ok) throw new Error('Failed');
         return res.json();
     }).then(function(data) {
@@ -971,7 +1026,12 @@ function countUp(elId, target, duration) {
 // (still kept as fallback from the drilldown modal's "Open Full Page" button)
 function goEligFilter(filter) {
     var base = window._patientsUrl || '/patients';
-    window.location.href = base + '?eligFilter=' + filter;
+    var target = base + '?eligFilter=' + encodeURIComponent(filter || '');
+    if (typeof window.rxNav === 'function') {
+        window.rxNav(target);
+    } else {
+        window.location.href = target;
+    }
 }
 
 // =====================================================================
@@ -1004,14 +1064,21 @@ function openEligDrilldown(filter) {
     };
 
     var plEl = pageLinks[filter];
-    window.location.href = plEl ? plEl.href : '/patients';
+    var target = typeof window.rxElementHref === 'function'
+        ? window.rxElementHref(plEl)
+        : '/patients';
+    if (typeof window.rxNav === 'function') {
+        window.rxNav(target || '/patients');
+    } else {
+        window.location.href = target || '/patients';
+    }
 }
 
 function loadEligibility() {
     var luEl = document.getElementById('eligLastUpdated');
     if (luEl) luEl.textContent = 'Loading\u2026';
     if (!_api.elig) return;
-    fetchWithAuth(_api.elig).then(function(res) {
+    fetchWithAuth(_api.elig()).then(function(res) {
         if (!res || !res.ok) throw new Error('Failed');
         return res.json();
     }).then(function(d) {
@@ -1042,7 +1109,7 @@ function loadRxPipeline() {
     if (!stepsEl) return;
     stepsEl.innerHTML = '<div class="text-muted text-center py-3"><i class="fas fa-spinner fa-spin me-2"></i>Loading...</div>';
 
-    fetchWithAuth(_api.rxp).then(function(res) {
+    fetchWithAuth(_api.rxp()).then(function(res) {
         if (!res || !res.ok) throw new Error('Failed');
         return res.json();
     }).then(function(d) {
@@ -1358,11 +1425,17 @@ function openDrilldown(type) {
         var lid = idMap[t];
         if (!lid) return '#';
         var el = document.getElementById(lid);
-        return el ? el.href : '#';
+        return typeof window.rxElementHref === 'function' ? window.rxElementHref(el) : '#';
     }
 
     var dest = getPageLink(type);
-    if (dest && dest !== '#') window.location.href = dest;
+    if (dest && dest !== '#') {
+        if (typeof window.rxNav === 'function') {
+            window.rxNav(dest);
+        } else {
+            window.location.href = dest;
+        }
+    }
 }
 
 function exportRecentActivity() {
@@ -1433,7 +1506,7 @@ function exportTrendCsv() {
     var exportName = 'dashboard_trends_' + new Date().toISOString().slice(0,10) + '.csv';
     var query = buildTrendQuery();
 
-    fetchWithAuth(_api.charts + query).then(function(res) {
+    fetchWithAuth(_uApi(_api.charts, query)).then(function(res) {
         if (!res || !res.ok) throw new Error('Trend export fetch failed');
         return res.json();
     }).then(function(data) {
@@ -1465,7 +1538,7 @@ function openAccountModal() {
 }
 
 function load2FAStatus() {
-    fetchWithAuth(_api.s2fa).then(function(res) {
+    fetchWithAuth(_api.s2fa()).then(function(res) {
         if (!res) return;
         return res.json().then(function(data) {
             var enabled = !!data.twoFactorEnabled;
@@ -1509,7 +1582,7 @@ function start2FASetup() {
     var btn = document.getElementById('startSetupBtn');
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Generating QR code\u2026';
-    fetchWithAuth(_api.u2fa).then(function(res) {
+    fetchWithAuth(_api.u2fa()).then(function(res) {
         if (!res || !res.ok) { showToast('Failed to generate 2FA setup.', 'danger'); return; }
         return res.json().then(function(data) {
             document.getElementById('twoFAQRImg').src           = data.qrCode;
@@ -1533,7 +1606,7 @@ function enable2FA() {
     errEl.classList.add('d-none');
     if (rawCode.length !== 6) { errEl.textContent = 'Enter the full 6-digit code.'; errEl.classList.remove('d-none'); return; }
     btn.disabled = true; spinner.classList.remove('d-none');
-    fetchWithAuth(_api.e2fa, { method: 'POST', body: JSON.stringify({ code: rawCode }) })
+    fetchWithAuth(_api.e2fa(), { method: 'POST', body: JSON.stringify({ code: rawCode }) })
     .then(function(res) {
         return res.json().then(function(data) {
             if (res.ok) {
@@ -1566,7 +1639,7 @@ function disable2FA() {
     errEl.classList.add('d-none');
     if (rawCode.length !== 6) { errEl.textContent = 'Enter the full 6-digit code.'; errEl.classList.remove('d-none'); return; }
     btn.disabled = true; spinner.classList.remove('d-none');
-    fetchWithAuth(_api.d2fa, { method: 'POST', body: JSON.stringify({ code: rawCode }) })
+    fetchWithAuth(_api.d2fa(), { method: 'POST', body: JSON.stringify({ code: rawCode }) })
     .then(function(res) {
         return res.json().then(function(data) {
             if (res.ok) { showToast('2FA has been disabled.', 'warning'); load2FAStatus(); }
@@ -1581,7 +1654,7 @@ function regenerateBackupCodes() {
     var errEl = document.getElementById('regenError');
     errEl.classList.add('d-none');
     if (code.length !== 6) { errEl.textContent = 'Enter the 6-digit authenticator code.'; errEl.classList.remove('d-none'); return; }
-    fetchWithAuth(_api.r2fa, { method: 'POST', body: JSON.stringify({ code: code }) })
+    fetchWithAuth(_api.r2fa(), { method: 'POST', body: JSON.stringify({ code: code }) })
     .then(function(res) {
         return res.json().then(function(data) {
             if (res.ok && data.backupCodes) {
@@ -1639,7 +1712,7 @@ function changePassword() {
     errEl.classList.add('d-none'); okEl.classList.add('d-none');
     if (!current || !newPw) { showChangePasswordError('Both fields are required.'); return; }
     if (newPw.length < 8)   { showChangePasswordError('New password must be at least 8 characters.'); return; }
-    fetchWithAuth(_api.cpw, { method: 'POST', body: JSON.stringify({ currentPassword: current, newPassword: newPw }) })
+    fetchWithAuth(_api.cpw(), { method: 'POST', body: JSON.stringify({ currentPassword: current, newPassword: newPw }) })
     .then(function(res) {
         if (!res) return;
         return res.json().then(function(data) {

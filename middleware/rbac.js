@@ -15,6 +15,7 @@
 
 // ─── Hardcoded seed defaults (used ONLY during startup migration to seed DB) ──
 const securityAlertService = require('../services/securityAlertService');
+const { proxyRedirect } = require('../utils/proxyAwareRedirect');
 
 const BUILT_IN_DEFAULTS = {
     Administrator: () => {
@@ -242,7 +243,7 @@ exports.requireMaster = (req, res, next) => {
             return res.status(403).json({ error: 'Master admin access required. Contact your system administrator.' });
         }
         // Web page: redirect to dashboard with a clear message
-        return res.redirect('/dashboard?error=backoffice_restricted');
+        return proxyRedirect(req, res, '/dashboard?error=backoffice_restricted');
     }
     next();
 };

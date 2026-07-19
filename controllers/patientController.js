@@ -364,8 +364,11 @@ exports.create = async (req, res) => {
 
         // Normalise dates: accept MM/DD/YYYY, YYYY-MM-DD, or any common format
         const normDob         = parseDate(dob);
-        const normServiceDate = parseDate(serviceDate);
+        const trimmedServiceDate = String(serviceDate || '').trim();
+        const normServiceDate = parseDate(trimmedServiceDate);
         if (dob && !normDob) return res.status(400).json({ error: 'Date of Birth is not a valid date. Use MM/DD/YYYY format.' });
+        if (!trimmedServiceDate) return res.status(400).json({ error: 'Service Date is required.' });
+        if (!normServiceDate) return res.status(400).json({ error: 'Service Date is not valid. Use MM/DD/YYYY format.' });
         otherData.dob         = normDob;
         otherData.serviceDate = normServiceDate;
 

@@ -474,7 +474,11 @@ function serviceDateHistoryRxGroup(label, records, count) {
     records = Array.isArray(records) ? records : [];
     count = Number(count || records.length || 0);
     if (!count) return '';
-    var shown = records.slice(0, 6).map(serviceDateHistoryRxBadge).join('');
+    var shown = '';
+    var shownRecords = records.slice(0, 6);
+    for (var i = 0; i < shownRecords.length; i++) {
+        shown += serviceDateHistoryRxBadge(shownRecords[i]);
+    }
     if (count > records.length || count > 6) {
         shown += '<span class="badge svc-history-rx-more-badge me-1 mb-1">+' + tlEscapeHtml(count - Math.min(records.length, 6)) + ' more</span>';
     }
@@ -526,12 +530,15 @@ function tlContextGridHtml(context) {
         ['Patient Transport', context.patientTransport],
         ['Pharmacy Transport', context.pharmacyTransport]
     ];
-    return '<div class="svc-context-grid">' + items.map(function(item) {
-        return '<div class="svc-context-item">' +
-            '<div class="svc-context-label">' + tlEscapeHtml(item[0]) + '</div>' +
-            '<div class="svc-context-value">' + tlEscapeHtml(tlContextEntityLabel(item[1])) + '</div>' +
-        '</div>';
-    }).join('') + '</div>' +
+    var itemHtml = '';
+    for (var i = 0; i < items.length; i++) {
+        var item = items[i];
+        itemHtml += '<div class="svc-context-item">' +
+             '<div class="svc-context-label">' + tlEscapeHtml(item[0]) + '</div>' +
+             '<div class="svc-context-value">' + tlEscapeHtml(tlContextEntityLabel(item[1])) + '</div>' +
+         '</div>';
+    }
+    return '<div class="svc-context-grid">' + itemHtml + '</div>' +
     (context.capturedAt ? '<div class="text-muted mt-2" style="font-size:.72rem"><i class="fas fa-clock me-1"></i>Captured ' + tlEscapeHtml(serviceDateHistoryTimestamp({ createdAt: context.capturedAt })) + '</div>' : '');
 }
 
@@ -679,18 +686,20 @@ function renderServiceDateCycleContext(cycles) {
         return;
     }
 
-    var html = selectedCycles.map(function(cycle) {
+    var html = '';
+    for (var i = 0; i < selectedCycles.length; i++) {
+        var cycle = selectedCycles[i];
         var context = tlContextSnapshot(cycle);
         var title = formatDate(cycle.serviceDate) || cycle.serviceDate || 'Service Date';
         var status = String(cycle.status || '').toLowerCase() === 'active' ? 'Active' : 'History';
-        return '<div class="svc-cycle-context mb-2">' +
+        html += '<div class="svc-cycle-context mb-2">' +
             '<div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">' +
                 '<div class="fw-bold small"><i class="fas fa-clipboard-check me-1 text-primary"></i>' + tlEscapeHtml(title) + ' captured defaults</div>' +
                 '<span class="badge ' + (status === 'Active' ? 'bg-primary' : 'bg-secondary') + '">' + status + '</span>' +
             '</div>' +
             tlContextGridHtml(context) +
         '</div>';
-    }).join('');
+    }
     target.innerHTML = html;
 }
 
@@ -724,17 +733,19 @@ function tlWorkflowTable(rx) {
         var status = tlRxStatus(rx);
         return '<div style="color:#667085;font-size:.85rem">Workflow steps recorded: ' + tlEscapeHtml(status.done) + '</div>';
     }
-    var rows = actions.map(function(action, index) {
+    var rows = '';
+    for (var index = 0; index < actions.length; index++) {
+        var action = actions[index];
         var tracking = trackings[action.id];
         var done = !!tracking;
         var date = done && tracking.completionDate ? formatDate(tracking.completionDate) : 'Pending';
         var by = done && tracking.User ? (' by ' + ((tracking.User.firstName || '') + ' ' + (tracking.User.lastName || '')).trim()) : '';
-        return '<tr>' +
+        rows += '<tr>' +
             '<td style="padding:6px 8px;border-bottom:1px solid #e5e7eb">' + (index + 1) + '. ' + tlEscapeHtml(action.name || 'Step') + '</td>' +
             '<td style="padding:6px 8px;border-bottom:1px solid #e5e7eb">' + tlEscapeHtml(date) + tlEscapeHtml(by) + '</td>' +
             '<td style="padding:6px 8px;border-bottom:1px solid #e5e7eb;color:' + (done ? '#198754' : '#667085') + ';font-weight:700">' + (done ? 'Done' : 'Pending') + '</td>' +
         '</tr>';
-    }).join('');
+    }
     return '<table style="width:100%;border-collapse:collapse;font-size:.84rem;margin-top:8px">' +
         '<thead><tr style="background:#1a2234;color:#fff"><th style="padding:7px 8px;text-align:left">Step</th><th style="padding:7px 8px;text-align:left">Date / User</th><th style="padding:7px 8px;text-align:left">Status</th></tr></thead>' +
         '<tbody>' + rows + '</tbody></table>';
@@ -844,12 +855,14 @@ function tlExportRxGroups(filename, groups, historyRow) {
 function tlServiceHistoryPrintBlock(history) {
     history = Array.isArray(history) ? history : [];
     if (!history.length) return '';
-    var rows = history.map(function(row) {
+    var rows = '';
+    for (var i = 0; i < history.length; i++) {
+        var row = history[i];
         var related = row.relatedRxRecords || {};
         var context = row && row.metadata && row.metadata.patientContextChange
             ? row.metadata.patientContextChange.next
             : tlContextSnapshot(row);
-        return '<tr>' +
+        rows += '<tr>' +
             '<td style="padding:6px 8px;border-bottom:1px solid #e5e7eb">' + tlEscapeHtml(row.changeSource || '') + '</td>' +
             '<td style="padding:6px 8px;border-bottom:1px solid #e5e7eb">' + tlEscapeHtml(formatDate(row.previousServiceDate) || 'None') + '</td>' +
             '<td style="padding:6px 8px;border-bottom:1px solid #e5e7eb">' + tlEscapeHtml(formatDate(row.newServiceDate) || 'None') + '</td>' +
@@ -858,7 +871,7 @@ function tlServiceHistoryPrintBlock(history) {
             '<td style="padding:6px 8px;border-bottom:1px solid #e5e7eb">' + tlEscapeHtml(tlContextSummaryText(context)) + '</td>' +
             '<td style="padding:6px 8px;border-bottom:1px solid #e5e7eb;text-align:center">' + tlEscapeHtml(related.totalRxCount || 0) + '</td>' +
         '</tr>';
-    }).join('');
+    }
     return '<h4 style="margin:6px 0 8px">Patient Service Date History</h4>' +
         '<table style="width:100%;border-collapse:collapse;font-size:.84rem;margin-bottom:16px">' +
         '<thead><tr style="background:#1a2234;color:#fff"><th style="padding:7px 8px;text-align:left">Source</th><th style="padding:7px 8px;text-align:left">Previous</th><th style="padding:7px 8px;text-align:left">New</th><th style="padding:7px 8px;text-align:left">Changed By</th><th style="padding:7px 8px;text-align:left">When</th><th style="padding:7px 8px;text-align:left">Captured Defaults</th><th style="padding:7px 8px;text-align:center">RX</th></tr></thead>' +
@@ -1331,8 +1344,14 @@ function formatDate(d) {
     async function releaseLock() {
         if (!_ptId) return;
         try {
-            // Use sendBeacon for reliability on tab close
-            navigator.sendBeacon('/api/patient-locks/' + _ptId + '/release');
+            // Keep unload delivery reliable while preserving the proxy prefix
+            // and the CSRF token required for authenticated POST requests.
+            var releaseUrl = window.rxUrl('/api/patient-locks/' + _ptId + '/release');
+            var releaseBody = new URLSearchParams();
+            if (window.rxCsrfToken && window.rxCsrfToken()) {
+                releaseBody.append('_csrf', window.rxCsrfToken());
+            }
+            navigator.sendBeacon(releaseUrl, releaseBody);
         } catch(e) { /* silent */ }
     }
 

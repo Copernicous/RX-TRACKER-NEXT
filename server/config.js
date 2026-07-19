@@ -1,4 +1,6 @@
-require('dotenv').config({ override: true });
+// Preserve database settings supplied by the staging/QA launchers. Root .env
+// is only a fallback for variables that were not prepared by the caller.
+require('dotenv').config();
 
 module.exports = {
   development: {

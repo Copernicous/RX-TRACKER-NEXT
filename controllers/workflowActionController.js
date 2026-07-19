@@ -1,6 +1,18 @@
 const db = require('../models');
 
 const Model = db.WorkflowAction;
+const ALLOWED_WORKFLOW_ACTION_FIELDS = ['name', 'sequenceNumber', 'description', 'isActive'];
+
+function sanitizeWorkflowPayload(body) {
+    const source = body && typeof body === 'object' ? body : {};
+    const payload = {};
+    ALLOWED_WORKFLOW_ACTION_FIELDS.forEach((key) => {
+        if (Object.prototype.hasOwnProperty.call(source, key)) {
+            payload[key] = source[key];
+        }
+    });
+    return payload;
+}
 
 exports.getAll = async (req, res) => {
     try {
@@ -21,14 +33,14 @@ exports.getOne = async (req, res) => {
 
 exports.create = async (req, res) => {
     try {
-        const data = await Model.create({ ...req.body, isActive: true });
+        const data = await Model.create(Object.assign({}, sanitizeWorkflowPayload(req.body), { isActive: true }));
         res.status(201).json(data);
     } catch (err) { res.status(400).json({ error: err.message }); }
 };
 
 exports.update = async (req, res) => {
     try {
-        const [updated] = await Model.update(req.body, { where: { id: req.params.id } });
+        const [updated] = await Model.update(sanitizeWorkflowPayload(req.body), { where: { id: req.params.id } });
         if (!updated) return res.status(404).json({ message: 'Not found' });
         const data = await Model.findByPk(req.params.id);
         res.json(data);

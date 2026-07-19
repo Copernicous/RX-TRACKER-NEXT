@@ -219,6 +219,11 @@ function makeLockExpiresAt() {
     return new Date(Date.now() + CALL_LOCK_TTL_MS);
 }
 
+function normalizeNumericId(value) {
+    const normalized = Number.parseInt(value, 10);
+    return Number.isFinite(normalized) ? normalized : null;
+}
+
 function parsePatientIds(values) {
     return Array.from(new Set((values || [])
         .map((value) => parseInt(value, 10))
@@ -238,8 +243,9 @@ function serializeLock(lock) {
 }
 
 async function getActiveLockedPatientIds(excludeUserId) {
+    const normalizedExcludeUserId = normalizeNumericId(excludeUserId);
     const where = { expiresAt: { [Op.gt]: new Date() } };
-    if (excludeUserId) where.userId = { [Op.ne]: excludeUserId };
+    if (normalizedExcludeUserId) where.userId = { [Op.ne]: normalizedExcludeUserId };
     const locks = await db.CallCenterLock.findAll({
         where,
         attributes: ['patientId'],
@@ -263,7 +269,7 @@ async function getActiveLockedPatientIds(excludeUserId) {
 async function acquireCallCenterLock(patientId, req, options) {
     options = options || {};
     const transaction = options.transaction || null;
-    const userId = req.user && req.user.id ? req.user.id : null;
+    const userId = normalizeNumericId(req.user && req.user.id);
     if (!userId) return { ok: false, status: 401, error: 'Unauthorized.' };
 
     const queryOptions = { where: { patientId } };
@@ -274,7 +280,8 @@ async function acquireCallCenterLock(patientId, req, options) {
 
     let lock = await db.CallCenterLock.findOne(queryOptions);
     const now = new Date();
-    if (lock && new Date(lock.expiresAt) > now && lock.userId !== userId) {
+    const lockUserId = normalizeNumericId(lock && lock.userId);
+    if (lock && new Date(lock.expiresAt) > now && lockUserId !== userId) {
         const withUser = await db.CallCenterLock.findOne({
             where: { patientId },
             include: [{
@@ -300,7 +307,7 @@ async function acquireCallCenterLock(patientId, req, options) {
     if (lock) {
         await lock.update({
             userId,
-            lockedAt: lock.userId === userId && new Date(lock.expiresAt) > now ? lock.lockedAt : now,
+            lockedAt: lockUserId === userId && new Date(lock.expiresAt) > now ? lock.lockedAt : now,
             expiresAt: makeLockExpiresAt()
         }, transaction ? { transaction } : {});
         return { ok: true, lock };
@@ -323,8 +330,9 @@ async function acquireCallCenterLock(patientId, req, options) {
 }
 
 async function releaseCallCenterLocks(userId, patientIds) {
-    if (!userId) return 0;
-    const where = { userId };
+    const normalizedUserId = normalizeNumericId(userId);
+    if (!normalizedUserId) return 0;
+    const where = { userId: normalizedUserId };
     const ids = parsePatientIds(patientIds);
     if (ids.length) where.patientId = { [Op.in]: ids };
     return db.CallCenterLock.destroy({ where });

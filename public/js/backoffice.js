@@ -55,8 +55,18 @@ var viewerMeta    = null;
 async function apiFetch(url, opts) {
     if (!opts) opts = {};
     var headers = Object.assign({}, opts.headers || {});
-    var res = await fetch(window.rxUrl ? window.rxUrl(url) : url, Object.assign({}, opts, { headers: headers, credentials: 'include' }));
-    if (res.status === 401) { if (window.rxNav) window.rxNav('/login'); else window.location.href = '/login'; return res; }
+    var targetUrl = window.rxUrl ? window.rxUrl(url) : url;
+    var requestOptions = Object.assign({}, opts, { headers: headers, credentials: 'include' });
+    var guardedFetch = window.rxFetchWithStagingGuard || window.fetch;
+    var res = await guardedFetch(targetUrl, requestOptions);
+        if (res.status === 401) {
+            if (window.rxNav) {
+                window.rxNav('/login');
+            } else {
+                window.location.href = '/login';
+            }
+            return res;
+        }
     if (res.status === 403) {
         var mw = document.getElementById('mainWrap'); var dw = document.getElementById('deniedWrap');
         if (mw) mw.style.display = 'none'; if (dw) dw.style.display = 'block';
@@ -1441,7 +1451,8 @@ function boRenderEndpointRow(ep) {
     var bodyHtml  = ep.body  ? '<span class="text-muted small ms-2" style="font-size:.7rem">Body: <code style="color:#22c55e">' + ep.body + '</code></span>' : '';
     var permHtml  = '<span class="perm-badge ' + (ep.admin ? 'admin' : '') + '">' + (ep.admin ? '<i class="fas fa-lock me-1"></i>' + ep.perm : ep.perm) + '</span>';
     var newBadge  = ep.inManifest === false ? '<span class="badge bg-info ms-1" style="font-size:.65rem">NEW</span>' : '';
-    var copyUrl   = ep.method + ' ' + window.location.origin + ep.path + (ep.query || '');
+    var copyBase  = window.RX_BASE || (window.rxNativeLocationOrigin ? window.rxNativeLocationOrigin() : '');
+    var copyUrl   = ep.method + ' ' + copyBase + ep.path + (ep.query || '');
     return '<div class="endpoint-row ' + methodClass + '">' +
         '<div class="d-flex align-items-start gap-2">' +
             '<span class="method-badge ' + methodClass + '">' + ep.method + '</span>' +

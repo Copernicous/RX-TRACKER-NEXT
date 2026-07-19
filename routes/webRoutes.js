@@ -2,27 +2,28 @@ const express = require('express');
 const router = express.Router();
 const { requireMaster } = require('../middleware/rbac');
 const { isCallCenterRole, hasCallCenterAccess } = require('../utils/callCenterAccess');
+const { proxyRedirect } = require('../utils/proxyAwareRedirect');
 
 function requireWebLogin(req, res, next) {
     if (res.locals && res.locals.currentUser) return next();
-    return res.redirect('/login');
+    return proxyRedirect(req, res, '/login');
 }
 
 function requireVisibleModule(moduleKey) {
     return (req, res, next) => {
-        if (!res.locals || !res.locals.currentUser) return res.redirect('/login');
+        if (!res.locals || !res.locals.currentUser) return proxyRedirect(req, res, '/login');
         if (res.locals.isAdmin) return next();
         const perms = res.locals.userPerms || {};
         const modulePerm = perms[moduleKey] || {};
         if (modulePerm.visible === true) return next();
-        return res.redirect('/dashboard');
+        return proxyRedirect(req, res, '/dashboard');
     };
 }
 
 function redirectCallCenterRole(req, res, next) {
     const user = res.locals && res.locals.currentUser;
     if (isCallCenterRole(user) && req.path !== '/call-center') {
-        return res.redirect('/call-center');
+        return proxyRedirect(req, res, '/call-center');
     }
     next();
 }
@@ -30,17 +31,17 @@ function redirectCallCenterRole(req, res, next) {
 function requireCallCenterPage(req, res, next) {
     const user = res.locals && res.locals.currentUser;
     if (hasCallCenterAccess(user)) return next();
-    return res.redirect('/dashboard');
+    return proxyRedirect(req, res, '/dashboard');
 }
 
 // Root → redirect to login
 router.get('/', (req, res) => {
-    if (res.locals && isCallCenterRole(res.locals.currentUser)) return res.redirect('/call-center');
-    res.redirect('/login');
+    if (res.locals && isCallCenterRole(res.locals.currentUser)) return proxyRedirect(req, res, '/call-center');
+    return proxyRedirect(req, res, '/login');
 });
 
 router.get('/login', (req, res) => {
-    if (res.locals && isCallCenterRole(res.locals.currentUser)) return res.redirect('/call-center');
+    if (res.locals && isCallCenterRole(res.locals.currentUser)) return proxyRedirect(req, res, '/call-center');
     res.render('login', { title: 'Login - Patient RX System' });
 });
 
