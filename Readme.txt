@@ -1,7 +1,24 @@
-Patient RX System v3.0.11
+Patient RX System v3.0.12
 =========================
 
-Production Release: Security Hardening and FortiGate Compatibility
+Production Release: Call Center MicroSIP Dialing Context
+
+This release adds one-click MicroSIP dialing to the Call Center roster and
+shows each patient's Clinic / Location and Patient Transport company. The
+application sends a normalized number to the workstation's registered
+`callto:` handler. Answer and hang-up remain in MicroSIP, and the agent marks
+Called and saves manually after the attempt.
+
+Approved direct LAN login cookies now work over HTTP while HTTPS and FortiGate
+proxy sessions retain Secure cookies. The release also includes a managed
+Chrome policy installer and runbook for suppressing the external-application
+confirmation on exact trusted origins.
+
+No proxy, DNS, certificate, firewall, PBX, or database migration is changed by
+this release. Existing production records are preserved.
+
+Previous production hardening retained
+--------------------------------------
 
 This release hardens authenticated changes, staging destructive operations,
 backup/restore processing, and FortiGate proxy compatibility. It also fixes
@@ -80,7 +97,7 @@ Production verification
 
 After installing this package:
 
-1. Confirm /api/version shows 3.0.11 for an administrator.
+1. Confirm /api/version shows 3.0.12 for an administrator.
 2. Confirm /api/version returns 403 for a Call Center user.
 3. Login as a Call Center user and confirm it opens /call-center directly.
 4. Confirm dashboard URL injection redirects the Call Center user back to
@@ -98,6 +115,15 @@ After installing this package:
    and CSV export.
 11. Confirm Reports > Analytics & Export > Call Center Report filters, totals,
     sorting, CSV export, and Excel export.
+12. Confirm the Call Center roster shows Clinic / Location and Patient
+    Transport, including Unassigned when no relationship exists.
+13. Click the green phone icon and confirm MicroSIP receives the complete,
+    normalized phone number and starts the call when MicroSIP is Online.
+14. Answer and hang up in MicroSIP, then mark Called and Save in RX Tracker;
+    confirm the call timestamp/history is retained after refresh.
+15. On managed Call Center workstations, install the packaged Chrome policy,
+    restart Chrome, reload chrome://policy, and confirm
+    AutoLaunchProtocolsFromOrigins has status OK.
 
 Security and proxy verification
 -------------------------------
@@ -113,5 +139,5 @@ Security and proxy verification
 Production package
 ------------------
 
-- Deploy dist/server-update-3.0.11.zip or approved dist files only.
+- Deploy dist/server-update-3.0.12.zip or approved dist files only.
 - Keep the production .env unchanged and next to server.exe.

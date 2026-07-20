@@ -7,6 +7,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+## [3.0.12] - 2026-07-20
+
 ### Added
 
 - Added a Windows/Chrome policy installer and deployment runbook that allow managed Call Center workstations to open MicroSIP without an external-application prompt, restricted to the exact approved production and local-testing origins.
@@ -15,6 +17,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 - Added a green click-to-call icon beside active Call Center phone numbers. The browser hands the normalized number to the user's local MicroSIP-compatible `callto:` handler without recording an unverified call.
 - Clarified in the Call Center workspace that answer and hang-up controls remain in MicroSIP and that the existing Called checkbox must be saved manually after the call attempt.
 - Added staging UI smoke coverage for the MicroSIP link, normalized dial target, manual call acknowledgement, and on-screen softphone guidance.
+- Added the MicroSIP Chrome policy installer and deployment runbook to the production update package.
 
 ### Fixed
 
@@ -23,6 +26,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 - Fixed direct staging/LAN browser login being redirected back to `/login`: explicitly allowed HTTP browser origins now receive non-Secure cookies, while real HTTPS and FortiGate proxy requests continue to receive Secure cookies.
 - Switched the Call Center softphone handoff from the generic Windows `tel:` association to MicroSIP's supported `callto:` command-line scheme so the protocol handler forwards the dial target instead of only opening the application.
+
+**Database impact:** None. Existing patients, calls, notes, clinics, transports, and service dates are unchanged.
 
 ## [3.0.11] - 2026-07-19
 

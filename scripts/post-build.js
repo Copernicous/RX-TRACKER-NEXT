@@ -41,6 +41,8 @@ const filesToCopy = [
     'DEFERRED-ITEMS.txt',
     'OPERATIONS_MANUAL.md',
     'NEW_SERVER_SETUP_RECOVERY.md',
+    path.join('docs', 'PRODUCTION_MICROSIP_CHROME_POLICY.md'),
+    path.join('scripts', 'install-production-microsip-chrome-policy.ps1'),
     'install-service.ps1',
     'uninstall-service.ps1',
 ];

@@ -1,5 +1,15 @@
 # Release Notes
 
+## v3.0.12 (2026-07-20)
+
+- Adds one-click Call Center dialing through the workstation's MicroSIP `callto:` handler.
+- Adds Clinic / Location and Patient Transport context to the Call Center roster, including search and sorting.
+- Keeps call answer and hang-up control in MicroSIP and requires the agent to save the existing Called checkbox after the attempt.
+- Fixes direct approved HTTP/LAN login cookies while retaining Secure cookies for HTTPS and FortiGate proxy traffic.
+- Adds exact production/local origin examples plus a managed Chrome policy installer and runbook for trusted Call Center workstations.
+
+No database migration or production data reset is required.
+
 ## v3.0.11 (2026-07-19)
 
 - Replaces the legacy compact RX Project Control screen with the standardized NOC/CORE/ALARM menu UI.
