@@ -21,6 +21,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ### Fixed
 
+- Updated the transitive `brace-expansion` lockfile entries to patched releases, clearing the high-severity production dependency audit finding without changing application APIs.
 - Corrected the production LAN origin from `192.168.60.21` to the current server address `192.168.62.21` and added the second public production origin, `portal.rbandrc.com`, to the application allowlist.
 - Clarified the Call Center MicroSIP handoff status so an offline softphone is not reported as an active call; MicroSIP must finish SIP registration before it can dial the handed-off number.
 

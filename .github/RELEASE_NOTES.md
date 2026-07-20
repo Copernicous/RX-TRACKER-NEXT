@@ -7,6 +7,7 @@
 - Keeps call answer and hang-up control in MicroSIP and requires the agent to save the existing Called checkbox after the attempt.
 - Fixes direct approved HTTP/LAN login cookies while retaining Secure cookies for HTTPS and FortiGate proxy traffic.
 - Adds exact production/local origin examples plus a managed Chrome policy installer and runbook for trusted Call Center workstations.
+- Updates the transitive `brace-expansion` lockfile entries to patched releases, removing the high-severity production dependency audit finding.
 
 No database migration or production data reset is required.
 
