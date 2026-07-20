@@ -67,6 +67,37 @@
             .replace(/'/g, '&#39;');
     }
 
+    function normalizeDialNumber(value) {
+        var raw = String(value === undefined || value === null ? '' : value).trim();
+        if (!raw) return '';
+        var digits = raw.replace(/\D/g, '');
+        if (!digits) return '';
+        return raw.charAt(0) === '+' ? ('+' + digits) : digits;
+    }
+
+    function renderPhone(row, canUpdate) {
+        var phone = String(row.phone || '').trim();
+        var dialNumber = normalizeDialNumber(phone);
+        var phoneHtml = '<span class="cc-phone">' + esc(phone || '--') + '</span>';
+        if (!dialNumber) return '<div class="cc-phone-wrap">' + phoneHtml + '</div>';
+
+        if (!canUpdate) {
+            return '<div class="cc-phone-wrap">' + phoneHtml +
+                '<span class="cc-call-link disabled" title="Calling is unavailable because this patient is no longer in the active call queue" aria-hidden="true">' +
+                    '<i class="fas fa-phone-alt"></i>' +
+                '</span>' +
+            '</div>';
+        }
+
+        var label = 'Call ' + (phone || dialNumber) + ' with MicroSIP';
+        return '<div class="cc-phone-wrap">' + phoneHtml +
+            '<a class="cc-call-link" data-action="microsip-call" data-dial-number="' + esc(dialNumber) + '" href="callto:' + esc(dialNumber) + '"' +
+                ' title="' + esc(label) + '" aria-label="' + esc(label) + '">' +
+                '<i class="fas fa-phone-alt" aria-hidden="true"></i>' +
+            '</a>' +
+        '</div>';
+    }
+
     function setText(id, value) {
         var el = document.getElementById(id);
         if (el) el.textContent = value;
@@ -202,11 +233,11 @@
     async function loadPatients() {
         var tbody = document.getElementById('ccPatientRows');
         if (tbody) {
-            tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin me-2"></i>Loading</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="11" class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin me-2"></i>Loading</td></tr>';
         }
         var res = await fetchWithAuth(queryUrl());
         if (!res || !res.ok) {
-            if (tbody) tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-4">No access</td></tr>';
+            if (tbody) tbody.innerHTML = '<tr><td colspan="11" class="text-center text-muted py-4">No access</td></tr>';
             return;
         }
         var data = await res.json();
@@ -233,7 +264,7 @@
         var tbody = document.getElementById('ccPatientRows');
         if (!tbody) return;
         if (!rows.length) {
-            tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-4">No eligible patients found.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="11" class="text-center text-muted py-4">No eligible patients found.</td></tr>';
             return;
         }
         var html = '';
@@ -247,7 +278,9 @@
             html += '<tr data-id="' + esc(row.id) + '">' +
                 '<td><div class="cc-name-cell">' + esc(row.firstName) + '</div></td>' +
                 '<td><div class="cc-name-cell">' + esc(row.lastName) + '</div></td>' +
-                '<td><span class="cc-phone">' + esc(row.phone) + '</span></td>' +
+                '<td><div class="cc-clinic-name">' + esc(row.clinicName || 'Unassigned') + '</div></td>' +
+                '<td><div class="cc-patient-transport-name">' + esc(row.patientTransportName || 'Unassigned') + '</div></td>' +
+                '<td>' + renderPhone(row, canUpdate) + '</td>' +
                 '<td><div class="cc-note-preview">' + renderNotes(row) + '</div></td>' +
                 '<td><input type="date" class="form-control form-control-sm cc-new-date" data-field="newServiceDate"' +
                     (state.eligibilityCutoff ? ' min="' + esc(state.eligibilityCutoff) + '"' : '') + disabled + '></td>' +
@@ -457,6 +490,12 @@
         }
         if (rows) {
             rows.addEventListener('click', function(e) {
+                var callLink = e.target.closest('[data-action="microsip-call"]');
+                if (callLink) {
+                    var dialNumber = callLink.getAttribute('data-dial-number') || '';
+                    toast('Opening MicroSIP with ' + dialNumber + '. MicroSIP must show Online before it can place the call; if it shows Connecting, the call will wait for SIP registration.', 'info');
+                    return;
+                }
                 var btn = e.target.closest('[data-action="save"]');
                 if (btn) saveRow(btn);
             });

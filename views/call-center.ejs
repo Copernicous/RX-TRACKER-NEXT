@@ -99,6 +99,7 @@
         }
         .cc-table {
             table-layout: fixed;
+            min-width: 1650px;
         }
         .cc-table th,
         .cc-table td {
@@ -111,6 +112,54 @@
         .cc-phone {
             font-variant-numeric: tabular-nums;
             white-space: nowrap;
+        }
+        .cc-clinic-name,
+        .cc-patient-transport-name {
+            min-width: 110px;
+            font-weight: 600;
+            line-height: 1.3;
+        }
+        .cc-phone-wrap {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            white-space: nowrap;
+        }
+        .cc-call-link {
+            width: 32px;
+            height: 32px;
+            flex: 0 0 32px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid #198754;
+            border-radius: 50%;
+            background: rgba(25, 135, 84, .1);
+            color: #198754;
+            text-decoration: none;
+            transition: background-color .15s, color .15s, transform .15s;
+        }
+        .cc-call-link:hover,
+        .cc-call-link:focus-visible {
+            background: #198754;
+            color: #fff;
+            transform: translateY(-1px);
+        }
+        .cc-call-link:focus-visible {
+            outline: 3px solid rgba(25, 135, 84, .28);
+            outline-offset: 2px;
+        }
+        .cc-call-link.disabled {
+            border-color: var(--border);
+            background: rgba(108, 117, 125, .08);
+            color: var(--text-muted);
+            cursor: not-allowed;
+            opacity: .55;
+        }
+        .cc-softphone-help {
+            color: var(--text-muted);
+            font-size: .78rem;
+            line-height: 1.4;
         }
         .cc-note-preview {
             max-height: 74px;
@@ -240,7 +289,7 @@
                         <label class="form-label small fw-bold text-muted mb-1" for="ccSearch">Search</label>
                         <div class="input-group">
                             <span class="input-group-text"><i class="fas fa-search"></i></span>
-                            <input id="ccSearch" type="search" class="form-control" autocomplete="off">
+                            <input id="ccSearch" type="search" class="form-control" autocomplete="off" placeholder="Name, phone, clinic, or patient transport">
                         </div>
                     </div>
                     <div>
@@ -260,6 +309,9 @@
                     <div>
                         <div class="fw-bold"><i class="fas fa-list-alt me-2 text-info"></i><span id="ccListTitle">New Call Queue</span></div>
                         <div class="cc-list-subtitle" id="ccListSubtitle">Patients ready for the next call.</div>
+                        <div class="cc-softphone-help mt-1" id="ccSoftphoneHelp">
+                            <i class="fas fa-info-circle me-1"></i>The green phone opens MicroSIP with the number. MicroSIP must show Online before it can place the call. After the call, mark Called and Save.
+                        </div>
                     </div>
                     <span class="badge rounded-pill bg-secondary" id="ccRangeLabel">--</span>
                 </div>
@@ -267,8 +319,10 @@
                     <table class="table table-hover align-middle mb-0 cc-table">
                         <thead>
                             <tr>
-                                <th style="width:13%"><button class="cc-sort" data-sort="firstName" type="button">First Name<i class="fas fa-sort"></i></button></th>
-                                <th style="width:14%"><button class="cc-sort" data-sort="lastName" type="button">Last Name<i class="fas fa-sort"></i></button></th>
+                                <th style="width:10%"><button class="cc-sort" data-sort="firstName" type="button">First Name<i class="fas fa-sort"></i></button></th>
+                                <th style="width:11%"><button class="cc-sort" data-sort="lastName" type="button">Last Name<i class="fas fa-sort"></i></button></th>
+                                <th style="width:12%"><button class="cc-sort" data-sort="clinicName" type="button">Clinic / Location<i class="fas fa-sort"></i></button></th>
+                                <th style="width:12%"><button class="cc-sort" data-sort="patientTransportName" type="button">Patient Transport<i class="fas fa-sort"></i></button></th>
                                 <th style="width:12%"><button class="cc-sort" data-sort="phone" type="button">Phone<i class="fas fa-sort"></i></button></th>
                                 <th style="width:14%"><button class="cc-sort" data-sort="notes" type="button">Notes<i class="fas fa-sort"></i></button></th>
                                 <th style="width:11%"><button class="cc-sort" data-sort="serviceDate" type="button">New Service Date<i class="fas fa-sort"></i></button></th>
@@ -279,7 +333,7 @@
                             </tr>
                         </thead>
                         <tbody id="ccPatientRows">
-                            <tr><td colspan="9" class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin me-2"></i>Loading</td></tr>
+                            <tr><td colspan="11" class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin me-2"></i>Loading</td></tr>
                         </tbody>
                     </table>
                 </div>

@@ -21,7 +21,8 @@ const screenshotsDir = path.join(stagingConfig.writableRoot, 'smoke-screenshots'
 const created = {
     users: [],
     patients: [],
-    clinics: []
+    clinics: [],
+    patientTransports: []
 };
 
 let browser;
@@ -95,7 +96,7 @@ async function createUser(role, label) {
     return user;
 }
 
-async function createPatient(clinic, label, serviceDate) {
+async function createPatient(clinic, patientTransport, label, serviceDate) {
     const patient = await db.Patient.create({
         firstName: 'Smoke',
         lastName: `${label}${runId.slice(-5)}`,
@@ -104,6 +105,7 @@ async function createPatient(clinic, label, serviceDate) {
         phone: '555-' + runId.slice(-3).padStart(3, '0') + '-' + (label === 'Queue' ? '0001' : '0002'),
         serviceDate,
         clinicId: clinic.id,
+        patientTransportCompanyId: patientTransport.id,
         notes: 'Staging UI smoke patient ' + label,
         isActive: true,
         isDeleted: false,
@@ -149,9 +151,18 @@ async function seedFixtures() {
     });
     created.clinics.push(clinic);
 
-    const queuePatient = await createPatient(clinic, 'Queue', dateFromToday(-130));
-    const metricPatient = await createPatient(clinic, 'Metric', dateFromToday(-125));
-    const secondMetricPatient = await createPatient(clinic, 'MetricTwo', dateFromToday(-124));
+    const patientTransport = await db.PatientTransportCompany.create({
+        companyName: 'Smoke Patient Transport ' + runId,
+        phone: '555-778-0000',
+        contactPerson: 'Smoke Dispatcher',
+        notes: 'Temporary staging UI smoke patient transport',
+        isActive: true
+    });
+    created.patientTransports.push(patientTransport);
+
+    const queuePatient = await createPatient(clinic, patientTransport, 'Queue', dateFromToday(-130));
+    const metricPatient = await createPatient(clinic, patientTransport, 'Metric', dateFromToday(-125));
+    const secondMetricPatient = await createPatient(clinic, patientTransport, 'MetricTwo', dateFromToday(-124));
 
     await createCallCenterAudit(callCenterUser, metricPatient, 'Called', 25);
     await createCallCenterAudit(callCenterUser, metricPatient, 'Called', 20);
@@ -177,6 +188,8 @@ async function seedFixtures() {
     return {
         adminUser,
         callCenterUser,
+        clinic,
+        patientTransport,
         queuePatient,
         metricPatient,
         secondMetricPatient,
@@ -422,10 +435,54 @@ async function runCallCenterWorkspace(fixtures) {
     await page.click('#ccSearchBtn');
     const rowSelector = '#ccPatientRows tr:has-text("' + fixtures.queueSearch + '")';
     await page.locator(rowSelector).first().waitFor({ state: 'visible', timeout: 15000 });
-    await page.locator('.cc-sort[data-sort="firstName"]').click();
-    pass('Call Center queue sorting click');
+    await page.locator('.cc-sort[data-sort="clinicName"]').click();
+    pass('Call Center clinic sorting click');
+    await page.locator('.cc-sort[data-sort="patientTransportName"]').click();
+    pass('Call Center patient transport sorting click');
 
     let row = page.locator(rowSelector).first();
+    assert.strictEqual(
+        (await row.locator('.cc-clinic-name').innerText()).trim(),
+        fixtures.clinic.name,
+        'Call Center roster should show the patient clinic/location.'
+    );
+    const clinicSearchRes = await context.request.get(route('/api/call-center/patients?q=' + encodeURIComponent(fixtures.clinic.name) + '&sort=clinicName'));
+    assert.strictEqual(clinicSearchRes.status(), 200, 'Call Center clinic search API should be available.');
+    const clinicSearchData = await clinicSearchRes.json();
+    const clinicSearchRow = (clinicSearchData.rows || []).find(item => item.id === fixtures.queuePatient.id);
+    assert(clinicSearchRow, 'Call Center clinic search should find the assigned patient.');
+    assert.strictEqual(clinicSearchRow.clinicName, fixtures.clinic.name, 'Call Center API should expose the assigned clinic name.');
+    pass('Call Center clinic displayed and searchable', fixtures.clinic.name);
+    assert.strictEqual(
+        (await row.locator('.cc-patient-transport-name').innerText()).trim(),
+        fixtures.patientTransport.companyName,
+        'Call Center roster should show the patient transport company.'
+    );
+    const patientTransportSearchRes = await context.request.get(route('/api/call-center/patients?q=' + encodeURIComponent(fixtures.patientTransport.companyName) + '&sort=patientTransportName'));
+    assert.strictEqual(patientTransportSearchRes.status(), 200, 'Call Center patient transport search API should be available.');
+    const patientTransportSearchData = await patientTransportSearchRes.json();
+    const patientTransportSearchRow = (patientTransportSearchData.rows || []).find(item => item.id === fixtures.queuePatient.id);
+    assert(patientTransportSearchRow, 'Call Center patient transport search should find the assigned patient.');
+    assert.strictEqual(patientTransportSearchRow.patientTransportName, fixtures.patientTransport.companyName, 'Call Center API should expose the assigned patient transport company.');
+    pass('Call Center patient transport displayed and searchable', fixtures.patientTransport.companyName);
+
+    const callLink = row.locator('.cc-call-link[data-action="microsip-call"]');
+    await callLink.waitFor({ state: 'visible', timeout: 15000 });
+    const expectedDialNumber = String(fixtures.queuePatient.phone || '').replace(/\D/g, '');
+    assert.strictEqual(
+        await callLink.getAttribute('href'),
+        'callto:' + expectedDialNumber,
+        'Call Center phone icon should hand the normalized number to the local MicroSIP-compatible CALLTO protocol handler.'
+    );
+    assert.strictEqual(await callLink.getAttribute('data-dial-number'), expectedDialNumber, 'Call Center link should retain the number shown in the launch message.');
+    assert.strictEqual(await row.locator('.cc-called').isChecked(), false, 'Rendering click-to-call must not pre-record a call.');
+    assert.match(
+        await page.locator('#ccSoftphoneHelp').innerText(),
+        /must show Online/i,
+        'Call Center should explain that MicroSIP must be online before dialing.'
+    );
+    pass('Call Center MicroSIP click-to-call link configured', 'callto:' + expectedDialNumber);
+
     await row.locator('.cc-row-note').fill('First smoke call note ' + runId);
     await row.locator('.cc-called').check();
     await Promise.all([
@@ -476,6 +533,7 @@ async function cleanup() {
     const patientIds = created.patients.map(row => row.id);
     const userIds = created.users.map(row => row.id);
     const clinicIds = created.clinics.map(row => row.id);
+    const patientTransportIds = created.patientTransports.map(row => row.id);
     await new Promise(resolve => setTimeout(resolve, 500));
 
     if (patientIds.length) {
@@ -494,6 +552,9 @@ async function cleanup() {
     }
     if (clinicIds.length) {
         await db.Clinic.destroy({ where: { id: { [Op.in]: clinicIds } } }).catch(() => {});
+    }
+    if (patientTransportIds.length) {
+        await db.PatientTransportCompany.destroy({ where: { id: { [Op.in]: patientTransportIds } } }).catch(() => {});
     }
 }
 

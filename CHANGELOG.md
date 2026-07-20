@@ -7,6 +7,23 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+### Added
+
+- Added a Windows/Chrome policy installer and deployment runbook that allow managed Call Center workstations to open MicroSIP without an external-application prompt, restricted to the exact approved production and local-testing origins.
+- Added the assigned Clinic / Location to every Call Center roster view, including clinic-name search and sorting, so agents can match each patient to the correct location.
+- Added the assigned Patient Transport company to every Call Center roster view, including transport-company search and sorting.
+- Added a green click-to-call icon beside active Call Center phone numbers. The browser hands the normalized number to the user's local MicroSIP-compatible `callto:` handler without recording an unverified call.
+- Clarified in the Call Center workspace that answer and hang-up controls remain in MicroSIP and that the existing Called checkbox must be saved manually after the call attempt.
+- Added staging UI smoke coverage for the MicroSIP link, normalized dial target, manual call acknowledgement, and on-screen softphone guidance.
+
+### Fixed
+
+- Corrected the production LAN origin from `192.168.60.21` to the current server address `192.168.62.21` and added the second public production origin, `portal.rbandrc.com`, to the application allowlist.
+- Clarified the Call Center MicroSIP handoff status so an offline softphone is not reported as an active call; MicroSIP must finish SIP registration before it can dial the handed-off number.
+
+- Fixed direct staging/LAN browser login being redirected back to `/login`: explicitly allowed HTTP browser origins now receive non-Secure cookies, while real HTTPS and FortiGate proxy requests continue to receive Secure cookies.
+- Switched the Call Center softphone handoff from the generic Windows `tel:` association to MicroSIP's supported `callto:` command-line scheme so the protocol handler forwards the dial target instead of only opening the application.
+
 ## [3.0.11] - 2026-07-19
 
 ### [RELEASE-311] Standardized RX Project Control menu

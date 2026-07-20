@@ -1,0 +1,73 @@
+# Production MicroSIP Chrome policy
+
+RX Tracker launches MicroSIP through the `callto:` protocol after an agent clicks the green phone icon. Chrome normally asks the user to confirm before opening an external application.
+
+On dedicated, managed Call Center workstations, Chrome can skip that prompt for the exact approved RX Tracker production and local-testing origins:
+
+- Protocol: `callto`
+- Allowed origins:
+  - `https://portal.rbandrc.com`
+  - `https://rx.camperos.net:10443`
+  - `http://192.168.62.21:3000`
+  - `http://192.168.15.87:3000`
+  - `http://192.168.15.87:3100`
+
+The `192.168.15.x` workstation subnet is not wildcarded. Chrome checks the website origin, so only the known RX Tracker server URLs are allowlisted.
+
+## Server origin configuration
+
+Environment files are intentionally excluded from Git. On the second server and production server, configure the application allowlist explicitly:
+
+```dotenv
+APP_ORIGINS=https://rx.camperos.net:10443,https://portal.rbandrc.com,http://192.168.62.21:3000,http://192.168.15.87:3000,http://localhost:3000
+```
+
+Restart the application after changing its environment file. The Chrome policy and the application origin allowlist are separate controls; both must include the browser URL being tested.
+
+## Install on a workstation
+
+1. Sign in to Windows on the Call Center workstation.
+2. Open PowerShell as Administrator.
+3. From the deployed RX Tracker folder, run:
+
+   ```powershell
+   powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\install-production-microsip-chrome-policy.ps1
+   ```
+
+4. Restart Chrome.
+5. Open `chrome://policy` and click **Reload policies**.
+6. Confirm that `AutoLaunchProtocolsFromOrigins` has status **OK**.
+7. Open production and test the green phone icon.
+
+The installer preserves other protocols and origins already present in the Chrome policy. Do not replace the production origins with `*`.
+
+## Remove the permission
+
+Run the same script as Administrator with `-Remove`:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\install-production-microsip-chrome-policy.ps1 -Remove
+```
+
+Restart Chrome and reload `chrome://policy` afterward.
+
+## Central deployment
+
+For multiple managed workstations, deploy the Chrome `AutoLaunchProtocolsFromOrigins` machine policy through Active Directory Group Policy or Chrome Enterprise. Use this policy value:
+
+```json
+[
+  {
+    "allowed_origins": [
+      "http://192.168.15.87:3000",
+      "http://192.168.15.87:3100",
+      "http://192.168.62.21:3000",
+      "https://portal.rbandrc.com",
+      "https://rx.camperos.net:10443"
+    ],
+    "protocol": "callto"
+  }
+]
+```
+
+The policy must remain limited to the trusted production and testing origins. The user's click on the green phone icon provides the required user gesture.

@@ -32,9 +32,20 @@ function shouldAllowBackendHttp(req) {
     return process.env.HTTPS_ALLOW_BACKEND_HTTP === 'true' && !isLoopbackHost(req);
 }
 
+function hasExplicitBrowserHttpUrl(req) {
+    const origin = String(req.headers.origin || '').trim().toLowerCase();
+    const referer = String(req.headers.referer || req.headers.referrer || '').trim().toLowerCase();
+    return origin.startsWith('http://') || referer.startsWith('http://');
+}
+
 function shouldTreatAsSecure(req) {
     if (isSecureRequest(req)) return true;
     if (shouldAllowLocalHttp(req)) return false;
+    // HTTPS_ASSUME_PROXY_HTTPS covers FortiGate's plain-HTTP backend hop, but a
+    // browser may also access an explicitly allowed staging/LAN HTTP origin.
+    // In that direct case a Secure cookie would be discarded and login would
+    // immediately redirect back to /login.
+    if (shouldAllowBackendHttp(req) && hasExplicitBrowserHttpUrl(req)) return false;
     return process.env.HTTPS_ASSUME_PROXY_HTTPS === 'true';
 }
 
@@ -47,6 +58,7 @@ module.exports = {
     isLoopbackHost,
     shouldAllowLocalHttp,
     shouldAllowBackendHttp,
+    hasExplicitBrowserHttpUrl,
     shouldTreatAsSecure,
     shouldUseSecureCookie
 };

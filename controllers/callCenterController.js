@@ -156,11 +156,15 @@ function isEligiblePatient(patient) {
 
 function patientMatchesSearch(patient, q) {
     if (!q) return true;
+    const clinic = patient && patient.Clinic ? patient.Clinic : null;
+    const patientTransport = patient && patient.PatientTransportCompany ? patient.PatientTransportCompany : null;
     const haystack = [
         patient.firstName || '',
         patient.lastName || '',
         `${patient.firstName || ''} ${patient.lastName || ''}`.trim(),
-        patient.phone || ''
+        patient.phone || '',
+        clinic && clinic.name ? clinic.name : '',
+        patientTransport && patientTransport.companyName ? patientTransport.companyName : ''
     ].join(' ').toLowerCase();
     const normalizedPhone = String(patient.phone || '').replace(/\D/g, '');
     const needle = String(q || '').trim().toLowerCase();
@@ -176,7 +180,7 @@ function parsePaging(query) {
 }
 
 function parseSort(query) {
-    const allowed = new Set(['firstName', 'lastName', 'phone', 'notes', 'serviceDate', 'status', 'callCount', 'lastCall']);
+    const allowed = new Set(['firstName', 'lastName', 'clinicName', 'patientTransportName', 'phone', 'notes', 'serviceDate', 'status', 'callCount', 'lastCall']);
     const sort = allowed.has(String(query.sort || '')) ? String(query.sort) : '';
     const dir = String(query.dir || 'asc').toLowerCase() === 'desc' ? -1 : 1;
     return { sort, dir };
@@ -209,6 +213,16 @@ function sortPatients(rows, sortConfig, callHistory) {
         }
         if (sortConfig.sort === 'status') {
             return compareValues(isEligiblePatient(l) ? 'eligible' : 'completed', isEligiblePatient(r) ? 'eligible' : 'completed') * dir;
+        }
+        if (sortConfig.sort === 'clinicName') {
+            const lc = l.Clinic && l.Clinic.name ? l.Clinic.name : '';
+            const rc = r.Clinic && r.Clinic.name ? r.Clinic.name : '';
+            return compareValues(lc, rc) * dir;
+        }
+        if (sortConfig.sort === 'patientTransportName') {
+            const lt = l.PatientTransportCompany && l.PatientTransportCompany.companyName ? l.PatientTransportCompany.companyName : '';
+            const rt = r.PatientTransportCompany && r.PatientTransportCompany.companyName ? r.PatientTransportCompany.companyName : '';
+            return compareValues(lt, rt) * dir;
         }
         return compareValues(l[sortConfig.sort], r[sortConfig.sort]) * dir;
     });
@@ -452,6 +466,12 @@ function serializePatient(patient, callHistory, noteHistory) {
         id: plain.id,
         firstName: plain.firstName || '',
         lastName: plain.lastName || '',
+        clinicId: plain.clinicId || null,
+        clinicName: plain.Clinic && plain.Clinic.name ? plain.Clinic.name : '',
+        patientTransportCompanyId: plain.patientTransportCompanyId || null,
+        patientTransportName: plain.PatientTransportCompany && plain.PatientTransportCompany.companyName
+            ? plain.PatientTransportCompany.companyName
+            : '',
         phone: plain.phone || '',
         serviceDate,
         serviceDateDisplay: formatDate(serviceDate),
@@ -567,7 +587,11 @@ exports.listPatients = async (req, res) => {
         const sortConfig = parseSort(req.query || {});
         const q = String((req.query && req.query.q) || '').trim();
         const rows = await db.Patient.findAll({
-            attributes: ['id', 'firstName', 'lastName', 'phone', 'serviceDate', 'notes', 'isActive', 'isDeleted'],
+            attributes: ['id', 'firstName', 'lastName', 'clinicId', 'patientTransportCompanyId', 'phone', 'serviceDate', 'notes', 'isActive', 'isDeleted'],
+            include: [
+                { model: db.Clinic, attributes: ['id', 'name'], required: false },
+                { model: db.PatientTransportCompany, attributes: ['id', 'companyName'], required: false }
+            ],
             where: baseEligibleWhere(),
             order: [['serviceDate', 'ASC'], ['lastName', 'ASC'], ['firstName', 'ASC'], ['id', 'ASC']]
         });
@@ -669,7 +693,11 @@ async function listActivityPatients(req, res, view) {
     }
 
     const patients = await db.Patient.findAll({
-        attributes: ['id', 'firstName', 'lastName', 'phone', 'serviceDate', 'notes', 'isActive', 'isDeleted'],
+        attributes: ['id', 'firstName', 'lastName', 'clinicId', 'patientTransportCompanyId', 'phone', 'serviceDate', 'notes', 'isActive', 'isDeleted'],
+        include: [
+            { model: db.Clinic, attributes: ['id', 'name'], required: false },
+            { model: db.PatientTransportCompany, attributes: ['id', 'companyName'], required: false }
+        ],
         where: { id: { [Op.in]: ids } }
     });
     const byId = new Map();
