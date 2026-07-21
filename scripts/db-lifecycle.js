@@ -9,6 +9,13 @@ const { inspectDatabase, assertDatabaseReady } = require('../db/schema-verifier'
 const { adoptV331, inspectV331Anchor } = require('../db/v331-adoption');
 const { seedReferenceData } = require('../db/reference-data');
 const { bootstrapAdmin } = require('../db/admin-bootstrap');
+const {
+  sanitizeDatabase,
+  validateSanitizedDatabase,
+  createSanitizedAdmin
+} = require('../db/data-sanitizer');
+const { restoreDump } = require('../db/dump-restore');
+const { createSourceConnectionFromEnv, compareDatabases } = require('../db/database-comparator');
 
 async function main(argv = process.argv.slice(2)) {
   const command = String(argv[0] || 'help').toLowerCase();
@@ -91,6 +98,79 @@ async function main(argv = process.argv.slice(2)) {
         });
         delete process.env[passwordEnv];
         console.log(`[DB] Created first-run administrator ${result.username} (id ${result.id}, master=${result.isMaster}).`);
+        break;
+      }
+
+      case 'sanitize': {
+        printTarget();
+        await assertDatabaseReady(db);
+        const result = await sanitizeDatabase(db, { confirmDatabase: options.confirmDatabase });
+        console.log(`[DB] Sanitization complete. Validation checks passed with ${result.violations.length} violation(s).`);
+        break;
+      }
+
+      case 'validate-sanitized': {
+        printTarget();
+        await assertDatabaseReady(db);
+        const result = await validateSanitizedDatabase(db);
+        console.log(`[DB] Sanitized-data validation: ${result.ok ? 'PASS' : 'FAIL'}.`);
+        result.violations.forEach((item) => console.log(`  VIOLATION ${item.check}: ${item.count} row(s)`));
+        if (!result.ok) exitCode = 2;
+        break;
+      }
+
+      case 'sanitized-admin': {
+        printTarget();
+        await assertDatabaseReady(db);
+        const passwordEnv = String(options.passwordEnv || 'RX_SANITIZED_ADMIN_PASSWORD');
+        const password = process.env[passwordEnv];
+        if (!password) throw new Error(`Set ${passwordEnv} before running sanitized-admin.`);
+        const result = await createSanitizedAdmin(db, {
+          confirmDatabase: options.confirmDatabase,
+          password
+        });
+        delete process.env[passwordEnv];
+        console.log(`[DB] Sanitized test administrator ready: ${result.username} (id ${result.id}).`);
+        break;
+      }
+
+      case 'restore-copy': {
+        printTarget();
+        const result = await restoreDump(db, {
+          confirmDatabase: options.confirmDatabase,
+          dumpPath: options.dump
+        });
+        console.log(`[DB] Restore complete using ${result.format} format.`);
+        break;
+      }
+
+      case 'rehearse-v331': {
+        printTarget();
+        await restoreDump(db, {
+          confirmDatabase: options.confirmDatabase,
+          dumpPath: options.dump
+        });
+        const adoption = await adoptV331(db, { confirmDatabase: options.confirmDatabase });
+        console.log(`[DB] Adopted ${adoption.recorded} legacy migration name(s).`);
+        const migrationResult = await migrate(db.sequelize);
+        console.log(`[DB] Applied ${migrationResult.appliedCount} NEXT migration(s).`);
+        await assertDatabaseReady(db);
+        await seedReferenceData(db);
+        const sanitization = await sanitizeDatabase(db, { confirmDatabase: options.confirmDatabase });
+        console.log(`[DB] Rehearsal copy sanitized; ${sanitization.violations.length} validation violation(s).`);
+        break;
+      }
+
+      case 'compare-copy': {
+        printTarget();
+        const source = createSourceConnectionFromEnv();
+        try {
+          const comparison = await compareDatabases(source, db.sequelize);
+          printComparison(comparison);
+          if (!comparison.schemaCompatible) exitCode = 2;
+        } finally {
+          await source.close().catch(() => {});
+        }
         break;
       }
 
@@ -204,11 +284,33 @@ RX Tracker NEXT database lifecycle
   rx-db seed-reference
   rx-db bootstrap-admin --username <name> [--email <address>] [--master]
   rx-db provision
+  rx-db restore-copy --dump <path> --confirm-database <exact DB_NAME>
+  rx-db rehearse-v331 --dump <path> --confirm-database <exact DB_NAME>
+  rx-db sanitize --confirm-database <exact DB_NAME>
+  rx-db validate-sanitized
+  rx-db sanitized-admin --confirm-database <exact DB_NAME>
+  rx-db compare-copy
 
 bootstrap-admin reads the password from RX_BOOTSTRAP_ADMIN_PASSWORD by default.
 Use --password-env <VARIABLE_NAME> to select a different environment variable.
 No command prints database, administrator, SIP, relay, or encryption secrets.
 `);
+}
+
+function printComparison(comparison) {
+  console.log(`[DB] Compared source=${comparison.source} target=${comparison.target}.`);
+  console.log(`[DB] Schema compatible: ${comparison.schemaCompatible ? 'yes' : 'no'}`);
+  console.log(`[DB] Tables: source=${comparison.sourceTableCount} target=${comparison.targetTableCount}`);
+  comparison.missingFromTarget.forEach((table) => console.log(`  MISSING TABLE ${table}`));
+  comparison.addedInTarget.forEach((table) => console.log(`  ADDED TABLE ${table}`));
+  comparison.columnDifferences.forEach((item) => {
+    console.log(
+      `  COLUMNS ${item.table}: missing=[${item.missingFromTarget.join(',')}] added=[${item.addedInTarget.join(',')}]`
+    );
+  });
+  comparison.rowCountDifferences.forEach((item) => {
+    console.log(`  ROWS ${item.table}: source=${item.source} target=${item.target} delta=${item.delta}`);
+  });
 }
 
 if (require.main === module) {
