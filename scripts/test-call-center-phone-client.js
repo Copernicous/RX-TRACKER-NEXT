@@ -45,6 +45,7 @@ try {
     const db = require('../models');
     db.AuditLog.create = () => Promise.resolve();
     const adminController = require('../controllers/adminController');
+    const softphoneAccountController = require('../controllers/softphoneAccountController');
     const response = {
         statusCode: 200,
         payload: null,
@@ -69,6 +70,17 @@ try {
 
     response.statusCode = 200;
     response.payload = null;
+    softphoneAccountController.saveOwnAccount({
+        body: { server: 'wrong.invalid', username: '9999', adminPin: 'regression-admin-pin' },
+        user: { id: 99, role: 'Call Center' },
+        headers: {},
+        socket: { remoteAddress: '127.0.0.1' }
+    }, response);
+    assert.strictEqual(response.statusCode, 403, 'Call Center users must never be allowed to save phone-account changes.');
+    assert.match(response.payload.error, /Only an Administrator/, 'Phone-account rejection must explain the Administrator-only rule.');
+
+    response.statusCode = 200;
+    response.payload = null;
     adminController.saveSettings({
         body: { callCenterPhoneClient: 'unsupported' },
         user: { id: 1 },
@@ -84,6 +96,7 @@ try {
     assert(callCenterScript.includes("payload.callAnsweredAt"), 'Answered-call audit metadata is missing.');
     assert(callCenterScript.includes('/api/call-center/phone-account'), 'Server-managed softphone account endpoint is missing.');
     assert(callCenterScript.includes('account.adminPin'), 'Phone-account save must send the administrator PIN only for server validation.');
+    assert(callCenterScript.includes('account.canManage'), 'Call Center phone-account UI must honor the server-managed read-only flag.');
     assert(callCenterScript.includes('connectAssignedPhone(false, false)'), 'Automatic per-user softphone registration is missing.');
     assert(!callCenterScript.includes('rxCallCenterSoftphoneProfileV1'), 'Softphone account metadata must not be stored in browser localStorage.');
 

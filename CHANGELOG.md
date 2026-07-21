@@ -13,6 +13,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 **Database impact:** None.
 
+### Security
+
+- Made RX Softphone account changes Administrator-only at both the API and Call Center UI layers. Call Center users can still use their assigned account and automatic registration, but the PBX, extension, port, display name, and SIP password are read-only. The optional environment PIN is now an additional approval check for administrators rather than the only barrier protecting account changes.
+
 ## [3.2.0] - 2026-07-20
 
 ### Added

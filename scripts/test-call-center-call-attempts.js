@@ -11,6 +11,7 @@ if (!/(ui_smoke|test)/i.test(process.env.DB_NAME)) {
 
 const db = require('../models');
 const controller = require('../controllers/callAttemptController');
+const { getCallCenterInactiveClaimSeconds } = require('../utils/globalSettings');
 
 const runId = String(Date.now());
 const created = { userId: null, clinicId: null, patientIds: [], attemptIds: [], auditIds: [] };
@@ -155,7 +156,8 @@ async function main() {
         assert.strictEqual(endRes.body.attempt.conversationDurationSeconds, 15);
         activeLock = await db.CallCenterLock.findOne({ where: { patientId: patient.id, userId: user.id } });
         const terminalLeaseMs = new Date(activeLock.expiresAt).getTime() - Date.now();
-        assert(terminalLeaseMs > 0 && terminalLeaseMs <= 16000, 'A terminal call must shorten the patient claim to the inactive timeout.');
+        const inactiveLeaseLimitMs = getCallCenterInactiveClaimSeconds() * 1000 + 1000;
+        assert(terminalLeaseMs > 0 && terminalLeaseMs <= inactiveLeaseLimitMs, 'A terminal call must shorten the patient claim to the configured inactive timeout.');
 
         const noAnswerStart = response();
         await controller.startAttempt(request(reqUser, { patientId: patient.id, dialedNumber: '5550101234' }), noAnswerStart);

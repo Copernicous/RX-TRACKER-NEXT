@@ -180,7 +180,7 @@ router.get('/staging/implementation-version', adminOnly, sendStagingManifestResp
 
 router.get('/call-center/patients', callCenterController.requireAccess, callCenterController.listPatients);
 router.get('/call-center/phone-account', callCenterController.requireAccess, softphoneAccountController.getOwnAccount);
-router.put('/call-center/phone-account', callCenterController.requireWriteAccess, phoneAccountSaveLimiter, softphoneAccountController.saveOwnAccount);
+router.put('/call-center/phone-account', callCenterController.requireWriteAccess, adminOnly, phoneAccountSaveLimiter, softphoneAccountController.saveOwnAccount);
 router.post('/call-center/phone-account/registration', callCenterController.requireAccess, softphoneAccountController.getOwnRegistration);
 router.post('/call-center/call-attempts', callCenterController.requireWriteAccess, callAttemptController.startAttempt);
 router.get('/call-center/call-attempts/by-correlation/:correlationId', callCenterController.requireAccess, callAttemptController.getOwnAttemptByCorrelation);

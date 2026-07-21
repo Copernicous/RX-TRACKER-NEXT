@@ -337,6 +337,7 @@
 
     function populateRegistrationForm(account, snapshot) {
         var accountResponse = account || {};
+        var canManage = accountResponse.canManage === true;
         account = account && account.configured ? account : {};
         var values = {
             server: account.server || (snapshot && snapshot.server) || '192.168.15.200',
@@ -359,12 +360,12 @@
         var password = document.getElementById('ccSipPassword');
         if (password) {
             password.value = '';
-            password.required = !account.passwordConfigured;
+            password.required = canManage && !account.passwordConfigured;
             password.placeholder = account.passwordConfigured ? 'Leave blank to keep the saved password' : 'Required for first setup';
         }
         var adminPinGroup = document.getElementById('ccSipAdminPinGroup');
         var adminPin = document.getElementById('ccSipAdminPin');
-        var pinRequired = accountResponse.adminPinRequired === true;
+        var pinRequired = canManage && accountResponse.adminPinRequired === true;
         if (adminPinGroup) adminPinGroup.hidden = !pinRequired;
         if (adminPin) {
             adminPin.value = '';
@@ -408,28 +409,40 @@
         var snapshot = rxPhone.snapshot;
         var registration = snapshot && snapshot.registration ? snapshot.registration : 'offline';
         var busy = rxPhone.savingAccount || !!rxPhone.registrationPromise;
+        var canManage = !!(account && account.canManage === true);
         ['ccSipServer', 'ccSipPort', 'ccSipUsername', 'ccSipDisplayName', 'ccSipPassword', 'ccSipLocalPort', 'ccSipAdminPin'].forEach(function(id) {
             var input = document.getElementById(id);
-            if (input) input.disabled = busy;
+            if (input) input.disabled = busy || !canManage;
         });
 
         var registerButton = document.getElementById('ccPhoneRegisterBtn');
         var unregisterButton = document.getElementById('ccPhoneUnregisterBtn');
         var password = document.getElementById('ccSipPassword');
         var adminPin = document.getElementById('ccSipAdminPin');
-        var pinRequired = !!(account && account.adminPinRequired);
+        var pinRequired = canManage && !!(account && account.adminPinRequired);
         if (password) {
-            password.required = !(account && account.passwordConfigured);
+            password.required = canManage && !(account && account.passwordConfigured);
             password.placeholder = account && account.passwordConfigured
                 ? 'Leave blank to keep the saved password'
                 : 'Required for first setup';
         }
         if (adminPin) adminPin.required = pinRequired;
-        if (registerButton) registerButton.disabled = busy;
+        if (registerButton) {
+            registerButton.disabled = busy || !canManage;
+            registerButton.classList.toggle('d-none', !canManage);
+        }
+        var passwordToggle = document.getElementById('ccSipPasswordToggle');
+        if (passwordToggle) passwordToggle.disabled = busy || !canManage;
         if (unregisterButton) unregisterButton.disabled = busy || !rxPhone.reachable || registration === 'offline';
 
         if (!rxPhone.accountLoaded) {
             setRegistrationMessage('Loading the softphone account assigned to your RX user.', 'secondary');
+        } else if (!canManage && account && account.configured && registration === 'registered') {
+            setRegistrationMessage('Connected as extension ' + (snapshot.username || '') + '. Phone settings are read-only and managed by an Administrator.', 'success');
+        } else if (!canManage && account && account.configured) {
+            setRegistrationMessage('Phone settings are read-only and managed by an Administrator. This account will connect automatically when RX Softphone is available.', 'info');
+        } else if (!canManage) {
+            setRegistrationMessage('No phone account is assigned. Contact an Administrator; Call Center users cannot create or change phone settings.', 'warning');
         } else if (!account || !account.configured) {
             setRegistrationMessage('No softphone account is assigned to your RX user. Enter the SIP account once, then Save & Connect.', 'warning');
         } else if (!rxPhone.reachable) {

@@ -7,6 +7,11 @@ const {
     isAdminPinRequired,
     verifyAdminPin
 } = require('../services/softphoneAccountService');
+const { normalizeRoleName } = require('../utils/callCenterAccess');
+
+function canManagePhoneAccount(user) {
+    return normalizeRoleName(user) === 'administrator';
+}
 
 function cleanText(value, maxLength) {
     const clean = String(value || '').trim();
@@ -20,11 +25,12 @@ function parsePort(value, allowZero) {
     return Number.isInteger(parsed) && parsed >= minimum && parsed <= 65535 ? parsed : null;
 }
 
-function accountResponse(account) {
-    if (!account) return { configured: false, adminPinRequired: isAdminPinRequired() };
+function accountResponse(account, canManage) {
+    if (!account) return { configured: false, adminPinRequired: isAdminPinRequired(), canManage: !!canManage };
     return {
         configured: true,
         adminPinRequired: isAdminPinRequired(),
+        canManage: !!canManage,
         server: account.server,
         port: account.port,
         username: account.username,
@@ -59,7 +65,7 @@ exports.getOwnAccount = async (req, res) => {
     try {
         const account = await db.UserSoftphoneAccount.findOne({ where: { userId: req.user.id } });
         res.set('Cache-Control', 'no-store');
-        res.json(accountResponse(account));
+        res.json(accountResponse(account, canManagePhoneAccount(req.user)));
     } catch (err) {
         console.error('[Softphone Account] getOwnAccount error:', err.message);
         res.status(500).json({ error: 'Could not load the assigned softphone account.' });
@@ -68,6 +74,17 @@ exports.getOwnAccount = async (req, res) => {
 
 exports.saveOwnAccount = async (req, res) => {
     const body = req.body || {};
+
+    if (!canManagePhoneAccount(req.user)) {
+        auditAccountChange(
+            req,
+            'Softphone Account Permission Rejected',
+            null,
+            { accepted: false, reason: 'administrator_required' },
+            null
+        ).catch(err => console.error('[Softphone Account] permission rejection audit error:', err.message));
+        return res.status(403).json({ error: 'Only an Administrator can change phone-account settings.' });
+    }
 
     if (!verifyAdminPin(body.adminPin)) {
         auditAccountChange(
@@ -112,7 +129,7 @@ exports.saveOwnAccount = async (req, res) => {
                 throw error;
             }
 
-            const previousValue = existing ? accountResponse(existing) : null;
+            const previousValue = existing ? accountResponse(existing, true) : null;
             const values = {
                 userId: req.user.id,
                 server,
@@ -132,13 +149,13 @@ exports.saveOwnAccount = async (req, res) => {
                 req,
                 existing ? 'Softphone Account Updated' : 'Softphone Account Configured',
                 previousValue,
-                { ...accountResponse(saved), passwordChanged: !!password },
+                { ...accountResponse(saved, true), passwordChanged: !!password },
                 transaction
             );
         });
 
         res.set('Cache-Control', 'no-store');
-        res.json({ message: 'Softphone account saved.', account: accountResponse(saved) });
+        res.json({ message: 'Softphone account saved.', account: accountResponse(saved, true) });
     } catch (err) {
         const status = err.status || 500;
         if (status >= 500) console.error('[Softphone Account] saveOwnAccount error:', err.message);

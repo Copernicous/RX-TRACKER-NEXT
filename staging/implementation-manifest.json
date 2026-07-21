@@ -1,7 +1,7 @@
 {
   "environment": "staging",
   "manifestVersion": "staging-impl-v1",
-  "implementationVersion": "3.2.0-staging-2026.07.20.06",
+  "implementationVersion": "3.2.0-staging-2026.07.20.07",
   "effectiveFrom": "2026-07-20T21:55:00-04:00",
   "appliesTo": "APP_ENV/APP_INSTANCE contains 'staging' or 'stage'",
   "status": "active",
@@ -14,6 +14,17 @@
     ]
   },
   "implementations": [
+    {
+      "id": "STS-CC-PHONE-ADMIN-001",
+      "file": "controllers/softphoneAccountController.js, routes/apiRoutes.js, public/js/call-center.js, views/call-center.ejs",
+      "component": "Softphone account authorization",
+      "summary": "Make phone-account configuration Administrator-only while preserving automatic registration for assigned Call Center users.",
+      "effect": "Call Center users can view and use their assigned extension but cannot save PBX, extension, port, display-name, or password changes; the environment PIN adds a second approval check for administrators.",
+      "risk": "Administrators must perform future phone-account assignment changes; existing saved assignments continue to operate without modification.",
+      "rollback": {
+        "action": "Remove the Administrator authorization middleware and canManage read-only state, restoring PIN-only account saves."
+      }
+    },
     {
       "id": "STS-CC-AVAILABILITY-001",
       "file": "controllers/callCenterController.js, routes/apiRoutes.js, public/js/call-center.js, views/call-center.ejs",
