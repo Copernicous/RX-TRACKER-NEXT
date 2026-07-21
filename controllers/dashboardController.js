@@ -1,5 +1,7 @@
 const db = require('../models');
 const { Op, fn, col, literal } = require('sequelize');
+const { getServiceWindowDays, getCallCenterLeadDays } = require('../utils/globalSettings');
+const { evaluateServiceWindow, getCallCenterCutoffIso } = require('../utils/serviceWindowEligibility');
 
 // ── Helper: build a date-range WHERE clause from ?from= / ?to= params ─────────
 function buildDateRange(req) {
@@ -14,6 +16,21 @@ function buildDateRange(req) {
 
 function localDateString(d) {
     return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
+function localDateOnlyStart(value) {
+    if (!value) return null;
+    const iso = String(value).slice(0, 10);
+    const parts = iso.split('-').map(Number);
+    if (parts.length === 3 && parts.every(Number.isFinite)) {
+        const d = new Date(parts[0], parts[1] - 1, parts[2]);
+        d.setHours(0, 0, 0, 0);
+        return d;
+    }
+    const fallback = new Date(value);
+    if (isNaN(fallback.getTime())) return null;
+    fallback.setHours(0, 0, 0, 0);
+    return fallback;
 }
 
 exports.getStats = async (req, res) => {
@@ -458,10 +475,10 @@ exports.getChartData = async (req, res) => {
                 if (!serviceDate) {
                     noServiceDate++;
                 } else {
-                    const expiryDate = localDateString(new Date(new Date(serviceDate + 'T00:00:00').getTime() + 90 * 86400000));
+                    const expiryDate = localDateString(new Date(new Date(serviceDate + 'T00:00:00').getTime() + getServiceWindowDays() * 86400000));
                     const daysLeft = daysFromTo(date, expiryDate);
-                    if (daysLeft < 0) eligibleNow++;
-                    else if (daysLeft <= 7) expiringIn7++;
+                    if (daysLeft <= 0) eligibleNow++;
+                    else if (daysLeft <= getCallCenterLeadDays()) expiringIn7++;
                     else inWindow++;
                 }
                 if (!rxCreatedByPatient[patient.id]) patientsWithNoRx++;
@@ -576,11 +593,14 @@ exports.getEligibilityStats = async (req, res) => {
                 noServiceDate++;
                 continue;
             }
-            const svcDay    = new Date(p.serviceDate); svcDay.setHours(0, 0, 0, 0);
-            const expiryDay = new Date(svcDay); expiryDay.setDate(svcDay.getDate() + 90);
-            const daysLeft  = Math.ceil((expiryDay - today) / 864e5);
+            const eligibility = evaluateServiceWindow(p.serviceDate, today);
+            if (!eligibility.serviceDate) {
+                noServiceDate++;
+                continue;
+            }
+            const daysLeft = eligibility.daysLeft;
 
-            if (daysLeft < 0) {
+            if (eligibility.eligible) {
                 // Window fully expired — patient is eligible for a new service
                 eligibleNow++;
                 eligibleList.push({
@@ -588,11 +608,11 @@ exports.getEligibilityStats = async (req, res) => {
                     patientCode:   p.patientCode,
                     name:          (p.firstName || '') + ' ' + (p.lastName || ''),
                     lastService:   p.serviceDate,
-                    eligibleSince: expiryDay.toISOString().slice(0, 10),
+                    eligibleSince: eligibility.eligibleSince,
                     daysPastDue:   Math.abs(daysLeft)
                 });
-            } else if (daysLeft <= 7) {
-                // Window closing soon (0–7 days left)
+            } else if (daysLeft <= getCallCenterLeadDays()) {
+                // Inside the configured Call Center lead window before day 90.
                 expiringIn7++;
             } else {
                 // Active window, > 7 days remaining
@@ -609,7 +629,10 @@ exports.getEligibilityStats = async (req, res) => {
             inWindow,
             noServiceDate,
             total: patients.length,
-            eligibleList: eligibleList.slice(0, 20)
+            eligibleList: eligibleList.slice(0, 20),
+            serviceWindowDays: getServiceWindowDays(),
+            callCenterLeadDays: getCallCenterLeadDays(),
+            callCenterCutoffDate: getCallCenterCutoffIso(today)
         });
     } catch (error) { res.status(500).json({ error: error.message }); }
 };
@@ -660,14 +683,14 @@ exports.getEligibilityDrilldown = async (req, res) => {
             }
 
             // Canonical 90-day window calculation
-            const svcDay    = new Date(svcDate); svcDay.setHours(0, 0, 0, 0);
-            const expiryDay = new Date(svcDay); expiryDay.setDate(svcDay.getDate() + 90);
-            const daysLeft  = Math.ceil((expiryDay - today) / 864e5);
+            const eligibility = evaluateServiceWindow(svcDate, today);
+            if (!eligibility.serviceDate) continue;
+            const daysLeft = eligibility.daysLeft;
 
             const matches = (
                 (filter === 'eligible' && daysLeft < 0)       ||  // window expired
-                (filter === 'expiring' && daysLeft >= 0 && daysLeft <= 7) ||  // closing soon
-                (filter === 'window'   && daysLeft > 7)        // active, plenty of time
+                (filter === 'expiring' && daysLeft > 0 && daysLeft <= getCallCenterLeadDays()) ||
+                (filter === 'window'   && daysLeft > getCallCenterLeadDays())
             );
 
             if (matches) {
@@ -678,7 +701,7 @@ exports.getEligibilityDrilldown = async (req, res) => {
                     lastName:     p.lastName,
                     phone:        p.phone,
                     serviceDate:  svcDate,
-                    expiryDate:   expiryDay.toISOString().slice(0, 10),
+                    expiryDate:   eligibility.expiryDate,
                     daysLeft:     daysLeft,
                     daysPastDue:  daysLeft < 0 ? Math.abs(daysLeft) : 0,
                     status:       filter,

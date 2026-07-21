@@ -35,6 +35,9 @@
             process.exit(1);
         }
         // Load .env then reset the password
+        // Respect an environment already prepared by a launcher (for example
+        // scripts/start-staging.js). Re-reading .env with override=true here
+        // could silently point a staging command at the production database.
         require('dotenv').config();
         var bcryptRp = require('bcryptjs');
         var dbRp     = require('./models');
@@ -57,7 +60,42 @@
 })();
 
 
+// Launcher-provided variables must win over root .env values. In particular,
+// start-staging.js loads and validates .env.staging before requiring this file.
+// dotenv's default non-overriding behavior preserves that validated isolation.
 require('dotenv').config();
+
+function assertPreparedLauncherEnvironment() {
+    const profile = String(process.env.RX_ENV_PROFILE || '').trim().toLowerCase();
+    if (!profile) return;
+
+    const mismatches = [];
+    const expectedPort = String(process.env.RX_EXPECTED_PORT || '');
+    const expectedDb = String(process.env.RX_EXPECTED_DB_NAME || '');
+    const expectedRoot = String(process.env.RX_EXPECTED_WRITABLE_ROOT || '');
+
+    if (expectedPort && String(process.env.PORT || '') !== expectedPort) {
+        mismatches.push('PORT expected ' + expectedPort + ' but resolved ' + String(process.env.PORT || '(unset)'));
+    }
+    if (expectedDb && String(process.env.DB_NAME || '') !== expectedDb) {
+        mismatches.push('DB_NAME expected ' + expectedDb + ' but resolved ' + String(process.env.DB_NAME || '(unset)'));
+    }
+    if (expectedRoot && String(process.env.APP_WRITABLE_ROOT || '') !== expectedRoot) {
+        mismatches.push('APP_WRITABLE_ROOT changed after the launcher safety check');
+    }
+    if (profile === 'staging' && !/(staging|stage|qa|test|sandbox|copy)/i.test(String(process.env.DB_NAME || ''))) {
+        mismatches.push('staging launcher resolved a non-staging database name');
+    }
+    if (profile === 'qa' && !/(qa|test|staging|sandbox|codex)/i.test(String(process.env.DB_NAME || ''))) {
+        mismatches.push('QA launcher resolved a non-QA database name');
+    }
+
+    if (mismatches.length) {
+        throw new Error('[ENV ISOLATION] Refusing to start ' + profile + ': ' + mismatches.join('; '));
+    }
+}
+
+assertPreparedLauncherEnvironment();
 
 // -- Log file setup (LOG_FILE=true in .env enables file logging) ----------------
 var _logStream = null;    // Morgan HTTP access log stream
@@ -206,37 +244,52 @@ const loginLimiter = rateLimit({
 // Trust FortiGate SSL VPN and reverse proxy chain -- allows Express to correctly read
 // X-Forwarded-For (real client IP) and X-Forwarded-Proto (https) headers.
 
-// SEC-01: CORS — locked to explicit origin allowlist.
-// APP_ORIGIN supports comma-separated values for multi-origin setups.
-// FortiGate origin: https://rx.camperos.net:10443
-// Dev origin:       http://localhost:3000
-// Example .env:     APP_ORIGIN=https://rx.camperos.net:10443,http://192.168.60.21:3000,http://localhost:3000
+// SEC-01: CORS - locked to explicit origin allowlist.
+// APP_ORIGIN and APP_ORIGINS support comma-separated values for multi-origin setups.
+// Example .env:
+// APP_ORIGINS=http://localhost:3050,http://127.0.0.1:3050,http://192.168.15.12:3050
 (function() {
-    const rawOrigin = process.env.APP_ORIGIN || '';
+    function normalizeOrigin(value) {
+        return String(value || '').trim().replace(/\/+$/, '');
+    }
+
+    function parseOrigins(value) {
+        return String(value || '')
+            .split(/[,\s]+/)
+            .map(normalizeOrigin)
+            .filter(Boolean);
+    }
+
+    const allowed = Array.from(new Set(
+        []
+            .concat(parseOrigins(process.env.APP_ORIGIN))
+            .concat(parseOrigins(process.env.APP_ORIGINS))
+            .concat(parseOrigins(process.env.CORS_ORIGINS))
+            .concat(parseOrigins(process.env.ALLOWED_ORIGINS))
+    ));
     let corsOrigin;
-    if (rawOrigin.trim()) {
-        // Parse comma-separated allowlist
-        const allowed = rawOrigin.split(',').map(function(o) { return o.trim(); }).filter(Boolean);
+    if (allowed.length) {
         corsOrigin = function(origin, callback) {
             // Allow same-origin / server-to-server requests (no Origin header)
             if (!origin) return callback(null, true);
-            if (allowed.indexOf(origin) !== -1) return callback(null, true);
-            callback(new Error('CORS: origin not allowed — ' + origin));
+            if (allowed.indexOf(normalizeOrigin(origin)) !== -1) return callback(null, true);
+            callback(new Error('CORS: origin not allowed - ' + origin + '. Add this URL to APP_ORIGINS in .env.'));
         };
+        console.log('[CORS] Allowed origins: ' + allowed.join(', '));
     } else if (process.env.NODE_ENV === 'production') {
-        // SEC-04: Fail CLOSED in production — never open credentialed CORS without explicit origin.
+        // SEC-04: Fail CLOSED in production - never open credentialed CORS without explicit origin.
         console.error('');
-        console.error('═══════════════════════════════════════════════════════════');
-        console.error('  FATAL: APP_ORIGIN is not set in production mode.');
+        console.error('===========================================================');
+        console.error('  FATAL: APP_ORIGIN/APP_ORIGINS is not set in production mode.');
         console.error('  Refusing to start with open CORS (origin: true).');
-        console.error('  Set APP_ORIGIN in .env, e.g.:');
-        console.error('    APP_ORIGIN=https://rx.camperos.net:10443,http://192.168.60.21:3000');
-        console.error('═══════════════════════════════════════════════════════════');
+        console.error('  Set APP_ORIGINS in .env, e.g.:');
+        console.error('    APP_ORIGINS=https://rx.camperos.net:10443,http://192.168.15.12:3050');
+        console.error('===========================================================');
         console.error('');
         process.exit(1);
     } else {
-        // Development / test — warn but allow open (local dev convenience)
-        console.warn('[WARN] APP_ORIGIN not set — CORS is open (development mode only).');
+        // Development / test - warn but allow open (local dev convenience)
+        console.warn('[WARN] APP_ORIGIN/APP_ORIGINS not set - CORS is open (development mode only).');
         corsOrigin = true;
     }
     app.use(cors({ origin: corsOrigin, credentials: true }));
@@ -284,6 +337,23 @@ function isStagingEnvironment() {
     return /\bstaging\b|\bstage\b/i.test(markers);
 }
 
+function getStagingConfirmHeader() {
+    const candidate = String(process.env.STAGING_CONFIRM_HEADER || 'x-staging-confirm').trim().toLowerCase();
+    return /^[!#$%&'*+\-.^_`|~0-9a-z]+$/.test(candidate) ? candidate : 'x-staging-confirm';
+}
+
+function isStagingAutoMigrateEnabled() {
+    return String(process.env.STAGING_AUTO_MIGRATE || '').trim() === 'true';
+}
+
+function isStagingBootstrapEnabled() {
+    return String(process.env.STAGING_ALLOW_DB_BOOTSTRAP || '').trim() === 'true';
+}
+
+function quotePgIdentifier(value) {
+    return '"' + String(value || '').replace(/"/g, '""') + '"';
+}
+
 function addCspNonceToHtml(html, nonce) {
     if (!nonce || typeof html !== 'string') return html;
     const attr = ' nonce="' + String(nonce).replace(/"/g, '') + '"';
@@ -292,12 +362,181 @@ function addCspNonceToHtml(html, nonce) {
         .replace(/<style(?![^>]*\bnonce=)([^>]*)>/gi, '<style' + attr + '$1>');
 }
 
+// Legacy draft only. Do not inject this generated inline script into responses:
+// FortiGate aggressively rewrites inline JavaScript, and proxy URL resolution now
+// lives in the external public/js/base.js file where it can be syntax-checked.
+function addProxyBootstrapToHtml(html) {
+    if (!html || typeof html !== 'string') return html;
+    if (html.indexOf('id="rx-proxy-bootstrap"') !== -1) return html;
+    if (html.indexOf('<head') === -1) return html;
+
+    const script = [
+        '<script id="rx-proxy-bootstrap">',
+        '(function () {',
+        '    function splitPath(pathname) {',
+        '        return String(pathname || "").split("/").filter(function(part) { return !!part; });',
+        '    }',
+        '',
+        '    function cleanProxyPath(pathname) {',
+        '        return String(pathname || "").replace(/[?#].*$/, "");',
+        '    }',
+        '',
+        '    function parseProxyBaseFromPath(pathname) {',
+        '        var parts = splitPath(cleanProxyPath(pathname));',
+        '        var i = -1;',
+        '        for (var j = 0; j < parts.length; j++) {',
+        '            if (parts[j] === "proxy") { i = j; break; }',
+        '        }',
+        '        if (i === -1) return "";',
+        '        if (parts.length <= i + 3) return "";',
+        '        return window.location.origin + "/proxy/" + parts[i + 1] + "/" + parts[i + 2] + "/" + parts[i + 3];',
+        '    }',
+        '',
+        '    function normalizeAnchorBase(raw) {',
+        '        return cleanProxyPath(raw)',
+        '            .replace(/\\/login\\/?$/, "")',
+        '            .replace(/\\/$/, "");',
+        '    }',
+        '',
+        '    function parseBaseFromAnchor() {',
+        '        var baseAnchor = document.getElementById("xa-base");',
+        '        if (!baseAnchor || !baseAnchor.href) return "";',
+        '        return normalizeAnchorBase(baseAnchor.href);',
+        '    }',
+        '',
+        '    function isAbsolute(url) {',
+        '        return /^https?:\\/\\//i.test(url) || /^mailto:|^tel:|^data:|^#/.test(url);',
+        '    }',
+        '',
+        '    function resolveAppBase() {',
+        '        var fromPath = parseProxyBaseFromPath(window.location.pathname || "");',
+        '        if (fromPath) return fromPath;',
+        '        var fromAnchor = parseBaseFromAnchor();',
+        '        if (fromAnchor && /^https?:\\/\\//i.test(fromAnchor)) return fromAnchor;',
+        '        return window.location.origin;',
+        '    }',
+        '',
+        '    var appBase = resolveAppBase() || window.location.origin;',
+        '    window.RX_BASE = appBase;',
+        '    window.RX_PROXY_BASE = appBase;',
+        '',
+        '    function toProxyUrl(value) {',
+        '        if (!value || typeof value !== "string") return value;',
+        '        if (value.indexOf("//") === 0) return value;',
+        '        if (isAbsolute(value)) return value;',
+        '        if (value[0] !== "/") return value;',
+        '        return appBase + value;',
+        '    }',
+        '',
+        '    if (typeof window.rxUrl !== "function") {',
+        '        window.rxUrl = function (path) {',
+        '            return toProxyUrl(String(path || ""));',
+        '        };',
+        '    }',
+        '',
+        '    if (typeof window.rxNav !== "function") {',
+        '        window.rxNav = function (path) {',
+        '            window.location.href = toProxyUrl(path || "/");',
+        '        };',
+        '    }',
+        '',
+        '    function rewriteNodeAttribute(el, name) {',
+        '        if (!el || !el.getAttribute) return;',
+        '        var value = el.getAttribute(name);',
+        '        if (!value || value[0] !== "/") return;',
+        '        el.setAttribute(name, toProxyUrl(value));',
+        '    }',
+        '',
+        '    function rewriteSrcset(element) {',
+        '        var value = element.getAttribute("srcset");',
+        '        if (!value) return;',
+        '        var parts = value.split(",");',
+        '        for (var i = 0; i < parts.length; i++) {',
+        '            var chunk = parts[i].trim();',
+        '            if (!chunk) continue;',
+        '            var fields = chunk.split(/\\s+/);',
+        '            var path = fields[0] || "";',
+        '            if (path[0] === "/") fields[0] = toProxyUrl(path);',
+        '            parts[i] = fields.join(" ");',
+        '        }',
+        '        element.setAttribute("srcset", parts.join(", "));',
+        '    }',
+        '',
+        '    function rewriteStyleText(text) {',
+        '        if (!text || text.indexOf("url(") === -1) return text;',
+        '        return text.replace(/url\\(\\s*(["\\\'])?(\\/[^\\s"\\\']+)\\1?\\s*\\)/g, function (m, quote, src) {',
+        '            if (!src || src[0] !== "/") return m;',
+        '            return "url(\\"" + toProxyUrl(src) + "\\")";',
+        '        });',
+        '    }',
+        '',
+        '    function rewriteNode(node) {',
+        '        if (!node || !node.tagName) return;',
+        '        rewriteNodeAttribute(node, "href");',
+        '        rewriteNodeAttribute(node, "src");',
+        '        rewriteNodeAttribute(node, "action");',
+        '        rewriteNodeAttribute(node, "poster");',
+        '        rewriteNodeAttribute(node, "data");',
+        '        if (node.tagName === "STYLE") {',
+        '            node.textContent = rewriteStyleText(String(node.textContent || ""));',
+        '        }',
+        '        if (node.getAttribute("srcset")) rewriteSrcset(node);',
+        '    }',
+        '',
+        '    function rewriteDocument(target) {',
+        '        var root = target || document;',
+        '        var nodes = root.querySelectorAll("[href^=\"/\"], [src^=\"/\"], [action^=\"/\"], [poster^=\"/\"], [data^=\"/\"], form[action^=\"/\"], style, [srcset], link[href^=\"/\"]");',
+        '        for (var i = 0; i < nodes.length; i++) rewriteNode(nodes[i]);',
+        '    }',
+        '',
+        '    rewriteDocument();',
+        '',
+        '    function refreshBaseFromAnchor() {',
+        '        var next = resolveAppBase();',
+        '        if (!next || next === appBase) return;',
+        '        appBase = next;',
+        '        window.RX_BASE = appBase;',
+        '        window.RX_PROXY_BASE = appBase;',
+        '        rewriteDocument();',
+        '    }',
+        '',
+        '    if (document.readyState === "loading") {',
+        '        document.addEventListener("DOMContentLoaded", function () {',
+        '            refreshBaseFromAnchor();',
+        '        }, { once: true });',
+        '    } else {',
+        '        refreshBaseFromAnchor();',
+        '    }',
+        '',
+        '    if (window.MutationObserver) {',
+        '        var observer = new MutationObserver(function(records) {',
+        '            for (var i = 0; i < records.length; i++) {',
+        '                var rec = records[i];',
+        '                if (rec.type !== "childList") continue;',
+        '                var nodes = rec.addedNodes || [];',
+        '                for (var n = 0; n < nodes.length; n++) rewriteDocument(nodes[n].nodeType === 1 ? nodes[n] : null);',
+        '            }',
+        '        });',
+        '        observer.observe(document.documentElement || document, { childList: true, subtree: true });',
+        '    }',
+        '})();',
+        '</script>'
+    ].join("\n");
+
+    return html.replace(/<head([^>]*)>/i, '$&' + script);
+}
+
 // Expose build/version/environment info to all EJS templates
 app.use(function(req, res, next) {
     res.locals.appBuild = APP_BUILD;
     res.locals.appVersion = packageInfo.version;
     res.locals.appEnvironment = getAppEnvironment();
     res.locals.isStaging = isStagingEnvironment();
+    res.locals.stagingDestructiveGuard = res.locals.isStaging
+        && String(process.env.STAGING_DESTRUCTIVE_GUARD || '').trim().toLowerCase() === 'true';
+    res.locals.stagingConfirmHeader = getStagingConfirmHeader();
+    res.locals.serviceWindowDays = require('./utils/globalSettings').getServiceWindowDays();
+    res.locals.callCenterLeadDays = require('./utils/globalSettings').getCallCenterLeadDays();
     next();
 });
 
@@ -403,8 +642,7 @@ function shouldSkipCsrf(req) {
         // drops CSRF transport details between QR setup and confirmation.
         || pathOnly === '/api/auth/2fa/enable'
         || pathOnly === '/api/auth/2fa/disable'
-        || pathOnly === '/api/auth/2fa/regenerate-backup-codes'
-        || pathOnly === '/api/version';
+        || pathOnly === '/api/auth/2fa/regenerate-backup-codes';
 }
 
 // CSRF protection for cookie-authenticated unsafe requests.
@@ -427,7 +665,9 @@ app.use(function(req, res, next) {
     const submitted = String(
         req.headers['x-csrf-token'] ||
         req.headers['x-rx-csrf-token'] ||
-        ((req.body && typeof req.body === 'object') ? (req.body._csrf || req.body.csrfToken || '') : '')
+        req.headers['x-xsrf-token'] ||
+        ((req.body && typeof req.body === 'object') ? (req.body._csrf || req.body.csrfToken || '') : '') ||
+        (req.query && typeof req.query._csrf === 'string' ? req.query._csrf : '')
     );
     const valid = csrfSafeEqual(submitted, csrfToken)
         || csrfSafeEqual(submitted, signedCsrfToken)
@@ -439,8 +679,16 @@ app.use(function(req, res, next) {
 });
 
 
-// Static folder
-app.use(express.static(path.join(__dirname, 'public')));
+// Static assets must not be cached by the FortiGate portal while staging fixes
+// are being validated. A stale base.js/app.js pair can submit an obsolete CSRF
+// token even though the freshly rendered page contains the current token.
+app.use(express.static(path.join(__dirname, 'public'), {
+    setHeaders: function(res) {
+        res.setHeader('Cache-Control', 'no-store, no-cache, no-transform, must-revalidate, proxy-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+    }
+}));
 
 
 // Routes (to be added)
@@ -487,6 +735,17 @@ app.use('/api/settings',            settingsLimiter);
 app.use('/api/auth',    authRoutes);
 app.use('/api/auth',    twoFactorRoutes);
 app.use('/api/import',  importRoutes);
+const PORT = process.env.PORT || 3000;
+app.get('/api/healthz', async (req, res) => {
+    let database = 'ok';
+    try { await db.sequelize.authenticate(); } catch { database = 'unreachable'; }
+    res.status(database === 'ok' ? 200 : 503).json({
+        status: database === 'ok' ? 'ok' : 'degraded',
+        project: 'RX-TRACKER', version: require('./package.json').version,
+        pid: process.pid, uptimeMs: Math.round(process.uptime() * 1000),
+        database, httpPort: Number(PORT)
+    });
+});
 app.use('/api',         apiRoutes);
 app.use('/',            webAuth, userActivityLogger, webRoutes);   // webAuth decodes rxToken cookie -> res.locals.userPerms
 
@@ -510,12 +769,16 @@ app.use(async (err, req, res, next) => {
     res.status(500).json({ error: 'Internal server error' });
 });
 
-const PORT = process.env.PORT || 3000;
 
 // -- Auto-create database if it doesn't exist ----------------------------------
 // Connects to the always-present 'postgres' default database first, then issues
 // CREATE DATABASE. Safe to run on every boot -- postgres ignores it if db exists.
 async function ensureDatabase() {
+    if (isStagingEnvironment() && !isStagingAutoMigrateEnabled() && !isStagingBootstrapEnabled()) {
+        console.log('[STAGING] Database auto-bootstrap skipped by staging policy.');
+        return;
+    }
+
     const { Client } = require('pg');
     const dbName = process.env.DB_NAME || 'patient_rx_dev';
     const client = new Client({
@@ -532,10 +795,10 @@ async function ensureDatabase() {
         );
         if (res.rowCount === 0) {
             // Must use template0 so encoding/locale are always compatible
-            await client.query(`CREATE DATABASE "${dbName}" TEMPLATE template0`);
+            await client.query('CREATE DATABASE ' + quotePgIdentifier(dbName) + ' TEMPLATE template0');
             console.log(`[DB] Database "${dbName}" created automatically.`);
         } else {
-            console.log(`[DB] Database "${dbName}" already exists.`);
+            console.log('[DB] Database ' + quotePgIdentifier(dbName) + ' already exists.');
         }
     } catch (e) {
         console.error(`[DB] Could not auto-create database "${dbName}":`, e.message);
@@ -548,6 +811,20 @@ async function ensureDatabase() {
 
 const startServer = async () => {
     await ensureDatabase();   // <- must succeed before any other DB work
+
+    const shouldRunStagingBootstrap = !isStagingEnvironment()
+        || isStagingAutoMigrateEnabled()
+        || isStagingBootstrapEnabled();
+
+    if (isStagingEnvironment() && !shouldRunStagingBootstrap) {
+        console.log('[STAGING] Startup migration and seed block is disabled for this environment.');
+        console.log('[STAGING] Set STAGING_AUTO_MIGRATE=true (full startup bootstrap) or STAGING_ALLOW_DB_BOOTSTRAP=true (explicit bootstrap permission) to enable.');
+        await settingsService.load();
+        app.listen(PORT, () => {
+            console.log(`Server is running on port ${PORT}.`);
+        });
+        return;
+    }
 
     try {
         // Automatically ensure permissions column exists in PostgreSQL
@@ -645,8 +922,8 @@ const startServer = async () => {
         await db.sequelize.query('ALTER TABLE "Roles" ADD COLUMN IF NOT EXISTS "description" VARCHAR(255);');
         console.log('Database verified: Roles custom columns ready.');
 
-        // Mark the 4 built-in roles as system (non-deletable)
-        await db.sequelize.query('UPDATE "Roles" SET "isSystem" = true WHERE name IN (\'Administrator\',\'Supervisor\',\'Operator\',\'Read Only\');');
+        // Mark the built-in roles as system (non-deletable)
+        await db.sequelize.query('UPDATE "Roles" SET "isSystem" = true WHERE name IN (\'Administrator\',\'Supervisor\',\'Operator\',\'Read Only\',\'Call Center\');');
 
         // Seed / re-seed permissions for each built-in role.
         // Re-seeds if: (a) no permissions yet, OR (b) canAdd is missing (new field added today)
@@ -710,6 +987,27 @@ const startServer = async () => {
         console.warn('Startup migration warning (Roles custom columns, non-fatal):', e.message);
     }
 
+    // Dedicated hard claims for Call Center work queue.
+    try {
+        await db.sequelize.query(`
+            CREATE TABLE IF NOT EXISTS "CallCenterLocks" (
+                "id" SERIAL PRIMARY KEY,
+                "patientId" INTEGER NOT NULL UNIQUE,
+                "userId" INTEGER NOT NULL,
+                "lockedAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+                "expiresAt" TIMESTAMP WITH TIME ZONE NOT NULL,
+                "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+                "updatedAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+            );
+        `);
+        await db.sequelize.query('CREATE UNIQUE INDEX IF NOT EXISTS "uq_call_center_locks_patient" ON "CallCenterLocks" ("patientId");');
+        await db.sequelize.query('CREATE INDEX IF NOT EXISTS "idx_call_center_locks_user" ON "CallCenterLocks" ("userId");');
+        await db.sequelize.query('CREATE INDEX IF NOT EXISTS "idx_call_center_locks_expires" ON "CallCenterLocks" ("expiresAt");');
+        console.log('Database verified: CallCenterLocks table ready.');
+    } catch (e) {
+        console.warn('Startup migration warning (CallCenterLocks, non-fatal):', e.message);
+    }
+
     await db.sequelize.sync();
 
     // Ensure patient service-date cycles exist and RX records are linked to them.
@@ -744,7 +1042,7 @@ const startServer = async () => {
                 CASE WHEN p."serviceDate" = x."serviceDate" THEN 'active' ELSE 'historical' END,
                 'Startup Backfill',
                 x."serviceDate"::timestamp with time zone,
-                CASE WHEN p."serviceDate" = x."serviceDate" THEN NULL ELSE (x."serviceDate"::timestamp with time zone + INTERVAL '90 days') END,
+                CASE WHEN p."serviceDate" = x."serviceDate" THEN NULL ELSE (x."serviceDate"::timestamp with time zone + INTERVAL '${require('./utils/globalSettings').getServiceWindowDays()} days') END,
                 '{"backfilled":true}'::json,
                 NOW(),
                 NOW()
@@ -759,7 +1057,7 @@ const startServer = async () => {
         await db.sequelize.query(`
             UPDATE "PatientServiceDateCycles" c
             SET "status" = CASE WHEN p."serviceDate" = c."serviceDate" THEN 'active' ELSE 'historical' END,
-                "endedAt" = CASE WHEN p."serviceDate" = c."serviceDate" THEN NULL ELSE (c."serviceDate"::timestamp with time zone + INTERVAL '90 days') END,
+                "endedAt" = CASE WHEN p."serviceDate" = c."serviceDate" THEN NULL ELSE (c."serviceDate"::timestamp with time zone + INTERVAL '${require('./utils/globalSettings').getServiceWindowDays()} days') END,
                 "updatedAt" = NOW()
             FROM "Patients" p
             WHERE p."id" = c."patientId";
@@ -817,13 +1115,21 @@ const startServer = async () => {
         console.warn('Startup migration warning (PatientServiceDateHistories, non-fatal):', e.message);
     }
 
+    try {
+        await db.sequelize.query('ALTER TABLE "PatientNotes" ADD COLUMN IF NOT EXISTS "source" VARCHAR(60) DEFAULT \'Patient\';');
+        await db.sequelize.query('UPDATE "PatientNotes" SET "source" = \'Patient\' WHERE "source" IS NULL OR "source" = \'\';');
+        console.log('Database verified: PatientNotes.source ready.');
+    } catch (e) {
+        console.warn('Startup migration warning (PatientNotes.source, non-fatal):', e.message);
+    }
+
     // -- Auto-seed Roles + default admin on a brand-new database --------------
     try {
         const bcrypt = require('bcryptjs');
         const { BUILT_IN_DEFAULTS } = require('./middleware/rbac');
 
-        // 1. Ensure the 4 built-in roles exist
-        const builtInNames = ['Administrator', 'Supervisor', 'Operator', 'Read Only'];
+        // 1. Ensure the built-in roles exist
+        const builtInNames = ['Administrator', 'Supervisor', 'Operator', 'Read Only', 'Call Center'];
         let adminRole = null;
         for (const name of builtInNames) {
             const [role] = await db.Role.findOrCreate({

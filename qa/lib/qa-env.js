@@ -90,6 +90,9 @@ function applyRuntimeEnv(config) {
   process.env.DB_PASS = config.dbPass;
   process.env.APP_ORIGIN = config.appOrigin;
   process.env.ALLOW_DEFAULT_SEED = process.env.QA_ALLOW_DEFAULT_SEED || 'true';
+  process.env.RX_ENV_PROFILE = 'qa';
+  process.env.RX_EXPECTED_PORT = String(config.backendPort);
+  process.env.RX_EXPECTED_DB_NAME = String(config.dbName);
 }
 
 module.exports = {

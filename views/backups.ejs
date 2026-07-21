@@ -1036,58 +1036,96 @@ setup.bat</code></pre>
         pctLabel.textContent   = '0%';
         statusLbl.textContent  = 'Uploading…';
 
-        var fd    = new FormData();
-        fd.append('dumpFile', file);
+        function sendRestore(isStagingRetry) {
+            var fd = new FormData();
+            fd.append('dumpFile', file);
 
-        var xhr = new XMLHttpRequest();
-        xhr.open('POST', window.rxUrl('/api/backups/restore'));
-        xhr.withCredentials = true;
-        if (window.rxCsrfToken && window.rxCsrfToken()) {
-            xhr.setRequestHeader('X-CSRF-Token', window.rxCsrfToken());
+            var csrfToken = window.rxCsrfToken && window.rxCsrfToken();
+            if (csrfToken) fd.append('_csrf', csrfToken);
+
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', window.rxUrl('/api/backups/restore'));
+            xhr.withCredentials = true;
+            if (csrfToken) xhr.setRequestHeader('X-CSRF-Token', csrfToken);
+
+            var guardApi = window.rxStagingGuard;
+            var stagingGuard = guardApi && guardApi.read ? guardApi.read() : {};
+            if (guardApi
+                && guardApi.isSafeHeaderName(stagingGuard.header)
+                && stagingGuard.token) {
+                xhr.setRequestHeader(stagingGuard.header, stagingGuard.token);
+            }
+
+            xhr.upload.onprogress = function(e) {
+                if (e.lengthComputable) {
+                    var pct = Math.round(e.loaded / e.total * 80); // upload = 0–80%
+                    bar.style.width      = pct + '%';
+                    pctLabel.textContent = pct + '%';
+                }
+            };
+
+            xhr.onload = function() {
+                var result = {};
+                try { result = JSON.parse(xhr.responseText); } catch {}
+
+                // The guard runs before multer, so the rejected request has not
+                // uploaded or restored anything. Prompt once and safely retry.
+                if (xhr.status === 428 && !isStagingRetry && guardApi) {
+                    var requiredHeader = String(result.requiredHeader || '').trim().toLowerCase();
+                    if (guardApi.isSafeHeaderName(requiredHeader)) {
+                        guardApi.forget();
+                        var stagingToken = window.prompt(
+                            'Staging safety check: enter the value of STAGING_DESTRUCTIVE_CONFIRM_TOKEN from .env.staging. This is not your application admin password.'
+                        );
+                        if (stagingToken) {
+                            guardApi.remember(requiredHeader, stagingToken);
+                            statusLbl.textContent = 'Staging confirmed; retrying restore…';
+                            logBox.textContent += 'Staging safety confirmation received. Retrying upload…\n';
+                            bar.style.width = '0%';
+                            pctLabel.textContent = '0%';
+                            sendRestore(true);
+                            return;
+                        }
+                        result.error = 'Restore cancelled: the staging safety token was not entered.';
+                    }
+                } else if (xhr.status === 428 && isStagingRetry && guardApi) {
+                    guardApi.forget();
+                    result.error = 'The staging safety token was rejected.';
+                }
+
+                bar.style.width       = '100%';
+                pctLabel.textContent  = '100%';
+                statusLbl.textContent = 'Done';
+                btn.disabled = false;
+
+                if (xhr.status === 200 && result.status === 'success') {
+                    badge.innerHTML = '<span class="badge bg-success fs-6"><i class="fas fa-check-circle me-1"></i>Restore Completed Successfully</span>';
+                    badge.style.display = 'block';
+                    logBox.textContent = '✅ RESTORE SUCCESSFUL\n\n' + (result.log || '(no output)');
+                    showToast('✅ Database restored successfully!', 'success');
+                    loadStatus();
+                } else {
+                    var errMsg = result.error || 'Unknown error (HTTP ' + xhr.status + ')';
+                    badge.innerHTML = '<span class="badge bg-danger fs-6"><i class="fas fa-times-circle me-1"></i>Restore Failed</span>';
+                    badge.style.display = 'block';
+                    logBox.textContent = '❌ RESTORE FAILED\n\n' + errMsg + '\n\n' + (result.log || '');
+                    showToast('Restore failed: ' + errMsg, 'danger');
+                    bar.classList.remove('bg-danger');
+                    bar.classList.add('bg-danger');
+                }
+            };
+
+            xhr.onerror = function() {
+                btn.disabled = false;
+                logBox.textContent = '❌ Network error — could not reach server.';
+                showToast('Network error during restore', 'danger');
+            };
+
+            statusLbl.textContent = 'Uploading & running pg_restore…';
+            xhr.send(fd);
         }
 
-        xhr.upload.onprogress = function(e) {
-            if (e.lengthComputable) {
-                var pct = Math.round(e.loaded / e.total * 80); // upload = 0–80%
-                bar.style.width      = pct + '%';
-                pctLabel.textContent = pct + '%';
-            }
-        };
-
-        xhr.onload = function() {
-            bar.style.width      = '100%';
-            pctLabel.textContent = '100%';
-            statusLbl.textContent = 'Done';
-            btn.disabled = false;
-
-            var result = {};
-            try { result = JSON.parse(xhr.responseText); } catch {}
-
-            if (xhr.status === 200 && result.status === 'success') {
-                badge.innerHTML = '<span class="badge bg-success fs-6"><i class="fas fa-check-circle me-1"></i>Restore Completed Successfully</span>';
-                badge.style.display = 'block';
-                logBox.textContent = '✅ RESTORE SUCCESSFUL\n\n' + (result.log || '(no output)');
-                showToast('✅ Database restored successfully!', 'success');
-                loadStatus();
-            } else {
-                var errMsg = result.error || 'Unknown error (HTTP ' + xhr.status + ')';
-                badge.innerHTML = '<span class="badge bg-danger fs-6"><i class="fas fa-times-circle me-1"></i>Restore Failed</span>';
-                badge.style.display = 'block';
-                logBox.textContent = '❌ RESTORE FAILED\n\n' + errMsg + '\n\n' + (result.log || '');
-                showToast('Restore failed: ' + errMsg, 'danger');
-                bar.classList.remove('bg-danger');
-                bar.classList.add('bg-danger');
-            }
-        };
-
-        xhr.onerror = function() {
-            btn.disabled = false;
-            logBox.textContent = '❌ Network error — could not reach server.';
-            showToast('Network error during restore', 'danger');
-        };
-
-        statusLbl.textContent = 'Uploading & running pg_restore…';
-        xhr.send(fd);
+        sendRestore(false);
     }
 
 </script>

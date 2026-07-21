@@ -1,18 +1,51 @@
-// Ensure same-origin fetch requests send cookies, so FortiGate proxy users can authenticate with rxToken cookie fallback.
+// Ensure same-origin fetch requests send cookies, and keep CSRF + proxy-safe URL handling
+// compatible with FortiGate portal sessions.
 (function() {
-    if (window.fetch) {
-        var originalFetch = window.fetch.bind(window);
-        window.fetch = function(resource, init) {
-            init = init || {};
-            var sameOrigin = typeof resource === 'string'
-                ? resource.startsWith('/') || resource.startsWith(window.location.origin)
-                : resource instanceof Request && resource.url.startsWith(window.location.origin);
-            if (sameOrigin && !init.credentials) {
-                init.credentials = 'include';
-            }
-            return originalFetch(resource, init);
-        };
+    if (!window.fetch || window.__rxFetchWrapped || (typeof window.rxNormalizeFetchResource === 'function' && typeof window.rxApplyCsrf === 'function')) return;
+    var originalFetch = window.fetch.bind(window);
+
+    function normalizeFetchResource(resource) {
+        if (typeof window.rxNormalizeFetchResource === 'function') {
+            return window.rxNormalizeFetchResource(resource);
+        }
+        if (!resource) return resource;
+        if (typeof resource === 'string') {
+            var value = String(resource);
+            if (!value) return value;
+            if (value.indexOf('//') === 0) return value;
+            if (/^https?:\/\//i.test(value) || /^mailto:|^tel:|^data:|^#/.test(value)) return value;
+            if (value[0] !== '/') return value;
+            if (typeof window.rxUrl === 'function') return window.rxUrl(value);
+        }
+        return resource;
     }
+
+    function isSameOriginResource(resource) {
+        var value = '';
+        if (typeof resource === 'string') {
+            value = resource;
+        } else if (resource instanceof Request && resource.url) {
+            value = String(resource.url || '');
+        }
+        if (!value) return false;
+        if (value[0] === '/') return true;
+        var nativeOrigin = typeof window.rxNativeLocationOrigin === 'function'
+            ? window.rxNativeLocationOrigin()
+            : '';
+        if (nativeOrigin && value.indexOf(nativeOrigin) === 0) return true;
+        return !!(window.RX_BASE && value.indexOf(window.RX_BASE) === 0);
+    }
+
+    window.fetch = function(resource, init) {
+        resource = normalizeFetchResource(resource);
+        init = init || {};
+        init = window.rxApplyCsrf ? window.rxApplyCsrf(resource, init) : init;
+        if (isSameOriginResource(resource) && !init.credentials) {
+            init.credentials = 'include';
+        }
+        return originalFetch(resource, init);
+    };
+    window.__rxFetchWrapped = true;
 })();
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -45,37 +78,8 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Login Handle
-    var loginForm = document.getElementById('loginForm');
-    if (loginForm) {
-        loginForm.addEventListener('submit', async function(e) {
-            e.preventDefault();
-            var username = document.getElementById('username').value;
-            var password = document.getElementById('password').value;
-
-            try {
-                var res = await fetch(window.rxUrl('/api/auth/login'), {
-                    method: 'POST',
-                    credentials: 'include',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username: username, password: password })
-                });
-                var data = await res.json();
-                if (res.ok && data.user) {
-                    localStorage.removeItem('token');
-                    localStorage.removeItem('rxToken');
-                    localStorage.removeItem('user');
-                    window.rxNav('/dashboard');
-                } else {
-                    showToast(data.message || 'Login failed', 'danger');
-                }
-            } catch (err) {
-                showToast('An error occurred.', 'danger');
-            }
-        });
-    }
-
     // Auth Check on Protected Pages
+    var loginForm = document.getElementById('loginForm');
     if (!loginForm) {
         var user = window.__RX_AUTH_USER || null;
         if (!user) {

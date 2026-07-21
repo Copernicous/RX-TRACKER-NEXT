@@ -3,6 +3,7 @@ const bcrypt = require('bcryptjs');
 const csv = require('csv-parser');
 const { Readable } = require('stream');
 const { parseDate } = require('../utils/dateUtils');
+const { getServiceWindowDays } = require('../utils/globalSettings');
 const {
     bulkRecordPatientServiceDateChanges
 } = require('../services/patientServiceDateHistoryService');
@@ -99,7 +100,7 @@ function validateWorkflowAgainstServiceDate(serviceDate, workflowTracking, addEr
     }
 
     const expiryDate = new Date(svcDate);
-    expiryDate.setDate(expiryDate.getDate() + 90);
+    expiryDate.setDate(expiryDate.getDate() + getServiceWindowDays());
 
     const outsideWindow = workflowTracking.find((step) => {
         const stepDate = toDateOnly(step.completionDate);
@@ -107,7 +108,7 @@ function validateWorkflowAgainstServiceDate(serviceDate, workflowTracking, addEr
     });
     if (outsideWindow) {
         const stepDate = toDateOnly(outsideWindow.completionDate);
-        addErr(`Workflow step "${outsideWindow.name}" (${formatDateLabel(stepDate)}) exceeds service date + 90 days (${formatDateLabel(expiryDate)}).`);
+        addErr(`Workflow step "${outsideWindow.name}" (${formatDateLabel(stepDate)}) exceeds service date + ${getServiceWindowDays()} days (${formatDateLabel(expiryDate)}).`);
     }
 }
 

@@ -55,8 +55,18 @@ var viewerMeta    = null;
 async function apiFetch(url, opts) {
     if (!opts) opts = {};
     var headers = Object.assign({}, opts.headers || {});
-    var res = await fetch(window.rxUrl ? window.rxUrl(url) : url, Object.assign({}, opts, { headers: headers, credentials: 'include' }));
-    if (res.status === 401) { if (window.rxNav) window.rxNav('/login'); else window.location.href = '/login'; return res; }
+    var targetUrl = window.rxUrl ? window.rxUrl(url) : url;
+    var requestOptions = Object.assign({}, opts, { headers: headers, credentials: 'include' });
+    var guardedFetch = window.rxFetchWithStagingGuard || window.fetch;
+    var res = await guardedFetch(targetUrl, requestOptions);
+        if (res.status === 401) {
+            if (window.rxNav) {
+                window.rxNav('/login');
+            } else {
+                window.location.href = '/login';
+            }
+            return res;
+        }
     if (res.status === 403) {
         var mw = document.getElementById('mainWrap'); var dw = document.getElementById('deniedWrap');
         if (mw) mw.style.display = 'none'; if (dw) dw.style.display = 'block';
@@ -635,9 +645,9 @@ async function executePurge() {
 // TAB SWITCHER
 // ══════════════════════════════════════════════════════════════════════════
 function switchTab(tab) {
-    var tabs  = ['tables','schema','orphans','dupes','audit','settings','backups','health','locks','users','apikeys','errlog','logdash','analytics'];
-    var ids   = { tables:'tablesContent', schema:'schemaContent', orphans:'orphanContent', dupes:'dupesContent', audit:'auditContent', settings:'settingsContent', backups:'backupsContent', health:'healthContent', locks:'locksContent', users:'usersContent', apikeys:'apiKeysContent', errlog:'errlogContent', logdash:'logdashContent', analytics:'analyticsContent' };
-    var btns  = { tables:'tabTables', schema:'tabSchema', orphans:'tabOrphans', dupes:'tabDupes', audit:'tabAudit', settings:'tabSettings', backups:'tabBackups', health:'tabHealth', locks:'tabLocks', users:'tabUsers', apikeys:'tabApiKeys', errlog:'tabErrlog', logdash:'tabLogdash', analytics:'tabAnalytics' };
+    var tabs  = ['tables','schema','orphans','dupes','audit','cccleanup','settings','backups','health','locks','users','apikeys','errlog','logdash','analytics'];
+    var ids   = { tables:'tablesContent', schema:'schemaContent', orphans:'orphanContent', dupes:'dupesContent', audit:'auditContent', cccleanup:'cccleanupContent', settings:'settingsContent', backups:'backupsContent', health:'healthContent', locks:'locksContent', users:'usersContent', apikeys:'apiKeysContent', errlog:'errlogContent', logdash:'logdashContent', analytics:'analyticsContent' };
+    var btns  = { tables:'tabTables', schema:'tabSchema', orphans:'tabOrphans', dupes:'tabDupes', audit:'tabAudit', cccleanup:'tabCcCleanup', settings:'tabSettings', backups:'tabBackups', health:'tabHealth', locks:'tabLocks', users:'tabUsers', apikeys:'tabApiKeys', errlog:'tabErrlog', logdash:'tabLogdash', analytics:'tabAnalytics' };
     tabs.forEach(function(t) {
         document.getElementById(btns[t]).classList.toggle('active', t === tab);
         var el = document.getElementById(ids[t]);
@@ -648,6 +658,7 @@ function switchTab(tab) {
     if (tab === 'orphans'   && !orphanData)      loadOrphans();
     if (tab === 'dupes'     && !dupesData)       loadDupes();
     if (tab === 'audit'     && !auditLoaded)     loadAuditLogs(1);
+    if (tab === 'cccleanup')                     loadCcCleanupPreview();
     if (tab === 'settings'  && !settingsLoaded)  loadSettings();
     if (tab === 'backups'   && !backupsLoaded)   loadBackups();
     if (tab === 'health'    && !healthLoaded)    loadHealth();
@@ -1440,7 +1451,8 @@ function boRenderEndpointRow(ep) {
     var bodyHtml  = ep.body  ? '<span class="text-muted small ms-2" style="font-size:.7rem">Body: <code style="color:#22c55e">' + ep.body + '</code></span>' : '';
     var permHtml  = '<span class="perm-badge ' + (ep.admin ? 'admin' : '') + '">' + (ep.admin ? '<i class="fas fa-lock me-1"></i>' + ep.perm : ep.perm) + '</span>';
     var newBadge  = ep.inManifest === false ? '<span class="badge bg-info ms-1" style="font-size:.65rem">NEW</span>' : '';
-    var copyUrl   = ep.method + ' ' + window.location.origin + ep.path + (ep.query || '');
+    var copyBase  = window.RX_BASE || (window.rxNativeLocationOrigin ? window.rxNativeLocationOrigin() : '');
+    var copyUrl   = ep.method + ' ' + copyBase + ep.path + (ep.query || '');
     return '<div class="endpoint-row ' + methodClass + '">' +
         '<div class="d-flex align-items-start gap-2">' +
             '<span class="method-badge ' + methodClass + '">' + ep.method + '</span>' +

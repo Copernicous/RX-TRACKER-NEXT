@@ -14,7 +14,9 @@ const DEFAULT_SETTINGS = {
     sessionTimeoutMinutes: 60,
     maxLoginAttempts: 5,
     maintenanceMode: false,
-    serviceDateOverrideEnabled: false
+    serviceDateOverrideEnabled: false,
+    serviceWindowDays: 90,
+    callCenterLeadDays: 10
 };
 
 function ensureSettingsDir() {
@@ -51,10 +53,28 @@ function isServiceDateOverrideEnabled() {
     return readSettings().serviceDateOverrideEnabled === true;
 }
 
+function getServiceWindowDays() {
+    return 90;
+}
+
+function getCallCenterLeadDays() {
+    const settings = readSettings();
+    let value = Number.parseInt(settings.callCenterLeadDays, 10);
+    // Upgrade compatibility: v3.0.3-v3.0.5 stored the calling threshold
+    // itself (for example 80). Convert that to lead days (90 - 80 = 10).
+    if ((!Number.isInteger(value) || value === 10) && Number(settings.serviceWindowDays) !== 90) {
+        const legacyThreshold = Number.parseInt(settings.serviceWindowDays, 10);
+        if (Number.isInteger(legacyThreshold)) value = 90 - legacyThreshold;
+    }
+    return Number.isInteger(value) && value >= 0 && value <= 89 ? value : DEFAULT_SETTINGS.callCenterLeadDays;
+}
+
 module.exports = {
     DEFAULT_SETTINGS,
     SETTINGS_PATH,
     readSettings,
     writeSettings,
-    isServiceDateOverrideEnabled
+    isServiceDateOverrideEnabled,
+    getServiceWindowDays,
+    getCallCenterLeadDays
 };

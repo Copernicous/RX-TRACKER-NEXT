@@ -5,7 +5,8 @@
  *
  * Files copied:
  *   .env.example        - environment template (copy to .env on the server)
- *   RX-Manager.bat      — production management menu
+ *   PROJECT-CONTROL.bat — production project/service control launcher
+ *   project-control.json — project control configuration
  *   CHANGELOG.md        — version history / what changed
  *   Readme.txt          — release summary / verification notes
  *   DEFERRED-ITEMS.txt  — security / tech-debt tracking
@@ -30,13 +31,18 @@ if (!fs.existsSync(distDir)) {
 
 const filesToCopy = [
     '.env.example',
-    'RX-Manager.bat',
+    'PROJECT-CONTROL.bat',
+    path.join('scripts', 'project-control.ps1'),
+    'project-control.json',
+    'package.json',
     'CHANGELOG.md',
     'Readme.txt',
     'PRODUCTION_RELEASE_CHECKLIST.md',
     'DEFERRED-ITEMS.txt',
     'OPERATIONS_MANUAL.md',
     'NEW_SERVER_SETUP_RECOVERY.md',
+    path.join('docs', 'PRODUCTION_MICROSIP_CHROME_POLICY.md'),
+    path.join('scripts', 'install-production-microsip-chrome-policy.ps1'),
     'install-service.ps1',
     'uninstall-service.ps1',
 ];
@@ -48,6 +54,7 @@ for (const file of filesToCopy) {
     const src = path.join(root, file);
     const dst = path.join(distDir, file);
     if (fs.existsSync(src)) {
+        fs.mkdirSync(path.dirname(dst), { recursive: true });
         fs.copyFileSync(src, dst);
         console.log('✓ ' + file + '  →  dist/' + file);
         copied++;
@@ -88,10 +95,14 @@ if (updateFiles.length > 0) {
 
     const expectedEntries = ['server.exe', ...filesToCopy, releaseNotesTarget]
         .filter(file => fs.existsSync(path.join(distDir, file)));
+    const archiveEntryNames = expectedEntries.map(file => file.split(path.sep).join('/'));
     const psArray = updateFiles
         .map(file => "'" + file.replace(/'/g, "''") + "'")
         .join(',');
     const psExpected = expectedEntries
+        .map(file => "'" + file.split(path.sep).join('/').replace(/'/g, "''") + "'")
+        .join(',');
+    const psEntryNames = archiveEntryNames
         .map(file => "'" + file.replace(/'/g, "''") + "'")
         .join(',');
     const psDestination = updateZip.replace(/'/g, "''");
@@ -99,6 +110,7 @@ if (updateFiles.length > 0) {
         "$ErrorActionPreference = 'Stop'",
         "$files = @(" + psArray + ")",
         "$expected = @(" + psExpected + ")",
+        "$entryNames = @(" + psEntryNames + ")",
         "$destination = '" + psDestination + "'",
         "Add-Type -AssemblyName System.IO.Compression",
         "Add-Type -AssemblyName System.IO.Compression.FileSystem",
@@ -107,8 +119,9 @@ if (updateFiles.length > 0) {
         "    if (Test-Path -LiteralPath $destination) { Remove-Item -LiteralPath $destination -Force }",
         "    $zip = [System.IO.Compression.ZipFile]::Open($destination, [System.IO.Compression.ZipArchiveMode]::Create)",
         "    try {",
-        "      foreach ($file in $files) {",
-        "        $entryName = [System.IO.Path]::GetFileName($file)",
+        "      for ($i = 0; $i -lt $files.Count; $i++) {",
+        "        $file = $files[$i]",
+        "        $entryName = $entryNames[$i]",
         "        $entry = $zip.CreateEntry($entryName, [System.IO.Compression.CompressionLevel]::Optimal)",
         "        $entryStream = $entry.Open()",
         "        $fileStream = [System.IO.File]::Open($file, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::ReadWrite)",

@@ -1,16 +1,20 @@
 'use strict';
 
+const bcrypt = require('bcryptjs');
 const { prepareStagingEnv } = require('./lib/staging-env');
 
 const stagingConfig = prepareStagingEnv();
 const db = require('../models');
+const { BUILT_IN_DEFAULTS } = require('../middleware/rbac');
 const { Op } = db.Sequelize;
 
 const TEST_PREFIX = 'STG-IMP-GUARD-';
 const DEFAULT_BASE_URL = 'http://localhost:' + (process.env.PORT || stagingConfig.port || '3100');
 const baseUrl = (process.env.STAGING_BASE_URL || DEFAULT_BASE_URL).replace(/\/+$/, '');
-const username = process.env.STAGING_SMOKE_USER || process.env.STAGING_TEST_USER || 'test';
-const password = process.env.STAGING_SMOKE_PASS || process.env.STAGING_TEST_PASS || 'test';
+const runId = String(Date.now());
+const username = 'staging_import_smoke_' + runId;
+const password = 'ImportSmoke!' + runId;
+let smokeUserId = null;
 
 const WORKFLOW_HEADERS = [
     'RX Received Warehouse',
@@ -43,6 +47,49 @@ function fail(message) {
 
 function assert(condition, message) {
     if (!condition) fail(message);
+}
+
+async function createSmokeUser() {
+    let role = await db.Role.findOne({ where: { name: 'Administrator' } });
+    if (!role) {
+        role = await db.Role.create({
+            name: 'Administrator',
+            description: 'Administrator role',
+            isSystem: true,
+            permissions: BUILT_IN_DEFAULTS.Administrator()
+        });
+    }
+
+    const user = await db.User.create({
+        firstName: 'Staging',
+        lastName: 'Import Smoke',
+        username,
+        email: username + '@example.test',
+        passwordHash: await bcrypt.hash(password, 8),
+        roleId: role.id,
+        isActive: true,
+        tokenVersion: 0,
+        isMaster: false,
+        twoFactorEnabled: false
+    });
+    smokeUserId = user.id;
+}
+
+async function cleanupSmokeUser() {
+    if (!smokeUserId) return;
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    await db.AuditLog.destroy({ where: { userId: smokeUserId } }).catch(() => {});
+    if (db.UserActivityLog) {
+        await db.UserActivityLog.destroy({ where: { userId: smokeUserId } }).catch(() => {});
+    }
+    if (db.CallCenterLock) {
+        await db.CallCenterLock.destroy({ where: { userId: smokeUserId } }).catch(() => {});
+    }
+    if (db.PatientLock) {
+        await db.PatientLock.destroy({ where: { userId: smokeUserId } }).catch(() => {});
+    }
+    await db.User.destroy({ where: { id: smokeUserId } }).catch(() => {});
+    smokeUserId = null;
 }
 
 function dateOnly(value) {
@@ -89,7 +136,7 @@ async function login() {
 
     const body = await parseJsonResponse(res, 'Login');
     assert(res.ok, 'Login failed for ' + username + ': ' + (body.message || JSON.stringify(body)));
-    assert(!body.requires2FA, 'The staging smoke user requires 2FA. Use STAGING_SMOKE_USER/STAGING_SMOKE_PASS with an import-capable test user.');
+    assert(!body.requires2FA, 'The transient staging import smoke user unexpectedly requires 2FA.');
     const setCookie = res.headers.get('set-cookie') || '';
     const rxToken = (setCookie.match(/rxToken=([^;]+)/) || [])[1];
     const rxCsrf = (setCookie.match(/rxCsrf=([^;]+)/) || [])[1];
@@ -334,6 +381,7 @@ async function main() {
     await cleanupTestRows();
     await assertNoTestRows('Initial cleanup');
 
+    await createSmokeUser();
     const token = await login();
     let beforeValid = null;
     try {
@@ -358,5 +406,7 @@ main()
         process.exitCode = 1;
     })
     .finally(async () => {
+        await cleanupTestRows().catch(() => {});
+        await cleanupSmokeUser().catch(() => {});
         await db.sequelize.close().catch(() => {});
     });

@@ -1,7 +1,8 @@
 const db = require('../models');
 const { Op } = require('sequelize');
 const { parseDate } = require('../utils/dateUtils');
-const { isServiceDateOverrideEnabled } = require('../utils/globalSettings');
+const { isServiceDateOverrideEnabled, getServiceWindowDays } = require('../utils/globalSettings');
+const { evaluateServiceWindow } = require('../utils/serviceWindowEligibility');
 const { getRequestPermission } = require('../middleware/rbac');
 const {
     attachRelatedRxServiceRecords,
@@ -35,6 +36,17 @@ function summarizeServiceDateCycle(cycle) {
 function idsEqual(left, right) {
     const clean = value => value === '' || value === undefined || value === null ? null : String(value);
     return clean(left) === clean(right);
+}
+
+function serviceDatesEqual(left, right) {
+    const clean = value => parseDate(value) || null;
+    return clean(left) === clean(right);
+}
+
+function httpError(status, message) {
+    const err = new Error(message);
+    err.status = status;
+    return err;
 }
 
 function patientContextFieldsChanged(patient, payload) {
@@ -82,7 +94,7 @@ function isWorkflowCycleNeedsAction(serviceDate, rxRecords, totalWorkflowSteps) 
     svcDay.setHours(0, 0, 0, 0);
 
     const svcExpiry = new Date(svcDay);
-    svcExpiry.setDate(svcExpiry.getDate() + 90);
+    svcExpiry.setDate(svcExpiry.getDate() + getServiceWindowDays());
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -116,13 +128,8 @@ function patientHasAnyField(patient, fields) {
 }
 
 function patientEligibilityStatus(patient, todayMs) {
-    if (!patient.serviceDate) return { key: 'none', daysLeft: null };
-    const svcMs = new Date(patient.serviceDate).setHours(0, 0, 0, 0);
-    const expMs = svcMs + 90 * 864e5;
-    const daysLeft = Math.ceil((expMs - todayMs) / 864e5);
-    if (daysLeft < 0) return { key: 'eligible', daysLeft };
-    if (daysLeft <= 7) return { key: 'expiring', daysLeft };
-    return { key: 'window', daysLeft };
+    const result = evaluateServiceWindow(patient.serviceDate, new Date(todayMs));
+    return { key: result.status, daysLeft: result.daysLeft === undefined ? null : result.daysLeft };
 }
 
 function matchesPatientQuery(patient, query) {
@@ -170,6 +177,10 @@ function matchesPatientQuery(patient, query) {
     }
 
     if (eligibility) {
+        // Eligibility queues and dashboard totals are defined for active
+        // patients only. Keep the Patients filter population identical to the
+        // Call Center and dashboard even when Status remains set to "All".
+        if (patient.isActive !== true) return false;
         if (eligibility === 'needsAction') return !!patient.needsAction;
         const statusInfo = patientEligibilityStatus(patient, new Date().setHours(0, 0, 0, 0));
         if (statusInfo.key !== eligibility) return false;
@@ -181,7 +192,7 @@ function matchesPatientQuery(patient, query) {
 function patientSortValue(patient, sortKey) {
     if (sortKey === 'firstName') return cleanLower((patient.firstName || '') + ' ' + (patient.lastName || ''));
     if (sortKey === 'Clinic.name') return cleanLower(patient.Clinic && patient.Clinic.name);
-    if (sortKey === 'nextSvcDate') return patient.serviceDate ? new Date(patient.serviceDate).getTime() + 90 * 864e5 : -8640000000000000;
+    if (sortKey === 'nextSvcDate') return patient.serviceDate ? new Date(patient.serviceDate).getTime() + getServiceWindowDays() * 864e5 : -8640000000000000;
     if (sortKey === 'isActive') return patient.isActive ? 1 : 0;
     return patient[sortKey];
 }
@@ -229,13 +240,25 @@ function buildPatientFacets(rows) {
     }, {});
 }
 
-function patientInclude() {
+function patientInclude(options) {
+    options = options || {};
+    const noteInclude = options.includeFullNotes
+        ? {
+            model: db.PatientNote,
+            as: 'PatientNotes',
+            attributes: ['id', 'note', 'createdAt', 'userId'],
+            include: [{ model: db.User, as: 'Author', attributes: ['id', 'firstName', 'lastName', 'username'] }],
+            order: [['createdAt', 'DESC'], ['id', 'DESC']],
+            separate: true
+        }
+        : { model: db.PatientNote, as: 'PatientNotes', attributes: ['id'] };
+
     return [
         db.PatientTransportCompany,
         db.PharmacyTransportCompany,
         db.Clinic,
         db.Pharmacy,
-        { model: db.PatientNote, as: 'PatientNotes', attributes: ['id'] },
+        noteInclude,
         {
             model: db.RXRecord,
             attributes: ['id'],
@@ -277,7 +300,7 @@ exports.getAll = async (req, res) => {
 
         const data = await db.Patient.findAll({
             where: whereClause,
-            include: patientInclude()
+            include: patientInclude({ includeFullNotes: req.query.exportAll === 'true' })
         });
         let rows = enrichPatientRows(data, totalWorkflowSteps);
 
@@ -341,8 +364,11 @@ exports.create = async (req, res) => {
 
         // Normalise dates: accept MM/DD/YYYY, YYYY-MM-DD, or any common format
         const normDob         = parseDate(dob);
-        const normServiceDate = parseDate(serviceDate);
+        const trimmedServiceDate = String(serviceDate || '').trim();
+        const normServiceDate = parseDate(trimmedServiceDate);
         if (dob && !normDob) return res.status(400).json({ error: 'Date of Birth is not a valid date. Use MM/DD/YYYY format.' });
+        if (!trimmedServiceDate) return res.status(400).json({ error: 'Service Date is required.' });
+        if (!normServiceDate) return res.status(400).json({ error: 'Service Date is not valid. Use MM/DD/YYYY format.' });
         otherData.dob         = normDob;
         otherData.serviceDate = normServiceDate;
 
@@ -406,7 +432,9 @@ exports.create = async (req, res) => {
     }
 };
 
-exports.update = async (req, res) => {
+exports.update = lockedUpdatePatient;
+
+async function updatePatientLegacy(req, res) {
     try {
         const patient = await db.Patient.findByPk(req.params.id);
         if (!patient) return res.status(404).json({ message: 'Not found' });
@@ -474,12 +502,12 @@ exports.update = async (req, res) => {
                 currentDate.setHours(0, 0, 0, 0);
 
                 const windowExpiry = new Date(prevDate);
-                windowExpiry.setDate(windowExpiry.getDate() + 90);
+                windowExpiry.setDate(windowExpiry.getDate() + getServiceWindowDays());
 
                 if (currentDate <= windowExpiry) {
                     const daysRemaining = Math.ceil((windowExpiry.getTime() - currentDate.getTime()) / (1000 * 3600 * 24));
                     return res.status(400).json({
-                        error: `A new Service Date can only be assigned after the active 90-day window expires on ${windowExpiry.toLocaleDateString()}. ${daysRemaining} day${daysRemaining !== 1 ? 's' : ''} remaining.`
+                        error: `A new Service Date can only be assigned after the active ${getServiceWindowDays()}-day window expires on ${windowExpiry.toLocaleDateString()}. ${daysRemaining} day${daysRemaining !== 1 ? 's' : ''} remaining.`
                     });
                 }
             }
@@ -560,6 +588,161 @@ exports.update = async (req, res) => {
         res.json(updatedPatient);
     } catch (err) { res.status(400).json({ error: err.message }); }
 };
+
+async function lockedUpdatePatient(req, res) {
+    try {
+        const payload = { ...(req.body || {}) };
+
+        if (payload.hasOwnProperty('dob')) {
+            const norm = parseDate(payload.dob);
+            if (payload.dob && !norm) return res.status(400).json({ error: 'Date of Birth is not a valid date. Use MM/DD/YYYY format.' });
+            payload.dob = norm;
+        }
+        if (payload.hasOwnProperty('firstName')) payload.firstName = toUpperName(payload.firstName);
+        if (payload.hasOwnProperty('lastName')) payload.lastName = toUpperName(payload.lastName);
+        if (payload.hasOwnProperty('serviceDate')) {
+            const norm = parseDate(payload.serviceDate);
+            if (payload.serviceDate && !norm) return res.status(400).json({ error: 'Service Date is not valid. Use MM/DD/YYYY format.' });
+            payload.serviceDate = norm || null;
+        }
+
+        const patientPerm = await getRequestPermission(req, 'patients');
+        const canEditPatient = !!(patientPerm.visible && patientPerm.canEdit);
+        const canOverrideExpired = !!(patientPerm.visible && patientPerm.canOverrideExpired);
+
+        if (!canEditPatient && !canOverrideExpired) {
+            return res.status(403).json({ error: 'Access denied: you cannot edit patient records.' });
+        }
+
+        if (!canEditPatient && canOverrideExpired) {
+            Object.keys(payload).forEach((field) => {
+                if (field !== 'serviceDate') delete payload[field];
+            });
+        }
+
+        const updatedPatient = await db.sequelize.transaction(async (transaction) => {
+            const patient = await db.Patient.findByPk(req.params.id, {
+                transaction,
+                lock: transaction.LOCK.UPDATE
+            });
+            if (!patient) throw httpError(404, 'Not found');
+
+            const previousServiceDate = parseDate(patient.serviceDate);
+            const previousPatientContext = await buildPatientContextSnapshot(patient, {
+                transaction,
+                source: 'Before Patient Update'
+            });
+
+            if (payload.patientCode && payload.patientCode.trim() !== patient.patientCode) {
+                const newCode = payload.patientCode.trim();
+                const existingCode = await db.Patient.findOne({
+                    where: {
+                        patientCode: newCode,
+                        id: { [Op.ne]: req.params.id }
+                    },
+                    transaction
+                });
+                if (existingCode) {
+                    throw httpError(400, `Patient ID "${newCode}" is already assigned to another patient.`);
+                }
+                payload.patientCode = newCode;
+            }
+
+            const hasServiceDateChange = payload.hasOwnProperty('serviceDate')
+                && !serviceDatesEqual(payload.serviceDate, patient.serviceDate);
+            const hasPatientContextChange = patientContextFieldsChanged(patient, payload);
+
+            if (!isServiceDateOverrideEnabled() && !canOverrideExpired && hasServiceDateChange && patient.serviceDate) {
+                const prevDate = new Date(patient.serviceDate);
+                const currentDate = new Date();
+                prevDate.setHours(0, 0, 0, 0);
+                currentDate.setHours(0, 0, 0, 0);
+
+                const windowExpiry = new Date(prevDate);
+                windowExpiry.setDate(windowExpiry.getDate() + getServiceWindowDays());
+
+                if (currentDate <= windowExpiry) {
+                    const daysRemaining = Math.ceil((windowExpiry.getTime() - currentDate.getTime()) / (1000 * 3600 * 24));
+                    throw httpError(400, `A new Service Date can only be assigned after the active ${getServiceWindowDays()}-day window expires on ${windowExpiry.toLocaleDateString()}. ${daysRemaining} day${daysRemaining !== 1 ? 's' : ''} remaining.`);
+                }
+            }
+
+            const allowedFields = [
+                'firstName', 'lastName', 'dob', 'address', 'phone',
+                'serviceDate', 'notes', 'isActive', 'patientCode',
+                'patientTransportCompanyId', 'pharmacyTransportCompanyId',
+                'clinicId', 'pharmacyId', 'isDeleted'
+            ];
+            allowedFields.forEach(field => {
+                if (payload.hasOwnProperty(field)) {
+                    const val = payload[field];
+                    patient[field] = (val === '' || val === undefined) ? null : val;
+                }
+            });
+            await patient.save({ transaction });
+
+            if (hasServiceDateChange || hasPatientContextChange) {
+                await syncPatientServiceDateCycles(patient, {
+                    transaction,
+                    userId: req.user?.id || null,
+                    source: (!canEditPatient && canOverrideExpired) ? 'Patient Override' : 'Patient Update',
+                    previousPatientContext,
+                    contextChangeReason: hasServiceDateChange
+                        ? 'Patient service date changed; clinic/pharmacy/transport defaults captured for the active cycle.'
+                        : 'Patient clinic/pharmacy/transport defaults changed during this service date cycle.'
+                });
+            }
+
+            if (hasServiceDateChange) {
+                const nextPatientContext = await buildPatientContextSnapshot(patient, {
+                    transaction,
+                    source: (!canEditPatient && canOverrideExpired) ? 'Patient Override' : 'Patient Update'
+                });
+                await recordPatientServiceDateChange({
+                    patientId: patient.id,
+                    previousServiceDate,
+                    newServiceDate: patient.serviceDate,
+                    userId: req.user?.id || null,
+                    changeSource: (!canEditPatient && canOverrideExpired) ? 'Patient Override' : 'Patient Update',
+                    reason: 'Patient record service date changed.',
+                    metadata: {
+                        patientContextChange: {
+                            previous: previousPatientContext,
+                            next: nextPatientContext,
+                            changedFields: patientContextChangedFields(previousPatientContext, nextPatientContext)
+                        }
+                    }
+                }, { transaction });
+            }
+
+            if (payload.hasOwnProperty('isActive')) {
+                const active = payload.isActive === true || payload.isActive === 'true';
+                if (!active) {
+                    const count = await db.RXRecord.update(
+                        { isDeleted: true, deletedAt: new Date() },
+                        { where: { patientId: req.params.id, isDeleted: false }, transaction }
+                    );
+                    console.log(`[Patient Deactivate] Patient #${req.params.id} - ${count[0]} RX record(s) hidden.`);
+                } else {
+                    const count = await db.RXRecord.update(
+                        { isDeleted: false, deletedAt: null },
+                        { where: { patientId: req.params.id, isDeleted: true }, transaction }
+                    );
+                    console.log(`[Patient Activate] Patient #${req.params.id} - ${count[0]} RX record(s) restored.`);
+                }
+            }
+
+            return db.Patient.findByPk(req.params.id, {
+                include: [db.PatientTransportCompany, db.PharmacyTransportCompany, db.Clinic, db.Pharmacy],
+                transaction
+            });
+        });
+
+        res.json(updatedPatient);
+    } catch (err) {
+        res.status(err.status || 400).json({ error: err.message });
+    }
+}
 
 exports.delete = async (req, res) => {
     try {

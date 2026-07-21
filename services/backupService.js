@@ -45,25 +45,32 @@ function setDbBackupDir(newDir) {
 //   1. PGBIN env var  (set explicitly by user)
 //   2. PATH  (works on dev machines where psql is in PATH)
 //   3. Common Windows PostgreSQL install directories (newest version first)
-var _pgBinCache = null;
+var _pgToolCache = Object.create(null);
+function sqlIdentifier(value) { return '"' + String(value).replace(/"/g, '""') + '"'; }
+function sqlStringLiteral(value) { return "'" + String(value).replace(/'/g, "''") + "'"; }
+
 function findPgTool(toolName) {
-    // Return cached bin dir result
-    if (_pgBinCache) return path.join(_pgBinCache, toolName + '.exe');
+    var lookupCmd = process.platform === 'win32' ? 'where' : 'which';
+
+    // Return cached tool result
+    if (_pgToolCache[toolName]) return _pgToolCache[toolName];
 
     // 1. Explicit env var
     if (process.env.PGBIN) {
-        var explicit = path.join(process.env.PGBIN, toolName + '.exe');
-        if (fs.existsSync(explicit)) { _pgBinCache = process.env.PGBIN; return explicit; }
+        var explicit = process.platform === 'win32'
+            ? path.join(process.env.PGBIN, toolName + '.exe')
+            : path.join(process.env.PGBIN, toolName);
+        if (fs.existsSync(explicit)) { _pgToolCache[toolName] = explicit; return explicit; }
     }
 
-    // 2. Try PATH — spawnSync 'where pg_dump' on Windows
+    // 2. Try PATH (lookup on current platform)
     try {
-        var where = spawnSync('where', [toolName], { encoding: 'utf8', timeout: 3000 });
-        if (where.status === 0 && where.stdout) {
-            var first = where.stdout.trim().split(/\r?\n/)[0];
+        var found = spawnSync(lookupCmd, [toolName], { encoding: 'utf8', timeout: 3000 });
+        if (found.status === 0 && found.stdout) {
+            var first = String(found.stdout || '').trim().split(/\r?\n/)[0];
             if (fs.existsSync(first)) {
-                _pgBinCache = path.dirname(first);
-                console.log('[Backup] Found PostgreSQL tools via PATH:', _pgBinCache);
+                _pgToolCache[toolName] = first;
+                console.log('[Backup] Found PostgreSQL tool via PATH:', first);
                 return first;
             }
         }
@@ -85,9 +92,10 @@ function findPgTool(toolName) {
         if (!fs.existsSync(pgDir)) return;
         try {
             fs.readdirSync(pgDir).forEach(function(ver) {
-                var bin = path.join(pgDir, ver, 'bin');
-                var exe = path.join(bin, toolName + '.exe');
-                if (fs.existsSync(exe)) candidates.push({ ver: parseFloat(ver) || 0, bin, exe });
+                var exe = process.platform === 'win32'
+                    ? path.join(pgDir, ver, 'bin', toolName + '.exe')
+                    : path.join(pgDir, ver, 'bin', toolName);
+                if (fs.existsSync(exe)) candidates.push({ ver: parseFloat(ver) || 0, exe });
             });
         } catch {}
     });
@@ -95,17 +103,15 @@ function findPgTool(toolName) {
     if (candidates.length) {
         // Pick highest version
         candidates.sort(function(a, b) { return b.ver - a.ver; });
-        _pgBinCache = candidates[0].bin;
-        console.log('[Backup] Found PostgreSQL tools at:', _pgBinCache);
+        _pgToolCache[toolName] = candidates[0].exe;
+        console.log('[Backup] Found PostgreSQL tool at:', _pgToolCache[toolName]);
         return candidates[0].exe;
     }
 
-    // Fallback — return bare name and let the OS try (will get ENOENT if missing)
+    // Fallback — return bare name/path and let the OS decide
     console.warn('[Backup] pg tool not found — tried PATH and common dirs. Set PGBIN in .env');
     return toolName;
 }
-
-// ── Lazy dir creation (never at module load time inside pkg snapshot) ─────────
 function ensureDir(dir) {
     if (!fs.existsSync(dir)) {
         try { fs.mkdirSync(dir, { recursive: true }); }
@@ -146,6 +152,7 @@ function runBackup(triggeredBy = 'Scheduled') {
         const env  = process.env;
         const args = [
             '-h', env.DB_HOST || '127.0.0.1',
+            '-p', env.DB_PORT || '5432',
             '-U', env.DB_USER || 'postgres',
             '-d', env.DB_NAME || 'patient_rx_dev',
             '-F', 'c', '-f', filepath
@@ -403,41 +410,68 @@ function runFullSiteBackup(triggeredBy = 'Manual') {
                 return;
             }
 
-            const psFile    = path.join(siteDir, '_sitebackup_' + ts + '.ps1');
-            const srcEsc    = PROJECT_ROOT.replace(/\\/g, '\\\\');
-            const destEsc   = zipPath.replace(/\\/g, '\\\\');
-            const dumpEsc   = dbDump.replace(/\\/g, '\\\\');
-
+            const psFile = path.join(siteDir, '_sitebackup_' + ts + '.ps1');
+            const psPayload = JSON.stringify({
+                sourceRoot: PROJECT_ROOT,
+                destinationZip: zipPath,
+                databaseDump: dbDump,
+                excludes: ['node_modules', '.git', 'logs']
+            });
             const psContent = [
-                'Add-Type -Assembly System.IO.Compression.FileSystem',
-                '$src    = "' + srcEsc + '"',
-                '$dest   = "' + destEsc + '"',
-                '$dbDump = "' + dumpEsc + '"',
-                '$exclude = @("node_modules", ".git", "logs")',
-                '',
-                '$files = Get-ChildItem -Path $src -Recurse -File | Where-Object {',
-                '    $rel   = $_.FullName.Substring($src.Length + 1)',
-                '    $parts = $rel -split "[\\\\/]"',
-                '    $skip  = $false',
-                '    foreach ($ex in $exclude) { if ($parts -contains $ex) { $skip = $true; break } }',
-                '    -not $skip',
+                'param([string]$payload)',
+                '$payloadObj = $null',
+                'try {',
+                '    $payloadObj = $payload | ConvertFrom-Json',
+                '} catch {',
+                '    Write-Error "Invalid site backup payload: $($_.Exception.Message)"',
+                '    exit 1',
                 '}',
-                '',
+                '$src            = $payloadObj.sourceRoot',
+                '$dest           = $payloadObj.destinationZip',
+                '$dbDump         = $payloadObj.databaseDump',
+                '$excludeTargets = $payloadObj.excludes',
+                'if (-not $src -or -not $dest -or -not $dbDump) {',
+                '    Write-Error "Missing one or more required payload values."',
+                '    exit 1',
+                '}',
+                'if (-not (Test-Path $src)) {',
+                '    Write-Error "Source path not found: $src"',
+                '    exit 1',
+                '}',
+                'Add-Type -Assembly System.IO.Compression.FileSystem',
                 'if (Test-Path $dest) { Remove-Item $dest -Force }',
                 '$zip = [System.IO.Compression.ZipFile]::Open($dest, "Create")',
-                'foreach ($f in $files) {',
-                '    $entry = $f.FullName.Substring($src.Length + 1)',
-                '    try {',
-                '        [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zip, $f.FullName, $entry) | Out-Null',
-                '    } catch {}',
-                '}',
-                '# Include DB dump inside the ZIP',
                 'try {',
-                '    [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zip, $dbDump, "db_backup.dump") | Out-Null',
-                '} catch {}',
-                '$zip.Dispose()',
-                'Remove-Item $dbDump -Force -ErrorAction SilentlyContinue',
-                'Write-Host "DONE"'
+                '    $files = Get-ChildItem -Path $src -Recurse -File -ErrorAction SilentlyContinue',
+                '    foreach ($f in $files) {',
+                '        $rel   = $f.FullName.Substring($src.Length + 1)',
+                '        $parts = $rel -split "[\\\\/]"',
+                '        $skip  = $false',
+                '        foreach ($ex in $excludeTargets) {',
+                '            if ($parts -contains $ex) {',
+                '                $skip = $true',
+                '                break',
+                '            }',
+                '        }',
+                '        if (-not $skip) {',
+                '            $entry = $f.FullName.Substring($src.Length + 1)',
+                '            try {',
+                '                [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zip, $f.FullName, $entry) | Out-Null',
+                '            } catch {}',
+                '        }',
+                '    }',
+                '',
+                '    # Include DB dump inside the ZIP',
+                '    try {',
+                '        [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zip, $dbDump, "db_backup.dump") | Out-Null',
+                '    } catch {}',
+                '    Write-Host "DONE"',
+                '} catch {',
+                '    Write-Error $_.Exception.Message',
+                '    exit 1',
+                '} finally {',
+                '    $zip.Dispose()',
+                '}'
             ].join('\r\n');
 
             try { fs.writeFileSync(psFile, psContent, 'utf8'); } catch (e) {
@@ -450,7 +484,7 @@ function runFullSiteBackup(triggeredBy = 'Manual') {
             }
 
             const ps = spawn('powershell',
-                ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', psFile],
+                ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', psFile, '-Payload', psPayload],
                 { env: process.env });
 
             let psOut = '', psErrOut = '';
@@ -459,6 +493,7 @@ function runFullSiteBackup(triggeredBy = 'Manual') {
 
             ps.on('error', err => {
                 try { fs.unlinkSync(dbDump); } catch {}
+                try { fs.unlinkSync(psFile); } catch {}
                 const entry = { id: Date.now(), filename: null, timestamp: new Date().toISOString(),
                     triggeredBy, status: 'failed', size: 0, error: 'PowerShell error: ' + err.message };
                 appendSiteLog(entry);
@@ -469,6 +504,7 @@ function runFullSiteBackup(triggeredBy = 'Manual') {
                 let size = 0;
                 try { size = fs.statSync(zipPath).size; } catch {}
                 try { if (fs.existsSync(dbDump)) fs.unlinkSync(dbDump); } catch {}
+                try { fs.unlinkSync(psFile); } catch {}
 
                 const success = psCode === 0 && psOut.includes('DONE') && size > 0;
                 const entry = {
@@ -582,6 +618,12 @@ if (process.env.SECURITY_ALERT_BACKUP_MONITOR !== 'false') {
 function restoreBackup(dumpFilePath, triggeredBy) {
     triggeredBy = triggeredBy || 'Manual restore';
     return new Promise(function(resolve) {
+        if (!dumpFilePath) {
+            return resolve({ status: 'failed', log: '', error: 'Restore file path is required.' });
+        }
+        if (!fs.existsSync(dumpFilePath)) {
+            return resolve({ status: 'failed', log: '', error: 'Restore file not found: ' + dumpFilePath });
+        }
         ensureDir(getDbBackupDir());
         var env    = process.env;
         var pgEnv  = Object.assign({}, process.env, { PGPASSWORD: env.DB_PASS || '' });
@@ -590,84 +632,155 @@ function restoreBackup(dumpFilePath, triggeredBy) {
         var port   = env.DB_PORT   || '5432';
         var user   = env.DB_USER   || 'postgres';
 
-        // Step 1: safety backup
-        runBackup('Pre-restore auto-safety-backup').then(function() {
+        function validateDump(cb) {
+            var finished = false;
+            var stderr = '';
+            var child;
+            try {
+                child = spawn(findPgTool('pg_restore'), ['--list', dumpFilePath], { env: pgEnv });
+            } catch (err) {
+                cb(err);
+                return;
+            }
+            child.stderr.on('data', function(d) { stderr += d.toString(); });
+            child.on('error', function(err) {
+                if (finished) return;
+                finished = true;
+                cb(err);
+            });
+            child.on('close', function(code) {
+                if (finished) return;
+                finished = true;
+                cb(code === 0 ? null : new Error(stderr.trim() || ('pg_restore --list exited with code ' + code)));
+            });
+        }
 
-            // Step 2: drop + recreate DB via psql connecting to 'postgres'
-            // We run two psql commands: one DROP, one CREATE
-            var psqlTool = findPgTool('psql');
-
-            function runPsql(sql, cb) {
-                var args = [
-                    '-h', host, '-p', port, '-U', user,
-                    '-d', 'postgres',
-                    '-c', sql
-                ];
-                var proc = spawn(psqlTool, args, { env: pgEnv });
-                var out = '', err = '';
-                proc.stdout.on('data', function(d) { out += d.toString(); });
-                proc.stderr.on('data', function(d) { err += d.toString(); });
-                proc.on('error', function(e) { cb(e, '', ''); });
-                proc.on('close', function(code) { cb(null, out, err, code); });
+        // Validate the archive before taking any destructive action.
+        validateDump(function(validationError) {
+            if (validationError) {
+                return resolve({
+                    status: 'failed',
+                    log: '',
+                    error: 'The uploaded file is not a valid PostgreSQL custom-format dump: ' + validationError.message
+                });
             }
 
-            var logLines = '';
-
-            // Terminate all connections first (required before DROP)
-            var terminateSql = 'SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = \'' + dbName + '\' AND pid <> pg_backend_pid();';
-            runPsql(terminateSql, function(e1) {
-                if (e1) {
-                    return resolve({ status: 'failed', log: '', error: 'psql not found: ' + e1.message + '\nMake sure PostgreSQL bin is in PATH or set PGBIN in .env' });
+            // Step 1: safety backup. Never drop the database unless this succeeds.
+            runBackup('Pre-restore auto-safety-backup').then(function(safetyBackup) {
+                if (!safetyBackup || safetyBackup.status !== 'success') {
+                    return resolve({
+                        status: 'failed',
+                        log: '',
+                        error: 'Restore stopped because the automatic safety backup failed: '
+                            + ((safetyBackup && safetyBackup.error) || 'unknown backup error')
+                    });
                 }
 
-                runPsql('DROP DATABASE IF EXISTS "' + dbName + '";', function(e2, o2, err2, c2) {
-                    logLines += '[DROP] ' + (c2 === 0 ? 'OK' : 'exit ' + c2) + (err2 ? ' ' + err2.trim() : '') + '\n';
+                // Step 2: drop + recreate DB via psql connecting to 'postgres'
+                // We run two psql commands: one DROP, one CREATE
+                var psqlTool = findPgTool('psql');
 
-                    runPsql('CREATE DATABASE "' + dbName + '" TEMPLATE template0;', function(e3, o3, err3, c3) {
-                        logLines += '[CREATE] ' + (c3 === 0 ? 'OK' : 'exit ' + c3) + (err3 ? ' ' + err3.trim() : '') + '\n';
+                function runPsql(sql, cb) {
+                    var args = [
+                        '-h', host, '-p', port, '-U', user,
+                        '-d', 'postgres',
+                        '-c', sql
+                    ];
+                    var finished = false;
+                    var proc = spawn(psqlTool, args, { env: pgEnv });
+                    var out = '', err = '';
+                    proc.stdout.on('data', function(d) { out += d.toString(); });
+                    proc.stderr.on('data', function(d) { err += d.toString(); });
+                    proc.on('error', function(e) {
+                        if (finished) return;
+                        finished = true;
+                        cb(e, '', '', null);
+                    });
+                    proc.on('close', function(code) {
+                        if (finished) return;
+                        finished = true;
+                        cb(null, out, err, code);
+                    });
+                }
 
-                        if (c3 !== 0) {
-                            return resolve({ status: 'failed', log: logLines, error: 'Failed to recreate database: ' + err3.trim() });
+                var logLines = '[SAFETY BACKUP] ' + safetyBackup.filename + '\n';
+                var safeDbName = sqlIdentifier(dbName);
+
+                // Terminate all connections first (required before DROP)
+                var terminateSql = 'SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = ' + sqlStringLiteral(dbName) + ' AND pid <> pg_backend_pid();';
+                runPsql(terminateSql, function(e1, o1, err1, c1) {
+                    if (e1) {
+                        return resolve({ status: 'failed', log: logLines, error: 'psql not found: ' + e1.message + '\nMake sure PostgreSQL bin is in PATH or set PGBIN in .env' });
+                    }
+                    logLines += '[TERMINATE CONNECTIONS] ' + (c1 === 0 ? 'OK' : 'exit ' + c1) + (err1 ? ' ' + err1.trim() : '') + '\n';
+                    if (c1 !== 0) {
+                        return resolve({ status: 'failed', log: logLines, error: 'Failed to terminate existing database connections: ' + (err1.trim() || ('exit ' + c1)) });
+                    }
+
+                    runPsql('DROP DATABASE IF EXISTS ' + safeDbName + ';', function(e2, o2, err2, c2) {
+                        if (e2) {
+                            return resolve({ status: 'failed', log: logLines, error: 'Failed to start database drop: ' + e2.message });
+                        }
+                        logLines += '[DROP] ' + (c2 === 0 ? 'OK' : 'exit ' + c2) + (err2 ? ' ' + err2.trim() : '') + '\n';
+                        if (c2 !== 0) {
+                            return resolve({ status: 'failed', log: logLines, error: 'Failed to drop database: ' + (err2.trim() || ('exit ' + c2)) });
                         }
 
-                        // Step 3: pg_restore into fresh empty DB
-                        var args = [
-                            '-h', host, '-p', port, '-U', user,
-                            '-d', dbName,
-                            '-F', 'c',
-                            '--no-owner', '--no-privileges',
-                            dumpFilePath
-                        ];
+                        runPsql('CREATE DATABASE ' + safeDbName + ' TEMPLATE template0;', function(e3, o3, err3, c3) {
+                            if (e3) {
+                                return resolve({ status: 'failed', log: logLines, error: 'Failed to start database creation: ' + e3.message });
+                            }
+                            logLines += '[CREATE] ' + (c3 === 0 ? 'OK' : 'exit ' + c3) + (err3 ? ' ' + err3.trim() : '') + '\n';
 
-                        var child = spawn(findPgTool('pg_restore'), args, { env: pgEnv });
-                        var restoreOut = '', restoreErr = '';
-                        child.stdout.on('data', function(d) { restoreOut += d.toString(); });
-                        child.stderr.on('data', function(d) { restoreErr += d.toString(); });
+                            if (c3 !== 0) {
+                                return resolve({ status: 'failed', log: logLines, error: 'Failed to recreate database: ' + err3.trim() });
+                            }
 
-                        child.on('error', function(err) {
-                            resolve({ status: 'failed', log: logLines, error: 'pg_restore not found: ' + err.message });
-                        });
+                            // Step 3: pg_restore into fresh empty DB
+                            var args = [
+                                '-h', host, '-p', port, '-U', user,
+                                '-d', dbName,
+                                '-F', 'c',
+                                '--no-owner', '--no-privileges',
+                                dumpFilePath
+                            ];
 
-                        child.on('close', function(code) {
-                            var success = code === 0;
-                            var fullLog = logLines + restoreOut + (restoreErr ? '\n[stderr]\n' + restoreErr : '');
-                            var entry = {
-                                id:          Date.now(),
-                                filename:    null,
-                                timestamp:   new Date().toISOString(),
-                                triggeredBy: triggeredBy,
-                                status:      success ? 'success' : 'failed',
-                                size:        0,
-                                error:       success ? null : (restoreErr.trim() || ('Exit code ' + code))
-                            };
-                            appendLog(entry);
-                            resolve({
-                                status: success ? 'success' : 'failed',
-                                log:    fullLog,
-                                error:  success ? null : (restoreErr.trim() || ('Exit code ' + code))
+                            var child = spawn(findPgTool('pg_restore'), args, { env: pgEnv });
+                            var restoreOut = '', restoreErr = '';
+                            child.stdout.on('data', function(d) { restoreOut += d.toString(); });
+                            child.stderr.on('data', function(d) { restoreErr += d.toString(); });
+
+                            child.on('error', function(err) {
+                                resolve({ status: 'failed', log: logLines, error: 'pg_restore not found: ' + err.message });
+                            });
+
+                            child.on('close', function(code) {
+                                var success = code === 0;
+                                var fullLog = logLines + restoreOut + (restoreErr ? '\n[stderr]\n' + restoreErr : '');
+                                var entry = {
+                                    id:          Date.now(),
+                                    filename:    null,
+                                    timestamp:   new Date().toISOString(),
+                                    triggeredBy: triggeredBy,
+                                    status:      success ? 'success' : 'failed',
+                                    size:        0,
+                                    error:       success ? null : (restoreErr.trim() || ('Exit code ' + code))
+                                };
+                                appendLog(entry);
+                                resolve({
+                                    status: success ? 'success' : 'failed',
+                                    log:    fullLog,
+                                    error:  success ? null : (restoreErr.trim() || ('Exit code ' + code))
+                                });
                             });
                         });
                     });
+                });
+            }).catch(function(err) {
+                resolve({
+                    status: 'failed',
+                    log: '',
+                    error: 'Restore stopped because the automatic safety backup could not run: ' + err.message
                 });
             });
         });

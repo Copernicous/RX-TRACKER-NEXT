@@ -2,6 +2,11 @@ const db = require('../models');
 const Op = db.Sequelize.Op;
 const QueryTypes = db.Sequelize.QueryTypes;
 
+const CALL_CENTER_MODULE = 'Call Center';
+const CC_CALL_ACTION = 'Called';
+const CC_NOTE_ACTION = 'Note Added';
+const CC_SERVICE_DATE_ACTION = 'Service Date Added';
+
 function cleanString(value) {
     return value === undefined || value === null ? '' : String(value).trim();
 }
@@ -43,6 +48,324 @@ function enrichRxReportRows(rows) {
 function orderedRows(rows, ids) {
     const byId = new Map(rows.map(row => [row.id, row]));
     return ids.map(id => byId.get(id)).filter(Boolean);
+}
+
+function localDateOnly(value) {
+    if (!value) return '';
+    const d = value instanceof Date ? value : new Date(value);
+    if (isNaN(d.getTime())) return '';
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+}
+
+function endOfDay(isoDate) {
+    const d = new Date(`${isoDate}T00:00:00`);
+    d.setHours(23, 59, 59, 999);
+    return d;
+}
+
+function getUserLabel(user) {
+    if (!user) return 'System';
+    const first = user.firstName || '';
+    const last = user.lastName || '';
+    const full = `${first} ${last}`.trim();
+    return full || user.username || `User ${user.id}`;
+}
+
+function parseAuditJson(value) {
+    if (!value) return {};
+    if (typeof value === 'object') return value;
+    try { return JSON.parse(value); } catch (e) { return {}; }
+}
+
+function auditServiceDate(value) {
+    const payload = parseAuditJson(value);
+    return payload.serviceDate || payload.newServiceDate || '';
+}
+
+function ccRange(query) {
+    const dateFrom = isDateOnly(query.dateFrom) ? query.dateFrom : '';
+    const dateTo = isDateOnly(query.dateTo) ? query.dateTo : '';
+    const fromIso = dateFrom || '';
+    const toIso = dateTo || '';
+    const where = {};
+    if (fromIso && toIso) where[Op.between] = [new Date(`${fromIso}T00:00:00`), endOfDay(toIso)];
+    else if (fromIso) where[Op.gte] = new Date(`${fromIso}T00:00:00`);
+    else if (toIso) where[Op.lte] = endOfDay(toIso);
+    return { fromIso, toIso, where };
+}
+
+function ccEmptyRow(patientId) {
+    return {
+        patientId,
+        patientCode: '',
+        firstName: '',
+        lastName: '',
+        phone: '',
+        clinicName: '',
+        serviceDate: '',
+        status: '',
+        calls: 0,
+        serviceDates: 0,
+        notes: 0,
+        repeatCalls: 0,
+        firstActionAt: null,
+        lastActionAt: null,
+        lastActionBy: '',
+        users: new Set(),
+        callHistory: [],
+        serviceDateHistory: [],
+        noteHistory: []
+    };
+}
+
+function ccBucket(map, patientId) {
+    const key = String(patientId);
+    if (!map[key]) map[key] = ccEmptyRow(patientId);
+    return map[key];
+}
+
+function ccTouchRow(row, at, user) {
+    if (user) row.users.add(user);
+    if (at && (!row.firstActionAt || new Date(at) < new Date(row.firstActionAt))) row.firstActionAt = at;
+    if (at && (!row.lastActionAt || new Date(at) > new Date(row.lastActionAt))) {
+        row.lastActionAt = at;
+        row.lastActionBy = user || '';
+    }
+}
+
+function ccHistoryLine(kind, item) {
+    const when = item && item.at ? new Date(item.at).toLocaleString() : '';
+    const user = item && item.user ? item.user : '';
+    if (kind === 'note') return `${when}${user ? ` - ${user}` : ''}: ${item.note || ''}`;
+    if (kind === 'serviceDate') return `${when}${user ? ` - ${user}` : ''}${item.serviceDate ? ` -> ${item.serviceDate}` : ''}`;
+    return `${when}${user ? ` - ${user}` : ''}`;
+}
+
+function ccHistoryText(items, kind) {
+    return (items || []).map(item => ccHistoryLine(kind, item)).join(' | ');
+}
+
+function ccMatchesText(value, query) {
+    if (!query) return true;
+    return String(value || '').toLowerCase().includes(query);
+}
+
+function ccRowMatchesFilters(row, query) {
+    const action = cleanString(query.actionType);
+    const status = cleanString(query.status);
+    const code = cleanString(query.patientCode).toLowerCase();
+    const first = cleanString(query.firstName).toLowerCase();
+    const last = cleanString(query.lastName).toLowerCase();
+    const phone = cleanString(query.phone).toLowerCase();
+    const clinic = cleanString(query.clinic).toLowerCase();
+    const serviceFrom = isDateOnly(query.serviceDateFrom) ? query.serviceDateFrom : '';
+    const serviceTo = isDateOnly(query.serviceDateTo) ? query.serviceDateTo : '';
+
+    if (action === 'calls' && row.calls <= 0) return false;
+    if (action === 'notes' && row.notes <= 0) return false;
+    if (action === 'service_dates' && row.serviceDates <= 0) return false;
+    if (action === 'repeats' && row.repeatCalls <= 0) return false;
+    if (status && row.status !== status) return false;
+    if (!ccMatchesText(row.patientCode, code)) return false;
+    if (!ccMatchesText(row.firstName, first)) return false;
+    if (!ccMatchesText(row.lastName, last)) return false;
+    if (!ccMatchesText(row.phone, phone)) return false;
+    if (!ccMatchesText(row.clinicName, clinic)) return false;
+    if (serviceFrom && (!row.serviceDate || row.serviceDate < serviceFrom)) return false;
+    if (serviceTo && (!row.serviceDate || row.serviceDate > serviceTo)) return false;
+    return true;
+}
+
+function ccSortValue(row, sort) {
+    if (sort === 'patientCode') return row.patientCode || '';
+    if (sort === 'firstName') return row.firstName || '';
+    if (sort === 'lastName') return row.lastName || '';
+    if (sort === 'phone') return row.phone || '';
+    if (sort === 'clinicName') return row.clinicName || '';
+    if (sort === 'serviceDate') return row.serviceDate || '';
+    if (sort === 'status') return row.status || '';
+    if (sort === 'calls') return Number(row.calls || 0);
+    if (sort === 'repeatCalls') return Number(row.repeatCalls || 0);
+    if (sort === 'serviceDates') return Number(row.serviceDates || 0);
+    if (sort === 'notes') return Number(row.notes || 0);
+    if (sort === 'firstActionAt') return row.firstActionAt ? new Date(row.firstActionAt).getTime() : 0;
+    if (sort === 'lastActionAt') return row.lastActionAt ? new Date(row.lastActionAt).getTime() : 0;
+    if (sort === 'users') return row.usersText || '';
+    return row.lastActionAt ? new Date(row.lastActionAt).getTime() : 0;
+}
+
+function ccSortRows(rows, sort, dir) {
+    const direction = dir === 'asc' ? 1 : -1;
+    rows.sort((a, b) => {
+        let av = ccSortValue(a, sort);
+        let bv = ccSortValue(b, sort);
+        if (typeof av === 'number' || typeof bv === 'number') {
+            av = Number(av || 0);
+            bv = Number(bv || 0);
+            return (av - bv) * direction;
+        }
+        av = String(av || '').toLowerCase();
+        bv = String(bv || '').toLowerCase();
+        if (av < bv) return -1 * direction;
+        if (av > bv) return 1 * direction;
+        return 0;
+    });
+    return rows;
+}
+
+async function getCallCenterReportUsers() {
+    const auditUsers = await db.AuditLog.findAll({
+        where: {
+            module: CALL_CENTER_MODULE,
+            action: { [Op.in]: [CC_CALL_ACTION, CC_NOTE_ACTION, CC_SERVICE_DATE_ACTION] },
+            userId: { [Op.ne]: null }
+        },
+        attributes: ['userId'],
+        group: ['userId'],
+        raw: true
+    });
+    const noteUsers = await db.PatientNote.findAll({
+        where: { source: 'Call Center', userId: { [Op.ne]: null } },
+        attributes: ['userId'],
+        group: ['userId'],
+        raw: true
+    });
+    const ids = Array.from(new Set([].concat(auditUsers, noteUsers)
+        .map(row => parseInt(row.userId, 10))
+        .filter(id => Number.isFinite(id))));
+    if (!ids.length) return [];
+    const users = await db.User.findAll({
+        where: { id: { [Op.in]: ids } },
+        attributes: ['id', 'firstName', 'lastName', 'username']
+    });
+    return users
+        .map(user => ({ userId: user.id, name: getUserLabel(user) }))
+        .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+async function getPaginatedCallCenterReport(query) {
+    const pageSize = parsePositiveInt(query.pageSize, 10, 1, 500);
+    const requestedPage = parsePositiveInt(query.page, 1, 1, 1000000);
+    const sort = cleanString(query.sort) || 'lastActionAt';
+    const dir = normalizeDir(query.dir);
+    const selectedUserId = parseInt(query.userId, 10);
+    const validUserId = Number.isFinite(selectedUserId) && selectedUserId > 0 ? selectedUserId : null;
+    const range = ccRange(query);
+
+    const auditWhere = {
+        module: CALL_CENTER_MODULE,
+        action: { [Op.in]: [CC_CALL_ACTION, CC_SERVICE_DATE_ACTION] },
+        recordId: { [Op.ne]: null }
+    };
+    if (Object.keys(range.where).length) auditWhere.createdAt = range.where;
+    if (validUserId) auditWhere.userId = validUserId;
+
+    const noteWhere = { source: 'Call Center' };
+    if (Object.keys(range.where).length) noteWhere.createdAt = range.where;
+    if (validUserId) noteWhere.userId = validUserId;
+
+    const [auditLogs, notes] = await Promise.all([
+        db.AuditLog.findAll({
+            where: auditWhere,
+            attributes: ['createdAt', 'action', 'recordId', 'newValue', 'userId'],
+            include: [{ model: db.User, attributes: ['id', 'firstName', 'lastName', 'username'], required: false }],
+            order: [['createdAt', 'DESC']]
+        }),
+        db.PatientNote.findAll({
+            where: noteWhere,
+            attributes: ['patientId', 'note', 'createdAt', 'userId'],
+            include: [{ model: db.User, as: 'Author', attributes: ['id', 'firstName', 'lastName', 'username'], required: false }],
+            order: [['createdAt', 'DESC']]
+        })
+    ]);
+
+    const byPatient = {};
+    auditLogs.forEach(log => {
+        const plain = log.toJSON ? log.toJSON() : log;
+        const patientId = parseInt(plain.recordId, 10);
+        if (!Number.isFinite(patientId)) return;
+        const row = ccBucket(byPatient, patientId);
+        const user = getUserLabel(plain.User);
+        ccTouchRow(row, plain.createdAt, user);
+        if (plain.action === CC_CALL_ACTION) {
+            row.calls += 1;
+            row.callHistory.push({ at: plain.createdAt, user });
+        } else if (plain.action === CC_SERVICE_DATE_ACTION) {
+            row.serviceDates += 1;
+            row.serviceDateHistory.push({ at: plain.createdAt, user, serviceDate: auditServiceDate(plain.newValue) });
+        }
+    });
+
+    notes.forEach(note => {
+        const plain = note.toJSON ? note.toJSON() : note;
+        const patientId = parseInt(plain.patientId, 10);
+        if (!Number.isFinite(patientId)) return;
+        const row = ccBucket(byPatient, patientId);
+        const user = getUserLabel(plain.Author);
+        row.notes += 1;
+        row.noteHistory.push({ at: plain.createdAt, user, note: plain.note || '' });
+        ccTouchRow(row, plain.createdAt, user);
+    });
+
+    const patientIds = Object.keys(byPatient).map(id => parseInt(id, 10)).filter(id => Number.isFinite(id));
+    const patients = patientIds.length
+        ? await db.Patient.findAll({
+            where: { id: { [Op.in]: patientIds } },
+            attributes: ['id', 'patientCode', 'firstName', 'lastName', 'phone', 'serviceDate', 'isActive', 'isDeleted'],
+            include: [{ model: db.Clinic, attributes: ['name'], required: false }]
+        })
+        : [];
+    const patientMap = new Map(patients.map(patient => [patient.id, patient.toJSON ? patient.toJSON() : patient]));
+
+    let rows = Object.keys(byPatient).map(key => {
+        const row = byPatient[key];
+        const patient = patientMap.get(row.patientId) || {};
+        row.patientCode = patient.patientCode || `PAT-${row.patientId}`;
+        row.firstName = patient.firstName || '';
+        row.lastName = patient.lastName || '';
+        row.phone = patient.phone || '';
+        row.clinicName = patient.Clinic ? patient.Clinic.name : '';
+        row.serviceDate = patient.serviceDate || '';
+        row.status = patient.isDeleted ? 'Deleted' : (patient.isActive === false ? 'Inactive' : 'Active');
+        row.repeatCalls = Math.max(row.calls - 1, 0);
+        row.usersText = Array.from(row.users).sort().join(', ');
+        row.callHistoryText = ccHistoryText(row.callHistory, 'call');
+        row.serviceDateHistoryText = ccHistoryText(row.serviceDateHistory, 'serviceDate');
+        row.noteHistoryText = ccHistoryText(row.noteHistory, 'note');
+        delete row.users;
+        return row;
+    }).filter(row => ccRowMatchesFilters(row, query));
+
+    rows = ccSortRows(rows, sort, dir);
+    const total = rows.length;
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+    const page = Math.min(requestedPage, totalPages);
+    const start = query.exportAll === 'true' ? 0 : (page - 1) * pageSize;
+    const end = query.exportAll === 'true' ? total : start + pageSize;
+    const pageRows = rows.slice(start, end);
+    const totals = rows.reduce((memo, row) => {
+        memo.calls += row.calls || 0;
+        memo.repeatCalls += row.repeatCalls || 0;
+        memo.serviceDates += row.serviceDates || 0;
+        memo.notes += row.notes || 0;
+        return memo;
+    }, { patients: total, calls: 0, repeatCalls: 0, serviceDates: 0, notes: 0 });
+
+    return {
+        rows: pageRows,
+        total,
+        page,
+        pageSize,
+        totalPages,
+        sort,
+        dir,
+        totals,
+        users: await getCallCenterReportUsers(),
+        range: { from: range.fromIso, to: range.toIso }
+    };
 }
 
 function patientReportFilters(query, replacements) {
@@ -299,4 +622,13 @@ exports.getRXActionReport = async (req, res) => {
         });
         res.json(enrichRxReportRows(rxRecords));
     } catch (err) { res.status(500).json({ error: err.message }); }
+};
+
+exports.getCallCenterReport = async (req, res) => {
+    try {
+        res.json(await getPaginatedCallCenterReport(req.query || {}));
+    } catch (err) {
+        console.error('[Reports] Call Center report error:', err);
+        res.status(500).json({ error: err.message });
+    }
 };

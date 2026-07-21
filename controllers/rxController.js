@@ -1,6 +1,6 @@
 const db = require('../models');
-const { parseDate } = require('../utils/dateUtils');
-const { isServiceDateOverrideEnabled } = require('../utils/globalSettings');
+const { parseDate, parseLocalDateOnly } = require('../utils/dateUtils');
+const { isServiceDateOverrideEnabled, getServiceWindowDays } = require('../utils/globalSettings');
 const { userCanOverrideExpired, getRequestPermission } = require('../middleware/rbac');
 const {
     dateOnly,
@@ -67,13 +67,13 @@ function getWorkflowWindowBlock(rx) {
 
     svcDay.setHours(0, 0, 0, 0);
     const expiryDay = new Date(svcDay);
-    expiryDay.setDate(expiryDay.getDate() + 90);
+    expiryDay.setDate(expiryDay.getDate() + getServiceWindowDays());
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
     if (today > expiryDay) {
         return {
-            error: `The 90-day window for this RX expired on ${expiryDay.toLocaleDateString()}. Start a new patient Service Date and create a new RX record for the new cycle.`,
+            error: `The ${getServiceWindowDays()}-day window for this RX expired on ${expiryDay.toLocaleDateString()}. Start a new patient Service Date and create a new RX record for the new cycle.`,
             code: 'RX_WORKFLOW_WINDOW_EXPIRED',
             serviceDate,
             windowExpiry: expiryDay.toISOString().slice(0, 10)
@@ -166,7 +166,7 @@ function addRxPageFilters(query, replacements, totalSteps) {
     const from = maxDateOnly([query.dateFrom, query.serviceFrom]);
     const to = minDateOnly([query.dateTo, query.serviceTo]);
     const completedExpr = 'COALESCE(wc.completed_steps, 0)';
-    const expiredExpr = `(r."serviceDate" IS NOT NULL AND (r."serviceDate"::date + INTERVAL '90 days')::date < CURRENT_DATE AND ${completedExpr} < :totalSteps)`;
+    const expiredExpr = `(r."serviceDate" IS NOT NULL AND (r."serviceDate"::date + INTERVAL '${getServiceWindowDays()} days')::date < CURRENT_DATE AND ${completedExpr} < :totalSteps)`;
     const completedExprSql = `(:totalSteps > 0 AND ${completedExpr} >= :totalSteps)`;
 
     replacements.totalSteps = totalSteps;
@@ -254,7 +254,7 @@ function rxPageSortSql(sort) {
     const workflowSort = `
         CASE
             WHEN r."serviceDate" IS NOT NULL
-             AND (r."serviceDate"::date + INTERVAL '90 days')::date < CURRENT_DATE
+             AND (r."serviceDate"::date + INTERVAL '${getServiceWindowDays()} days')::date < CURRENT_DATE
              AND ${completedExpr} < :totalSteps
                 THEN 1000 + ${completedExpr}
             WHEN :totalSteps > 0 AND ${completedExpr} >= :totalSteps
@@ -266,8 +266,8 @@ function rxPageSortSql(sort) {
         id: 'r.id',
         'Patient.firstName': `LOWER(COALESCE(p."firstName", '') || ' ' || COALESCE(p."lastName", ''))`,
         serviceDate: 'r."serviceDate"',
-        nextSvcDate: `(r."serviceDate"::date + INTERVAL '90 days')`,
-        cycleStatus: `(r."serviceDate"::date + INTERVAL '90 days')`,
+        nextSvcDate: `(r."serviceDate"::date + INTERVAL '${getServiceWindowDays()} days')`,
+        cycleStatus: `(r."serviceDate"::date + INTERVAL '${getServiceWindowDays()} days')`,
         'Pharmacy.name': 'LOWER(COALESCE(ph."name", \'\'))',
         workflowStatus: workflowSort
     };
@@ -382,11 +382,11 @@ exports.create = async (req, res) => {
         }
 
         const limitDate = new Date(serviceDay);
-        limitDate.setDate(limitDate.getDate() - 90);
+        limitDate.setDate(limitDate.getDate() - getServiceWindowDays());
 
         if (arrivalDay > serviceDay || arrivalDay < limitDate) {
             await transaction.rollback();
-            return res.status(400).json({ error: 'Arrival date must be within 90 days prior to Service Date.' });
+            return res.status(400).json({ error: `Arrival date must be within ${getServiceWindowDays()} days prior to Service Date.` });
         }
 
         // ── 90-DAY ELIGIBILITY CHECK ──────────────────────────────────────────────
@@ -455,7 +455,7 @@ exports.create = async (req, res) => {
             const cycleStart = new Date(cycleDate);
             cycleStart.setHours(0, 0, 0, 0);
             const cycleExpiry = new Date(cycleStart);
-            cycleExpiry.setDate(cycleExpiry.getDate() + 90);
+            cycleExpiry.setDate(cycleExpiry.getDate() + getServiceWindowDays());
             const today = new Date();
             today.setHours(0, 0, 0, 0);
 
@@ -708,8 +708,18 @@ exports.updateWorkflowDate = async (req, res) => {
         if (!trackingId) return res.status(400).json({ error: 'trackingId is required.' });
         if (!newDate)    return res.status(400).json({ error: 'newDate is required.' });
 
-        const parsed = new Date(newDate);
-        if (isNaN(parsed.getTime())) return res.status(400).json({ error: 'Invalid date format.' });
+        const requestedDate = cleanString(newDate);
+        if (!isDateOnly(requestedDate)) {
+            return res.status(400).json({ error: 'Invalid date format. Use YYYY-MM-DD.' });
+        }
+
+        // JavaScript parses a bare YYYY-MM-DD at midnight UTC, which is the
+        // previous calendar day in US time zones. This is a date-only field, so
+        // local noon safely preserves the day selected in the workflow picker.
+        const parsed = parseLocalDateOnly(requestedDate);
+        if (!parsed) {
+            return res.status(400).json({ error: 'Invalid date.' });
+        }
 
         // Prevent future dates
         const now = new Date();
@@ -781,7 +791,7 @@ exports.updateWorkflowDate = async (req, res) => {
         const cycleServiceDate = getRxCycleServiceDate(rx);
         if (cycleServiceDate) {
             const svcDay    = new Date(cycleServiceDate); svcDay.setHours(0,0,0,0);
-            const expiryDay = new Date(svcDay); expiryDay.setDate(expiryDay.getDate() + 90);
+            const expiryDay = new Date(svcDay); expiryDay.setDate(expiryDay.getDate() + getServiceWindowDays());
             const newDay    = new Date(parsed); newDay.setHours(0,0,0,0);
             const todayDay  = new Date(); todayDay.setHours(0,0,0,0);
 
@@ -790,7 +800,7 @@ exports.updateWorkflowDate = async (req, res) => {
                 return res.status(400).json({
                     code: 'RX_WORKFLOW_DATE_WINDOW_LOCKED',
                     windowExpiry: expiryDay.toISOString().slice(0, 10),
-                    error: `Date must be within 90 days of service date (${svcDay.toLocaleDateString()} – ${expiryDay.toLocaleDateString()}).`
+                    error: `Date must be within ${getServiceWindowDays()} days of service date (${svcDay.toLocaleDateString()} – ${expiryDay.toLocaleDateString()}).`
                 });
             }
             if (!canEditWorkflowDate && canOverrideExpired && todayDay <= expiryDay) {
@@ -824,7 +834,7 @@ exports.updateWorkflowDate = async (req, res) => {
             `Step "${action.name}" date changed from ${oldDate} to ${newLabel} by ${req.user?.username || 'user'}`
         );
 
-        res.json({ ok: true, trackingId, newDate: parsed, stepName: action.name });
+        res.json({ ok: true, trackingId, newDate: requestedDate, stepName: action.name });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -956,13 +966,13 @@ exports.update = async (req, res) => {
             const isChanging = incomingDate && incomingDate !== currentSvcStr;
             if (isChanging) {
                 const currentSvc    = new Date(before.serviceDate); currentSvc.setHours(0, 0, 0, 0);
-                const windowExpiry  = new Date(currentSvc); windowExpiry.setDate(windowExpiry.getDate() + 90);
+                const windowExpiry  = new Date(currentSvc); windowExpiry.setDate(windowExpiry.getDate() + getServiceWindowDays());
                 const todayLock     = new Date(); todayLock.setHours(0, 0, 0, 0);
 
                 if (todayLock <= windowExpiry) {
                     const daysLeft = Math.ceil((windowExpiry - todayLock) / 864e5);
                     return res.status(400).json({
-                        error: `The Service Date cannot be changed during an active 90-day window. ` +
+                        error: `The Service Date cannot be changed during an active ${getServiceWindowDays()}-day window. ` +
                                `Current window expires on ${windowExpiry.toLocaleDateString()} ` +
                                `(${daysLeft} day${daysLeft !== 1 ? 's' : ''} remaining). ` +
                                `Wait until the window expires before updating the service date.`,
@@ -1043,12 +1053,12 @@ exports.closeExpiredWorkflow = async (req, res) => {
         }
 
         const svcDay = new Date(cycleServiceDate); svcDay.setHours(0, 0, 0, 0);
-        const expiryDay = new Date(svcDay); expiryDay.setDate(expiryDay.getDate() + 90);
+        const expiryDay = new Date(svcDay); expiryDay.setDate(expiryDay.getDate() + getServiceWindowDays());
         const today = new Date(); today.setHours(0, 0, 0, 0);
         if (today <= expiryDay) {
             await transaction.rollback();
             return res.status(400).json({
-                error: `This RX is still inside the active 90-day window until ${expiryDay.toLocaleDateString()}.`
+                error: `This RX is still inside the active ${getServiceWindowDays()}-day window until ${expiryDay.toLocaleDateString()}.`
             });
         }
 

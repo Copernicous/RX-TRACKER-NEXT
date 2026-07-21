@@ -214,7 +214,7 @@
                 </div>
 
                 <div class="table-responsive">
-                    <table class="table table-hover align-middle" id="rxTable">
+                    <table class="table table-hover align-middle rx-mobile-card-table" id="rxTable">
                         <thead>
                             <tr>
                                 <!-- F10-02: Select-all checkbox -->
@@ -250,7 +250,7 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <p class="fw-semibold mb-2">This will only close RX records that are already outside the 90-day window.</p>
+                <p class="fw-semibold mb-2">This will only close RX records that are already outside the <%= serviceWindowDays %>-day window.</p>
                 <p class="text-muted small mb-2">Active records will be skipped and reported in the result summary.</p>
                 <p class="text-danger small mb-0">Use this when the cycle is complete and a new service date should begin a new RX record.</p>
                 <div class="mt-3">
@@ -1234,7 +1234,7 @@
         var svc = rx && rx.serviceDate ? new Date(rx.serviceDate) : null;
         if (svc && !isNaN(svc.getTime())) {
             svc.setHours(0, 0, 0, 0);
-            var expiry = new Date(svc.getTime() + 90 * 864e5);
+            var expiry = new Date(svc.getTime() + window.SERVICE_WINDOW_DAYS * 864e5);
             expiry.setHours(0, 0, 0, 0);
             var today = new Date();
             today.setHours(0, 0, 0, 0);
@@ -1259,7 +1259,7 @@
         var svc = rx && rx.serviceDate ? new Date(rx.serviceDate) : null;
         if (svc && !isNaN(svc.getTime())) {
             svc.setHours(0, 0, 0, 0);
-            var exp = new Date(svc.getTime() + 90 * 864e5);
+            var exp = new Date(svc.getTime() + window.SERVICE_WINDOW_DAYS * 864e5);
             exp.setHours(0, 0, 0, 0);
             var today = new Date();
             today.setHours(0, 0, 0, 0);
@@ -1345,8 +1345,8 @@
             } else if (rSortCol === 'nextSvcDate' || rSortCol === 'cycleStatus') {
                 // Sort by days remaining until 90-day expiry (numeric)
                 // Active (many days left) ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ Expiring ÃƒÂ¢Ã¢â‚¬Â Ã¢â‚¬â„¢ Expired (negative)
-                var _sd2A = a.serviceDate ? new Date(a.serviceDate).getTime() + 90*864e5 : null;
-                var _sd2B = b.serviceDate ? new Date(b.serviceDate).getTime() + 90*864e5 : null;
+                var _sd2A = a.serviceDate ? new Date(a.serviceDate).getTime() + window.SERVICE_WINDOW_DAYS*864e5 : null;
+                var _sd2B = b.serviceDate ? new Date(b.serviceDate).getTime() + window.SERVICE_WINDOW_DAYS*864e5 : null;
                 valA = _sd2A !== null ? Math.round((_sd2A - Date.now()) / 864e5) : -9999;
                 valB = _sd2B !== null ? Math.round((_sd2B - Date.now()) / 864e5) : -9999;
             } else if (rSortCol === 'workflowStatus') {
@@ -1393,6 +1393,7 @@
 
                 /* ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Checkbox cell (F10-02) ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ */
                 var tdCb = document.createElement('td');
+                tdCb.dataset.label = 'Select';
                 var cb = document.createElement('input');
                 cb.type = 'checkbox';
                 cb.className = 'rx-row-cb';
@@ -1409,6 +1410,7 @@
 
                 /* ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ RX # cell ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ */
                 var tdId = document.createElement('td');
+                tdId.dataset.label = 'RX #';
                 var strong = document.createElement('strong');
                 strong.textContent = '#' + rx.id;
                 tdId.appendChild(strong);
@@ -1418,6 +1420,7 @@
 
                 /* ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Patient cell ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ */
                 var tdPat = document.createElement('td');
+                tdPat.dataset.label = 'Patient';
                 tdPat.textContent = patientName;
                 if (patDeleted) { var pb = document.createElement('span'); pb.className = 'badge bg-danger ms-1'; pb.title = 'Patient deleted'; pb.innerHTML = '<i class="fas fa-user-slash"></i>'; tdPat.appendChild(pb); }
                 else if (patInactive) { var pb2 = document.createElement('span'); pb2.className = 'badge bg-warning text-dark ms-1'; pb2.title = 'Patient inactive'; pb2.innerHTML = '<i class="fas fa-user-times"></i>'; tdPat.appendChild(pb2); }
@@ -1425,16 +1428,19 @@
 
                 /* ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Service Date cell ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ (plain date) */
                 var tdSvc = document.createElement('td');
+                tdSvc.dataset.label = 'Service Date';
                 tdSvc.textContent = rx.serviceDate || '\u2014';
                 tr.appendChild(tdSvc);
 
                 /* ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Next Service Date cell ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ (plain expiry date) */
                 var tdNext   = document.createElement('td');
+                tdNext.dataset.label = 'Next Service Date';
                 /* ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Cycle Status cell ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ (color badge) */
                 var tdStatus = document.createElement('td');
+                tdStatus.dataset.label = 'Cycle Status';
                 if (rx.serviceDate) {
                     var _sD      = new Date(rx.serviceDate); _sD.setHours(0,0,0,0);
-                    var _exp     = new Date(_sD.getTime() + 90 * 864e5);
+                    var _exp     = new Date(_sD.getTime() + window.SERVICE_WINDOW_DAYS * 864e5);
                     var _today   = new Date(); _today.setHours(0,0,0,0);
                     var _dLeft   = Math.round((_exp - _today) / 864e5);
                     var _expStr  = _exp.toLocaleDateString();
@@ -1454,10 +1460,11 @@
                 tr.appendChild(tdStatus);
 
                 /* ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Pharmacy cell ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ */
-                var tdPh = document.createElement('td'); tdPh.textContent = pharmacyName; tr.appendChild(tdPh);
+                var tdPh = document.createElement('td'); tdPh.dataset.label = 'Pharmacy'; tdPh.textContent = pharmacyName; tr.appendChild(tdPh);
 
                 /* ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Workflow status cell ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ */
                 var tdWf = document.createElement('td');
+                tdWf.dataset.label = 'Workflow';
                 var wfDiv = document.createElement('div');
                 wfDiv.className = 'd-flex flex-column gap-1';
                 var wfTop = document.createElement('div');
@@ -1467,7 +1474,7 @@
                 var wfKey = getRxWorkflowStatusKey(rx);
                 if (rx.serviceDate) {
                     var _wfSvc = new Date(rx.serviceDate); _wfSvc.setHours(0,0,0,0);
-                    var _wfExp = new Date(_wfSvc.getTime() + 90 * 864e5);
+                    var _wfExp = new Date(_wfSvc.getTime() + window.SERVICE_WINDOW_DAYS * 864e5);
                     var _wfToday = new Date(); _wfToday.setHours(0,0,0,0);
                     if (_wfToday > _wfExp) {
                         wfBadge.className += ' bg-danger';
@@ -1502,7 +1509,8 @@
 
                 /* ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Actions cell ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ */
                 var tdAct = document.createElement('td');
-                tdAct.className = 'rx-act';
+                tdAct.dataset.label = 'Actions';
+                tdAct.className = 'rx-act rx-mobile-actions';
                 tdAct.dataset.rxid     = rx.id;
                 tdAct.dataset.del      = isDeleted ? '1' : '0';
                 tdAct.dataset.candelete = rxP.canDelete ? '1' : '0';
@@ -2014,10 +2022,10 @@
                     ['Patient ID',         patient.patientCode || '\u2014'],
                     ['Default Pharmacy',   pharmacy.name || '\u2014'],
                     ['Service Date',       rx.serviceDate || '\u2014'],
-                    ['Next Service Date',  (function(){ if (!rx.serviceDate) return '\u2014'; var e = new Date(new Date(rx.serviceDate).getTime() + 90*864e5); return e.toLocaleDateString(); })()],
+                    ['Next Service Date',  (function(){ if (!rx.serviceDate) return '\u2014'; var e = new Date(new Date(rx.serviceDate).getTime() + window.SERVICE_WINDOW_DAYS*864e5); return e.toLocaleDateString(); })()],
                     ['Cycle Status',       (function(){
                         if (!rx.serviceDate) return '\u2014';
-                        var e = new Date(new Date(rx.serviceDate).getTime() + 90*864e5);
+                        var e = new Date(new Date(rx.serviceDate).getTime() + window.SERVICE_WINDOW_DAYS*864e5);
                         var d = Math.round((e - new Date()) / 864e5);
                         if (d < 0) return '\u26a0\ufe0f Eligible for renewal (' + Math.abs(d) + 'd ago)';
                         if (d <= 14) return '\u23f1\ufe0f Expiring soon (' + d + 'd left) \u2014 \uD83D\uDD12 Date Locked';
@@ -2215,7 +2223,7 @@
 
                 var cycleServiceDateValue = rx.serviceDate || (rx.Patient && rx.Patient.serviceDate) || '';
                 var svcDateR    = cycleServiceDateValue ? new Date(cycleServiceDateValue) : null;
-                var expiryDateR = svcDateR ? new Date(svcDateR.getTime() + 90 * 864e5) : null;
+                var expiryDateR = svcDateR ? new Date(svcDateR.getTime() + window.SERVICE_WINDOW_DAYS * 864e5) : null;
                 var todayD      = new Date(); todayD.setHours(0,0,0,0);
                 var isExpired   = expiryDateR ? (todayD > expiryDateR) : false;
                 var svcStr      = svcDateR ? svcDateR.toLocaleDateString() : '';
@@ -2256,7 +2264,7 @@
                     ? '<div class="alert py-2 mb-3 d-flex align-items-center gap-3" style="background:rgba(74,144,226,.12);border:1.5px solid rgba(74,144,226,.35);border-radius:8px">' +
                         '<i class="fas fa-lock" style="color:#4a90e2;font-size:1.1rem;flex-shrink:0"></i>' +
                         '<div>' +
-                            '<strong style="color:#4a90e2">90-Day Window Active — Service Date Locked</strong>' +
+                            '<strong style="color:#4a90e2">' + window.SERVICE_WINDOW_DAYS + '-Day Window Active — Service Date Locked</strong>' +
                             '<div class="small text-muted mt-1">' +
                                 'Service started: <strong>' + svcStr + '</strong> &nbsp;&bull;&nbsp; ' +
                                 'Window expires: <strong>' + expStr + '</strong> &nbsp;&bull;&nbsp; ' +
@@ -2441,7 +2449,7 @@
         /* Constrain picker: min = prev step date, max = min(today, next step date) */
         var minVal    = prevDate || '';
         /* Cap max at serviceDate + 90 days */
-        var svcMax90  = svcDateStr ? new Date(new Date(svcDateStr).getTime() + 90 * 864e5).toISOString().slice(0,10) : today;
+        var svcMax90  = svcDateStr ? new Date(new Date(svcDateStr).getTime() + window.SERVICE_WINDOW_DAYS * 864e5).toISOString().slice(0,10) : today;
         var hardMax   = window._workflowCanOverrideExpired ? today : (svcMax90 < today ? svcMax90 : today);
         var maxVal    = nextDate ? (nextDate < hardMax ? nextDate : hardMax) : hardMax;
 
@@ -2816,7 +2824,7 @@
 
         // 90-day cycle computation for print
         var _pSvcD    = rx.serviceDate ? new Date(rx.serviceDate) : null;
-        var _pExpD    = _pSvcD ? new Date(_pSvcD.getTime() + 90*864e5) : null;
+        var _pExpD    = _pSvcD ? new Date(_pSvcD.getTime() + window.SERVICE_WINDOW_DAYS*864e5) : null;
         var _pExpStr  = _pExpD ? _pExpD.toLocaleDateString() : '\u2014';
         var _pDLeft   = _pExpD ? Math.round((_pExpD - new Date()) / 864e5) : null;
         var _pStatus, _pStatusColor;

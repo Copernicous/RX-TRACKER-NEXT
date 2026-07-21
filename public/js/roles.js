@@ -3,6 +3,7 @@
 // ── Module definitions ────────────────────────────────────────────────────────
 var MODULE_DEFS = [
     { key: 'dashboard',          label: 'Dashboard',             group: 'Core',      hasUndo: false, visibleLocked: true, noExportPrint: true },
+    { key: 'call_center',        label: 'Call Center',           group: 'Core',      hasUndo: false, noExportPrint: true },
     { key: 'patients',           label: 'Patients',              group: 'Core',      hasUndo: false, hasOverrideExpired: true },
     { key: 'rx_records',         label: 'RX Records',            group: 'Core',      hasWorkflow: true, hasOverrideExpired: true },
     { key: 'reports',            label: 'Reports',               group: 'Core',      hasUndo: false },
@@ -78,7 +79,7 @@ function renderRolesTable() {
         tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4">No roles found.</td></tr>';
         return;
     }
-    var roleColors = { Administrator: '#f59e0b', Supervisor: '#60a5fa', Operator: '#34d399', 'Read Only': '#9ca3af' };
+    var roleColors = { Administrator: '#f59e0b', Supervisor: '#60a5fa', Operator: '#34d399', 'Read Only': '#9ca3af', 'Call Center': '#38bdf8' };
     var _rHtml = '';
     for (var _ri = 0; _ri < allRoles.length; _ri++) {
         var r = allRoles[_ri];
@@ -171,8 +172,8 @@ function renderMatrix() {
         rows += groupRow + '<tr><td class="ps-3 fw-semibold" style="white-space:nowrap;font-size:.82rem">' + m.label + '</td>' + _cHtml + '</tr>';
     }
 
-    var roleColors = { Administrator: '#f59e0b', Supervisor: '#60a5fa', Operator: '#34d399', 'Read Only': '#9ca3af' };
-    var roleIcons  = { Administrator: 'fa-shield-alt', Supervisor: 'fa-user-tie', Operator: 'fa-user-cog', 'Read Only': 'fa-user-lock' };
+    var roleColors = { Administrator: '#f59e0b', Supervisor: '#60a5fa', Operator: '#34d399', 'Read Only': '#9ca3af', 'Call Center': '#38bdf8' };
+    var roleIcons  = { Administrator: 'fa-shield-alt', Supervisor: 'fa-user-tie', Operator: 'fa-user-cog', 'Read Only': 'fa-user-lock', 'Call Center': 'fa-headset' };
 
     var _thHtml = '';
     for (var _thi = 0; _thi < roles.length; _thi++) {
@@ -230,7 +231,7 @@ async function openRoleModal(id) {
 
     // Template buttons
     var templateDiv = document.getElementById('roleTemplateButtons');
-    var templateColors = { Administrator: 'warning', Supervisor: 'primary', Operator: 'success', 'Read Only': 'secondary' };
+    var templateColors = { Administrator: 'warning', Supervisor: 'primary', Operator: 'success', 'Read Only': 'secondary', 'Call Center': 'info' };
     var _tplKeys = Object.keys(roleDefaults);
     var _tplHtml = '';
     for (var _ti = 0; _ti < _tplKeys.length; _ti++) {

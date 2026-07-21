@@ -3,7 +3,7 @@
  *
  * Permissions are stored in the Roles table (Roles.permissions JSONB).
  * There are NO hardcoded per-role defaults in code — everything lives in the DB.
- * The startup migration in app.js seeds the initial defaults for the 4 built-in roles.
+ * The startup migration in app.js seeds the initial defaults for the built-in roles.
  *
  * Permission object shape per module:
  *   { visible, canAdd, canEdit, canDelete, canExport, canPrint, canCopy, canUndo, canWarehouse, canOverrideExpired }
@@ -15,12 +15,14 @@
 
 // ─── Hardcoded seed defaults (used ONLY during startup migration to seed DB) ──
 const securityAlertService = require('../services/securityAlertService');
+const { proxyRedirect } = require('../utils/proxyAwareRedirect');
 
 const BUILT_IN_DEFAULTS = {
     Administrator: () => {
         const full = { visible: true, canAdd: true, canEdit: true, canDelete: true, canExport: true, canCopy: true, canUndo: false, canOverrideExpired: false };
         return {
             dashboard:          { visible: true,  canAdd: false, canEdit: false, canDelete: false, canExport: true,  canCopy: true, canUndo: false },
+            call_center:        { visible: true,  canAdd: true,  canEdit: false, canDelete: false, canExport: true,  canPrint: false, canCopy: true, canUndo: false },
             patients:           { ...full, canOverrideExpired: true },
             rx_records:         { ...full, canUndo: true, canWarehouse: true, canOverrideExpired: true },
             reports:            { visible: true,  canAdd: false, canEdit: false, canDelete: false, canExport: true,  canCopy: true, canUndo: false },
@@ -46,6 +48,7 @@ const BUILT_IN_DEFAULTS = {
         const hide = { visible: false, canAdd: false, canEdit: false, canDelete: false, canExport: false, canCopy: false, canUndo: false, canOverrideExpired: false };
         return {
             dashboard:          { visible: true,  canAdd: false, canEdit: false, canDelete: false, canExport: true,  canCopy: true, canUndo: false },
+            call_center:        { visible: true,  canAdd: true,  canEdit: false, canDelete: false, canExport: true,  canPrint: false, canCopy: true, canUndo: false },
             patients:           { ...full },
             rx_records:         { ...full, canUndo: true, canWarehouse: true },
             reports:            { ...view },
@@ -70,6 +73,7 @@ const BUILT_IN_DEFAULTS = {
         const hide    = { visible: false, canAdd: false, canEdit: false, canDelete: false, canExport: false, canCopy: false, canUndo: false, canOverrideExpired: false };
         return {
             dashboard:          { visible: true,  canAdd: false, canEdit: false, canDelete: false, canExport: true,  canCopy: true, canUndo: false },
+            call_center:        { ...hide },
             patients:           { ...addOnly },
             rx_records:         { ...addOnly, canUndo: false, canWarehouse: false },
             reports:            { ...view },
@@ -93,6 +97,7 @@ const BUILT_IN_DEFAULTS = {
         const hide = { visible: false, canAdd: false, canEdit: false, canDelete: false, canExport: false, canCopy: false, canUndo: false, canOverrideExpired: false };
         return {
             dashboard:          { visible: true,  canAdd: false, canEdit: false, canDelete: false, canExport: true,  canCopy: true, canUndo: false },
+            call_center:        { ...hide },
             patients:           { ...view },
             rx_records:         { ...view, canUndo: false, canWarehouse: false },
             reports:            { ...view },
@@ -105,6 +110,29 @@ const BUILT_IN_DEFAULTS = {
             clinics:            { ...hide },
             medication_catalog: { ...view },
             patient_notes:      { visible: true,  canAdd: false, canEdit: false, canDelete: false, canExport: false, canCopy: true, canUndo: false },
+            users:              { ...hide },
+            backups:            { ...hide },
+            system_settings:    { ...hide },
+            active_users:       { ...hide }
+        };
+    },
+    'Call Center': () => {
+        const hide = { visible: false, canAdd: false, canEdit: false, canDelete: false, canExport: false, canPrint: false, canCopy: false, canUndo: false, canOverrideExpired: false };
+        return {
+            dashboard:          { ...hide },
+            call_center:        { visible: true, canAdd: true, canEdit: false, canDelete: false, canExport: false, canPrint: false, canCopy: false, canUndo: false, canOverrideExpired: false },
+            patients:           { ...hide },
+            rx_records:         { ...hide, canWarehouse: false },
+            reports:            { ...hide },
+            audit_log:          { ...hide },
+            import:             { ...hide },
+            pharmacies:         { ...hide },
+            patient_transport:  { ...hide },
+            pharmacy_transport: { ...hide },
+            workflow_actions:   { ...hide },
+            clinics:            { ...hide },
+            medication_catalog: { ...hide },
+            patient_notes:      { ...hide },
             users:              { ...hide },
             backups:            { ...hide },
             system_settings:    { ...hide },
@@ -215,7 +243,7 @@ exports.requireMaster = (req, res, next) => {
             return res.status(403).json({ error: 'Master admin access required. Contact your system administrator.' });
         }
         // Web page: redirect to dashboard with a clear message
-        return res.redirect('/dashboard?error=backoffice_restricted');
+        return proxyRedirect(req, res, '/dashboard?error=backoffice_restricted');
     }
     next();
 };

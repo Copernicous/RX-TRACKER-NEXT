@@ -49,7 +49,8 @@ exports.addNote = async (req, res) => {
         const newNote = await db.PatientNote.create({
             patientId: req.params.id,
             userId: req.user ? req.user.id : null,
-            note: note.trim()
+            note: note.trim(),
+            source: 'Patient'
         });
         // Return with author info
         const full = await db.PatientNote.findByPk(newNote.id, {

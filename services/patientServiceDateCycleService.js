@@ -2,6 +2,7 @@
 
 const { Op } = require('sequelize');
 const db = require('../models');
+const { getServiceWindowDays } = require('../utils/globalSettings');
 
 function dateOnly(value) {
     if (!value) return null;
@@ -172,7 +173,7 @@ async function cycleDefaults(patient, serviceDate, options) {
         status:          active ? 'active' : 'historical',
         source:          (options && options.source) || 'Patient Service Date',
         startedAt:       cleanDate ? new Date(cleanDate) : null,
-        endedAt:         active ? null : addDays(cleanDate, 90),
+        endedAt:         active ? null : addDays(cleanDate, getServiceWindowDays()),
         createdByUserId: (options && options.userId) || null,
         metadata:        Object.keys(baseMetadata).length ? baseMetadata : null
     };
@@ -205,7 +206,7 @@ async function findOrCreateCycle(patient, serviceDate, options) {
 
     if (!cycle) return null;
     const nextStatus = serviceDateMatches(patient.serviceDate, cleanDate) ? 'active' : 'historical';
-    const nextEndedAt = nextStatus === 'active' ? null : addDays(cleanDate, 90);
+    const nextEndedAt = nextStatus === 'active' ? null : addDays(cleanDate, getServiceWindowDays());
     if (cycle.status !== nextStatus || String(cycle.endedAt || '') !== String(nextEndedAt || '')) {
         await cycle.update({ status: nextStatus, endedAt: nextEndedAt }, tx ? { transaction: tx } : {});
     }

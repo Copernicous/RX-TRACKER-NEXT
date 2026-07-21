@@ -7,23 +7,284 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
-- No unreleased changes.
+## [3.0.12] - 2026-07-20
+
+### Added
+
+- Added a Windows/Chrome policy installer and deployment runbook that allow managed Call Center workstations to open MicroSIP without an external-application prompt, restricted to the exact approved production and local-testing origins.
+- Added the assigned Clinic / Location to every Call Center roster view, including clinic-name search and sorting, so agents can match each patient to the correct location.
+- Added the assigned Patient Transport company to every Call Center roster view, including transport-company search and sorting.
+- Added a green click-to-call icon beside active Call Center phone numbers. The browser hands the normalized number to the user's local MicroSIP-compatible `callto:` handler without recording an unverified call.
+- Clarified in the Call Center workspace that answer and hang-up controls remain in MicroSIP and that the existing Called checkbox must be saved manually after the call attempt.
+- Added staging UI smoke coverage for the MicroSIP link, normalized dial target, manual call acknowledgement, and on-screen softphone guidance.
+- Added the MicroSIP Chrome policy installer and deployment runbook to the production update package.
+
+### Fixed
+
+- Updated the transitive `brace-expansion` lockfile entries to patched releases, clearing the high-severity production dependency audit finding without changing application APIs.
+- Corrected the production LAN origin from `192.168.60.21` to the current server address `192.168.62.21` and added the second public production origin, `portal.rbandrc.com`, to the application allowlist.
+- Clarified the Call Center MicroSIP handoff status so an offline softphone is not reported as an active call; MicroSIP must finish SIP registration before it can dial the handed-off number.
+
+- Fixed direct staging/LAN browser login being redirected back to `/login`: explicitly allowed HTTP browser origins now receive non-Secure cookies, while real HTTPS and FortiGate proxy requests continue to receive Secure cookies.
+- Switched the Call Center softphone handoff from the generic Windows `tel:` association to MicroSIP's supported `callto:` command-line scheme so the protocol handler forwards the dial target instead of only opening the application.
+
+**Database impact:** None. Existing patients, calls, notes, clinics, transports, and service dates are unchanged.
+
+## [3.0.11] - 2026-07-19
+
+### [RELEASE-311] Standardized RX Project Control menu
+
+- Replaced the legacy compact RX menu with the shared NOC/CORE/ALARM Project Control presentation.
+- Added the framed/versioned header, colored section headings, aligned two-column actions, service-specific labels, colored command results, consistent confirmation/cancellation prompts, and press-any-key return behavior.
+- Added explicit Project Control version `1.1.0` to the packaged manifest and version display.
+
+**Database impact:** None.
+
+## [3.0.10] - 2026-07-19
+
+### [RELEASE-310] Security hardening, FortiGate compatibility, staging safety, and audit reliability
+
+### Fixed
+
+- Restored `public/js/app.js` from accidental UTF-16LE output to UTF-8 so FortiGate no longer corrupts the shared browser script and dashboard data requests execute normally.
+- Disabled an unfinished generated inline proxy bootstrap; proxy URL resolution remains in the syntax-checkable external `public/js/base.js` implementation.
+- Made Call Center and Dashboard API anchors resistant to FortiGate's `getAttribute('href')` rewrite, keeping requests on the public `/proxy/<session>/...` path instead of leaking to the internal host and bypassing CSRF injection.
+- Added one-time CSRF recovery for a rejected stale page token. The failed request has no side effects; the client synchronizes the server-refreshed cookie and retries once without weakening server validation.
+- Applied `no-store`, `no-cache`, and `no-transform` to static assets so the FortiGate portal cannot retain an obsolete `base.js`/`app.js` pair.
+- Normalized proxy navigation and redirects to same-host proxy-relative paths, avoiding forwarded-host/open-redirect behavior.
+- Preserved launcher-provided staging variables when the root `.env` is read and added fail-fast checks for the expected staging port, database, and writable root.
+- Corrected PostgreSQL tool caching so `pg_dump`, `psql`, and `pg_restore` are cached independently.
+- Corrected the asynchronous git-log response path so timeout/error/close events cannot send multiple responses.
+- Removed a duplicated Back Office template tail that rendered duplicate Analytics, data-viewer, impact-confirmation, and purge-confirmation IDs.
+- Preserved Back Office row-deletion and purge targets, counts, cascade results, user, IP, and timestamps in the existing audit schema.
+- Aligned `PROJECT-CONTROL.bat` with the production-safe NOC/CORE/ALARM launcher pattern: PowerShell prerequisite check, stable working directory, and exact exit-code propagation.
+- Packaged the PowerShell controller and version metadata required by `PROJECT-CONTROL.bat`, recognized the compiled `PatientRXSystem` service plus legacy service IDs, and corrected the package checklist to verify the actual launcher.
+
+### Security
+
+- Added staging-only destructive-operation confirmation with a dedicated request header; the token is held only in page memory and is not accepted from query strings or request bodies.
+- Fail closed in staging when token-version validation cannot reach its backing database.
+- Added workflow payload allowlisting, strict service-date validation, quote-safe database/bootstrap and restore SQL, and safer PowerShell backup argument transport.
+- Removed the duplicate login submit handler that could send more than one authentication request.
+
+### Testing
+
+- Added `npm run check:public-js` and made it the first full-staging-smoke task, rejecting UTF-16, NUL-containing, invalid UTF-8, or syntactically invalid browser JavaScript before release.
+- Made the staging import guard create and remove its own short-lived import-capable account instead of relying on stored/default credentials.
+- Verified the full staging suite on isolated port `3100`/database `patient_rx_staging`.
+- Verified 20 authenticated modules and all 15 public JavaScript files through the live FortiGate proxy with zero internal-host API requests, syntax errors, or page runtime errors.
+
+**Database impact:** None.
+
+## [3.0.9] - 2026-07-17
+
+### [RELEASE-309] Preserve Dashboard Call Queue cutoff date
+
+- Prevented the general Dashboard stats refresh from overwriting the Call Pre-Eligibility cutoff date.
+- Added regression coverage for the competing refresh paths.
+
+**Database impact:** None.
+
+## [3.0.8] - 2026-07-17
+
+### [RELEASE-308] Call Pre-Eligibility cutoff date display
+
+- Dashboard Call Pre-Eligibility now displays the effective Call Queue cutoff date.
+- The date is calculated server-side from fixed day 90 minus Backoffice Call Center Lead Days.
+- Example: July 17 with lead 10 displays `Service Date on or before 04/28/2026`.
+
+**Database impact:** None.
+
+## [3.0.7] - 2026-07-17
+
+### [RELEASE-307] Dashboard Call Pre-Eligibility lead-value correction
+
+- Fixed the Dashboard summary still classifying pre-eligible patients with a hard-coded seven-day boundary.
+- Dashboard Call Pre-Eligibility now uses the same Backoffice lead value as Call Center.
+- Renamed the Call Center metric from Eligible Now to Call Queue to distinguish calling eligibility from fixed 90-day service eligibility.
+- Added a regression guard for the shared lead-value comparison.
+
+**Database impact:** None.
+
+## [3.0.6] - 2026-07-17
+
+### [RELEASE-306] Fixed 90-day service eligibility with configurable Call Center lead days
+
+- Restored service eligibility, workflow deadlines, locks, and service cycles to the fixed 90-day business rule.
+- Replaced the ambiguous service-window setting with **Call Center Lead Days**.
+- Call Center entry is calculated as `90 - lead days`; a value of 10 starts calling on day 80.
+- Patients from the calling threshold through day 89 are Call Pre-Eligibility; day 90+ is Service Eligible.
+- Existing production setting value 80 is interpreted as a 10-day lead for upgrade compatibility.
+- Dashboard and Patient amber notices show the complete pre-eligibility group without day-by-day splitting.
+
+**Database impact:** No migration or data reset required.
+
+## [3.0.5] - 2026-07-17
+
+### [RELEASE-305] Exact configurable-day Call Center eligibility
+**Files changed:** Shared service-window eligibility policy, Call Center controller/UI, regression tests, release metadata
+
+- Call Center eligibility now begins on the exact day configured in Backoffice: day 80 for an 80-day setting, day 90 for a 90-day setting, or day N for a custom N-day setting.
+- Dashboard, Patients, snapshots, and Call Center now use the same shared inclusive configured-day boundary.
+- Removed the separate database cutoff comparison from Call Center patient selection.
+- Updated the Call Center card label to show the exact configured eligibility day.
+- Added deterministic boundary regression coverage.
+
+**Database impact:**
+- No migration or data reset is required.
+
+## [3.0.4] - 2026-07-17
+
+### [RELEASE-304] Call Center and Patient eligibility alignment
+**Files changed:** Call Center API/UI, Patient eligibility filtering, configurable-window regression test, release metadata
+
+- Fixed the remaining Call Center fixed-offset calculation so `eligibleSince` uses the configured service window plus the inclusive boundary day.
+- Call Center queue and metrics responses now include `serviceWindowDays` and the server-calculated `eligibilityCutoff`.
+- The Call Center screen displays the configured window and applies the server cutoff to new-service-date inputs.
+- Aligned the Patients page eligibility filter with Dashboard and Call Center rules by limiting service-window eligibility categories to active patients, even when the separate Status filter is set to `All`.
+- Added regression guards for the former fixed 91-day Call Center offset and active-patient population alignment.
+
+**Database impact:**
+- No migration or data reset is required.
+- Existing settings and patient history are preserved.
+
+## [3.0.3] - 2026-07-17
+
+### [RELEASE-303] Configurable patient service window
+**Files changed:** Backoffice settings, shared settings utilities, patient/RX eligibility controllers, Call Center queue, imports, dashboard and snapshot metrics, service-date cycles, patient/RX UI, regression tests, release metadata
+
+- Replaced the fixed operational 90-day service window with a Backoffice-configurable value.
+- Added **Backoffice > Settings > Service Window (Days)** with whole-number validation from 1 through 365 and a backward-compatible default of 90.
+- Applied the configured value to patient eligibility, service-date locks, RX workflow deadlines, arrival-date validation, Call Center eligibility, import validation, dashboard/drilldown calculations, daily snapshots, service-date cycle end dates, and startup cycle repair.
+- Corrected the Call Center `eligibleSince` value to use the configured window instead of the former fixed 91-day offset, and added shared window/cutoff metadata to Call Center queue and metrics responses.
+- The Call Center screen now displays the configured window and applies the server cutoff to new-service-date inputs.
+- Updated patient, RX, dashboard, and Backoffice displays to use the configured value.
+- Service-window changes are persisted in the existing settings file and recorded in the audit log.
+- Added `npm run test:service-window` coverage for defaults, custom persistence, boundary values, invalid-value fallback, and rule wiring.
+
+**Database impact:**
+- No database migration or data reset is required.
+- Existing installations continue using 90 days until an administrator changes the setting.
+- Changing the value recalculates runtime eligibility and deadlines from existing service dates; it does not rewrite service-date history.
+
+## [3.0.2] - 2026-07-16
+
+### [RELEASE-302] RX workflow date correction and Backoffice patient deletion repair
+**Files changed:** RX workflow controller, Backoffice controller, shared date utilities, regression tests, release metadata
+
+- Fixed workflow completion-date overrides rolling back one day when a date selected in Eastern Time was parsed as midnight UTC.
+- Workflow override values are now validated as `YYYY-MM-DD` calendar dates and stored at local noon so the selected day remains stable through database and browser timezone conversion.
+- Added a timezone regression test covering today's date and invalid calendar input.
+- Fixed Backoffice permanent patient deletion when document attachments or patient service-date cycles still reference the patient or their RX records.
+- Patient deletion now validates and locks every target first, verifies the exact number deleted, confirms no target remains, and rolls back the transaction if verification fails.
+- Added regression coverage for active, inactive, soft-deleted, missing, incomplete, and still-present patient deletion cases.
+
+**Database impact:**
+- No schema migration or data reset is required.
+- Existing records are preserved. Dates previously saved incorrectly must be corrected manually if needed.
+
+## [3.0.1] - 2026-07-09
+
+### [RELEASE-301] Patient service-date update locking and Call Center queue repair follow-up
+**Files changed:** Patient update controller, Call Center queue repair regression tests, release metadata
+
+- Added row-level locking around normal Patient updates so duplicate or concurrent saves of the same service-date change create only one Patient Service Date History entry.
+- Added a regression test for concurrent normal Patient service-date updates.
+- Preserved the v3.0.0 Call Center Backoffice queue repair behavior, including queue reopen handling and service-date cycle status repair.
+- Bumped production package version to `3.0.1`.
+
+**Database impact:**
+- No schema changes and no destructive data reset are introduced.
+- Existing patients, RX records, users, roles, permissions, settings, backups, audit logs, and changelog data are preserved.
+- Patient service-date history remains append-only, but duplicate concurrent history rows for the same normal Patient service-date update are prevented.
+
+## [3.0.0] - 2026-07-09
+
+### [RELEASE-300] Dedicated Call Center workspace, analytics, restrictions, and smoke coverage
+**Files changed:** Call Center workspace, dashboard analytics, reports, backoffice cleanup, role permissions, API restrictions, smoke tests, release metadata
+
+- Added a dedicated `/call-center` workspace for Call Center users with no dashboard access, no export access from the queue, and no patient detail navigation.
+- Added a restricted Call Center queue showing only active 90-day eligible patients, with sortable columns, search, and pagination limited to 5 or 10 rows.
+- Added Call Center actions for marking calls, recording repeat call history with date/user attribution, entering append-only Call Center notes, and assigning new service dates.
+- Added hard Call Center patient claims through `CallCenterLocks` so multiple agents cannot work the same patient at the same time.
+- Added Call Center audit logging for calls, notes, service-date changes, lock activity, and restricted URL/API attempts.
+- Added separate note source tracking so Call Center notes are distinguishable from normal patient notes and include author/date context.
+- Added dashboard Call Center Metrics below RX Workflow Pipeline with date presets, custom ranges, chart type selection, user scope, CSV export, and drilldown popups with sorting/export.
+- Added a Reports > Analytics & Export > Call Center Report with advanced filtering, totals, patient/user/call/note/service-date history, sorting, CSV export, and Excel export.
+- Added Backoffice Call Center cleanup preview/purge controls for calls, Call Center notes, service-date event history, and stale locks.
+- Added Backoffice repair behavior when deleting Call Center service-date history rows so matching stale Call Center service-date audit blockers and locks are removed and the patient can return to the available queue when the previous service date is restored.
+- Fixed the Backoffice service-date-history delete repair so restored eligible patients return to the Call Center queue even when they still have same-day call history.
+- Synced service-date cycle status during the Backoffice repair so the reverted old service date becomes the active cycle and the undone Call Center service-date cycle becomes historical.
+- Moved the regular-user Call Center sidebar item below RX Records.
+- Restricted `/api/version` and sensitive APIs so unauthenticated users receive `401`, Call Center users receive `403`, and administrators retain access.
+- Added automated staging smoke coverage for Call Center API restrictions, full UI click paths, dashboard cards, calculators, drilldowns, exports, reports, URL injection defense, repeat calls, and service-date removal from the active queue.
+- Bumped production package version to `3.0.0`.
+
+**Database impact:**
+- Adds startup verification for the `CallCenterLocks` table and related indexes.
+- Adds `PatientNotes.source` startup verification so Call Center notes can be separated from normal patient notes.
+- No destructive data reset is introduced.
+- Existing patients, RX records, users, roles, permissions, settings, backups, audit logs, and changelog data are preserved.
+
+## [2.0.73] - 2026-07-09
+
+### [RELEASE-73] Patient CSV notes export
+**Files changed:** Patients export UI, patient export API, release metadata
+
+- Added a `Notes` column to the Patient List CSV export column selector.
+- Included the main patient record notes in the exported `Notes` column.
+- Included all separate Patient Notes modal entries in the same exported `Notes` column.
+- Combined multiple notes into one CSV cell using a readable separator so spreadsheet tools keep each patient on one row.
+- Loaded full Patient Notes details only for full patient export requests, keeping normal Patient List loading lightweight while preserving existing note-count badges.
+- Bumped production package version to `2.0.73`.
+
+**Database impact:**
+- No schema changes and no data resets are introduced.
+- Existing patient notes, patient records, RX records, users, roles, permissions, settings, backups, audit logs, and changelog data are preserved.
+- Export behavior changes only the generated CSV content; stored data is not modified.
+
+## [2.0.72] - 2026-07-05
+
+### [RELEASE-72] Development setup hardening, configurable CORS, mobile layout, and backoffice 2FA fix
+**Files changed:** Windows setup flow, environment loading, CORS configuration, database setup validation, dashboard/mobile CSS, Patients table, RX Records table, release metadata
+**Commit references:** `9e6d656`, `d4b8c71`, `ed73519`, `d73dc4d`, `df28f85`, `3bddd1f`, `65ccdc4`
+
+- Fixed the Backoffice 2FA reset lookup so the target user is resolved correctly.
+- Hardened the Windows setup workflow and added a development database connection check script.
+- Forced setup and app startup paths to load `.env` overrides consistently, reducing stale environment variable issues during setup, migrations, and local development.
+- Made the performance indexes migration safer for fresh installs and repeat setup flows.
+- Added configurable CORS origin support through `APP_ORIGINS`, `CORS_ORIGINS`, or `ALLOWED_ORIGINS`, while preserving `APP_ORIGIN` compatibility.
+- Added `.env.example` guidance for multi-origin LAN/local browser URLs.
+- Added mobile-only layout refinements for dashboards, workflow cards, menus, selectors, Patients, and RX Records so phone screens use smaller cards, scaled icons, readable labels, and card-style tables.
+- Bumped production package version to `2.0.72`.
+
+**Database impact:**
+- No destructive schema changes and no data resets are introduced.
+- Existing patients, RX records, users, roles, permissions, settings, backups, audit logs, and changelog data are preserved.
+- Existing production environments using `APP_ORIGIN` continue to work; new multi-origin deployments can use `APP_ORIGINS`.
+- Existing database migrations remain compatible; setup/migration handling is safer for new installs.
 
 ## [2.0.71] - 2026-06-30
 
-### [HOTFIX-71] Production changelog loading fallback
-**Files changed:** Changelog page, staging validation docs, release metadata
+### [RELEASE-71] Proxy 2FA, Data Import permission, changelog fallback, and packaging safety
+**Files changed:** Changelog page, auth/CSRF middleware, dashboard shell scripts, Data Import access, release packaging, fresh-server recovery docs, release metadata
 
 - Fixed the Changelog page so Release Notes render before optional shared app initialization.
 - Added a safe plain-text fallback when the browser Markdown renderer is unavailable or fails.
 - Added proxy-friendlier relative static asset paths on the Changelog page.
 - Added a timeout and friendly unavailable state for the Git Commits panel so it cannot stay on a permanent loading spinner.
 - Added `NEW_SERVER_SETUP_RECOVERY.md` to document fresh-server setup, PostgreSQL preparation, first-use admin seeding, admin recovery SQL, password reset, and database restore steps.
+- Hardened release packaging so update zips include approved deployment files only and never include real `.env`, `.env.staging`, database dumps, SQL exports, or local runtime artifacts.
+- Fixed Data Import access for copied/custom administrator-style roles by enforcing the role permission instead of hard-coded role names.
+- Hardened CSRF handling for proxied requests by allowing CSRF tokens from headers, JSON/FormData body, and a session-bound dashboard token.
+- Added versioned dashboard script URLs so FortiGate/browser cache loads the current dashboard JavaScript after a restart.
+- Fixed 2FA activation through FortiGate by allowing only TOTP-protected 2FA actions to bypass CSRF transport checks; the current authenticator code is still required.
 - Bumped production package version to `2.0.71`.
 
 **Database impact:**
 - No schema changes and no data changes are introduced.
 - Existing patients, RX records, users, roles, permissions, settings, backups, audit logs, and changelog data are preserved.
+- Existing users keep their current 2FA state in production; the staging-only 2FA reset was not included in this release package.
 
 ## [2.0.70] - 2026-06-30
 

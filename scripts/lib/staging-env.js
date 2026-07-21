@@ -150,6 +150,13 @@ function prepareStagingEnv() {
     const config = loadStagingEnv();
     assertSafeStagingConfig(config);
     ensureStagingRuntime(config);
+    // app.js verifies these values again immediately after its own environment
+    // load. This catches any later module that accidentally re-applies root
+    // .env values after the staging safety check has passed.
+    process.env.RX_ENV_PROFILE = 'staging';
+    process.env.RX_EXPECTED_PORT = String(config.port);
+    process.env.RX_EXPECTED_DB_NAME = String(config.dbName);
+    process.env.RX_EXPECTED_WRITABLE_ROOT = String(config.writableRoot);
     return config;
 }
 

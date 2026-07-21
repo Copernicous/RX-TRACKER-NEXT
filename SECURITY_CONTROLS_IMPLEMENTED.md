@@ -3,13 +3,13 @@
 Inventory date: 2026-06-29
 Application version reviewed: 2.0.69
 
-This document lists the security controls currently implemented in the Patient RX application code and the security controls visible to users in the front end. It also captures the reusable hardening pattern that should be considered for future internal business applications. It is an engineering inventory, not a legal/HIPAA compliance certification.
+This document lists the security controls currently implemented in the Patient RX application code, the local-host protections the deployment depends on, and the security controls visible to users in the front end. It also captures the reusable hardening pattern that should be considered for future internal business applications. It is an engineering inventory, not a legal/HIPAA compliance certification.
 
 ## Summary
 
-The application is protected mainly by cookie-only authenticated access, server-enforced idle sessions, role-based permissions, security headers, CSRF protection, CORS restrictions, rate limits, 2FA support, audit logging, document upload removal, SMTP secret encryption at rest, and admin/master-admin separation.
+The application is protected mainly by cookie-only authenticated access, server-enforced idle sessions, role-based permissions, security headers, CSRF protection, CORS restrictions, rate limits, 2FA support, audit logging, document upload removal, SMTP secret encryption at rest, local device hardening for data at rest, and admin/master-admin separation.
 
-Patient and RX data are stored on the local server/PostgreSQL. The application does not currently encrypt individual patient columns inside PostgreSQL. Protection at rest depends on the server/database/storage controls, such as Windows BitLocker, PostgreSQL storage security, backups security, and OS permissions.
+Patient and RX data are stored on the local server/PostgreSQL. The application does not currently encrypt individual patient columns inside PostgreSQL, so protection at rest is provided by the hardened local device and storage posture: Windows BitLocker/full-disk encryption, restricted Windows and PostgreSQL accounts, secured backups, and limited local/server access.
 
 ## Reusable Baseline For Future Projects
 
@@ -171,6 +171,12 @@ Before reusing these controls in another project, decide whether that project ne
 | Email alert user inspection | Admins can inspect one user's alert configuration in plain language. | `controllers/settingsController.js`, `public/js/system-settings.js` |
 | Automatic security alert detection | Enabled alert rules are wired to server events for failed-login thresholds, account lockouts, missing-auth spikes, permission-denied spikes, admin logins, security setting changes, API key changes, backup failures, missing scheduled backups, critical errors, and email configuration failures. | `services/securityAlertService.js`, `controllers/authController.js`, `controllers/twoFactorController.js`, `middleware/auth.js`, `middleware/rbac.js`, `routes/apiRoutes.js`, `controllers/errorLogController.js`, `services/backupService.js` |
 
+### Local Device And Data-At-Rest Protections
+
+| Control | Current implementation | Code location |
+| --- | --- | --- |
+| Local device hardening for stored patient data | Data at rest is covered by the local deployment hardening baseline rather than application column encryption: BitLocker/full-disk encryption, restricted Windows and PostgreSQL accounts, secured backups, and limited local/server access. | Deployment/host control |
+
 ### Audit, Activity, And Monitoring
 
 | Control | Current implementation | Code location |
@@ -239,8 +245,6 @@ These are the security protections or indicators that users see in the applicati
 These are the items still pending after the staging hardening pass.
 
 1. Legacy inline event/style attributes remain for compatibility. CSP now requires nonces for inline script/style blocks, but `script-src-attr` and `style-src-attr` still allow legacy `onclick`, `onchange`, and `style=""` attributes so existing pages keep working. Recommended fix: refactor those attributes into static JavaScript event listeners and CSS classes, then set `CSP_ALLOW_INLINE_ATTRS=false`.
-
-2. PostgreSQL patient/RX column-level encryption is not implemented. Patient names, phones, addresses, notes, service dates, and RX workflow data are stored normally in PostgreSQL. Current protection should rely on BitLocker/full-disk encryption, restricted Windows/PostgreSQL accounts, secure backups, and limited server access. Future option: add application-level encryption for selected sensitive columns if required.
 
 ## Practical Production Verification
 

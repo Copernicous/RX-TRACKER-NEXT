@@ -1,0 +1,188 @@
+{
+  "environment": "staging",
+  "manifestVersion": "staging-impl-v1",
+  "implementationVersion": "3.0.9-staging-2026.07.19.02",
+  "effectiveFrom": "2026-07-19T11:51:51-04:00",
+  "appliesTo": "APP_ENV/APP_INSTANCE contains 'staging' or 'stage'",
+  "status": "active",
+  "rollbackPolicy": {
+    "primary": "Set environment flag to previous value or redeploy previous package",
+    "steps": [
+      "Disable new staging variables in .env.staging",
+      "Redeploy previous server executable/build from CHANGELOG entry",
+      "Restart service and confirm /api/staging/implementation-version returns previous manifest"
+    ]
+  },
+  "implementations": [
+    {
+      "id": "STS-APP-001",
+      "file": "app.js",
+      "component": "Startup lifecycle",
+      "summary": "Gate database bootstrap and startup migrations on staging only when explicit flags are enabled.",
+      "effect": "Prevents destructive auto-bootstrapping and migration churn on staged environments that are intentionally read-only or restored copies.",
+      "risk": "A staging instance with empty DB and both flags false will start without schema tables and can fail auth/API features expecting data structures.",
+      "rollback": {
+        "action": "Set STAGING_AUTO_MIGRATE=true or STAGING_ALLOW_DB_BOOTSTRAP=true for temporary bootstrap, or revert this commit.",
+        "restoreExample": "Revert file changes and restart to restore historical startup behavior."
+      }
+    },
+    {
+      "id": "STS-AUTH-001",
+      "file": "middleware/auth.js",
+      "component": "Auth validation",
+      "summary": "Fail-closed on token DB-check exceptions in staging (returns 503 instead of allowing token if DB is unavailable).",
+      "effect": "Prevents authenticated bypass when session validation storage is unavailable, improving integrity during staging incidents.",
+      "risk": "Staging users may be unable to access the app if DB is temporarily unreachable during maintenance windows.",
+      "rollback": {
+        "action": "Remove the staging-only DB exception branch and restore existing error tolerance behavior.",
+        "restoreExample": "Set `isStagingEnvironment` path to false or move logic to non-staging environments only."
+      }
+    },
+    {
+      "id": "STS-ROUTER-001",
+      "file": "routes/apiRoutes.js",
+      "component": "Routing + admin operations safety",
+      "summary": "Add staging implementation manifest endpoint and stage-only destructive action confirmation middleware.",
+      "effect": "All destructive routes now require an explicit confirmation token when STAGING_DESTRUCTIVE_GUARD=true.",
+      "risk": "Automation jobs and operators without confirmation token can no longer call destructive routes in staging.",
+      "rollback": {
+        "action": "Unset STAGING_DESTRUCTIVE_GUARD and remove middleware usage in staging routes, or revert router changes.",
+        "restoreExample": "Re-run previous commit and restart service after clearing staging guard env vars."
+      }
+    },
+    {
+      "id": "STS-ROUTER-002",
+      "file": "routes/apiRoutes.js",
+      "component": "Git log endpoint",
+      "summary": "Replace shell-style command execution for git log with spawn-based process invocation.",
+      "effect": "Eliminates command-string interpolation risk and gives bounded timeout/event handling.",
+      "risk": "Changed error reporting shape to include close-code based responses in non-standard conditions.",
+      "rollback": {
+        "action": "Revert git log route to previous safe-checked execSync block if needed, then restart service."
+      }
+    },
+    {
+      "id": "STS-ROUTER-003",
+      "file": "routes/apiRoutes.js",
+      "component": "CRUD delete safety",
+      "summary": "Require staging destructive confirmation token for all generated CRUD delete actions when STAGING_DESTRUCTIVE_GUARD=true.",
+      "effect": "Prevents accidental deletes via admin endpoints like patients/rx records/medication catalog in staging without explicit confirmation context.",
+      "risk": "Some legacy staging scripts that call delete endpoints without header/token will now receive HTTP 428.",
+      "rollback": {
+        "action": "Remove requireStagingDestructiveConfirmation from generateCRUDRoutes delete chain and restart."
+      }
+    },
+    {
+      "id": "STS-BACKUP-001",
+      "file": "services/backupService.js",
+      "component": "Backup restore SQL safety",
+      "summary": "Sanitize restore SQL identifiers/strings when terminating connections and recreating database.",
+      "effect": "Improves resilience and prevents malformed restore target names from breaking SQL execution.",
+      "risk": "No functional behavior change except improved compatibility on odd database names.",
+      "rollback": {
+        "action": "Revert restore path SQL builder and use previous concatenated literals.",
+        "restoreExample": "Restore file and restart background services."
+      }
+    },
+    {
+      "id": "STS-BACKUP-002",
+      "file": "services/backupService.js",
+      "component": "Full site backup script generation",
+      "summary": "Generate PowerShell backup script from JSON payload instead of inline path interpolation.",
+      "effect": "Prevents shell injection through file paths and normalizes exclusion filtering for zip contents.",
+      "risk": "Temporary restore path mismatch in very old PowerShell hosts if JSON argument handling differs.",
+      "rollback": {
+        "action": "Reapply previous inline string interpolation backup script block.",
+        "restoreExample": "Redeploy previous version and remove _sitebackup*.ps1 files if present."
+      }
+    },
+    {
+      "id": "STS-WF-001",
+      "file": "controllers/workflowActionController.js",
+      "component": "Input hardening",
+      "summary": "Allowlist workflow action body keys (name/sequenceNumber/description/isActive) and force create to isActive=true.",
+      "effect": "Blocks over-posting and accidental deactivation/unknown field writes through API clients.",
+      "risk": "Clients expecting undocumented mutable fields on workflow actions will stop persisting those fields.",
+      "rollback": {
+        "action": "Drop `sanitizeWorkflowPayload` and direct request body usage, then restart API workers."
+      }
+    },
+    {
+      "id": "STS-DB-001",
+      "file": "app.js",
+      "component": "DB bootstrap safety",
+      "summary": "Create quote-safe database identifier when auto-creating staging DB in ensureDatabase().",
+      "effect": "Prevents breakage from unusual DB_NAME characters and keeps startup behavior deterministic.",
+      "risk": "No measurable regression risk when DB_NAME follows expected naming.",
+      "rollback": {
+        "action": "Revert to interpolated CREATE DATABASE literal."
+      }
+    },
+    {
+      "id": "STS-ENV-001",
+      "file": "app.js, scripts/lib/staging-env.js",
+      "component": "Environment isolation",
+      "summary": "Preserve launcher-prepared staging variables and assert the expected port, database, and writable root before startup.",
+      "effect": "Prevents a staging launcher from being silently redirected to root .env port/database values.",
+      "risk": "A mismatched or incomplete staging profile now fails fast instead of starting with mixed settings.",
+      "rollback": {
+        "action": "Remove RX_ENV_PROFILE assertions and restore historical dotenv override behavior."
+      }
+    },
+    {
+      "id": "STS-PROXY-001",
+      "file": "public/js/base.js, public/js/call-center.js, public/js/dashboard.js",
+      "component": "FortiGate proxy URL handling",
+      "summary": "Read public location and anchor URLs through rewrite-resistant dynamic properties.",
+      "effect": "Keeps API and navigation requests under the public FortiGate proxy prefix and prevents internal-host URL leakage or CSRF classification bypass.",
+      "risk": "A different proxy that does not expose normal Location/HTMLAnchorElement properties would fall back to existing route defaults.",
+      "rollback": {
+        "action": "Revert rxElementHref/native-location helpers and the Call Center/Dashboard consumers."
+      }
+    },
+    {
+      "id": "STS-CSRF-001",
+      "file": "app.js, public/js/base.js, public/js/app.js",
+      "component": "CSRF transport and stale-token recovery",
+      "summary": "Transport CSRF in headers and request bodies, retry one explicit stale-token rejection after cookie synchronization, and disable proxy caching of static security code.",
+      "effect": "Cookie-authenticated mutations remain fail-closed while long-lived proxy tabs recover from a server-refreshed CSRF token.",
+      "risk": "An explicit CSRF rejection can result in one additional rejected-safe retry sequence; successful writes are never automatically repeated.",
+      "rollback": {
+        "action": "Remove rxSyncCsrfTokenFromCookie/retry logic and restore the previous static cache policy."
+      }
+    },
+    {
+      "id": "STS-SMOKE-001",
+      "file": "scripts/smoke-staging-import-guard.js",
+      "component": "Credential-independent staging validation",
+      "summary": "Create and clean up a short-lived import-capable user for the import smoke test.",
+      "effect": "Removes dependency on stale stored/default staging credentials and keeps operator credentials out of committed files.",
+      "risk": "A smoke run interrupted before finally cleanup may require removal of a staging_import_smoke_* fixture.",
+      "rollback": {
+        "action": "Restore configured STAGING_SMOKE_USER/STAGING_SMOKE_PASS authentication."
+      }
+    }
+  ],
+  "possibleImpacts": [
+    {
+      "scenario": "Automated script calls destructive staging endpoint without token",
+      "result": "HTTP 428 with required STAGING_CONFIRM_HEADER and token prompt; action is blocked.",
+      "rollback": "Use staging token in request header or disable guard for controlled emergency operations."
+    },
+    {
+      "scenario": "Restore flow on custom-named database in staging",
+      "result": "Identifier-safe SQL now escapes quotes so restore can proceed with consistent naming conventions.",
+      "rollback": "If behavior changes, revert restore SQL constructor and run restore with prior binary."
+    },
+    {
+      "scenario": "Path contains spaces/quotes in PowerShell full-site backup",
+      "result": "JSON payload script invocation avoids string interpolation breakage and still creates ZIP+dump artifact.",
+      "rollback": "Redeploy previous backup block and validate a single backup/snapshot run."
+    },
+    {
+      "scenario": "FortiGate rewrites an anchor href reader to the internal target URL",
+      "result": "Rewrite-resistant readers return the public proxy URL, allowing CSRF injection and cookie transport to remain consistent.",
+      "rollback": "Revert STS-PROXY-001 and require direct-network access until the proxy integration is repaired."
+    }
+  ]
+}

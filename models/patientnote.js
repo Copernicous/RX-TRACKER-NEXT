@@ -10,7 +10,8 @@ module.exports = (sequelize, DataTypes) => {
   PatientNote.init({
     patientId: { type: DataTypes.INTEGER, allowNull: false },
     userId:    { type: DataTypes.INTEGER, allowNull: true },
-    note:      { type: DataTypes.TEXT,    allowNull: false }
+    note:      { type: DataTypes.TEXT,    allowNull: false },
+    source:    { type: DataTypes.STRING,  allowNull: false, defaultValue: 'Patient' }
   }, {
     sequelize,
     modelName: 'PatientNote',

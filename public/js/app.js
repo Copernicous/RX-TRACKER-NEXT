@@ -27,6 +27,54 @@ window.isoDate = function(val) {
     return '';
 };
 
+// Return the application route regardless of whether the browser is direct or
+// inside FortiGate's /proxy/<session>/<scheme>/<host>/ prefix.
+function getAppPathname(value) {
+    var pathname = value;
+    if (!pathname && typeof window.rxNativeLocationPathname === 'function') {
+        pathname = window.rxNativeLocationPathname();
+    }
+    try {
+        var publicHref = typeof window.rxNativeLocationHref === 'function'
+            ? window.rxNativeLocationHref()
+            : '/';
+        pathname = new URL(String(pathname || '/'), publicHref).pathname;
+    } catch (e) {
+        pathname = String(pathname || '/').split(/[?#]/)[0];
+    }
+
+    var parts = pathname.split('/').filter(function(part) { return !!part; });
+    var proxyIndex = -1;
+    for (var i = 0; i < parts.length; i++) {
+        if (parts[i] === 'proxy') {
+            proxyIndex = i;
+            break;
+        }
+    }
+    if (proxyIndex !== -1 && parts.length > proxyIndex + 3) {
+        var appParts = parts.slice(proxyIndex + 4);
+        return appParts.length ? '/' + appParts.join('/') : '/';
+    }
+    return pathname.charAt(0) === '/' ? pathname : '/' + pathname;
+}
+
+function findAppLinks(root, appPath) {
+    var scope = root || document;
+    var links = scope.querySelectorAll ? scope.querySelectorAll('a[href]') : [];
+    var matches = [];
+    for (var i = 0; i < links.length; i++) {
+        var href = typeof window.rxElementHref === 'function'
+            ? window.rxElementHref(links[i])
+            : '';
+        if (getAppPathname(href) === appPath) {
+            matches.push(links[i]);
+        }
+    }
+    return matches;
+}
+
+window.rxAppPathname = getAppPathname;
+
 // ----- Frontend Error Boundary -----
 (function() {
     function sendError(message, source, stack, severity) {
@@ -34,7 +82,7 @@ window.isoDate = function(val) {
             var payload = JSON.stringify({
                 message:  message  || 'Unknown error',
                 stack:    stack    || null,
-                url:      source   || window.location.href,
+                url:      source || (window.rxNativeLocationHref ? window.rxNativeLocationHref() : ''),
                 severity: severity || 'error'
             });
             var xhr = new XMLHttpRequest();
@@ -62,7 +110,7 @@ window.isoDate = function(val) {
         var reason = event.reason || {};
         sendError(
             'Unhandled Promise Rejection: ' + (reason.message || String(reason)),
-            window.location.href,
+            window.rxNativeLocationHref ? window.rxNativeLocationHref() : '',
             reason.stack || null,
             'error'
         );
@@ -206,7 +254,7 @@ function applyTheme(theme, btn) {
 
 // ----- Global Search -----
 function setupGlobalSearch() {
-    if (window.location && window.location.pathname === '/dashboard') return;
+    if (getAppPathname() === '/dashboard') return;
     var themeBtn = document.getElementById('themeToggle');
     if (!themeBtn) return;
 
@@ -461,7 +509,8 @@ function checkAuth() {
         Object.keys(sidebarMapping).forEach(function(href) {
             var permKey = sidebarMapping[href];
             var perm = permissions[permKey] || { visible: true, readOnly: false };
-            var a = document.querySelector('#sidebar a[href="' + href + '"]');
+            var matchingLinks = findAppLinks(document.getElementById('sidebar'), href);
+            var a = matchingLinks.length ? matchingLinks[0] : null;
             if (a) {
                 var li = a.closest('li');
                 if (li) {
@@ -495,7 +544,7 @@ function checkAuth() {
         });
 
         // Redirect on direct URL load if visible=false
-        const currentPath = window.location.pathname;
+        const currentPath = getAppPathname();
         var currentPermKey = sidebarMapping[currentPath];
         if (currentPermKey) {
             var perm = permissions[currentPermKey] || { visible: true, readOnly: false };
@@ -694,46 +743,149 @@ function setupSessionTimeout() {
     loadSessionTiming();
 }
 
+// ----- Staging destructive-action confirmation -----
+function isSafeHeaderName(value) {
+    return /^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/.test(String(value || ''));
+}
+
+var stagingConfirmation = { header: '', token: '' };
+
+function readStagingConfirmation() {
+    return stagingConfirmation;
+}
+
+function rememberStagingConfirmation(header, token) {
+    if (!isSafeHeaderName(header) || !token) return;
+    stagingConfirmation = {
+        header: String(header).toLowerCase(),
+        token: String(token)
+    };
+}
+
+function forgetStagingConfirmation() {
+    stagingConfirmation = { header: '', token: '' };
+}
+
+// Non-fetch uploads (currently the database restore progress XHR) need the
+// same in-memory staging confirmation as fetchWithAuth. Keep the token out of
+// browser storage and expose only the small API those uploads require.
+window.rxStagingGuard = {
+    isSafeHeaderName: isSafeHeaderName,
+    read: function() {
+        return {
+            header: stagingConfirmation.header,
+            token: stagingConfirmation.token
+        };
+    },
+    remember: rememberStagingConfirmation,
+    forget: forgetStagingConfirmation
+};
+
 // ----- Authenticated Fetch -----
 // Pass options.silent = true to suppress the 403 toast for background/init calls
 async function fetchWithAuth(url, options = {}) {
     const silent = !!options.silent;
     const fetchOptions = Object.assign({}, options);
     delete fetchOptions.silent; // don't forward to fetch()
+    delete fetchOptions.returnAuthResponse;
     var hasFormDataBody = typeof FormData !== 'undefined' && fetchOptions.body instanceof FormData;
     const headers = Object.assign(
         hasFormDataBody ? {} : { 'Content-Type': 'application/json' },
         fetchOptions.headers || {}
     );
     if (headers.Authorization) delete headers.Authorization;
+    var storedStagingConfirmation = readStagingConfirmation();
+    if (isSafeHeaderName(storedStagingConfirmation.header) && storedStagingConfirmation.token) {
+        headers[storedStagingConfirmation.header] = storedStagingConfirmation.token;
+    }
 
     var targetUrl = (/^https?:\/\//i.test(String(url || '')) || typeof window.rxUrl !== 'function') ? url : window.rxUrl(url);
-    var requestOptions = Object.assign({}, fetchOptions, { headers, credentials: fetchOptions.credentials || 'include' });
-    if (typeof window.rxApplyCsrf === 'function') requestOptions = window.rxApplyCsrf(targetUrl, requestOptions);
+    function buildRequestOptions(replaceExistingCsrf) {
+        var nextOptions = Object.assign({}, fetchOptions, {
+            headers: Object.assign({}, headers),
+            credentials: fetchOptions.credentials || 'include'
+        });
+        if (typeof window.rxApplyCsrf === 'function') {
+            nextOptions = window.rxApplyCsrf(targetUrl, nextOptions, !!replaceExistingCsrf);
+        }
+        return nextOptions;
+    }
+
+    var requestOptions = buildRequestOptions(false);
     var res = await fetch(targetUrl, requestOptions);
 
-    // 401 = token expired / invalid → logout
+    // A proxy tab may outlive the token embedded in its HTML. The rejected
+    // request has no side effects, and the rejection response refreshes the
+    // readable CSRF cookie. Synchronize and retry this exact failure once.
+    if (res.status === 403) {
+        var csrfFailure = await res.clone().json().catch(function() { return {}; });
+        var csrfMessage = String((csrfFailure && (csrfFailure.message || csrfFailure.error)) || '');
+        if (/csrf validation failed/i.test(csrfMessage)
+            && typeof window.rxSyncCsrfTokenFromCookie === 'function'
+            && window.rxSyncCsrfTokenFromCookie()) {
+            requestOptions = buildRequestOptions(true);
+            res = await fetch(targetUrl, requestOptions);
+        }
+    }
+
+    // Staging deliberately blocks destructive actions until an operator enters
+    // the separate environment token. The rejected first request has no side
+    // effects; retry once after explicit confirmation.
+    if (res.status === 428 && !silent) {
+        var stagingGuard = await res.clone().json().catch(function() { return {}; });
+        var requiredHeader = String(stagingGuard.requiredHeader || '').trim().toLowerCase();
+        if (isSafeHeaderName(requiredHeader)) {
+            forgetStagingConfirmation();
+            var stagingToken = window.prompt(
+                'Staging safety check: enter the value of STAGING_DESTRUCTIVE_CONFIRM_TOKEN from .env.staging. This is not your application admin password.'
+            );
+            if (stagingToken) {
+                rememberStagingConfirmation(requiredHeader, stagingToken);
+                requestOptions.headers = Object.assign({}, requestOptions.headers || {});
+                requestOptions.headers[requiredHeader] = stagingToken;
+                res = await fetch(targetUrl, requestOptions);
+                if (res.status === 428) {
+                    forgetStagingConfirmation();
+                    showToast('The staging safety token was rejected.', 'warning');
+                }
+            }
+        }
+    }
+
+    async function buildAuthResponse(fallbackMessage) {
+        var body = await res.clone().json().catch(function() { return {}; });
+        return {
+            ok: false,
+            status: res.status,
+            statusText: res.statusText,
+            message: (body && (body.message || body.error)) || fallbackMessage,
+            json: async function() { return body; },
+            text: async function() { return JSON.stringify(body || {}); },
+            headers: res.headers,
+            url: res.url
+        };
+    }
+
+    // 401 = token expired / invalid -> logout
     if (res.status === 401) {
         localStorage.removeItem('token');
         localStorage.removeItem('rxToken');
         localStorage.removeItem('user');
         window.rxNav('/login');
-        return null;
+        return await buildAuthResponse('Session has expired.');
     }
+
     // 403 = authenticated but forbidden
-    // Show a toast then return null so all callers' `if (!res) return;` guards fire.
-    // (Returning `res` after reading the body via res.clone().json() caused callers that
-    //  tried res.json() again to get "body already read" → caught as "Network error.")
     if (res.status === 403) {
         if (!silent) {
             var body = await res.clone().json().catch(function() { return {}; });
             showToast(body.message || 'Access denied.', 'warning');
         }
-        return null; // BUG-09 FIX: was `return res` — but body already consumed above
+        return await buildAuthResponse('Access denied.');
     }
+
     return res;
 }
-
 // ----- Toast Notification -----
 function showToast(message, type) {
     type = type || 'success';
@@ -1027,8 +1179,9 @@ function getPagePerms() {
             '/system-settings':    'system_settings',
             '/active-users':       'active_users'
         };
-        var key = sidebarMapping[window.location.pathname];
-        if (!key && /^\/patients\/\d+\/timeline\/?$/.test(window.location.pathname)) key = 'patients';
+        var currentPath = getAppPathname();
+        var key = sidebarMapping[currentPath];
+        if (!key && /^\/patients\/\d+\/timeline\/?$/.test(currentPath)) key = 'patients';
         if (!key) return fullAccess;
         var perms = user.permissions || getRoleDefaultPermissions(user.role);
         // Dashboard always visible
@@ -1987,7 +2140,7 @@ function applyReadOnlyRestrictions() {
         '/active-users':      'active_users'
     };
 
-    var currentPath = window.location.pathname;
+    var currentPath = getAppPathname();
     var key = sidebarMapping[currentPath];
     if (!key && /^\/patients\/\d+\/timeline\/?$/.test(currentPath)) key = 'patients';
     if (!key) {
@@ -2142,7 +2295,10 @@ function applyReadOnlyRestrictions() {
             }
             if (!auditVisible) {
                 // Sidebar: hide Audit Log link in all nav menus
-                document.querySelectorAll('#auditLogSidebarLink, a[href="/audit-log"]').forEach(function(el) {
+                var auditLinks = findAppLinks(document, '/audit-log');
+                var auditById = document.getElementById('auditLogSidebarLink');
+                if (auditById && auditLinks.indexOf(auditById) === -1) auditLinks.push(auditById);
+                auditLinks.forEach(function(el) {
                     var li = el.closest('li');
                     if (li) li.style.display = 'none';
                     else el.style.display = 'none';
@@ -2154,8 +2310,12 @@ function applyReadOnlyRestrictions() {
                 var activityCard = document.getElementById('recentActivityCard');
                 if (activityCard) activityCard.classList.add('d-none');
                 // If currently ON the audit-log page, redirect away
-                if (window.location.pathname === '/audit-log') {
+                if (getAppPathname() === '/audit-log') {
+                    if (typeof window.rxNav === 'function') {
+                    window.rxNav('/dashboard');
+                } else {
                     window.location.replace('/dashboard');
+                }
                 }
             }
         } catch(e) {}

@@ -17,6 +17,17 @@ function getCookie(cookieHeader, name) {
     return match ? decodeURIComponent(match[1]) : null;
 }
 
+function isStagingEnvironment() {
+    const markers = [
+        process.env.APP_ENV,
+        process.env.APP_INSTANCE,
+        process.env.APP_WRITABLE_ROOT,
+        process.env.DB_NAME,
+        process.env.NODE_ENV
+    ].filter(Boolean).join(' ');
+    return /\bstaging\b|\bstage\b/i.test(markers);
+}
+
 module.exports = (req, res, next) => {
     // Cookie-only authentication: the compact JWT stays in the HttpOnly rxToken cookie.
     const token = getCookie(req.headers.cookie, 'rxToken');
@@ -71,6 +82,10 @@ module.exports = (req, res, next) => {
             const isDbError = _e.code === 'ECONNREFUSED' || _e.code === 'ETIMEDOUT' ||
                 (_e.name && _e.name.includes('Sequelize'));
             if (!isDbError) throw _e;
+            if (isStagingEnvironment()) {
+                console.warn('[Auth] tokenVersion DB check blocked in staging (DB unavailable):', _e.message);
+                return res.status(503).json({ message: 'Authentication service is temporarily unavailable. Please try again.' });
+            }
             // DB temporarily unavailable — allow through to avoid full lockout during maintenance
             console.warn('[Auth] tokenVersion DB check skipped (DB unavailable):', _e.message);
         }

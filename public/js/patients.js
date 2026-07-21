@@ -1,5 +1,7 @@
 var allPatients = [];
     var serviceDateOverrideEnabled = false;
+    var serviceWindowDays = Number(window.SERVICE_WINDOW_DAYS) || 90;
+    var callCenterLeadDays = Number(window.CALL_CENTER_LEAD_DAYS) || 0;
     var filteredPatients = [];
     var currentPage = 1;
     var pageSize = 10;
@@ -102,7 +104,11 @@ var allPatients = [];
         records = Array.isArray(records) ? records : [];
         count = Number(count || records.length || 0);
         if (!count) return '';
-        var shown = records.slice(0, 6).map(serviceDateHistoryRxBadge).join('');
+        var shown = '';
+        var visibleRecords = records.slice(0, 6);
+        for (var i = 0; i < visibleRecords.length; i++) {
+            shown += serviceDateHistoryRxBadge(visibleRecords[i]);
+        }
         if (count > records.length || count > 6) {
             shown += '<span class="badge svc-history-rx-more-badge me-1 mb-1">+' + patientEscapeHtml(count - Math.min(records.length, 6)) + ' more</span>';
         }
@@ -383,7 +389,7 @@ var allPatients = [];
                     var labelMap = {
                         'eligible':  'Eligible Now (window expired)',
                         'expiring':  'Window expiring within 7 days',
-                        'window':    'In active 90-day window',
+                        'window':    'In active ' + serviceWindowDays + '-day window',
                         'none':      'No service date set',
                         'needsAction': 'Needs Action (expired window + open workflow)'
                     };
@@ -505,6 +511,33 @@ var allPatients = [];
         });
 
         // ── Export with Column Selector ─────────────────────────────────────────
+        function cleanCsvNoteText(value) {
+            return String(value || '').replace(/\s+/g, ' ').trim();
+        }
+
+        function patientNoteAuthorName(note) {
+            var author = note && note.Author ? note.Author : null;
+            if (!author) return '';
+            return cleanCsvNoteText([author.firstName, author.lastName].filter(Boolean).join(' ') || author.username || '');
+        }
+
+        function exportPatientNotes(patient) {
+            var parts = [];
+            var mainNote = cleanCsvNoteText(patient && patient.notes);
+            if (mainNote) parts.push('Patient record: ' + mainNote);
+
+            var noteRows = patient && Array.isArray(patient.PatientNotes) ? patient.PatientNotes : [];
+            noteRows.forEach(function(note) {
+                var noteText = cleanCsvNoteText(note && note.note);
+                if (!noteText) return;
+                var date = window.fmtDate(note.createdAt) || '';
+                var author = patientNoteAuthorName(note);
+                var context = [date, author].filter(Boolean).join(' - ');
+                parts.push((context ? '[' + context + '] ' : '') + noteText);
+            });
+            return parts.join(' | ');
+        }
+
         const EXPORT_COLS = [
             { key: 'patientCode',  label: 'Patient ID',        fn: p => p.patientCode || p.id },
             { key: 'firstName',   label: 'First Name',         fn: p => p.firstName || '' },
@@ -513,6 +546,7 @@ var allPatients = [];
             { key: 'phone',       label: 'Phone',              fn: p => p.phone     || '' },
             { key: 'address',     label: 'Address',            fn: p => p.address   || '' },
             { key: 'serviceDate', label: 'Service Date',       fn: p => p.serviceDate || '' },
+            { key: 'notes',       label: 'Notes',              fn: p => exportPatientNotes(p) },
             { key: 'status',      label: 'Status',             fn: p => p.isDeleted ? 'Deleted' : (p.isActive ? 'Active' : 'Inactive') },
             { key: 'clinic',      label: 'Clinic',             fn: p => p.Clinic ? p.Clinic.name : '' },
             { key: 'patTrans',    label: 'Patient Transport',  fn: p => p.PatientTransportCompany ? (p.PatientTransportCompany.contactPerson || p.PatientTransportCompany.companyName || '') : '' },
@@ -802,7 +836,7 @@ var allPatients = [];
                 groups.push({
                     key: 'needsAction',
                     icon: 'fas fa-exclamation-triangle text-warning',
-                    message: 'There are ' + patientPlural(patientNeedsActionCount, 'patient') + ' past the 90-day window with incomplete RX workflow.',
+                    message: 'There are ' + patientPlural(patientNeedsActionCount, 'patient') + ' past the ' + serviceWindowDays + '-day window with incomplete RX workflow.',
                     detail: 'Open workflow after the service window expired',
                     actionLabel: 'Show Patients'
                 });
@@ -814,7 +848,7 @@ var allPatients = [];
                     groups.push({
                         key: 'eligible',
                         icon: 'fas fa-check-circle text-success',
-                        message: 'There are ' + patientPlural(eligibility.eligibleNow, 'patient') + ' past the 90-day service window.',
+                        message: 'There are ' + patientPlural(eligibility.eligibleNow, 'patient') + ' past the ' + serviceWindowDays + '-day service window.',
                         detail: 'Eligible now for a new service cycle',
                         actionLabel: 'Show Patients'
                     });
@@ -823,7 +857,7 @@ var allPatients = [];
                     groups.push({
                         key: 'expiring',
                         icon: 'fas fa-hourglass-half text-danger',
-                        message: 'There are ' + patientPlural(eligibility.expiringIn7, 'patient') + ' with 7 days or less left in the 90-day window.',
+                        message: 'There are ' + patientPlural(eligibility.expiringIn7, 'patient') + ' inside the ' + callCenterLeadDays + '-day Call Center pre-eligibility window before day 90.',
                         detail: 'Service window closing soon',
                         actionLabel: 'Show Patients'
                     });
@@ -951,7 +985,7 @@ var allPatients = [];
             renderPatients();
         } catch (netErr) {
             document.getElementById('patientsBody').innerHTML =
-                '<tr><td colspan="9" class="text-center py-4"><div class="alert alert-danger mb-0"><strong>Network Error</strong><br><small>' + netErr.message + '</small><br><small class="text-muted">URL attempted: ' + apiUrl + ' | Page origin: ' + window.location.origin + '</small></div></td></tr>';
+                '<tr><td colspan="9" class="text-center py-4"><div class="alert alert-danger mb-0"><strong>Network Error</strong><br><small>' + netErr.message + '</small><br><small class="text-muted">URL attempted: ' + apiUrl + ' | Page origin: ' + (window.rxNativeLocationOrigin ? window.rxNativeLocationOrigin() : '') + '</small></div></td></tr>';
         }
     }
     function patientHasAnyField(p, keys) {
@@ -1008,7 +1042,7 @@ var allPatients = [];
                 return false;
             } else {
                 var svcMs = new Date(p.serviceDate).setHours(0,0,0,0);
-                var exp90 = svcMs + 90 * 864e5;
+                var exp90 = svcMs + serviceWindowDays * 864e5;
                 var dl90 = Math.ceil((exp90 - todayMs) / 864e5);
                 if (elig === 'eligible' && dl90 >= 0) return false;
                 if (elig === 'expiring' && (dl90 < 0 || dl90 > 7)) return false;
@@ -1118,6 +1152,9 @@ var allPatients = [];
             // Source of truth: patient.serviceDate (not latest RX serviceDate)
             // daysLeft = days until expiry (negative = already past = eligible)
             if (elig) {
+                // Match the server, dashboard, and Call Center population:
+                // service-window eligibility applies to active patients only.
+                if (p.isActive !== true) return false;
                 if (!p.serviceDate) {
                     // 'none' = patient has no serviceDate
                     if (elig !== 'none') return false;
@@ -1125,14 +1162,14 @@ var allPatients = [];
                     return false;
                 } else {
                     var _svcMs  = new Date(p.serviceDate).setHours(0,0,0,0);
-                    var _exp90  = _svcMs + 90 * 864e5;
+                    var _exp90  = _svcMs + serviceWindowDays * 864e5;
                     var _dl90   = Math.ceil((_exp90 - _todayMs) / 864e5);
                     // eligible: window fully expired (daysLeft < 0)
-                    if (elig === 'eligible' && _dl90 >= 0)          return false;
+                    if (elig === 'eligible' && _dl90 > 0)           return false;
                     // expiring: 0-7 days remaining (matches backend <=7)
-                    if (elig === 'expiring' && (_dl90 < 0 || _dl90 > 7)) return false;
+                    if (elig === 'expiring' && (_dl90 <= 0 || _dl90 > callCenterLeadDays)) return false;
                     // window: active window with > 7 days remaining
-                    if (elig === 'window'   && (_dl90 < 0 || _dl90 <= 7)) return false;
+                    if (elig === 'window'   && _dl90 <= callCenterLeadDays) return false;
                     // none: handled above - if patient has serviceDate, exclude
                     if (elig === 'none')                             return false;
                 }
@@ -1150,8 +1187,8 @@ var allPatients = [];
                 valB = b.Clinic ? b.Clinic.name : '';
             } else if (pSortCol === 'nextSvcDate') {
                 // Sort by days remaining until 90-day expiry (numeric)
-                var _epA = a.serviceDate ? new Date(a.serviceDate).getTime() + 90*864e5 : null;
-                var _epB = b.serviceDate ? new Date(b.serviceDate).getTime() + 90*864e5 : null;
+                var _epA = a.serviceDate ? new Date(a.serviceDate).getTime() + serviceWindowDays*864e5 : null;
+                var _epB = b.serviceDate ? new Date(b.serviceDate).getTime() + serviceWindowDays*864e5 : null;
                 valA = _epA !== null ? Math.round((_epA - Date.now()) / 864e5) : -9999;
                 valB = _epB !== null ? Math.round((_epB - Date.now()) / 864e5) : -9999;
             }
@@ -1220,6 +1257,7 @@ var allPatients = [];
 
             // Col: Patient Code
             var tdCode = document.createElement('td');
+            tdCode.dataset.label = 'Patient ID';
             var codeEl = document.createElement('code');
             codeEl.textContent = p.patientCode || p.id;
             tdCode.appendChild(codeEl);
@@ -1227,6 +1265,7 @@ var allPatients = [];
 
             // Col: Name
             var tdName = document.createElement('td');
+            tdName.dataset.label = 'Full Name';
             var strong = document.createElement('strong');
             strong.textContent = (p.firstName || '') + ' ' + (p.lastName || '');
             tdName.appendChild(strong);
@@ -1234,6 +1273,7 @@ var allPatients = [];
 
             // Col: Clinic
             var tdClinic = document.createElement('td');
+            tdClinic.dataset.label = 'Location / Clinic';
             if (p.Clinic) {
                 var clinicSpan = document.createElement('span');
                 // Custom style: deep teal bg + white text — readable in both light & dark mode
@@ -1249,16 +1289,19 @@ var allPatients = [];
 
             // Col: DOB
             var tdDob = document.createElement('td');
+            tdDob.dataset.label = 'DOB';
             tdDob.textContent = window.fmtDate(p.dob) || '\u2014';
             tr.appendChild(tdDob);
 
             // Col: Phone
             var tdPhone = document.createElement('td');
+            tdPhone.dataset.label = 'Phone';
             tdPhone.textContent = p.phone || '\u2014';
             tr.appendChild(tdPhone);
 
             // Col: Service Date
             var tdSvc = document.createElement('td');
+            tdSvc.dataset.label = 'Service Date';
             tdSvc.textContent = window.fmtDate(p.serviceDate) || '\u2014';
             tr.appendChild(tdSvc);
 
@@ -1268,9 +1311,10 @@ var allPatients = [];
             // daysLeft 8-14 → expiring soon (yellow warning)
             // daysLeft > 14 → in active window (plain date)
             var tdNext = document.createElement('td');
+            tdNext.dataset.label = 'Next Svc Date';
             if (p.serviceDate) {
                 var _sd   = new Date(p.serviceDate); _sd.setHours(0,0,0,0);
-                var _exp  = new Date(_sd.getTime() + 90 * 864e5);
+                var _exp  = new Date(_sd.getTime() + serviceWindowDays * 864e5);
                 var _now  = new Date(); _now.setHours(0,0,0,0);
                 var _dl   = Math.round((_exp - _now) / 864e5);
                 var _es   = _exp.toLocaleDateString();
@@ -1291,6 +1335,7 @@ var allPatients = [];
 
             // Col: Status
             var tdStatus = document.createElement('td');
+            tdStatus.dataset.label = 'Status';
             var statusSpan = document.createElement('span');
             if (p.isDeleted) {
                 statusSpan.className = 'badge bg-danger';
@@ -1307,6 +1352,8 @@ var allPatients = [];
 
             // Col: Actions
             var tdAct = document.createElement('td');
+            tdAct.dataset.label = 'Actions';
+            tdAct.className = 'rx-mobile-actions';
 
             if (p.isDeleted) {
                 if (pp.canDelete) {
@@ -1701,17 +1748,19 @@ var allPatients = [];
             var status = rxHistoryWorkflowStatus(rx);
             return '<div style="color:#667085;font-size:.85rem">Workflow steps recorded: ' + patientEscapeHtml(status.done) + '</div>';
         }
-        var rows = actions.map(function(action, index) {
+        var rows = '';
+        for (var index = 0; index < actions.length; index++) {
+            var action = actions[index];
             var tracking = trackings[action.id];
             var done = !!tracking;
             var date = done && tracking.completionDate ? window.fmtDate(tracking.completionDate) : 'Pending';
             var by = done && tracking.User ? (' by ' + ((tracking.User.firstName || '') + ' ' + (tracking.User.lastName || '')).trim()) : '';
-            return '<tr>' +
+            rows += '<tr>' +
                 '<td style="padding:6px 8px;border-bottom:1px solid #e5e7eb">' + (index + 1) + '. ' + patientEscapeHtml(action.name || 'Step') + '</td>' +
                 '<td style="padding:6px 8px;border-bottom:1px solid #e5e7eb">' + patientEscapeHtml(date) + patientEscapeHtml(by) + '</td>' +
                 '<td style="padding:6px 8px;border-bottom:1px solid #e5e7eb;color:' + (done ? '#198754' : '#667085') + ';font-weight:700">' + (done ? 'Done' : 'Pending') + '</td>' +
-            '</tr>';
-        }).join('');
+                '</tr>';
+        }
         return '<table style="width:100%;border-collapse:collapse;font-size:.84rem;margin-top:8px">' +
             '<thead><tr style="background:#1a2234;color:#fff"><th style="padding:7px 8px;text-align:left">Step</th><th style="padding:7px 8px;text-align:left">Date / User</th><th style="padding:7px 8px;text-align:left">Status</th></tr></thead>' +
             '<tbody>' + rows + '</tbody></table>';
@@ -1721,7 +1770,7 @@ var allPatients = [];
         var status = rxHistoryWorkflowStatus(rx);
         var statusColor = status.label === 'Complete' ? '#198754' : status.done > 0 ? '#fd7e14' : '#6c757d';
         var svcDate = rx.serviceDate || '';
-        var expDate = svcDate ? new Date(new Date(svcDate).getTime() + 90 * 864e5) : null;
+        var expDate = svcDate ? new Date(new Date(svcDate).getTime() + serviceWindowDays * 864e5) : null;
         var pharmacy = rx.Pharmacy ? rx.Pharmacy.name : 'None';
         return '<div style="border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;margin:14px 0;background:#fff">' +
             '<div style="background:#1a2234;color:#fff;padding:10px 14px;display:flex;justify-content:space-between;gap:10px;align-items:center">' +
@@ -1748,7 +1797,10 @@ var allPatients = [];
         }
         var patientName = (_rxHistoryContext && _rxHistoryContext.patientName) || 'Patient';
         var cssUrl = rxHistoryAssetUrl('/assets/inter.css').replace(/"/g, '%22');
-        var cards = records.map(rxHistoryPrintCard).join('');
+        var cards = '';
+        for (var i = 0; i < records.length; i++) {
+            cards += rxHistoryPrintCard(records[i]);
+        }
         var win = window.open('', '_blank', 'width=980,height=760');
         if (!win) {
             if (typeof showToast === 'function') showToast('Popup blocked. Allow popups to print.', 'warning');
@@ -1771,7 +1823,7 @@ var allPatients = [];
         var headers = ['RX ID', 'Service Date', 'Next Available', 'Arrival Date', 'Pharmacy', 'Workflow', 'Status', 'Medications'];
         var rows = records.map(function(rx) {
             var status = rxHistoryWorkflowStatus(rx);
-            var expDate = rx.serviceDate ? new Date(new Date(rx.serviceDate).getTime() + 90 * 864e5) : null;
+            var expDate = rx.serviceDate ? new Date(new Date(rx.serviceDate).getTime() + serviceWindowDays * 864e5) : null;
             return [
                 rx.id,
                 rx.serviceDate || '',
@@ -1849,7 +1901,7 @@ var allPatients = [];
             var html = '<div class="p-3">';
             patRx.forEach(function(rx, idx) {
                 var svcD    = rx.serviceDate || null;
-                var expDate = svcD ? new Date(new Date(svcD).getTime() + 90 * 864e5) : null;
+                var expDate = svcD ? new Date(new Date(svcD).getTime() + serviceWindowDays * 864e5) : null;
                 var expStr  = expDate ? expDate.toLocaleDateString() : '\u2014';
                 var dLeft   = expDate ? Math.round((expDate - new Date()) / 864e5) : null;
                 var isNewest = idx === 0;
@@ -1927,7 +1979,7 @@ var allPatients = [];
         var val = inp.value;
         if (!val) { el.innerHTML = ''; return; }
         var sd   = new Date(val); sd.setHours(0,0,0,0);
-        var exp  = new Date(sd.getTime() + 90 * 864e5);
+        var exp  = new Date(sd.getTime() + serviceWindowDays * 864e5);
         var now  = new Date(); now.setHours(0,0,0,0);
         var dl   = Math.round((exp - now) / 864e5);
         var es   = exp.toLocaleDateString();
@@ -1980,13 +2032,13 @@ var allPatients = [];
             if (canBypassServiceDateLock) return false;
             if (!patient || !patient.serviceDate) return false;
             var sd  = new Date(patient.serviceDate); sd.setHours(0,0,0,0);
-            var exp = new Date(sd.getTime() + 90 * 864e5);
+            var exp = new Date(sd.getTime() + serviceWindowDays * 864e5);
             var now = new Date(); now.setHours(0,0,0,0);
             return now <= exp;
         })();
         if (isLocked && patient && patient.serviceDate) {
             var sd      = new Date(patient.serviceDate); sd.setHours(0,0,0,0);
-            var exp     = new Date(sd.getTime() + 90 * 864e5);
+            var exp     = new Date(sd.getTime() + serviceWindowDays * 864e5);
             var now     = new Date(); now.setHours(0,0,0,0);
             var dLeft   = Math.ceil((exp - now) / 864e5);
             if (banner)   banner.style.display = '';
@@ -2184,8 +2236,11 @@ var allPatients = [];
                     const rxPath = '/rx-records?patient=' + encodeURIComponent(savedPatient.id) +
                         '&name=' + encodeURIComponent(fullName) +
                         '&addRx=1';
-                    if (typeof window.rxNav === 'function') window.rxNav(rxPath);
-                    else window.location.href = rxPath;
+                    if (typeof window.rxNav === 'function') {
+                        window.rxNav(rxPath);
+                    } else {
+                        window.location.href = rxPath;
+                    }
                 }
             } else {
                 const err = await res.json();
@@ -2699,7 +2754,7 @@ var allPatients = [];
             srchPhone: 'Phone', srchStatus: 'Status', srchClinic: 'Clinic',
             srchPatientCode: 'Patient ID', srchPatientTransport: 'Patient Transport',
             srchPharmacyTransport: 'Pharmacy Transport', srchPharmacy: 'Pharmacy', srchServiceFrom: 'From',
-            srchServiceTo: 'To', srchEligibility: '90-Day Eligibility',
+            srchServiceTo: 'To', srchEligibility: serviceWindowDays + '-Day Eligibility',
             srchMissingInfo: 'Missing Info'
         };
         var _chipIds = [...basicIds, ...advancedIds, 'srchStatus','srchClinic']
