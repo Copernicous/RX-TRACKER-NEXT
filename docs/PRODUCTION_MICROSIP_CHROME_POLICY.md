@@ -14,7 +14,7 @@ On dedicated, managed Call Center workstations, Chrome can skip that prompt for 
 
 The `192.168.15.x` workstation subnet is not wildcarded. Chrome checks the website origin, so only the known RX Tracker server URLs are allowlisted.
 
-The same installer also sets `LocalNetworkAccessAllowedForUrls` for those exact website origins. This lets current managed Chrome versions connect from RX Tracker to the RX Softphone service on `http://127.0.0.1:5188`. It does not expose the softphone to the LAN: the service remains bound to loopback and independently rejects browser origins outside its own allowlist.
+The same installer also sets Chrome's legacy `LocalNetworkAccessAllowedForUrls` policy and the current `LocalNetworkAllowedForUrls` and `LoopbackNetworkAllowedForUrls` policies for those exact website origins. The dedicated loopback policy is required by Chrome 146 and later when RX Tracker connects to the RX Softphone service on `http://127.0.0.1:5188`. These policies do not expose the softphone to the LAN: the service remains bound to loopback and independently rejects browser origins outside its own allowlist.
 
 ## Server origin configuration
 
@@ -46,7 +46,7 @@ Back up this key with the protected production configuration. Changing or losing
 
 4. Restart Chrome.
 5. Open `chrome://policy` and click **Reload policies**.
-6. Confirm that `AutoLaunchProtocolsFromOrigins` and `LocalNetworkAccessAllowedForUrls` have status **OK**.
+6. Confirm that `AutoLaunchProtocolsFromOrigins`, `LocalNetworkAccessAllowedForUrls`, `LocalNetworkAllowedForUrls`, and `LoopbackNetworkAllowedForUrls` have status **OK**.
 7. Open production or staging and test the green phone icon.
 
 The installer preserves other protocols and origins already present in the Chrome policy. Do not replace the production origins with `*`.
@@ -80,10 +80,12 @@ For multiple managed workstations, deploy both Chrome machine policies through A
 ]
 ```
 
-Set `LocalNetworkAccessAllowedForUrls` to the same five exact origins. On Windows registry policy, create numbered string values beneath:
+Set all three local-network policies to the same five exact origins. On Windows registry policy, create numbered string values beneath each path:
 
 ```text
 Software\Policies\Google\Chrome\LocalNetworkAccessAllowedForUrls
+Software\Policies\Google\Chrome\LocalNetworkAllowedForUrls
+Software\Policies\Google\Chrome\LoopbackNetworkAllowedForUrls
 ```
 
 The policy must remain limited to the trusted production and testing origins. The user's click on the green phone icon provides the required user gesture.
