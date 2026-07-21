@@ -12,7 +12,7 @@ const tasks = [
     ['security alerts smoke', 'smoke-staging-security-alerts.js'],
     ['security hardening smoke', 'smoke-staging-security-hardening.js'],
     ['Call Center API restriction smoke', 'smoke-staging-call-center-security.js'],
-    ['staging browser click smoke', 'smoke-staging-ui-clicks.js']
+    ['staging browser click smoke', 'run-isolated-staging-ui-smoke.js']
 ];
 
 function runTask(label, script) {

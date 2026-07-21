@@ -106,6 +106,9 @@ module.exports = {
     'PUT /api/users/:id':         { category:'admin', desc:'Update a user account.',          perm:'Administrator', admin:true },
     'PUT /api/users/:id/restore': { category:'admin', desc:'Restore a deleted user.',         perm:'Administrator', admin:true },
     'DELETE /api/users/:id':      { category:'admin', desc:'Delete a user account.',          perm:'Administrator', admin:true },
+    'POST /api/users/:id/phone-account/setup-access': { category:'admin', desc:'Allow a user to run one-time Phone Account Setup again.', perm:'Administrator', admin:true },
+    'GET /api/phone-account/setup':  { category:'admin', desc:'Load the current user\'s individually authorized phone-account setup.', perm:'Per-user setup authorization', admin:false },
+    'POST /api/phone-account/setup': { category:'admin', desc:'Complete and close the current user\'s one-time encrypted SIP setup.', perm:'Per-user setup authorization', admin:false },
 
     // ── Admin — Audit Log ─────────────────────────────────────────────────
     'GET /api/audit-logs':           { category:'admin', desc:'List audit log entries with optional filters.',   perm:'audit_log: read', admin:false },

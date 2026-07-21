@@ -22,16 +22,36 @@ function requireVisibleModule(moduleKey) {
 
 function redirectCallCenterRole(req, res, next) {
     const user = res.locals && res.locals.currentUser;
-    if (isCallCenterRole(user) && req.path !== '/call-center') {
+    if (isCallCenterRole(user) && !['/call-center', '/phone-account-setup'].includes(req.path)) {
         return proxyRedirect(req, res, '/call-center');
     }
     next();
+}
+
+function requirePhoneAccountSetupAccess(req, res, next) {
+    if (!res.locals || !res.locals.currentUser) return proxyRedirect(req, res, '/login');
+    if (res.locals.phoneAccountSetupAllowed === true) return next();
+    const target = hasCallCenterAccess(res.locals.currentUser) ? '/call-center' : '/dashboard';
+    return proxyRedirect(req, res, target + '?phone_setup=unavailable');
 }
 
 function requireCallCenterPage(req, res, next) {
     const user = res.locals && res.locals.currentUser;
     if (hasCallCenterAccess(user)) return next();
     return proxyRedirect(req, res, '/dashboard');
+}
+
+function allowRxSoftphoneConnection(req, res, next) {
+    const headerName = 'Content-Security-Policy';
+    const current = String(res.getHeader(headerName) || '');
+    const softphoneOrigin = 'http://127.0.0.1:5188';
+    if (current && !current.includes(softphoneOrigin)) {
+        res.setHeader(headerName, current.replace(
+            "connect-src 'self'",
+            "connect-src 'self' " + softphoneOrigin
+        ));
+    }
+    next();
 }
 
 // Root → redirect to login
@@ -45,8 +65,16 @@ router.get('/login', (req, res) => {
     res.render('login', { title: 'Login - Patient RX System' });
 });
 
-router.get('/call-center', requireWebLogin, requireCallCenterPage, (req, res) => {
+router.get('/call-center', requireWebLogin, requireCallCenterPage, allowRxSoftphoneConnection, (req, res) => {
     res.render('call-center', { title: 'Call Center', activePage: 'call-center' });
+});
+
+router.get('/phone-account-setup', requireWebLogin, requirePhoneAccountSetupAccess, (req, res) => {
+    res.render('phone-account-setup', {
+        title: 'Phone Account Setup',
+        activePage: 'phone-account-setup',
+        setupSuccessPath: hasCallCenterAccess(res.locals.currentUser) ? '/call-center' : '/dashboard'
+    });
 });
 
 router.use(redirectCallCenterRole);

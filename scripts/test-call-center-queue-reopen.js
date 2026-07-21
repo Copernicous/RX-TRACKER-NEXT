@@ -7,6 +7,7 @@ const { Op } = require('sequelize');
 const db = require('../models');
 const adminController = require('../controllers/adminController');
 const callCenterController = require('../controllers/callCenterController');
+const { getCallCenterInactiveClaimSeconds } = require('../utils/globalSettings');
 
 const RUN_ID = `cc-reopen-${Date.now()}`;
 
@@ -57,6 +58,7 @@ async function cleanup(created) {
     const patientIds = created.patients.map((row) => row.id);
     if (patientIds.length) {
         await db.CallCenterLock.destroy({ where: { patientId: { [Op.in]: patientIds } } }).catch(() => {});
+        await db.CallCenterCallAttempt.destroy({ where: { patientId: { [Op.in]: patientIds } } }).catch(() => {});
         await db.AuditLog.destroy({ where: { recordId: { [Op.in]: patientIds }, module: 'Call Center' } }).catch(() => {});
         await db.PatientServiceDateHistory.destroy({ where: { patientId: { [Op.in]: patientIds } } }).catch(() => {});
         await db.PatientServiceDateCycle.destroy({ where: { patientId: { [Op.in]: patientIds } } }).catch(() => {});
@@ -80,7 +82,11 @@ async function main() {
         await db.sequelize.sync();
 
         const adminRole = await db.Role.create({ name: `Administrator ${RUN_ID}`, isSystem: false });
-        const callCenterRole = await db.Role.create({ name: `Call Center ${RUN_ID}`, isSystem: false });
+        const callCenterRole = await db.Role.create({
+            name: `Call Center ${RUN_ID}`,
+            isSystem: false,
+            permissions: { call_center: { visible: true, canAdd: true } }
+        });
         created.roles.push(adminRole, callCenterRole);
 
         const adminUser = await db.User.create({
@@ -99,7 +105,15 @@ async function main() {
             roleId: callCenterRole.id,
             isActive: true
         });
-        created.users.push(adminUser, callCenterUser);
+        const secondCallCenterUser = await db.User.create({
+            firstName: 'Queue',
+            lastName: 'Second Agent',
+            username: `${RUN_ID}-agent-2`,
+            passwordHash: 'not-used',
+            roleId: callCenterRole.id,
+            isActive: true
+        });
+        created.users.push(adminUser, callCenterUser, secondCallCenterUser);
 
         const clinic = await db.Clinic.create({
             name: `Queue Repair Clinic ${RUN_ID}`,
@@ -142,8 +156,102 @@ async function main() {
         assert.strictEqual(adminLockedRes.statusCode, 200, 'Call Center list failed with admin-held lock: ' + JSON.stringify(adminLockedRes.body));
         assert.strictEqual(adminLockedRes.body.total, 1, 'Admin-held queue locks should not hide eligible patients from Call Center agents.');
         assert((adminLockedRes.body.rows || []).some((row) => row.id === patient.id), 'Call Center agent should see patient even if an admin viewed the queue first.');
-        const reassignedLock = await db.CallCenterLock.findOne({ where: { patientId: patient.id } });
-        assert.strictEqual(reassignedLock.userId, callCenterUser.id, 'Queue lock should be reassigned to the Call Center agent.');
+        assert.strictEqual(adminLockedRes.body.locksAcquired, false, 'Viewing a queue must not acquire patient claims.');
+        assert.strictEqual(adminLockedRes.body.claimMode, 'on_dial', 'Queue must advertise click-to-dial claim behavior.');
+        const untouchedAdminLock = await db.CallCenterLock.findOne({ where: { patientId: patient.id } });
+        assert.strictEqual(untouchedAdminLock.userId, adminUser.id, 'Viewing a queue must not reassign an existing patient lock.');
+        await untouchedAdminLock.destroy();
+
+        const firstClaimRes = makeRes();
+        await callCenterController.claimPatient({
+            params: { id: String(patient.id) },
+            user: { id: callCenterUser.id, role: 'Call Center' }
+        }, firstClaimRes);
+        assert.strictEqual(firstClaimRes.statusCode, 200, 'First agent should claim the patient when dialing.');
+        const firstAgentLock = await db.CallCenterLock.findOne({ where: { patientId: patient.id, userId: callCenterUser.id } });
+        const initialLeaseMs = new Date(firstAgentLock.expiresAt).getTime() - Date.now();
+        const expectedInactiveLeaseMs = getCallCenterInactiveClaimSeconds() * 1000;
+        assert(initialLeaseMs > 0 && initialLeaseMs <= expectedInactiveLeaseMs + 1000, 'Phone-click claim must use the configured inactive timeout before a call starts.');
+
+        const cooldownStatusRes = makeRes();
+        await callCenterController.getLockStatuses({
+            query: { patientIds: String(patient.id) },
+            user: { id: secondCallCenterUser.id, role: 'Call Center' }
+        }, cooldownStatusRes);
+        assert.strictEqual(cooldownStatusRes.statusCode, 200, 'Phone availability status failed.');
+        assert.strictEqual(cooldownStatusRes.body.statuses[0].status, 'cooldown', 'A claimed row without an active attempt must be amber/cooldown.');
+        assert.strictEqual(cooldownStatusRes.body.statuses[0].mine, false, 'A second agent must see the lock as belonging to another user.');
+        assert.strictEqual(cooldownStatusRes.body.statuses[0].user, 'Queue Repair Agent', 'Availability status must identify the other agent.');
+
+        const secondAgentListRes = makeRes();
+        await callCenterController.listPatients({
+            query: { q: patient.lastName, page: 1, pageSize: 10 },
+            user: { id: secondCallCenterUser.id, role: 'Call Center' }
+        }, secondAgentListRes);
+        assert.strictEqual(secondAgentListRes.statusCode, 200, 'Second agent queue list failed.');
+        assert.strictEqual(secondAgentListRes.body.total, 1, 'A claimed patient must stay visible so its colored phone status can explain who is using it.');
+
+        const activeAttempt = await db.CallCenterCallAttempt.create({
+            patientId: patient.id,
+            userId: callCenterUser.id,
+            correlationId: `${RUN_ID}-active`,
+            phoneClient: 'rx_softphone',
+            direction: 'outbound',
+            state: 'connected',
+            patientName: `${patient.firstName} ${patient.lastName}`,
+            agentName: 'Queue Repair Agent',
+            dialedNumber: patient.phone,
+            dialedAt: new Date(),
+            ringingAt: new Date(Date.now() - 12000),
+            answeredAt: new Date(Date.now() - 5000)
+        });
+        const activeStatusRes = makeRes();
+        await callCenterController.getLockStatuses({
+            query: { patientIds: String(patient.id) },
+            user: { id: secondCallCenterUser.id, role: 'Call Center' }
+        }, activeStatusRes);
+        assert.strictEqual(activeStatusRes.body.statuses[0].status, 'active', 'Dialing/ringing/connected rows must be red/in use.');
+        assert.strictEqual(activeStatusRes.body.statuses[0].callState, 'connected', 'Availability must expose the active call state.');
+        assert(activeStatusRes.body.statuses[0].connectedAt, 'A connected call must expose its answer timestamp for the live duration badge.');
+
+        const conflictingClaimRes = makeRes();
+        await callCenterController.claimPatient({
+            params: { id: String(patient.id) },
+            user: { id: secondCallCenterUser.id, role: 'Call Center' }
+        }, conflictingClaimRes);
+        assert.strictEqual(conflictingClaimRes.statusCode, 409, 'Second agent must not claim a patient while the first dial workflow is active.');
+        await activeAttempt.destroy();
+
+        const firstReleaseRes = makeRes();
+        await callCenterController.releaseLocks({
+            body: { patientIds: [patient.id] },
+            user: { id: callCenterUser.id, role: 'Call Center' }
+        }, firstReleaseRes);
+        assert.strictEqual(firstReleaseRes.statusCode, 200, 'First agent lock release failed.');
+
+        const secondClaimRes = makeRes();
+        await callCenterController.claimPatient({
+            params: { id: String(patient.id) },
+            user: { id: secondCallCenterUser.id, role: 'Call Center' }
+        }, secondClaimRes);
+        assert.strictEqual(secondClaimRes.statusCode, 200, 'Second agent should claim the patient after release.');
+
+        const secondReleaseRes = makeRes();
+        await callCenterController.releaseLocks({
+            body: { patientIds: [patient.id] },
+            user: { id: secondCallCenterUser.id, role: 'Call Center' }
+        }, secondReleaseRes);
+        assert.strictEqual(secondReleaseRes.statusCode, 200, 'Second agent lock release failed.');
+
+        const heartbeatWithoutClaimRes = makeRes();
+        await callCenterController.refreshLocks({
+            body: { patientIds: [patient.id] },
+            user: { id: callCenterUser.id, role: 'Call Center' }
+        }, heartbeatWithoutClaimRes);
+        assert.strictEqual(heartbeatWithoutClaimRes.statusCode, 200, 'Claim heartbeat request failed.');
+        assert.deepStrictEqual(heartbeatWithoutClaimRes.body.refreshed, [], 'A heartbeat must not create a patient claim.');
+        assert.strictEqual(heartbeatWithoutClaimRes.body.conflicts.length, 1, 'Missing claim heartbeat should tell the browser to stop refreshing it.');
+        assert.strictEqual(await db.CallCenterLock.count({ where: { patientId: patient.id } }), 0, 'A heartbeat without a phone-click claim must leave the patient unlocked.');
 
         const adminReviewRes = makeRes();
         await callCenterController.listPatients({

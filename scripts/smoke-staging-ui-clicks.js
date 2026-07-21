@@ -7,7 +7,25 @@ const bcrypt = require('bcryptjs');
 const { chromium } = require('playwright-core');
 const { prepareStagingEnv } = require('./lib/staging-env');
 
-const stagingConfig = prepareStagingEnv();
+const isolatedSmoke = process.env.STAGING_UI_SMOKE_ISOLATED === 'true';
+if (!isolatedSmoke && process.env.STAGING_UI_SMOKE_ALLOW_SHARED_DB !== 'true') {
+    throw new Error(
+        'Refusing to create browser-smoke fixtures in the shared staging database. ' +
+        'Run "npm run staging:ui-click-smoke" for an isolated server/database.'
+    );
+}
+const stagingConfig = isolatedSmoke
+    ? {
+        dbName: process.env.DB_NAME || '',
+        dbHost: process.env.DB_HOST || '127.0.0.1',
+        dbPort: process.env.DB_PORT || '5432',
+        port: process.env.PORT || '',
+        writableRoot: process.env.APP_WRITABLE_ROOT || ''
+    }
+    : prepareStagingEnv();
+if (isolatedSmoke && !/(ui_smoke|smoke_ui|test)/i.test(stagingConfig.dbName)) {
+    throw new Error('Refusing isolated UI smoke because DB_NAME is not marked as a smoke/test database.');
+}
 const db = require('../models');
 const { BUILT_IN_DEFAULTS } = require('../middleware/rbac');
 const Op = db.Sequelize.Op;
@@ -16,6 +34,8 @@ const DEFAULT_BASE_URL = 'http://localhost:' + (process.env.PORT || stagingConfi
 const baseUrl = (process.env.STAGING_BASE_URL || DEFAULT_BASE_URL).replace(/\/+$/, '');
 const runId = String(Date.now());
 const password = 'SmokePass!' + runId;
+const sipTestPassword = 'SipSmoke!' + runId;
+const sipTestExtension = 'smoke-' + runId;
 const screenshotsDir = path.join(stagingConfig.writableRoot, 'smoke-screenshots');
 
 const created = {
@@ -89,7 +109,7 @@ async function createUser(role, label) {
         roleId: role.id,
         isActive: true,
         tokenVersion: 0,
-        isMaster: false,
+        isMaster: label === 'Admin',
         twoFactorEnabled: false
     });
     created.users.push(user);
@@ -183,6 +203,33 @@ async function seedFixtures() {
         changeSource: 'Call Center',
         reason: 'Staging UI smoke service date history',
         metadata: { runId }
+    });
+    const dialedAt = new Date(Date.now() - 8 * 60 * 1000);
+    const ringingAt = new Date(dialedAt.getTime() + 3000);
+    const answeredAt = new Date(ringingAt.getTime() + 7000);
+    const endedAt = new Date(answeredAt.getTime() + 83000);
+    await db.CallCenterCallAttempt.create({
+        patientId: metricPatient.id,
+        userId: callCenterUser.id,
+        correlationId: 'ui-smoke-attempt-' + runId,
+        phoneClient: 'rx_softphone',
+        direction: 'outbound',
+        state: 'ended',
+        outcome: 'answered',
+        patientCode: metricPatient.patientCode,
+        patientName: metricPatient.firstName + ' ' + metricPatient.lastName,
+        clinicName: clinic.name,
+        agentName: callCenterUser.firstName + ' ' + callCenterUser.lastName,
+        extension: 'smoke-ext',
+        dialedNumber: String(metricPatient.phone).replace(/[^0-9+*#]/g, ''),
+        sipResponseCode: 200,
+        sipReason: 'OK',
+        dialedAt,
+        ringingAt,
+        answeredAt,
+        endedAt,
+        ringDurationSeconds: 7,
+        conversationDurationSeconds: 83
     });
 
     return {
@@ -401,11 +448,48 @@ async function runAdminDashboardAndReports(fixtures) {
     assert.strictEqual((await page.locator('#ccrMNotes').innerText()).trim(), '1', 'Call Center report filtered note total mismatch.');
     const reportText = await page.locator('#ccReportBody').innerText();
     assert(reportText.includes('Smoke report call center note'), 'Call Center report did not show note history.');
-    pass('Call Center Report filters and calculators');
+    pass('Call Center Patient Activity filters and calculators');
     await page.locator('#ccReportTable th:has-text("Calls")').click();
-    pass('Call Center Report sorting click');
-    await expectDownload(page, '#exportCcCsv', 'Call Center Report CSV export');
-    await expectDownload(page, '#exportCcXls', 'Call Center Report Excel export');
+    pass('Call Center Patient Activity sorting click');
+    await expectDownload(page, '#exportCcCsv', 'Call Center Patient Activity CSV export');
+    await expectDownload(page, '#exportCcXls', 'Call Center Patient Activity Excel export');
+
+    await page.locator('#ccReportBody .cc-open-attempts').first().click();
+    await expectVisible(page, '#ccAttemptsReportPane.active.show', 'Call Attempts report view visible');
+    await page.waitForFunction((code) => {
+        const body = document.querySelector('#ccAttemptReportBody');
+        return body && body.textContent.indexOf(code) !== -1;
+    }, fixtures.metricPatient.patientCode, { timeout: 15000 });
+    assert.strictEqual((await page.locator('#ccaMAttempts').innerText()).trim(), '1', 'Automatic attempt total mismatch.');
+    assert.strictEqual((await page.locator('#ccaMAnswered').innerText()).trim(), '1', 'Automatic answered total mismatch.');
+    assert((await page.locator('#ccAttemptReportBody').innerText()).includes('200 — OK'), 'Automatic attempt SIP result was not rendered.');
+    pass('Call Center Call Attempts filters and calculators');
+    await expectDownload(page, '#exportCcAttemptsCsv', 'Call attempt CSV export');
+    await expectDownload(page, '#exportCcAttemptsXls', 'Call attempt Excel export');
+    await page.locator('#ccAttemptReportBody .cc-open-activity').first().click();
+    await expectVisible(page, '#ccActivityReportPane.active.show', 'Patient Activity report return link');
+
+    await page.goto(route('/users'), { waitUntil: 'domcontentloaded' });
+    await page.waitForLoadState('networkidle').catch(() => {});
+    await page.locator('#addNewBtn').click();
+    await expectVisible(page, '#crudModal', 'Administrator Add User modal');
+    assert.strictEqual(await page.locator('#crudViewOnlyBanner').isHidden(), true, 'Administrator must not see the View Only banner in shared Add/Edit forms.');
+    assert.strictEqual(await page.locator('#saveCrudBtn').isVisible(), true, 'Administrator Save action must remain available in shared Add/Edit forms.');
+    assert.strictEqual(await page.locator('#crudForm input').first().isEditable(), true, 'Administrator fields must remain editable in shared Add/Edit forms.');
+    await page.locator('#crudModal .btn-close').click();
+    await page.locator('#crudModal').waitFor({ state: 'hidden', timeout: 5000 });
+    pass('Administrator shared Add/Edit modal permissions');
+
+    const phoneUserRow = page.locator('#crudTable tbody tr').filter({ hasText: fixtures.callCenterUser.username }).first();
+    await phoneUserRow.waitFor({ state: 'visible', timeout: 15000 });
+    page.once('dialog', dialog => dialog.accept());
+    await Promise.all([
+        page.waitForResponse(response => response.url().includes('/api/users/' + fixtures.callCenterUser.id + '/phone-account/setup-access') && response.status() === 200),
+        phoneUserRow.getByRole('button', { name: 'Allow setup' }).click()
+    ]);
+    await fixtures.callCenterUser.reload();
+    assert.strictEqual(fixtures.callCenterUser.phoneAccountSetupAllowed, true, 'Administrator did not grant setup to the selected user.');
+    pass('Administrator granted one-time Phone Account Setup to one user');
 
     assertNoBrowserErrors('admin dashboard/report flow');
     await context.close();
@@ -414,6 +498,68 @@ async function runAdminDashboardAndReports(fixtures) {
 async function runCallCenterWorkspace(fixtures) {
     const { context, page } = await newContext();
     await login(page, fixtures.callCenterUser.username, '/call-center');
+
+    await page.goto(route('/phone-account-setup'), { waitUntil: 'domcontentloaded' });
+    await expectVisible(page, '#phoneAccountSetupForm', 'Per-user Phone Account Setup page');
+    await page.fill('#phoneSetupServer', '192.168.15.200');
+    await page.fill('#phoneSetupPort', '5060');
+    await page.fill('#phoneSetupUsername', sipTestExtension);
+    await page.fill('#phoneSetupDisplayName', 'Staging Smoke Softphone');
+    await page.fill('#phoneSetupPassword', sipTestPassword);
+    await page.fill('#phoneSetupPasswordConfirm', sipTestPassword);
+    await page.fill('#phoneSetupLocalPort', '0');
+    await Promise.all([
+        page.waitForResponse(response => response.url().includes('/api/phone-account/setup') && response.status() === 200),
+        page.locator('#phoneSetupSaveBtn').click()
+    ]);
+    await page.waitForURL('**/call-center', { timeout: 15000 });
+
+    const accountBefore = await context.request.get(route('/api/call-center/phone-account'));
+    assert.strictEqual(accountBefore.status(), 200, 'Call Center user should be able to load their own softphone assignment.');
+    const accountBeforeBody = await accountBefore.json();
+    assert.strictEqual(accountBeforeBody.configured, true, 'Self-configured softphone account should be available to its Call Center user.');
+    assert.strictEqual(accountBeforeBody.username, sipTestExtension, 'Call Center user saved the wrong extension.');
+    assert.strictEqual(accountBeforeBody.canManage, false, 'Call Center users must not be allowed to edit their assigned account.');
+    assert.strictEqual(accountBeforeBody.adminPinRequired, true, 'Isolated staging must require the administrator PIN for phone-account saves.');
+
+    const rejectedSecondSetup = await context.request.post(route('/api/phone-account/setup'), {
+        data: { server: '192.168.15.200', port: 5060, username: 'unauthorized', displayName: 'Unauthorized', localSipPort: 0, password: sipTestPassword }
+    });
+    assert.strictEqual(rejectedSecondSetup.status(), 403, 'Completed users must not be able to change the account without a new per-user authorization.');
+
+    const accountAfter = await context.request.get(route('/api/call-center/phone-account'));
+    const accountMetadata = await accountAfter.json();
+    assert.strictEqual(accountAfter.status(), 200, 'Saved softphone assignment should load.');
+    assert.strictEqual(accountMetadata.passwordConfigured, true, 'Assigned account should report an encrypted password is configured.');
+    assert.strictEqual(Object.hasOwn(accountMetadata, 'password'), false, 'Softphone metadata endpoint must not expose the password.');
+    assert.strictEqual(Object.hasOwn(accountMetadata, 'encryptedPassword'), false, 'Softphone metadata endpoint must not expose ciphertext.');
+
+    const registrationBootstrap = await page.evaluate(async ({ expectedPassword }) => {
+        const response = await fetchWithAuth('/api/call-center/phone-account/registration', { method: 'POST', body: '{}', silent: true });
+        const body = await response.json().catch(() => ({}));
+        const result = { status: response.status, configured: body.configured === true, passwordMatches: body.password === expectedPassword };
+        body.password = '';
+        return result;
+    }, { expectedPassword: sipTestPassword });
+    assert.deepStrictEqual(
+        registrationBootstrap,
+        { status: 200, configured: true, passwordMatches: true },
+        'Authenticated registration bootstrap should decrypt only the current user assignment.'
+    );
+    const storedAccount = await db.UserSoftphoneAccount.findOne({ where: { userId: fixtures.callCenterUser.id } });
+    assert(storedAccount && storedAccount.encryptedPassword.startsWith('rxsoft:v1:'), 'Staging DB should store a versioned encrypted SIP password.');
+    assert(!storedAccount.encryptedPassword.includes(sipTestPassword), 'Staging DB must not store the SIP password in plaintext.');
+    assert.strictEqual(await page.locator('#ccPhoneSetupModal').count(), 0, 'Call Center must not include the retired phone account editor.');
+    await db.UserSoftphoneAccount.destroy({ where: { userId: fixtures.callCenterUser.id } });
+    pass('Per-user encrypted one-time RX Softphone setup');
+
+    const workspaceResponse = await context.request.get(route('/call-center'));
+    assert.strictEqual(workspaceResponse.status(), 200, 'Authenticated Call Center page should load.');
+    assert(
+        String(workspaceResponse.headers()['content-security-policy'] || '').includes('http://127.0.0.1:5188'),
+        'Call Center CSP should allow only its local RX Softphone connection.'
+    );
+    pass('Call Center page-scoped RX Softphone CSP');
 
     let res = await context.request.get(route('/api/dashboard/stats'));
     assert.strictEqual(res.status(), 403, 'Call Center should get 403 on dashboard API.');
@@ -428,8 +574,18 @@ async function runCallCenterWorkspace(fixtures) {
     await expectVisible(page, '#ccCardQueue', 'Call Center queue card visible');
     await waitForNonPlaceholder(page, '#ccMetricEligible', 'Call Center eligible metric loaded');
     const pageSizeOptions = await page.locator('#ccPageSize option').evaluateAll(options => options.map(option => option.value));
-    assert.deepStrictEqual(pageSizeOptions, ['5', '10'], 'Call Center page size options should be only 5 and 10.');
-    pass('Call Center pagination options limited to 5 and 10');
+    assert.deepStrictEqual(pageSizeOptions, ['5', '10', '25', '50'], 'Call Center page size options should support longer scrolling rosters.');
+    pass('Call Center pagination options support 5, 10, 25, and 50 patients');
+    const expandedRosterResponsePromise = page.waitForResponse(response =>
+        response.url().includes('/api/call-center/patients?')
+        && response.url().includes('pageSize=25')
+        && response.status() === 200
+    );
+    await page.selectOption('#ccPageSize', '25');
+    const expandedRosterResponse = await expandedRosterResponsePromise;
+    const expandedRosterData = await expandedRosterResponse.json();
+    assert.strictEqual(expandedRosterData.pageSize, 25, 'Call Center API should honor the selected longer roster size.');
+    pass('Call Center expanded scrolling roster loaded', '25 patients per page');
 
     await page.fill('#ccSearch', fixtures.queueSearch);
     await page.click('#ccSearchBtn');
@@ -441,6 +597,23 @@ async function runCallCenterWorkspace(fixtures) {
     pass('Call Center patient transport sorting click');
 
     let row = page.locator(rowSelector).first();
+    const rosterLayout = await row.evaluate(element => {
+        const record = element.querySelector('.cc-record-all');
+        const cellTops = Array.from(record.children).map(cell => Math.round(cell.getBoundingClientRect().top));
+        return {
+            fields: record.children.length,
+            topDifference: Math.max(...cellTops) - Math.min(...cellTops)
+        };
+    });
+    assert.strictEqual(rosterLayout.fields, 10, 'Call Center roster should contain all ten compact patient fields/actions.');
+    assert(rosterLayout.topDifference <= 2, 'Call Center patient fields and actions should render on one aligned line.');
+    const noteBox = row.locator('.cc-row-note');
+    const compactNoteHeight = await noteBox.evaluate(element => element.getBoundingClientRect().height);
+    await noteBox.fill('First line\nSecond line\nThird line');
+    const expandedNoteHeight = await noteBox.evaluate(element => element.getBoundingClientRect().height);
+    assert(expandedNoteHeight > compactNoteHeight, 'Call Center Add Note field should grow with multi-line comments.');
+    await noteBox.fill('');
+    pass('Call Center compact one-line roster layout');
     assert.strictEqual(
         (await row.locator('.cc-clinic-name').innerText()).trim(),
         fixtures.clinic.name,
@@ -466,22 +639,77 @@ async function runCallCenterWorkspace(fixtures) {
     assert.strictEqual(patientTransportSearchRow.patientTransportName, fixtures.patientTransport.companyName, 'Call Center API should expose the assigned patient transport company.');
     pass('Call Center patient transport displayed and searchable', fixtures.patientTransport.companyName);
 
-    const callLink = row.locator('.cc-call-link[data-action="microsip-call"]');
+    const selectedPhoneClient = patientTransportSearchData.phoneClient;
+    assert(
+        ['microsip', 'rx_softphone', 'auto'].includes(selectedPhoneClient),
+        'Call Center API should expose a supported Backoffice phone-client selection.'
+    );
+    const callLink = row.locator('.cc-call-link[data-action="phone-call"]');
     await callLink.waitFor({ state: 'visible', timeout: 15000 });
+    const connectedAtForBadge = new Date(Date.now() - 65000).toISOString();
+    const lockStatusPattern = '**/api/call-center/locks/status**';
+    await page.route(lockStatusPattern, async intercepted => {
+        await intercepted.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify({
+                statuses: [{
+                    patientId: fixtures.queuePatient.id,
+                    status: 'active',
+                    mine: false,
+                    user: 'Another Agent',
+                    callState: 'connected',
+                    connectedAt: connectedAtForBadge,
+                    secondsRemaining: 0
+                }]
+            })
+        });
+    });
+    const connectedTimer = row.locator('.cc-cooldown-countdown.connected');
+    await connectedTimer.waitFor({ state: 'visible', timeout: 5000 });
+    const connectedTimerText = (await connectedTimer.innerText()).trim();
+    assert(/^1:\d{2}$/.test(connectedTimerText), 'Connected phone badge should display elapsed m:ss duration.');
+    assert((await callLink.getAttribute('aria-label')).includes('Connected'), 'Connected phone action should expose elapsed duration accessibly.');
+    const sharedStateText = (await row.locator('.cc-phone-lock-status').innerText()).trim();
+    assert(/In use by Another Agent.*Connected 1:\d{2}/.test(sharedStateText), 'Another user should see the shared connected call state and duration.');
+    await page.unroute(lockStatusPattern);
+    await page.waitForFunction((patientId) => {
+        const badge = document.querySelector('[data-action="phone-call"][data-patient-id="' + patientId + '"] .cc-cooldown-countdown');
+        return badge && !badge.classList.contains('connected');
+    }, String(fixtures.queuePatient.id), { timeout: 5000 });
+    pass('Call Center shared state and timer badge', connectedTimerText + ' / ' + sharedStateText);
+    assert.strictEqual(
+        await row.locator('.cc-row-hangup[data-action="phone-hangup"]').count(),
+        1,
+        'Call Center should place the Hang Up control beneath this patient dial icon.'
+    );
+    const hangupPlacement = await row.evaluate(element => {
+        const dial = element.querySelector('.cc-call-link[data-action="phone-call"]');
+        const hangup = element.querySelector('.cc-row-hangup[data-action="phone-hangup"]');
+        hangup.classList.remove('d-none');
+        const dialRect = dial.getBoundingClientRect();
+        const hangupRect = hangup.getBoundingClientRect();
+        const placement = {
+            belowDial: hangupRect.top >= dialRect.bottom,
+            centered: Math.abs((hangupRect.left + (hangupRect.width / 2)) - (dialRect.left + (dialRect.width / 2))) <= 2
+        };
+        hangup.classList.add('d-none');
+        return placement;
+    });
+    assert(hangupPlacement.belowDial, 'Hang Up control should render below the dial icon.');
+    assert(hangupPlacement.centered, 'Hang Up control should remain centered with the dial icon.');
+    pass('Call Center inline Hang Up control placement');
     const expectedDialNumber = String(fixtures.queuePatient.phone || '').replace(/\D/g, '');
     assert.strictEqual(
         await callLink.getAttribute('href'),
         'callto:' + expectedDialNumber,
-        'Call Center phone icon should hand the normalized number to the local MicroSIP-compatible CALLTO protocol handler.'
+        'Call Center phone icon should keep a normalized MicroSIP-compatible CALLTO fallback.'
     );
     assert.strictEqual(await callLink.getAttribute('data-dial-number'), expectedDialNumber, 'Call Center link should retain the number shown in the launch message.');
     assert.strictEqual(await row.locator('.cc-called').isChecked(), false, 'Rendering click-to-call must not pre-record a call.');
-    assert.match(
-        await page.locator('#ccSoftphoneHelp').innerText(),
-        /must show Online/i,
-        'Call Center should explain that MicroSIP must be online before dialing.'
-    );
-    pass('Call Center MicroSIP click-to-call link configured', 'callto:' + expectedDialNumber);
+    await page.locator('#ccPhoneClientStatus').waitFor({ state: 'visible', timeout: 15000 });
+    assert((await page.locator('#ccSoftphoneHelp').innerText()).trim(), 'Call Center should display guidance for the selected phone client.');
+    pass('Call Center selectable phone integration configured', selectedPhoneClient + ' / callto:' + expectedDialNumber);
 
     await row.locator('.cc-row-note').fill('First smoke call note ' + runId);
     await row.locator('.cc-called').check();
@@ -537,6 +765,7 @@ async function cleanup() {
     await new Promise(resolve => setTimeout(resolve, 500));
 
     if (patientIds.length) {
+        if (db.CallCenterCallAttempt) await db.CallCenterCallAttempt.destroy({ where: { patientId: { [Op.in]: patientIds } } }).catch(() => {});
         if (db.CallCenterLock) await db.CallCenterLock.destroy({ where: { patientId: { [Op.in]: patientIds } } }).catch(() => {});
         if (db.PatientLock) await db.PatientLock.destroy({ where: { patientId: { [Op.in]: patientIds } } }).catch(() => {});
         await db.PatientNote.destroy({ where: { patientId: { [Op.in]: patientIds } } }).catch(() => {});
@@ -546,6 +775,7 @@ async function cleanup() {
         await db.Patient.destroy({ where: { id: { [Op.in]: patientIds } } }).catch(() => {});
     }
     if (userIds.length) {
+        if (db.UserSoftphoneAccount) await db.UserSoftphoneAccount.destroy({ where: { userId: { [Op.in]: userIds } } }).catch(() => {});
         await db.AuditLog.destroy({ where: { userId: { [Op.in]: userIds } } }).catch(() => {});
         if (db.UserActivityLog) await db.UserActivityLog.destroy({ where: { userId: { [Op.in]: userIds } } }).catch(() => {});
         await db.User.destroy({ where: { id: { [Op.in]: userIds } } }).catch(() => {});

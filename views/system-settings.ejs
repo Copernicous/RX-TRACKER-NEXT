@@ -743,6 +743,7 @@
                             <a class="btn btn-sm btn-outline-primary" href="#man-reports">📈 Reports</a>
                             <a class="btn btn-sm btn-outline-primary" href="#man-audit">📋 Audit Log</a>
                             <a class="btn btn-sm btn-outline-primary" href="#man-users">👤 Users</a>
+                            <a class="btn btn-sm btn-outline-primary" href="#man-softphone"><i class="fas fa-headset me-1"></i>RX Softphone</a>
                             <a class="btn btn-sm btn-outline-primary" href="#man-settings">⚙️ Settings</a>
                             <a class="btn btn-sm btn-outline-primary" href="#man-email">📧 Email</a>
                             <a class="btn btn-sm btn-outline-primary" href="#man-multiuser">👁️ Multi-User</a>
@@ -917,6 +918,80 @@
                                     <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#u2">Changing a password</button>
                                     <div id="u2" class="accordion-collapse collapse">
                                         <div class="accordion-body small text-muted">Edit the user, enter a new password. Leave blank to keep the current password. Passwords are stored as bcrypt hashes &mdash; they cannot be read by anyone, including admins.</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- RX SOFTPHONE -->
+                        <div class="glass-card p-4 mb-3" id="man-softphone">
+                            <h6 class="fw-bold mb-3" style="color:#16a34a"><i class="fas fa-headset me-2"></i>RX Softphone &mdash; Remote Windows Computer Setup</h6>
+                            <p class="text-muted small">Follow these steps on every Windows computer that will handle calls from RX Tracker, including calls requested from a Kasm browser session.</p>
+                            <div class="accordion" id="accSoftphone">
+                                <div class="accordion-item border-0 mb-1" style="background:var(--bg-subtle,#f8fafc);border-radius:8px;overflow:hidden">
+                                    <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#sp1">1. Prepare the user and install RX Softphone</button>
+                                    <div id="sp1" class="accordion-collapse collapse" data-bs-parent="#accSoftphone">
+                                        <div class="accordion-body small text-muted">
+                                            <ol class="mb-0 ps-3">
+                                                <li class="mb-2">Confirm that the RX Tracker user has a phone account assigned. A master administrator can assign it in <strong>Backoffice &rarr; Phone Accounts</strong>, or use <strong>Allow setup</strong> in User Management so the user can complete the one-time Phone Account Setup.</li>
+                                                <li class="mb-2">Copy the current <code>RxSoftphone.exe</code> release (version <strong>0.4.0 or later</strong>) to the Windows computer. The staging build is stored under <code>RX-SOFTPHONE-DESKTOP\release\0.4.0</code>.</li>
+                                                <li>Run <code>RxSoftphone.exe</code> and, on that same physical Windows computer, open <code>http://127.0.0.1:5188</code>. Keep RX Softphone running while the user makes calls.</li>
+                                            </ol>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="accordion-item border-0 mb-1" style="background:var(--bg-subtle,#f8fafc);border-radius:8px;overflow:hidden">
+                                    <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#sp2">2. Pair the Windows computer</button>
+                                    <div id="sp2" class="accordion-collapse collapse" data-bs-parent="#accSoftphone">
+                                        <div class="accordion-body small text-muted">
+                                            <ol class="mb-0 ps-3">
+                                                <li class="mb-2">Sign in to RX Tracker as the user who will make calls, open <strong>Call Center</strong>, and select <strong>Pair Windows phone</strong>.</li>
+                                                <li class="mb-2">RX Tracker displays a single-use 8-digit code that expires after 10 minutes.</li>
+                                                <li class="mb-2">In the RX Softphone page on the Windows computer, enter an RX Tracker address reachable through one of the approved connection methods below, enter the pairing code, and select <strong>Pair</strong>.</li>
+                                                <li>Confirm that RX Softphone shows <strong>Relay online</strong> and <strong>Registered</strong>. Hard-refresh Call Center with <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd>; the status should change to <strong>RX Softphone ready via relay</strong>.</li>
+                                            </ol>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="accordion-item border-0 mb-1" style="background:var(--bg-subtle,#f8fafc);border-radius:8px;overflow:hidden">
+                                    <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#sp3">3. Approved remote-access methods</button>
+                                    <div id="sp3" class="accordion-collapse collapse" data-bs-parent="#accSoftphone">
+                                        <div class="accordion-body small text-muted">
+                                            <p><strong>Cloudflare Zero Trust:</strong> the physical Windows computer must use the approved Zero Trust/WARP private-network route. That route must provide access to RX Tracker and to the private Asterisk SIP/RTP addresses. Opening only the Cloudflare-proxied web page or Kasm session does not give the Windows softphone a route to the PBX.</p>
+                                            <p class="mb-0"><strong>FortiGate VPN:</strong> connect the physical Windows computer to the approved VPN, then use the private RX Tracker address. Staging example: <code>http://192.168.15.87:3100</code>. The VPN must also route the PBX at <code>192.168.15.200</code>, SIP UDP port <code>5060</code>, and the configured RTP/audio port range.</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="accordion-item border-0 mb-1" style="background:var(--bg-subtle,#f8fafc);border-radius:8px;overflow:hidden">
+                                    <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#sp4">4. What the relay does and does not carry</button>
+                                    <div id="sp4" class="accordion-collapse collapse" data-bs-parent="#accSoftphone">
+                                        <div class="accordion-body small text-muted">The outbound relay carries dial, hang-up, registration state, and call-status commands between RX Tracker and the Windows application. <strong>SIP registration and audio do not pass through the web relay</strong>; they travel directly between the physical Windows computer and Asterisk over the approved Cloudflare private-network route or FortiGate VPN.</div>
+                                    </div>
+                                </div>
+                                <div class="accordion-item border-0 mb-1" style="background:var(--bg-subtle,#f8fafc);border-radius:8px;overflow:hidden">
+                                    <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#spHosted">If the PBX is hosted by another provider</button>
+                                    <div id="spHosted" class="accordion-collapse collapse" data-bs-parent="#accSoftphone">
+                                        <div class="accordion-body small text-muted">Assign the provider's public SIP hostname or IP address, SIP port, extension, and password to the RX Tracker user. The Windows softphone then registers directly with that provider and no longer needs a route to the local PBX at <code>192.168.15.200</code>. The Windows network and provider firewall must allow the configured SIP UDP port (commonly <code>5060</code>) and the provider's RTP/audio port range. Configure any provider-required NAT, public-IP allowlist, registration expiry, or keep-alive settings on the PBX/provider side. A normal Cloudflare HTTP proxy carries only RX Tracker web/relay traffic and does <strong>not</strong> proxy SIP UDP or RTP.</div>
+                                    </div>
+                                </div>
+                                <div class="accordion-item border-0 mb-1" style="background:var(--bg-subtle,#f8fafc);border-radius:8px;overflow:hidden">
+                                    <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#sp5">Kasm sessions, daily use, and re-pairing</button>
+                                    <div id="sp5" class="accordion-collapse collapse" data-bs-parent="#accSoftphone">
+                                        <div class="accordion-body small text-muted">A Kasm session restart is not required after pairing; refresh the Call Center page. Kasm may destroy and recreate browser sessions without removing the pairing because the encrypted relay token is stored on the physical Windows computer and the corresponding device record is stored in RX Tracker. The user must sign back into RX Tracker, and RX Softphone must remain running on Windows. Pair each Windows computer separately. Completing a new pairing for the same RX Tracker user replaces the previous relay token.</div>
+                                    </div>
+                                </div>
+                                <div class="accordion-item border-0 mb-1" style="background:var(--bg-subtle,#f8fafc);border-radius:8px;overflow:hidden">
+                                    <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#sp6">Quick troubleshooting</button>
+                                    <div id="sp6" class="accordion-collapse collapse" data-bs-parent="#accSoftphone">
+                                        <div class="accordion-body small text-muted">
+                                            <ul class="mb-0 ps-3">
+                                                <li class="mb-2"><strong>No Pair Windows phone button:</strong> hard-refresh Call Center or open it in a new tab.</li>
+                                                <li class="mb-2"><strong>Pairing code cannot be generated:</strong> assign a phone account to the signed-in user first.</li>
+                                                <li class="mb-2"><strong>Relay online but Call Center is offline:</strong> verify that Call Center is signed in as the same RX Tracker user that generated the code.</li>
+                                                <li class="mb-2"><strong>Relay online but SIP is not registered:</strong> verify the Cloudflare private route or FortiGate VPN, then verify the user's PBX address, extension, and SIP password.</li>
+                                                <li><strong>Local RX Softphone page is unavailable:</strong> start RX Softphone on that Windows computer, then refresh <code>http://127.0.0.1:5188</code>.</li>
+                                            </ul>
+                                        </div>
                                     </div>
                                 </div>
                             </div>

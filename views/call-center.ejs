@@ -99,11 +99,74 @@
         }
         .cc-table {
             table-layout: fixed;
-            min-width: 1650px;
+            width: 100%;
+            min-width: 1420px;
         }
         .cc-table th,
         .cc-table td {
             vertical-align: middle;
+        }
+        .cc-record-heading,
+        .cc-record-line {
+            display: grid;
+            gap: 10px;
+            align-items: center;
+        }
+        .cc-record-heading-all,
+        .cc-record-all {
+            grid-template-columns:
+                minmax(125px, 1fr)
+                minmax(115px, .9fr)
+                minmax(115px, .9fr)
+                minmax(145px, 1.05fr)
+                minmax(130px, 1.1fr)
+                minmax(135px, .95fr)
+                minmax(190px, 1.45fr)
+                58px
+                minmax(170px, 1.25fr)
+                42px;
+        }
+        .cc-record-heading {
+            padding: 6px 10px;
+        }
+        .cc-record-heading-cell,
+        .cc-record-cell {
+            min-width: 0;
+        }
+        .cc-record-heading-cell {
+            color: var(--text-muted);
+            font-size: .72rem;
+            font-weight: 800;
+            letter-spacing: .01em;
+            text-transform: uppercase;
+        }
+        .cc-record-td {
+            padding: 0 !important;
+        }
+        .cc-record-all {
+            padding: 7px 10px;
+            align-items: start;
+            transition: background-color .15s ease;
+        }
+        .cc-table tbody tr:nth-child(odd) .cc-record-all {
+            background: rgba(25, 135, 84, .085);
+            box-shadow: inset 4px 0 0 rgba(25, 135, 84, .7);
+        }
+        .cc-table tbody tr:nth-child(even) .cc-record-all {
+            background: rgba(74, 144, 226, .14);
+            box-shadow: inset 4px 0 0 rgba(74, 144, 226, .78);
+        }
+        .cc-table tbody tr:hover .cc-record-all {
+            background: rgba(255, 193, 7, .16);
+            box-shadow: inset 4px 0 0 rgba(255, 193, 7, .9);
+        }
+        .cc-patient-full-name {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+        }
+        .cc-record-cell-save {
+            text-align: right;
         }
         .cc-name-cell {
             font-weight: 800;
@@ -115,17 +178,26 @@
         }
         .cc-clinic-name,
         .cc-patient-transport-name {
-            min-width: 110px;
             font-weight: 600;
             line-height: 1.3;
+            overflow-wrap: anywhere;
         }
         .cc-phone-wrap {
-            display: inline-flex;
+            display: inline-grid;
+            grid-template-columns: auto 32px;
             align-items: center;
             gap: 7px;
             white-space: nowrap;
         }
+        .cc-phone-action-stack {
+            display: inline-flex;
+            flex: 0 0 32px;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+        }
         .cc-call-link {
+            position: relative;
             width: 32px;
             height: 32px;
             flex: 0 0 32px;
@@ -156,14 +228,192 @@
             cursor: not-allowed;
             opacity: .55;
         }
+        .cc-call-link.cc-availability-active {
+            border-color: #dc3545;
+            background: rgba(220, 53, 69, .14);
+            color: #dc3545;
+            cursor: not-allowed;
+        }
+        .cc-call-link.cc-availability-cooldown {
+            border-color: #f59f00;
+            background: rgba(245, 159, 0, .16);
+            color: #b26a00;
+            cursor: wait;
+        }
+        .cc-call-link.cc-availability-active:hover,
+        .cc-call-link.cc-availability-active:focus-visible,
+        .cc-call-link.cc-availability-cooldown:hover,
+        .cc-call-link.cc-availability-cooldown:focus-visible {
+            color: inherit;
+            transform: none;
+        }
+        .cc-phone-lock-status {
+            display: none;
+            grid-column: 1 / -1;
+            max-width: 145px;
+            margin-top: -4px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            color: var(--text-muted);
+            font-size: .66rem;
+            font-weight: 800;
+            line-height: 1.2;
+        }
+        .cc-phone-lock-status.visible {
+            display: block;
+        }
+        .cc-phone-lock-status.active {
+            color: #dc3545;
+        }
+        .cc-phone-lock-status.cooldown {
+            color: #b26a00;
+        }
+        .cc-cooldown-countdown {
+            display: none;
+            position: absolute;
+            top: -8px;
+            right: -9px;
+            min-width: 20px;
+            height: 20px;
+            padding: 0 4px;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid var(--card-bg, #fff);
+            border-radius: 999px;
+            background: #f59f00;
+            color: #212529;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, .2);
+            font-size: .65rem;
+            font-weight: 900;
+            line-height: 1;
+            font-variant-numeric: tabular-nums;
+        }
+        .cc-cooldown-countdown.visible {
+            display: inline-flex;
+        }
+        .cc-cooldown-countdown.connected {
+            min-width: 34px;
+            padding: 0 5px;
+            background: #dc3545;
+            color: #fff;
+        }
+        .cc-row-hangup {
+            width: 28px;
+            height: 28px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid #dc3545;
+            border-radius: 50%;
+            background: #dc3545;
+            color: #fff;
+            box-shadow: 0 5px 12px rgba(220, 53, 69, .3);
+        }
+        .cc-row-hangup:hover,
+        .cc-row-hangup:focus-visible {
+            background: #bb2d3b;
+            border-color: #b02a37;
+        }
+        .cc-row-hangup:focus-visible {
+            outline: 3px solid rgba(220, 53, 69, .25);
+            outline-offset: 2px;
+        }
+        .cc-row-hangup:disabled {
+            cursor: wait;
+            opacity: .7;
+        }
         .cc-softphone-help {
             color: var(--text-muted);
             font-size: .78rem;
             line-height: 1.4;
         }
+        .cc-phone-client-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            min-height: 28px;
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            padding: 4px 10px;
+            background: rgba(108, 117, 125, .08);
+            color: var(--text-muted);
+            font-size: .72rem;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+        .cc-phone-client-status.online {
+            border-color: rgba(25, 135, 84, .42);
+            background: rgba(25, 135, 84, .1);
+            color: #198754;
+        }
+        .cc-phone-client-status.calling {
+            border-color: rgba(13, 110, 253, .4);
+            background: rgba(13, 110, 253, .1);
+            color: #0d6efd;
+        }
+        .cc-phone-client-status.fallback {
+            border-color: rgba(245, 158, 11, .45);
+            background: rgba(245, 158, 11, .1);
+            color: #b7791f;
+        }
+        .cc-called-wrap.rx-answered {
+            border-color: #198754;
+            background: rgba(25, 135, 84, .18);
+            box-shadow: 0 0 0 3px rgba(25, 135, 84, .08);
+        }
+        .cc-call-link.is-calling {
+            background: #198754;
+            color: #fff;
+            animation: cc-phone-pulse 1.25s infinite;
+        }
+        .cc-call-link.cc-availability-active.is-calling {
+            border-color: #dc3545;
+            background: #dc3545;
+            color: #fff;
+        }
+        @keyframes cc-phone-pulse {
+            50% { box-shadow: 0 0 0 6px rgba(25, 135, 84, .12); }
+        }
+        .cc-phone-setup-modal .modal-content {
+            border: 1px solid var(--border);
+            background: var(--card-bg);
+            color: var(--text-color);
+            box-shadow: 0 24px 70px rgba(0, 0, 0, .28);
+        }
+        .cc-phone-setup-modal .modal-header,
+        .cc-phone-setup-modal .modal-footer {
+            border-color: var(--border);
+        }
+        .cc-phone-setup-modal .form-label {
+            color: var(--text-muted);
+            font-size: .74rem;
+            font-weight: 700;
+            letter-spacing: .04em;
+            text-transform: uppercase;
+        }
+        .cc-registration-message {
+            border-radius: 10px;
+            font-size: .82rem;
+            line-height: 1.4;
+        }
+        .cc-registration-security {
+            color: var(--text-muted);
+            font-size: .76rem;
+            line-height: 1.45;
+        }
+        .cc-codec-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 7px;
+        }
+        .cc-codec-list .badge {
+            border: 1px solid rgba(13, 110, 253, .25);
+            padding: 7px 9px;
+            background: rgba(13, 110, 253, .08) !important;
+            color: var(--text-color) !important;
+            font-weight: 700;
+        }
         .cc-note-preview {
-            max-height: 74px;
-            overflow: auto;
             white-space: pre-wrap;
             word-break: break-word;
             color: var(--text-muted);
@@ -175,12 +425,13 @@
             line-height: 1.45;
         }
         .cc-row-note {
-            min-height: 72px;
+            height: 34px;
+            min-height: 34px;
             resize: vertical;
         }
         .cc-called-wrap {
             width: 44px;
-            height: 36px;
+            height: 34px;
             display: inline-flex;
             align-items: center;
             justify-content: center;
@@ -297,6 +548,8 @@
                         <select id="ccPageSize" class="form-select">
                             <option value="5">5</option>
                             <option value="10" selected>10</option>
+                            <option value="25">25</option>
+                            <option value="50">50</option>
                         </select>
                     </div>
                     <button id="ccSearchBtn" class="btn btn-primary"><i class="fas fa-filter me-1"></i>Apply</button>
@@ -313,27 +566,36 @@
                             <i class="fas fa-info-circle me-1"></i>The green phone opens MicroSIP with the number. MicroSIP must show Online before it can place the call. After the call, mark Called and Save.
                         </div>
                     </div>
-                    <span class="badge rounded-pill bg-secondary" id="ccRangeLabel">--</span>
+                    <div class="d-flex align-items-center justify-content-end gap-2 flex-wrap">
+                        <span class="cc-phone-client-status" id="ccPhoneClientStatus"><i class="fas fa-phone-alt"></i>Loading phone client</span>
+                        <button type="button" class="btn btn-outline-primary btn-sm" id="ccRelayPairBtn">
+                            <i class="fas fa-link me-1"></i>Pair Windows phone
+                        </button>
+                        <span class="badge rounded-pill bg-secondary" id="ccRangeLabel">--</span>
+                    </div>
                 </div>
                 <div class="table-responsive">
                     <table class="table table-hover align-middle mb-0 cc-table">
                         <thead>
                             <tr>
-                                <th style="width:10%"><button class="cc-sort" data-sort="firstName" type="button">First Name<i class="fas fa-sort"></i></button></th>
-                                <th style="width:11%"><button class="cc-sort" data-sort="lastName" type="button">Last Name<i class="fas fa-sort"></i></button></th>
-                                <th style="width:12%"><button class="cc-sort" data-sort="clinicName" type="button">Clinic / Location<i class="fas fa-sort"></i></button></th>
-                                <th style="width:12%"><button class="cc-sort" data-sort="patientTransportName" type="button">Patient Transport<i class="fas fa-sort"></i></button></th>
-                                <th style="width:12%"><button class="cc-sort" data-sort="phone" type="button">Phone<i class="fas fa-sort"></i></button></th>
-                                <th style="width:14%"><button class="cc-sort" data-sort="notes" type="button">Notes<i class="fas fa-sort"></i></button></th>
-                                <th style="width:11%"><button class="cc-sort" data-sort="serviceDate" type="button">New Service Date<i class="fas fa-sort"></i></button></th>
-                                <th style="width:17%">Add Note</th>
-                                <th style="width:8%" class="text-center"><button class="cc-sort" data-sort="status" type="button">Called<i class="fas fa-sort"></i></button></th>
-                                <th style="width:13%"><button class="cc-sort" data-sort="lastCall" type="button">Call Dates<i class="fas fa-sort"></i></button></th>
-                                <th style="width:8%" class="text-end">Save</th>
+                                <th class="p-0">
+                                    <div class="cc-record-heading cc-record-heading-all">
+                                        <div class="cc-record-heading-cell"><button class="cc-sort" data-sort="firstName" type="button">First<i class="fas fa-sort"></i></button><span class="mx-1">/</span><button class="cc-sort" data-sort="lastName" type="button">Last<i class="fas fa-sort"></i></button></div>
+                                        <div class="cc-record-heading-cell"><button class="cc-sort" data-sort="clinicName" type="button">Clinic / Location<i class="fas fa-sort"></i></button></div>
+                                        <div class="cc-record-heading-cell"><button class="cc-sort" data-sort="patientTransportName" type="button">Patient Transport<i class="fas fa-sort"></i></button></div>
+                                        <div class="cc-record-heading-cell"><button class="cc-sort" data-sort="phone" type="button">Phone<i class="fas fa-sort"></i></button></div>
+                                        <div class="cc-record-heading-cell"><button class="cc-sort" data-sort="notes" type="button">Notes<i class="fas fa-sort"></i></button></div>
+                                        <div class="cc-record-heading-cell"><button class="cc-sort" data-sort="serviceDate" type="button">New Service Date<i class="fas fa-sort"></i></button></div>
+                                        <div class="cc-record-heading-cell">Add Note</div>
+                                        <div class="cc-record-heading-cell text-center"><button class="cc-sort" data-sort="status" type="button">Called<i class="fas fa-sort"></i></button></div>
+                                        <div class="cc-record-heading-cell"><button class="cc-sort" data-sort="lastCall" type="button">Call Dates<i class="fas fa-sort"></i></button></div>
+                                        <div class="cc-record-heading-cell text-end">Save</div>
+                                    </div>
+                                </th>
                             </tr>
                         </thead>
                         <tbody id="ccPatientRows">
-                            <tr><td colspan="11" class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin me-2"></i>Loading</td></tr>
+                            <tr><td class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin me-2"></i>Loading</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -349,12 +611,45 @@
     </div>
 </div>
 
+<div class="modal fade" id="ccRelayPairModal" tabindex="-1" aria-labelledby="ccRelayPairTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="ccRelayPairTitle"><i class="fas fa-link me-2 text-primary"></i>Pair Windows RX Softphone</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-2">Open RX Softphone 0.4.0 or later on the Windows PC that will handle calls. Enter the RX Tracker server address and this one-time code:</p>
+                <div class="border rounded text-center p-3 my-3 bg-light">
+                    <div class="text-muted small text-uppercase fw-bold">Pairing code</div>
+                    <div class="display-6 fw-bold font-monospace" id="ccRelayPairingCode">--------</div>
+                    <div class="small text-muted" id="ccRelayPairingExpiry">Generate a code to begin.</div>
+                </div>
+                <div class="alert alert-info small mb-0">
+                    <i class="fas fa-info-circle me-1"></i>The relay carries commands and call status only. SIP and audio remain on the Windows PC.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" id="ccRelayGenerateBtn"><i class="fas fa-sync-alt me-1"></i>Generate new code</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div id="x-api-urls" aria-hidden="true" class="d-none">
     <a id="xa-base" href="/login"></a>
     <a id="xa-cc-patients" href="/api/call-center/patients"></a>
     <a id="xa-cc-metrics" href="/api/call-center/metrics/queue"></a>
     <a id="xa-cc-lock-refresh" href="/api/call-center/locks/refresh"></a>
     <a id="xa-cc-lock-release" href="/api/call-center/locks/release"></a>
+    <a id="xa-cc-lock-status" href="/api/call-center/locks/status"></a>
+    <a id="xa-cc-phone-account" href="/api/call-center/phone-account"></a>
+    <a id="xa-cc-phone-registration" href="/api/call-center/phone-account/registration"></a>
+    <a id="xa-cc-call-attempts" href="/api/call-center/call-attempts"></a>
+    <a id="xa-cc-relay-pairing" href="/api/call-center/softphone-relay/pairing-code"></a>
+    <a id="xa-cc-relay-status" href="/api/call-center/softphone-relay/status"></a>
+    <a id="xa-cc-relay-calls" href="/api/call-center/softphone-relay/calls"></a>
     <a id="xa-cc-logout" href="/api/auth/logout"></a>
 </div>
 

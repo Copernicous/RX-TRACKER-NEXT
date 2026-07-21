@@ -233,7 +233,13 @@ async function getCallCenterReportUsers() {
         group: ['userId'],
         raw: true
     });
-    const ids = Array.from(new Set([].concat(auditUsers, noteUsers)
+    const attemptUsers = await db.CallCenterCallAttempt.findAll({
+        where: { userId: { [Op.ne]: null } },
+        attributes: ['userId'],
+        group: ['userId'],
+        raw: true
+    });
+    const ids = Array.from(new Set([].concat(auditUsers, noteUsers, attemptUsers)
         .map(row => parseInt(row.userId, 10))
         .filter(id => Number.isFinite(id))));
     if (!ids.length) return [];
@@ -365,6 +371,120 @@ async function getPaginatedCallCenterReport(query) {
         totals,
         users: await getCallCenterReportUsers(),
         range: { from: range.fromIso, to: range.toIso }
+    };
+}
+
+function callAttemptWhere(query) {
+    const where = {};
+    const range = ccRange(query);
+    if (Object.keys(range.where).length) where.dialedAt = range.where;
+
+    const userId = parseInt(query.userId, 10);
+    if (Number.isFinite(userId) && userId > 0) where.userId = userId;
+
+    const outcome = cleanString(query.outcome).toLowerCase();
+    if (outcome) where.outcome = outcome;
+
+    const filters = [
+        ['patientCode', query.patientCode],
+        ['patientName', [query.firstName, query.lastName].filter(Boolean).join(' ')],
+        ['dialedNumber', query.phone],
+        ['clinicName', query.clinic],
+        ['extension', query.extension],
+        ['agentName', query.agent]
+    ];
+    filters.forEach(([field, value]) => {
+        const clean = cleanString(value);
+        if (clean) where[field] = { [Op.iLike]: `%${clean}%` };
+    });
+    return { where, range };
+}
+
+function callAttemptOrder(sort, dir) {
+    const allowed = new Set([
+        'dialedAt', 'ringingAt', 'answeredAt', 'endedAt', 'outcome',
+        'patientCode', 'patientName', 'agentName', 'extension', 'dialedNumber',
+        'sipResponseCode', 'ringDurationSeconds', 'conversationDurationSeconds'
+    ]);
+    const field = allowed.has(sort) ? sort : 'dialedAt';
+    return [[field, dir === 'asc' ? 'ASC' : 'DESC'], ['id', 'DESC']];
+}
+
+function average(values) {
+    const usable = values.map(Number).filter(Number.isFinite);
+    if (!usable.length) return 0;
+    return Math.round(usable.reduce((sum, value) => sum + value, 0) / usable.length);
+}
+
+async function getPaginatedCallAttemptReport(query) {
+    const pageSize = parsePositiveInt(query.pageSize, 20, 1, 500);
+    const requestedPage = parsePositiveInt(query.page, 1, 1, 1000000);
+    const sort = cleanString(query.sort) || 'dialedAt';
+    const dir = normalizeDir(query.dir);
+    const filters = callAttemptWhere(query);
+    const total = await db.CallCenterCallAttempt.count({ where: filters.where });
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+    const page = Math.min(requestedPage, totalPages);
+    const exportAll = query.exportAll === 'true';
+    const rows = await db.CallCenterCallAttempt.findAll({
+        where: filters.where,
+        order: callAttemptOrder(sort, dir),
+        limit: exportAll ? Math.max(total, 1) : pageSize,
+        offset: exportAll ? 0 : (page - 1) * pageSize
+    });
+    const metricRows = await db.CallCenterCallAttempt.findAll({
+        where: filters.where,
+        attributes: ['outcome', 'ringDurationSeconds', 'conversationDurationSeconds'],
+        raw: true
+    });
+    const outcomeCounts = {
+        answered: 0,
+        no_answer: 0,
+        busy: 0,
+        rejected: 0,
+        unavailable: 0,
+        cancelled: 0,
+        failed: 0,
+        in_progress: 0
+    };
+    metricRows.forEach(row => {
+        const key = row.outcome && Object.hasOwn(outcomeCounts, row.outcome) ? row.outcome : 'in_progress';
+        outcomeCounts[key] += 1;
+    });
+    const answered = outcomeCounts.answered;
+    const completed = Math.max(0, total - outcomeCounts.in_progress);
+    const talkDurations = metricRows.map(row => row.conversationDurationSeconds).filter(value => value !== null);
+    const ringDurations = metricRows.map(row => row.ringDurationSeconds).filter(value => value !== null);
+    const users = await db.CallCenterCallAttempt.findAll({
+        where: { userId: { [Op.ne]: null } },
+        attributes: ['userId', 'agentName'],
+        group: ['userId', 'agentName'],
+        order: [['agentName', 'ASC']],
+        raw: true
+    });
+
+    return {
+        rows,
+        total,
+        page,
+        pageSize,
+        totalPages,
+        sort,
+        dir,
+        range: { from: filters.range.fromIso, to: filters.range.toIso },
+        users: users.map(row => ({ userId: row.userId, name: row.agentName || `User ${row.userId}` })),
+        totals: {
+            attempts: total,
+            answered,
+            completed,
+            unanswered: Math.max(0, total - answered - outcomeCounts.in_progress),
+            inProgress: outcomeCounts.in_progress,
+            answerRate: completed ? Math.round((answered / completed) * 100) : 0,
+            averageRingSeconds: average(ringDurations),
+            averageConversationSeconds: average(talkDurations),
+            totalConversationSeconds: talkDurations.reduce((sum, value) => sum + Number(value || 0), 0),
+            outcomes: outcomeCounts
+        }
     };
 }
 
@@ -629,6 +749,15 @@ exports.getCallCenterReport = async (req, res) => {
         res.json(await getPaginatedCallCenterReport(req.query || {}));
     } catch (err) {
         console.error('[Reports] Call Center report error:', err);
+        res.status(500).json({ error: err.message });
+    }
+};
+
+exports.getCallCenterAttemptReport = async (req, res) => {
+    try {
+        res.json(await getPaginatedCallAttemptReport(req.query || {}));
+    } catch (err) {
+        console.error('[Reports] Call Center attempt report error:', err);
         res.status(500).json({ error: err.message });
     }
 };
