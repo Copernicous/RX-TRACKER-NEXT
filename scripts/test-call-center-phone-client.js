@@ -123,6 +123,10 @@ try {
     const backofficeScript = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'backoffice-features.js'), 'utf8');
     assert(backofficeView.includes('sCallCenterInactiveClaimSeconds'), 'Backoffice inactive patient-claim timeout control is missing.');
     assert(backofficeScript.includes('callCenterInactiveClaimSeconds'), 'Backoffice inactive patient-claim timeout save/load integration is missing.');
+    assert(backofficeView.includes('tabPhoneAccounts'), 'Backoffice Phone Accounts tab is missing.');
+    assert(backofficeView.includes('phoneAccountPassword'), 'Backoffice write-only SIP password field is missing.');
+    assert(backofficeScript.includes('/api/admin/softphone-accounts/'), 'Backoffice per-user phone assignment integration is missing.');
+    assert(backofficeScript.includes('Leave blank to keep current password'), 'Backoffice must preserve an existing SIP password when the edit field is blank.');
 
     const webRoutes = fs.readFileSync(path.join(__dirname, '..', 'routes', 'webRoutes.js'), 'utf8');
     assert(webRoutes.includes('http://127.0.0.1:5188'), 'Call Center CSP must allow the local softphone origin.');

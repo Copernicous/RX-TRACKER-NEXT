@@ -421,6 +421,7 @@
         <button class="tab-btn" id="tabHealth" onclick="switchTab('health')"><i class="fas fa-heartbeat"></i>Health</button>
         <button class="tab-btn" id="tabLocks" onclick="switchTab('locks')"><i class="fas fa-lock"></i>Locks</button>
         <button class="tab-btn" id="tabUsers" onclick="switchTab('users')"><i class="fas fa-user-shield"></i>Users</button>
+        <button class="tab-btn" id="tabPhoneAccounts" onclick="switchTab('phoneaccounts')"><i class="fas fa-phone-alt"></i>Phone Accounts</button>
         <button class="tab-btn" id="tabApiKeys" onclick="switchTab('apikeys')"><i class="fas fa-key"></i>API Keys</button>
         <button class="tab-btn" id="tabErrlog" onclick="switchTab('errlog')"><i class="fas fa-bug"></i>Error Logs</button>
         <button class="tab-btn" id="tabLogdash" onclick="switchTab('logdash')"><i class="fas fa-chart-pie"></i>Log Dashboard</button>
@@ -785,6 +786,76 @@
     </div>
 
     <!-- ══ Error Logs Panel ══ -->
+    <!-- Per-user RX Softphone account assignment -->
+    <div id="phoneAccountsContent" class="schema-wrap">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:0.75rem">
+            <div>
+                <div style="font-size:1rem;font-weight:700"><i class="fas fa-phone-alt me-2" style="color:#22c55e"></i>Phone Accounts</div>
+                <div style="font-size:0.75rem;color:var(--text-muted);margin-top:0.2rem">Assign the SIP extension that RX Softphone registers when each user signs in.</div>
+            </div>
+            <button class="btn-bo btn-bo-outline" onclick="loadPhoneAccounts()"><i class="fas fa-sync-alt me-1"></i>Refresh</button>
+        </div>
+        <div style="display:flex;align-items:flex-start;gap:0.65rem;background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.25);border-radius:8px;padding:0.75rem 0.9rem;margin-bottom:1rem;color:#93c5fd;font-size:0.75rem;line-height:1.45">
+            <i class="fas fa-shield-alt" style="margin-top:0.15rem"></i>
+            <div><strong>Master administrator control.</strong> Users can use their assigned phone account but cannot view its password or change these settings. A blank password while editing keeps the existing password. The same extension may be assigned to more than one user when the PBX permits simultaneous registrations.</div>
+        </div>
+        <div id="phoneAccountsList"><p style="text-align:center;padding:4rem;color:var(--text-muted)"><i class="fas fa-spinner fa-spin me-2"></i>Loading phone accounts...</p></div>
+
+        <div id="phoneAccountModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.68);z-index:10020;align-items:center;justify-content:center;padding:1rem" onclick="if(event.target===this)closePhoneAccountModal()">
+            <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;width:650px;max-width:96vw;max-height:94vh;overflow:auto;box-shadow:0 24px 80px rgba(0,0,0,.5)">
+                <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;padding:1.1rem 1.25rem;border-bottom:1px solid var(--border)">
+                    <div>
+                        <div style="font-weight:700;font-size:1rem"><i class="fas fa-headset me-2" style="color:#22c55e"></i>Assign Phone Account</div>
+                        <div id="phoneAccountModalUser" style="font-size:0.75rem;color:var(--text-muted);margin-top:0.25rem"></div>
+                    </div>
+                    <button class="btn-bo btn-bo-outline" style="padding:0.3rem 0.55rem" onclick="closePhoneAccountModal()" aria-label="Close"><i class="fas fa-times"></i></button>
+                </div>
+                <div style="padding:1.15rem 1.25rem">
+                    <input type="hidden" id="phoneAccountUserId">
+                    <div style="display:grid;grid-template-columns:minmax(0,2fr) minmax(110px,1fr);gap:0.75rem;margin-bottom:0.75rem">
+                        <label style="font-size:0.72rem;color:var(--text-muted)">PBX server
+                            <input id="phoneAccountServer" class="schema-search" style="margin:0.3rem 0 0;width:100%" maxlength="253" placeholder="192.168.15.200">
+                        </label>
+                        <label style="font-size:0.72rem;color:var(--text-muted)">SIP port
+                            <input id="phoneAccountPort" type="number" min="1" max="65535" class="schema-search" style="margin:0.3rem 0 0;width:100%" value="5060">
+                        </label>
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;margin-bottom:0.75rem">
+                        <label style="font-size:0.72rem;color:var(--text-muted)">SIP extension / username
+                            <input id="phoneAccountUsername" class="schema-search" style="margin:0.3rem 0 0;width:100%" maxlength="128" placeholder="1006">
+                        </label>
+                        <label style="font-size:0.72rem;color:var(--text-muted)">Display name
+                            <input id="phoneAccountDisplayName" class="schema-search" style="margin:0.3rem 0 0;width:100%" maxlength="128" placeholder="1006">
+                        </label>
+                    </div>
+                    <div style="display:grid;grid-template-columns:minmax(0,2fr) minmax(130px,1fr);gap:0.75rem;margin-bottom:0.75rem">
+                        <label style="font-size:0.72rem;color:var(--text-muted)">SIP password
+                            <input id="phoneAccountPassword" type="password" autocomplete="new-password" class="schema-search" style="margin:0.3rem 0 0;width:100%" maxlength="256" placeholder="Required for a new assignment">
+                            <span id="phoneAccountPasswordHint" style="display:block;font-size:0.66rem;color:var(--text-muted);margin-top:0.3rem"></span>
+                        </label>
+                        <label style="font-size:0.72rem;color:var(--text-muted)">Local SIP port
+                            <input id="phoneAccountLocalPort" type="number" min="0" max="65535" class="schema-search" style="margin:0.3rem 0 0;width:100%" value="0">
+                            <span style="display:block;font-size:0.66rem;color:var(--text-muted);margin-top:0.3rem">0 = automatic</span>
+                        </label>
+                    </div>
+                    <div id="phoneAccountPinGroup" style="display:none;margin-bottom:0.75rem">
+                        <label style="font-size:0.72rem;color:var(--text-muted)">Administrator security PIN
+                            <input id="phoneAccountAdminPin" type="password" inputmode="numeric" autocomplete="off" class="schema-search" style="margin:0.3rem 0 0;width:100%" maxlength="128" placeholder="PIN from SOFTPHONE_ACCOUNT_ADMIN_PIN">
+                        </label>
+                    </div>
+                    <label style="display:flex;align-items:center;gap:0.55rem;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:0.65rem 0.75rem;font-size:0.78rem;cursor:pointer">
+                        <input id="phoneAccountEnabled" type="checkbox" checked>
+                        <span><strong>Registration enabled</strong><br><span style="color:var(--text-muted);font-size:0.68rem">Turn this off to prevent this user from registering the assigned extension.</span></span>
+                    </label>
+                </div>
+                <div style="display:flex;justify-content:flex-end;gap:0.6rem;padding:0.9rem 1.25rem;border-top:1px solid var(--border)">
+                    <button class="btn-bo btn-bo-outline" onclick="closePhoneAccountModal()">Cancel</button>
+                    <button class="btn-bo" id="phoneAccountSaveBtn" style="background:#16a34a;color:white;border:1px solid #22c55e" onclick="savePhoneAccount()"><i class="fas fa-save me-1"></i>Save Assignment</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div id="errlogContent" class="schema-wrap">
         <!-- Header -->
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:0.75rem">

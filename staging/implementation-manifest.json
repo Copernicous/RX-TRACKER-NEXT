@@ -1,8 +1,8 @@
 {
   "environment": "staging",
   "manifestVersion": "staging-impl-v1",
-  "implementationVersion": "3.2.0-staging-2026.07.20.07",
-  "effectiveFrom": "2026-07-20T21:55:00-04:00",
+  "implementationVersion": "3.2.0-staging-2026.07.21.08",
+  "effectiveFrom": "2026-07-21T05:22:28-04:00",
   "appliesTo": "APP_ENV/APP_INSTANCE contains 'staging' or 'stage'",
   "status": "active",
   "rollbackPolicy": {
@@ -14,6 +14,17 @@
     ]
   },
   "implementations": [
+    {
+      "id": "STS-CC-PHONE-ASSIGN-001",
+      "file": "controllers/softphoneAccountController.js, routes/apiRoutes.js, views/backoffice.ejs, public/js/backoffice.js, public/js/backoffice-features.js",
+      "component": "Per-user RX Softphone assignment",
+      "summary": "Add a master-only Backoffice Phone Accounts tab that assigns persistent SIP registration settings to any RX user.",
+      "effect": "Master administrators can assign or edit PBX server, SIP port, extension, display name, local port, enabled state, and write-only password; the assigned user registers automatically and cannot alter the account from Call Center.",
+      "risk": "A wrong PBX credential prevents only the selected user's softphone registration; leaving the password blank during an edit preserves the existing encrypted password.",
+      "rollback": {
+        "action": "Redeploy the prior application build. Existing UserSoftphoneAccounts rows remain compatible and require no database rollback."
+      }
+    },
     {
       "id": "STS-CC-PHONE-ADMIN-001",
       "file": "controllers/softphoneAccountController.js, routes/apiRoutes.js, public/js/call-center.js, views/call-center.ejs",

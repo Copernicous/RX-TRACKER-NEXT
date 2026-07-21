@@ -9,12 +9,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ### Added
 
+- Added a master-only Backoffice **Phone Accounts** tab for assigning and editing each user's PBX server, SIP port, extension, display name, local port, enabled state, and write-only SIP password. Existing passwords remain unchanged when the edit field is blank, duplicate extension assignments are allowed for PBXs that support simultaneous registrations, and assigned users receive their settings automatically when opening Call Center.
 - Added live Call Center phone availability without reloading the roster: green means callable, red identifies the agent with an active call, and amber identifies the agent holding the short cooldown with the remaining seconds. The amber icon now carries a prominent live seconds badge and automatically returns to green at zero. Claimed patients remain visible, while the server still rejects simultaneous claims for the same patient.
 
 **Database impact:** None.
 
 ### Security
 
+- Restricted per-user phone assignment APIs to master administrators, kept SIP passwords and encrypted credential values out of API responses and audit values, required the optional environment PIN at save time, rate-limited rejected saves, and recorded the target user plus password-change status in the audit trail.
 - Made RX Softphone account changes Administrator-only at both the API and Call Center UI layers. Call Center users can still use their assigned account and automatic registration, but the PBX, extension, port, display name, and SIP password are read-only. The optional environment PIN is now an additional approval check for administrators rather than the only barrier protecting account changes.
 
 ## [3.2.0] - 2026-07-20

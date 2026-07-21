@@ -1464,6 +1464,180 @@ async function unlockUser(id, name) {
 }
 
 // --------------------------------------------------------------------------
+// PHONE ACCOUNT MANAGER JS
+// --------------------------------------------------------------------------
+var phoneAccountsLoaded = false;
+var phoneAccountsPinRequired = false;
+var phoneAccountsData = [];
+
+function phoneAccountEsc(value) {
+    return String(value === undefined || value === null ? '' : value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function phoneAccountUserLabel(user) {
+    var fullName = ((user.firstName || '') + ' ' + (user.lastName || '')).trim();
+    return fullName || user.username || ('User #' + user.id);
+}
+
+async function loadPhoneAccounts() {
+    phoneAccountsLoaded = false;
+    var list = document.getElementById('phoneAccountsList');
+    if (!list) return;
+    list.innerHTML = '<p style="text-align:center;padding:3rem;color:var(--text-muted)"><i class="fas fa-spinner fa-spin me-2"></i>Loading phone accounts...</p>';
+    try {
+        var res = await apiFetch('/api/admin/softphone-accounts');
+        var data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Failed to load phone accounts.');
+        phoneAccountsLoaded = true;
+        phoneAccountsPinRequired = data.adminPinRequired === true;
+        phoneAccountsData = data.users || [];
+        renderPhoneAccounts();
+    } catch (e) {
+        list.innerHTML = '<p style="text-align:center;padding:3rem;color:#fca5a5"><i class="fas fa-exclamation-triangle me-2"></i>' + phoneAccountEsc(e.message) + '</p>';
+    }
+}
+
+function renderPhoneAccounts() {
+    var list = document.getElementById('phoneAccountsList');
+    if (!phoneAccountsData.length) {
+        list.innerHTML = '<p style="text-align:center;padding:3rem;color:var(--text-muted)">No users are available.</p>';
+        return;
+    }
+
+    var extensionCounts = {};
+    phoneAccountsData.forEach(function(user) {
+        var account = user.account || {};
+        if (account.configured && account.username) {
+            extensionCounts[account.username] = (extensionCounts[account.username] || 0) + 1;
+        }
+    });
+
+    var rows = '';
+    phoneAccountsData.forEach(function(user) {
+        var account = user.account || { configured: false };
+        var configured = account.configured === true;
+        var enabled = configured && account.isEnabled !== false;
+        var statusColor = enabled ? '#22c55e' : (configured ? '#f59e0b' : '#64748b');
+        var statusText = enabled ? 'Enabled' : (configured ? 'Disabled' : 'Unassigned');
+        var activeText = user.isActive ? 'Active user' : 'Disabled user';
+        var activeColor = user.isActive ? '#60a5fa' : '#f87171';
+        var sharedCount = configured ? (extensionCounts[account.username] || 0) : 0;
+        var sharedBadge = sharedCount > 1
+            ? '<span style="display:inline-flex;margin-left:0.35rem;padding:0.1rem 0.35rem;border-radius:4px;background:rgba(59,130,246,.12);border:1px solid rgba(59,130,246,.28);color:#93c5fd;font-size:0.62rem">Shared by ' + sharedCount + '</span>'
+            : '';
+        var passwordBadge = configured && account.passwordConfigured
+            ? '<span style="color:#86efac"><i class="fas fa-lock me-1"></i>Stored securely</span>'
+            : '<span style="color:var(--text-muted)">—</span>';
+        var updated = configured && account.updatedAt ? new Date(account.updatedAt).toLocaleString() : '—';
+
+        rows += '<tr style="border-bottom:1px solid rgba(255,255,255,.05)">' +
+            '<td style="padding:0.65rem 0.85rem"><div style="font-weight:650">' + phoneAccountEsc(phoneAccountUserLabel(user)) + '</div><div style="font-size:0.68rem;color:var(--text-muted)">@' + phoneAccountEsc(user.username) + ' · ' + phoneAccountEsc(user.roleName || 'No role') + '</div></td>' +
+            '<td style="padding:0.65rem 0.85rem"><span style="font-size:0.65rem;color:' + activeColor + '">' + activeText + '</span></td>' +
+            '<td style="padding:0.65rem 0.85rem"><span style="display:inline-flex;align-items:center;gap:0.3rem;padding:0.14rem 0.45rem;border-radius:4px;background:' + statusColor + '18;border:1px solid ' + statusColor + '44;color:' + statusColor + ';font-size:0.65rem;font-weight:700"><i class="fas fa-circle" style="font-size:0.42rem"></i>' + statusText + '</span></td>' +
+            '<td style="padding:0.65rem 0.85rem"><div style="font-weight:700;color:' + (configured ? '#e2e8f0' : 'var(--text-muted)') + '">' + (configured ? phoneAccountEsc(account.username) : '—') + sharedBadge + '</div><div style="font-size:0.66rem;color:var(--text-muted)">' + (configured ? phoneAccountEsc(account.displayName || account.username) : 'No SIP account assigned') + '</div></td>' +
+            '<td style="padding:0.65rem 0.85rem"><div>' + (configured ? phoneAccountEsc(account.server) + ':' + phoneAccountEsc(account.port) : '—') + '</div><div style="font-size:0.66rem;color:var(--text-muted)">' + (configured ? 'Local port ' + phoneAccountEsc(account.localSipPort || 0) : '') + '</div></td>' +
+            '<td style="padding:0.65rem 0.85rem;font-size:0.68rem">' + passwordBadge + '<div style="color:var(--text-muted);margin-top:0.2rem">' + phoneAccountEsc(updated) + '</div></td>' +
+            '<td style="padding:0.65rem 0.85rem;text-align:right"><button class="btn-bo btn-bo-outline" style="padding:0.32rem 0.6rem;font-size:0.7rem" onclick="openPhoneAccountModal(' + parseInt(user.id, 10) + ')"><i class="fas ' + (configured ? 'fa-edit' : 'fa-plus') + ' me-1"></i>' + (configured ? 'Edit' : 'Assign') + '</button></td>' +
+        '</tr>';
+    });
+
+    list.innerHTML = '<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow-x:auto">' +
+        '<table style="width:100%;min-width:980px;border-collapse:collapse;font-size:0.76rem">' +
+        '<thead><tr style="background:var(--surface-2);border-bottom:1px solid var(--border)">' +
+        '<th style="padding:0.55rem 0.85rem;text-align:left;color:var(--text-muted);font-size:0.66rem;text-transform:uppercase">User</th>' +
+        '<th style="padding:0.55rem 0.85rem;text-align:left;color:var(--text-muted);font-size:0.66rem;text-transform:uppercase">Login</th>' +
+        '<th style="padding:0.55rem 0.85rem;text-align:left;color:var(--text-muted);font-size:0.66rem;text-transform:uppercase">Registration</th>' +
+        '<th style="padding:0.55rem 0.85rem;text-align:left;color:var(--text-muted);font-size:0.66rem;text-transform:uppercase">Extension</th>' +
+        '<th style="padding:0.55rem 0.85rem;text-align:left;color:var(--text-muted);font-size:0.66rem;text-transform:uppercase">PBX</th>' +
+        '<th style="padding:0.55rem 0.85rem;text-align:left;color:var(--text-muted);font-size:0.66rem;text-transform:uppercase">Credential</th>' +
+        '<th style="padding:0.55rem 0.85rem;text-align:right;color:var(--text-muted);font-size:0.66rem;text-transform:uppercase">Action</th>' +
+        '</tr></thead><tbody>' + rows + '</tbody></table></div>';
+}
+
+function openPhoneAccountModal(userId) {
+    var user = null;
+    phoneAccountsData.some(function(item) {
+        if (Number(item.id) === Number(userId)) { user = item; return true; }
+        return false;
+    });
+    if (!user) { toast('User not found.', 'danger'); return; }
+    var account = user.account || { configured: false };
+    document.getElementById('phoneAccountUserId').value = user.id;
+    document.getElementById('phoneAccountModalUser').textContent = phoneAccountUserLabel(user) + ' · @' + user.username + ' · ' + (user.roleName || 'No role');
+    document.getElementById('phoneAccountServer').value = account.configured ? account.server : '192.168.15.200';
+    document.getElementById('phoneAccountPort').value = account.configured ? account.port : 5060;
+    document.getElementById('phoneAccountUsername').value = account.configured ? account.username : '';
+    document.getElementById('phoneAccountDisplayName').value = account.configured ? (account.displayName || account.username) : '';
+    document.getElementById('phoneAccountLocalPort').value = account.configured ? (account.localSipPort || 0) : 0;
+    document.getElementById('phoneAccountPassword').value = '';
+    document.getElementById('phoneAccountPassword').placeholder = account.configured ? 'Leave blank to keep current password' : 'Required for a new assignment';
+    document.getElementById('phoneAccountPasswordHint').textContent = account.configured ? 'A password is already stored. Enter a value only to replace it.' : 'Enter the SIP password supplied by the PBX.';
+    document.getElementById('phoneAccountEnabled').checked = account.configured ? account.isEnabled !== false : true;
+    document.getElementById('phoneAccountAdminPin').value = '';
+    document.getElementById('phoneAccountPinGroup').style.display = phoneAccountsPinRequired ? '' : 'none';
+    document.getElementById('phoneAccountModal').style.display = 'flex';
+    setTimeout(function() { document.getElementById('phoneAccountUsername').focus(); }, 80);
+}
+
+function closePhoneAccountModal() {
+    var modal = document.getElementById('phoneAccountModal');
+    if (modal) modal.style.display = 'none';
+}
+
+async function savePhoneAccount() {
+    var userId = parseInt(document.getElementById('phoneAccountUserId').value, 10);
+    var body = {
+        server: document.getElementById('phoneAccountServer').value.trim(),
+        port: parseInt(document.getElementById('phoneAccountPort').value, 10),
+        username: document.getElementById('phoneAccountUsername').value.trim(),
+        displayName: document.getElementById('phoneAccountDisplayName').value.trim(),
+        password: document.getElementById('phoneAccountPassword').value,
+        localSipPort: parseInt(document.getElementById('phoneAccountLocalPort').value || '0', 10),
+        isEnabled: document.getElementById('phoneAccountEnabled').checked,
+        adminPin: document.getElementById('phoneAccountAdminPin').value
+    };
+    if (!userId || !body.server || !body.username) {
+        toast('PBX server and SIP extension are required.', 'danger');
+        return;
+    }
+    if (!body.displayName) body.displayName = body.username;
+
+    var btn = document.getElementById('phoneAccountSaveBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Saving...';
+    try {
+        var targetUrl = window.rxUrl ? window.rxUrl('/api/admin/softphone-accounts/' + userId) : '/api/admin/softphone-accounts/' + userId;
+        var guardedFetch = window.rxFetchWithStagingGuard || window.fetch;
+        var res = await guardedFetch(targetUrl, {
+            method: 'PUT',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+        var data = await res.json();
+        if (res.status === 401) {
+            if (window.rxNav) window.rxNav('/login');
+            else window.location.href = '/login';
+            return;
+        }
+        if (!res.ok) throw new Error(data.error || 'Could not save the phone account.');
+        closePhoneAccountModal();
+        toast('✓ ' + (data.message || 'Phone account saved.'), 'success');
+        await loadPhoneAccounts();
+    } catch (e) {
+        toast('Phone account save failed: ' + e.message, 'danger');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-save me-1"></i>Save Assignment';
+    }
+}
+
+// --------------------------------------------------------------------------
 // ERROR LOG MANAGER JS
 // --------------------------------------------------------------------------
 var errlogLoaded  = false;

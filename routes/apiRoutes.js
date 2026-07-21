@@ -706,6 +706,10 @@ router.post('/admin/users/:id/reset-password', masterOnly, adminController.admin
 router.post('/admin/users/:id/unlock',          masterOnly, require('../controllers/twoFactorController').adminUnlock);
 router.delete('/admin/users/:id/reset-2fa',    masterOnly, requireStagingDestructiveConfirmation, require('../controllers/twoFactorController').adminReset);
 
+// Per-user SIP account assignment. Passwords are write-only and never returned.
+router.get('/admin/softphone-accounts',              masterOnly, softphoneAccountController.getManagedAccounts);
+router.put('/admin/softphone-accounts/:userId',      masterOnly, phoneAccountSaveLimiter, softphoneAccountController.saveManagedAccount);
+
 
 // Error Log Manager
 router.get('/admin/error-logs',            masterOnly, adminController.getErrorLogs);

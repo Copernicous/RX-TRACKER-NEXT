@@ -34,6 +34,8 @@ const DEFAULT_BASE_URL = 'http://localhost:' + (process.env.PORT || stagingConfi
 const baseUrl = (process.env.STAGING_BASE_URL || DEFAULT_BASE_URL).replace(/\/+$/, '');
 const runId = String(Date.now());
 const password = 'SmokePass!' + runId;
+const sipTestPassword = 'SipSmoke!' + runId;
+const sipTestExtension = 'smoke-' + runId;
 const screenshotsDir = path.join(stagingConfig.writableRoot, 'smoke-screenshots');
 
 const created = {
@@ -107,7 +109,7 @@ async function createUser(role, label) {
         roleId: role.id,
         isActive: true,
         tokenVersion: 0,
-        isMaster: false,
+        isMaster: label === 'Admin',
         twoFactorEnabled: false
     });
     created.users.push(user);
@@ -467,6 +469,37 @@ async function runAdminDashboardAndReports(fixtures) {
     await page.locator('#ccAttemptReportBody .cc-open-activity').first().click();
     await expectVisible(page, '#ccActivityReportPane.active.show', 'Patient Activity report return link');
 
+    await page.goto(route('/backoffice'), { waitUntil: 'domcontentloaded' });
+    await page.waitForLoadState('networkidle').catch(() => {});
+    await page.locator('#tabPhoneAccounts').click();
+    await page.waitForFunction((username) => {
+        const list = document.querySelector('#phoneAccountsList');
+        return list && list.textContent.indexOf(username) !== -1;
+    }, fixtures.callCenterUser.username, { timeout: 15000 });
+    const phoneRow = page.locator('#phoneAccountsList tbody tr').filter({ hasText: fixtures.callCenterUser.username }).first();
+    await phoneRow.locator('button').click();
+    await expectVisible(page, '#phoneAccountModal', 'Backoffice Phone Accounts assignment modal');
+    await page.fill('#phoneAccountServer', '192.168.15.200');
+    await page.fill('#phoneAccountPort', '5060');
+    await page.fill('#phoneAccountUsername', sipTestExtension);
+    await page.fill('#phoneAccountDisplayName', 'Staging Smoke Softphone');
+    await page.fill('#phoneAccountPassword', sipTestPassword);
+    await page.fill('#phoneAccountLocalPort', '0');
+    await page.fill('#phoneAccountAdminPin', process.env.SOFTPHONE_ACCOUNT_ADMIN_PIN);
+    await Promise.all([
+        page.waitForResponse(response => response.url().includes('/api/admin/softphone-accounts/' + fixtures.callCenterUser.id) && response.status() === 200),
+        page.locator('#phoneAccountSaveBtn').click()
+    ]);
+    await page.waitForFunction((extension) => {
+        const list = document.querySelector('#phoneAccountsList');
+        return list && list.textContent.indexOf(extension) !== -1;
+    }, sipTestExtension, { timeout: 15000 });
+    const assignedAccount = await db.UserSoftphoneAccount.findOne({ where: { userId: fixtures.callCenterUser.id } });
+    assert(assignedAccount, 'Backoffice did not persist the assigned phone account.');
+    assert(assignedAccount.encryptedPassword.startsWith('rxsoft:v1:'), 'Backoffice must store a versioned encrypted SIP password.');
+    assert(!assignedAccount.encryptedPassword.includes(sipTestPassword), 'Backoffice must not store the SIP password in plaintext.');
+    pass('Master Backoffice assigned per-user SIP extension without exposing password');
+
     assertNoBrowserErrors('admin dashboard/report flow');
     await context.close();
 }
@@ -478,7 +511,9 @@ async function runCallCenterWorkspace(fixtures) {
     const accountBefore = await context.request.get(route('/api/call-center/phone-account'));
     assert.strictEqual(accountBefore.status(), 200, 'Call Center user should be able to load their own softphone assignment.');
     const accountBeforeBody = await accountBefore.json();
-    assert.strictEqual(accountBeforeBody.configured, false, 'Temporary Call Center user should begin without a softphone assignment.');
+    assert.strictEqual(accountBeforeBody.configured, true, 'Backoffice-assigned softphone account should be available to its Call Center user.');
+    assert.strictEqual(accountBeforeBody.username, sipTestExtension, 'Call Center user received the wrong assigned extension.');
+    assert.strictEqual(accountBeforeBody.canManage, false, 'Call Center users must not be allowed to edit their assigned account.');
     assert.strictEqual(accountBeforeBody.adminPinRequired, true, 'Isolated staging must require the administrator PIN for phone-account saves.');
 
     const rejectedSave = await page.evaluate(async () => {
@@ -490,14 +525,13 @@ async function runCallCenterWorkspace(fixtures) {
     });
     assert.strictEqual(rejectedSave.status, 403, 'Incorrect administrator PIN must reject a phone-account save.');
 
-    const sipTestPassword = 'SipSmoke!' + runId;
-    const accountSave = await page.evaluate(async ({ password: transientPassword, adminPin }) => {
+    const rejectedAssignedSave = await page.evaluate(async ({ password: transientPassword, adminPin }) => {
         const response = await fetchWithAuth('/api/call-center/phone-account', {
             method: 'PUT',
             body: JSON.stringify({
                 server: '192.168.15.200',
                 port: 5060,
-                username: 'smoke-' + Date.now(),
+                username: 'unauthorized-' + Date.now(),
                 displayName: 'Staging Smoke Softphone',
                 localSipPort: 0,
                 password: transientPassword,
@@ -507,14 +541,13 @@ async function runCallCenterWorkspace(fixtures) {
         const body = await response.json().catch(() => ({}));
         return { status: response.status, configured: !!(body.account && body.account.configured), passwordExposed: Object.hasOwn(body.account || {}, 'password') || Object.hasOwn(body.account || {}, 'encryptedPassword') };
     }, { password: sipTestPassword, adminPin: process.env.SOFTPHONE_ACCOUNT_ADMIN_PIN });
-    assert.strictEqual(accountSave.status, 200, 'Call Center user should be able to save their own softphone assignment.');
-    assert.strictEqual(accountSave.configured, true, 'Saved softphone assignment should be configured.');
-    assert.strictEqual(accountSave.passwordExposed, false, 'Softphone account save response must not expose password material.');
+    assert.strictEqual(rejectedAssignedSave.status, 403, 'Call Center user must not be able to replace a Backoffice assignment.');
+    assert.strictEqual(rejectedAssignedSave.passwordExposed, false, 'Rejected save response must not expose password material.');
 
     const accountAfter = await context.request.get(route('/api/call-center/phone-account'));
     const accountMetadata = await accountAfter.json();
     assert.strictEqual(accountAfter.status(), 200, 'Saved softphone assignment should load.');
-    assert.strictEqual(accountMetadata.passwordConfigured, true, 'Saved assignment should report an encrypted password is configured.');
+    assert.strictEqual(accountMetadata.passwordConfigured, true, 'Assigned account should report an encrypted password is configured.');
     assert.strictEqual(Object.hasOwn(accountMetadata, 'password'), false, 'Softphone metadata endpoint must not expose the password.');
     assert.strictEqual(Object.hasOwn(accountMetadata, 'encryptedPassword'), false, 'Softphone metadata endpoint must not expose ciphertext.');
 
