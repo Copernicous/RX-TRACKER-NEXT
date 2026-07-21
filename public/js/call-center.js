@@ -32,7 +32,16 @@
     var lockStatusPromise = null;
     var serviceWindowDays = Number(window.SERVICE_WINDOW_DAYS) || 90;
     var callCenterLeadDays = Number(window.CALL_CENTER_LEAD_DAYS) || 0;
-    var rxSoftphoneBaseUrl = 'http://127.0.0.1:5188';
+    // Build the loopback URL at runtime. FortiGate SSL-VPN web mode rewrites
+    // literal absolute URLs in downloaded JavaScript into its own /proxy/... URL,
+    // which prevents the browser from ever reaching the desktop softphone.
+    var rxSoftphoneBaseUrl = [
+        'http',
+        '://',
+        ['127', '0', '0', '1'].join('.'),
+        ':',
+        String(5188)
+    ].join('');
     var rxPhone = {
         reachable: false,
         snapshot: null,
