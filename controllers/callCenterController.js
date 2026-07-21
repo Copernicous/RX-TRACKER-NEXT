@@ -629,17 +629,20 @@ exports.getLockStatuses = async (req, res) => {
                     state: { [Op.in]: ACTIVE_CALL_STATES },
                     endedAt: null
                 },
-                attributes: ['patientId', 'userId', 'state', 'dialedAt'],
+                attributes: ['patientId', 'userId', 'state', 'dialedAt', 'answeredAt'],
                 order: [['dialedAt', 'DESC']]
             })
             : [];
-        const activeKeys = new Set(activeAttempts.map((attempt) =>
-            `${attempt.patientId}:${attempt.userId}`
-        ));
+        const activeByKey = new Map();
+        activeAttempts.forEach((attempt) => {
+            const key = `${attempt.patientId}:${attempt.userId}`;
+            if (!activeByKey.has(key)) activeByKey.set(key, attempt);
+        });
         const requestUserId = normalizeNumericId(req.user && req.user.id);
         const statuses = locks.map((lock) => {
             const expiresAt = new Date(lock.expiresAt);
-            const active = activeKeys.has(`${lock.patientId}:${lock.userId}`);
+            const activeAttempt = activeByKey.get(`${lock.patientId}:${lock.userId}`) || null;
+            const active = !!activeAttempt;
             return {
                 patientId: lock.patientId,
                 status: active ? 'active' : 'cooldown',
@@ -647,7 +650,9 @@ exports.getLockStatuses = async (req, res) => {
                 user: getUserLabel(lock.User),
                 mine: normalizeNumericId(lock.userId) === requestUserId,
                 expiresAt: lock.expiresAt,
-                secondsRemaining: Math.max(0, Math.ceil((expiresAt.getTime() - now.getTime()) / 1000))
+                secondsRemaining: Math.max(0, Math.ceil((expiresAt.getTime() - now.getTime()) / 1000)),
+                callState: activeAttempt ? activeAttempt.state : null,
+                connectedAt: activeAttempt && activeAttempt.answeredAt ? activeAttempt.answeredAt : null
             };
         });
         if (typeof res.set === 'function') res.set('Cache-Control', 'no-store');

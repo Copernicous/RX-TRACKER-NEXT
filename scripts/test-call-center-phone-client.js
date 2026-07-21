@@ -117,6 +117,9 @@ try {
     assert(callCenterScript.includes('cc-availability-active'), 'Active calls must render a red phone availability state.');
     assert(callCenterScript.includes('cc-availability-cooldown'), 'Inactive claims must render an amber cooldown state.');
     assert(callCenterScript.includes('cc-cooldown-countdown'), 'Amber cooldown must display a live seconds badge on the phone icon.');
+    assert(callCenterScript.includes('function formatConnectedDuration'), 'Connected calls must format a live elapsed duration on the phone icon.');
+    assert(callCenterScript.includes("countdown.classList.add('visible', 'connected')"), 'Connected calls must activate the duration badge above the phone icon.');
+    assert(callCenterView.includes('.cc-cooldown-countdown.connected'), 'Connected duration badge styling is missing.');
     assert(callCenterView.includes('cc-phone-lock-status'), 'Phone availability must display the claiming agent beside the phone action.');
 
     const backofficeView = fs.readFileSync(path.join(__dirname, '..', 'views', 'backoffice.ejs'), 'utf8');

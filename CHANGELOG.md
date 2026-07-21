@@ -9,6 +9,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ### Added
 
+- Added a live connected-call duration badge above the patient phone icon. The existing badge remains amber with seconds remaining during cooldown and switches to a red `m:ss`/`h:mm:ss` elapsed timer after RX Softphone reports the call connected.
 - Added a master-only Backoffice **Phone Accounts** tab for assigning and editing each user's PBX server, SIP port, extension, display name, local port, enabled state, and write-only SIP password. Existing passwords remain unchanged when the edit field is blank, duplicate extension assignments are allowed for PBXs that support simultaneous registrations, and assigned users receive their settings automatically when opening Call Center.
 - Added live Call Center phone availability without reloading the roster: green means callable, red identifies the agent with an active call, and amber identifies the agent holding the short cooldown with the remaining seconds. The amber icon now carries a prominent live seconds badge and automatically returns to green at zero. Claimed patients remain visible, while the server still rejects simultaneous claims for the same patient.
 

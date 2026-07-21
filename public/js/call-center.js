@@ -150,6 +150,31 @@
         return ids;
     }
 
+    function formatConnectedDuration(seconds) {
+        var total = Math.max(0, Math.floor(Number(seconds) || 0));
+        var hours = Math.floor(total / 3600);
+        var minutes = Math.floor((total % 3600) / 60);
+        var remainder = total % 60;
+        if (hours) {
+            return hours + ':' + String(minutes).padStart(2, '0') + ':' + String(remainder).padStart(2, '0');
+        }
+        return minutes + ':' + String(remainder).padStart(2, '0');
+    }
+
+    function connectedAtForStatus(status, patientId) {
+        var connectedAt = status && status.connectedAt ? status.connectedAt : null;
+        var snapshot = rxPhone.snapshot || {};
+        if (!connectedAt
+            && status && status.mine
+            && rxPhone.activeCall
+            && String(rxPhone.activeCall.patientId) === String(patientId)
+            && snapshot.call === 'connected') {
+            connectedAt = snapshot.connectedAt || null;
+        }
+        var startedMs = connectedAt ? new Date(connectedAt).getTime() : NaN;
+        return Number.isFinite(startedMs) ? startedMs : null;
+    }
+
     function applyPhoneAvailability(statuses) {
         var statusByPatient = {};
         for (var i = 0; i < (statuses || []).length; i++) {
@@ -180,12 +205,18 @@
                 label.title = '';
             }
             if (countdown) {
-                countdown.classList.remove('visible');
+                countdown.classList.remove('visible', 'connected');
                 countdown.textContent = '';
+                countdown.title = '';
             }
 
             if (stateName === 'active') {
-                var activeMessage = 'In use by ' + owner;
+                var connectedAtMs = connectedAtForStatus(status, patientId);
+                var connectedSeconds = connectedAtMs === null
+                    ? null
+                    : Math.max(0, Math.floor((Date.now() - connectedAtMs) / 1000));
+                var connectedDuration = connectedSeconds === null ? '' : formatConnectedDuration(connectedSeconds);
+                var activeMessage = 'In use by ' + owner + (connectedDuration ? ' · Connected ' + connectedDuration : '');
                 link.classList.add('cc-availability-active');
                 link.setAttribute('aria-disabled', 'true');
                 link.setAttribute('data-lock-message', activeMessage);
@@ -195,6 +226,11 @@
                     label.classList.add('visible', 'active');
                     label.textContent = activeMessage;
                     label.title = activeMessage;
+                }
+                if (countdown && connectedDuration) {
+                    countdown.textContent = connectedDuration;
+                    countdown.title = 'Connected for ' + connectedDuration;
+                    countdown.classList.add('visible', 'connected');
                 }
             } else if (stateName === 'cooldown') {
                 var seconds = Math.max(0, Number(status.secondsRemaining) || 0);

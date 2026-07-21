@@ -1,8 +1,8 @@
 {
   "environment": "staging",
   "manifestVersion": "staging-impl-v1",
-  "implementationVersion": "3.2.0-staging-2026.07.21.09",
-  "effectiveFrom": "2026-07-21T05:35:00-04:00",
+  "implementationVersion": "3.2.0-staging-2026.07.21.10",
+  "effectiveFrom": "2026-07-21T05:46:11-04:00",
   "appliesTo": "APP_ENV/APP_INSTANCE contains 'staging' or 'stage'",
   "status": "active",
   "rollbackPolicy": {
@@ -14,6 +14,17 @@
     ]
   },
   "implementations": [
+    {
+      "id": "STS-CC-CONNECTED-TIMER-001",
+      "file": "controllers/callCenterController.js, public/js/call-center.js, views/call-center.ejs",
+      "component": "Call Center connected-call timer",
+      "summary": "Reuse the phone-icon status badge to show live elapsed time after an RX Softphone call connects.",
+      "effect": "Cooldown remains an amber seconds countdown; a connected call displays a red m:ss or h:mm:ss timer based on the persisted answer timestamp and resets when the call ends.",
+      "risk": "The connected timer is available only for RX Softphone calls that report an answered timestamp; MicroSIP cannot provide browser-visible call state.",
+      "rollback": {
+        "action": "Remove connectedAt/callState from lock status and restore the badge to cooldown-only rendering."
+      }
+    },
     {
       "id": "STS-CRUD-PERMISSION-BANNER-001",
       "file": "public/js/app.js",

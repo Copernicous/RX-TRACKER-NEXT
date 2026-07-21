@@ -673,6 +673,36 @@ async function runCallCenterWorkspace(fixtures) {
     );
     const callLink = row.locator('.cc-call-link[data-action="phone-call"]');
     await callLink.waitFor({ state: 'visible', timeout: 15000 });
+    const connectedAtForBadge = new Date(Date.now() - 65000).toISOString();
+    const lockStatusPattern = '**/api/call-center/locks/status**';
+    await page.route(lockStatusPattern, async intercepted => {
+        await intercepted.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify({
+                statuses: [{
+                    patientId: fixtures.queuePatient.id,
+                    status: 'active',
+                    mine: true,
+                    user: 'Smoke CallCenter',
+                    callState: 'connected',
+                    connectedAt: connectedAtForBadge,
+                    secondsRemaining: 0
+                }]
+            })
+        });
+    });
+    const connectedTimer = row.locator('.cc-cooldown-countdown.connected');
+    await connectedTimer.waitFor({ state: 'visible', timeout: 5000 });
+    const connectedTimerText = (await connectedTimer.innerText()).trim();
+    assert(/^1:\d{2}$/.test(connectedTimerText), 'Connected phone badge should display elapsed m:ss duration.');
+    assert((await callLink.getAttribute('aria-label')).includes('Connected'), 'Connected phone action should expose elapsed duration accessibly.');
+    await page.unroute(lockStatusPattern);
+    await page.waitForFunction((patientId) => {
+        const badge = document.querySelector('[data-action="phone-call"][data-patient-id="' + patientId + '"] .cc-cooldown-countdown');
+        return badge && !badge.classList.contains('connected');
+    }, String(fixtures.queuePatient.id), { timeout: 5000 });
+    pass('Call Center connected-call timer badge', connectedTimerText);
     assert.strictEqual(
         await row.locator('.cc-row-hangup[data-action="phone-hangup"]').count(),
         1,

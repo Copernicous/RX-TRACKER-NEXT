@@ -197,12 +197,13 @@ async function main() {
             correlationId: `${RUN_ID}-active`,
             phoneClient: 'rx_softphone',
             direction: 'outbound',
-            state: 'ringing',
+            state: 'connected',
             patientName: `${patient.firstName} ${patient.lastName}`,
             agentName: 'Queue Repair Agent',
             dialedNumber: patient.phone,
             dialedAt: new Date(),
-            ringingAt: new Date()
+            ringingAt: new Date(Date.now() - 12000),
+            answeredAt: new Date(Date.now() - 5000)
         });
         const activeStatusRes = makeRes();
         await callCenterController.getLockStatuses({
@@ -210,6 +211,8 @@ async function main() {
             user: { id: secondCallCenterUser.id, role: 'Call Center' }
         }, activeStatusRes);
         assert.strictEqual(activeStatusRes.body.statuses[0].status, 'active', 'Dialing/ringing/connected rows must be red/in use.');
+        assert.strictEqual(activeStatusRes.body.statuses[0].callState, 'connected', 'Availability must expose the active call state.');
+        assert(activeStatusRes.body.statuses[0].connectedAt, 'A connected call must expose its answer timestamp for the live duration badge.');
 
         const conflictingClaimRes = makeRes();
         await callCenterController.claimPatient({
