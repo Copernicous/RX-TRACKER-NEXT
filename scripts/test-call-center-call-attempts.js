@@ -3,8 +3,13 @@
 const assert = require('assert');
 const { prepareStagingEnv } = require('./lib/staging-env');
 
-const staging = prepareStagingEnv();
-process.env.DB_NAME = process.env.CALL_ATTEMPT_TEST_DB_NAME || (staging.dbName.replace(/[^A-Za-z0-9_]/g, '_') + '_ui_smoke');
+const explicitTestDatabase = String(process.env.CALL_ATTEMPT_TEST_DB_NAME || '').trim();
+if (explicitTestDatabase) {
+    process.env.DB_NAME = explicitTestDatabase;
+} else {
+    const staging = prepareStagingEnv();
+    process.env.DB_NAME = staging.dbName.replace(/[^A-Za-z0-9_]/g, '_') + '_ui_smoke';
+}
 if (!/(ui_smoke|test)/i.test(process.env.DB_NAME)) {
     throw new Error('Refusing call-attempt integration test on a non-test database.');
 }
@@ -52,11 +57,6 @@ async function cleanup() {
 async function main() {
     try {
         await db.sequelize.authenticate();
-        await db.sequelize.sync();
-        // sequelize.sync does not revise an existing FK action in the persistent
-        // isolated test DB. Keep it aligned with the production migration.
-        await db.sequelize.query('ALTER TABLE "CallCenterCallAttempts" DROP CONSTRAINT IF EXISTS "CallCenterCallAttempts_patientId_fkey"');
-        await db.sequelize.query('ALTER TABLE "CallCenterCallAttempts" ADD CONSTRAINT "CallCenterCallAttempts_patientId_fkey" FOREIGN KEY ("patientId") REFERENCES "Patients" (id) ON UPDATE CASCADE ON DELETE SET NULL');
         const role = await db.Role.findOne({ where: { name: 'Call Center' } })
             || await db.Role.create({ name: 'Call Center', isSystem: true, permissions: {} });
         const user = await db.User.create({

@@ -79,7 +79,6 @@ async function main() {
     const created = { roles: [], users: [], clinics: [], patients: [] };
     try {
         await db.sequelize.authenticate();
-        await db.sequelize.sync();
 
         const adminRole = await db.Role.create({ name: `Administrator ${RUN_ID}`, isSystem: false });
         const callCenterRole = await db.Role.create({

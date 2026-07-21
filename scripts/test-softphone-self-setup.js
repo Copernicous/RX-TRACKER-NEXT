@@ -3,8 +3,13 @@
 const assert = require('assert');
 const { prepareStagingEnv } = require('./lib/staging-env');
 
-const staging = prepareStagingEnv();
-process.env.DB_NAME = process.env.SOFTPHONE_SETUP_TEST_DB_NAME || (staging.dbName.replace(/[^A-Za-z0-9_]/g, '_') + '_ui_smoke');
+const explicitTestDatabase = String(process.env.SOFTPHONE_SETUP_TEST_DB_NAME || '').trim();
+if (explicitTestDatabase) {
+    process.env.DB_NAME = explicitTestDatabase;
+} else {
+    const staging = prepareStagingEnv();
+    process.env.DB_NAME = staging.dbName.replace(/[^A-Za-z0-9_]/g, '_') + '_ui_smoke';
+}
 if (!/(ui_smoke|test)/i.test(process.env.DB_NAME)) {
     throw new Error('Refusing phone-account setup test on a non-test database.');
 }
@@ -51,16 +56,9 @@ async function cleanup() {
 async function main() {
     try {
         await db.sequelize.authenticate();
-        await db.sequelize.sync();
         const queryInterface = db.sequelize.getQueryInterface();
         const userColumns = await queryInterface.describeTable('Users');
-        if (!userColumns.phoneAccountSetupAllowed) {
-            await queryInterface.addColumn('Users', 'phoneAccountSetupAllowed', {
-                type: db.Sequelize.BOOLEAN,
-                allowNull: false,
-                defaultValue: false
-            });
-        }
+        assert(userColumns.phoneAccountSetupAllowed, 'Migrated schema is missing Users.phoneAccountSetupAllowed.');
         const role = await db.Role.create({
             name: 'Phone Setup Test ' + runId,
             description: 'Isolated regression role',
