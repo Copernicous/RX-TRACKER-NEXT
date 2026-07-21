@@ -125,7 +125,7 @@ try {
     assert(callCenterController.includes('[5, 10, 25, 50].includes(size)'), 'Call Center API must accept the expanded roster page sizes.');
     assert(callCenterController.includes("claimMode: 'on_dial'"), 'Call Center queue must claim patients only when an agent starts a call.');
     assert(!callCenterController.includes('await acquireCallCenterLock(filtered[i].id, req)'), 'Viewing a Call Center queue page must not claim every displayed patient.');
-    assert(callCenterScript.includes("if (!await claimRow(patientId)) return;\n            openMicroSip"), 'MicroSIP dialing must claim the patient before launch.');
+    assert(/if \(!await claimRow\(patientId\)\) return;\r?\n\s+openMicroSip/.test(callCenterScript), 'MicroSIP dialing must claim the patient before launch.');
     assert(callCenterScript.includes('function resizeRowNote'), 'Call Center comments must expand the patient row while typing.');
     assert(callCenterScript.includes('function refreshPhoneAvailability'), 'Call Center must refresh phone availability without reloading patient rows.');
     assert(callCenterScript.includes('cc-availability-active'), 'Active calls must render a red phone availability state.');

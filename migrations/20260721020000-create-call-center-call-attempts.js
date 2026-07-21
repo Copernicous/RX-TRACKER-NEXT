@@ -1,9 +1,30 @@
 'use strict';
 
+async function tableExists(queryInterface, tableName) {
+  const tables = await queryInterface.showAllTables();
+  return tables.some((table) => String(typeof table === 'string' ? table : (table.tableName || table.name || '')) === tableName);
+}
+
+async function requireColumns(queryInterface, tableName, required) {
+  const columns = await queryInterface.describeTable(tableName);
+  const missing = required.filter((name) => !columns[name]);
+  if (missing.length) throw new Error(`${tableName} exists but is missing columns: ${missing.join(', ')}`);
+}
+
+async function ensureIndex(queryInterface, tableName, fields, options) {
+  const indexes = await queryInterface.showIndex(tableName);
+  const signature = fields.join(',');
+  const found = indexes.some((index) => index.fields.map((field) => field.attribute).join(',') === signature
+    && (!(options && options.unique) || index.unique === true));
+  if (!found) await queryInterface.addIndex(tableName, fields, options || {});
+}
+
 /** @type {import('sequelize-cli').Migration} */
 module.exports = {
   async up(queryInterface, Sequelize) {
-    await queryInterface.createTable('CallCenterCallAttempts', {
+    const tableName = 'CallCenterCallAttempts';
+    if (!await tableExists(queryInterface, tableName)) {
+      await queryInterface.createTable(tableName, {
       id: { allowNull: false, autoIncrement: true, primaryKey: true, type: Sequelize.INTEGER },
       patientId: {
         allowNull: true,
@@ -47,13 +68,23 @@ module.exports = {
       conversationDurationSeconds: { allowNull: true, type: Sequelize.INTEGER },
       createdAt: { allowNull: false, type: Sequelize.DATE },
       updatedAt: { allowNull: false, type: Sequelize.DATE }
-    });
+      });
+    } else {
+      await requireColumns(queryInterface, tableName, [
+        'id', 'patientId', 'userId', 'calledAuditLogId', 'correlationId',
+        'phoneClient', 'direction', 'state', 'outcome', 'patientCode',
+        'patientName', 'clinicName', 'agentName', 'extension', 'dialedNumber',
+        'sipResponseCode', 'sipReason', 'dialedAt', 'ringingAt', 'answeredAt',
+        'endedAt', 'ringDurationSeconds', 'conversationDurationSeconds',
+        'createdAt', 'updatedAt'
+      ]);
+    }
 
-    await queryInterface.addIndex('CallCenterCallAttempts', ['correlationId'], { unique: true });
-    await queryInterface.addIndex('CallCenterCallAttempts', ['patientId', 'dialedAt']);
-    await queryInterface.addIndex('CallCenterCallAttempts', ['userId', 'dialedAt']);
-    await queryInterface.addIndex('CallCenterCallAttempts', ['outcome', 'dialedAt']);
-    await queryInterface.addIndex('CallCenterCallAttempts', ['extension', 'dialedAt']);
+    await ensureIndex(queryInterface, tableName, ['correlationId'], { unique: true });
+    await ensureIndex(queryInterface, tableName, ['patientId', 'dialedAt']);
+    await ensureIndex(queryInterface, tableName, ['userId', 'dialedAt']);
+    await ensureIndex(queryInterface, tableName, ['outcome', 'dialedAt']);
+    await ensureIndex(queryInterface, tableName, ['extension', 'dialedAt']);
   },
 
   async down(queryInterface) {

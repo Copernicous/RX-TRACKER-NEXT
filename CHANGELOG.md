@@ -26,6 +26,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ### Fixed
 
+- Hardened the softphone and Call Center migrations to recognize tables, columns, and indexes already created by the application's startup model sync. Development and production promotion can now advance the migration ledger without recreating an existing relation, while an incomplete pre-existing schema fails with an explicit missing-column error.
 - Fixed the Call Center cooldown badge remaining stuck at its configured maximum. Relay snapshots are now compared after canonical normalization, completed call attempts cannot be reopened by delayed state reports, repeated terminal reports no longer extend the patient claim expiration, and inactive browser heartbeats recognize but do not renew a cooldown.
 - Prevented FortiGate SSL-VPN web mode from rewriting the RX Softphone loopback API into a FortiGate `/proxy/.../http/127.0.0.1:5188` request. The Call Center assembles the local address at runtime and uses a clean same-origin browser frame for only the fixed loopback API, bypassing FortiGate's injected `window.fetch` wrapper while all normal application traffic remains proxied.
 - Made the shared Call Center phone indicator show the server-reported `Dialing`, `Trying`, `Ringing`, or `Connected` state and connected duration to every user viewing that patient. Also clarified that a Kasm/remote browser cannot reach RX Softphone running on the employee's separate Windows computer.
@@ -33,6 +34,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ### Testing
 
+- Made the MicroSIP claim-before-launch source assertion portable across LF and Windows CRLF development worktrees.
 - Added a staging relay integration test covering one-time pairing, hashed bearer authentication, transient SIP registration handoff, command delivery, and acknowledgement. Passed the complete staging smoke suite, isolated browser click suite, call-attempt lifecycle, shared-state, phone-client regression, public JavaScript validation, and RX Softphone 0.4.0 self-contained Release build.
 
 ## [3.2.0] - 2026-07-20

@@ -3,11 +3,14 @@
 /** @type {import('sequelize-cli').Migration} */
 module.exports = {
   async up(queryInterface, Sequelize) {
-    await queryInterface.addColumn('Users', 'phoneAccountSetupAllowed', {
-      allowNull: false,
-      defaultValue: false,
-      type: Sequelize.BOOLEAN
-    });
+    const userColumns = await queryInterface.describeTable('Users');
+    if (!userColumns.phoneAccountSetupAllowed) {
+      await queryInterface.addColumn('Users', 'phoneAccountSetupAllowed', {
+        allowNull: false,
+        defaultValue: false,
+        type: Sequelize.BOOLEAN
+      });
+    }
 
     // Remove the short-lived role-wide key if it was applied in staging while
     // this workflow was being tested. Production roles normally have no key.

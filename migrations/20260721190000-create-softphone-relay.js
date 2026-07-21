@@ -1,8 +1,29 @@
 'use strict';
 
+async function tableExists(queryInterface, tableName) {
+  const tables = await queryInterface.showAllTables();
+  return tables.some((table) => String(typeof table === 'string' ? table : (table.tableName || table.name || '')) === tableName);
+}
+
+async function requireColumns(queryInterface, tableName, required) {
+  const columns = await queryInterface.describeTable(tableName);
+  const missing = required.filter((name) => !columns[name]);
+  if (missing.length) throw new Error(`${tableName} exists but is missing columns: ${missing.join(', ')}`);
+}
+
+async function ensureIndex(queryInterface, tableName, fields, options) {
+  const indexes = await queryInterface.showIndex(tableName);
+  const signature = fields.join(',');
+  const found = indexes.some((index) => index.fields.map((field) => field.attribute).join(',') === signature
+    && (!(options && options.unique) || index.unique === true));
+  if (!found) await queryInterface.addIndex(tableName, fields, options || {});
+}
+
 module.exports = {
   async up(queryInterface, Sequelize) {
-    await queryInterface.createTable('SoftphoneRelayDevices', {
+    const deviceTable = 'SoftphoneRelayDevices';
+    if (!await tableExists(queryInterface, deviceTable)) {
+      await queryInterface.createTable(deviceTable, {
       id: { allowNull: false, autoIncrement: true, primaryKey: true, type: Sequelize.INTEGER },
       userId: { allowNull: false, type: Sequelize.INTEGER, references: { model: 'Users', key: 'id' }, onUpdate: 'CASCADE', onDelete: 'CASCADE' },
       deviceKey: { allowNull: true, type: Sequelize.UUID },
@@ -20,13 +41,23 @@ module.exports = {
       snapshot: { allowNull: true, type: Sequelize.JSONB },
       createdAt: { allowNull: false, type: Sequelize.DATE },
       updatedAt: { allowNull: false, type: Sequelize.DATE }
-    });
-    await queryInterface.addIndex('SoftphoneRelayDevices', ['userId'], { unique: true });
-    await queryInterface.addIndex('SoftphoneRelayDevices', ['deviceKey'], { unique: true });
-    await queryInterface.addIndex('SoftphoneRelayDevices', ['tokenHash'], { unique: true });
-    await queryInterface.addIndex('SoftphoneRelayDevices', ['lastSeenAt']);
+      });
+    } else {
+      await requireColumns(queryInterface, deviceTable, [
+        'id', 'userId', 'deviceKey', 'deviceName', 'tokenHash', 'pairingCodeHash',
+        'pairingExpiresAt', 'pairedAt', 'lastSeenAt', 'isEnabled',
+        'registrationState', 'callState', 'callId', 'peer', 'snapshot',
+        'createdAt', 'updatedAt'
+      ]);
+    }
+    await ensureIndex(queryInterface, deviceTable, ['userId'], { unique: true });
+    await ensureIndex(queryInterface, deviceTable, ['deviceKey'], { unique: true });
+    await ensureIndex(queryInterface, deviceTable, ['tokenHash'], { unique: true });
+    await ensureIndex(queryInterface, deviceTable, ['lastSeenAt']);
 
-    await queryInterface.createTable('SoftphoneRelayCommands', {
+    const commandTable = 'SoftphoneRelayCommands';
+    if (!await tableExists(queryInterface, commandTable)) {
+      await queryInterface.createTable(commandTable, {
       id: { allowNull: false, autoIncrement: true, primaryKey: true, type: Sequelize.INTEGER },
       deviceId: { allowNull: false, type: Sequelize.INTEGER, references: { model: 'SoftphoneRelayDevices', key: 'id' }, onUpdate: 'CASCADE', onDelete: 'CASCADE' },
       userId: { allowNull: false, type: Sequelize.INTEGER, references: { model: 'Users', key: 'id' }, onUpdate: 'CASCADE', onDelete: 'CASCADE' },
@@ -40,10 +71,17 @@ module.exports = {
       errorMessage: { allowNull: true, type: Sequelize.STRING(255) },
       createdAt: { allowNull: false, type: Sequelize.DATE },
       updatedAt: { allowNull: false, type: Sequelize.DATE }
-    });
-    await queryInterface.addIndex('SoftphoneRelayCommands', ['deviceId', 'status', 'createdAt']);
-    await queryInterface.addIndex('SoftphoneRelayCommands', ['attemptId']);
-    await queryInterface.addIndex('SoftphoneRelayCommands', ['expiresAt']);
+      });
+    } else {
+      await requireColumns(queryInterface, commandTable, [
+        'id', 'deviceId', 'userId', 'attemptId', 'commandType', 'payload',
+        'status', 'expiresAt', 'deliveredAt', 'completedAt', 'errorMessage',
+        'createdAt', 'updatedAt'
+      ]);
+    }
+    await ensureIndex(queryInterface, commandTable, ['deviceId', 'status', 'createdAt']);
+    await ensureIndex(queryInterface, commandTable, ['attemptId']);
+    await ensureIndex(queryInterface, commandTable, ['expiresAt']);
   },
 
   async down(queryInterface) {
