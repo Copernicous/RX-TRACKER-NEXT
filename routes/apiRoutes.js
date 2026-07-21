@@ -154,6 +154,7 @@ function restrictCallCenterApi(req, res, next) {
     const p = req.path || '';
     const allowed =
         p.startsWith('/call-center') ||
+        p.startsWith('/phone-account/setup') ||
         p === '/auth/logout' ||
         p === '/session-config' ||
         p === '/session/activity' ||
@@ -180,8 +181,9 @@ router.get('/staging/implementation-version', adminOnly, sendStagingManifestResp
 
 router.get('/call-center/patients', callCenterController.requireAccess, callCenterController.listPatients);
 router.get('/call-center/phone-account', callCenterController.requireAccess, softphoneAccountController.getOwnAccount);
-router.put('/call-center/phone-account', callCenterController.requireWriteAccess, adminOnly, phoneAccountSaveLimiter, softphoneAccountController.saveOwnAccount);
 router.post('/call-center/phone-account/registration', callCenterController.requireAccess, softphoneAccountController.getOwnRegistration);
+router.get('/phone-account/setup', softphoneAccountController.getOwnSetup);
+router.post('/phone-account/setup', phoneAccountSaveLimiter, softphoneAccountController.saveOwnSetup);
 router.post('/call-center/call-attempts', callCenterController.requireWriteAccess, callAttemptController.startAttempt);
 router.get('/call-center/call-attempts/by-correlation/:correlationId', callCenterController.requireAccess, callAttemptController.getOwnAttemptByCorrelation);
 router.patch('/call-center/call-attempts/:id', callCenterController.requireWriteAccess, callAttemptController.updateAttempt);
@@ -259,6 +261,7 @@ const generateCRUDRoutes = (path, controller, moduleName) => {
 
 // Pharmacy purge (admin only) — must be BEFORE generateCRUDRoutes to avoid :id conflict
 router.delete('/pharmacies/purge', rbac.requireRole(['Administrator']), requireStagingDestructiveConfirmation, auditLogger('Pharmacies'), pharmacyController.purge);
+router.post('/users/:id/phone-account/setup-access', rbac.requireRole(['Administrator']), softphoneAccountController.enableSetupAccess);
 
 generateCRUDRoutes('/pharmacies', pharmacyController, 'Pharmacies');
 router.put('/pharmacies/:id/restore', rbac.requirePermission('pharmacies', 'edit'), auditLogger('Pharmacies'), pharmacyController.restore);
@@ -705,11 +708,6 @@ router.patch('/admin/users/:id',        masterOnly, adminController.updateUser);
 router.post('/admin/users/:id/reset-password', masterOnly, adminController.adminResetPassword);
 router.post('/admin/users/:id/unlock',          masterOnly, require('../controllers/twoFactorController').adminUnlock);
 router.delete('/admin/users/:id/reset-2fa',    masterOnly, requireStagingDestructiveConfirmation, require('../controllers/twoFactorController').adminReset);
-
-// Per-user SIP account assignment. Passwords are write-only and never returned.
-router.get('/admin/softphone-accounts',              masterOnly, softphoneAccountController.getManagedAccounts);
-router.put('/admin/softphone-accounts/:userId',      masterOnly, phoneAccountSaveLimiter, softphoneAccountController.saveManagedAccount);
-
 
 // Error Log Manager
 router.get('/admin/error-logs',            masterOnly, adminController.getErrorLogs);

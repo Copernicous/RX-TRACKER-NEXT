@@ -568,7 +568,6 @@
                     </div>
                     <div class="d-flex align-items-center justify-content-end gap-2 flex-wrap">
                         <span class="cc-phone-client-status" id="ccPhoneClientStatus"><i class="fas fa-phone-alt"></i>Loading phone client</span>
-                        <button type="button" class="btn btn-outline-primary btn-sm d-none" id="ccPhoneSetupBtn"><i class="fas fa-cog me-1"></i>Phone registration</button>
                         <span class="badge rounded-pill bg-secondary" id="ccRangeLabel">--</span>
                     </div>
                 </div>
@@ -605,81 +604,6 @@
                     </div>
                 </div>
             </div>
-        </div>
-    </div>
-</div>
-
-<div class="modal fade cc-phone-setup-modal" id="ccPhoneSetupModal" tabindex="-1" aria-labelledby="ccPhoneSetupTitle" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-lg">
-        <div class="modal-content">
-            <form id="ccPhoneSetupForm" autocomplete="off">
-                <div class="modal-header">
-                    <div>
-                        <h5 class="modal-title" id="ccPhoneSetupTitle"><i class="fas fa-headset me-2 text-primary"></i>RX Softphone Account</h5>
-                        <div class="small text-muted mt-1">This SIP account is assigned to your RX Tracker user. Only an Administrator can change it.</div>
-                    </div>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="alert alert-secondary cc-registration-message" id="ccPhoneRegistrationMessage" role="status">Checking the local softphone.</div>
-                    <div class="row g-3">
-                        <div class="col-md-8">
-                            <label class="form-label" for="ccSipServer">SIP server / PBX</label>
-                            <input type="text" class="form-control" id="ccSipServer" maxlength="255" placeholder="192.168.15.200" required>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label" for="ccSipPort">SIP port</label>
-                            <input type="number" class="form-control" id="ccSipPort" min="1" max="65535" value="5060" required>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label" for="ccSipUsername">Extension / username</label>
-                            <input type="text" class="form-control" id="ccSipUsername" maxlength="128" autocomplete="username" required>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label" for="ccSipDisplayName">Display name</label>
-                            <input type="text" class="form-control" id="ccSipDisplayName" maxlength="128" placeholder="Same as extension">
-                        </div>
-                        <div class="col-md-8">
-                            <label class="form-label" for="ccSipPassword">SIP password (leave blank to keep current)</label>
-                            <div class="input-group">
-                                <input type="password" class="form-control" id="ccSipPassword" maxlength="256" autocomplete="new-password">
-                                <button class="btn btn-outline-secondary" type="button" id="ccSipPasswordToggle" aria-label="Show password">Show</button>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label" for="ccSipLocalPort">Local SIP port</label>
-                            <input type="number" class="form-control" id="ccSipLocalPort" min="0" max="65535" value="0">
-                            <div class="form-text">Use 0 for automatic.</div>
-                        </div>
-                        <div class="col-12" id="ccSipAdminPinGroup" hidden>
-                            <label class="form-label" for="ccSipAdminPin"><i class="fas fa-user-shield me-1 text-primary"></i>Administrator PIN</label>
-                            <input type="password" class="form-control" id="ccSipAdminPin" maxlength="128" autocomplete="off" placeholder="Administrator approval required to save changes">
-                            <div class="form-text">Ask an administrator to enter the PIN. It is validated on the server and is never saved in this browser.</div>
-                        </div>
-                        <div class="col-12">
-                            <div class="form-label mb-2">Supported audio codecs</div>
-                            <div class="cc-codec-list" aria-label="RX Softphone supported audio codecs">
-                                <span class="badge">G.711 &mu;-law (PCMU)</span>
-                                <span class="badge">G.711 A-law (PCMA)</span>
-                                <span class="badge">G.722</span>
-                                <span class="badge">G.729</span>
-                            </div>
-                            <div class="form-text">RX Softphone advertises these codecs and the PBX selects a common codec for each call.</div>
-                        </div>
-                    </div>
-                    <div class="cc-registration-security mt-3">
-                        <i class="fas fa-shield-alt me-1 text-success"></i>
-                        RX Tracker stores this assignment on the server with the SIP password encrypted. The browser does not save it. On Call Center load, the credential is passed transiently to RX Softphone on <code>127.0.0.1</code> so the local app can register and handle audio.
-                    </div>
-                </div>
-                <div class="modal-footer justify-content-between">
-                    <button type="button" class="btn btn-outline-danger" id="ccPhoneUnregisterBtn"><i class="fas fa-sign-out-alt me-1"></i>Disconnect this PC</button>
-                    <div class="d-flex gap-2">
-                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
-                        <button type="submit" class="btn btn-primary" id="ccPhoneRegisterBtn"><i class="fas fa-save me-1"></i>Save &amp; Connect</button>
-                    </div>
-                </div>
-            </form>
         </div>
     </div>
 </div>

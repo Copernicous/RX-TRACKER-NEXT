@@ -952,8 +952,8 @@ var MODULE_CONFIGS = {
     'users': {
         label: 'User',
         softDelete: true,
-        columns: ['id', 'firstName', 'lastName', 'username', 'email', 'roleId', 'isActive'],
-        headers: ['ID', 'First Name', 'Last Name', 'Username', 'Email', 'Role', 'Active'],
+        columns: ['id', 'firstName', 'lastName', 'username', 'email', 'roleId', 'phoneAccountStatus', 'isActive'],
+        headers: ['ID', 'First Name', 'Last Name', 'Username', 'Email', 'Role', 'Phone Account', 'Active'],
         fields: [
             { key: 'firstName', label: 'First Name', type: 'text',     required: true },
             { key: 'lastName',  label: 'Last Name',  type: 'text',     required: true },
@@ -1345,6 +1345,13 @@ function renderTable() {
                 if (col === 'isActive' && isSoftDelete && isInactive) {
                     return '<td><span class="badge bg-secondary">Disabled</span></td>';
                 }
+                if (col === 'phoneAccountStatus') {
+                    var phoneStatus = String(val || 'Not configured');
+                    var phoneStatusClass = phoneStatus === 'Configured'
+                        ? 'bg-success'
+                        : (phoneStatus === 'Setup available' ? 'bg-warning text-dark' : 'bg-secondary');
+                    return '<td><span class="badge ' + phoneStatusClass + '">' + phoneStatus + '</span></td>';
+                }
                 if (val === true) return '<td><span class="badge bg-success">Yes</span></td>';
                 if (val === false) return '<td><span class="badge bg-secondary">No</span></td>';
                 if (val === null || val === undefined) return '<td class="text-muted">\u2014</td>';
@@ -1356,6 +1363,16 @@ function renderTable() {
                 return '<td>' + strVal + '</td>';
             })(); } var cells=_cells;
             var actionCell = '';
+            var phoneSetupAction = '';
+            if (crudState.module === 'users' && row.phoneAccountSetupAvailable !== true) {
+                var authUser = getCurrentAuthUser();
+                if (authUser && isAdministratorUser(authUser)) {
+                    var setupTitle = row.phoneAccountConfigured === true
+                        ? 'Disable the saved registration and let this user configure it again'
+                        : 'Let this user configure a phone account once';
+                    phoneSetupAction = '<button class="btn btn-sm btn-outline-warning ms-1" onclick="allowPhoneAccountSetup(' + row.id + ',' + (row.phoneAccountConfigured === true) + ')" title="' + setupTitle + '"><i class="fas fa-phone-alt me-1"></i>Allow setup</button>';
+                }
+            }
             if (isSoftDelete && isInactive && (p.canEdit || p.canDelete)) {
                 // Disabled row: show Restore button only
                 actionCell = '<td>' +
@@ -1364,7 +1381,7 @@ function renderTable() {
             } else if (p.canEdit || p.canDelete) {
                 actionCell = '<td>' +
                     (p.canEdit  ? '<button class="btn btn-sm btn-outline-primary me-1" onclick="editRecord(' + row.id + ')"><i class="fas fa-edit"></i></button>' : '') +
-                    (p.canDelete ? '<button class="btn btn-sm btn-outline-danger" onclick="promptDelete(' + row.id + ')" title="' + (isSoftDelete ? 'Disable' : 'Delete') + '"><i class="fas fa-' + (isSoftDelete ? 'ban' : 'trash') + '"></i></button>' : '') +
+                    (p.canDelete ? '<button class="btn btn-sm btn-outline-danger" onclick="promptDelete(' + row.id + ')" title="' + (isSoftDelete ? 'Disable' : 'Delete') + '"><i class="fas fa-' + (isSoftDelete ? 'ban' : 'trash') + '"></i></button>' : '') + phoneSetupAction +
                     '</td>';
             } else {
                 // View Only — no edit or delete rights
@@ -1594,6 +1611,25 @@ function openModal(id) {
 
 function editRecord(id) {
     openModal(id);
+}
+
+async function allowPhoneAccountSetup(id, hasConfiguredAccount) {
+    var prompt = hasConfiguredAccount
+        ? 'Allow this user to configure the phone account again? The current RX Softphone registration will be disabled until setup is completed.'
+        : 'Allow this user to configure a phone account once?';
+    if (!window.confirm(prompt)) return;
+    try {
+        var response = await fetchWithAuth('/api/users/' + encodeURIComponent(id) + '/phone-account/setup-access', {
+            method: 'POST',
+            body: '{}'
+        });
+        var data = response ? await response.json().catch(function() { return {}; }) : {};
+        if (!response || !response.ok) throw new Error(data.error || data.message || 'Could not allow phone-account setup.');
+        showToast(data.message || 'Phone Account Setup is now available for this user.', 'success');
+        await refreshTable();
+    } catch (err) {
+        showToast((err && err.message) || 'Could not allow phone-account setup.', 'danger');
+    }
 }
 
 async function saveRecord() {

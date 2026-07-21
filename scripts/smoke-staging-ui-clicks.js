@@ -476,39 +476,20 @@ async function runAdminDashboardAndReports(fixtures) {
     assert.strictEqual(await page.locator('#crudViewOnlyBanner').isHidden(), true, 'Administrator must not see the View Only banner in shared Add/Edit forms.');
     assert.strictEqual(await page.locator('#saveCrudBtn').isVisible(), true, 'Administrator Save action must remain available in shared Add/Edit forms.');
     assert.strictEqual(await page.locator('#crudForm input').first().isEditable(), true, 'Administrator fields must remain editable in shared Add/Edit forms.');
-    await page.keyboard.press('Escape');
+    await page.locator('#crudModal .btn-close').click();
+    await page.locator('#crudModal').waitFor({ state: 'hidden', timeout: 5000 });
     pass('Administrator shared Add/Edit modal permissions');
 
-    await page.goto(route('/backoffice'), { waitUntil: 'domcontentloaded' });
-    await page.waitForLoadState('networkidle').catch(() => {});
-    await page.locator('#tabPhoneAccounts').click();
-    await page.waitForFunction((username) => {
-        const list = document.querySelector('#phoneAccountsList');
-        return list && list.textContent.indexOf(username) !== -1;
-    }, fixtures.callCenterUser.username, { timeout: 15000 });
-    const phoneRow = page.locator('#phoneAccountsList tbody tr').filter({ hasText: fixtures.callCenterUser.username }).first();
-    await phoneRow.locator('button').click();
-    await expectVisible(page, '#phoneAccountModal', 'Backoffice Phone Accounts assignment modal');
-    await page.fill('#phoneAccountServer', '192.168.15.200');
-    await page.fill('#phoneAccountPort', '5060');
-    await page.fill('#phoneAccountUsername', sipTestExtension);
-    await page.fill('#phoneAccountDisplayName', 'Staging Smoke Softphone');
-    await page.fill('#phoneAccountPassword', sipTestPassword);
-    await page.fill('#phoneAccountLocalPort', '0');
-    await page.fill('#phoneAccountAdminPin', process.env.SOFTPHONE_ACCOUNT_ADMIN_PIN);
+    const phoneUserRow = page.locator('#crudTable tbody tr').filter({ hasText: fixtures.callCenterUser.username }).first();
+    await phoneUserRow.waitFor({ state: 'visible', timeout: 15000 });
+    page.once('dialog', dialog => dialog.accept());
     await Promise.all([
-        page.waitForResponse(response => response.url().includes('/api/admin/softphone-accounts/' + fixtures.callCenterUser.id) && response.status() === 200),
-        page.locator('#phoneAccountSaveBtn').click()
+        page.waitForResponse(response => response.url().includes('/api/users/' + fixtures.callCenterUser.id + '/phone-account/setup-access') && response.status() === 200),
+        phoneUserRow.getByRole('button', { name: 'Allow setup' }).click()
     ]);
-    await page.waitForFunction((extension) => {
-        const list = document.querySelector('#phoneAccountsList');
-        return list && list.textContent.indexOf(extension) !== -1;
-    }, sipTestExtension, { timeout: 15000 });
-    const assignedAccount = await db.UserSoftphoneAccount.findOne({ where: { userId: fixtures.callCenterUser.id } });
-    assert(assignedAccount, 'Backoffice did not persist the assigned phone account.');
-    assert(assignedAccount.encryptedPassword.startsWith('rxsoft:v1:'), 'Backoffice must store a versioned encrypted SIP password.');
-    assert(!assignedAccount.encryptedPassword.includes(sipTestPassword), 'Backoffice must not store the SIP password in plaintext.');
-    pass('Master Backoffice assigned per-user SIP extension without exposing password');
+    await fixtures.callCenterUser.reload();
+    assert.strictEqual(fixtures.callCenterUser.phoneAccountSetupAllowed, true, 'Administrator did not grant setup to the selected user.');
+    pass('Administrator granted one-time Phone Account Setup to one user');
 
     assertNoBrowserErrors('admin dashboard/report flow');
     await context.close();
@@ -518,41 +499,33 @@ async function runCallCenterWorkspace(fixtures) {
     const { context, page } = await newContext();
     await login(page, fixtures.callCenterUser.username, '/call-center');
 
+    await page.goto(route('/phone-account-setup'), { waitUntil: 'domcontentloaded' });
+    await expectVisible(page, '#phoneAccountSetupForm', 'Per-user Phone Account Setup page');
+    await page.fill('#phoneSetupServer', '192.168.15.200');
+    await page.fill('#phoneSetupPort', '5060');
+    await page.fill('#phoneSetupUsername', sipTestExtension);
+    await page.fill('#phoneSetupDisplayName', 'Staging Smoke Softphone');
+    await page.fill('#phoneSetupPassword', sipTestPassword);
+    await page.fill('#phoneSetupPasswordConfirm', sipTestPassword);
+    await page.fill('#phoneSetupLocalPort', '0');
+    await Promise.all([
+        page.waitForResponse(response => response.url().includes('/api/phone-account/setup') && response.status() === 200),
+        page.locator('#phoneSetupSaveBtn').click()
+    ]);
+    await page.waitForURL('**/call-center', { timeout: 15000 });
+
     const accountBefore = await context.request.get(route('/api/call-center/phone-account'));
     assert.strictEqual(accountBefore.status(), 200, 'Call Center user should be able to load their own softphone assignment.');
     const accountBeforeBody = await accountBefore.json();
-    assert.strictEqual(accountBeforeBody.configured, true, 'Backoffice-assigned softphone account should be available to its Call Center user.');
-    assert.strictEqual(accountBeforeBody.username, sipTestExtension, 'Call Center user received the wrong assigned extension.');
+    assert.strictEqual(accountBeforeBody.configured, true, 'Self-configured softphone account should be available to its Call Center user.');
+    assert.strictEqual(accountBeforeBody.username, sipTestExtension, 'Call Center user saved the wrong extension.');
     assert.strictEqual(accountBeforeBody.canManage, false, 'Call Center users must not be allowed to edit their assigned account.');
     assert.strictEqual(accountBeforeBody.adminPinRequired, true, 'Isolated staging must require the administrator PIN for phone-account saves.');
 
-    const rejectedSave = await page.evaluate(async () => {
-        const response = await fetchWithAuth('/api/call-center/phone-account', {
-            method: 'PUT',
-            body: JSON.stringify({ adminPin: 'incorrect-isolated-pin' })
-        });
-        return { status: response.status, body: await response.json().catch(() => ({})) };
+    const rejectedSecondSetup = await context.request.post(route('/api/phone-account/setup'), {
+        data: { server: '192.168.15.200', port: 5060, username: 'unauthorized', displayName: 'Unauthorized', localSipPort: 0, password: sipTestPassword }
     });
-    assert.strictEqual(rejectedSave.status, 403, 'Incorrect administrator PIN must reject a phone-account save.');
-
-    const rejectedAssignedSave = await page.evaluate(async ({ password: transientPassword, adminPin }) => {
-        const response = await fetchWithAuth('/api/call-center/phone-account', {
-            method: 'PUT',
-            body: JSON.stringify({
-                server: '192.168.15.200',
-                port: 5060,
-                username: 'unauthorized-' + Date.now(),
-                displayName: 'Staging Smoke Softphone',
-                localSipPort: 0,
-                password: transientPassword,
-                adminPin
-            })
-        });
-        const body = await response.json().catch(() => ({}));
-        return { status: response.status, configured: !!(body.account && body.account.configured), passwordExposed: Object.hasOwn(body.account || {}, 'password') || Object.hasOwn(body.account || {}, 'encryptedPassword') };
-    }, { password: sipTestPassword, adminPin: process.env.SOFTPHONE_ACCOUNT_ADMIN_PIN });
-    assert.strictEqual(rejectedAssignedSave.status, 403, 'Call Center user must not be able to replace a Backoffice assignment.');
-    assert.strictEqual(rejectedAssignedSave.passwordExposed, false, 'Rejected save response must not expose password material.');
+    assert.strictEqual(rejectedSecondSetup.status(), 403, 'Completed users must not be able to change the account without a new per-user authorization.');
 
     const accountAfter = await context.request.get(route('/api/call-center/phone-account'));
     const accountMetadata = await accountAfter.json();
@@ -576,9 +549,9 @@ async function runCallCenterWorkspace(fixtures) {
     const storedAccount = await db.UserSoftphoneAccount.findOne({ where: { userId: fixtures.callCenterUser.id } });
     assert(storedAccount && storedAccount.encryptedPassword.startsWith('rxsoft:v1:'), 'Staging DB should store a versioned encrypted SIP password.');
     assert(!storedAccount.encryptedPassword.includes(sipTestPassword), 'Staging DB must not store the SIP password in plaintext.');
-    assert.strictEqual(await page.locator('#ccPhoneSetupModal').count(), 1, 'Call Center should include one server-backed phone account editor.');
+    assert.strictEqual(await page.locator('#ccPhoneSetupModal').count(), 0, 'Call Center must not include the retired phone account editor.');
     await db.UserSoftphoneAccount.destroy({ where: { userId: fixtures.callCenterUser.id } });
-    pass('Per-user encrypted RX Softphone account API and editor');
+    pass('Per-user encrypted one-time RX Softphone setup');
 
     const workspaceResponse = await context.request.get(route('/call-center'));
     assert.strictEqual(workspaceResponse.status(), 200, 'Authenticated Call Center page should load.');

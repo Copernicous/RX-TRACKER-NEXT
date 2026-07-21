@@ -519,6 +519,13 @@
         rxPhone.registrationPromise = (async function() {
             var account = await loadPhoneAccount(false);
             if (!account || !account.configured || account.isEnabled === false) {
+                if (account && account.isEnabled === false) {
+                    var disabledSnapshot = await probeRxPhone();
+                    if (disabledSnapshot && disabledSnapshot.registration !== 'offline' && disabledSnapshot.registration !== 'unregistered') {
+                        disabledSnapshot = await rxFetch('/api/unregister', { method: 'POST', body: '{}' });
+                        handleRxSnapshot(disabledSnapshot);
+                    }
+                }
                 renderRegistrationFormState();
                 return rxPhone.snapshot;
             }

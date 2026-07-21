@@ -645,9 +645,9 @@ async function executePurge() {
 // TAB SWITCHER
 // ══════════════════════════════════════════════════════════════════════════
 function switchTab(tab) {
-    var tabs  = ['tables','schema','orphans','dupes','audit','cccleanup','settings','backups','health','locks','users','phoneaccounts','apikeys','errlog','logdash','analytics'];
-    var ids   = { tables:'tablesContent', schema:'schemaContent', orphans:'orphanContent', dupes:'dupesContent', audit:'auditContent', cccleanup:'cccleanupContent', settings:'settingsContent', backups:'backupsContent', health:'healthContent', locks:'locksContent', users:'usersContent', phoneaccounts:'phoneAccountsContent', apikeys:'apiKeysContent', errlog:'errlogContent', logdash:'logdashContent', analytics:'analyticsContent' };
-    var btns  = { tables:'tabTables', schema:'tabSchema', orphans:'tabOrphans', dupes:'tabDupes', audit:'tabAudit', cccleanup:'tabCcCleanup', settings:'tabSettings', backups:'tabBackups', health:'tabHealth', locks:'tabLocks', users:'tabUsers', phoneaccounts:'tabPhoneAccounts', apikeys:'tabApiKeys', errlog:'tabErrlog', logdash:'tabLogdash', analytics:'tabAnalytics' };
+    var tabs  = ['tables','schema','orphans','dupes','audit','cccleanup','settings','backups','health','locks','users','apikeys','errlog','logdash','analytics'];
+    var ids   = { tables:'tablesContent', schema:'schemaContent', orphans:'orphanContent', dupes:'dupesContent', audit:'auditContent', cccleanup:'cccleanupContent', settings:'settingsContent', backups:'backupsContent', health:'healthContent', locks:'locksContent', users:'usersContent', apikeys:'apiKeysContent', errlog:'errlogContent', logdash:'logdashContent', analytics:'analyticsContent' };
+    var btns  = { tables:'tabTables', schema:'tabSchema', orphans:'tabOrphans', dupes:'tabDupes', audit:'tabAudit', cccleanup:'tabCcCleanup', settings:'tabSettings', backups:'tabBackups', health:'tabHealth', locks:'tabLocks', users:'tabUsers', apikeys:'tabApiKeys', errlog:'tabErrlog', logdash:'tabLogdash', analytics:'tabAnalytics' };
     tabs.forEach(function(t) {
         document.getElementById(btns[t]).classList.toggle('active', t === tab);
         var el = document.getElementById(ids[t]);
@@ -664,7 +664,6 @@ function switchTab(tab) {
     if (tab === 'health'    && !healthLoaded)    loadHealth();
     if (tab === 'locks'     && !locksLoaded)     loadLocks();
     if (tab === 'users'     && !usersLoaded)     loadUsers();
-    if (tab === 'phoneaccounts' && !phoneAccountsLoaded) loadPhoneAccounts();
     if (tab === 'apikeys'   && !boApiKeysLoaded) boLoadApiKeys();
     if (tab === 'errlog'    && !errlogLoaded)    loadErrorLogs(1);
     if (tab === 'logdash'   && !logdashLoaded)   loadLogDashboard();

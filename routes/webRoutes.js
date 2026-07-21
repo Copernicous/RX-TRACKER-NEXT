@@ -22,10 +22,17 @@ function requireVisibleModule(moduleKey) {
 
 function redirectCallCenterRole(req, res, next) {
     const user = res.locals && res.locals.currentUser;
-    if (isCallCenterRole(user) && req.path !== '/call-center') {
+    if (isCallCenterRole(user) && !['/call-center', '/phone-account-setup'].includes(req.path)) {
         return proxyRedirect(req, res, '/call-center');
     }
     next();
+}
+
+function requirePhoneAccountSetupAccess(req, res, next) {
+    if (!res.locals || !res.locals.currentUser) return proxyRedirect(req, res, '/login');
+    if (res.locals.phoneAccountSetupAllowed === true) return next();
+    const target = hasCallCenterAccess(res.locals.currentUser) ? '/call-center' : '/dashboard';
+    return proxyRedirect(req, res, target + '?phone_setup=unavailable');
 }
 
 function requireCallCenterPage(req, res, next) {
@@ -60,6 +67,14 @@ router.get('/login', (req, res) => {
 
 router.get('/call-center', requireWebLogin, requireCallCenterPage, allowRxSoftphoneConnection, (req, res) => {
     res.render('call-center', { title: 'Call Center', activePage: 'call-center' });
+});
+
+router.get('/phone-account-setup', requireWebLogin, requirePhoneAccountSetupAccess, (req, res) => {
+    res.render('phone-account-setup', {
+        title: 'Phone Account Setup',
+        activePage: 'phone-account-setup',
+        setupSuccessPath: hasCallCenterAccess(res.locals.currentUser) ? '/call-center' : '/dashboard'
+    });
 });
 
 router.use(redirectCallCenterRole);

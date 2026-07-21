@@ -95,15 +95,12 @@ try {
     assert(callCenterScript.includes("snapshot.call || 'idle'"), 'Call-state acknowledgement integration is missing.');
     assert(callCenterScript.includes("payload.callAnsweredAt"), 'Answered-call audit metadata is missing.');
     assert(callCenterScript.includes('/api/call-center/phone-account'), 'Server-managed softphone account endpoint is missing.');
-    assert(callCenterScript.includes('account.adminPin'), 'Phone-account save must send the administrator PIN only for server validation.');
-    assert(callCenterScript.includes('account.canManage'), 'Call Center phone-account UI must honor the server-managed read-only flag.');
     assert(callCenterScript.includes('connectAssignedPhone(false, false)'), 'Automatic per-user softphone registration is missing.');
     assert(!callCenterScript.includes('rxCallCenterSoftphoneProfileV1'), 'Softphone account metadata must not be stored in browser localStorage.');
 
     const callCenterView = fs.readFileSync(path.join(__dirname, '..', 'views', 'call-center.ejs'), 'utf8');
     assert(callCenterView.includes('cc-record-heading-all'), 'Compact one-line Call Center roster heading is missing.');
-    assert(callCenterView.includes('Save &amp; Connect'), 'Server-backed softphone account editor is missing.');
-    assert(callCenterView.includes('ccSipAdminPin'), 'Administrator PIN approval field is missing from the phone-account editor.');
+    assert(!callCenterView.includes('ccPhoneSetupModal'), 'Call Center must not expose phone-account configuration controls.');
     assert(callCenterScript.includes('data-action="phone-hangup"'), 'Each callable patient row must provide an inline Hang Up control.');
     assert(callCenterView.includes('.cc-phone-action-stack'), 'Dial and Hang Up controls must remain grouped in the patient phone cell.');
     assert(callCenterView.includes('<option value="50">50</option>'), 'Call Center must support a longer scrolling roster.');
@@ -126,10 +123,19 @@ try {
     const backofficeScript = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'backoffice-features.js'), 'utf8');
     assert(backofficeView.includes('sCallCenterInactiveClaimSeconds'), 'Backoffice inactive patient-claim timeout control is missing.');
     assert(backofficeScript.includes('callCenterInactiveClaimSeconds'), 'Backoffice inactive patient-claim timeout save/load integration is missing.');
-    assert(backofficeView.includes('tabPhoneAccounts'), 'Backoffice Phone Accounts tab is missing.');
-    assert(backofficeView.includes('phoneAccountPassword'), 'Backoffice write-only SIP password field is missing.');
-    assert(backofficeScript.includes('/api/admin/softphone-accounts/'), 'Backoffice per-user phone assignment integration is missing.');
-    assert(backofficeScript.includes('Leave blank to keep current password'), 'Backoffice must preserve an existing SIP password when the edit field is blank.');
+    assert(!backofficeView.includes('tabPhoneAccounts'), 'Backoffice must not expose the retired phone-account assignment tab.');
+
+    const setupView = fs.readFileSync(path.join(__dirname, '..', 'views', 'phone-account-setup.ejs'), 'utf8');
+    const setupScript = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'phone-account-setup.js'), 'utf8');
+    const apiRoutes = fs.readFileSync(path.join(__dirname, '..', 'routes', 'apiRoutes.js'), 'utf8');
+    const sidebarView = fs.readFileSync(path.join(__dirname, '..', 'views', 'partials', 'sidebar.ejs'), 'utf8');
+    assert(setupView.includes('This is a one-time setup'), 'Phone Account Setup must explain the one-time workflow.');
+    assert(setupScript.includes('/api/phone-account/setup'), 'Self-service phone-account setup API integration is missing.');
+    assert(setupScript.includes('phoneSetupPasswordConfirm'), 'Self-service setup must confirm the SIP password before saving.');
+    assert(sidebarView.includes('locals.phoneAccountSetupAllowed === true'), 'Phone Account Setup navigation must require per-user authorization.');
+    assert(!sidebarView.includes("sv('phone_account_setup')"), 'Phone Account Setup must not depend on a role-wide permission.');
+    assert(apiRoutes.includes("/users/:id/phone-account/setup-access"), 'Administrator setup re-enable endpoint is missing.');
+    assert(!apiRoutes.includes("/admin/softphone-accounts"), 'Retired Backoffice phone-account assignment API must not remain exposed.');
 
     const webRoutes = fs.readFileSync(path.join(__dirname, '..', 'routes', 'webRoutes.js'), 'utf8');
     assert(webRoutes.includes('http://127.0.0.1:5188'), 'Call Center CSP must allow the local softphone origin.');
