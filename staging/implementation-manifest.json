@@ -1,8 +1,8 @@
 {
   "environment": "staging",
   "manifestVersion": "staging-impl-v1",
-  "implementationVersion": "3.2.0-staging-2026.07.21.10",
-  "effectiveFrom": "2026-07-21T05:46:11-04:00",
+  "implementationVersion": "3.3.0-staging-2026.07.21.11",
+  "effectiveFrom": "2026-07-21T09:30:00-04:00",
   "appliesTo": "APP_ENV/APP_INSTANCE contains 'staging' or 'stage'",
   "status": "active",
   "rollbackPolicy": {
@@ -38,10 +38,10 @@
     },
     {
       "id": "STS-CC-PHONE-ASSIGN-001",
-      "file": "controllers/softphoneAccountController.js, routes/apiRoutes.js, views/backoffice.ejs, public/js/backoffice.js, public/js/backoffice-features.js",
-      "component": "Per-user RX Softphone assignment",
-      "summary": "Add a master-only Backoffice Phone Accounts tab that assigns persistent SIP registration settings to any RX user.",
-      "effect": "Master administrators can assign or edit PBX server, SIP port, extension, display name, local port, enabled state, and write-only password; the assigned user registers automatically and cannot alter the account from Call Center.",
+      "file": "controllers/softphoneAccountController.js, routes/apiRoutes.js, views/phone-account-setup.ejs, public/js/phone-account-setup.js, public/js/app.js",
+      "component": "Per-user RX Softphone setup",
+      "summary": "Add an administrator-authorized, one-time Phone Account Setup menu for an individual RX user.",
+      "effect": "An Administrator selects Allow setup in User Management; the selected user enters the PBX server, SIP port, extension, display name, local port, and write-only password once. The menu closes after save and the assignment registers automatically and remains read-only until an Administrator reopens setup.",
       "risk": "A wrong PBX credential prevents only the selected user's softphone registration; leaving the password blank during an edit preserves the existing encrypted password.",
       "rollback": {
         "action": "Redeploy the prior application build. Existing UserSoftphoneAccounts rows remain compatible and require no database rollback."

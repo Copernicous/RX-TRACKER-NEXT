@@ -30,9 +30,10 @@ For server-managed RX Softphone accounts, also set a stable encryption key befor
 
 ```dotenv
 SOFTPHONE_CREDENTIAL_KEY=replace-with-a-long-random-production-secret
+SOFTPHONE_RELAY_SECRET=replace-with-a-separate-long-random-production-secret
 ```
 
-Back up this key with the protected production configuration. Changing or losing it makes existing encrypted SIP passwords unreadable; users would need to enter those passwords again.
+Back up both keys with the protected production configuration. Changing or losing `SOFTPHONE_CREDENTIAL_KEY` makes existing encrypted SIP passwords unreadable. Changing `SOFTPHONE_RELAY_SECRET` invalidates existing Windows relay pairings, so affected workstations must pair again.
 
 ## Install on a workstation
 

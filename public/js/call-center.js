@@ -1041,7 +1041,7 @@
             }
             else {
                 if (!snapshot) {
-                    toast('RX Softphone could not be reached. If this page is inside Kasm or another remote browser, pair RX Softphone 0.4.0 on the Windows PC with this RX user. Direct local and FortiGate calling still work without the relay.', 'warning');
+                    toast('RX Softphone could not be reached. If this page is inside Kasm or another remote browser, pair RX Softphone 0.4.1 on the Windows PC with this RX user. Direct local and FortiGate calling still work without the relay.', 'warning');
                 } else {
                     toast('RX Softphone is not registered. Ask an Administrator to allow Phone Account Setup if the saved account must be corrected.', 'warning');
                 }
