@@ -1,0 +1,309 @@
+{
+  "environment": "staging",
+  "manifestVersion": "staging-impl-v1",
+  "implementationVersion": "3.3.0-staging-2026.07.21.11",
+  "effectiveFrom": "2026-07-21T09:30:00-04:00",
+  "appliesTo": "APP_ENV/APP_INSTANCE contains 'staging' or 'stage'",
+  "status": "active",
+  "rollbackPolicy": {
+    "primary": "Set environment flag to previous value or redeploy previous package",
+    "steps": [
+      "Disable new staging variables in .env.staging",
+      "Redeploy previous server executable/build from CHANGELOG entry",
+      "Restart service and confirm /api/staging/implementation-version returns previous manifest"
+    ]
+  },
+  "implementations": [
+    {
+      "id": "STS-CC-CONNECTED-TIMER-001",
+      "file": "controllers/callCenterController.js, public/js/call-center.js, views/call-center.ejs",
+      "component": "Call Center connected-call timer",
+      "summary": "Reuse the phone-icon status badge to show live elapsed time after an RX Softphone call connects.",
+      "effect": "Cooldown remains an amber seconds countdown; a connected call displays a red m:ss or h:mm:ss timer based on the persisted answer timestamp and resets when the call ends.",
+      "risk": "The connected timer is available only for RX Softphone calls that report an answered timestamp; MicroSIP cannot provide browser-visible call state.",
+      "rollback": {
+        "action": "Remove connectedAt/callState from lock status and restore the badge to cooldown-only rendering."
+      }
+    },
+    {
+      "id": "STS-CRUD-PERMISSION-BANNER-001",
+      "file": "public/js/app.js",
+      "component": "Shared CRUD permission banner",
+      "summary": "Hide the View Only banner correctly when the current user has Add or Edit permission.",
+      "effect": "Administrators no longer see a false View Only warning in User, Pharmacy, Clinic, transport, or other shared Add/Edit dialogs.",
+      "risk": "Presentation-only change; server authorization and stored role permissions are unchanged.",
+      "rollback": {
+        "action": "Restore the previous inline display assignment in the shared CRUD modal."
+      }
+    },
+    {
+      "id": "STS-CC-PHONE-ASSIGN-001",
+      "file": "controllers/softphoneAccountController.js, routes/apiRoutes.js, views/phone-account-setup.ejs, public/js/phone-account-setup.js, public/js/app.js",
+      "component": "Per-user RX Softphone setup",
+      "summary": "Add an administrator-authorized, one-time Phone Account Setup menu for an individual RX user.",
+      "effect": "An Administrator selects Allow setup in User Management; the selected user enters the PBX server, SIP port, extension, display name, local port, and write-only password once. The menu closes after save and the assignment registers automatically and remains read-only until an Administrator reopens setup.",
+      "risk": "A wrong PBX credential prevents only the selected user's softphone registration; leaving the password blank during an edit preserves the existing encrypted password.",
+      "rollback": {
+        "action": "Redeploy the prior application build. Existing UserSoftphoneAccounts rows remain compatible and require no database rollback."
+      }
+    },
+    {
+      "id": "STS-CC-PHONE-ADMIN-001",
+      "file": "controllers/softphoneAccountController.js, routes/apiRoutes.js, public/js/call-center.js, views/call-center.ejs",
+      "component": "Softphone account authorization",
+      "summary": "Make phone-account configuration Administrator-only while preserving automatic registration for assigned Call Center users.",
+      "effect": "Call Center users can view and use their assigned extension but cannot save PBX, extension, port, display-name, or password changes; the environment PIN adds a second approval check for administrators.",
+      "risk": "Administrators must perform future phone-account assignment changes; existing saved assignments continue to operate without modification.",
+      "rollback": {
+        "action": "Remove the Administrator authorization middleware and canManage read-only state, restoring PIN-only account saves."
+      }
+    },
+    {
+      "id": "STS-CC-AVAILABILITY-001",
+      "file": "controllers/callCenterController.js, routes/apiRoutes.js, public/js/call-center.js, views/call-center.ejs",
+      "component": "Call Center phone availability",
+      "summary": "Keep claimed patients visible and refresh only their phone availability without reloading the roster.",
+      "effect": "The phone icon is green when callable, red during an active call, and amber during the configured cooldown; red and amber states identify the claiming agent, and amber shows a live seconds badge directly on the icon.",
+      "risk": "MicroSIP cannot report native call state, so its claim appears as cooldown for the configured inactive timeout.",
+      "rollback": {
+        "action": "Remove the lock-status endpoint and status poll, then restore filtering of locks held by other agents from the queue response."
+      }
+    },
+    {
+      "id": "STS-CC-CLAIMS-002",
+      "file": "controllers/callCenterController.js, public/js/call-center.js",
+      "component": "Call Center patient concurrency",
+      "summary": "Acquire a patient claim only when an agent clicks the phone icon instead of claiming every patient displayed on a queue page; heartbeat requests may extend but never create claims.",
+      "effect": "Multiple agents can browse the same queue concurrently while duplicate calls to the same patient remain blocked during an active RX Softphone workflow. Backoffice controls the inactive claim timeout from 5 to 300 seconds, defaulting to 15.",
+      "risk": "MicroSIP cannot report call state, so its claim uses the configured inactive timeout even if the external MicroSIP call continues longer.",
+      "rollback": {
+        "action": "Restore queue-page claim acquisition and the locksAcquired roster response behavior."
+      }
+    },
+    {
+      "id": "STS-CC-REPORTS-002",
+      "file": "views/reports.ejs, public/js/reports.js",
+      "component": "Call Center reporting navigation",
+      "summary": "Present Patient Activity and Call Attempts as linked views under the same Call Center filters instead of vertically stacking both reports.",
+      "effect": "Administrators keep the selected patient and date context while switching between patient-level activity and detailed automatic call telemetry; each view retains its own metrics, pagination, and exports.",
+      "risk": "The detailed Call Attempts view is populated only by RX Softphone telemetry recorded after this feature is deployed; historical manual or MicroSIP calls cannot be reconstructed.",
+      "rollback": {
+        "action": "Restore the vertically stacked report markup and remove the cross-view navigation handlers."
+      }
+    },
+    {
+      "id": "STS-CC-SIM-001",
+      "file": "scripts/reset-staging-call-simulation.js",
+      "component": "Staging Call Center simulation",
+      "summary": "Clear only staging Call Center history and create one linked, clearly identified answered RX Softphone simulation.",
+      "effect": "Provides a deterministic report fixture while preserving patients, users, phone assignments, RX records, and all non-Call-Center history.",
+      "risk": "Call Center attempts, locks, notes, service-date history, and audits in the explicitly confirmed staging database are deleted when the script runs.",
+      "rollback": {
+        "action": "Restore the deleted staging Call Center history from a database backup; the reset is intentionally not available for production-named or shared databases."
+      }
+    },
+    {
+      "id": "STS-CC-ATTEMPTS-001",
+      "file": "controllers/callAttemptController.js",
+      "component": "RX Softphone call analytics",
+      "summary": "Persist every RX Softphone dial attempt before local dialing and automatically record Called only after an answered state.",
+      "effect": "Administrators can report call timing, duration, outcome, SIP result, patient snapshot, agent, extension, and dialed number while unanswered attempts remain separate from Called activity.",
+      "risk": "RX Softphone versions before 0.3.0 do not provide the complete native timestamp/outcome telemetry.",
+      "rollback": {
+        "action": "Redeploy version 3.1.0 and leave the additive CallCenterCallAttempts table in place for forward recovery."
+      }
+    },
+    {
+      "id": "STS-CC-PIN-001",
+      "file": "controllers/softphoneAccountController.js",
+      "component": "Softphone account approval",
+      "summary": "Require a timing-safe administrator PIN for phone-account saves when SOFTPHONE_ACCOUNT_ADMIN_PIN is configured.",
+      "effect": "Prevents accidental SIP assignment edits while keeping automatic per-user registration and local Disconnect behavior unchanged.",
+      "risk": "Users cannot save account changes if the configured administrator PIN is unavailable.",
+      "rollback": {
+        "action": "Remove SOFTPHONE_ACCOUNT_ADMIN_PIN from the staging environment and restart, or redeploy the previous version."
+      }
+    },
+    {
+      "id": "STS-UI-SMOKE-002",
+      "file": "scripts/run-isolated-staging-ui-smoke.js",
+      "component": "Staging browser smoke isolation",
+      "summary": "Run browser fixtures on a dedicated *_ui_smoke database and random loopback port.",
+      "effect": "Automated test patients and related records no longer appear or disappear in shared staging during manual testing.",
+      "risk": "The staging PostgreSQL user needs permission to create the isolated smoke database on first run.",
+      "rollback": {
+        "action": "Use the core smoke script only with STAGING_UI_SMOKE_ALLOW_SHARED_DB=true after explicitly accepting shared-data mutation risk."
+      }
+    },
+    {
+      "id": "STS-APP-001",
+      "file": "app.js",
+      "component": "Startup lifecycle",
+      "summary": "Gate database bootstrap and startup migrations on staging only when explicit flags are enabled.",
+      "effect": "Prevents destructive auto-bootstrapping and migration churn on staged environments that are intentionally read-only or restored copies.",
+      "risk": "A staging instance with empty DB and both flags false will start without schema tables and can fail auth/API features expecting data structures.",
+      "rollback": {
+        "action": "Set STAGING_AUTO_MIGRATE=true or STAGING_ALLOW_DB_BOOTSTRAP=true for temporary bootstrap, or revert this commit.",
+        "restoreExample": "Revert file changes and restart to restore historical startup behavior."
+      }
+    },
+    {
+      "id": "STS-AUTH-001",
+      "file": "middleware/auth.js",
+      "component": "Auth validation",
+      "summary": "Fail-closed on token DB-check exceptions in staging (returns 503 instead of allowing token if DB is unavailable).",
+      "effect": "Prevents authenticated bypass when session validation storage is unavailable, improving integrity during staging incidents.",
+      "risk": "Staging users may be unable to access the app if DB is temporarily unreachable during maintenance windows.",
+      "rollback": {
+        "action": "Remove the staging-only DB exception branch and restore existing error tolerance behavior.",
+        "restoreExample": "Set `isStagingEnvironment` path to false or move logic to non-staging environments only."
+      }
+    },
+    {
+      "id": "STS-ROUTER-001",
+      "file": "routes/apiRoutes.js",
+      "component": "Routing + admin operations safety",
+      "summary": "Add staging implementation manifest endpoint and stage-only destructive action confirmation middleware.",
+      "effect": "All destructive routes now require an explicit confirmation token when STAGING_DESTRUCTIVE_GUARD=true.",
+      "risk": "Automation jobs and operators without confirmation token can no longer call destructive routes in staging.",
+      "rollback": {
+        "action": "Unset STAGING_DESTRUCTIVE_GUARD and remove middleware usage in staging routes, or revert router changes.",
+        "restoreExample": "Re-run previous commit and restart service after clearing staging guard env vars."
+      }
+    },
+    {
+      "id": "STS-ROUTER-002",
+      "file": "routes/apiRoutes.js",
+      "component": "Git log endpoint",
+      "summary": "Replace shell-style command execution for git log with spawn-based process invocation.",
+      "effect": "Eliminates command-string interpolation risk and gives bounded timeout/event handling.",
+      "risk": "Changed error reporting shape to include close-code based responses in non-standard conditions.",
+      "rollback": {
+        "action": "Revert git log route to previous safe-checked execSync block if needed, then restart service."
+      }
+    },
+    {
+      "id": "STS-ROUTER-003",
+      "file": "routes/apiRoutes.js",
+      "component": "CRUD delete safety",
+      "summary": "Require staging destructive confirmation token for all generated CRUD delete actions when STAGING_DESTRUCTIVE_GUARD=true.",
+      "effect": "Prevents accidental deletes via admin endpoints like patients/rx records/medication catalog in staging without explicit confirmation context.",
+      "risk": "Some legacy staging scripts that call delete endpoints without header/token will now receive HTTP 428.",
+      "rollback": {
+        "action": "Remove requireStagingDestructiveConfirmation from generateCRUDRoutes delete chain and restart."
+      }
+    },
+    {
+      "id": "STS-BACKUP-001",
+      "file": "services/backupService.js",
+      "component": "Backup restore SQL safety",
+      "summary": "Sanitize restore SQL identifiers/strings when terminating connections and recreating database.",
+      "effect": "Improves resilience and prevents malformed restore target names from breaking SQL execution.",
+      "risk": "No functional behavior change except improved compatibility on odd database names.",
+      "rollback": {
+        "action": "Revert restore path SQL builder and use previous concatenated literals.",
+        "restoreExample": "Restore file and restart background services."
+      }
+    },
+    {
+      "id": "STS-BACKUP-002",
+      "file": "services/backupService.js",
+      "component": "Full site backup script generation",
+      "summary": "Generate PowerShell backup script from JSON payload instead of inline path interpolation.",
+      "effect": "Prevents shell injection through file paths and normalizes exclusion filtering for zip contents.",
+      "risk": "Temporary restore path mismatch in very old PowerShell hosts if JSON argument handling differs.",
+      "rollback": {
+        "action": "Reapply previous inline string interpolation backup script block.",
+        "restoreExample": "Redeploy previous version and remove _sitebackup*.ps1 files if present."
+      }
+    },
+    {
+      "id": "STS-WF-001",
+      "file": "controllers/workflowActionController.js",
+      "component": "Input hardening",
+      "summary": "Allowlist workflow action body keys (name/sequenceNumber/description/isActive) and force create to isActive=true.",
+      "effect": "Blocks over-posting and accidental deactivation/unknown field writes through API clients.",
+      "risk": "Clients expecting undocumented mutable fields on workflow actions will stop persisting those fields.",
+      "rollback": {
+        "action": "Drop `sanitizeWorkflowPayload` and direct request body usage, then restart API workers."
+      }
+    },
+    {
+      "id": "STS-DB-001",
+      "file": "app.js",
+      "component": "DB bootstrap safety",
+      "summary": "Create quote-safe database identifier when auto-creating staging DB in ensureDatabase().",
+      "effect": "Prevents breakage from unusual DB_NAME characters and keeps startup behavior deterministic.",
+      "risk": "No measurable regression risk when DB_NAME follows expected naming.",
+      "rollback": {
+        "action": "Revert to interpolated CREATE DATABASE literal."
+      }
+    },
+    {
+      "id": "STS-ENV-001",
+      "file": "app.js, scripts/lib/staging-env.js",
+      "component": "Environment isolation",
+      "summary": "Preserve launcher-prepared staging variables and assert the expected port, database, and writable root before startup.",
+      "effect": "Prevents a staging launcher from being silently redirected to root .env port/database values.",
+      "risk": "A mismatched or incomplete staging profile now fails fast instead of starting with mixed settings.",
+      "rollback": {
+        "action": "Remove RX_ENV_PROFILE assertions and restore historical dotenv override behavior."
+      }
+    },
+    {
+      "id": "STS-PROXY-001",
+      "file": "public/js/base.js, public/js/call-center.js, public/js/dashboard.js",
+      "component": "FortiGate proxy URL handling",
+      "summary": "Read public location and anchor URLs through rewrite-resistant dynamic properties.",
+      "effect": "Keeps API and navigation requests under the public FortiGate proxy prefix and prevents internal-host URL leakage or CSRF classification bypass.",
+      "risk": "A different proxy that does not expose normal Location/HTMLAnchorElement properties would fall back to existing route defaults.",
+      "rollback": {
+        "action": "Revert rxElementHref/native-location helpers and the Call Center/Dashboard consumers."
+      }
+    },
+    {
+      "id": "STS-CSRF-001",
+      "file": "app.js, public/js/base.js, public/js/app.js",
+      "component": "CSRF transport and stale-token recovery",
+      "summary": "Transport CSRF in headers and request bodies, retry one explicit stale-token rejection after cookie synchronization, and disable proxy caching of static security code.",
+      "effect": "Cookie-authenticated mutations remain fail-closed while long-lived proxy tabs recover from a server-refreshed CSRF token.",
+      "risk": "An explicit CSRF rejection can result in one additional rejected-safe retry sequence; successful writes are never automatically repeated.",
+      "rollback": {
+        "action": "Remove rxSyncCsrfTokenFromCookie/retry logic and restore the previous static cache policy."
+      }
+    },
+    {
+      "id": "STS-SMOKE-001",
+      "file": "scripts/smoke-staging-import-guard.js",
+      "component": "Credential-independent staging validation",
+      "summary": "Create and clean up a short-lived import-capable user for the import smoke test.",
+      "effect": "Removes dependency on stale stored/default staging credentials and keeps operator credentials out of committed files.",
+      "risk": "A smoke run interrupted before finally cleanup may require removal of a staging_import_smoke_* fixture.",
+      "rollback": {
+        "action": "Restore configured STAGING_SMOKE_USER/STAGING_SMOKE_PASS authentication."
+      }
+    }
+  ],
+  "possibleImpacts": [
+    {
+      "scenario": "Automated script calls destructive staging endpoint without token",
+      "result": "HTTP 428 with required STAGING_CONFIRM_HEADER and token prompt; action is blocked.",
+      "rollback": "Use staging token in request header or disable guard for controlled emergency operations."
+    },
+    {
+      "scenario": "Restore flow on custom-named database in staging",
+      "result": "Identifier-safe SQL now escapes quotes so restore can proceed with consistent naming conventions.",
+      "rollback": "If behavior changes, revert restore SQL constructor and run restore with prior binary."
+    },
+    {
+      "scenario": "Path contains spaces/quotes in PowerShell full-site backup",
+      "result": "JSON payload script invocation avoids string interpolation breakage and still creates ZIP+dump artifact.",
+      "rollback": "Redeploy previous backup block and validate a single backup/snapshot run."
+    },
+    {
+      "scenario": "FortiGate rewrites an anchor href reader to the internal target URL",
+      "result": "Rewrite-resistant readers return the public proxy URL, allowing CSRF injection and cookie transport to remain consistent.",
+      "rollback": "Revert STS-PROXY-001 and require direct-network access until the proxy integration is repaired."
+    }
+  ]
+}

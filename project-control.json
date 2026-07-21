@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "projectControlVersion": "1.2.0",
+  "project": "RX-TRACKER",
+  "displayName": "RX Tracker",
+  "serviceName": "Patient RX System",
+  "serviceId": "PatientRXSystem",
+  "legacyServiceIds": [
+    "0rxtracker.exe",
+    "0-RX-TRACKER"
+  ],
+  "defaultPort": 3000,
+  "healthPath": "/api/healthz",
+  "releaseBranch": "main",
+  "releaseTagPattern": "v*",
+  "logDirectory": "logs"
+}

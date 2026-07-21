@@ -1,0 +1,176 @@
+'use strict';
+
+const db = require('../models');
+const storage = require('../services/documentStorageService');
+const { getRequestPermission } = require('../middleware/rbac');
+
+const SAFE_DOWNLOAD_MIME = new Set([
+    'image/jpeg',
+    'image/png',
+    'image/gif',
+    'image/webp',
+    'image/bmp',
+    'image/tiff',
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'text/csv',
+    'application/csv',
+    'text/plain'
+]);
+
+function normalizeDownloadMime(mimeType) {
+    const raw = String(mimeType || '').toLowerCase().trim();
+    return SAFE_DOWNLOAD_MIME.has(raw) ? raw : 'application/octet-stream';
+}
+
+function serializeAttachment(row) {
+    const doc = row.toJSON ? row.toJSON() : row;
+    const uploader = doc.UploadedBy ? {
+        id: doc.UploadedBy.id,
+        username: doc.UploadedBy.username,
+        name: [doc.UploadedBy.firstName, doc.UploadedBy.lastName].filter(Boolean).join(' ').trim()
+    } : null;
+
+    return {
+        id: doc.id,
+        ownerType: doc.ownerType,
+        patientId: doc.patientId,
+        rxRecordId: doc.rxRecordId,
+        originalName: doc.originalName,
+        storedName: doc.storedName,
+        mimeType: doc.mimeType,
+        sizeBytes: Number(doc.sizeBytes || 0),
+        provider: doc.provider,
+        uploadedBy: uploader,
+        createdAt: doc.createdAt,
+        updatedAt: doc.updatedAt,
+        downloadUrl: doc.provider === 'drive' ? null : '/api/documents/' + doc.id + '/download'
+    };
+}
+
+function listInclude() {
+    return [{
+        model: db.User,
+        as: 'UploadedBy',
+        attributes: ['id', 'username', 'firstName', 'lastName']
+    }];
+}
+
+async function ensureOwner(ownerType, ownerId) {
+    if (ownerType === 'patient') {
+        const patient = await db.Patient.findByPk(ownerId);
+        if (!patient) {
+            const err = new Error('Patient not found.');
+            err.status = 404;
+            throw err;
+        }
+        return patient;
+    }
+
+    if (ownerType === 'rx-record') {
+        const rx = await db.RXRecord.findByPk(ownerId, {
+            include: [{ model: db.Patient }]
+        });
+        if (!rx) {
+            const err = new Error('RX record not found.');
+            err.status = 404;
+            throw err;
+        }
+        return rx;
+    }
+
+    const err = new Error('Unsupported document owner.');
+    err.status = 400;
+    throw err;
+}
+
+function ownerWhere(ownerType, ownerId) {
+    if (ownerType === 'patient') {
+        return { ownerType: 'patient', patientId: ownerId, isDeleted: false };
+    }
+    return { ownerType: 'rx-record', rxRecordId: ownerId, isDeleted: false };
+}
+
+async function canAccessAttachment(req, attachment, action) {
+    const moduleKey = attachment.rxRecordId ? 'rx_records' : 'patients';
+    const perm = await getRequestPermission(req, moduleKey);
+    if (!perm.visible) return false;
+    if (action === 'read') return true;
+    if (action === 'delete') return !!perm.canDelete;
+    return !!(perm.canAdd || perm.canEdit);
+}
+
+async function listForOwner(req, res, ownerType, ownerId) {
+    try {
+        await ensureOwner(ownerType, ownerId);
+        const rows = await db.DocumentAttachment.findAll({
+            where: ownerWhere(ownerType, ownerId),
+            include: listInclude(),
+            order: [['createdAt', 'DESC']]
+        });
+        res.json(rows.map(serializeAttachment));
+    } catch (err) {
+        res.status(err.status || 500).json({ error: err.message });
+    }
+}
+
+exports.listPatientDocuments = async (req, res) => {
+    await listForOwner(req, res, 'patient', parseInt(req.params.id, 10));
+};
+
+exports.listRxDocuments = async (req, res) => {
+    await listForOwner(req, res, 'rx-record', parseInt(req.params.id, 10));
+};
+
+exports.downloadDocument = async (req, res) => {
+    try {
+        const attachment = await db.DocumentAttachment.findOne({
+            where: { id: req.params.id, isDeleted: false }
+        });
+        if (!attachment) return res.status(404).json({ error: 'Document not found.' });
+        if (!await canAccessAttachment(req, attachment, 'read')) {
+            return res.status(403).json({ error: 'Access denied.' });
+        }
+
+        const stream = await storage.openReadStream(attachment);
+        const safeMime = normalizeDownloadMime(attachment.mimeType);
+        res.setHeader('Content-Type', safeMime);
+        res.setHeader('X-Content-Type-Options', 'nosniff');
+        res.setHeader('Content-Security-Policy', "default-src 'none'; sandbox");
+        const safeDownloadName = String(attachment.originalName || attachment.storedName).replace(/["\r\n]/g, '');
+        res.setHeader('Content-Disposition', 'attachment; filename="' + safeDownloadName + '"');
+        stream.on('error', (err) => {
+            if (!res.headersSent) res.status(500).json({ error: err.message });
+            else res.destroy(err);
+        });
+        stream.pipe(res);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+};
+
+exports.deleteDocument = async (req, res) => {
+    try {
+        const attachment = await db.DocumentAttachment.findOne({
+            where: { id: req.params.id, isDeleted: false }
+        });
+        if (!attachment) return res.status(404).json({ error: 'Document not found.' });
+        if (!await canAccessAttachment(req, attachment, 'delete')) {
+            return res.status(403).json({ error: 'Access denied.' });
+        }
+
+        try {
+            await storage.deleteStoredFile(attachment);
+        } catch (err) {
+            console.warn('[documents] Could not remove stored file:', err.message);
+        }
+
+        await attachment.update({ isDeleted: true, deletedAt: new Date() });
+        res.status(204).end();
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+};

@@ -1,0 +1,883 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <meta name="rx-csrf-token" content="<%= csrfToken || '' %>">
+    <script>!function(){var t=localStorage.getItem("rxTheme");if(t)document.documentElement.setAttribute("data-theme",t)}();</script>
+    <script>
+    // FortiGate cache buster: if URL doesn't have current build version, redirect to versioned URL.
+    // Each server restart generates a new build ID. This script runs in its own block so it
+    // executes even if the main inline script below has a syntax error from a stale cached page.
+    (function() {
+        var bv = '<%- appBuild %>';
+        var kv = '_v=' + bv;
+        if (window.location.search.indexOf(kv) === -1) {
+            var qs = window.location.search;
+            var sep = qs ? '&' : '?';
+            window.location.replace(window.location.pathname + qs + sep + kv);
+        }
+    })();
+    </script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Patient RX System</title>
+    <link href="/assets/bootstrap.min.css" rel="stylesheet">
+    <link href="/assets/inter.css" rel="stylesheet">
+    <link rel="stylesheet" href="/assets/fontawesome.all.min.css">
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        .stat-card-clickable {
+            cursor: pointer;
+            transition: transform 0.15s, box-shadow 0.15s;
+        }
+        .stat-card-clickable:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.13);
+        }
+        .stat-card-clickable:hover .card-icon {
+            opacity: 0.85;
+        }
+
+        /* ── Date range preset buttons ─────────────────────────────────────
+           Plain .btn .btn-sm has no visible background — dark on dark in
+           dark mode. Give them an explicit outline pill style by default
+           and a filled primary style when active.
+        ── */
+        .dash-preset {
+            background: transparent;
+            border: 1.5px solid var(--border, rgba(0,0,0,0.15));
+            color: var(--text-muted, #718096);
+            font-weight: 500;
+            transition: all 0.18s;
+        }
+        .dash-preset:hover {
+            border-color: #4a90e2;
+            color: #4a90e2;
+            background: rgba(74,144,226,0.08);
+        }
+        .dash-preset.active {
+            background: #4a90e2;
+            border-color: #4a90e2;
+            color: #ffffff !important;
+            font-weight: 600;
+            box-shadow: 0 2px 8px rgba(74,144,226,0.35);
+        }
+        /* Dark mode explicit overrides */
+        [data-theme="dark"] .dash-preset {
+            border-color: rgba(255,255,255,0.18);
+            color: #8b949e;
+        }
+        [data-theme="dark"] .dash-preset:hover {
+            border-color: #4a90e2;
+            color: #90c4f9;
+            background: rgba(74,144,226,0.12);
+        }
+        [data-theme="dark"] .dash-preset.active {
+            background: #4a90e2;
+            border-color: #4a90e2;
+            color: #ffffff !important;
+        }
+        .cc-history-toolbar {
+            display: flex;
+            align-items: center;
+            gap: .5rem;
+            flex-wrap: nowrap;
+            overflow-x: auto;
+            padding-bottom: 2px;
+        }
+        .cc-history-toolbar .btn-group {
+            flex: 0 0 auto;
+        }
+        #content .cc-history-toolbar .cc-history-type {
+            width: 92px !important;
+            min-width: 92px !important;
+            max-width: 92px !important;
+            flex: 0 0 92px;
+        }
+        #content .cc-history-toolbar .cc-history-user {
+            width: 210px !important;
+            min-width: 210px !important;
+            max-width: 210px !important;
+            flex: 0 0 210px;
+        }
+        #content .cc-history-toolbar .cc-history-date {
+            width: 142px !important;
+            min-width: 142px !important;
+            max-width: 142px !important;
+            flex: 0 0 142px;
+        }
+        .cc-history-toolbar .btn {
+            white-space: nowrap;
+        }
+        .cc-kpi-card {
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 12px 14px;
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            height: 100%;
+        }
+        .cc-kpi-clickable {
+            cursor: pointer;
+            transition: border-color .15s, box-shadow .15s, transform .15s;
+        }
+        .cc-kpi-clickable:hover,
+        .cc-kpi-clickable:focus {
+            border-color: #4a90e2;
+            box-shadow: 0 8px 24px rgba(0,0,0,.12);
+            transform: translateY(-1px);
+            outline: none;
+        }
+        .cc-kpi-clickable:hover .cc-kpi-icon,
+        .cc-kpi-clickable:focus .cc-kpi-icon {
+            opacity: .85;
+        }
+        .cc-kpi-icon {
+            width: 38px;
+            height: 38px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex: 0 0 38px;
+            font-size: 1rem;
+        }
+        .cc-drill-sort {
+            border: 0;
+            background: transparent;
+            color: inherit;
+            font: inherit;
+            font-weight: 800;
+            padding: 0;
+            text-align: inherit;
+            white-space: nowrap;
+        }
+        .cc-drill-sort i {
+            opacity: .45;
+            margin-left: 4px;
+        }
+        .cc-drill-sort.active i {
+            opacity: 1;
+            color: #4a90e2;
+        }
+        .cc-drill-history-row td {
+            background: rgba(74,144,226,.035);
+            border-top: 0;
+        }
+        .cc-drill-history-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(180px, 1fr));
+            gap: 10px;
+        }
+        .cc-drill-history-box {
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 8px 10px;
+            min-height: 52px;
+        }
+        .cc-drill-history-title {
+            color: var(--text-muted);
+            font-size: .72rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+        .cc-drill-history-list {
+            max-height: 130px;
+            overflow: auto;
+            font-size: .78rem;
+            line-height: 1.35;
+        }
+        @media (max-width: 900px) {
+            .cc-drill-history-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+<div class="wrapper">
+    <!-- Sidebar -->
+    <%- include('partials/sidebar') %>
+    <!-- Page Content -->
+    <div id="content">
+        <nav class="navbar navbar-expand-lg px-4 mb-2">
+            <button type="button" id="sidebarCollapse" class="btn btn-primary btn-sm">
+                <i class="fas fa-bars"></i>
+            </button>
+            <span class="ms-3 fw-bold fs-5">Dashboard</span>
+            <div class="ms-auto d-flex align-items-center gap-3">
+                <!-- ── Auto-refresh control ── -->
+                <div class="d-flex align-items-center gap-1" id="autoRefreshWidget"
+                     style="border:1.5px solid var(--border);border-radius:20px;padding:2px 10px 2px 8px;background:transparent">
+                    <!-- Pulse dot -->
+                    <span id="arPulseDot" style="width:7px;height:7px;border-radius:50%;background:#6c757d;display:inline-block;margin-right:4px;transition:background .3s"></span>
+                    <!-- Countdown -->
+                    <span id="arCountdown" style="font-size:.72rem;font-weight:600;color:var(--text-muted);min-width:30px;text-align:right;font-variant-numeric:tabular-nums">Off</span>
+                    <!-- Divider -->
+                    <span style="color:var(--border);margin:0 4px">|</span>
+                    <!-- Interval selector -->
+                    <select id="arIntervalSelect"
+                            style="border:none;background:transparent;font-size:.72rem;color:var(--text-muted);cursor:pointer;padding:0;outline:none;font-weight:500">
+                        <option value="0">Off</option>
+                        <option value="15">15 s</option>
+                        <option value="60">1 min</option>
+                        <option value="300">5 min</option>
+                        <option value="600">10 min</option>
+                    </select>
+                    <!-- Manual refresh -->
+                    <button id="arManualBtn" title="Refresh now"
+                            style="background:none;border:none;color:var(--text-muted);cursor:pointer;padding:0 0 0 4px;font-size:.78rem;line-height:1">
+                        <i class="fas fa-sync-alt"></i>
+                    </button>
+                </div>
+
+                <button id="themeToggle" class="btn btn-outline-secondary btn-sm"><i class="fas fa-moon"></i></button>
+                <span id="userGreeting" class="text-muted small"></span>
+                <button class="btn btn-outline-info btn-sm" onclick="openAccountModal()" title="My Account / 2FA">
+                    <i class="fas fa-shield-alt me-1"></i>My Account
+                </button>
+                <button id="logoutBtn" class="btn btn-danger btn-sm"><i class="fas fa-sign-out-alt me-1"></i>Logout</button>
+            </div>
+        </nav>
+
+<!-- My Account / 2FA Modal -->
+<div class="modal fade" id="accountModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content" style="background:#1e2336;border:1px solid rgba(255,255,255,.1);color:#fff">
+      <div class="modal-header border-0">
+        <h5 class="modal-title"><i class="fas fa-shield-alt text-info me-2"></i>My Account Security</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body px-4 pb-4">
+        <!-- 2FA Status Banner -->
+        <div id="twoFAStatusBanner" class="rounded-3 p-3 mb-4 text-center" style="background:rgba(255,255,255,.05)">
+          <div id="twoFAStatusIcon" style="font-size:2rem;margin-bottom:.3rem"></div>
+          <div id="twoFAStatusText" class="fw-bold"></div>
+          <div id="twoFAStatusSub" class="text-muted small mt-1"></div>
+          <div id="twoFABackupRemaining" class="d-none mt-1"></div>
+        </div>
+
+        <!-- Backup codes display (shown once after enable) -->
+        <div id="twoFABackupCodesSection" class="d-none mb-4">
+          <div class="alert alert-warning py-2 mb-2 small">
+            <i class="fas fa-exclamation-triangle me-1"></i>
+            <strong>Save these backup codes now.</strong> They will not be shown again.
+            Use one if you lose access to your authenticator app.
+          </div>
+          <div id="twoFABackupCodesGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px"></div>
+          <button class="btn btn-outline-secondary btn-sm w-100" onclick="copyBackupCodes()">
+            <i class="fas fa-copy me-1"></i>Copy All Codes
+          </button>
+        </div>
+
+        <!-- Setup Flow (shown when 2FA is OFF) -->
+        <div id="twoFASetupSection">
+          <p class="text-muted small mb-3">
+            <i class="fas fa-info-circle text-info me-1"></i>
+            Two-factor authentication adds an extra layer of security. After enabling, you will need a 6-digit code from your authenticator app every time you log in.
+          </p>
+          <button class="btn btn-info w-100 mb-2" id="startSetupBtn" onclick="start2FASetup()">
+            <i class="fas fa-qrcode me-1"></i>Set Up Two-Factor Authentication
+          </button>
+          <!-- QR Code section (hidden until Setup is clicked) -->
+          <div id="twoFAQRSection" class="d-none text-center">
+            <div class="alert alert-info py-2 small mb-3">
+              <i class="fas fa-mobile-alt me-1"></i>
+              Scan this QR code with <strong>Google Authenticator</strong>, <strong>Authy</strong>, or any TOTP app.
+            </div>
+            <img id="twoFAQRImg" src="" alt="QR Code" class="rounded mb-3" style="max-width:200px;border:4px solid #fff">
+            <div class="mb-3">
+              <label class="form-label small text-muted">Manual entry key</label>
+              <div class="input-group input-group-sm">
+                <input type="text" id="twoFASecretDisplay" class="form-control text-center font-monospace" readonly style="background:rgba(255,255,255,.1);color:#fff;font-size:.75rem;letter-spacing:.1rem">
+                <button class="btn btn-outline-secondary btn-sm" onclick="copySecret()" title="Copy"><i class="fas fa-copy"></i></button>
+              </div>
+            </div>
+            <div class="mb-3">
+              <label class="form-label small">Enter the 6-digit code to confirm setup</label>
+              <input type="text" id="twoFAEnableCode" class="form-control text-center fw-bold"
+                     inputmode="numeric" maxlength="7" placeholder="000 000"
+                     style="font-size:1.4rem;letter-spacing:.3rem;background:rgba(255,255,255,.1);color:#fff;border:1px solid rgba(255,255,255,.2)">
+            </div>
+            <div id="twoFAEnableError" class="alert alert-danger py-2 small d-none"></div>
+            <button class="btn btn-success w-100" id="enableTwoFABtn" onclick="enable2FA()">
+              <span id="enableSpinner" class="spinner-border spinner-border-sm me-1 d-none"></span>
+              <i class="fas fa-check-circle me-1"></i>Activate 2FA
+            </button>
+          </div>
+        </div>
+
+        <!-- Disable Flow + Backup Code Management (shown when 2FA is ON) -->
+        <div id="twoFADisableSection" class="d-none">
+          <p class="text-muted small mb-3">
+            <i class="fas fa-exclamation-triangle text-warning me-1"></i>
+            To disable 2FA, enter a code from your authenticator app to confirm it's really you.
+          </p>
+          <input type="text" id="twoFADisableCode" class="form-control text-center fw-bold mb-3"
+                 inputmode="numeric" maxlength="7" placeholder="000 000"
+                 style="font-size:1.4rem;letter-spacing:.3rem;background:rgba(255,255,255,.1);color:#fff;border:1px solid rgba(255,255,255,.2)">
+          <div id="twoFADisableError" class="alert alert-danger py-2 small d-none"></div>
+          <button class="btn btn-danger w-100 mb-3" id="disableTwoFABtn" onclick="disable2FA()">
+            <span id="disableSpinner" class="spinner-border spinner-border-sm me-1 d-none"></span>
+            <i class="fas fa-times-circle me-1"></i>Disable Two-Factor Authentication
+          </button>
+          <hr style="border-color:rgba(255,255,255,.1)">
+          <!-- Regenerate backup codes -->
+          <div id="regenCodesSection">
+            <p class="text-muted small mb-2"><i class="fas fa-key me-1"></i>Lost your backup codes? Generate a new set (invalidates old codes).</p>
+            <div class="input-group input-group-sm mb-2">
+              <input type="text" id="regenCode" class="form-control text-center font-monospace" placeholder="Enter authenticator code to confirm" inputmode="numeric" maxlength="7"
+                style="background:rgba(255,255,255,.1);color:#fff;border:1px solid rgba(255,255,255,.2)">
+              <button class="btn btn-outline-warning" onclick="regenerateBackupCodes()">
+                <i class="fas fa-redo me-1"></i>Regenerate
+              </button>
+            </div>
+            <div id="regenError" class="alert alert-danger py-1 small d-none"></div>
+          </div>
+        </div>
+
+        <!-- Change Password section -->
+        <hr style="border-color:rgba(255,255,255,.1)" class="mt-3">
+        <div id="changePwSection">
+          <p class="small fw-semibold mb-2"><i class="fas fa-key me-1 text-warning"></i>Change Password</p>
+          <input type="password" id="cpCurrentPw" class="form-control mb-2 form-control-sm" placeholder="Current password"
+            style="background:rgba(255,255,255,.08);color:#fff;border:1px solid rgba(255,255,255,.2)">
+          <input type="password" id="cpNewPw" class="form-control mb-2 form-control-sm" placeholder="New password (min 8 chars)"
+            style="background:rgba(255,255,255,.08);color:#fff;border:1px solid rgba(255,255,255,.2)">
+          <div id="cpError" class="alert alert-danger py-1 small d-none mb-2"></div>
+          <div id="cpSuccess" class="alert alert-success py-1 small d-none mb-2">Password changed. Other sessions have been signed out.</div>
+          <button class="btn btn-outline-warning btn-sm w-100" onclick="changePassword()">
+            <i class="fas fa-save me-1"></i>Change Password &amp; Sign Out Other Sessions
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+        <!-- Date Range Bar -->
+        <div class="px-4 mb-4">
+            <div class="glass-card p-2 px-3 d-flex align-items-center gap-2 flex-wrap">
+                <i class="fas fa-calendar-alt text-primary me-1" style="font-size:.85rem"></i>
+                <span class="small fw-bold text-muted me-1" style="white-space:nowrap">Date Range:</span>
+                <div class="d-flex gap-1 flex-wrap">
+                    <button class="btn btn-sm dash-preset active" data-preset="all" style="font-size:.75rem;padding:3px 10px;border-radius:20px">All Time</button>
+                    <button class="btn btn-sm dash-preset" data-preset="today" style="font-size:.75rem;padding:3px 10px;border-radius:20px">Today</button>
+                    <button class="btn btn-sm dash-preset" data-preset="week" style="font-size:.75rem;padding:3px 10px;border-radius:20px">This Week</button>
+                    <button class="btn btn-sm dash-preset" data-preset="month" style="font-size:.75rem;padding:3px 10px;border-radius:20px">This Month</button>
+                    <button class="btn btn-sm dash-preset" data-preset="30d" style="font-size:.75rem;padding:3px 10px;border-radius:20px">Last 30 Days</button>
+                    <button class="btn btn-sm dash-preset" data-preset="year" style="font-size:.75rem;padding:3px 10px;border-radius:20px">This Year</button>
+                </div>
+                <div class="d-flex align-items-center gap-1 ms-2">
+                    <span class="small text-muted">Custom:</span>
+                    <input type="date" id="dashFrom" class="form-control form-control-sm" style="width:140px;font-size:.78rem">
+                    <span class="small text-muted">&ndash;</span>
+                    <input type="date" id="dashTo" class="form-control form-control-sm" style="width:140px;font-size:.78rem">
+                </div>
+                <span id="dashRangeLabel" class="ms-auto badge rounded-pill" style="background:rgba(74,144,226,.12);color:#4a90e2;font-size:.72rem;white-space:nowrap">Showing all time</span>
+            </div>
+        </div>
+
+        <div class="container-fluid px-4">
+            <!-- Stat Cards -->
+            <div class="row g-3 mb-4 row-cols-5">
+                <div class="col">
+                    <div class="glass-card p-3 d-flex align-items-center stat-card-clickable" onclick="openDrilldown('active-patients')" title="Click to view list">
+                        <div class="me-2 card-icon" style="font-size:2rem;color:#4a90e2"><i class="fas fa-user-check"></i></div>
+                        <div>
+                            <div class="text-muted small">Active Patients</div>
+                            <div class="fs-2 fw-bold" id="activePatientsCount">&mdash;</div>
+                            <small class="text-primary"><i class="fas fa-external-link-alt me-1"></i>View list</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col">
+                    <div class="glass-card p-3 d-flex align-items-center stat-card-clickable" onclick="openDrilldown('inactive-patients')" title="Click to view list">
+                        <div class="me-2 card-icon" style="font-size:2rem;color:#e24a4a"><i class="fas fa-user-times"></i></div>
+                        <div>
+                            <div class="text-muted small">Inactive Patients</div>
+                            <div class="fs-2 fw-bold" id="inactivePatientsCount">&mdash;</div>
+                            <small class="text-danger"><i class="fas fa-external-link-alt me-1"></i>View list</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col">
+                    <div class="glass-card p-3 d-flex align-items-center stat-card-clickable" onclick="openDrilldown('total-rx')" title="Click to view list">
+                        <div class="me-2 card-icon" style="font-size:2rem;color:#50e3c2"><i class="fas fa-prescription-bottle-alt"></i></div>
+                        <div>
+                            <div class="text-muted small">Total RX Records</div>
+                            <div class="fs-2 fw-bold" id="activeRxCount">&mdash;</div>
+                            <small class="text-success"><i class="fas fa-external-link-alt me-1"></i>View list</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col">
+                    <div class="glass-card p-3 d-flex align-items-center stat-card-clickable" onclick="openDrilldown('patients-no-rx')" title="Click to view list">
+                        <div class="me-2 card-icon" style="font-size:2rem;color:#9b59b6"><i class="fas fa-user-slash"></i></div>
+                        <div>
+                            <div class="text-muted small">Total No-RX Records</div>
+                            <div class="fs-2 fw-bold" id="patientsWithNoRxCount">&mdash;</div>
+                            <small style="color:#9b59b6"><i class="fas fa-external-link-alt me-1"></i>View list</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col">
+                    <div class="glass-card p-3 d-flex align-items-center stat-card-clickable" onclick="openDrilldown('pending-rx')" title="Click to view list">
+                        <div class="me-2 card-icon" style="font-size:2rem;color:#f5a623"><i class="fas fa-truck-loading"></i></div>
+                        <div>
+                            <div class="text-muted small">Pending Deliveries</div>
+                            <div class="fs-2 fw-bold" id="pendingDeliveriesCount">&mdash;</div>
+                            <small class="text-warning"><i class="fas fa-external-link-alt me-1"></i>View list</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 90-Day Eligibility Widget -->
+
+            <div class="row g-3 mb-4" id="eligibilityRow">
+                <div class="col-12">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+                        <h6 class="mb-0"><i class="fas fa-calendar-check me-2" style="color:#198754"></i>90-Day Service Eligibility</h6>
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="badge rounded-pill" style="background:rgba(25,135,84,.12);color:#198754;font-size:.7rem" id="eligLastUpdated"></span>
+                            <button class="btn btn-outline-secondary btn-sm" onclick="loadEligibility()" title="Refresh"><i class="fas fa-sync-alt"></i></button>
+                        </div>
+                    </div>
+                </div>
+                <!-- Card 1: Eligible Now -->
+                <div class="col-md-3">
+                    <div class="glass-card p-3 d-flex align-items-center stat-card-clickable" onclick="openEligDrilldown('eligible')" title="Click to view eligible patients">
+                        <div class="me-3 card-icon" style="font-size:2rem;color:#198754"><i class="fas fa-check-circle"></i></div>
+                        <div>
+                            <div class="text-muted small">Eligible Now</div>
+                            <div class="fs-2 fw-bold" id="eligNowCount">&mdash;</div>
+                            <small class="text-muted d-block mt-1" id="eligNowNote">Active patients only, inactive excluded</small>
+                            <small style="color:#198754"><i class="fas fa-external-link-alt me-1"></i>View patients</small>
+                        </div>
+                    </div>
+                </div>
+                <!-- Card 2: Expiring Soon -->
+                <div class="col-md-3">
+                    <div class="glass-card p-3 d-flex align-items-center stat-card-clickable" onclick="openEligDrilldown('expiring')" title="Click to view patients expiring within 7 days">
+                        <div class="me-3 card-icon" style="font-size:2rem;color:#dc3545"><i class="fas fa-hourglass-half"></i></div>
+                        <div>
+                            <div class="text-muted small">Call Pre-Eligibility (&le;<%= callCenterLeadDays %> Days)</div>
+                            <div class="fs-2 fw-bold" id="eligExpiringCount">&mdash;</div>
+                            <small class="text-muted d-block mt-1" id="eligExpiringNote">Loading Call Queue cutoff…</small>
+                            <small class="text-danger"><i class="fas fa-external-link-alt me-1"></i>View patients</small>
+                        </div>
+                    </div>
+                </div>
+                <!-- Card 3: In Active Window -->
+                <div class="col-md-3">
+                    <div class="glass-card p-3 d-flex align-items-center stat-card-clickable" onclick="openEligDrilldown('window')" title="Click to view patients in active window">
+                        <div class="me-3 card-icon" style="font-size:2rem;color:#4a90e2"><i class="fas fa-lock"></i></div>
+                        <div>
+                            <div class="text-muted small">In Active Window</div>
+                            <div class="fs-2 fw-bold" id="eligInWindowCount">&mdash;</div>
+                            <small class="text-muted d-block mt-1" id="eligWindowNote">Active patients only, inactive excluded</small>
+                            <small style="color:#4a90e2"><i class="fas fa-external-link-alt me-1"></i>View patients</small>
+                        </div>
+                    </div>
+                </div>
+                <!-- Card 4: No Service Date -->
+                <div class="col-md-3">
+                    <div class="glass-card p-3 d-flex align-items-center stat-card-clickable" onclick="openEligDrilldown('none')" title="Click to view patients with no service date">
+                        <div class="me-3 card-icon" style="font-size:2rem;color:#6c757d"><i class="fas fa-calendar-times"></i></div>
+                        <div>
+                            <div class="text-muted small">No Service Date</div>
+                            <div class="fs-2 fw-bold" id="eligNoDateCount">&mdash;</div>
+                            <small class="text-muted d-block mt-1" id="eligNoDateNote">Active patients only, inactive excluded</small>
+                            <small class="text-muted"><i class="fas fa-external-link-alt me-1"></i>View patients</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts Row -->
+            <div class="row g-4 mb-4" id="chartsRow">
+                <div class="col-md-7">
+                    <div class="glass-card p-4 h-100">
+                        <h6 class="mb-3 fw-semibold"><i class="fas fa-chart-bar me-2 text-primary"></i>Dashboard Card Totals</h6>
+                        <div style="position:relative;height:220px"><canvas id="patientsBarChart"></canvas></div>
+                    </div>
+                </div>
+                <div class="col-md-5">
+                    <div class="glass-card p-4 h-100">
+                        <h6 class="mb-3 fw-semibold"><i class="fas fa-chart-pie me-2 text-success"></i>RX Records Status</h6>
+                        <div style="position:relative;height:220px;display:flex;align-items:center;justify-content:center"><canvas id="rxDonutChart"></canvas></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- RX Pipeline Widget -->
+            <div class="row g-4 mb-4" id="rxPipelineRow">
+                <div class="col-12">
+                    <div class="glass-card p-4">
+                        <div class="d-flex justify-content-between align-items-center mb-4">
+                            <h5 class="mb-0"><i class="fas fa-project-diagram me-2" style="color:#4a90e2"></i>RX Workflow Pipeline</h5>
+                            <div class="d-flex align-items-center gap-3">
+                                <span class="badge bg-secondary" id="rxPipelineLastUpdated" style="font-weight:400;font-size:.72rem"></span>
+                                <button class="btn btn-outline-secondary btn-sm" onclick="loadRxPipeline()" title="Refresh"><i class="fas fa-sync-alt"></i></button>
+                                <a href="/rx-records" class="btn btn-outline-primary btn-sm"><i class="fas fa-external-link-alt me-1"></i>View RX Records</a>
+                            </div>
+                        </div>
+                        <div class="row g-3 mb-4" id="rxPipelineSummary">
+                            <div class="col-md-4">
+                                <div style="background:rgba(108,117,125,.08);border-radius:12px;padding:16px 20px;display:flex;align-items:center;gap:14px">
+                                    <div style="width:44px;height:44px;border-radius:50%;background:rgba(108,117,125,.15);display:flex;align-items:center;justify-content:center;flex-shrink:0"><i class="fas fa-hourglass-start" style="color:#6c757d;font-size:1.1rem"></i></div>
+                                    <div><div class="text-muted" style="font-size:.75rem;text-transform:uppercase;letter-spacing:.05em">Not Started</div><div class="fw-bold fs-3" id="rxPipelineNotStarted">&mdash;</div></div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div style="background:rgba(253,126,20,.08);border-radius:12px;padding:16px 20px;display:flex;align-items:center;gap:14px">
+                                    <div style="width:44px;height:44px;border-radius:50%;background:rgba(253,126,20,.15);display:flex;align-items:center;justify-content:center;flex-shrink:0"><i class="fas fa-spinner" style="color:#fd7e14;font-size:1.1rem"></i></div>
+                                    <div><div class="text-muted" style="font-size:.75rem;text-transform:uppercase;letter-spacing:.05em">In Progress</div><div class="fw-bold fs-3" id="rxPipelineInProgress">&mdash;</div></div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div style="background:rgba(25,135,84,.08);border-radius:12px;padding:16px 20px;display:flex;align-items:center;gap:14px">
+                                    <div style="width:44px;height:44px;border-radius:50%;background:rgba(25,135,84,.15);display:flex;align-items:center;justify-content:center;flex-shrink:0"><i class="fas fa-check-circle" style="color:#198754;font-size:1.1rem"></i></div>
+                                    <div><div class="text-muted" style="font-size:.75rem;text-transform:uppercase;letter-spacing:.05em">Completed</div><div class="fw-bold fs-3" id="rxPipelineCompleted">&mdash;</div></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between mb-1">
+                                <small class="text-muted fw-semibold">Overall Completion</small>
+                                <small class="text-muted" id="rxPipelinePercent">&mdash;</small>
+                            </div>
+                            <div style="height:10px;border-radius:6px;background:rgba(0,0,0,.07);overflow:hidden">
+                                <div id="rxPipelineProgressBar" style="height:100%;border-radius:6px;background:linear-gradient(90deg,#4a90e2,#198754);transition:width .6s ease;width:0%"></div>
+                            </div>
+                        </div>
+                        <div id="rxPipelineSteps" class="mt-3">
+                            <div class="text-muted text-center py-3"><i class="fas fa-spinner fa-spin me-2"></i>Loading...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row g-4 mb-4 d-none" id="callCenterReviewRow">
+                <div class="col-12 d-none" id="callCenterReviewCard">
+                    <div class="glass-card p-4">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h6 class="mb-0 fw-semibold"><i class="fas fa-headset me-2 text-info"></i>Call Center Metrics</h6>
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="badge bg-info text-dark" id="ccReviewScope">Scope: All Users</span>
+                                <span class="badge bg-secondary" id="ccReviewRange">Today</span>
+                            </div>
+                        </div>
+                        <div class="cc-history-toolbar mb-3">
+                            <div class="btn-group btn-group-sm" role="group" aria-label="Call Center history range">
+                                <button class="btn btn-outline-secondary cc-history-range-btn" data-cc-history-range="7d">7D</button>
+                                <button class="btn btn-outline-secondary cc-history-range-btn active" data-cc-history-range="30d">30D</button>
+                                <button class="btn btn-outline-secondary cc-history-range-btn" data-cc-history-range="90d">90D</button>
+                                <button class="btn btn-outline-secondary cc-history-range-btn" data-cc-history-range="all">All</button>
+                            </div>
+                            <select class="form-select form-select-sm trend-date-input cc-history-type" id="ccHistoryChartType" aria-label="Call Center chart type">
+                                <option value="line">Line</option>
+                                <option value="bar">Bar</option>
+                            </select>
+                            <select class="form-select form-select-sm trend-date-input cc-history-user" id="ccHistoryUser" aria-label="Call Center user">
+                                <option value="">All Users Combined</option>
+                            </select>
+                            <input type="date" id="ccHistoryFrom" class="form-control form-control-sm trend-date-input cc-history-date">
+                            <span class="small text-muted">-</span>
+                            <input type="date" id="ccHistoryTo" class="form-control form-control-sm trend-date-input cc-history-date">
+                            <button class="btn btn-outline-primary btn-sm" id="ccHistoryApplyBtn"><i class="fas fa-filter me-1"></i>Apply</button>
+                            <button class="btn btn-outline-success btn-sm" id="ccHistoryExportBtn"><i class="fas fa-file-csv me-1"></i>Export CSV</button>
+                        </div>
+                        <div class="row g-3 mb-3">
+                            <div class="col-md">
+                                <div class="cc-kpi-card cc-kpi-clickable" role="button" tabindex="0" onclick="openEligDrilldown('eligible')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openEligDrilldown('eligible')}" title="View eligible patients">
+                                    <div class="cc-kpi-icon" style="background:rgba(25,135,84,.14);color:#198754"><i class="fas fa-user-check"></i></div>
+                                    <div>
+                                        <div class="text-muted small fw-bold">Eligible Now</div>
+                                        <div class="fs-3 fw-bold" id="ccReviewEligible">&mdash;</div>
+                                        <small class="text-muted d-block">Eligible queue patients now</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md">
+                                <div class="cc-kpi-card cc-kpi-clickable" role="button" tabindex="0" data-cc-drilldown="calls" title="View patients behind Calls">
+                                    <div class="cc-kpi-icon" style="background:rgba(56,189,248,.14);color:#38bdf8"><i class="fas fa-phone-alt"></i></div>
+                                    <div>
+                                        <div class="text-muted small fw-bold">Calls</div>
+                                        <div class="fs-3 fw-bold" id="ccReviewCalls">&mdash;</div>
+                                        <small class="text-muted d-block">Call checkbox saved in range</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md">
+                                <div class="cc-kpi-card cc-kpi-clickable" role="button" tabindex="0" data-cc-drilldown="patients" title="View patients behind Patients Called">
+                                    <div class="cc-kpi-icon" style="background:rgba(74,144,226,.14);color:#4a90e2"><i class="fas fa-users"></i></div>
+                                    <div>
+                                        <div class="text-muted small fw-bold">Patients Called</div>
+                                        <div class="fs-3 fw-bold" id="ccReviewUnique">&mdash;</div>
+                                        <small class="text-muted d-block">Unique patients with calls</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md">
+                                <div class="cc-kpi-card cc-kpi-clickable" role="button" tabindex="0" data-cc-drilldown="dates" title="View patients behind Service Dates">
+                                    <div class="cc-kpi-icon" style="background:rgba(32,201,151,.14);color:#20c997"><i class="fas fa-calendar-plus"></i></div>
+                                    <div>
+                                        <div class="text-muted small fw-bold">Service Dates</div>
+                                        <div class="fs-3 fw-bold" id="ccReviewDates">&mdash;</div>
+                                        <small class="text-muted d-block">New service dates entered</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md">
+                                <div class="cc-kpi-card cc-kpi-clickable" role="button" tabindex="0" data-cc-drilldown="repeats" title="View patients behind Repeat Calls">
+                                    <div class="cc-kpi-icon" style="background:rgba(245,166,35,.14);color:#f5a623"><i class="fas fa-redo-alt"></i></div>
+                                    <div>
+                                        <div class="text-muted small fw-bold">Repeat Calls</div>
+                                        <div class="fs-3 fw-bold" id="ccReviewRepeats">&mdash;</div>
+                                        <small class="text-muted d-block">Calls minus unique patients</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md">
+                                <div class="cc-kpi-card cc-kpi-clickable" role="button" tabindex="0" data-cc-drilldown="efficiency" title="View patients behind Efficiency">
+                                    <div class="cc-kpi-icon" style="background:rgba(255,193,7,.14);color:#ffc107"><i class="fas fa-tachometer-alt"></i></div>
+                                    <div>
+                                        <div class="text-muted small fw-bold">Efficiency</div>
+                                        <div class="fs-3 fw-bold" id="ccReviewEfficiency">&mdash;</div>
+                                        <small class="text-muted d-block">Service dates / calls</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row g-3 mb-3">
+                            <div class="col-md">
+                                <div class="cc-kpi-card cc-kpi-clickable" role="button" tabindex="0" data-cc-drilldown="conversion" title="View patients behind Conversion">
+                                    <div class="cc-kpi-icon" style="background:rgba(25,135,84,.14);color:#198754"><i class="fas fa-bullseye"></i></div>
+                                    <div>
+                                        <div class="text-muted small fw-bold">Conversion</div>
+                                        <div class="fs-4 fw-bold" id="ccReviewConversion">&mdash;</div>
+                                        <small class="text-muted d-block">Service dates / patients</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md">
+                                <div class="cc-kpi-card cc-kpi-clickable" role="button" tabindex="0" data-cc-drilldown="repeat-rate" title="View patients behind Repeat Rate">
+                                    <div class="cc-kpi-icon" style="background:rgba(253,126,20,.14);color:#fd7e14"><i class="fas fa-percentage"></i></div>
+                                    <div>
+                                        <div class="text-muted small fw-bold">Repeat Rate</div>
+                                        <div class="fs-4 fw-bold" id="ccReviewRepeatRate">&mdash;</div>
+                                        <small class="text-muted d-block">Repeat calls / total calls</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md">
+                                <div class="cc-kpi-card cc-kpi-clickable" role="button" tabindex="0" data-cc-drilldown="calls-per-date" title="View patients behind Calls per Date">
+                                    <div class="cc-kpi-icon" style="background:rgba(13,110,253,.14);color:#0d6efd"><i class="fas fa-divide"></i></div>
+                                    <div>
+                                        <div class="text-muted small fw-bold">Calls / Date</div>
+                                        <div class="fs-4 fw-bold" id="ccReviewCallsPerDate">&mdash;</div>
+                                        <small class="text-muted d-block">Calls / service dates</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md">
+                                <div class="cc-kpi-card cc-kpi-clickable" role="button" tabindex="0" data-cc-drilldown="notes-per-call" title="View patients behind Notes per Call">
+                                    <div class="cc-kpi-icon" style="background:rgba(155,89,182,.14);color:#9b59b6"><i class="fas fa-sticky-note"></i></div>
+                                    <div>
+                                        <div class="text-muted small fw-bold">Notes / Call</div>
+                                        <div class="fs-4 fw-bold" id="ccReviewNotesPerCall">&mdash;</div>
+                                        <small class="text-muted d-block">Call Center notes / calls</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md">
+                                <div class="cc-kpi-card cc-kpi-clickable" role="button" tabindex="0" data-cc-drilldown="last-activity" title="View patients behind Last Activity">
+                                    <div class="cc-kpi-icon" style="background:rgba(108,117,125,.14);color:#6c757d"><i class="fas fa-clock"></i></div>
+                                    <div>
+                                        <div class="text-muted small fw-bold">Last Activity</div>
+                                        <div class="fw-bold" id="ccReviewLastActivity">&mdash;</div>
+                                        <small class="text-muted d-block">Latest call, note, or date</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row g-3 mb-3">
+                            <div class="col-lg-8">
+                                <div style="border:1px solid var(--border);border-radius:8px;padding:14px">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <div class="small fw-bold text-muted">Call Center Activity</div>
+                                        <small class="text-muted" id="ccReviewHistoryRange">Last 30 days</small>
+                                    </div>
+                                    <div style="position:relative;height:240px"><canvas id="ccReviewActivityChart"></canvas></div>
+                                </div>
+                            </div>
+                            <div class="col-lg-4">
+                                <div style="border:1px solid var(--border);border-radius:8px;padding:14px">
+                                    <div class="small fw-bold text-muted mb-2">Efficiency History</div>
+                                    <div style="position:relative;height:240px"><canvas id="ccReviewEfficiencyChart"></canvas></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>User</th>
+                                        <th class="text-end">Calls</th>
+                                        <th class="text-end">Patients</th>
+                                        <th class="text-end">Dates</th>
+                                        <th class="text-end">Notes</th>
+                                        <th class="text-end">Efficiency</th>
+                                        <th class="text-end">Conversion</th>
+                                        <th class="text-end">Repeat</th>
+                                        <th class="text-end">Last Activity</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="ccReviewUsers">
+                                    <tr><td colspan="9" class="text-center text-muted">Loading</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Trend Charts -->
+            <div class="trend-controls-band glass-card p-3 mb-3" id="dashboardTrendControls">
+                <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                        <h5 class="mb-0 me-2"><i class="fas fa-chart-line me-2 text-primary"></i>Timeline Range</h5>
+                        <div class="btn-group btn-group-sm" role="group" aria-label="Trend range">
+                            <button class="btn btn-outline-secondary trend-range-btn active" data-trend-range="7d">7D</button>
+                            <button class="btn btn-outline-secondary trend-range-btn" data-trend-range="30d">30D</button>
+                            <button class="btn btn-outline-secondary trend-range-btn" data-trend-range="90d">90D</button>
+                            <button class="btn btn-outline-secondary trend-range-btn" data-trend-range="all">All</button>
+                        </div>
+                        <select class="form-select form-select-sm trend-date-input" id="trendChartType" aria-label="Trend chart type">
+                            <option value="line">Line</option>
+                            <option value="bar">Bar</option>
+                        </select>
+                    </div>
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                        <input type="date" id="trendFrom" class="form-control form-control-sm trend-date-input">
+                        <span class="small text-muted">&ndash;</span>
+                        <input type="date" id="trendTo" class="form-control form-control-sm trend-date-input">
+                        <button class="btn btn-outline-primary btn-sm" id="trendApplyBtn"><i class="fas fa-filter me-1"></i>Apply</button>
+                        <button class="btn btn-outline-success btn-sm" id="trendExportBtn"><i class="fas fa-file-csv me-1"></i>Export CSV</button>
+                    </div>
+                </div>
+            </div>
+            <div class="row g-4" id="dashboardTrendsRow">
+                <div class="col-lg-6">
+                    <div class="glass-card p-4 h-100">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h5 class="mb-0"><i class="fas fa-chart-line me-2 text-primary"></i>Patients Over Time</h5>
+                        </div>
+                        <div style="position:relative;height:260px"><canvas id="patientsTrendChart"></canvas></div>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="glass-card p-4 h-100">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h5 class="mb-0"><i class="fas fa-chart-area me-2 text-success"></i>Workflow Over Time</h5>
+                            <small class="text-muted">Uses the same range</small>
+                        </div>
+                        <div style="position:relative;height:260px"><canvas id="workflowTrendChart"></canvas></div>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="glass-card p-4 h-100">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h5 class="mb-0"><i class="fas fa-user-check me-2 text-warning"></i>Eligibility Over Time</h5>
+                        </div>
+                        <div style="position:relative;height:260px"><canvas id="eligibilityTrendChart"></canvas></div>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="glass-card p-4 h-100">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h5 class="mb-0"><i class="fas fa-tasks me-2 text-info"></i>Workflow Completion</h5>
+                        </div>
+                        <div style="position:relative;height:260px"><canvas id="workflowCompletionTrendChart"></canvas></div>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="glass-card p-4 h-100">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h5 class="mb-0"><i class="fas fa-pen-to-square me-2 text-success"></i>Service Date Entries</h5>
+                        </div>
+                        <div style="position:relative;height:260px"><canvas id="serviceDateTrendChart"></canvas></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Drill-Down Modal -->
+<div class="modal fade" id="drilldownModal" tabindex="-1">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="drilldownTitle">Report</h5>
+                <div class="ms-auto d-flex gap-2 me-3">
+                    <button class="btn btn-outline-success btn-sm d-none" id="ccDrilldownExportBtn" type="button"><i class="fas fa-file-csv me-1"></i>Export CSV</button>
+                    <a class="btn btn-outline-primary btn-sm" id="drilldownFullPageBtn" href="#" target="_self"><i class="fas fa-user-friends me-1"></i>View Patients</a>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="drilldownBody"><p class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin me-2"></i>Loading...</p></div>
+        </div>
+    </div>
+</div>
+
+<!-- API URL anchors: FortiGate always rewrites href on <a> elements -->
+<div id="x-api-urls" aria-hidden="true" class="d-none">
+    <!-- xa-base: base.js reads this href to detect the FortiGate proxy prefix for rxNav/rxUrl -->
+    <a id="xa-base" href="/login"></a>
+    <!-- API URL anchors for fetchWithAuth calls -->
+    <a id="xa-stats"  href="/api/dashboard/stats"></a>
+    <a id="xa-charts" href="/api/dashboard/charts"></a>
+    <a id="xa-rxp"    href="/api/dashboard/rx-pipeline"></a>
+    <a id="xa-elig"   href="/api/dashboard/eligibility"></a>
+    <a id="xa-cc-review" href="/api/call-center/metrics/review"></a>
+    <a id="xa-cc-drilldown" href="/api/call-center/metrics/drilldown"></a>
+    <a id="xa-drill"  href="/api/dashboard/"></a>
+    <a id="xa-ap"     href="/api/dashboard/active-patients"></a>
+    <a id="xa-ip"     href="/api/dashboard/inactive-patients"></a>
+    <a id="xa-tr"     href="/api/dashboard/total-rx"></a>
+    <a id="xa-pr"     href="/api/dashboard/pending-rx"></a>
+    <a id="xa-nr"     href="/api/dashboard/patients-no-rx"></a>
+    <a id="xa-s2fa"   href="/api/auth/2fa/status"></a>
+    <a id="xa-u2fa"   href="/api/auth/2fa/setup"></a>
+    <a id="xa-e2fa"   href="/api/auth/2fa/enable"></a>
+    <a id="xa-d2fa"   href="/api/auth/2fa/disable"></a>
+    <a id="xa-r2fa"   href="/api/auth/2fa/regenerate-backup-codes"></a>
+    <a id="xa-cpw"    href="/api/auth/change-password"></a>
+    <a id="xa-login2" href="/api/auth/login/2fa"></a>
+    <!-- Page link anchors for drilldown navigation (avoids JS '/' strings FortiGate corrupts) -->
+    <a id="xl-patients-active"    href="/patients?status=active"></a>
+    <a id="xl-patients-inactive"  href="/patients?status=inactive"></a>
+    <a id="xl-rx-records"         href="/rx-records"></a>
+    <a id="xl-rx-records-pending" href="/rx-records?pending=true"></a>
+    <a id="xl-patients-norx"      href="/patients?status=norx"></a>
+    <!-- Eligibility filter page links -->
+    <a id="xl-elig-eligible" href="/patients?eligFilter=eligible&status=active"></a>
+    <a id="xl-elig-expiring" href="/patients?eligFilter=expiring&status=active"></a>
+    <a id="xl-elig-window"   href="/patients?eligFilter=window&status=active"></a>
+    <a id="xl-elig-none"     href="/patients?eligFilter=none&status=active"></a>
+    <!-- Eligibility drilldown API anchors -->
+    <a id="xa-elig-base" href="/api/dashboard/eligibility-drilldown/"></a>
+</div>
+
+<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index:1100"></div>
+<script src="/assets/bootstrap.bundle.min.js"></script>
+<script src="/assets/chart.umd.min.js"></script>
+<script src="/js/base.js?v=<%= appBuild %>"></script>
+<script src="/js/app.js?v=<%= appBuild %>"></script>
+<script src="/js/help.js?v=<%= appBuild %>"></script>
+<script src="/js/dashboard.js?v=<%= appBuild %>"></script>
+</body>
+</html>

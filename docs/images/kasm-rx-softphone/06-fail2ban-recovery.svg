@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="760" viewBox="0 0 1400 760" role="img" aria-labelledby="title desc">
+  <title id="title">Fail2ban inspection and recovery workflow</title>
+  <desc id="desc">A terminal-style screen showing how to inspect the Asterisk jail, unban one verified remote IP, correct the credential, and retest once.</desc>
+  <style>.h1{font:700 30px 'Segoe UI',Arial;fill:#f8fafc}.sub{font:16px 'Segoe UI',Arial;fill:#9eb0c8}.cmd{font:17px Consolas,monospace;fill:#dbeafe}.out{font:16px Consolas,monospace;fill:#98a9bf}.green{font:700 16px 'Segoe UI',Arial;fill:#86efac}.amber{font:700 16px 'Segoe UI',Arial;fill:#fcd34d}.red{font:700 16px 'Segoe UI',Arial;fill:#fca5a5}.step{font:700 18px 'Segoe UI',Arial;fill:#e6eef9}</style>
+  <rect width="1400" height="760" rx="24" fill="#07111f"/>
+  <text x="48" y="59" class="h1">Asterisk / Fail2ban — inspect first, unban one verified IP</text>
+  <text x="48" y="90" class="sub">The SIP source is the remote Windows site's public IP, not a Cloudflare address.</text>
+  <rect x="48" y="125" width="1304" height="540" rx="16" fill="#020617" stroke="#334155"/>
+  <rect x="48" y="125" width="1304" height="46" rx="16" fill="#111827"/><circle cx="78" cy="148" r="7" fill="#ef4444"/><circle cx="101" cy="148" r="7" fill="#f59e0b"/><circle cx="124" cy="148" r="7" fill="#22c55e"/><text x="158" y="154" class="sub">PBX administrator shell</text>
+
+  <text x="78" y="213" class="step">1  Find the active jail and inspect it</text>
+  <text x="78" y="249" class="cmd">$ sudo fail2ban-client status</text><text x="78" y="279" class="out">Jail list: asterisk, sshd</text>
+  <text x="78" y="313" class="cmd">$ sudo fail2ban-client status asterisk</text><text x="78" y="343" class="out">Banned IP list: &lt;REMOTE_PUBLIC_IP&gt;</text>
+
+  <text x="78" y="397" class="step">2  Confirm ownership, then remove only that address</text>
+  <text x="78" y="433" class="cmd">$ sudo fail2ban-client set asterisk unbanip &lt;REMOTE_PUBLIC_IP&gt;</text>
+  <text x="78" y="463" class="green">✓  Re-check the jail. Keep Fail2ban enabled.</text>
+
+  <text x="78" y="517" class="step">3  Correct the SIP password or endpoint before retrying</text>
+  <text x="78" y="553" class="cmd">$ sudo asterisk -rx "pjsip show endpoint 1006"</text>
+  <text x="78" y="583" class="cmd">$ sudo asterisk -rx "pjsip show contacts"</text>
+  <text x="78" y="621" class="green">✓  Register once and verify the new contact.</text>
+
+  <text x="750" y="213" class="amber">DO</text><text x="750" y="246" class="sub">• verify the workstation's current public IP</text><text x="750" y="278" class="sub">• fix credentials before another attempt</text><text x="750" y="310" class="sub">• preserve the jail and firewall</text>
+  <text x="750" y="374" class="red">DO NOT</text><text x="750" y="407" class="sub">• unban every address</text><text x="750" y="439" class="sub">• disable Fail2ban</text><text x="750" y="471" class="sub">• whitelist dynamic home/hotel IPs</text><text x="750" y="503" class="sub">• whitelist Cloudflare IP ranges for SIP</text>
+  <text x="48" y="710" class="sub">Screen reference • Replace placeholders; never paste passwords into the shell history or documentation.</text>
+</svg>

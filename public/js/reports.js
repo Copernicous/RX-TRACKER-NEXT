@@ -1,0 +1,1102 @@
+    var allPatientReport = [];
+    var allRxReport = [];
+    var allCcReport = [];
+    var allCcAttempts = [];
+    var allWorkflowActions = [];
+    var prSortCol = 'id', prSortDir = 'desc';
+    var rrSortCol = 'id', rrSortDir = 'desc';
+    var ccrSortCol = 'lastActionAt', ccrSortDir = 'desc';
+    var ccaSortCol = 'dialedAt', ccaSortDir = 'desc';
+    var prPage = 1, prPageSize = 10;
+    var rrPage = 1, rrPageSize = 10;
+    var ccrPage = 1, ccrPageSize = 10;
+    var ccaPage = 1, ccaPageSize = 20;
+    var _panelStates = {};
+
+    function togglePanel(panelId, chevronId, stateKey) {
+        _panelStates[stateKey] = !_panelStates[stateKey];
+        const el = document.getElementById(panelId);
+        const ch = document.getElementById(chevronId);
+        if (el) el.style.display = _panelStates[stateKey] ? '' : 'none';
+        if (ch) ch.className = _panelStates[stateKey] ? 'fas fa-chevron-up ms-1' : 'fas fa-chevron-down ms-1';
+    }
+
+    document.addEventListener('DOMContentLoaded', async () => {
+        initApp();
+        await loadReportData();
+        setupReportExports();
+
+        const reportPerms = typeof getPagePerms === 'function' ? getPagePerms() : { canExport: true, canPrint: true };
+        ['exportPatientCsv','exportPatientXls','exportRxCsv','exportRxXls','exportCcCsv','exportCcXls','exportCcAttemptsCsv','exportCcAttemptsXls'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el && typeof setRoleActionDisabled === 'function') setRoleActionDisabled(el, !reportPerms.canExport, 'Export disabled for this role.');
+        });
+        ['exportPatientPdf','exportRxPdf','printPatientBtn','printRxBtn','printCcBtn','printCcAttemptsBtn'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el && typeof setRoleActionDisabled === 'function') setRoleActionDisabled(el, !reportPerms.canPrint, 'Print disabled for this role.');
+        });
+    });
+
+    // ─── Load Data ───────────────────────────────────────────────────────────────
+    async function loadReportData() {
+        try {
+            const wf = await fetchWithAuth('/api/lookup/workflow-actions');
+            const wfRes = wf && wf.ok ? await wf.json() : [];
+            allWorkflowActions = Array.isArray(wfRes)  ? wfRes  : [];
+            setDefaultCallCenterDates();
+            buildAutocompletes();
+            await Promise.all([renderPatientReport(), renderRxActionReport(), renderCallCenterReports()]);
+        } catch(e) {
+            console.error('Report load error:', e);
+        }
+    }
+
+    function setReportParam(params, name, value) {
+        if (value !== null && value !== undefined && String(value).trim() !== '') {
+            params.set(name, String(value).trim());
+        }
+    }
+
+    async function fetchReportJson(url) {
+        const res = await fetchWithAuth(url);
+        if (!res) throw new Error('Report API authentication failed');
+        if (!res.ok) throw new Error('Report API ' + res.status);
+        return res.json();
+    }
+
+    function buildPatientReportParams(options) {
+        options = options || {};
+        var params = new URLSearchParams();
+        params.set('paginated', 'true');
+        if (options.exportAll) {
+            params.set('exportAll', 'true');
+            params.set('page', '1');
+            params.set('pageSize', '500');
+        } else {
+            params.set('page', String(prPage));
+            params.set('pageSize', String(prPageSize));
+        }
+        params.set('sort', prSortCol || 'id');
+        params.set('dir', prSortDir || 'desc');
+        setReportParam(params, 'status', document.getElementById('patientStatusFilter')?.value || '');
+        setReportParam(params, 'dateFrom', document.getElementById('patientDateFrom')?.value || '');
+        setReportParam(params, 'dateTo', document.getElementById('patientDateTo')?.value || '');
+        setReportParam(params, 'patientCode', getVal('prfPatientCode'));
+        setReportParam(params, 'firstName', getVal('prfFirstName'));
+        setReportParam(params, 'lastName', getVal('prfLastName'));
+        setReportParam(params, 'phone', getVal('prfPhone'));
+        setReportParam(params, 'transport', getVal('prfTransport'));
+        setReportParam(params, 'clinic', getVal('prfClinic'));
+        return params;
+    }
+
+    function buildRxReportParams(options) {
+        options = options || {};
+        var params = new URLSearchParams();
+        params.set('paginated', 'true');
+        if (options.exportAll) {
+            params.set('exportAll', 'true');
+            params.set('page', '1');
+            params.set('pageSize', '500');
+        } else {
+            params.set('page', String(rrPage));
+            params.set('pageSize', String(rrPageSize));
+        }
+        params.set('sort', rrSortCol || 'id');
+        params.set('dir', rrSortDir || 'desc');
+        setReportParam(params, 'rxId', getVal('rrfRxId'));
+        setReportParam(params, 'firstName', getVal('rrfFirstName'));
+        setReportParam(params, 'lastName', getVal('rrfLastName'));
+        setReportParam(params, 'patientCode', getVal('rrfPatientCode'));
+        setReportParam(params, 'pharmacy', getVal('rrfPharmacy'));
+        setReportParam(params, 'progress', document.getElementById('rrfProgress')?.value || '');
+        setReportParam(params, 'dateFrom', document.getElementById('rxDateFrom')?.value || '');
+        setReportParam(params, 'dateTo', document.getElementById('rxDateTo')?.value || '');
+        return params;
+    }
+
+    async function fetchPatientReportRows(options) {
+        const data = await fetchReportJson('/api/reports/patients?' + buildPatientReportParams(options || {}).toString());
+        return data && Array.isArray(data.rows) ? data.rows : [];
+    }
+
+    async function fetchRxReportRows(options) {
+        const data = await fetchReportJson('/api/reports/rx-actions?' + buildRxReportParams(options || {}).toString());
+        return data && Array.isArray(data.rows) ? data.rows : [];
+    }
+
+    function setDefaultCallCenterDates() {
+        const fromEl = document.getElementById('ccrDateFrom');
+        const toEl = document.getElementById('ccrDateTo');
+        if (!fromEl || !toEl || fromEl.value || toEl.value) return;
+        const now = new Date();
+        const to = now.toISOString().slice(0, 10);
+        const fromDate = new Date(now);
+        fromDate.setDate(now.getDate() - 29);
+        fromEl.value = fromDate.toISOString().slice(0, 10);
+        toEl.value = to;
+    }
+
+    function buildCallCenterReportParams(options) {
+        options = options || {};
+        var params = new URLSearchParams();
+        params.set('paginated', 'true');
+        if (options.exportAll) {
+            params.set('exportAll', 'true');
+            params.set('page', '1');
+            params.set('pageSize', '500');
+        } else {
+            params.set('page', String(ccrPage));
+            params.set('pageSize', String(ccrPageSize));
+        }
+        params.set('sort', ccrSortCol || 'lastActionAt');
+        params.set('dir', ccrSortDir || 'desc');
+        setReportParam(params, 'dateFrom', document.getElementById('ccrDateFrom')?.value || '');
+        setReportParam(params, 'dateTo', document.getElementById('ccrDateTo')?.value || '');
+        setReportParam(params, 'userId', document.getElementById('ccrUser')?.value || '');
+        setReportParam(params, 'actionType', document.getElementById('ccrActionType')?.value || '');
+        setReportParam(params, 'patientCode', getVal('ccrPatientCode'));
+        setReportParam(params, 'firstName', getVal('ccrFirstName'));
+        setReportParam(params, 'lastName', getVal('ccrLastName'));
+        setReportParam(params, 'phone', getVal('ccrPhone'));
+        setReportParam(params, 'clinic', getVal('ccrClinic'));
+        setReportParam(params, 'serviceDateFrom', document.getElementById('ccrServiceFrom')?.value || '');
+        setReportParam(params, 'serviceDateTo', document.getElementById('ccrServiceTo')?.value || '');
+        setReportParam(params, 'status', document.getElementById('ccrStatus')?.value || '');
+        return params;
+    }
+
+    async function fetchCallCenterReportRows(options) {
+        const data = await fetchReportJson('/api/reports/call-center?' + buildCallCenterReportParams(options || {}).toString());
+        return data && Array.isArray(data.rows) ? data.rows : [];
+    }
+
+    function buildCallAttemptReportParams(options) {
+        options = options || {};
+        var params = new URLSearchParams();
+        params.set('paginated', 'true');
+        if (options.exportAll) {
+            params.set('exportAll', 'true');
+            params.set('page', '1');
+            params.set('pageSize', '500');
+        } else {
+            params.set('page', String(ccaPage));
+            params.set('pageSize', String(ccaPageSize));
+        }
+        params.set('sort', ccaSortCol || 'dialedAt');
+        params.set('dir', ccaSortDir || 'desc');
+        setReportParam(params, 'dateFrom', document.getElementById('ccrDateFrom')?.value || '');
+        setReportParam(params, 'dateTo', document.getElementById('ccrDateTo')?.value || '');
+        setReportParam(params, 'userId', document.getElementById('ccrUser')?.value || '');
+        setReportParam(params, 'patientCode', getVal('ccrPatientCode'));
+        setReportParam(params, 'firstName', getVal('ccrFirstName'));
+        setReportParam(params, 'lastName', getVal('ccrLastName'));
+        setReportParam(params, 'phone', getVal('ccrPhone'));
+        setReportParam(params, 'clinic', getVal('ccrClinic'));
+        setReportParam(params, 'outcome', document.getElementById('ccrAttemptOutcome')?.value || '');
+        setReportParam(params, 'extension', getVal('ccrExtension'));
+        return params;
+    }
+
+    async function fetchCallAttemptReportRows(options) {
+        const data = await fetchReportJson('/api/reports/call-center-attempts?' + buildCallAttemptReportParams(options || {}).toString());
+        return data && Array.isArray(data.rows) ? data.rows : [];
+    }
+
+    // ─── Autocomplete Engine ─────────────────────────────────────────────────────
+    function buildAutocompletes() {
+        const uniq = arr => [...new Set(arr
+            .filter(v => v !== null && v !== undefined && String(v).trim() !== '')
+            .map(v => String(v).trim())
+        )].sort((a,b) => a.localeCompare(b));
+
+        function includesValue(value, query) {
+            return !query || String(value || '').toLowerCase().includes(query);
+        }
+
+        function patientTransportNames(p) {
+            return [
+                p.PatientTransportCompany && p.PatientTransportCompany.companyName,
+                p.PharmacyTransportCompany && p.PharmacyTransportCompany.companyName
+            ];
+        }
+
+        function patientMatchesAutocompleteContext(p, skipId) {
+            const filter     = document.getElementById('patientStatusFilter').value;
+            const dFrom      = document.getElementById('patientDateFrom').value;
+            const dTo        = document.getElementById('patientDateTo').value;
+            const qCode      = getVal('prfPatientCode');
+            const qFirst     = getVal('prfFirstName');
+            const qLast      = getVal('prfLastName');
+            const qPhone     = getVal('prfPhone');
+            const qTransport = getVal('prfTransport');
+            const qClinic    = getVal('prfClinic');
+
+            if (filter !== '' && String(p.isActive) !== filter) return false;
+            if (qCode && !includesValue(p.patientCode, qCode)) return false;
+            if (skipId !== 'prfFirstName' && qFirst && !includesValue(p.firstName, qFirst)) return false;
+            if (skipId !== 'prfLastName' && qLast && !includesValue(p.lastName, qLast)) return false;
+            if (qPhone && !includesValue(p.phone, qPhone)) return false;
+            if (skipId !== 'prfClinic' && qClinic && !includesValue(p.Clinic && p.Clinic.name, qClinic)) return false;
+            if (skipId !== 'prfTransport' && qTransport) {
+                const names = patientTransportNames(p).map(v => String(v || '').toLowerCase());
+                if (!names.some(name => name.includes(qTransport))) return false;
+            }
+            const svc = p.serviceDate || '';
+            if (dFrom && svc && svc < dFrom) return false;
+            if (dTo && svc && svc > dTo) return false;
+            return true;
+        }
+
+        function rxMatchesProgress(r, progress) {
+            if (!progress) return true;
+            const steps = r.completedSteps || [];
+            const total = allWorkflowActions.length;
+            if (progress === 'complete') return steps.length >= total && total > 0;
+            if (progress === 'pending') return steps.length < total;
+            return true;
+        }
+
+        function rxMatchesAutocompleteContext(r, skipId) {
+            const qRxId  = getVal('rrfRxId');
+            const qFirst = getVal('rrfFirstName');
+            const qLast  = getVal('rrfLastName');
+            const qCode  = getVal('rrfPatientCode');
+            const qPharm = getVal('rrfPharmacy');
+            const qProg  = document.getElementById('rrfProgress').value;
+            const dFrom  = document.getElementById('rxDateFrom').value;
+            const dTo    = document.getElementById('rxDateTo').value;
+        if (dateRangeIsReversed(dFrom, dTo)) {
+            showToast('RX report date range cannot have From after To.', 'warning');
+            document.getElementById('rxDateTo').value = dFrom;
+        }
+            const patient = r.Patient || {};
+
+            if (qRxId && !String(r.id).includes(qRxId)) return false;
+            if (skipId !== 'rrfFirstName' && qFirst && !includesValue(patient.firstName, qFirst)) return false;
+            if (skipId !== 'rrfLastName' && qLast && !includesValue(patient.lastName, qLast)) return false;
+            if (qCode && !includesValue(patient.patientCode, qCode)) return false;
+            if (skipId !== 'rrfPharmacy' && qPharm && !includesValue(r.Pharmacy && r.Pharmacy.name, qPharm)) return false;
+            const svc = r.serviceDate || '';
+            if (dFrom && svc && svc < dFrom) return false;
+            if (dTo && svc && svc > dTo) return false;
+            return rxMatchesProgress(r, qProg);
+        }
+
+        const defs = [
+            { id: 'prfFirstName', options: () => uniq(allPatientReport.filter(p => patientMatchesAutocompleteContext(p, 'prfFirstName')).map(p => p.firstName)), render: renderPatientReport },
+            { id: 'prfLastName',  options: () => uniq(allPatientReport.filter(p => patientMatchesAutocompleteContext(p, 'prfLastName')).map(p => p.lastName)), render: renderPatientReport },
+            { id: 'prfClinic',    options: () => uniq(allPatientReport.filter(p => patientMatchesAutocompleteContext(p, 'prfClinic')).map(p => p.Clinic && p.Clinic.name)), render: renderPatientReport },
+            { id: 'prfTransport', options: () => uniq(allPatientReport.filter(p => patientMatchesAutocompleteContext(p, 'prfTransport')).flatMap(patientTransportNames)), render: renderPatientReport },
+            { id: 'rrfFirstName', options: () => uniq(allRxReport.filter(r => rxMatchesAutocompleteContext(r, 'rrfFirstName')).map(r => r.Patient && r.Patient.firstName)), render: renderRxActionReport },
+            { id: 'rrfLastName',  options: () => uniq(allRxReport.filter(r => rxMatchesAutocompleteContext(r, 'rrfLastName')).map(r => r.Patient && r.Patient.lastName)), render: renderRxActionReport },
+            { id: 'rrfPharmacy',  options: () => uniq(allRxReport.filter(r => rxMatchesAutocompleteContext(r, 'rrfPharmacy')).map(r => r.Pharmacy && r.Pharmacy.name)), render: renderRxActionReport }
+        ];
+
+        defs.forEach(({ id, options, render }) => {
+            const input  = document.getElementById(id);
+            const listEl = document.getElementById('ac-' + id);
+            if (!input || !listEl) return;
+
+            function show(val) {
+                const opts = options();
+                const q = (val || '').toLowerCase().trim();
+                const matches = q ? opts.filter(o => o.toLowerCase().includes(q)) : opts;
+                if (!matches.length) { listEl.classList.remove('open'); return; }
+                var listHtml = '';
+                matches.slice(0, 40).forEach(function(o) {
+                    listHtml += '<div class="ac-item">' + escHtml(o) + '</div>';
+                });
+                listEl.innerHTML = listHtml;
+                listEl.querySelectorAll('.ac-item').forEach(item => {
+                    item.addEventListener('mousedown', e => {
+                        e.preventDefault();
+                        input.value = item.textContent;
+                        listEl.classList.remove('open');
+                        if (render) render();
+                    });
+                });
+                listEl.classList.add('open');
+            }
+
+            input.addEventListener('focus', () => show(input.value));
+            input.addEventListener('input', () => show(input.value));
+            input.addEventListener('blur',  () => setTimeout(() => listEl.classList.remove('open'), 160));
+        });
+    }
+
+    function escHtml(s) {
+        return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    function validateDateRange(fromId, toId, label) {
+        var fromEl = document.getElementById(fromId);
+        var toEl = document.getElementById(toId);
+        if (!fromEl || !toEl) return true;
+        var from = fromEl.value;
+        var to = toEl.value;
+        if (from && to && from > to) {
+            showToast((label || 'Date range') + ' cannot have From after To.', 'warning');
+            toEl.value = from;
+            return false;
+        }
+        return true;
+    }
+
+    function dateRangeIsReversed(from, to) {
+        if (!from || !to) return false;
+        var f = new Date(from + 'T00:00:00');
+        var t = new Date(to + 'T00:00:00');
+        if (isNaN(f.getTime()) || isNaN(t.getTime())) return false;
+        f.setHours(0,0,0,0);
+        t.setHours(0,0,0,0);
+        return f.getTime() > t.getTime();
+    }
+
+    // ─── Patient Report ───────────────────────────────────────────────────────────
+    function getVal(id) { const el = document.getElementById(id); return el ? el.value.toLowerCase().trim() : ''; }
+
+    function renderReportPager(navId, currentPage, totalPages, onPage) {
+        var nav = document.getElementById(navId);
+        if (!nav) return;
+        totalPages = Math.max(1, totalPages || 1);
+        currentPage = Math.min(Math.max(1, currentPage || 1), totalPages);
+
+        function pageItem(label, page, disabled, active) {
+            return '<li class="page-item ' + (disabled ? 'disabled ' : '') + (active ? 'active' : '') + '">' +
+                '<button type="button" class="page-link" data-page="' + page + '"' + (disabled ? ' disabled' : '') + '>' + label + '</button>' +
+                '</li>';
+        }
+
+        var html = pageItem('&laquo;', 1, currentPage <= 1, false);
+        html += pageItem('&lsaquo;', Math.max(1, currentPage - 1), currentPage <= 1, false);
+
+        if (totalPages <= 7) {
+            for (var p = 1; p <= totalPages; p++) html += pageItem(String(p), p, false, p === currentPage);
+        } else {
+            html += pageItem('1', 1, false, currentPage === 1);
+            if (currentPage > 4) html += '<li class="page-item disabled"><span class="page-link">...</span></li>';
+            var from = Math.max(2, currentPage - 1);
+            var to = Math.min(totalPages - 1, currentPage + 1);
+            for (var mid = from; mid <= to; mid++) html += pageItem(String(mid), mid, false, mid === currentPage);
+            if (currentPage < totalPages - 3) html += '<li class="page-item disabled"><span class="page-link">...</span></li>';
+            html += pageItem(String(totalPages), totalPages, false, currentPage === totalPages);
+        }
+
+        html += pageItem('&rsaquo;', Math.min(totalPages, currentPage + 1), currentPage >= totalPages, false);
+        html += pageItem('&raquo;', totalPages, currentPage >= totalPages, false);
+        nav.innerHTML = html;
+
+        nav.querySelectorAll('button[data-page]').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var page = parseInt(btn.getAttribute('data-page'), 10);
+                if (!Number.isFinite(page) || btn.disabled) return;
+                onPage(page);
+            });
+        });
+    }
+
+    function prChangeSize(value) {
+        prPageSize = parseInt(value, 10) || 10;
+        prPage = 1;
+        renderPatientReport();
+    }
+    function rrChangeSize(value) {
+        rrPageSize = parseInt(value, 10) || 10;
+        rrPage = 1;
+        renderRxActionReport();
+    }
+    function ccrChangeSize(value) {
+        ccrPageSize = parseInt(value, 10) || 10;
+        ccrPage = 1;
+        renderCallCenterReport();
+    }
+    function ccaChangeSize(value) {
+        ccaPageSize = parseInt(value, 10) || 20;
+        ccaPage = 1;
+        renderCallAttemptReport();
+    }
+    window.prChangeSize = prChangeSize;
+    window.rrChangeSize = rrChangeSize;
+    window.ccrChangeSize = ccrChangeSize;
+    window.ccaChangeSize = ccaChangeSize;
+    window.renderPatientReport = renderPatientReport;
+    window.renderRxActionReport = renderRxActionReport;
+    window.renderCallCenterReport = renderCallCenterReport;
+    window.renderCallCenterReports = renderCallCenterReports;
+
+    function renderPatientReport() {
+        validateDateRange('patientDateFrom', 'patientDateTo', 'Patient report date range');
+        const tbody   = document.getElementById('patientReportBody');
+        const countEl = document.getElementById('patientReportCount');
+        const navEl   = document.getElementById('prPagNav');
+        if (!tbody) return;
+        tbody.innerHTML = '<tr><td colspan="11" class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin me-2"></i>Loading...</td></tr>';
+
+        return fetchReportJson('/api/reports/patients?' + buildPatientReportParams().toString()).then(function(result) {
+        var data = result && Array.isArray(result.rows) ? result.rows : [];
+        allPatientReport = data;
+        if (!data.length) {
+            tbody.innerHTML = '<tr><td colspan="11" class="text-center text-muted py-4">No records found</td></tr>';
+            if (countEl) countEl.textContent = '0 records';
+            if (navEl) navEl.innerHTML = '';
+            return;
+        }
+        var totalRecords = Number(result.total || data.length || 0);
+        var totalPages = Number(result.totalPages || Math.max(1, Math.ceil(totalRecords / prPageSize)));
+        prPage = Number(result.page || prPage || 1);
+        prPageSize = Number(result.pageSize || prPageSize || 10);
+        var startIndex = (prPage - 1) * prPageSize;
+        var endIndex = Math.min(startIndex + data.length, totalRecords);
+        var pageData = data;
+        var patientRowsHtml = '';
+        pageData.forEach(function(p) {
+            const statusBadge = p.isActive
+                ? '<span class="badge bg-success">Active</span>'
+                : '<span class="badge bg-secondary">Inactive</span>';
+            const dob = p.dob ? new Date(p.dob+'T12:00:00').toLocaleDateString() : '-';
+            const svc = p.serviceDate ? new Date(p.serviceDate+'T12:00:00').toLocaleDateString() : '-';
+            patientRowsHtml += '<tr>' +
+                '<td><span class="badge bg-primary">' + (p.patientCode || '') + '</span></td>' +
+                '<td>' + (p.firstName || '') + '</td>' +
+                '<td>' + (p.lastName || '') + '</td>' +
+                '<td>' + dob + '</td>' +
+                '<td>' + (p.phone || '-') + '</td>' +
+                '<td>' + (p.address || '-') + '</td>' +
+                '<td>' + svc + '</td>' +
+                '<td>' + statusBadge + '</td>' +
+                '<td>' + ((p.Clinic && p.Clinic.name) || '-') + '</td>' +
+                '<td>' + ((p.PatientTransportCompany && p.PatientTransportCompany.companyName) || '-') + '</td>' +
+                '<td>' + ((p.PharmacyTransportCompany && p.PharmacyTransportCompany.companyName) || '-') + '</td>' +
+            '</tr>';
+        });
+        tbody.innerHTML = patientRowsHtml;
+        if (countEl) countEl.textContent = 'Showing ' + (startIndex + 1) + '-' + endIndex + ' of ' + totalRecords;
+        renderReportPager('prPagNav', prPage, totalPages, function(page) {
+            prPage = page;
+            renderPatientReport();
+        });
+        }).catch(function(err) {
+            tbody.innerHTML = '<tr><td colspan="11" class="text-center text-danger py-4">Could not load patient report.</td></tr>';
+            if (countEl) countEl.textContent = '';
+            if (navEl) navEl.innerHTML = '';
+            console.error('Patient report load error:', err);
+        });
+    }
+
+    function getNestedVal(obj, path) {
+        return path.split('.').reduce((o,k) => o && o[k] !== undefined ? o[k] : null, obj);
+    }
+
+    function sortPatientReport(col) {
+        if (prSortCol === col) prSortDir = prSortDir === 'asc' ? 'desc' : 'asc';
+        else { prSortCol = col; prSortDir = 'asc'; }
+        prPage = 1;
+        document.querySelectorAll('[id^="prIcon_"]').forEach(el => { el.className = 'fas fa-sort text-muted'; el.style.opacity = '0.3'; });
+        const icon = document.getElementById('prIcon_' + col);
+        if (icon) { icon.className = 'fas fa-sort-' + (prSortDir === 'asc' ? 'up' : 'down') + ' text-primary'; icon.style.opacity = '1'; }
+        renderPatientReport();
+    }
+
+    function clearPatientFilters() {
+        ['prfPatientCode','prfFirstName','prfLastName','prfPhone','prfTransport','prfClinic','patientDateFrom','patientDateTo']
+            .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+        document.getElementById('patientStatusFilter').value = '';
+        prPage = 1;
+        renderPatientReport();
+    }
+
+    // ─── RX Action Report ─────────────────────────────────────────────────────────
+    function renderRxActionReport() {
+        const dFrom  = document.getElementById('rxDateFrom').value;
+        const dTo    = document.getElementById('rxDateTo').value;
+        if (dateRangeIsReversed(dFrom, dTo)) {
+            showToast('RX report date range cannot have From after To.', 'warning');
+            document.getElementById('rxDateTo').value = dFrom;
+        }
+
+        const tbody = document.getElementById('rxActionBody');
+        const countEl = document.getElementById('rxReportCount');
+        const navEl = document.getElementById('rrPagNav');
+        if (!tbody) return;
+        tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin me-2"></i>Loading...</td></tr>';
+
+        return fetchReportJson('/api/reports/rx-actions?' + buildRxReportParams().toString()).then(function(result) {
+        var data = result && Array.isArray(result.rows) ? result.rows : [];
+        allRxReport = data;
+        if (!data.length) {
+            tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">No records found</td></tr>';
+            if (countEl) countEl.textContent = '0 records';
+            if (navEl) navEl.innerHTML = '';
+            return;
+        }
+        var totalRecords = Number(result.total || data.length || 0);
+        var totalPages = Number(result.totalPages || Math.max(1, Math.ceil(totalRecords / rrPageSize)));
+        rrPage = Number(result.page || rrPage || 1);
+        rrPageSize = Number(result.pageSize || rrPageSize || 10);
+        var startIndex = (rrPage - 1) * rrPageSize;
+        var endIndex = Math.min(startIndex + data.length, totalRecords);
+        var pageData = data;
+        var rxRowsHtml = '';
+        pageData.forEach(function(r) {
+            const steps   = r.completedSteps || [];
+            const wfTotal = allWorkflowActions.length;
+            const done    = steps.length;
+            const pct     = wfTotal ? Math.round((done / wfTotal) * 100) : 0;
+            const nextStep= allWorkflowActions.find(w => !steps.includes(w.id));
+            const svc     = r.serviceDate ? new Date(r.serviceDate+'T12:00:00').toLocaleDateString() : '-';
+            const ptName  = r.Patient ? r.Patient.firstName + ' ' + r.Patient.lastName : '-';
+            const ptCode  = r.Patient ? r.Patient.patientCode : '-';
+            const phName  = r.Pharmacy ? r.Pharmacy.name : '-';
+            const progBadge = pct >= 100
+                ? '<span class="badge bg-success">Complete</span>'
+                : '<span class="badge bg-warning text-dark">' + pct + '%</span>';
+            var doneStepsHtml = '';
+            if (done > 0) {
+                steps.forEach(function(id) {
+                    const action = allWorkflowActions.find(w => w.id === id);
+                    if (action) doneStepsHtml += '<span class="badge bg-success me-1">' + action.name + '</span>';
+                });
+            } else {
+                doneStepsHtml = '-';
+            }
+            rxRowsHtml += '<tr>' +
+                '<td><span class="badge bg-primary">RX-' + r.id + '</span></td>' +
+                '<td>' + ptName + '</td>' +
+                '<td><span class="badge bg-info text-dark">' + ptCode + '</span></td>' +
+                '<td>' + phName + '</td>' +
+                '<td>' + svc + '</td>' +
+                '<td>' + doneStepsHtml + '</td>' +
+                '<td>' + (nextStep ? '<span class="badge bg-warning text-dark">' + nextStep.name + '</span>' : '<span class="badge bg-success">All done</span>') + '</td>' +
+                '<td>' + progBadge + '</td>' +
+            '</tr>';
+        });
+        tbody.innerHTML = rxRowsHtml;
+        if (countEl) countEl.textContent = 'Showing ' + (startIndex + 1) + '-' + endIndex + ' of ' + totalRecords;
+        renderReportPager('rrPagNav', rrPage, totalPages, function(page) {
+            rrPage = page;
+            renderRxActionReport();
+        });
+        }).catch(function(err) {
+            tbody.innerHTML = '<tr><td colspan="8" class="text-center text-danger py-4">Could not load RX action report.</td></tr>';
+            if (countEl) countEl.textContent = '';
+            if (navEl) navEl.innerHTML = '';
+            console.error('RX action report load error:', err);
+        });
+    }
+
+    function sortRxReport(col) {
+        if (rrSortCol === col) rrSortDir = rrSortDir === 'asc' ? 'desc' : 'asc';
+        else { rrSortCol = col; rrSortDir = 'asc'; }
+        rrPage = 1;
+        document.querySelectorAll('[id^="rrIcon_"]').forEach(el => { el.className = 'fas fa-sort text-muted'; el.style.opacity = '0.3'; });
+        const icon = document.getElementById('rrIcon_' + col);
+        if (icon) { icon.className = 'fas fa-sort-' + (rrSortDir === 'asc' ? 'up' : 'down') + ' text-primary'; icon.style.opacity = '1'; }
+        renderRxActionReport();
+    }
+
+    function clearRxFilters() {
+        ['rrfRxId','rrfFirstName','rrfLastName','rrfPatientCode','rrfPharmacy','rxDateFrom','rxDateTo']
+            .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+        document.getElementById('rrfProgress').value = '';
+        rrPage = 1;
+        renderRxActionReport();
+    }
+
+    // ─── Export CSV ───────────────────────────────────────────────────────────────
+    // Call Center Report
+    function formatCcDateTime(value) {
+        if (!value) return '-';
+        const d = new Date(value);
+        if (isNaN(d.getTime())) return String(value);
+        return d.toLocaleString([], { month: '2-digit', day: '2-digit', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+    }
+
+    function populateCallCenterUsers(users) {
+        const sel = document.getElementById('ccrUser');
+        if (!sel) return;
+        const current = sel.value || '';
+        let html = '<option value="">All Users</option>';
+        (users || []).forEach(u => {
+            html += '<option value="' + escHtml(u.userId) + '">' + escHtml(u.name || ('User ' + u.userId)) + '</option>';
+        });
+        sel.innerHTML = html;
+        sel.value = current;
+    }
+
+    function ccMiniHistory(row) {
+        function section(title, text, iconClass) {
+            return '<div class="mb-1"><span class="fw-bold text-muted"><i class="' + iconClass + ' me-1"></i>' + title + ':</span> ' +
+                '<span>' + escHtml(text || '--') + '</span></div>';
+        }
+        return '<div class="cc-history-mini">' +
+            section('Calls', row.callHistoryText, 'fas fa-phone-alt text-info') +
+            section('Dates', row.serviceDateHistoryText, 'fas fa-calendar-plus text-success') +
+            section('Notes', row.noteHistoryText, 'fas fa-sticky-note text-warning') +
+            '</div>';
+    }
+
+    function setCcTotals(totals) {
+        totals = totals || {};
+        const set = (id, value) => { const el = document.getElementById(id); if (el) el.textContent = value; };
+        set('ccrMPatients', totals.patients || 0);
+        set('ccActivityTabCount', totals.patients || 0);
+        set('ccrMCalls', totals.calls || 0);
+        set('ccrMRepeats', totals.repeatCalls || 0);
+        set('ccrMDates', totals.serviceDates || 0);
+        set('ccrMNotes', totals.notes || 0);
+    }
+
+    function renderCallCenterReport() {
+        validateDateRange('ccrDateFrom', 'ccrDateTo', 'Call Center activity range');
+        validateDateRange('ccrServiceFrom', 'ccrServiceTo', 'Call Center service date range');
+        const tbody = document.getElementById('ccReportBody');
+        const countEl = document.getElementById('ccrReportCount');
+        const navEl = document.getElementById('ccrPagNav');
+        if (!tbody) return;
+        tbody.innerHTML = '<tr><td colspan="12" class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin me-2"></i>Loading...</td></tr>';
+
+        return fetchReportJson('/api/reports/call-center?' + buildCallCenterReportParams().toString()).then(function(result) {
+            const data = result && Array.isArray(result.rows) ? result.rows : [];
+            allCcReport = data;
+            populateCallCenterUsers(result.users || []);
+            setCcTotals(result.totals || {});
+            if (!data.length) {
+                tbody.innerHTML = '<tr><td colspan="12" class="text-center text-muted py-4">No call center activity found</td></tr>';
+                if (countEl) countEl.textContent = '0 records';
+                if (navEl) navEl.innerHTML = '';
+                return;
+            }
+            const totalRecords = Number(result.total || data.length || 0);
+            const totalPages = Number(result.totalPages || Math.max(1, Math.ceil(totalRecords / ccrPageSize)));
+            ccrPage = Number(result.page || ccrPage || 1);
+            ccrPageSize = Number(result.pageSize || ccrPageSize || 10);
+            const startIndex = (ccrPage - 1) * ccrPageSize;
+            const endIndex = Math.min(startIndex + data.length, totalRecords);
+            let html = '';
+            data.forEach(function(row) {
+                const name = ((row.firstName || '') + ' ' + (row.lastName || '')).trim() || '-';
+                const attemptsButton = row.patientCode
+                    ? '<button type="button" class="btn btn-outline-primary btn-sm mt-2 cc-open-attempts" data-patient-code="' + escHtml(row.patientCode) + '"><i class="fas fa-phone-volume me-1"></i>View attempts</button>'
+                    : '';
+                html += '<tr>' +
+                    '<td><span class="badge bg-primary">' + escHtml(row.patientCode || '') + '</span></td>' +
+                    '<td><div class="fw-semibold">' + escHtml(name) + '</div><small class="text-muted">' + escHtml(row.status || '') + '</small></td>' +
+                    '<td>' + escHtml(row.phone || '-') + '</td>' +
+                    '<td>' + escHtml(row.clinicName || '-') + '</td>' +
+                    '<td>' + escHtml(row.serviceDate || '-') + '</td>' +
+                    '<td>' + escHtml(row.usersText || '-') + '</td>' +
+                    '<td class="text-end fw-semibold">' + (row.calls || 0) + '</td>' +
+                    '<td class="text-end">' + (row.repeatCalls || 0) + '</td>' +
+                    '<td class="text-end">' + (row.serviceDates || 0) + '</td>' +
+                    '<td class="text-end">' + (row.notes || 0) + '</td>' +
+                    '<td><div>' + escHtml(formatCcDateTime(row.lastActionAt)) + '</div><small class="text-muted">' + escHtml(row.lastActionBy || '') + '</small></td>' +
+                    '<td class="cc-history-cell">' + ccMiniHistory(row) + attemptsButton + '</td>' +
+                '</tr>';
+            });
+            tbody.innerHTML = html;
+            tbody.querySelectorAll('.cc-open-attempts').forEach(function(button) {
+                button.addEventListener('click', function() {
+                    openPatientCallAttempts(button.getAttribute('data-patient-code') || '');
+                });
+            });
+            if (countEl) countEl.textContent = 'Showing ' + (startIndex + 1) + '-' + endIndex + ' of ' + totalRecords;
+            renderReportPager('ccrPagNav', ccrPage, totalPages, function(page) {
+                ccrPage = page;
+                renderCallCenterReport();
+            });
+        }).catch(function(err) {
+            tbody.innerHTML = '<tr><td colspan="12" class="text-center text-danger py-4">Could not load Call Center report.</td></tr>';
+            if (countEl) countEl.textContent = '';
+            if (navEl) navEl.innerHTML = '';
+            console.error('Call Center report load error:', err);
+        });
+    }
+
+    function renderCallCenterReports() {
+        return Promise.all([renderCallCenterReport(), renderCallAttemptReport()]);
+    }
+
+    function formatCcDuration(value) {
+        if (value === null || value === undefined || value === '') return '-';
+        var seconds = Math.max(0, Number(value) || 0);
+        var hours = Math.floor(seconds / 3600);
+        var minutes = Math.floor((seconds % 3600) / 60);
+        var remainder = Math.floor(seconds % 60);
+        if (hours) return hours + ':' + String(minutes).padStart(2, '0') + ':' + String(remainder).padStart(2, '0');
+        return minutes + ':' + String(remainder).padStart(2, '0');
+    }
+
+    function callAttemptOutcome(row) {
+        return row && row.outcome ? String(row.outcome) : 'in_progress';
+    }
+
+    function callAttemptOutcomeBadge(row) {
+        var outcome = callAttemptOutcome(row);
+        var labels = {
+            answered: 'Answered', no_answer: 'No Answer', busy: 'Busy', rejected: 'Rejected',
+            unavailable: 'Unavailable', cancelled: 'Cancelled', failed: 'Failed', in_progress: 'In Progress'
+        };
+        var classes = {
+            answered: 'bg-success', no_answer: 'bg-secondary', busy: 'bg-warning text-dark',
+            rejected: 'bg-danger', unavailable: 'bg-dark', cancelled: 'bg-secondary',
+            failed: 'bg-danger', in_progress: 'bg-info text-dark'
+        };
+        return '<span class="badge ' + (classes[outcome] || 'bg-secondary') + '">' + escHtml(labels[outcome] || outcome) + '</span>';
+    }
+
+    function setCallAttemptTotals(totals) {
+        totals = totals || {};
+        var set = function(id, value) { var el = document.getElementById(id); if (el) el.textContent = value; };
+        set('ccaMAttempts', totals.attempts || 0);
+        set('ccAttemptsTabCount', totals.attempts || 0);
+        set('ccaMAnswered', totals.answered || 0);
+        set('ccaMUnanswered', totals.unanswered || 0);
+        set('ccaMAnswerRate', (totals.answerRate || 0) + '%');
+        set('ccaMAvgRing', formatCcDuration(Number(totals.averageRingSeconds) || 0));
+        set('ccaMAvgTalk', formatCcDuration(Number(totals.averageConversationSeconds) || 0));
+    }
+
+    function renderCallAttemptReport() {
+        validateDateRange('ccrDateFrom', 'ccrDateTo', 'Call attempt date range');
+        var tbody = document.getElementById('ccAttemptReportBody');
+        var countEl = document.getElementById('ccaReportCount');
+        var navEl = document.getElementById('ccaPagNav');
+        if (!tbody) return Promise.resolve();
+        tbody.innerHTML = '<tr><td colspan="11" class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin me-2"></i>Loading...</td></tr>';
+
+        return fetchReportJson('/api/reports/call-center-attempts?' + buildCallAttemptReportParams().toString()).then(function(result) {
+            var data = result && Array.isArray(result.rows) ? result.rows : [];
+            allCcAttempts = data;
+            setCallAttemptTotals(result.totals || {});
+            if (!data.length) {
+                tbody.innerHTML = '<tr><td colspan="11" class="text-center text-muted py-4">No automatic call attempts found</td></tr>';
+                if (countEl) countEl.textContent = '0 records';
+                if (navEl) navEl.innerHTML = '';
+                return;
+            }
+            var totalRecords = Number(result.total || data.length || 0);
+            var totalPages = Number(result.totalPages || Math.max(1, Math.ceil(totalRecords / ccaPageSize)));
+            ccaPage = Number(result.page || ccaPage || 1);
+            ccaPageSize = Number(result.pageSize || ccaPageSize || 20);
+            var startIndex = (ccaPage - 1) * ccaPageSize;
+            var endIndex = Math.min(startIndex + data.length, totalRecords);
+            var html = '';
+            data.forEach(function(row) {
+                var patientLabel = row.patientName || 'Deleted patient';
+                var patientCode = row.patientCode || '';
+                var patientReference = patientCode
+                    ? '<button type="button" class="btn btn-link btn-sm p-0 text-decoration-none cc-open-activity" data-patient-code="' + escHtml(patientCode) + '">' + escHtml(patientCode) + '</button>'
+                    : '<span class="text-muted">Historical record</span>';
+                var sip = row.sipResponseCode ? String(row.sipResponseCode) : '';
+                if (row.sipReason) sip += (sip ? ' — ' : '') + row.sipReason;
+                html += '<tr>' +
+                    '<td><div class="fw-semibold">' + escHtml(patientLabel) + '</div><small>' + patientReference + (row.clinicName ? '<span class="text-muted"> · ' + escHtml(row.clinicName) + '</span>' : '') + '</small></td>' +
+                    '<td><div>' + escHtml(row.agentName || '-') + '</div><small class="text-muted">Ext. ' + escHtml(row.extension || '-') + '</small></td>' +
+                    '<td><div class="fw-semibold">' + escHtml(row.dialedNumber || '-') + '</div><small class="text-muted">' + escHtml(row.phoneClient || '') + '</small></td>' +
+                    '<td>' + callAttemptOutcomeBadge(row) + '</td>' +
+                    '<td>' + escHtml(sip || '-') + '</td>' +
+                    '<td>' + escHtml(formatCcDateTime(row.dialedAt)) + '</td>' +
+                    '<td>' + escHtml(formatCcDateTime(row.ringingAt)) + '</td>' +
+                    '<td>' + escHtml(formatCcDateTime(row.answeredAt)) + '</td>' +
+                    '<td>' + escHtml(formatCcDateTime(row.endedAt)) + '</td>' +
+                    '<td>' + escHtml(formatCcDuration(row.ringDurationSeconds)) + '</td>' +
+                    '<td>' + escHtml(formatCcDuration(row.conversationDurationSeconds)) + '</td>' +
+                '</tr>';
+            });
+            tbody.innerHTML = html;
+            tbody.querySelectorAll('.cc-open-activity').forEach(function(button) {
+                button.addEventListener('click', function() {
+                    openPatientActivity(button.getAttribute('data-patient-code') || '');
+                });
+            });
+            if (countEl) countEl.textContent = 'Showing ' + (startIndex + 1) + '-' + endIndex + ' of ' + totalRecords;
+            renderReportPager('ccaPagNav', ccaPage, totalPages, function(page) {
+                ccaPage = page;
+                renderCallAttemptReport();
+            });
+        }).catch(function(err) {
+            tbody.innerHTML = '<tr><td colspan="11" class="text-center text-danger py-4">Could not load automatic call attempts.</td></tr>';
+            if (countEl) countEl.textContent = '';
+            if (navEl) navEl.innerHTML = '';
+            console.error('Call attempt report load error:', err);
+        });
+    }
+
+    function showCallCenterReportView(triggerId) {
+        var trigger = document.getElementById(triggerId);
+        if (!trigger) return;
+        if (window.bootstrap && bootstrap.Tab) {
+            bootstrap.Tab.getOrCreateInstance(trigger).show();
+            return;
+        }
+        trigger.click();
+    }
+
+    function openPatientCallAttempts(patientCode) {
+        var input = document.getElementById('ccrPatientCode');
+        if (input) input.value = patientCode;
+        ccaPage = 1;
+        showCallCenterReportView('ccAttemptsViewTab');
+        renderCallAttemptReport();
+    }
+
+    function openPatientActivity(patientCode) {
+        var input = document.getElementById('ccrPatientCode');
+        if (input) input.value = patientCode;
+        ccrPage = 1;
+        showCallCenterReportView('ccActivityViewTab');
+        renderCallCenterReport();
+    }
+
+    function sortCallCenterReport(col) {
+        if (ccrSortCol === col) ccrSortDir = ccrSortDir === 'asc' ? 'desc' : 'asc';
+        else {
+            ccrSortCol = col;
+            ccrSortDir = ['calls','repeatCalls','serviceDates','notes','lastActionAt','serviceDate'].includes(col) ? 'desc' : 'asc';
+        }
+        ccrPage = 1;
+        document.querySelectorAll('[id^="ccrIcon_"]').forEach(el => { el.className = 'fas fa-sort text-muted'; el.style.opacity = '0.3'; });
+        const icon = document.getElementById('ccrIcon_' + col);
+        if (icon) { icon.className = 'fas fa-sort-' + (ccrSortDir === 'asc' ? 'up' : 'down') + ' text-primary'; icon.style.opacity = '1'; }
+        renderCallCenterReport();
+    }
+
+    function clearCallCenterFilters() {
+        ['ccrDateFrom','ccrDateTo','ccrPatientCode','ccrFirstName','ccrLastName','ccrPhone','ccrClinic','ccrServiceFrom','ccrServiceTo','ccrExtension']
+            .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+        ['ccrUser','ccrActionType','ccrStatus','ccrAttemptOutcome'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+        setDefaultCallCenterDates();
+        ccrPage = 1;
+        ccaPage = 1;
+        renderCallCenterReports();
+    }
+
+    window.sortCallCenterReport = sortCallCenterReport;
+    window.clearCallCenterFilters = clearCallCenterFilters;
+    window.openPatientCallAttempts = openPatientCallAttempts;
+    window.openPatientActivity = openPatientActivity;
+
+    function callCenterHeaders() {
+        return [
+            'Patient ID', 'First Name', 'Last Name', 'Phone', 'Clinic', 'Current Service Date', 'Status',
+            'Call Center Users', 'Calls', 'Repeat Calls', 'Service Dates Entered', 'Notes',
+            'First Activity', 'Last Activity', 'Last Activity By',
+            'Call History', 'Service Date History', 'Call Center Notes'
+        ];
+    }
+
+    function callCenterExportRows(data) {
+        return (data || []).map(row => [
+            row.patientCode || '',
+            row.firstName || '',
+            row.lastName || '',
+            row.phone || '',
+            row.clinicName || '',
+            row.serviceDate || '',
+            row.status || '',
+            row.usersText || '',
+            row.calls || 0,
+            row.repeatCalls || 0,
+            row.serviceDates || 0,
+            row.notes || 0,
+            formatCcDateTime(row.firstActionAt),
+            formatCcDateTime(row.lastActionAt),
+            row.lastActionBy || '',
+            row.callHistoryText || '',
+            row.serviceDateHistoryText || '',
+            row.noteHistoryText || ''
+        ]);
+    }
+
+    function callAttemptHeaders() {
+        return [
+            'Patient ID', 'Patient', 'Clinic / Location', 'Agent', 'Extension', 'Dialed Number', 'Phone Client',
+            'Outcome', 'SIP Response Code', 'SIP Reason', 'Dialed At', 'Ringing At', 'Answered At', 'Ended At',
+            'Ring Duration', 'Ring Duration Seconds', 'Conversation Duration', 'Conversation Duration Seconds'
+        ];
+    }
+
+    function callAttemptExportRows(data) {
+        return (data || []).map(function(row) {
+            return [
+                row.patientCode || '', row.patientName || 'Deleted patient', row.clinicName || '',
+                row.agentName || '', row.extension || '', row.dialedNumber || '', row.phoneClient || '',
+                callAttemptOutcome(row), row.sipResponseCode || '', row.sipReason || '',
+                formatCcDateTime(row.dialedAt), formatCcDateTime(row.ringingAt), formatCcDateTime(row.answeredAt), formatCcDateTime(row.endedAt),
+                formatCcDuration(row.ringDurationSeconds), row.ringDurationSeconds == null ? '' : row.ringDurationSeconds,
+                formatCcDuration(row.conversationDurationSeconds), row.conversationDurationSeconds == null ? '' : row.conversationDurationSeconds
+            ];
+        });
+    }
+
+    function setupReportExports() {
+        document.getElementById('exportPatientCsv').addEventListener('click', async () => {
+            const data = await fetchPatientReportRows({ exportAll: true });
+            if (!data.length) { showToast('No data to export', 'warning'); return; }
+            const headers = ['Patient ID','First Name','Last Name','DOB','Phone','Address','Service Date','Status','Clinic','Patient Transport','Pharmacy Transport'];
+            const rows = data.map(p => [
+                p.patientCode||'', p.firstName||'', p.lastName||'',
+                p.dob||'', p.phone||'', p.address||'', p.serviceDate||'',
+                p.isActive ? 'Active' : 'Inactive',
+                (p.Clinic&&p.Clinic.name)||'',
+                (p.PatientTransportCompany&&p.PatientTransportCompany.companyName)||'',
+                (p.PharmacyTransportCompany&&p.PharmacyTransportCompany.companyName)||''
+            ]);
+            downloadCsv('patient_report.csv', headers, rows);
+            showToast('Patient report exported!', 'success');
+        });
+
+        document.getElementById('exportRxCsv').addEventListener('click', async () => {
+            const data = await fetchRxReportRows({ exportAll: true });
+            if (!data.length) { showToast('No data to export', 'warning'); return; }
+            const headers = ['RX #','Patient','Patient ID','Pharmacy','Service Date','Done Steps','Progress %'];
+            const rows = data.map(r => {
+                const steps = r.completedSteps || [];
+                const pct   = allWorkflowActions.length ? Math.round(steps.length / allWorkflowActions.length * 100) : 0;
+                return [
+                    'RX-' + r.id,
+                    r.Patient ? r.Patient.firstName + ' ' + r.Patient.lastName : '',
+                    r.Patient ? r.Patient.patientCode : '',
+                    r.Pharmacy ? r.Pharmacy.name : '',
+                    r.serviceDate||'',
+                    steps.length,
+                    pct + '%'
+                ];
+            });
+            downloadCsv('rx_report.csv', headers, rows);
+            showToast('RX report exported!', 'success');
+        });
+
+        const ccCsv = document.getElementById('exportCcCsv');
+        if (ccCsv) ccCsv.addEventListener('click', async () => {
+            const data = await fetchCallCenterReportRows({ exportAll: true });
+            if (!data.length) { showToast('No Call Center data to export', 'warning'); return; }
+            downloadCsv('call_center_report_' + new Date().toISOString().slice(0,10) + '.csv', callCenterHeaders(), callCenterExportRows(data));
+            showToast('Call Center report exported!', 'success');
+        });
+
+        const attemptsCsv = document.getElementById('exportCcAttemptsCsv');
+        if (attemptsCsv) attemptsCsv.addEventListener('click', async () => {
+            const data = await fetchCallAttemptReportRows({ exportAll: true });
+            if (!data.length) { showToast('No call attempts to export', 'warning'); return; }
+            downloadCsv('call_attempts_' + new Date().toISOString().slice(0,10) + '.csv', callAttemptHeaders(), callAttemptExportRows(data));
+            showToast('Call attempts exported!', 'success');
+        });
+    }
+
+    function downloadCsv(filename, headers, rows) {
+        const csv = [headers, ...rows].map(r => r.map(v => '"' + String(v||'').replace(/"/g,'""') + '"').join(',')).join('\n');
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url  = URL.createObjectURL(blob);
+        const a    = Object.assign(document.createElement('a'), { href: url, download: filename });
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
+
+    function printReport(title, tableId) {
+        const tbl = document.getElementById(tableId);
+        if (!tbl) return;
+        const win = window.open('', '_blank');
+        win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><title>' + title + '</title><link href="/assets/bootstrap.min.css" rel="stylesheet"></head><body class="p-4"><h4>' + title + '</h4>' + tbl.outerHTML + '</body></html>');
+        win.document.close();
+        win.print();
+    }
+
+    // BUG-04: Excel export — HTML table as .xls (opens natively in Excel, no external lib needed)
+    function downloadXls(filename, headers, rows) {
+        var headerHtml = '';
+        headers.forEach(function(h) {
+            headerHtml += '<th>' + String(h || '').replace(/</g,'&lt;') + '</th>';
+        });
+        var bodyHtml = '';
+        rows.forEach(function(r) {
+            var rowHtml = '';
+            r.forEach(function(v) {
+                rowHtml += '<td>' + String(v || '').replace(/</g,'&lt;') + '</td>';
+            });
+            bodyHtml += '<tr>' + rowHtml + '</tr>';
+        });
+        var table = '<table><thead><tr>' + headerHtml + '</tr></thead><tbody>' + bodyHtml + '</tbody></table>';
+        var html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="UTF-8"><!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>Report</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]--></head><body>' + table + '</body></html>';
+        var blob = new Blob([html], { type: 'application/vnd.ms-excel;charset=utf-8' });
+        var url  = URL.createObjectURL(blob);
+        var a    = document.createElement('a');
+        a.href = url; a.download = filename;
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
+
+    // Helper: returns filtered patient data (mirrors CSV export filter logic, avoids duplication)
+    function getFilteredPatientData() {
+        validateDateRange('patientDateFrom', 'patientDateTo', 'Patient report date range');
+        return fetchPatientReportRows({ exportAll: true });
+    }
+
+    // BUG-04/05: Wire Excel, PDF, Print buttons — FortiGate-safe (addEventListener only, no inline handlers)
+    document.addEventListener('DOMContentLoaded', function() {
+        // ── Patient tab ──
+        var patXls = document.getElementById('exportPatientXls');
+        if (patXls) patXls.addEventListener('click', async function() {
+            var data = await getFilteredPatientData();
+            if (!data.length) { showToast('No data to export', 'warning'); return; }
+            var headers = ['Patient ID','First Name','Last Name','DOB','Phone','Address','Service Date','Status','Clinic','Patient Transport','Pharmacy Transport'];
+            var rows = data.map(function(p) {
+                return [p.patientCode||'', p.firstName||'', p.lastName||'', p.dob||'', p.phone||'', p.address||'', p.serviceDate||'',
+                        p.isActive ? 'Active' : 'Inactive',
+                        (p.Clinic && p.Clinic.name) || '',
+                        (p.PatientTransportCompany && p.PatientTransportCompany.companyName) || '',
+                        (p.PharmacyTransportCompany && p.PharmacyTransportCompany.companyName) || ''];
+            });
+            downloadXls('patient_report_' + new Date().toISOString().slice(0,10) + '.xls', headers, rows);
+            showToast('Patient report exported as Excel!', 'success');
+        });
+        var patPdf   = document.getElementById('exportPatientPdf');
+        if (patPdf)   patPdf.addEventListener('click',   function() { printReport('Patient Report', 'patientReportTable'); });
+        var patPrint = document.getElementById('printPatientBtn');
+        if (patPrint) patPrint.addEventListener('click', function() { printReport('Patient Report', 'patientReportTable'); });
+
+        // ── RX tab ──
+        var rxXls = document.getElementById('exportRxXls');
+        if (rxXls) rxXls.addEventListener('click', async function() {
+            var data = await fetchRxReportRows({ exportAll: true });
+            if (!data.length) { showToast('No data to export', 'warning'); return; }
+            var headers = ['RX #','Patient','Patient ID','Pharmacy','Service Date','Done Steps','Progress %'];
+            var rows = data.map(function(r) {
+                var steps = r.completedSteps || [];
+                var pct   = allWorkflowActions.length ? Math.round(steps.length / allWorkflowActions.length * 100) : 0;
+                return ['RX-' + r.id,
+                        r.Patient ? r.Patient.firstName + ' ' + r.Patient.lastName : '',
+                        r.Patient ? r.Patient.patientCode : '',
+                        r.Pharmacy ? r.Pharmacy.name : '',
+                        r.serviceDate || '', steps.length, pct + '%'];
+            });
+            downloadXls('rx_report_' + new Date().toISOString().slice(0,10) + '.xls', headers, rows);
+            showToast('RX report exported as Excel!', 'success');
+        });
+        var rxPdf   = document.getElementById('exportRxPdf');
+        if (rxPdf)   rxPdf.addEventListener('click',   function() { printReport('RX Records Report', 'rxReportTable'); });
+        var rxPrint = document.getElementById('printRxBtn');
+        if (rxPrint) rxPrint.addEventListener('click', function() { printReport('RX Records Report', 'rxReportTable'); });
+
+        // Call Center tab
+        var ccXls = document.getElementById('exportCcXls');
+        if (ccXls) ccXls.addEventListener('click', async function() {
+            var data = await fetchCallCenterReportRows({ exportAll: true });
+            if (!data.length) { showToast('No Call Center data to export', 'warning'); return; }
+            downloadXls('call_center_report_' + new Date().toISOString().slice(0,10) + '.xls', callCenterHeaders(), callCenterExportRows(data));
+            showToast('Call Center report exported as Excel!', 'success');
+        });
+        var ccPrint = document.getElementById('printCcBtn');
+        if (ccPrint) ccPrint.addEventListener('click', function() { printReport('Call Center Report', 'ccReportTable'); });
+        var attemptsXls = document.getElementById('exportCcAttemptsXls');
+        if (attemptsXls) attemptsXls.addEventListener('click', async function() {
+            var data = await fetchCallAttemptReportRows({ exportAll: true });
+            if (!data.length) { showToast('No call attempts to export', 'warning'); return; }
+            downloadXls('call_attempts_' + new Date().toISOString().slice(0,10) + '.xls', callAttemptHeaders(), callAttemptExportRows(data));
+            showToast('Call attempts exported as Excel!', 'success');
+        });
+        var attemptsPrint = document.getElementById('printCcAttemptsBtn');
+        if (attemptsPrint) attemptsPrint.addEventListener('click', function() { printReport('Automatic Call Attempts', 'ccAttemptReportTable'); });
+    });
+

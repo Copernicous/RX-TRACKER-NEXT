@@ -1,0 +1,286 @@
+Pending Items To Fix
+Project: Patient RX
+Status after mitigation review: partially mitigated, not fully production-clean yet.
+
+This file lists only the remaining open or partially open items from the latest review.
+It assumes the server is behind FortiGate web access and is not directly public.
+
+===============================================================================
+1. JWT is still readable by JavaScript and stored in localStorage
+===============================================================================
+
+Current status:
+- Not fully mitigated.
+- This was intentionally deferred because the current client-side cookie path logic may be needed for FortiGate web access.
+
+Where:
+- views/login.ejs:327
+  document.cookie = 'rxToken=' + encodeURIComponent(token) +
+
+- views/login.ejs:333
+  localStorage.setItem('token', data.token);
+
+Why it matters:
+- The server sets an HttpOnly cookie, which is safer.
+- The browser then stores the same JWT in localStorage and in a JavaScript-readable cookie.
+- If any XSS bug exists anywhere in the app, that script can steal the token.
+
+How to fix safely:
+1. Do not remove this directly in production first.
+2. Create a staging FortiGate test path.
+3. Change frontend API calls to rely on `credentials: include` and the server-set HttpOnly cookie.
+4. Remove `localStorage.setItem('token', data.token)` only after all pages work through FortiGate.
+5. Replace the JavaScript-written cookie with a server-side cookie path strategy:
+   - Best option: configure FortiGate to rewrite `Set-Cookie Path` correctly.
+   - Alternative: add a server env var like `COOKIE_PATH` if the FortiGate proxy prefix is stable.
+6. After removing client-readable tokens, confirm JavaScript cannot read `rxToken`.
+
+Risk of breaking the app:
+- Medium to high if changed without FortiGate testing.
+- Login may work directly but fail through FortiGate if cookie path rewriting is not handled.
+
+Validation:
+- Login through FortiGate.
+- Refresh dashboard and navigate to Patients, RX Records, Reports, Backups, System Settings.
+- Confirm API requests still authenticate without `Authorization: Bearer` from localStorage.
+- Confirm `document.cookie` does not expose `rxToken`.
+
+===============================================================================
+2. API keys are rate-limited but not actually mounted as API-key authentication
+===============================================================================
+
+Current status:
+- Partially mitigated.
+- The rate limiter path was fixed, but `X-API-Key` authentication is still not active for API routes.
+
+Where:
+- app.js:330
+  app.use('/api/api-keys', apiKeyLimiter);
+
+- routes/apiRoutes.js:36
+  router.use(auth);
+
+- controllers/apiKeyController.js:121
+  exports.authenticateApiKey = async (req, res, next) => {
+
+Why it matters:
+- The app can generate API keys.
+- But API requests still hit JWT auth first, so `X-API-Key` does not authenticate normal API calls.
+- This can confuse operators or integrations into thinking API keys are usable when they are not.
+
+How to fix safely:
+Option A - If API keys are not currently needed:
+1. Leave API-key generation restricted to admins.
+2. Add UI/help text: "API key external access is not enabled yet."
+3. Do not advertise API keys as integration credentials.
+
+Option B - If API keys are needed:
+1. Mount `apiKeyController.authenticateApiKey` before JWT auth.
+2. Change auth flow so API key OR JWT can authenticate the request.
+3. Add explicit API-key scopes before enabling access to patient/RX data.
+4. Do not let API keys automatically act as Administrator.
+5. Add audit logs for API-key usage.
+
+Suggested safe route design:
+- Public/internal API middleware order:
+  - `authenticateApiKey`
+  - if no API key user, fall back to JWT `auth`
+  - RBAC/scope check
+
+Risk of breaking the app:
+- Low if simply documenting/keeping disabled.
+- Medium if enabling API-key auth because existing RBAC expects a normal user and role.
+
+Validation:
+- Create an API key.
+- Call an intended API route with only `X-API-Key`.
+- Confirm expected allow/deny behavior.
+- Confirm API key requests are audited and rate-limited.
+
+===============================================================================
+3. Startup still mutates database schema on boot
+===============================================================================
+
+Current status:
+- Partially mitigated.
+- Default `admin/admin123` seeding is gated by `ALLOW_DEFAULT_SEED=false`, but schema changes still happen during app startup.
+
+Where:
+- app.js:370 and following startup block.
+- app.js includes multiple `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` calls.
+- app.js:517
+  await db.sequelize.sync();
+
+Why it matters:
+- Production schema should usually be changed through migrations, not app boot.
+- Boot-time schema changes can hide deployment mistakes and create schema drift.
+- If a migration fails or a column is added incorrectly, the app may continue in a partially changed state.
+
+How to fix safely:
+1. Do not remove startup schema checks immediately unless migrations are confirmed complete.
+2. Create Sequelize migrations for every startup `ALTER TABLE`.
+3. Run migrations as part of deployment before starting the server.
+4. Add a startup verification mode that checks required columns and logs clear errors.
+5. After at least one successful migration-based deployment, remove or disable boot-time `ALTER TABLE` logic.
+
+Risk of breaking the app:
+- Medium.
+- Fresh installs may depend on current boot behavior.
+- Use a staged transition instead of deleting all startup schema code at once.
+
+Validation:
+- Fresh database install with migrations only.
+- Existing production database restart with no schema changes attempted.
+- Restore from backup and run migrations.
+- Confirm startup fails clearly if required schema is missing.
+
+===============================================================================
+4. CORS is only safe while APP_ORIGIN remains correctly set
+===============================================================================
+
+Current status:
+- Effectively mitigated in the current `.env`.
+- Still code-level partial because missing `APP_ORIGIN` falls back open.
+
+Where:
+- app.js:213-220
+  If APP_ORIGIN is not set, the app warns but uses `corsOrigin = true`.
+
+- .env:9
+  APP_ORIGIN=https://rx.camperos.net:10443,http://localhost:3000
+
+Why it matters:
+- Current environment is safer because APP_ORIGIN is set.
+- A future deployment without APP_ORIGIN would reopen credentialed CORS.
+- `http://localhost:3000` should not be in production unless it is truly needed on the production host.
+
+How to fix safely:
+1. Keep `APP_ORIGIN` set in production.
+2. Remove `http://localhost:3000` from production if direct local browser access is not needed.
+3. Change production behavior to fail closed when APP_ORIGIN is missing:
+   - In production, use an empty allowlist or exit startup with a clear error.
+4. Keep permissive behavior only in development.
+
+Risk of breaking the app:
+- Low to medium.
+- Wrong FortiGate origin value will break browser API calls.
+
+Validation:
+- Login through FortiGate after setting only the FortiGate origin.
+- Confirm requests from an unapproved Origin are rejected.
+- Confirm same-origin/no-Origin server-side requests still work if needed.
+
+===============================================================================
+5. package.json and package-lock.json versions are out of sync
+===============================================================================
+
+Current status:
+- Open.
+
+Where:
+- package.json:3
+  "version": "2.0.14"
+
+- package-lock.json:3 and package-lock.json:9
+  "version": "1.0.0"
+
+Why it matters:
+- Build/release metadata can be confusing.
+- The compiled executable or deployment notes may report one version while lock metadata says another.
+
+How to fix safely:
+1. Run:
+   npm install --package-lock-only
+
+2. Confirm package-lock now shows version 2.0.14 at both root package entries.
+3. Do not run `npm audit fix --force` for this.
+
+Risk of breaking the app:
+- Low.
+- This only updates lock metadata if package dependencies are unchanged.
+
+Validation:
+- Check package-lock root version values.
+- Run `npm install --package-lock-only` on a clean working tree if possible.
+
+===============================================================================
+6. npm audit still reports moderate uuid issues through Sequelize
+===============================================================================
+
+Current status:
+- Open, but not urgent enough to force a breaking dependency change.
+
+Where:
+- npm audit reports:
+  - uuid < 11.1.1
+  - dependency path through sequelize
+
+Why it matters:
+- It is a moderate transitive vulnerability.
+- The suggested `npm audit fix --force` wants a breaking Sequelize change, so it should not be run blindly.
+
+How to fix safely:
+1. Track Sequelize releases and advisories.
+2. Test a controlled Sequelize upgrade in a branch/staging environment.
+3. Do not use `npm audit fix --force` directly on production code.
+
+Risk of breaking the app:
+- Medium to high if forced.
+- Sequelize upgrades can affect models, migrations, and query behavior.
+
+Validation:
+- Run app startup.
+- Run migrations.
+- Test login, patients, RX records, reports, backups, and backoffice.
+
+===============================================================================
+7. No automated test suite is configured
+===============================================================================
+
+Current status:
+- Open.
+
+Where:
+- package.json has no `test` script.
+
+Why it matters:
+- Security fixes around authentication, FortiGate cookies, and RBAC require manual validation.
+- Future changes can accidentally reopen already-fixed findings.
+
+How to fix safely:
+1. Start small with focused integration tests.
+2. Add tests for:
+   - Login success/failure.
+   - Password change invalidates old token.
+   - User create ignores `isMaster`.
+   - Non-master admin cannot access backoffice API.
+   - CORS rejects unapproved origins.
+3. Use a test database, not production data.
+
+Risk of breaking the app:
+- Low if tests are isolated.
+- Medium if test setup touches the real database, so keep test DB separate.
+
+Validation:
+- `npm test` should run without production services.
+- Tests should seed and clean their own data.
+
+===============================================================================
+Recommended order
+===============================================================================
+
+1. Manually validate current fixes through FortiGate:
+   - login
+   - session invalidation after password change
+   - isMaster remains SQL-only
+   - CORS allowlist behavior
+
+2. Fix package-lock version metadata.
+
+3. Decide whether API keys are enabled or documented as disabled.
+
+4. Plan the FortiGate-safe JWT storage change in staging.
+
+5. Move startup schema changes to migrations.
+
+6. Add minimal auth/RBAC regression tests.
