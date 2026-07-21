@@ -3,6 +3,7 @@
 require('dotenv').config();
 
 const assert = require('assert');
+const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const db = require('../models');
 const { assertDatabaseReady } = require('../db/schema-verifier');
@@ -19,8 +20,22 @@ async function main() {
   }
 
   await assertDatabaseReady(db);
-  const user = await db.User.findOne({ order: [['id', 'ASC']] });
-  assert(user, 'The test copy must contain one synthetic user.');
+  let user = await db.User.findOne({ order: [['id', 'ASC']] });
+  if (!user) {
+    const adminRole = await db.Role.findOne({ where: { name: 'Administrator' } });
+    assert(adminRole, 'Reference seeding must provide the Administrator role.');
+    const fixtureId = Date.now();
+    user = await db.User.create({
+      firstName: 'Fixture',
+      lastName: 'Administrator',
+      username: `sanitizer_fixture_${fixtureId}`,
+      email: `sanitizer_fixture_${fixtureId}@example.test`,
+      passwordHash: await bcrypt.hash('Sanitizer-Fixture-Only!42', 8),
+      roleId: adminRole.id,
+      isActive: true,
+      isMaster: true
+    });
+  }
 
   const clinic = await db.Clinic.create({
     name: 'Sensitive Clinic', address: '123 Private Road', phone: '3055550199',
