@@ -91,7 +91,7 @@ try {
     assert.strictEqual(settings.getCallCenterPhoneClient(), 'rx_softphone', 'Rejected selection must not overwrite settings.');
 
     const callCenterScript = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'call-center.js'), 'utf8');
-    assert(callCenterScript.includes("targetAddressSpace: 'loopback'"), 'Browser request must identify the loopback target.');
+    assert(callCenterScript.includes("targetAddressSpace: 'local'"), 'Browser request must use Chrome\'s supported local address-space annotation.');
     assert(callCenterScript.includes("snapshot.call || 'idle'"), 'Call-state acknowledgement integration is missing.');
     assert(callCenterScript.includes("payload.callAnsweredAt"), 'Answered-call audit metadata is missing.');
     assert(callCenterScript.includes('/api/call-center/phone-account'), 'Server-managed softphone account endpoint is missing.');

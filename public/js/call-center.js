@@ -285,7 +285,7 @@
         var fetchOptions = Object.assign({
             mode: 'cors',
             cache: 'no-store',
-            targetAddressSpace: 'loopback'
+            targetAddressSpace: 'local'
         }, options || {});
         if (controller) fetchOptions.signal = controller.signal;
         if (fetchOptions.body) {
