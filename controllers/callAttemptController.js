@@ -84,7 +84,7 @@ function deriveOutcome(attempt, state, requestedOutcome) {
     return null;
 }
 
-async function recordAnsweredCall(req, attempt, transaction) {
+async function recordAnsweredCall(ipAddress, attempt, transaction) {
     if (attempt.calledAuditLogId || !attempt.answeredAt || !attempt.patientId) return false;
     const patient = await db.Patient.findByPk(attempt.patientId, { transaction });
     if (!patient) return false;
@@ -109,7 +109,7 @@ async function recordAnsweredCall(req, attempt, transaction) {
             callEndedAt: attempt.endedAt,
             callDurationSeconds: attempt.conversationDurationSeconds
         },
-        ipAddress: requestIp(req)
+        ipAddress: cleanText(ipAddress, 64)
     }, { transaction });
     attempt.calledAuditLogId = audit.id;
     return true;
@@ -200,16 +200,11 @@ exports.getOwnAttemptByCorrelation = async (req, res) => {
     }
 };
 
-exports.updateAttempt = async (req, res) => {
-    try {
-        const attemptId = parseInt(req.params.id, 10);
-        if (!Number.isFinite(attemptId)) return res.status(400).json({ error: 'Invalid call-attempt id.' });
-        const body = req.body || {};
-
-        let calledRecorded = false;
-        const updated = await db.sequelize.transaction(async transaction => {
+async function updateAttemptForUser(userId, attemptId, body, ipAddress) {
+    let calledRecorded = false;
+    const updated = await db.sequelize.transaction(async transaction => {
             const attempt = await db.CallCenterCallAttempt.findOne({
-                where: { id: attemptId, userId: req.user.id },
+                where: { id: attemptId, userId },
                 transaction,
                 lock: transaction.LOCK.UPDATE
             });
@@ -247,7 +242,7 @@ exports.updateAttempt = async (req, res) => {
             attempt.ringDurationSeconds = secondsBetween(attempt.ringingAt || attempt.dialedAt, ringEnd);
             attempt.conversationDurationSeconds = secondsBetween(attempt.answeredAt, attempt.endedAt);
 
-            calledRecorded = await recordAnsweredCall(req, attempt, transaction);
+            calledRecorded = await recordAnsweredCall(ipAddress, attempt, transaction);
             if (attempt.calledAuditLogId && TERMINAL_STATES.has(state)) {
                 await updateCalledAudit(attempt, transaction);
             }
@@ -259,7 +254,16 @@ exports.updateAttempt = async (req, res) => {
             return attempt;
         });
 
-        res.json({ attempt: publicAttempt(updated), calledRecorded });
+    return { attempt: publicAttempt(updated), calledRecorded };
+}
+
+exports.updateAttempt = async (req, res) => {
+    try {
+        const attemptId = parseInt(req.params.id, 10);
+        if (!Number.isFinite(attemptId)) return res.status(400).json({ error: 'Invalid call-attempt id.' });
+        const result = await updateAttemptForUser(req.user.id, attemptId, req.body || {}, requestIp(req));
+
+        res.json(result);
     } catch (err) {
         const status = err.status || 500;
         if (status >= 500) console.error('[Call Attempts] update error:', err);
@@ -268,3 +272,4 @@ exports.updateAttempt = async (req, res) => {
 };
 
 exports.publicAttempt = publicAttempt;
+exports.updateAttemptForUser = updateAttemptForUser;

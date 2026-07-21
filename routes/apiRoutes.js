@@ -24,6 +24,13 @@ const phoneAccountSaveLimiter = rateLimit({
     skipSuccessfulRequests: true,
     message: { error: 'Too many rejected phone-account save attempts. Try again in 15 minutes.' }
 });
+const softphoneRelayPairLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 20,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Too many softphone pairing attempts. Try again in 15 minutes.' }
+});
 
 function getCookie(cookieHeader, name) {
     if (!cookieHeader) return null;
@@ -40,6 +47,7 @@ const patientController = require('../controllers/patientController');
 const callCenterController = require('../controllers/callCenterController');
 const callAttemptController = require('../controllers/callAttemptController');
 const softphoneAccountController = require('../controllers/softphoneAccountController');
+const softphoneRelayController = require('../controllers/softphoneRelayController');
 const rxController = require('../controllers/rxController');
 const dashboardController = require('../controllers/dashboardController');
 const reportController = require('../controllers/reportController');
@@ -173,6 +181,9 @@ function restrictCallCenterApi(req, res, next) {
 
 // ── Public routes (no auth required) — must be declared BEFORE router.use(auth) ──
 // All remaining API routes require authentication
+router.post('/softphone-relay/device/pair', softphoneRelayPairLimiter, softphoneRelayController.pairDevice);
+router.post('/softphone-relay/device/poll', softphoneRelayController.pollDevice);
+
 router.use(auth);
 router.use(restrictCallCenterApi);
 
@@ -185,6 +196,10 @@ router.post('/call-center/phone-account/registration', callCenterController.requ
 router.get('/phone-account/setup', softphoneAccountController.getOwnSetup);
 router.post('/phone-account/setup', phoneAccountSaveLimiter, softphoneAccountController.saveOwnSetup);
 router.post('/call-center/call-attempts', callCenterController.requireWriteAccess, callAttemptController.startAttempt);
+router.post('/call-center/softphone-relay/pairing-code', callCenterController.requireAccess, softphoneRelayController.createPairingCode);
+router.get('/call-center/softphone-relay/status', callCenterController.requireAccess, softphoneRelayController.getStatus);
+router.post('/call-center/softphone-relay/calls', callCenterController.requireWriteAccess, softphoneRelayController.queueDial);
+router.delete('/call-center/softphone-relay/calls/current', callCenterController.requireWriteAccess, softphoneRelayController.queueHangup);
 router.get('/call-center/call-attempts/by-correlation/:correlationId', callCenterController.requireAccess, callAttemptController.getOwnAttemptByCorrelation);
 router.patch('/call-center/call-attempts/:id', callCenterController.requireWriteAccess, callAttemptController.updateAttempt);
 router.post('/call-center/patients/:id/claim', callCenterController.requireWriteAccess, callCenterController.claimPatient);

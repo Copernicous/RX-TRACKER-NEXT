@@ -568,6 +568,9 @@
                     </div>
                     <div class="d-flex align-items-center justify-content-end gap-2 flex-wrap">
                         <span class="cc-phone-client-status" id="ccPhoneClientStatus"><i class="fas fa-phone-alt"></i>Loading phone client</span>
+                        <button type="button" class="btn btn-outline-primary btn-sm" id="ccRelayPairBtn">
+                            <i class="fas fa-link me-1"></i>Pair Windows phone
+                        </button>
                         <span class="badge rounded-pill bg-secondary" id="ccRangeLabel">--</span>
                     </div>
                 </div>
@@ -608,6 +611,32 @@
     </div>
 </div>
 
+<div class="modal fade" id="ccRelayPairModal" tabindex="-1" aria-labelledby="ccRelayPairTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="ccRelayPairTitle"><i class="fas fa-link me-2 text-primary"></i>Pair Windows RX Softphone</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-2">Open RX Softphone 0.4.0 or later on the Windows PC that will handle calls. Enter the RX Tracker server address and this one-time code:</p>
+                <div class="border rounded text-center p-3 my-3 bg-light">
+                    <div class="text-muted small text-uppercase fw-bold">Pairing code</div>
+                    <div class="display-6 fw-bold font-monospace" id="ccRelayPairingCode">--------</div>
+                    <div class="small text-muted" id="ccRelayPairingExpiry">Generate a code to begin.</div>
+                </div>
+                <div class="alert alert-info small mb-0">
+                    <i class="fas fa-info-circle me-1"></i>The relay carries commands and call status only. SIP and audio remain on the Windows PC.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" id="ccRelayGenerateBtn"><i class="fas fa-sync-alt me-1"></i>Generate new code</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div id="x-api-urls" aria-hidden="true" class="d-none">
     <a id="xa-base" href="/login"></a>
     <a id="xa-cc-patients" href="/api/call-center/patients"></a>
@@ -618,6 +647,9 @@
     <a id="xa-cc-phone-account" href="/api/call-center/phone-account"></a>
     <a id="xa-cc-phone-registration" href="/api/call-center/phone-account/registration"></a>
     <a id="xa-cc-call-attempts" href="/api/call-center/call-attempts"></a>
+    <a id="xa-cc-relay-pairing" href="/api/call-center/softphone-relay/pairing-code"></a>
+    <a id="xa-cc-relay-status" href="/api/call-center/softphone-relay/status"></a>
+    <a id="xa-cc-relay-calls" href="/api/call-center/softphone-relay/calls"></a>
     <a id="xa-cc-logout" href="/api/auth/logout"></a>
 </div>
 

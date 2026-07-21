@@ -22,7 +22,10 @@
             lockStatus: h('xa-cc-lock-status', '/api/call-center/locks/status'),
             phoneAccount: h('xa-cc-phone-account', '/api/call-center/phone-account'),
             phoneRegistration: h('xa-cc-phone-registration', '/api/call-center/phone-account/registration'),
-            callAttempts: h('xa-cc-call-attempts', '/api/call-center/call-attempts')
+            callAttempts: h('xa-cc-call-attempts', '/api/call-center/call-attempts'),
+            relayPairing: h('xa-cc-relay-pairing', '/api/call-center/softphone-relay/pairing-code'),
+            relayStatus: h('xa-cc-relay-status', '/api/call-center/softphone-relay/status'),
+            relayCalls: h('xa-cc-relay-calls', '/api/call-center/softphone-relay/calls')
         };
     })();
 
@@ -82,6 +85,10 @@
         suppressAutoRegistration: false,
         savingAccount: false,
         activeCall: null,
+        transport: null,
+        relayStatus: null,
+        relayPromise: null,
+        localFailures: 0,
         reconciledCallId: '',
         acknowledgements: {},
         callClients: {}
@@ -329,6 +336,33 @@
         if (typeof showToast === 'function') showToast(message, type || 'info');
     }
 
+    async function createRelayPairingCode(button) {
+        var code = document.getElementById('ccRelayPairingCode');
+        var expiry = document.getElementById('ccRelayPairingExpiry');
+        var original = button && button.innerHTML;
+        if (button) {
+            button.disabled = true;
+            button.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Generating';
+        }
+        if (code) code.textContent = '--------';
+        if (expiry) expiry.textContent = 'Creating a secure one-time code...';
+        try {
+            var response = await fetchWithAuth(api.relayPairing, { method: 'POST', body: '{}' });
+            var data = response ? await response.json().catch(function() { return {}; }) : {};
+            if (!response || !response.ok) throw new Error(data.error || data.message || 'Could not generate a pairing code.');
+            if (code) code.textContent = data.pairingCode || '--------';
+            if (expiry) expiry.textContent = 'Expires in 10 minutes and can be used once.';
+        } catch (err) {
+            if (expiry) expiry.textContent = (err && err.message) || 'Could not generate a pairing code.';
+            toast((err && err.message) || 'Could not generate a pairing code.', 'danger');
+        } finally {
+            if (button) {
+                button.disabled = false;
+                button.innerHTML = original;
+            }
+        }
+    }
+
     async function rxFetch(path, options) {
         var requestOptions = Object.assign({}, options || {});
         var timeoutMs = Number(requestOptions.timeoutMs) || 2500;
@@ -377,12 +411,14 @@
             var callState = rxPhone.snapshot.call || 'idle';
             if (isRxCallActive(rxPhone.snapshot)) {
                 badge.classList.add('calling');
-                badge.innerHTML = '<i class="fas fa-phone-volume"></i> RX: ' + esc(callState);
+                badge.innerHTML = '<i class="fas fa-phone-volume"></i> RX' + (rxPhone.transport === 'relay' ? ' Relay' : '') + ': ' + esc(callState);
             } else {
                 badge.classList.add('online');
-                badge.innerHTML = '<i class="fas fa-check-circle"></i> RX Softphone ready';
+                badge.innerHTML = '<i class="fas fa-check-circle"></i> RX Softphone ready' + (rxPhone.transport === 'relay' ? ' via relay' : '');
             }
-            if (help) help.textContent = 'RX Softphone records attempts and answered calls automatically. Save is only for a note or new service date.';
+            if (help) help.textContent = (rxPhone.transport === 'relay'
+                ? 'The paired Windows RX Softphone is connected through the outbound relay. Audio remains on that Windows PC. '
+                : '') + 'RX Softphone records attempts and answered calls automatically. Save is only for a note or new service date.';
         } else if (state.phoneClient === 'auto') {
             badge.classList.add('fallback');
             badge.innerHTML = '<i class="fas fa-random"></i> MicroSIP fallback';
@@ -394,6 +430,9 @@
                 ? 'Open RX Softphone and register it to the PBX before calling.'
                 : 'RX Softphone must run on the same computer as this browser. Remote browsers such as Kasm cannot use a softphone running on your Windows PC.';
         }
+
+        var relayPair = document.getElementById('ccRelayPairBtn');
+        if (relayPair) relayPair.classList.toggle('d-none', state.phoneClient === 'microsip');
 
         var activePatientId = rxPhone.activeCall && isRxCallActive(rxPhone.snapshot)
             ? String(rxPhone.activeCall.patientId)
@@ -551,6 +590,7 @@
 
     async function connectAssignedPhone(force, notifyUser) {
         if (state.phoneClient === 'microsip') return null;
+        if (rxPhone.transport === 'relay') return rxPhone.snapshot;
         if (rxPhone.registrationPromise) return rxPhone.registrationPromise;
         if (rxPhone.suppressAutoRegistration && !force) return rxPhone.snapshot;
         if (rxPhone.autoRegistrationAttempted && !force) return rxPhone.snapshot;
@@ -824,6 +864,8 @@
         rxPhone.probePromise = rxFetch('/api/status')
             .then(function(snapshot) {
                 rxPhone.reachable = true;
+                rxPhone.transport = 'local';
+                rxPhone.localFailures = 0;
                 handleRxSnapshot(snapshot);
                 if (!wasReachable
                     && rxPhone.autoRegistrationAttempted
@@ -838,15 +880,48 @@
                 return snapshot;
             })
             .catch(function() {
-                rxPhone.reachable = false;
-                rxPhone.snapshot = null;
-                renderPhoneClientStatus();
-                return null;
+                rxPhone.localFailures += 1;
+                return probeRelayPhone().then(function(snapshot) {
+                    var windowsBrowser = /Windows/i.test(String(navigator.userAgent || ''));
+                    if (snapshot || (rxPhone.localFailures >= 2 && !windowsBrowser)) switchRxPhonePolling(true);
+                    return snapshot;
+                });
             })
             .finally(function() {
                 rxPhone.probePromise = null;
             });
         return rxPhone.probePromise;
+    }
+
+    async function probeRelayPhone() {
+        if (state.phoneClient === 'microsip') return null;
+        if (rxPhone.relayPromise) return rxPhone.relayPromise;
+        rxPhone.relayPromise = fetchWithAuth(api.relayStatus, { silent: true })
+            .then(async function(response) {
+                var data = response ? await response.json().catch(function() { return {}; }) : {};
+                if (!response || !response.ok) return null;
+                rxPhone.relayStatus = data;
+                if (!data.online || !data.snapshot) {
+                    rxPhone.reachable = false;
+                    rxPhone.transport = null;
+                    rxPhone.snapshot = null;
+                    renderPhoneClientStatus();
+                    return null;
+                }
+                rxPhone.reachable = true;
+                rxPhone.transport = 'relay';
+                handleRxSnapshot(data.snapshot);
+                return data.snapshot;
+            })
+            .catch(function() {
+                rxPhone.reachable = false;
+                rxPhone.transport = null;
+                rxPhone.snapshot = null;
+                renderPhoneClientStatus();
+                return null;
+            })
+            .finally(function() { rxPhone.relayPromise = null; });
+        return rxPhone.relayPromise;
     }
 
     async function probeRxPhoneFromUserGesture() {
@@ -856,15 +931,14 @@
             // permission prompt for a public HTTPS origin.
             var snapshot = await rxFetch('/api/status', { timeoutMs: 30000 });
             rxPhone.reachable = true;
+            rxPhone.transport = 'local';
+            rxPhone.localFailures = 0;
             rxPhone.loopbackPermission = 'granted';
             handleRxSnapshot(snapshot);
-            startRxPhonePolling();
+            switchRxPhonePolling(false);
             return snapshot;
         } catch (err) {
-            rxPhone.reachable = false;
-            rxPhone.snapshot = null;
-            renderPhoneClientStatus();
-            return null;
+            return probeRelayPhone();
         }
     }
 
@@ -891,9 +965,15 @@
         }
     }
 
-    function startRxPhonePolling() {
+    function startRxPhonePolling(relayOnly) {
         if (state.phoneClient === 'microsip' || rxPhone.monitorTimer) return;
-        rxPhone.monitorTimer = setInterval(probeRxPhone, 1200);
+        rxPhone.monitorTimer = setInterval(relayOnly ? probeRelayPhone : probeRxPhone, relayOnly ? 2000 : 1200);
+    }
+
+    function switchRxPhonePolling(relayOnly) {
+        if (rxPhone.monitorTimer) clearInterval(rxPhone.monitorTimer);
+        rxPhone.monitorTimer = null;
+        startRxPhonePolling(relayOnly);
     }
 
     async function configurePhoneMonitor() {
@@ -910,6 +990,8 @@
             // A public HTTPS page must not consume Chrome's loopback permission
             // request from an automatic poll. The phone click below supplies the
             // user gesture that Chrome can associate with its permission prompt.
+            await probeRelayPhone();
+            startRxPhonePolling(true);
             return;
         }
         probeRxPhone().then(function() {
@@ -945,7 +1027,7 @@
         var snapshot = rxPhone.reachable && rxPhone.snapshot
             ? rxPhone.snapshot
             : await probeRxPhoneFromUserGesture();
-        if (!snapshot || snapshot.registration !== 'registered') {
+        if ((!snapshot || snapshot.registration !== 'registered') && rxPhone.transport !== 'relay') {
             snapshot = await connectAssignedPhone(false, false) || snapshot;
         }
         var ready = !!(snapshot && snapshot.registration === 'registered');
@@ -956,7 +1038,7 @@
             }
             else {
                 if (!snapshot) {
-                    toast('RX Softphone could not be reached from this browser. If this page is inside Kasm or another remote browser, open RX Tracker directly on the Windows PC running RX Softphone. Otherwise, allow Local network and Apps on device access, then reload.', 'warning');
+                    toast('RX Softphone could not be reached. If this page is inside Kasm or another remote browser, pair RX Softphone 0.4.0 on the Windows PC with this RX user. Direct local and FortiGate calling still work without the relay.', 'warning');
                 } else {
                     toast('RX Softphone is not registered. Ask an Administrator to allow Phone Account Setup if the saved account must be corrected.', 'warning');
                 }
@@ -990,15 +1072,33 @@
                 lastState: 'dialing',
                 syncedSignature: ''
             };
-            var dialSnapshot = await rxFetch('/api/calls', {
-                method: 'POST',
-                body: JSON.stringify({ destination: dialNumber, correlationId: attempt.correlationId })
-            });
+            var dialSnapshot;
+            if (rxPhone.transport === 'relay') {
+                var relayResponse = await fetchWithAuth(api.relayCalls, {
+                    method: 'POST',
+                    body: JSON.stringify({ attemptId: attempt.id })
+                });
+                var relayData = relayResponse ? await relayResponse.json().catch(function() { return {}; }) : {};
+                if (!relayResponse || !relayResponse.ok) {
+                    throw new Error(relayData.error || relayData.message || 'The Windows softphone did not accept the relay call.');
+                }
+                dialSnapshot = Object.assign({}, snapshot, {
+                    call: 'dialing',
+                    callId: attempt.correlationId,
+                    peer: dialNumber,
+                    dialedAt: attempt.dialedAt
+                });
+            } else {
+                dialSnapshot = await rxFetch('/api/calls', {
+                    method: 'POST',
+                    body: JSON.stringify({ destination: dialNumber, correlationId: attempt.correlationId })
+                });
+            }
             rxPhone.activeCall.lastState = dialSnapshot.call || 'dialing';
             rxPhone.callClients[String(patientId)] = 'rx_softphone';
             rxPhone.reachable = true;
             handleRxSnapshot(dialSnapshot);
-            toast('Calling ' + dialNumber + ' with RX Softphone.', 'info');
+            toast('Calling ' + dialNumber + ' with RX Softphone' + (rxPhone.transport === 'relay' ? ' through the Windows relay.' : '.'), 'info');
         } catch (err) {
             link.classList.remove('is-calling');
             if (attempt && rxPhone.activeCall) {
@@ -1019,10 +1119,17 @@
     async function hangupRxCall(button) {
         button.disabled = true;
         try {
-            var snapshot = await rxFetch('/api/calls/current', { method: 'DELETE' });
-            rxPhone.reachable = true;
-            handleRxSnapshot(snapshot);
-            toast('RX Softphone call ended.', 'info');
+            if (rxPhone.transport === 'relay') {
+                var response = await fetchWithAuth(api.relayCalls + '/current', { method: 'DELETE' });
+                var data = response ? await response.json().catch(function() { return {}; }) : {};
+                if (!response || !response.ok) throw new Error(data.error || data.message || 'The relay could not send hangup.');
+                toast('Hangup sent to the Windows RX Softphone.', 'info');
+            } else {
+                var snapshot = await rxFetch('/api/calls/current', { method: 'DELETE' });
+                rxPhone.reachable = true;
+                handleRxSnapshot(snapshot);
+                toast('RX Softphone call ended.', 'info');
+            }
         } catch (err) {
             toast((err && err.message) || 'Could not end the RX Softphone call.', 'danger');
         } finally {
@@ -1408,6 +1515,9 @@
         var phoneRegister = document.getElementById('ccPhoneRegisterBtn');
         var phoneUnregister = document.getElementById('ccPhoneUnregisterBtn');
         var passwordToggle = document.getElementById('ccSipPasswordToggle');
+        var relayPair = document.getElementById('ccRelayPairBtn');
+        var relayGenerate = document.getElementById('ccRelayGenerateBtn');
+        var relayModalElement = document.getElementById('ccRelayPairModal');
         var cards = document.querySelectorAll('.cc-metric[data-view]');
         var sortButtons = document.querySelectorAll('.cc-sort[data-sort]');
 
@@ -1498,6 +1608,16 @@
                 passwordToggle.textContent = show ? 'Hide' : 'Show';
                 passwordToggle.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
             });
+        }
+        if (relayPair && relayModalElement) {
+            relayPair.addEventListener('click', function() {
+                var modal = bootstrap.Modal.getOrCreateInstance(relayModalElement);
+                modal.show();
+                createRelayPairingCode(relayGenerate);
+            });
+        }
+        if (relayGenerate) {
+            relayGenerate.addEventListener('click', function() { createRelayPairingCode(relayGenerate); });
         }
         if (phoneSetupModal) {
             phoneSetupModal.addEventListener('hidden.bs.modal', function() {

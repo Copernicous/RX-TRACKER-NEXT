@@ -9,14 +9,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ### Added
 
+- Added a paired outbound Windows RX Softphone relay for Kasm and other remote-browser sessions. The native client polls RX Tracker over HTTP/HTTPS for short-lived dial/hangup commands, reports registration and call telemetry back to the existing attempt analytics, and automatically loads the authenticated user's encrypted server-side SIP assignment without exposing the loopback API to the network.
+- Added one-time 8-digit pairing codes, hashed long-lived device tokens, device heartbeat/state storage, an expiring command queue, and a Call Center pairing dialog. Direct browser-to-loopback calling remains preferred for local and FortiGate sessions; relay is selected only when loopback is unavailable and the paired device is online.
 - Added a live connected-call duration badge above the patient phone icon. The existing badge remains amber with seconds remaining during cooldown and switches to a red `m:ss`/`h:mm:ss` elapsed timer after RX Softphone reports the call connected.
 - Added a master-only Backoffice **Phone Accounts** tab for assigning and editing each user's PBX server, SIP port, extension, display name, local port, enabled state, and write-only SIP password. Existing passwords remain unchanged when the edit field is blank, duplicate extension assignments are allowed for PBXs that support simultaneous registrations, and assigned users receive their settings automatically when opening Call Center.
 - Added live Call Center phone availability without reloading the roster: green means callable, red identifies the agent with an active call, and amber identifies the agent holding the short cooldown with the remaining seconds. The amber icon now carries a prominent live seconds badge and automatically returns to green at zero. Claimed patients remain visible, while the server still rejects simultaneous claims for the same patient.
 
-**Database impact:** None.
+**Database impact:** Adds `SoftphoneRelayDevices` for per-user pairing/heartbeat state and `SoftphoneRelayCommands` for expiring dial/hangup delivery. Removing a user cascades relay device/command rows; removing a call attempt retains its command history with a null attempt link.
 
 ### Security
 
+- Kept the RX Softphone control API bound to `127.0.0.1` while adding outbound-only relay connectivity. Pairing codes expire after ten minutes and are single-use; device tokens are stored only as HMAC hashes on the server and encrypted with Windows DPAPI on the client. SIP passwords remain encrypted at rest on RX Tracker, are returned only to the authenticated paired device with `no-store`, and remain runtime-only in the native SIP process.
 - Restricted per-user phone assignment APIs to master administrators, kept SIP passwords and encrypted credential values out of API responses and audit values, required the optional environment PIN at save time, rate-limited rejected saves, and recorded the target user plus password-change status in the audit trail.
 - Made RX Softphone account changes Administrator-only at both the API and Call Center UI layers. Call Center users can still use their assigned account and automatic registration, but the PBX, extension, port, display name, and SIP password are read-only. The optional environment PIN is now an additional approval check for administrators rather than the only barrier protecting account changes.
 
@@ -25,6 +28,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 - Prevented FortiGate SSL-VPN web mode from rewriting the RX Softphone loopback API into a FortiGate `/proxy/.../http/127.0.0.1:5188` request. The Call Center assembles the local address at runtime and uses a clean same-origin browser frame for only the fixed loopback API, bypassing FortiGate's injected `window.fetch` wrapper while all normal application traffic remains proxied.
 - Made the shared Call Center phone indicator show the server-reported `Dialing`, `Trying`, `Ringing`, or `Connected` state and connected duration to every user viewing that patient. Also clarified that a Kasm/remote browser cannot reach RX Softphone running on the employee's separate Windows computer.
 - Fixed the shared Add/Edit modal incorrectly displaying a **View Only** banner to Administrators. Bootstrap's forced `d-flex` display was overriding the previous hide instruction even though the fields and Save action remained enabled.
+
+### Testing
+
+- Added a staging relay integration test covering one-time pairing, hashed bearer authentication, transient SIP registration handoff, command delivery, and acknowledgement. Passed the complete staging smoke suite, isolated browser click suite, call-attempt lifecycle, shared-state, phone-client regression, public JavaScript validation, and RX Softphone 0.4.0 self-contained Release build.
 
 ## [3.2.0] - 2026-07-20
 

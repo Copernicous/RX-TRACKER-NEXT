@@ -42,6 +42,8 @@ const modelFiles = [
   require('./role.js'),
   require('./rxrecord.js'),
   require('./rxworkflowtracking.js'),
+  require('./softphonerelaycommand.js'),
+  require('./softphonerelaydevice.js'),
   require('./systemsetting.js'),
   require('./user.js'),
   require('./usersoftphoneaccount.js'),

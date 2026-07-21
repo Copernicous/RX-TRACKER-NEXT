@@ -108,12 +108,16 @@ try {
     assert(callCenterScript.includes("payload.callAnsweredAt"), 'Answered-call audit metadata is missing.');
     assert(callCenterScript.includes('/api/call-center/phone-account'), 'Server-managed softphone account endpoint is missing.');
     assert(callCenterScript.includes('connectAssignedPhone(false, false)'), 'Automatic per-user softphone registration is missing.');
+    assert(callCenterScript.includes('function probeRelayPhone'), 'Kasm fallback must probe the paired outbound softphone relay.');
+    assert(callCenterScript.includes("rxPhone.transport === 'relay'"), 'Call Center must route dial and hangup through the relay only when selected.');
+    assert(callCenterScript.includes('api.relayCalls'), 'Relay call command endpoint is missing from Call Center.');
     assert(!callCenterScript.includes("toast('Phone registration window is unavailable."), 'Call failures must not open the retired phone-registration modal.');
     assert(!callCenterScript.includes('rxCallCenterSoftphoneProfileV1'), 'Softphone account metadata must not be stored in browser localStorage.');
 
     const callCenterView = fs.readFileSync(path.join(__dirname, '..', 'views', 'call-center.ejs'), 'utf8');
     assert(callCenterView.includes('cc-record-heading-all'), 'Compact one-line Call Center roster heading is missing.');
     assert(!callCenterView.includes('ccPhoneSetupModal'), 'Call Center must not expose phone-account configuration controls.');
+    assert(callCenterView.includes('ccRelayPairModal'), 'Call Center must expose one-time Windows softphone pairing without exposing SIP settings.');
     assert(callCenterScript.includes('data-action="phone-hangup"'), 'Each callable patient row must provide an inline Hang Up control.');
     assert(callCenterView.includes('.cc-phone-action-stack'), 'Dial and Hang Up controls must remain grouped in the patient phone cell.');
     assert(callCenterView.includes('<option value="50">50</option>'), 'Call Center must support a longer scrolling roster.');
