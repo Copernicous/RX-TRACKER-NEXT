@@ -1,6 +1,6 @@
 # RX Tracker NEXT database operations
 
-This runbook applies to RX Tracker NEXT `4.0.0-next.1`. The central rule is
+This runbook applies to RX Tracker NEXT `4.0.0-next.2`. The central rule is
 simple: the web server validates the database, while `rx-db` changes it.
 
 ## Command forms
@@ -36,7 +36,7 @@ or encryption keys.
    Remove-Item Env:RX_BOOTSTRAP_ADMIN_PASSWORD
    ```
 
-4. Run `.\rx-db.exe verify` and require `READY`, 33 applied, 0 pending, and
+4. Run `.\rx-db.exe verify` and require `READY`, 34 applied, 0 pending, and
    `Checksum ledger: verified`.
 5. Start `server.exe` only after verification succeeds.
 

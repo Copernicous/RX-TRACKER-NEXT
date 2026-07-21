@@ -1,4 +1,4 @@
-RX Tracker NEXT 4.0.0-next.1
+RX Tracker NEXT 4.0.0-next.2
 ============================
 
 Database Lifecycle Preview
@@ -27,10 +27,10 @@ First verification
 1. Preserve/create .env beside both executables. Never take .env from the ZIP.
 2. Run: rx-db.exe status
 3. Run: rx-db.exe verify
-4. Require READY, 33 applied migrations, 0 pending migrations, and a verified
+4. Require READY, 34 applied migrations, 0 pending migrations, and a verified
    checksum ledger.
 5. Run: server.exe --v
-6. Require version 4.0.0-next.1.
+6. Require version 4.0.0-next.2.
 
 Fresh databases and imported 3.3.1 copies have different procedures. Follow
 docs/database/NEXT_DATABASE_OPERATIONS.md exactly. Never adopt, restore, or

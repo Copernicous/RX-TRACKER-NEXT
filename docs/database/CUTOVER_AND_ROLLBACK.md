@@ -7,7 +7,7 @@ application/database rollback package.
 ## Promotion gates
 
 - The exact release commit and executable hashes are recorded.
-- `rx-db verify` reports `READY`, 33 applied, 0 pending, and a verified checksum
+- `rx-db verify` reports `READY`, 34 applied, 0 pending, and a verified checksum
   ledger on a restored copy.
 - At least two recent production-shaped backups complete the full rehearsal.
 - Aggregate comparison reports no missing source tables or columns.

@@ -133,7 +133,7 @@ function normalizeTableName(table) {
 
 function isMissingRelation(error) {
   const code = error?.original?.code || error?.parent?.code || error?.code;
-  return code === '42P01' || /does not exist|unknown table/i.test(String(error?.message || ''));
+  return code === '42P01' || /does not exist|unknown table|no description found/i.test(String(error?.message || ''));
 }
 
 module.exports = {

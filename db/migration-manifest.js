@@ -3,6 +3,7 @@
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
+const canonicalChecksums = require('./migration-checksums');
 
 // Static requires are deliberate: they allow both Node.js and the compiled
 // rx-db.exe lifecycle tool to execute the exact same audited migration list.
@@ -39,7 +40,8 @@ module.exports = [
   entry('20260721103000-add-phone-account-setup-permission.js', require('../migrations/20260721103000-add-phone-account-setup-permission.js')),
   entry('20260721110000-add-phone-account-setup-allowed-to-users.js', require('../migrations/20260721110000-add-phone-account-setup-allowed-to-users.js')),
   entry('20260721190000-create-softphone-relay.js', require('../migrations/20260721190000-create-softphone-relay.js')),
-  entry('20260721230000-complete-v331-startup-schema.js', require('../migrations/20260721230000-complete-v331-startup-schema.js'))
+  entry('20260721230000-complete-v331-startup-schema.js', require('../migrations/20260721230000-complete-v331-startup-schema.js')),
+  entry('20260721234500-repair-users-username-unique-index.js', require('../migrations/20260721234500-repair-users-username-unique-index.js'))
 ];
 
 function entry(name, migration) {
@@ -50,9 +52,24 @@ function entry(name, migration) {
 }
 
 function checksumMigration(name) {
+  const expected = canonicalChecksums[name];
+  if (!expected) {
+    throw new Error(`Migration ${name} has no canonical checksum.`);
+  }
+
+  // Packagers can transform files in their virtual filesystem. The executable
+  // therefore uses the audited constant above, while source mode proves that
+  // the checked-in migration still matches that constant before doing any DB
+  // work.
+  if (process.pkg) return expected;
+
   const filePath = path.join(__dirname, '..', 'migrations', name);
   const normalized = fs.readFileSync(filePath, 'utf8')
     .replace(/^\uFEFF/, '')
     .replace(/\r\n/g, '\n');
-  return crypto.createHash('sha256').update(normalized, 'utf8').digest('hex');
+  const actual = crypto.createHash('sha256').update(normalized, 'utf8').digest('hex');
+  if (actual !== expected) {
+    throw new Error(`Migration source checksum drift detected: ${name}`);
+  }
+  return expected;
 }

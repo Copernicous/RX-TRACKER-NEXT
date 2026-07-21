@@ -7,6 +7,28 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+## [4.0.0-next.2] - 2026-07-21
+
+### Added
+
+- Added a guarded repair migration for a production-observed `Users(username)` unique-index drift. The migration refuses to proceed when duplicate username groups exist and never prints username values.
+- Added a second restore/adopt/migrate/sanitize rehearsal using the latest production-shaped PostgreSQL custom dump, with only aggregate counts and artifact hashes recorded.
+
+### Fixed
+
+- Legacy schema diagnostics now recognize Sequelize's `No description found` response as a missing relation and report the actual missing-table condition instead of an opaque inspection error.
+- The v3.3.1 adoption CI fixture now intentionally omits the startup-managed username index, proving that the repair migration restores it before schema verification.
+- Migration checksums now use audited canonical constants at runtime, with source mode independently validating every migration file against those constants. This keeps Node and packaged Windows executables identical despite executable-packager virtual-filesystem transformations.
+
+### Testing
+
+- Restored `backup_2026-07-21T23-43-04 (1).dump` into two isolated PostgreSQL 17 databases without modifying the source dump or production.
+- Adopted 32 legacy migration records, applied both NEXT migrations, and reached `READY` with 34 applied migrations, 0 pending migrations, and a verified checksum ledger.
+- Preserved production-shaped relationship and analytics counts while sanitization removed all three SIP assignments, all three relay devices, and all 11 relay commands; the sanitized copy passed validation and authenticated through the real Dashboard and Call Center routes.
+- Verified that both compiled Windows executables report the release version and that compiled `rx-db.exe verify` accepts the same checksum ledger as the Node lifecycle tool.
+
+**Database impact:** Additive repair only. Existing databases that already have a unique single-column username index are unchanged; drifted databases receive `uq_users_username`. Migration stops safely if duplicate username groups require administrator review.
+
 ## [4.0.0-next.1] - 2026-07-21
 
 ### Added

@@ -95,6 +95,7 @@ jobs:
         run: |
           createdb -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -T rx_next_ci_base_test rx_next_ci_v331_copy
           psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d rx_next_ci_v331_copy -v ON_ERROR_STOP=1 -c 'DROP TABLE "SequelizeMeta";'
+          psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d rx_next_ci_v331_copy -v ON_ERROR_STOP=1 -c 'DROP INDEX "idx_users_username";'
           pg_dump -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -Fc -f /tmp/rx-next-v331.dump rx_next_ci_v331_copy
           createdb -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -T template0 rx_next_ci_restore_rehearsal
           DB_NAME=rx_next_ci_restore_rehearsal npm run db:rehearse:v331 -- --dump /tmp/rx-next-v331.dump --confirm-database rx_next_ci_restore_rehearsal

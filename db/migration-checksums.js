@@ -1,0 +1,42 @@
+'use strict';
+
+// Canonical LF-normalized SHA-256 values for the immutable migration sources.
+// Runtime database verification uses these constants so source Node and the
+// compiled Windows executables agree even when the packager transforms virtual
+// filesystem assets. Source mode independently recalculates and validates them.
+module.exports = Object.freeze({
+  '20260619191502-create-role.js': '53d4b8735bb391fd5ad8c50f75af59c90c171ad7e6878f7255c195e9a433b74d',
+  '20260619191503-create-user.js': '7e22a446c05a86dca2d726e2afb55c5e0e0fb778ab7f22b56495f6398cbf5bac',
+  '20260619191505-create-pharmacy.js': 'a2297d3bfaa4beffefc37a085188925fd608161f30a97a3b00722d10fa60a794',
+  '20260619191506-create-patient-transport-company.js': '26c0f1b8f0d7b161ada90ad61f7d829d1cca559f9c0e967985928668ef700fa6',
+  '20260619191507-create-pharmacy-transport-company.js': 'be6c9106a9ab044e34df268274ec83be1026589cca4bf212ccbe538715c66291',
+  '20260619191509-create-workflow-action.js': 'fc480bfbf800574b94b758dd190c652dc535e2af39d2c8fe1e21a8a8b017b283',
+  '20260619191510-create-patient.js': '38f6ef93e86c9cd062af7a9e3c9dcc5c42cd21485c96f2eefd4e9953486cd19d',
+  '20260619191512-create-rx-record.js': '9cecc1d181790a2f309a04bb3ed299817f53301e7234ae9d28e13db74f401d17',
+  '20260619191513-create-medication.js': '891f58b5196c566a6cf9b40e576583e1391dde088c1361229532bb1c314b02cb',
+  '20260619191514-create-rx-workflow-tracking.js': '748a916f9fd264e9684af4b08f2310b264510c7b443c47d4a7e8969cd2ab8d7b',
+  '20260619191516-create-audit-log.js': 'fc589e5e4b7bf8a519ff722b24df12b9221687d7c083e39702b7445f705f73b1',
+  '20260619201500-add-patientCode-to-patients.js': 'e0fabcd3fe45fb0b9c395a1000880ab4acd81472b85ba00d7ccdb23cef0b9c68',
+  '20260619202600-create-clinics.js': 'ed7a86c317536bc2d7d394f0aa63809c3d9e6dec1bf261e7c400981b4f6da2d3',
+  '20260619202700-add-clinicId-to-patients.js': '209e72e4364b6ec374b099f6fc8c86c5ad15e357d209b760b80923ce1beed496',
+  '20260619222541-add-isDeleted-to-patients.js': '40261e45505d15144eacd0b258b72b34a05856d233dd83dffc5201fc7e696f43',
+  '20260620003500-add-isDeleted-to-rxrecords.js': '9aff7f3c2488abcca132a96ec4acd61d2266dc7b0bae8d9daa8ebcebb25789ec',
+  '20260620164500-add-pharmacyId-to-patients.js': '8ef9f99858718529619eb78b78263b165fd6b46b6f70dfa312c3c57d2175d1ef',
+  '20260620170920-add-isNonCompanyPatient-to-patients.js': '23c9bf8194e61793a76a9ec6e64dd27156561b2347c2076e0c906b35b719478b',
+  '20260620171000-create-medication-catalog.js': 'ea0e031afc0769315c2271cee6a388089551d8b84fdf018834eda0d660a90586',
+  '20260620191656-create-daily-snapshots.js': '718ae23f41f4f801374b3c5bbcfc8e2081f5ae7c1d7b4c6743304d52236b6000',
+  '20260622200000-add-2fa-security-fields-to-users.js': 'deef80fa3a75a9d77e8ef7a351e38143547ab91731f17c60d866fa127b32150f',
+  '20260623114800-add-performance-indexes.js': 'beb91c2ce48a7f541a6cc3690e637f4cbb83c16f71a73da31d7f21960c925278',
+  '20260624130000-create-document-attachments.js': '68c765c6d21e65d9f55597927a2e39543941f0350d86b4b6ea39525ac053fd8a',
+  '20260625120000-create-user-activity-logs.js': 'f8e7a73500e5a100915879ca137a279f14efdcbdb00b821c12919ef9ff873b10',
+  '20260626120000-create-patient-service-date-histories.js': 'b40b480939acc7235917ad4ef3d9d51a066206694e64b1ca7f1dfbd69539fc97',
+  '20260626153000-create-patient-service-date-cycles.js': 'ee4ba3821cb2cad99cde525ce6967319611d28c0471333625b6a7704ac8a240c',
+  '20260628103000-add-dashboard-trend-metrics-to-daily-snapshots.js': '6f2107fa9e343d68a2d96073ac8493835dadaa2085f1cc3a7dcfe7a3e0817419',
+  '20260720210000-create-user-softphone-accounts.js': '3719d7e17a4d1d06794f535b199cb4ca61cfb4f4e8693c6f5e27e310c5260768',
+  '20260721020000-create-call-center-call-attempts.js': '544030d84089cebd2e9f6c3406a7bde2828066c77f00192f229bb3a6c751b79f',
+  '20260721103000-add-phone-account-setup-permission.js': '46245ea7388c42c73f9dfa4bd4094505369a94cd28dd37b874efdfd26834c27e',
+  '20260721110000-add-phone-account-setup-allowed-to-users.js': 'fbf7e59fe687c3da86430ab466402eea2f310c2005890bf2f31a350d53c0a72e',
+  '20260721190000-create-softphone-relay.js': 'e1db4a641d7456424ad90e11aa01b217b01fe364e3d11510acbde760d01ab39a',
+  '20260721230000-complete-v331-startup-schema.js': '9385bc83c27bbf2ee9c8345623c1ef538c5dc22c956a59b5a461e29ba92503ce',
+  '20260721234500-repair-users-username-unique-index.js': '3bec5395a51f1643e06218a1277ccd91b9d7d9f3231b7e508aa73f3c86922c59'
+});
