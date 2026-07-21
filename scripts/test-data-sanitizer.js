@@ -72,13 +72,18 @@ async function main() {
     pageUrl: 'https://example.invalid/patients/private', pagePath: '/patients', pageTitle: 'Private',
     ipAddress: '203.0.113.12', userAgent: 'private agent', referrer: 'https://example.invalid'
   });
+  const dialedAt = new Date();
   const attempt = await db.CallCenterCallAttempt.create({
     patientId: patient.id, userId: user.id, calledAuditLogId: audit.id,
     correlationId: crypto.randomUUID(), phoneClient: 'rx_softphone', direction: 'outbound',
     state: 'ended', outcome: 'answered', patientCode: patient.patientCode,
     patientName: 'Private Patient', clinicName: 'Sensitive Clinic', agentName: 'Private Agent',
     extension: '1006', dialedNumber: '3055550195', sipResponseCode: 200,
-    sipReason: 'Sensitive provider response', dialedAt: new Date(), answeredAt: new Date(), endedAt: new Date()
+    sipReason: 'Sensitive provider response', dialedAt,
+    ringingAt: new Date(dialedAt.getTime() + 2000),
+    answeredAt: new Date(dialedAt.getTime() + 5000),
+    endedAt: new Date(dialedAt.getTime() + 10000),
+    ringDurationSeconds: 3, conversationDurationSeconds: 5
   });
   await db.UserSoftphoneAccount.create({
     userId: user.id, server: 'pbx.private.invalid', port: 5060, username: '1006',
@@ -117,9 +122,19 @@ async function main() {
   assert.strictEqual(await db.DocumentAttachment.count(), 0);
 
   const sanitizedPatient = await db.Patient.findByPk(patient.id);
+  const sanitizedAttempt = await db.CallCenterCallAttempt.findByPk(attempt.id);
   assert.strictEqual(sanitizedPatient.firstName, 'Test');
   assert.match(sanitizedPatient.patientCode, /^SAN-[0-9]{8}$/);
   assert.match(sanitizedPatient.phone, /^20255501[0-9]{2}$/);
+  const shiftedDays = Math.round((sanitizedAttempt.dialedAt.getTime() - dialedAt.getTime()) / 86400000);
+  assert(shiftedDays <= -180 && shiftedDays >= -730, 'Exact event timestamps must receive the randomized privacy offset.');
+  assert.strictEqual(sanitizedAttempt.ringDurationSeconds, 3);
+  assert.strictEqual(sanitizedAttempt.conversationDurationSeconds, 5);
+  assert.strictEqual(
+    sanitizedAttempt.endedAt.getTime() - sanitizedAttempt.dialedAt.getTime(),
+    10000,
+    'Timestamp shifting must preserve call duration.'
+  );
 
   await createSanitizedAdmin(db, {
     confirmDatabase: database,

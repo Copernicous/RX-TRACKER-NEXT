@@ -1,62 +1,43 @@
-Patient RX System v3.3.1
-=========================
+RX Tracker NEXT 4.0.0-next.1
+============================
 
-Production Release: RX Softphone and Call Center Telemetry
+Database Lifecycle Preview
 
-This release adds native RX Softphone calling, automatic answered-call
-recording, unanswered-attempt history, SIP outcomes, ring/conversation
-durations, connected-call controls, live patient availability, and Call
-Center attempt reporting.
+RX Tracker NEXT begins with the tested RX Tracker 3.3.1 web interface and
+feature set. RX Softphone is unchanged. NEXT replaces database creation,
+sequelize.sync(), startup ALTER TABLE statements, startup backfills, reference
+seeding, and default-administrator creation with explicit rx-db commands.
 
-RX Softphone 0.4.2 adds the managed outbound Windows relay used by Kasm and other
-remote browsers. SIP registration and audio remain on the physical Windows
-computer. A pre-answer local or relay hangup is recorded as cancelled and
-does not mark the patient Called. Local phone-account and unpair controls are
-locked; Administrators inspect and revoke devices from Administration > Phone Devices.
+This package is for isolated development, sanitized-data testing, and database
+rehearsals. Do not replace the frozen production 3.3.1 application until every
+gate in docs/database/CUTOVER_AND_ROLLBACK.md passes.
 
-Phone account setup
--------------------
+Package contents
+----------------
 
-1. In Backoffice > Settings, choose the production Call Center phone client.
-2. In Administration > Users, select Allow setup for an individual user.
-3. The selected user completes Phone Account Setup once.
-4. Start RX Softphone 0.4.2 or later on the Windows calling computer.
-5. For Kasm/remote-browser operation, pair the Windows phone from Call Center.
+- server.exe: web application; validates schema and migration state at startup
+- rx-db.exe: explicit create, migrate, verify, adopt, restore, sanitize, and
+  comparison lifecycle tool
+- docs/database/: operations, rehearsal, sanitization, cutover, and rollback
+  runbooks
 
-Database impact
----------------
-
-The additive migrations create UserSoftphoneAccounts, CallCenterCallAttempts,
-SoftphoneRelayDevices, and SoftphoneRelayCommands and add the per-user phone
-setup permission. Existing patient, RX, reference, user, and audit data is
-preserved. Call-attempt history remains available after normal patient deletion.
-
-Production configuration
-------------------------
-
-- Preserve the existing production .env during deployment.
-- Configure stable SOFTPHONE_CREDENTIAL_KEY and SOFTPHONE_RELAY_SECRET values.
-- Configure SOFTPHONE_ACCOUNT_ADMIN_PIN when approval is required for account changes.
-- Install/distribute RX Softphone 0.4.2 or later to each calling workstation.
-- Back up the production database and keep the previous release package.
-
-Production verification
------------------------
-
-1. Confirm server.exe --v reports 3.3.1.
-2. Confirm login, Patients, RX Records, and Call Center load normally.
-3. Confirm the Windows client reports Relay online and Registered.
-4. Complete one answered call and verify automatic Called status, SIP 200,
-   ring duration, conversation duration, and final end time in reports.
-5. Cancel one call before answer and verify it remains an attempt without a
-   Called record.
-6. Confirm the cooldown countdown expires and another agent can call afterward.
-7. Verify a Call Center user cannot change the managed local phone account or
-   remove the pairing; verify an Administrator can revoke it in Phone Devices.
-
-Production package
+First verification
 ------------------
 
-- Deploy dist/server-update-3.3.1.zip or approved dist files only.
-- Keep the production .env unchanged beside server.exe.
-- Keep the previous server update ZIP and database backup for rollback.
+1. Preserve/create .env beside both executables. Never take .env from the ZIP.
+2. Run: rx-db.exe status
+3. Run: rx-db.exe verify
+4. Require READY, 33 applied migrations, and 0 pending migrations.
+5. Run: server.exe --v
+6. Require version 4.0.0-next.1.
+
+Fresh databases and imported 3.3.1 copies have different procedures. Follow
+docs/database/NEXT_DATABASE_OPERATIONS.md exactly. Never adopt, restore, or
+sanitize the live production database.
+
+Rollback
+--------
+
+Keep the exact 3.3.1 package and a verified pre-cutover database backup. The
+supported rollback restores both; an application-only rollback is not the
+approved recovery procedure.

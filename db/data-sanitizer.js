@@ -10,6 +10,7 @@ async function sanitizeDatabase(db, options = {}) {
 
   const randomPassword = crypto.randomBytes(48).toString('base64url');
   const disabledPasswordHash = await bcrypt.hash(randomPassword, 12);
+  const dateShiftDays = -crypto.randomInt(180, 731);
   const sequelize = db.sequelize;
   const transaction = await sequelize.transaction();
 
@@ -159,6 +160,11 @@ async function sanitizeDatabase(db, options = {}) {
              "updatedAt" = NOW()
     `, transaction);
 
+    // Apply one unpublished offset to every date/timestamp column. This keeps
+    // intervals, ordering, ring time, talk time, and cross-table date
+    // relationships useful without retaining exact real-world event dates.
+    await shiftAllTemporalColumns(sequelize, transaction, dateShiftDays);
+
     const validation = await validateSanitizedDatabase(db, { transaction });
     if (!validation.ok) {
       const summary = validation.violations.map((item) => `${item.check}=${item.count}`).join(', ');
@@ -291,10 +297,37 @@ async function execute(sequelize, sql, transaction, replacements = {}) {
   return sequelize.query(sql, { transaction, replacements });
 }
 
+async function shiftAllTemporalColumns(sequelize, transaction, dateShiftDays) {
+  const [columns] = await sequelize.query(`
+    SELECT table_name, column_name, data_type
+      FROM information_schema.columns
+     WHERE table_schema = 'public'
+       AND data_type IN ('date', 'timestamp without time zone', 'timestamp with time zone')
+     ORDER BY table_name, ordinal_position
+  `, { transaction });
+
+  for (const column of columns) {
+    const tableName = quoteIdentifier(column.table_name);
+    const columnName = quoteIdentifier(column.column_name);
+    const expression = column.data_type === 'date'
+      ? `${columnName} + :dateShiftDays`
+      : `${columnName} + (:dateShiftDays * INTERVAL '1 day')`;
+    await sequelize.query(
+      `UPDATE ${tableName} SET ${columnName} = ${expression} WHERE ${columnName} IS NOT NULL`,
+      { transaction, replacements: { dateShiftDays } }
+    );
+  }
+}
+
+function quoteIdentifier(value) {
+  return `"${String(value).replace(/"/g, '""')}"`;
+}
+
 module.exports = {
   SAFE_COPY_NAME,
   assertSafeCopyTarget,
   sanitizeDatabase,
   validateSanitizedDatabase,
-  createSanitizedAdmin
+  createSanitizedAdmin,
+  shiftAllTemporalColumns
 };

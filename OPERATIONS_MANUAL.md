@@ -451,17 +451,12 @@ NSSM is NOT placed inside `dist\` — only `server.exe` and the two scripts live
 - Database must be created before first run
 - User must have CREATE TABLE privileges
 
-### Auto-migrations
-On every startup, the server runs `db.sequelize.sync({ alter: true })` which:
-- Creates missing tables automatically
-- Adds missing columns to existing tables
-- Does NOT delete existing data or columns
-
-### Manual migrations (dev only)
-```bash
-npx sequelize-cli db:migrate
-npx sequelize-cli db:seed:all
-```
+### Explicit NEXT lifecycle
+Normal web startup validates the migration ledger and schema and performs no
+DDL, migration, or reference-data write. Use `rx-db.exe status`, `migrate`,
+`verify`, and `seed-reference` before starting the service. Fresh databases use
+`rx-db.exe provision`; imported 3.3.1 copies must follow
+`docs/database/NEXT_DATABASE_OPERATIONS.md`.
 
 ### FK Cascade Behavior (important for Back Office deletes)
 The Back Office Database Manager handles FK relationships using a `FK_CHILDREN` map
@@ -868,8 +863,8 @@ node app.js --reset-password admin YourNewPassword
 - The `.env` file is NEVER bundled — must be placed manually next to server.exe
 
 ### Database
-- `db.sequelize.sync({ alter: true })` runs on every start
-- Avoid renaming columns in migrations — alter:true won't rename, only add
+- Web startup must remain schema-read-only; all changes require an audited migration
+- Do not rename or remove columns without a tested forward migration and backup-based rollback plan
 - RXRecord soft delete: always use `isDeleted: false` WHERE clause in includes
 - FK cascade deletions in Back Office are handled by the `FK_CHILDREN` map in
   `adminController.js` — update this map when adding new FK relationships
@@ -1334,17 +1329,10 @@ NSSM is NOT placed inside `dist\` — only `server.exe` and the two scripts live
 - Database must be created before first run
 - User must have CREATE TABLE privileges
 
-### Auto-migrations
-On every startup, the server runs `db.sequelize.sync({ alter: true })` which:
-- Creates missing tables automatically
-- Adds missing columns to existing tables
-- Does NOT delete existing data or columns
-
-### Manual migrations (dev only)
-```bash
-npx sequelize-cli db:migrate
-npx sequelize-cli db:seed:all
-```
+### Explicit NEXT lifecycle
+Normal web startup validates the migration ledger and schema and performs no
+DDL, migration, or reference-data write. Run database changes separately with
+`rx-db.exe`; see `docs/database/NEXT_DATABASE_OPERATIONS.md`.
 
 ### Backups
 Automatic backups via `services/backupService.js`:
@@ -1521,8 +1509,8 @@ Tokens obtained from `POST /api/auth/login`.
 - Arrow functions (=>) are fine; the old breakage was encoding, not syntax
 
 ### Database
-- `db.sequelize.sync({ alter: true })` runs on every start
-- Avoid renaming columns in migrations — alter:true won't rename, only add
+- Web startup must remain schema-read-only; all changes require an audited migration
+- Do not rename or remove columns without a tested forward migration and backup-based rollback plan
 - RXRecord soft delete: always use `isDeleted: false` WHERE clause in includes
 
 ### Frontend

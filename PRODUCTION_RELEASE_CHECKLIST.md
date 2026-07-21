@@ -24,8 +24,9 @@ Use this list every time a new production version is compiled, tagged, uploaded 
 
 - [ ] Run `npm run build:exe`.
 - [ ] Confirm `dist/server.exe` exists.
+- [ ] Confirm `dist/rx-db.exe` exists and `rx-db.exe help` succeeds.
 - [ ] Confirm `dist/server-update-<version>.zip` exists.
-- [ ] Confirm the zip opens and includes `server.exe`, `.env.example`, `CHANGELOG.md`, `RELEASE_NOTES-v<version>.md`, `PRODUCTION_RELEASE_CHECKLIST.md`, `PROJECT-CONTROL.bat`, `scripts/project-control.ps1`, `project-control.json`, `package.json`, `OPERATIONS_MANUAL.md`, `DEFERRED-ITEMS.txt`, `docs/PRODUCTION_MICROSIP_CHROME_POLICY.md`, `docs/RX_SOFTPHONE_REMOTE_TESTING.md`, `scripts/install-production-microsip-chrome-policy.ps1`, `install-service.ps1`, and `uninstall-service.ps1`.
+- [ ] Confirm the zip opens and includes `server.exe`, `rx-db.exe`, `.env.example`, `README.md`, `CHANGELOG.md`, `RELEASE_NOTES-v<version>.md`, `PRODUCTION_RELEASE_CHECKLIST.md`, `PROJECT-CONTROL.bat`, `scripts/project-control.ps1`, `project-control.json`, `package.json`, `OPERATIONS_MANUAL.md`, `DEFERRED-ITEMS.txt`, all `docs/database/` NEXT runbooks, `docs/PRODUCTION_MICROSIP_CHROME_POLICY.md`, `docs/RX_SOFTPHONE_REMOTE_TESTING.md`, `scripts/install-production-microsip-chrome-policy.ps1`, `install-service.ps1`, and `uninstall-service.ps1`.
 - [ ] Extract the zip into an isolated folder and run `PROJECT-CONTROL.bat version`; confirm it reports the release version without missing-file errors.
 - [ ] Confirm the zip does not include `.env`, `.env.staging`, database dumps, secrets, or Git bundles.
 
@@ -33,6 +34,8 @@ Use this list every time a new production version is compiled, tagged, uploaded 
 
 - [ ] Update the affected user-facing documentation before shipping the change (checklist, operations note, release note, or page-specific doc as needed).
 - [ ] Run `dist/server.exe --v` and confirm it prints the expected version.
+- [ ] Run `dist/rx-db.exe status` and `dist/rx-db.exe verify` against an isolated test database.
+- [ ] Rehearse a recent v3.3.1 custom dump according to `docs/database/SANITIZED_DUMP_REHEARSAL.md`.
 - [ ] Run targeted smoke checks for changed pages or APIs.
 - [ ] Confirm no unwanted files are staged with `git status --short`.
 - [ ] Confirm large generated files remain outside Git unless intentionally attached to a release.
@@ -56,6 +59,8 @@ Use this list every time a new production version is compiled, tagged, uploaded 
 - [ ] Record the backup filename, path, or timestamp used for this deployment: `__________`.
 - [ ] Extract `server-update-<version>.zip` into the production app path.
 - [ ] Confirm production `.env` is still present next to `server.exe`; updates must preserve this file and not replace it.
+- [ ] Stop all 3.3.1 instances before running NEXT lifecycle commands; never run both versions against one database.
+- [ ] Run `rx-db.exe migrate`, `rx-db.exe verify`, and `rx-db.exe seed-reference`; require `READY` before starting `server.exe`.
 - [ ] Start the service or app.
 - [ ] Run `server.exe --v` on production and confirm the expected version.
 - [ ] Open `/login` and changed production pages through the normal production URL or FortiGate URL.
@@ -66,4 +71,4 @@ Use this list every time a new production version is compiled, tagged, uploaded 
 - [ ] Keep the previous `server-update-<previous-version>.zip` available.
 - [ ] Know the previous Git tag: `v__________`.
 - [ ] Know the latest known-good production backup timestamp: `__________`.
-- [ ] If rollback is needed, stop the service, restore the previous package or backup, confirm `.env`, and restart.
+- [ ] If rollback is needed, stop NEXT and restore both the previous package and its paired pre-cutover database backup, confirm `.env`, and restart.

@@ -16,6 +16,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 - Added an audited additive compatibility migration for every table, column, index, and service-date backfill previously performed only by startup DDL or `sequelize.sync()`.
 - Added a model-driven schema verifier and a migration manifest shared by the Node development command and future `rx-db.exe` release tool.
 - Added an exact inventory of the 3.3.1 startup mutations and the safe adoption design for imported database copies.
+- Added guarded custom/SQL dump restoration, an end-to-end v3.3.1 rehearsal command, aggregate-only source/copy comparison, and operator runbooks for provisioning, sanitization, cutover, and rollback.
+- Added an atomic test-copy sanitizer that pseudonymizes retained patient/call analytics while deleting credentials, API keys, relay pairings/commands, document pointers, and transient locks. Sanitization requires a safe copy-style database name plus exact confirmation.
+- Sanitized copies preserve event ordering and duration metrics while shifting every database date/timestamp by one randomized, unpublished offset so exact real-world event dates are not retained.
 
 ### Changed
 
@@ -29,6 +32,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 - Added ignore rules for database dumps, SQL files, CSV exports, database work directories, imports, exports, and sanitized-data workspaces.
 - Removed the known `admin123` startup account path. First-admin bootstrap requires a strong password supplied through a named environment variable and refuses to alter a database that already has users.
 - v3.3.1 adoption requires an exact database-name confirmation and refuses incomplete schemas before recording legacy migration history.
+- Dump restore validates custom archives before mutating the confirmed target. Sanitization validation runs inside the transaction so any failed category rolls back the entire sanitization.
 
 ### Testing
 
@@ -37,6 +41,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 - Rehearsed v3.3.1 adoption from a complete schema with no migration ledger: 32 legacy records were adopted, the single NEXT migration applied, and final verification passed 33/33.
 - Confirmed repeated web-server startup returns a healthy API while producing no database-content change and no tracked settings-file change.
 - Passed public JavaScript validation and the Call Center queue, phone-client, shared-state, one-time setup, automatic-attempt, patient-date, RX-override, workflow-date, permanent-delete, and service-window regressions against isolated test databases.
+- Passed dump preflight safety, full restore/adopt/migrate/sanitize rehearsal, sanitizer regression, post-sanitization validation, and schema/aggregate comparison without printing row values.
+- Built and exercised both Windows executables: the compiled lifecycle tool repeated the complete rehearsal on a second target, the compiled server passed its health check, the release archive passed required/forbidden-entry inspection, and the full staging smoke suite passed.
+- Dependency audit reports 0 critical/high and 2 moderate findings from Sequelize's pinned `uuid@8.3.2` dependency. The available automated remedy is an unsafe Sequelize major downgrade, so it remains monitored in `DEFERRED-ITEMS.txt`; no forced audit rewrite was applied.
 
 **Database impact:** Additive and backward-compatible with 3.3.1. The old application can still read the migrated schema, but NEXT requires the migration ledger and must use its explicit lifecycle tool before startup.
 

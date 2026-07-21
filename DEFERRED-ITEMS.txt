@@ -5,95 +5,36 @@ Status: These items require staged testing, architectural planning, or are low-u
         They were intentionally deferred and should be revisited before each major release.
 
 ===============================================================================
-DEFERRED-01 — JWT still readable by JavaScript and stored in localStorage
+DEFERRED-01 — JWT browser storage [RESOLVED]
 ===============================================================================
 
-Priority: High — fix before production public exposure
-Status: Deferred. Requires FortiGate staging validation.
+Priority: Resolved before the NEXT baseline
+Status: Complete; verified again by the 2026-07-21 staging hardening smoke.
 
-Background:
-- The server correctly sets an HttpOnly cookie (rxToken), which JavaScript cannot read.
-- During login, login.ejs then writes the same JWT into localStorage and a JS-readable cookie.
-- This was added specifically to work around FortiGate SSL VPN proxy path rewriting.
-- setRxTokenCookie() uses window.RX_BASE to compute a proxy-aware cookie path.
-- Removing this without validating through FortiGate first will break login for all users.
-
-Risk if left unfixed:
-- Any XSS bug anywhere in the app can steal the full JWT from localStorage or document.cookie.
-- Stolen token remains valid until the 8-hour expiry (tokenVersion revocation now works, but
-  only helps if the password is changed after discovery of a theft).
-
-How to fix (staged approach):
-
-  Step 1 — Staging / FortiGate test session:
-  - Set up a test login through https://rx.camperos.net:10443
-  - Remove ONLY localStorage.setItem('token', ...) from login.ejs
-  - Confirm all pages still make authenticated API calls using credentials: include
-    and the server-set HttpOnly cookie
-  - Navigate to: dashboard, patients, RX records, reports, backups, system settings, backoffice
-
-  Step 2 — If Step 1 works:
-  - Remove the client-side setRxTokenCookie() call
-  - Change server cookie path from '/' to the FortiGate proxy prefix if needed
-    (or add COOKIE_PATH env var: e.g. COOKIE_PATH=/proxy/222c1546/http/192.168.60.21:3000/)
-  - Note: the session token portion (222c1546) changes per FortiGate session, so a static path
-    may not work — FortiGate must rewrite Set-Cookie headers, or the JS cookie stays
-
-  Step 3 — Validation:
-  - document.cookie should NOT contain rxToken after login
-  - localStorage should NOT contain token
-  - All API calls should authenticate via the httpOnly cookie (credentials: include)
-  - Check DevTools > Application > Cookies: rxToken should show HttpOnly = true
-
-Files involved:
-- views/login.ejs: lines ~320-337 (setRxTokenCookie, localStorage.setItem)
-- controllers/authController.js: cookieOptions block
-- middleware/auth.js: token extraction order (Bearer header then rxToken cookie)
+Resolution:
+- Login uses the server-set HttpOnly `rxToken` cookie.
+- Application JavaScript does not write the session JWT to localStorage or a
+  JavaScript-readable cookie.
+- API requests use credentialed cookies, and logout clears server cookie state.
+- The staging security hardening smoke confirms this boundary in source and the
+  live staging response.
 
 ===============================================================================
-DEFERRED-02 — Startup mutates database schema on boot
+DEFERRED-02 — Startup mutates database schema on boot [RESOLVED IN NEXT]
 ===============================================================================
 
-Priority: Medium — fix before adding DBA oversight or multi-instance deployments
-Status: Deferred. Requires migration workflow to be established first.
+Priority: Resolved in RX Tracker NEXT 4.0.0-next.1
+Status: Complete. Retained here as the historical reason for the NEXT repository.
 
-Background:
-- app.js runs multiple ALTER TABLE ... ADD COLUMN IF NOT EXISTS calls during every startup.
-- db.sequelize.sync() is also called, which can mutate schema.
-- These are idempotent on a stable schema but bypass the migration audit trail.
-- Risk: schema drift between code, migrations, and actual DB if any ALTER fails silently.
-
-Risk if left unfixed:
-- Deployment mistakes can go undetected (column added incorrectly, constraint missing).
-- Future DBA or multi-environment management becomes harder.
-- A failed partial migration can leave the schema in an undefined state.
-
-How to fix (staged approach):
-
-  Step 1 — Create Sequelize migrations for every startup ALTER TABLE:
-  - Users.permissions
-  - Users.notes
-  - Users.twoFactorSecret, twoFactorEnabled
-  - Users.failedLoginCount, lockedUntil
-  - Users.backupCodes, tokenVersion, isMaster
-  - RXRecords warehouse columns
-  - AuditLogs.previousValue
-  - MedicationCatalogs.sortOrder
-  - Roles custom columns
-
-  Step 2 — Add to deployment process:
-  - Run 'npm run db:migrate' before starting server.exe
-  - RX-Manager.bat option [12] already handles this
-
-  Step 3 — Add startup schema verification (not mutation):
-  - Replace ALTER TABLE calls with a check-only mode that logs an error if
-    required columns are missing and exits cleanly
-  - Never silently continue in a partially-migrated state
-
-  Step 4 — Remove boot-time ALTER TABLE after at least one successful migration-based deploy
-
-Files involved:
-- app.js: startServer() function, ensureDatabase() block (~lines 370-460)
+Resolution:
+- NEXT removed database creation, startup ALTER TABLE, sequelize.sync(), startup
+  backfills, role/setting seeding, and known-password administrator creation from
+  the web-server startup path.
+- The audited compatibility migration covers the legacy startup-created schema.
+- rx-db.exe owns explicit create, migrate, verify, v3.3.1 adoption, reference
+  seeding, and first-administrator bootstrap operations.
+- Web startup exits when the migration ledger or verified model schema is not ready.
+- Dump adoption and rollback procedures are documented under docs/database/.
 
 ===============================================================================
 DEFERRED-03 — uuid moderate vulnerability through Sequelize
@@ -202,11 +143,7 @@ Recommended review schedule
 ===============================================================================
 
   Before next major feature release:
-  - Review DEFERRED-01 (JWT storage) — run FortiGate staging test
-  - Review DEFERRED-04 (tests) — add at least auth + isMaster tests
-
-  Before adding DBA or multi-server support:
-  - Review DEFERRED-02 (boot schema mutations)
+  - Review DEFERRED-04 (tests) — continue expanding auth + isMaster coverage
 
   On each quarterly dependency review:
   - Review DEFERRED-03 (uuid/Sequelize vuln) — check if Sequelize released a safe upgrade

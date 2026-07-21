@@ -35,6 +35,7 @@ const filesToCopy = [
     path.join('scripts', 'project-control.ps1'),
     'project-control.json',
     'package.json',
+    'README.md',
     'CHANGELOG.md',
     'Readme.txt',
     'PRODUCTION_RELEASE_CHECKLIST.md',
@@ -43,6 +44,11 @@ const filesToCopy = [
     'NEW_SERVER_SETUP_RECOVERY.md',
     path.join('docs', 'PRODUCTION_MICROSIP_CHROME_POLICY.md'),
     path.join('docs', 'RX_SOFTPHONE_REMOTE_TESTING.md'),
+    path.join('docs', 'database', 'STARTUP_MUTATION_INVENTORY.md'),
+    path.join('docs', 'database', 'NEXT_DATABASE_OPERATIONS.md'),
+    path.join('docs', 'database', 'SANITIZED_DUMP_REHEARSAL.md'),
+    path.join('docs', 'database', 'CUTOVER_AND_ROLLBACK.md'),
+    path.join('docs', 'database', 'REHEARSAL_RECORD_2026-07-21.md'),
     path.join('scripts', 'install-production-microsip-chrome-policy.ps1'),
     'install-service.ps1',
     'uninstall-service.ps1',
@@ -78,7 +84,7 @@ if (fs.existsSync(releaseNotesSource)) {
 
 console.log('');
 console.log('dist/ is ready: ' + copied + ' file(s) copied' + (skipped ? ', ' + skipped + ' skipped' : '') + '.');
-const updateFiles = ['server.exe', ...filesToCopy, releaseNotesTarget]
+const updateFiles = ['server.exe', 'rx-db.exe', ...filesToCopy, releaseNotesTarget]
     .map(file => path.join(distDir, file))
     .filter(file => fs.existsSync(file));
 
@@ -94,7 +100,7 @@ const updateZip = path.join(distDir, 'server-update-' + packageInfo.version + '.
 if (updateFiles.length > 0) {
     fs.rmSync(updateZip, { force: true });
 
-    const expectedEntries = ['server.exe', ...filesToCopy, releaseNotesTarget]
+    const expectedEntries = ['server.exe', 'rx-db.exe', ...filesToCopy, releaseNotesTarget]
         .filter(file => fs.existsSync(path.join(distDir, file)));
     const archiveEntryNames = expectedEntries.map(file => file.split(path.sep).join('/'));
     const psArray = updateFiles
