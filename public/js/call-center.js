@@ -792,6 +792,9 @@
     function finalizeActiveCall(active) {
         var link = document.querySelector('[data-action="phone-call"][data-patient-id="' + String(active.patientId) + '"]');
         if (link) link.classList.remove('is-calling');
+        lockedPatientIds = lockedPatientIds.filter(function(patientId) {
+            return String(patientId) !== String(active.patientId);
+        });
         if (rxPhone.activeCall === active) rxPhone.activeCall = null;
         renderPhoneClientStatus();
     }

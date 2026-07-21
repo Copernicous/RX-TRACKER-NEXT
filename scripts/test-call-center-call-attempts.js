@@ -12,6 +12,7 @@ if (!/(ui_smoke|test)/i.test(process.env.DB_NAME)) {
 const db = require('../models');
 const controller = require('../controllers/callAttemptController');
 const { getCallCenterInactiveClaimSeconds } = require('../utils/globalSettings');
+const { refreshOwnedCallCenterClaim } = require('../services/callCenterClaimService');
 
 const runId = String(Date.now());
 const created = { userId: null, clinicId: null, patientIds: [], attemptIds: [], auditIds: [] };
@@ -158,6 +159,24 @@ async function main() {
         const terminalLeaseMs = new Date(activeLock.expiresAt).getTime() - Date.now();
         const inactiveLeaseLimitMs = getCallCenterInactiveClaimSeconds() * 1000 + 1000;
         assert(terminalLeaseMs > 0 && terminalLeaseMs <= inactiveLeaseLimitMs, 'A terminal call must shorten the patient claim to the configured inactive timeout.');
+
+        const terminalExpiry = new Date(activeLock.expiresAt).getTime();
+        const duplicateEndRes = response();
+        await controller.updateAttempt(request(reqUser, {
+            state: 'ended',
+            endedAt: new Date(base + 27000).toISOString(),
+            outcome: 'answered',
+            sipResponseCode: 200,
+            sipReason: 'Normal clearing'
+        }, { id: String(first.id) }), duplicateEndRes);
+        assert.strictEqual(duplicateEndRes.statusCode, 200, JSON.stringify(duplicateEndRes.body));
+        activeLock = await db.CallCenterLock.findOne({ where: { patientId: patient.id, userId: user.id } });
+        assert.strictEqual(new Date(activeLock.expiresAt).getTime(), terminalExpiry, 'Repeated terminal snapshots must not restart the cooldown.');
+        const inactiveHeartbeat = await refreshOwnedCallCenterClaim(patient.id, user.id);
+        assert.strictEqual(inactiveHeartbeat.refreshed, true, 'The owner heartbeat should still recognize an unexpired cooldown.');
+        assert.strictEqual(inactiveHeartbeat.active, false, 'A completed attempt must not be treated as active.');
+        activeLock = await db.CallCenterLock.findOne({ where: { patientId: patient.id, userId: user.id } });
+        assert.strictEqual(new Date(activeLock.expiresAt).getTime(), terminalExpiry, 'An inactive heartbeat must not restart the cooldown.');
 
         const noAnswerStart = response();
         await controller.startAttempt(request(reqUser, { patientId: patient.id, dialedNumber: '5550101234' }), noAnswerStart);

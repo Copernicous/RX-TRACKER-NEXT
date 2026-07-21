@@ -9,6 +9,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ### Added
 
+- Added an administrator-facing <strong>System Settings &rarr; Manual &rarr; RX Softphone</strong> guide covering remote Windows installation, per-user relay pairing, Kasm session behavior, the approved Cloudflare Zero Trust or FortiGate VPN network paths, local and externally hosted PBX SIP/RTP requirements, daily operation, re-pairing, and common troubleshooting.
 - Added a paired outbound Windows RX Softphone relay for Kasm and other remote-browser sessions. The native client polls RX Tracker over HTTP/HTTPS for short-lived dial/hangup commands, reports registration and call telemetry back to the existing attempt analytics, and automatically loads the authenticated user's encrypted server-side SIP assignment without exposing the loopback API to the network.
 - Added one-time 8-digit pairing codes, hashed long-lived device tokens, device heartbeat/state storage, an expiring command queue, and a Call Center pairing dialog. Direct browser-to-loopback calling remains preferred for local and FortiGate sessions; relay is selected only when loopback is unavailable and the paired device is online.
 - Added a live connected-call duration badge above the patient phone icon. The existing badge remains amber with seconds remaining during cooldown and switches to a red `m:ss`/`h:mm:ss` elapsed timer after RX Softphone reports the call connected.
@@ -25,6 +26,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ### Fixed
 
+- Fixed the Call Center cooldown badge remaining stuck at its configured maximum. Relay snapshots are now compared after canonical normalization, completed call attempts cannot be reopened by delayed state reports, repeated terminal reports no longer extend the patient claim expiration, and inactive browser heartbeats recognize but do not renew a cooldown.
 - Prevented FortiGate SSL-VPN web mode from rewriting the RX Softphone loopback API into a FortiGate `/proxy/.../http/127.0.0.1:5188` request. The Call Center assembles the local address at runtime and uses a clean same-origin browser frame for only the fixed loopback API, bypassing FortiGate's injected `window.fetch` wrapper while all normal application traffic remains proxied.
 - Made the shared Call Center phone indicator show the server-reported `Dialing`, `Trying`, `Ringing`, or `Connected` state and connected duration to every user viewing that patient. Also clarified that a Kasm/remote browser cannot reach RX Softphone running on the employee's separate Windows computer.
 - Fixed the shared Add/Edit modal incorrectly displaying a **View Only** banner to Administrators. Bootstrap's forced `d-flex` display was overriding the previous hide instruction even though the fields and Save action remained enabled.

@@ -214,12 +214,19 @@ async function updateAttemptForUser(userId, attemptId, body, ipAddress) {
                 throw err;
             }
 
-            const state = cleanText(body.state, 24).toLowerCase();
-            if (!STATES.has(state)) {
+            const requestedState = cleanText(body.state, 24).toLowerCase();
+            if (!STATES.has(requestedState)) {
                 const err = new Error('Unsupported call state.');
                 err.status = 400;
                 throw err;
             }
+            const previousState = cleanText(attempt.state, 24).toLowerCase();
+            const wasTerminal = TERMINAL_STATES.has(previousState) || !!attempt.endedAt;
+            // Delayed/repeated client snapshots must never reopen a completed
+            // attempt. Terminal metadata may still be enriched below.
+            const state = wasTerminal && !TERMINAL_STATES.has(requestedState)
+                ? (TERMINAL_STATES.has(previousState) ? previousState : 'ended')
+                : requestedState;
 
             const ringingAt = timestamp(body.ringingAt);
             const answeredAt = timestamp(body.answeredAt);
@@ -247,10 +254,16 @@ async function updateAttemptForUser(userId, attemptId, body, ipAddress) {
                 await updateCalledAudit(attempt, transaction);
             }
             await attempt.save({ transaction });
-            await updateOwnedCallCenterClaim(attempt.patientId, attempt.userId, !TERMINAL_STATES.has(state), {
-                transaction,
-                requireUnexpired: false
-            });
+            const isTerminal = TERMINAL_STATES.has(state);
+            // Start the cooldown only on the transition into a terminal state.
+            // Replayed "ended"/"failed" snapshots must not keep moving the
+            // expiration forward and leave the countdown stuck at its maximum.
+            if (!isTerminal || !wasTerminal) {
+                await updateOwnedCallCenterClaim(attempt.patientId, attempt.userId, !isTerminal, {
+                    transaction,
+                    requireUnexpired: false
+                });
+            }
             return attempt;
         });
 

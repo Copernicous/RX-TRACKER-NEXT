@@ -44,6 +44,14 @@ async function updateOwnedCallCenterClaim(patientId, userId, active, options) {
 
 async function refreshOwnedCallCenterClaim(patientId, userId) {
     const active = await hasActiveCallAttempt(patientId, userId);
+    if (!active) {
+        // An inactive claim is the short cooldown itself. Report whether the
+        // caller still owns it, but never move its expiration forward.
+        const owned = await db.CallCenterLock.count({
+            where: { patientId, userId, expiresAt: { [Op.gt]: new Date() } }
+        });
+        return { refreshed: owned > 0, active: false };
+    }
     const refreshed = await updateOwnedCallCenterClaim(patientId, userId, active, {
         requireUnexpired: true
     });

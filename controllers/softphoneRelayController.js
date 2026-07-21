@@ -211,7 +211,11 @@ exports.pollDevice = async (req, res) => {
         if (!device) return;
 
         const snapshot = safeSnapshot(req.body && req.body.snapshot);
-        const snapshotChanged = JSON.stringify(device.snapshot || null) !== JSON.stringify(snapshot);
+        // PostgreSQL JSONB does not preserve the JavaScript insertion order of
+        // object keys. Normalize both sides before comparing so an unchanged
+        // terminal snapshot is not replayed on every relay poll.
+        const previousSnapshot = device.snapshot ? safeSnapshot(device.snapshot) : null;
+        const snapshotChanged = JSON.stringify(previousSnapshot) !== JSON.stringify(snapshot);
         await completeCommands(device, req.body && req.body.completedCommands);
         await device.update({
             lastSeenAt: new Date(),
