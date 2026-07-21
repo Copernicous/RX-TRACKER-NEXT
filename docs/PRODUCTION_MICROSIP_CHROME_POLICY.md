@@ -14,7 +14,7 @@ On dedicated, managed Call Center workstations, Chrome can skip that prompt for 
 
 The `192.168.15.x` workstation subnet is not wildcarded. Chrome checks the website origin, so only the known RX Tracker server URLs are allowlisted.
 
-The same installer also sets Chrome's legacy `LocalNetworkAccessAllowedForUrls` policy and the current `LocalNetworkAllowedForUrls` and `LoopbackNetworkAllowedForUrls` policies for those exact website origins. The dedicated loopback policy is required by Chrome 146 and later when RX Tracker connects to the RX Softphone service on `http://127.0.0.1:5188`. These policies do not expose the softphone to the LAN: the service remains bound to loopback and independently rejects browser origins outside its own allowlist.
+The same installer also sets Chrome's legacy `LocalNetworkAccessAllowedForUrls` policy and the current `LocalNetworkAllowedForUrls` and `LoopbackNetworkAllowedForUrls` policies for those exact website origins. Chrome 145 and later classify `127.0.0.1` separately as the `loopback` address space, so RX Tracker declares `targetAddressSpace: "loopback"` and the dedicated loopback policy grants access to the RX Softphone service on `http://127.0.0.1:5188`. These policies do not expose the softphone to the LAN: the service remains bound to loopback and independently rejects browser origins outside its own allowlist.
 
 ## Server origin configuration
 
