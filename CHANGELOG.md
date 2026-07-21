@@ -16,10 +16,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 - Added answered-call acknowledgement: when RX Softphone reports `connected`, the matching patient row is visibly marked and **Called** is selected. The agent still clicks **Save** so notes and a new service date can be submitted with the call.
 - Added RX Softphone acknowledgement metadata to the existing Call Center `Called` audit record: selected phone client, reported answer/end timestamps, and bounded duration.
 - Added Automatic fallback to the existing MicroSIP `callto:` handoff whenever RX Softphone is absent or not registered.
+- Added a per-user RX Softphone account editor in Call Center. SIP settings are assigned to the authenticated RX user on the server and the local softphone connects automatically when that user loads Call Center.
+- Reorganized each Call Center patient into a compact one-line 10-field grid by combining the patient name and tightening notes/history/actions, reducing the old 1650px minimum width so the complete row fits the wide desktop workspace. Alternating row and hover colors keep adjacent patients visually distinct.
+- Displayed the RX Softphone audio formats supported by the native client: G.711 &mu;-law (PCMU), G.711 A-law (PCMA), G.722, and G.729. Codec selection remains automatic through SIP/SDP negotiation with Asterisk.
 
 ### Security
 
-- Kept the RX Softphone API bound to the user's loopback interface; no PBX password or SIP registration request passes through RX Tracker.
+- Kept the RX Softphone API bound to the user's loopback interface. RX Tracker now stores each assigned SIP password with AES-256-GCM authenticated encryption, bound to the RX user ID; account APIs are authenticated, CSRF-protected, audited, and sent with `no-store` cache controls.
+- The browser never persists SIP credentials. On Call Center load, it acts only as a transient authenticated bridge from RX Tracker to the user's loopback RX Softphone process, which owns SIP registration and audio.
 - Allowed the softphone loopback origin only on the Call Center page's `connect-src` policy instead of widening the application-wide policy.
 - RX Softphone 0.2.0 uses an exact browser-origin allowlist for the two production origins, staging/LAN origins, and localhost, with compatible CORS/local-network preflight responses. Unknown origins receive `403`.
 - Extended the managed-workstation Chrome installer with the exact-origin `LocalNetworkAccessAllowedForUrls` policy required for RX Tracker pages to reach the loopback softphone on current Chrome versions.
@@ -28,11 +32,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 ### Testing
 
 - Updated the staging UI smoke assertions for the selectable phone-client API, normalized dial fallback, status indicator, and non-automatic recording behavior.
+- Added regression checks for credential encryption/user binding, absence of browser credential storage, automatic registration bootstrapping, and the compact one-line roster layout.
 - Passed public JavaScript validation, configurable service-window regression, Call Center queue-reopen regression against the isolated staging database, RX Softphone Release build, and allow/deny CORS preflight checks.
 
-**Files changed:** Backoffice settings controller/UI, global settings helper, Call Center controller/UI/routes, staging UI smoke, package metadata, and changelog.
+**Files changed:** Backoffice settings controller/UI, global settings helper, Call Center controller/UI/routes, per-user softphone model/service/migration, staging UI smoke, environment templates, package metadata, and changelog.
 
-**Database impact:** None. The selector remains file-backed and call acknowledgements use the existing audit JSON fields.
+**Database impact:** Adds `UserSoftphoneAccounts`, with one encrypted SIP assignment per RX user and cascade cleanup when the user is deleted. The master phone-client selector remains file-backed and call acknowledgements continue using the existing audit JSON fields.
 
 ## [3.0.12] - 2026-07-20
 

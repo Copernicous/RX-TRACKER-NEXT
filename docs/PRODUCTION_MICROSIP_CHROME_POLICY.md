@@ -26,6 +26,14 @@ APP_ORIGINS=https://rx.camperos.net:10443,https://portal.rbandrc.com,http://192.
 
 Restart the application after changing its environment file. The Chrome policy and the application origin allowlist are separate controls; both must include the browser URL being tested.
 
+For server-managed RX Softphone accounts, also set a stable encryption key before assigning any extensions:
+
+```dotenv
+SOFTPHONE_CREDENTIAL_KEY=replace-with-a-long-random-production-secret
+```
+
+Back up this key with the protected production configuration. Changing or losing it makes existing encrypted SIP passwords unreadable; users would need to enter those passwords again.
+
 ## Install on a workstation
 
 1. Sign in to Windows on the Call Center workstation.

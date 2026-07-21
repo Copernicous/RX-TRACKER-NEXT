@@ -28,6 +28,7 @@ const userController = require('../controllers/userController');
 const workflowActionController = require('../controllers/workflowActionController');
 const patientController = require('../controllers/patientController');
 const callCenterController = require('../controllers/callCenterController');
+const softphoneAccountController = require('../controllers/softphoneAccountController');
 const rxController = require('../controllers/rxController');
 const dashboardController = require('../controllers/dashboardController');
 const reportController = require('../controllers/reportController');
@@ -167,6 +168,9 @@ router.get('/version', adminOnly, sendVersionResponse);
 router.get('/staging/implementation-version', adminOnly, sendStagingManifestResponse);
 
 router.get('/call-center/patients', callCenterController.requireAccess, callCenterController.listPatients);
+router.get('/call-center/phone-account', callCenterController.requireAccess, softphoneAccountController.getOwnAccount);
+router.put('/call-center/phone-account', callCenterController.requireWriteAccess, softphoneAccountController.saveOwnAccount);
+router.post('/call-center/phone-account/registration', callCenterController.requireAccess, softphoneAccountController.getOwnRegistration);
 router.post('/call-center/patients/:id/claim', callCenterController.requireWriteAccess, callCenterController.claimPatient);
 router.post('/call-center/patients/:id/actions', callCenterController.requireWriteAccess, callCenterController.savePatientAction);
 router.post('/call-center/locks/refresh', callCenterController.requireWriteAccess, callCenterController.refreshLocks);

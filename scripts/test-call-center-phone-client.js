@@ -7,8 +7,21 @@ const path = require('path');
 
 const runtimeRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'rx-phone-client-'));
 process.env.APP_WRITABLE_ROOT = runtimeRoot;
+const previousCredentialKey = process.env.SOFTPHONE_CREDENTIAL_KEY;
+process.env.SOFTPHONE_CREDENTIAL_KEY = 'call-center-phone-client-regression-key';
 
 try {
+    const { encryptPassword, decryptPassword } = require('../services/softphoneAccountService');
+    const encryptedPassword = encryptPassword(1006, 'temporary-regression-password');
+    assert(encryptedPassword.startsWith('rxsoft:v1:'), 'Softphone password must use the versioned encrypted format.');
+    assert(!encryptedPassword.includes('temporary-regression-password'), 'Softphone password must not be stored as plaintext.');
+    assert.strictEqual(decryptPassword(1006, encryptedPassword), 'temporary-regression-password', 'Encrypted softphone password did not round-trip.');
+    assert.throws(
+        () => decryptPassword(1007, encryptedPassword),
+        /could not be decrypted/,
+        'A softphone credential must be cryptographically bound to its assigned RX user.'
+    );
+
     const settings = require('../utils/globalSettings');
     assert.strictEqual(settings.getCallCenterPhoneClient(), 'microsip', 'MicroSIP must remain the upgrade-safe default.');
 
@@ -60,11 +73,20 @@ try {
     assert(callCenterScript.includes("targetAddressSpace: 'loopback'"), 'Browser request must identify the loopback target.');
     assert(callCenterScript.includes("snapshot.call || 'idle'"), 'Call-state acknowledgement integration is missing.');
     assert(callCenterScript.includes("payload.callAnsweredAt"), 'Answered-call audit metadata is missing.');
+    assert(callCenterScript.includes('/api/call-center/phone-account'), 'Server-managed softphone account endpoint is missing.');
+    assert(callCenterScript.includes('connectAssignedPhone(false, false)'), 'Automatic per-user softphone registration is missing.');
+    assert(!callCenterScript.includes('rxCallCenterSoftphoneProfileV1'), 'Softphone account metadata must not be stored in browser localStorage.');
+
+    const callCenterView = fs.readFileSync(path.join(__dirname, '..', 'views', 'call-center.ejs'), 'utf8');
+    assert(callCenterView.includes('cc-record-heading-all'), 'Compact one-line Call Center roster heading is missing.');
+    assert(callCenterView.includes('Save &amp; Connect'), 'Server-backed softphone account editor is missing.');
 
     const webRoutes = fs.readFileSync(path.join(__dirname, '..', 'routes', 'webRoutes.js'), 'utf8');
     assert(webRoutes.includes('http://127.0.0.1:5188'), 'Call Center CSP must allow the local softphone origin.');
 
     console.log('PASS Call Center phone-client selector and RX Softphone integration regression.');
 } finally {
+    if (previousCredentialKey === undefined) delete process.env.SOFTPHONE_CREDENTIAL_KEY;
+    else process.env.SOFTPHONE_CREDENTIAL_KEY = previousCredentialKey;
     fs.rmSync(runtimeRoot, { recursive: true, force: true });
 }

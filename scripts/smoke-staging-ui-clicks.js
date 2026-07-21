@@ -415,6 +415,55 @@ async function runCallCenterWorkspace(fixtures) {
     const { context, page } = await newContext();
     await login(page, fixtures.callCenterUser.username, '/call-center');
 
+    const accountBefore = await context.request.get(route('/api/call-center/phone-account'));
+    assert.strictEqual(accountBefore.status(), 200, 'Call Center user should be able to load their own softphone assignment.');
+    assert.strictEqual((await accountBefore.json()).configured, false, 'Temporary Call Center user should begin without a softphone assignment.');
+
+    const sipTestPassword = 'SipSmoke!' + runId;
+    const accountSave = await page.evaluate(async ({ password: transientPassword }) => {
+        const response = await fetchWithAuth('/api/call-center/phone-account', {
+            method: 'PUT',
+            body: JSON.stringify({
+                server: '192.168.15.200',
+                port: 5060,
+                username: 'smoke-' + Date.now(),
+                displayName: 'Staging Smoke Softphone',
+                localSipPort: 0,
+                password: transientPassword
+            })
+        });
+        const body = await response.json().catch(() => ({}));
+        return { status: response.status, configured: !!(body.account && body.account.configured), passwordExposed: Object.hasOwn(body.account || {}, 'password') || Object.hasOwn(body.account || {}, 'encryptedPassword') };
+    }, { password: sipTestPassword });
+    assert.strictEqual(accountSave.status, 200, 'Call Center user should be able to save their own softphone assignment.');
+    assert.strictEqual(accountSave.configured, true, 'Saved softphone assignment should be configured.');
+    assert.strictEqual(accountSave.passwordExposed, false, 'Softphone account save response must not expose password material.');
+
+    const accountAfter = await context.request.get(route('/api/call-center/phone-account'));
+    const accountMetadata = await accountAfter.json();
+    assert.strictEqual(accountAfter.status(), 200, 'Saved softphone assignment should load.');
+    assert.strictEqual(accountMetadata.passwordConfigured, true, 'Saved assignment should report an encrypted password is configured.');
+    assert.strictEqual(Object.hasOwn(accountMetadata, 'password'), false, 'Softphone metadata endpoint must not expose the password.');
+    assert.strictEqual(Object.hasOwn(accountMetadata, 'encryptedPassword'), false, 'Softphone metadata endpoint must not expose ciphertext.');
+
+    const registrationBootstrap = await page.evaluate(async ({ expectedPassword }) => {
+        const response = await fetchWithAuth('/api/call-center/phone-account/registration', { method: 'POST', body: '{}', silent: true });
+        const body = await response.json().catch(() => ({}));
+        const result = { status: response.status, configured: body.configured === true, passwordMatches: body.password === expectedPassword };
+        body.password = '';
+        return result;
+    }, { expectedPassword: sipTestPassword });
+    assert.deepStrictEqual(
+        registrationBootstrap,
+        { status: 200, configured: true, passwordMatches: true },
+        'Authenticated registration bootstrap should decrypt only the current user assignment.'
+    );
+    const storedAccount = await db.UserSoftphoneAccount.findOne({ where: { userId: fixtures.callCenterUser.id } });
+    assert(storedAccount && storedAccount.encryptedPassword.startsWith('rxsoft:v1:'), 'Staging DB should store a versioned encrypted SIP password.');
+    assert(!storedAccount.encryptedPassword.includes(sipTestPassword), 'Staging DB must not store the SIP password in plaintext.');
+    assert.strictEqual(await page.locator('#ccPhoneSetupModal').count(), 1, 'Call Center should include one server-backed phone account editor.');
+    pass('Per-user encrypted RX Softphone account API and editor');
+
     const workspaceResponse = await context.request.get(route('/call-center'));
     assert.strictEqual(workspaceResponse.status(), 200, 'Authenticated Call Center page should load.');
     assert(
@@ -449,6 +498,17 @@ async function runCallCenterWorkspace(fixtures) {
     pass('Call Center patient transport sorting click');
 
     let row = page.locator(rowSelector).first();
+    const rosterLayout = await row.evaluate(element => {
+        const record = element.querySelector('.cc-record-all');
+        const cellTops = Array.from(record.children).map(cell => Math.round(cell.getBoundingClientRect().top));
+        return {
+            fields: record.children.length,
+            topDifference: Math.max(...cellTops) - Math.min(...cellTops)
+        };
+    });
+    assert.strictEqual(rosterLayout.fields, 10, 'Call Center roster should contain all ten compact patient fields/actions.');
+    assert(rosterLayout.topDifference <= 2, 'Call Center patient fields and actions should render on one aligned line.');
+    pass('Call Center compact one-line roster layout');
     assert.strictEqual(
         (await row.locator('.cc-clinic-name').innerText()).trim(),
         fixtures.clinic.name,
@@ -556,6 +616,7 @@ async function cleanup() {
         await db.Patient.destroy({ where: { id: { [Op.in]: patientIds } } }).catch(() => {});
     }
     if (userIds.length) {
+        if (db.UserSoftphoneAccount) await db.UserSoftphoneAccount.destroy({ where: { userId: { [Op.in]: userIds } } }).catch(() => {});
         await db.AuditLog.destroy({ where: { userId: { [Op.in]: userIds } } }).catch(() => {});
         if (db.UserActivityLog) await db.UserActivityLog.destroy({ where: { userId: { [Op.in]: userIds } } }).catch(() => {});
         await db.User.destroy({ where: { id: { [Op.in]: userIds } } }).catch(() => {});

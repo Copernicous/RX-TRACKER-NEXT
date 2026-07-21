@@ -18,7 +18,9 @@
             patients: h('xa-cc-patients', '/api/call-center/patients'),
             metrics: h('xa-cc-metrics', '/api/call-center/metrics/me'),
             lockRefresh: h('xa-cc-lock-refresh', '/api/call-center/locks/refresh'),
-            lockRelease: h('xa-cc-lock-release', '/api/call-center/locks/release')
+            lockRelease: h('xa-cc-lock-release', '/api/call-center/locks/release'),
+            phoneAccount: h('xa-cc-phone-account', '/api/call-center/phone-account'),
+            phoneRegistration: h('xa-cc-phone-registration', '/api/call-center/phone-account/registration')
         };
     })();
 
@@ -32,6 +34,13 @@
         snapshot: null,
         probePromise: null,
         monitorTimer: null,
+        account: null,
+        accountLoaded: false,
+        accountPromise: null,
+        registrationPromise: null,
+        autoRegistrationAttempted: false,
+        suppressAutoRegistration: false,
+        savingAccount: false,
         activeCall: null,
         acknowledgements: {},
         callClients: {}
@@ -161,6 +170,7 @@
 
     function renderPhoneClientStatus() {
         var badge = document.getElementById('ccPhoneClientStatus');
+        var setup = document.getElementById('ccPhoneSetupBtn');
         var hangup = document.getElementById('ccPhoneHangupBtn');
         var help = document.getElementById('ccSoftphoneHelp');
         if (!badge) return;
@@ -194,6 +204,259 @@
         if (hangup) {
             hangup.classList.toggle('d-none', !(rxPhone.reachable && isRxCallActive(rxPhone.snapshot)));
             hangup.disabled = false;
+        }
+        if (setup) {
+            var registered = !!(rxPhone.snapshot && rxPhone.snapshot.registration === 'registered');
+            setup.classList.toggle('d-none', state.phoneClient === 'microsip');
+            setup.innerHTML = registered
+                ? '<i class="fas fa-user-cog me-1"></i>Phone account'
+                : '<i class="fas fa-plug me-1"></i>Register phone';
+        }
+        renderRegistrationFormState();
+    }
+
+    function setRegistrationMessage(message, type) {
+        var el = document.getElementById('ccPhoneRegistrationMessage');
+        if (!el) return;
+        el.className = 'alert cc-registration-message alert-' + (type || 'secondary');
+        el.textContent = message;
+    }
+
+    function populateRegistrationForm(account, snapshot) {
+        account = account && account.configured ? account : {};
+        var values = {
+            server: account.server || (snapshot && snapshot.server) || '192.168.15.200',
+            port: account.port || (snapshot && snapshot.port) || 5060,
+            username: account.username || (snapshot && snapshot.username) || '',
+            displayName: account.displayName || (snapshot && snapshot.displayName) || (snapshot && snapshot.username) || '',
+            localSipPort: account.localSipPort === undefined ? 0 : account.localSipPort
+        };
+        var fields = {
+            ccSipServer: values.server,
+            ccSipPort: values.port,
+            ccSipUsername: values.username,
+            ccSipDisplayName: values.displayName,
+            ccSipLocalPort: values.localSipPort
+        };
+        Object.keys(fields).forEach(function(id) {
+            var input = document.getElementById(id);
+            if (input) input.value = fields[id];
+        });
+        var password = document.getElementById('ccSipPassword');
+        if (password) {
+            password.value = '';
+            password.required = !account.passwordConfigured;
+            password.placeholder = account.passwordConfigured ? 'Leave blank to keep the saved password' : 'Required for first setup';
+        }
+    }
+
+    async function readResponseBody(response) {
+        return response ? response.clone().json().catch(function() { return {}; }) : {};
+    }
+
+    async function loadPhoneAccount(force) {
+        if (rxPhone.accountPromise) return rxPhone.accountPromise;
+        if (rxPhone.accountLoaded && !force) return rxPhone.account;
+        rxPhone.accountPromise = fetchWithAuth(api.phoneAccount, { silent: true })
+            .then(async function(response) {
+                var data = await readResponseBody(response);
+                if (!response || !response.ok) {
+                    throw new Error(data.error || data.message || 'Could not load the assigned softphone account.');
+                }
+                rxPhone.account = data;
+                rxPhone.accountLoaded = true;
+                renderRegistrationFormState();
+                return data;
+            })
+            .catch(function(err) {
+                rxPhone.accountLoaded = false;
+                setRegistrationMessage((err && err.message) || 'Could not load the assigned softphone account.', 'danger');
+                return null;
+            })
+            .finally(function() {
+                rxPhone.accountPromise = null;
+            });
+        return rxPhone.accountPromise;
+    }
+
+    function renderRegistrationFormState() {
+        var modal = document.getElementById('ccPhoneSetupModal');
+        if (!modal) return;
+        var account = rxPhone.account;
+        var snapshot = rxPhone.snapshot;
+        var registration = snapshot && snapshot.registration ? snapshot.registration : 'offline';
+        var busy = rxPhone.savingAccount || !!rxPhone.registrationPromise;
+        ['ccSipServer', 'ccSipPort', 'ccSipUsername', 'ccSipDisplayName', 'ccSipPassword', 'ccSipLocalPort'].forEach(function(id) {
+            var input = document.getElementById(id);
+            if (input) input.disabled = busy;
+        });
+
+        var registerButton = document.getElementById('ccPhoneRegisterBtn');
+        var unregisterButton = document.getElementById('ccPhoneUnregisterBtn');
+        var password = document.getElementById('ccSipPassword');
+        if (password) {
+            password.required = !(account && account.passwordConfigured);
+            password.placeholder = account && account.passwordConfigured
+                ? 'Leave blank to keep the saved password'
+                : 'Required for first setup';
+        }
+        if (registerButton) registerButton.disabled = busy;
+        if (unregisterButton) unregisterButton.disabled = busy || !rxPhone.reachable || registration === 'offline';
+
+        if (!rxPhone.accountLoaded) {
+            setRegistrationMessage('Loading the softphone account assigned to your RX user.', 'secondary');
+        } else if (!account || !account.configured) {
+            setRegistrationMessage('No softphone account is assigned to your RX user. Enter the SIP account once, then Save & Connect.', 'warning');
+        } else if (!rxPhone.reachable) {
+            setRegistrationMessage('Account saved on the server. Start RX Softphone 0.2.0 or later on this workstation; it will connect when Call Center loads.', 'warning');
+        } else if (registration === 'registered') {
+            setRegistrationMessage('Connected as extension ' + (snapshot.username || '') + ' to ' + (snapshot.server || '') + ':' + (snapshot.port || 5060) + '. The server assignment remains editable.', 'success');
+        } else if (registration === 'registering') {
+            setRegistrationMessage('Sending the SIP registration to the PBX.', 'info');
+        } else if (registration === 'retrying') {
+            setRegistrationMessage('Registration did not complete. RX Softphone is retrying; review the account or PBX connection.', 'warning');
+        } else if (registration === 'failed') {
+            setRegistrationMessage('Registration failed. Verify the extension, password, PBX address, and port, then try again.', 'danger');
+        } else {
+            setRegistrationMessage('The account is saved on the server but this workstation is disconnected. Select Save & Connect, or reload Call Center to connect automatically.', 'secondary');
+        }
+    }
+
+    async function openPhoneSetup() {
+        var modalElement = document.getElementById('ccPhoneSetupModal');
+        if (!modalElement || !window.bootstrap || !bootstrap.Modal) {
+            toast('Phone registration window is unavailable.', 'danger');
+            return;
+        }
+        var results = await Promise.all([loadPhoneAccount(true), probeRxPhone()]);
+        populateRegistrationForm(results[0], results[1]);
+        renderRegistrationFormState();
+        bootstrap.Modal.getOrCreateInstance(modalElement).show();
+    }
+
+    async function connectAssignedPhone(force, notifyUser) {
+        if (state.phoneClient === 'microsip') return null;
+        if (rxPhone.registrationPromise) return rxPhone.registrationPromise;
+        if (rxPhone.suppressAutoRegistration && !force) return rxPhone.snapshot;
+        if (rxPhone.autoRegistrationAttempted && !force) return rxPhone.snapshot;
+        rxPhone.autoRegistrationAttempted = true;
+        if (force) rxPhone.suppressAutoRegistration = false;
+
+        rxPhone.registrationPromise = (async function() {
+            var account = await loadPhoneAccount(false);
+            if (!account || !account.configured || account.isEnabled === false) {
+                renderRegistrationFormState();
+                return rxPhone.snapshot;
+            }
+
+            var snapshot = await probeRxPhone();
+            if (!snapshot) return null;
+            var sameAccount = snapshot.registration === 'registered'
+                && String(snapshot.server || '').toLowerCase() === String(account.server || '').toLowerCase()
+                && Number(snapshot.port || 5060) === Number(account.port || 5060)
+                && String(snapshot.username || '') === String(account.username || '');
+            if (sameAccount && !force) return snapshot;
+
+            var response = await fetchWithAuth(api.phoneRegistration, {
+                method: 'POST',
+                body: '{}',
+                silent: true
+            });
+            var registration = await readResponseBody(response);
+            if (!response || !response.ok) {
+                throw new Error(registration.error || registration.message || 'Could not load the assigned softphone registration.');
+            }
+            if (!registration.configured) return snapshot;
+
+            var localRequestBody = JSON.stringify({
+                server: registration.server,
+                port: registration.port,
+                username: registration.username,
+                password: registration.password,
+                displayName: registration.displayName || registration.username,
+                localSipPort: registration.localSipPort || 0
+            });
+            registration.password = '';
+            snapshot = await rxFetch('/api/register', { method: 'POST', body: localRequestBody });
+            localRequestBody = '';
+            rxPhone.reachable = true;
+            handleRxSnapshot(snapshot);
+            if (notifyUser) toast('RX Softphone account saved and connection started.', 'success');
+            setTimeout(probeRxPhone, 800);
+            return snapshot;
+        })().catch(function(err) {
+            setRegistrationMessage((err && err.message) || 'Could not connect RX Softphone.', 'danger');
+            if (notifyUser) toast((err && err.message) || 'Could not connect RX Softphone.', 'danger');
+            return null;
+        }).finally(function() {
+            rxPhone.registrationPromise = null;
+            renderRegistrationFormState();
+        });
+        renderRegistrationFormState();
+        return rxPhone.registrationPromise;
+    }
+
+    async function saveRxPhoneAccount(form, button) {
+        if (!form.reportValidity()) return;
+        var account = {
+            server: document.getElementById('ccSipServer').value.trim(),
+            port: Number(document.getElementById('ccSipPort').value),
+            username: document.getElementById('ccSipUsername').value.trim(),
+            displayName: document.getElementById('ccSipDisplayName').value.trim(),
+            localSipPort: Number(document.getElementById('ccSipLocalPort').value || 0)
+        };
+        var passwordInput = document.getElementById('ccSipPassword');
+        account.password = passwordInput ? passwordInput.value : '';
+        var oldHtml = button.innerHTML;
+        rxPhone.savingAccount = true;
+        button.disabled = true;
+        button.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Saving';
+        try {
+            var savePromise = fetchWithAuth(api.phoneAccount, {
+                method: 'PUT',
+                body: JSON.stringify(account)
+            });
+            account.password = '';
+            if (passwordInput) passwordInput.value = '';
+            var response = await savePromise;
+            var data = await readResponseBody(response);
+            if (!response || !response.ok) {
+                throw new Error(data.error || data.message || 'Could not save the softphone account.');
+            }
+            rxPhone.account = data.account;
+            rxPhone.accountLoaded = true;
+            populateRegistrationForm(rxPhone.account, rxPhone.snapshot);
+            rxPhone.savingAccount = false;
+            await connectAssignedPhone(true, true);
+        } catch (err) {
+            setRegistrationMessage((err && err.message) || 'Could not save the softphone account.', 'danger');
+            toast((err && err.message) || 'Could not save the softphone account.', 'danger');
+        } finally {
+            rxPhone.savingAccount = false;
+            button.innerHTML = oldHtml;
+            renderRegistrationFormState();
+        }
+    }
+
+    async function unregisterRxPhone(button) {
+        if (isRxCallActive(rxPhone.snapshot) && !window.confirm('End the active call and unregister RX Softphone?')) return;
+        var oldHtml = button.innerHTML;
+        button.disabled = true;
+        button.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Unregistering';
+        try {
+            var snapshot = await rxFetch('/api/unregister', { method: 'POST', body: '{}' });
+            var password = document.getElementById('ccSipPassword');
+            if (password) password.value = '';
+            rxPhone.reachable = true;
+            rxPhone.suppressAutoRegistration = true;
+            handleRxSnapshot(snapshot);
+            populateRegistrationForm(rxPhone.account, snapshot);
+            toast('RX Softphone disconnected on this PC. It will reconnect the next time Call Center loads.', 'info');
+        } catch (err) {
+            setRegistrationMessage((err && err.message) || 'Could not unregister RX Softphone.', 'danger');
+        } finally {
+            button.innerHTML = oldHtml;
+            renderRegistrationFormState();
         }
     }
 
@@ -250,10 +513,21 @@
     async function probeRxPhone() {
         if (state.phoneClient === 'microsip') return null;
         if (rxPhone.probePromise) return rxPhone.probePromise;
+        var wasReachable = rxPhone.reachable;
         rxPhone.probePromise = rxFetch('/api/status')
             .then(function(snapshot) {
                 rxPhone.reachable = true;
                 handleRxSnapshot(snapshot);
+                if (!wasReachable
+                    && rxPhone.autoRegistrationAttempted
+                    && !rxPhone.suppressAutoRegistration
+                    && !rxPhone.registrationPromise
+                    && rxPhone.account
+                    && rxPhone.account.configured
+                    && snapshot.registration !== 'registered') {
+                    rxPhone.autoRegistrationAttempted = false;
+                    setTimeout(function() { connectAssignedPhone(false, false); }, 0);
+                }
                 return snapshot;
             })
             .catch(function() {
@@ -275,7 +549,11 @@
         }
         renderPhoneClientStatus();
         if (state.phoneClient === 'microsip') return;
-        probeRxPhone();
+        rxPhone.autoRegistrationAttempted = false;
+        rxPhone.suppressAutoRegistration = false;
+        probeRxPhone().then(function() {
+            connectAssignedPhone(false, false);
+        });
         rxPhone.monitorTimer = setInterval(probeRxPhone, 1200);
     }
 
@@ -295,11 +573,17 @@
         }
 
         var snapshot = await probeRxPhone();
+        if (!snapshot || snapshot.registration !== 'registered') {
+            snapshot = await connectAssignedPhone(false, false) || snapshot;
+        }
         var ready = !!(snapshot && snapshot.registration === 'registered');
         if (!ready) {
             if (state.phoneClient === 'auto') openMicroSip(dialNumber, true, patientId);
-            else if (!snapshot) toast('RX Softphone could not be reached. Start version 0.2.0 or later and allow this site to connect to the local softphone.', 'warning');
-            else toast('RX Softphone is not registered. Open it and register to the PBX before calling.', 'warning');
+            else {
+                if (!snapshot) toast('RX Softphone could not be reached. Start version 0.2.0 or later and allow this site to connect to the local softphone.', 'warning');
+                else toast('RX Softphone is not registered. Complete Phone Registration before calling.', 'warning');
+                openPhoneSetup();
+            }
             return;
         }
         if (isRxCallActive(snapshot)) {
@@ -471,11 +755,11 @@
     async function loadPatients() {
         var tbody = document.getElementById('ccPatientRows');
         if (tbody) {
-            tbody.innerHTML = '<tr><td colspan="11" class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin me-2"></i>Loading</td></tr>';
+            tbody.innerHTML = '<tr><td class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin me-2"></i>Loading</td></tr>';
         }
         var res = await fetchWithAuth(queryUrl());
         if (!res || !res.ok) {
-            if (tbody) tbody.innerHTML = '<tr><td colspan="11" class="text-center text-muted py-4">No access</td></tr>';
+            if (tbody) tbody.innerHTML = '<tr><td class="text-center text-muted py-4">No access</td></tr>';
             return;
         }
         var data = await res.json();
@@ -505,7 +789,7 @@
         var tbody = document.getElementById('ccPatientRows');
         if (!tbody) return;
         if (!rows.length) {
-            tbody.innerHTML = '<tr><td colspan="11" class="text-center text-muted py-4">No eligible patients found.</td></tr>';
+            tbody.innerHTML = '<tr><td class="text-center text-muted py-4">No eligible patients found.</td></tr>';
             return;
         }
         var html = '';
@@ -522,18 +806,21 @@
                 ? '<button class="btn btn-success btn-sm cc-save" data-action="save" title="Save"><i class="fas fa-save"></i></button>'
                 : '<span class="badge bg-success">Done</span>';
             html += '<tr data-id="' + esc(row.id) + '">' +
-                '<td><div class="cc-name-cell">' + esc(row.firstName) + '</div></td>' +
-                '<td><div class="cc-name-cell">' + esc(row.lastName) + '</div></td>' +
-                '<td><div class="cc-clinic-name">' + esc(row.clinicName || 'Unassigned') + '</div></td>' +
-                '<td><div class="cc-patient-transport-name">' + esc(row.patientTransportName || 'Unassigned') + '</div></td>' +
-                '<td>' + renderPhone(row, canUpdate) + '</td>' +
-                '<td><div class="cc-note-preview">' + renderNotes(row) + '</div></td>' +
-                '<td><input type="date" class="form-control form-control-sm cc-new-date" data-field="newServiceDate"' +
-                    (state.eligibilityCutoff ? ' min="' + esc(state.eligibilityCutoff) + '"' : '') + disabled + '></td>' +
-                '<td><textarea class="form-control form-control-sm cc-row-note" data-field="note" maxlength="4000"' + disabled + '></textarea></td>' +
-                '<td class="text-center"><label class="' + calledWrapClass + '" title="' + calledTitle + '"><input type="checkbox" class="form-check-input cc-called" data-field="called"' + (answeredAcknowledgement ? ' checked' : '') + disabled + '></label></td>' +
-                '<td>' + renderCallHistory(row) + '</td>' +
-                '<td class="text-end">' + saveButton + '</td>' +
+                '<td class="cc-record-td">' +
+                    '<div class="cc-record-line cc-record-all">' +
+                        '<div class="cc-record-cell cc-patient-full-name"><span class="cc-name-cell">' + esc(row.firstName) + '</span><span class="cc-name-cell">' + esc(row.lastName) + '</span></div>' +
+                        '<div class="cc-record-cell"><div class="cc-clinic-name">' + esc(row.clinicName || 'Unassigned') + '</div></div>' +
+                        '<div class="cc-record-cell"><div class="cc-patient-transport-name">' + esc(row.patientTransportName || 'Unassigned') + '</div></div>' +
+                        '<div class="cc-record-cell">' + renderPhone(row, canUpdate) + '</div>' +
+                        '<div class="cc-record-cell"><div class="cc-note-preview">' + renderNotes(row) + '</div></div>' +
+                        '<div class="cc-record-cell"><input type="date" class="form-control form-control-sm cc-new-date" data-field="newServiceDate"' +
+                            (state.eligibilityCutoff ? ' min="' + esc(state.eligibilityCutoff) + '"' : '') + disabled + '></div>' +
+                        '<div class="cc-record-cell"><textarea class="form-control form-control-sm cc-row-note" data-field="note" maxlength="4000" rows="1"' + disabled + '></textarea></div>' +
+                        '<div class="cc-record-cell text-center"><label class="' + calledWrapClass + '" title="' + calledTitle + '"><input type="checkbox" class="form-check-input cc-called" data-field="called"' + (answeredAcknowledgement ? ' checked' : '') + disabled + '></label></div>' +
+                        '<div class="cc-record-cell cc-record-cell-history">' + renderCallHistory(row) + '</div>' +
+                        '<div class="cc-record-cell cc-record-cell-save">' + saveButton + '</div>' +
+                    '</div>' +
+                '</td>' +
             '</tr>';
         }
         tbody.innerHTML = html;
@@ -698,7 +985,13 @@
         var prev = document.getElementById('ccPrevBtn');
         var next = document.getElementById('ccNextBtn');
         var rows = document.getElementById('ccPatientRows');
+        var phoneSetup = document.getElementById('ccPhoneSetupBtn');
         var hangup = document.getElementById('ccPhoneHangupBtn');
+        var phoneSetupForm = document.getElementById('ccPhoneSetupForm');
+        var phoneSetupModal = document.getElementById('ccPhoneSetupModal');
+        var phoneRegister = document.getElementById('ccPhoneRegisterBtn');
+        var phoneUnregister = document.getElementById('ccPhoneUnregisterBtn');
+        var passwordToggle = document.getElementById('ccSipPasswordToggle');
         var cards = document.querySelectorAll('.cc-metric[data-view]');
         var sortButtons = document.querySelectorAll('.cc-sort[data-sort]');
 
@@ -762,6 +1055,41 @@
         if (hangup) {
             hangup.addEventListener('click', function() {
                 hangupRxCall(hangup);
+            });
+        }
+        if (phoneSetup) phoneSetup.addEventListener('click', openPhoneSetup);
+        if (phoneSetupForm && phoneRegister) {
+            phoneSetupForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                saveRxPhoneAccount(phoneSetupForm, phoneRegister);
+            });
+        }
+        if (phoneUnregister) {
+            phoneUnregister.addEventListener('click', function() {
+                unregisterRxPhone(phoneUnregister);
+            });
+        }
+        if (passwordToggle) {
+            passwordToggle.addEventListener('click', function() {
+                var password = document.getElementById('ccSipPassword');
+                if (!password) return;
+                var show = password.type === 'password';
+                password.type = show ? 'text' : 'password';
+                passwordToggle.textContent = show ? 'Hide' : 'Show';
+                passwordToggle.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+            });
+        }
+        if (phoneSetupModal) {
+            phoneSetupModal.addEventListener('hidden.bs.modal', function() {
+                var password = document.getElementById('ccSipPassword');
+                if (password) {
+                    password.value = '';
+                    password.type = 'password';
+                }
+                if (passwordToggle) {
+                    passwordToggle.textContent = 'Show';
+                    passwordToggle.setAttribute('aria-label', 'Show password');
+                }
             });
         }
         for (var i = 0; i < cards.length; i++) {

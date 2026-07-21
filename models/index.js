@@ -43,6 +43,7 @@ const modelFiles = [
   require('./rxworkflowtracking.js'),
   require('./systemsetting.js'),
   require('./user.js'),
+  require('./usersoftphoneaccount.js'),
   require('./useractivitylog.js'),
   require('./workflowaction.js'),
 ];
