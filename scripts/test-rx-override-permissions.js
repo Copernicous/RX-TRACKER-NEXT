@@ -304,7 +304,6 @@ async function cleanup() {
 
 async function run() {
   await db.sequelize.authenticate();
-  await db.sequelize.sync();
 
   const actions = await ensureWorkflowActions();
   const noOverrideUser = await createRoleAndUser('nooverride', false);

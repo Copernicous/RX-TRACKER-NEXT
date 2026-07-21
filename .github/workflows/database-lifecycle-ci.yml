@@ -111,7 +111,7 @@ jobs:
           SOFTPHONE_SETUP_TEST_DB_NAME=rx_next_ci_regression_test npm run test:softphone-self-setup
           CALL_ATTEMPT_TEST_DB_NAME=rx_next_ci_regression_test npm run test:call-center-call-attempts
           npm run test:patient-double-update
-          npm run test:rx-override
+          QA_DB_NAME=rx_next_ci_regression_test npm run test:rx-override
           npm run test:workflow-date
           npm run test:backoffice-patient-delete
           npm run test:service-window
