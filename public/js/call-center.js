@@ -643,7 +643,12 @@
 
     function markAnsweredCall(patientId, attempt) {
         var key = String(patientId);
-        if (!rxPhone.acknowledgements[key]) {
+        var previousAcknowledgement = rxPhone.acknowledgements[key];
+        var attemptId = attempt && attempt.id;
+        var isNewAttempt = !previousAcknowledgement || (
+            attemptId && String(previousAcknowledgement.attemptId || '') !== String(attemptId)
+        );
+        if (isNewAttempt) {
             rxPhone.acknowledgements[key] = {
                 phoneClient: 'rx_softphone',
                 answeredAt: (attempt && attempt.answeredAt) || new Date().toISOString(),
@@ -655,8 +660,8 @@
             toast('Answered call recorded automatically. Save is needed only for a note or new service date.', 'success');
             loadMetrics();
         } else if (attempt) {
-            rxPhone.acknowledgements[key].endedAt = attempt.endedAt || rxPhone.acknowledgements[key].endedAt;
-            rxPhone.acknowledgements[key].durationSeconds = attempt.conversationDurationSeconds;
+            previousAcknowledgement.endedAt = attempt.endedAt || previousAcknowledgement.endedAt;
+            previousAcknowledgement.durationSeconds = attempt.conversationDurationSeconds;
         }
 
         var row = document.querySelector('tr[data-id="' + key.replace(/"/g, '') + '"]');
