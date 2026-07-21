@@ -508,6 +508,12 @@ async function runCallCenterWorkspace(fixtures) {
     });
     assert.strictEqual(rosterLayout.fields, 10, 'Call Center roster should contain all ten compact patient fields/actions.');
     assert(rosterLayout.topDifference <= 2, 'Call Center patient fields and actions should render on one aligned line.');
+    const noteBox = row.locator('.cc-row-note');
+    const compactNoteHeight = await noteBox.evaluate(element => element.getBoundingClientRect().height);
+    await noteBox.fill('First line\nSecond line\nThird line');
+    const expandedNoteHeight = await noteBox.evaluate(element => element.getBoundingClientRect().height);
+    assert(expandedNoteHeight > compactNoteHeight, 'Call Center Add Note field should grow with multi-line comments.');
+    await noteBox.fill('');
     pass('Call Center compact one-line roster layout');
     assert.strictEqual(
         (await row.locator('.cc-clinic-name').innerText()).trim(),

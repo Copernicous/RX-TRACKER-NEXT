@@ -80,6 +80,7 @@ try {
     const callCenterView = fs.readFileSync(path.join(__dirname, '..', 'views', 'call-center.ejs'), 'utf8');
     assert(callCenterView.includes('cc-record-heading-all'), 'Compact one-line Call Center roster heading is missing.');
     assert(callCenterView.includes('Save &amp; Connect'), 'Server-backed softphone account editor is missing.');
+    assert(callCenterScript.includes('function resizeRowNote'), 'Call Center comments must expand the patient row while typing.');
 
     const webRoutes = fs.readFileSync(path.join(__dirname, '..', 'routes', 'webRoutes.js'), 'utf8');
     assert(webRoutes.includes('http://127.0.0.1:5188'), 'Call Center CSP must allow the local softphone origin.');

@@ -17,7 +17,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 - Added RX Softphone acknowledgement metadata to the existing Call Center `Called` audit record: selected phone client, reported answer/end timestamps, and bounded duration.
 - Added Automatic fallback to the existing MicroSIP `callto:` handoff whenever RX Softphone is absent or not registered.
 - Added a per-user RX Softphone account editor in Call Center. SIP settings are assigned to the authenticated RX user on the server and the local softphone connects automatically when that user loads Call Center.
-- Reorganized each Call Center patient into a compact one-line 10-field grid by combining the patient name and tightening notes/history/actions, reducing the old 1650px minimum width so the complete row fits the wide desktop workspace. Alternating row and hover colors keep adjacent patients visually distinct.
+- Reorganized each Call Center patient into a compact one-line 10-field grid by combining the patient name and tightening notes/history/actions, reducing the old 1650px minimum width so the complete row fits the wide desktop workspace. Stronger alternating green/blue row colors, matching left accents, and an amber hover state keep adjacent patients visually distinct. Rows now grow naturally with note/call history, and the Add Note field expands as an agent types multiple lines.
 - Displayed the RX Softphone audio formats supported by the native client: G.711 &mu;-law (PCMU), G.711 A-law (PCMA), G.722, and G.729. Codec selection remains automatic through SIP/SDP negotiation with Asterisk.
 
 ### Security

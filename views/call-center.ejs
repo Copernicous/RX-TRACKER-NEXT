@@ -145,16 +145,20 @@
         }
         .cc-record-all {
             padding: 7px 10px;
+            align-items: start;
             transition: background-color .15s ease;
         }
         .cc-table tbody tr:nth-child(odd) .cc-record-all {
-            background: rgba(255, 255, 255, .015);
+            background: rgba(25, 135, 84, .085);
+            box-shadow: inset 4px 0 0 rgba(25, 135, 84, .7);
         }
         .cc-table tbody tr:nth-child(even) .cc-record-all {
-            background: rgba(74, 144, 226, .055);
+            background: rgba(74, 144, 226, .14);
+            box-shadow: inset 4px 0 0 rgba(74, 144, 226, .78);
         }
         .cc-table tbody tr:hover .cc-record-all {
-            background: rgba(25, 135, 84, .085);
+            background: rgba(255, 193, 7, .16);
+            box-shadow: inset 4px 0 0 rgba(255, 193, 7, .9);
         }
         .cc-patient-full-name {
             display: flex;
@@ -163,10 +167,6 @@
         }
         .cc-record-cell-save {
             text-align: right;
-        }
-        .cc-record-cell-history {
-            max-height: 44px;
-            overflow: auto;
         }
         .cc-name-cell {
             font-weight: 800;
@@ -306,16 +306,12 @@
             font-weight: 700;
         }
         .cc-note-preview {
-            max-height: 30px;
-            overflow: auto;
             white-space: pre-wrap;
             word-break: break-word;
             color: var(--text-muted);
             font-size: .82rem;
         }
         .cc-history-list {
-            max-height: 24px;
-            overflow: auto;
             font-size: .78rem;
             color: var(--text-muted);
             line-height: 1.45;

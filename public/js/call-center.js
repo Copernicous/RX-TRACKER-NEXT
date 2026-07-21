@@ -826,6 +826,12 @@
         tbody.innerHTML = html;
     }
 
+    function resizeRowNote(textarea) {
+        if (!textarea || !textarea.classList.contains('cc-row-note')) return;
+        textarea.style.height = '34px';
+        textarea.style.height = Math.max(34, textarea.scrollHeight) + 'px';
+    }
+
     function renderNotes(row) {
         var entries = row.noteEntries || [];
         if (!entries.length && !row.notes) return '<span class="text-muted">--</span>';
@@ -1050,6 +1056,9 @@
                 }
                 var btn = e.target.closest('[data-action="save"]');
                 if (btn) saveRow(btn);
+            });
+            rows.addEventListener('input', function(e) {
+                if (e.target && e.target.classList.contains('cc-row-note')) resizeRowNote(e.target);
             });
         }
         if (hangup) {
