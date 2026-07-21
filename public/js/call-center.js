@@ -281,13 +281,16 @@
     }
 
     async function rxFetch(path, options) {
+        var requestOptions = Object.assign({}, options || {});
+        var timeoutMs = Number(requestOptions.timeoutMs) || 2500;
+        delete requestOptions.timeoutMs;
         var controller = typeof AbortController === 'function' ? new AbortController() : null;
-        var timeout = controller ? setTimeout(function() { controller.abort(); }, 2500) : null;
+        var timeout = controller ? setTimeout(function() { controller.abort(); }, timeoutMs) : null;
         var fetchOptions = Object.assign({
             mode: 'cors',
             cache: 'no-store',
             targetAddressSpace: 'loopback'
-        }, options || {});
+        }, requestOptions);
         if (controller) fetchOptions.signal = controller.signal;
         if (fetchOptions.body) {
             fetchOptions.headers = Object.assign({ 'Content-Type': 'application/json' }, fetchOptions.headers || {});
@@ -802,7 +805,7 @@
             // Do not reuse the background monitor promise here. Chrome requires a
             // user-initiated loopback request before it can show the local-device
             // permission prompt for a public HTTPS origin.
-            var snapshot = await rxFetch('/api/status');
+            var snapshot = await rxFetch('/api/status', { timeoutMs: 30000 });
             rxPhone.reachable = true;
             rxPhone.loopbackPermission = 'granted';
             handleRxSnapshot(snapshot);

@@ -95,6 +95,7 @@ try {
     assert(callCenterScript.includes('probeRxPhoneFromUserGesture'), 'Phone clicks must issue a fresh loopback request from the user gesture.');
     assert(callCenterScript.includes("navigator.permissions.query({ name: 'loopback-network' })"), 'Call Center must inspect Chrome\'s split loopback permission before polling.');
     assert(callCenterScript.includes("rxPhone.loopbackPermission === 'prompt' || rxPhone.loopbackPermission === 'denied'"), 'Automatic polling must wait while loopback permission requires a user gesture.');
+    assert(callCenterScript.includes("rxFetch('/api/status', { timeoutMs: 30000 })"), 'The user-gesture probe must remain open long enough to approve Chrome\'s permission prompt.');
     assert(callCenterScript.includes('startRxPhonePolling();'), 'Successful user-gesture access must start normal softphone monitoring.');
     assert(callCenterScript.includes('allow access to other apps and services on this device'), 'Loopback permission guidance must use Chrome\'s current local-device wording.');
     assert(callCenterScript.includes("snapshot.call || 'idle'"), 'Call-state acknowledgement integration is missing.');
