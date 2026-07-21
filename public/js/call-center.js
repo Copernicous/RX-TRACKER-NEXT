@@ -796,6 +796,23 @@
         return rxPhone.probePromise;
     }
 
+    async function probeRxPhoneFromUserGesture() {
+        try {
+            // Do not reuse the background monitor promise here. Chrome requires a
+            // user-initiated loopback request before it can show the local-device
+            // permission prompt for a public HTTPS origin.
+            var snapshot = await rxFetch('/api/status');
+            rxPhone.reachable = true;
+            handleRxSnapshot(snapshot);
+            return snapshot;
+        } catch (err) {
+            rxPhone.reachable = false;
+            rxPhone.snapshot = null;
+            renderPhoneClientStatus();
+            return null;
+        }
+    }
+
     function configurePhoneMonitor() {
         if (rxPhone.monitorTimer) {
             clearInterval(rxPhone.monitorTimer);
@@ -832,7 +849,12 @@
             return;
         }
 
-        var snapshot = await probeRxPhone();
+        if (!rxPhone.reachable) {
+            toast('Connecting to RX Softphone. If Chrome asks, allow access to other apps and services on this device.', 'info');
+        }
+        var snapshot = rxPhone.reachable && rxPhone.snapshot
+            ? rxPhone.snapshot
+            : await probeRxPhoneFromUserGesture();
         if (!snapshot || snapshot.registration !== 'registered') {
             snapshot = await connectAssignedPhone(false, false) || snapshot;
         }
@@ -844,7 +866,7 @@
             }
             else {
                 if (!snapshot) {
-                    toast('RX Softphone is running locally but Chrome cannot reach it. Allow Local network access for this RX Tracker site, then reload the page.', 'warning');
+                    toast('RX Softphone is running locally but Chrome cannot reach it. In this site\'s Chrome settings, allow access to other apps and services on this device, then reload.', 'warning');
                 } else {
                     toast('RX Softphone is not registered. Ask an Administrator to allow Phone Account Setup if the saved account must be corrected.', 'warning');
                 }
