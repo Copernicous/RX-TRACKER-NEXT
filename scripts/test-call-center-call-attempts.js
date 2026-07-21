@@ -36,6 +36,7 @@ function request(user, body, params) {
 }
 
 async function cleanup() {
+    if (created.patientIds.length) await db.CallCenterLock.destroy({ where: { patientId: created.patientIds } }).catch(() => {});
     if (created.attemptIds.length) await db.CallCenterCallAttempt.destroy({ where: { id: created.attemptIds } }).catch(() => {});
     if (created.auditIds.length) await db.AuditLog.destroy({ where: { id: created.auditIds } }).catch(() => {});
     if (created.userId) {
@@ -91,6 +92,13 @@ async function main() {
         created.patientIds.push(patient.id);
         const reqUser = { id: user.id, firstName: user.firstName, lastName: user.lastName, username: user.username };
 
+        await db.CallCenterLock.create({
+            patientId: patient.id,
+            userId: user.id,
+            lockedAt: new Date(),
+            expiresAt: new Date(Date.now() + 15000)
+        });
+
         const startRes = response();
         await controller.startAttempt(request(reqUser, { patientId: patient.id, dialedNumber: '5550101234' }), startRes);
         assert.strictEqual(startRes.statusCode, 201, JSON.stringify(startRes.body));
@@ -98,6 +106,8 @@ async function main() {
         created.attemptIds.push(first.id);
         assert(first.correlationId, 'A server correlation id is required before dialing.');
         assert.strictEqual(first.extension.startsWith('ext-'), true, 'Extension snapshot is missing.');
+        let activeLock = await db.CallCenterLock.findOne({ where: { patientId: patient.id, userId: user.id } });
+        assert(new Date(activeLock.expiresAt).getTime() - Date.now() > 9 * 60 * 1000, 'Starting an RX Softphone attempt must extend the active call claim.');
 
         const base = Date.now() - 30000;
         await db.CallCenterCallAttempt.update({ dialedAt: new Date(base) }, { where: { id: first.id } });
@@ -143,6 +153,9 @@ async function main() {
         assert.strictEqual(endRes.body.attempt.outcome, 'answered');
         assert.strictEqual(endRes.body.attempt.ringDurationSeconds, 7);
         assert.strictEqual(endRes.body.attempt.conversationDurationSeconds, 15);
+        activeLock = await db.CallCenterLock.findOne({ where: { patientId: patient.id, userId: user.id } });
+        const terminalLeaseMs = new Date(activeLock.expiresAt).getTime() - Date.now();
+        assert(terminalLeaseMs > 0 && terminalLeaseMs <= 16000, 'A terminal call must shorten the patient claim to the inactive timeout.');
 
         const noAnswerStart = response();
         await controller.startAttempt(request(reqUser, { patientId: patient.id, dialedNumber: '5550101234' }), noAnswerStart);

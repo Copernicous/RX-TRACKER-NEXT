@@ -2,6 +2,7 @@
 
 const crypto = require('crypto');
 const db = require('../models');
+const { updateOwnedCallCenterClaim } = require('../services/callCenterClaimService');
 
 const STATES = new Set(['dialing', 'trying', 'ringing', 'connected', 'ended', 'failed']);
 const TERMINAL_STATES = new Set(['ended', 'failed']);
@@ -154,25 +155,37 @@ exports.startAttempt = async (req, res) => {
         }
 
         const account = await db.UserSoftphoneAccount.findOne({ where: { userId: req.user.id, isEnabled: true } });
-        const attempt = await db.CallCenterCallAttempt.create({
-            patientId: patient.id,
-            userId: req.user.id,
-            correlationId: crypto.randomUUID(),
-            phoneClient: 'rx_softphone',
-            direction: 'outbound',
-            state: 'dialing',
-            patientCode: cleanText(patient.patientCode, 60),
-            patientName: cleanText(`${patient.firstName || ''} ${patient.lastName || ''}`.trim(), 255),
-            clinicName: cleanText(patient.Clinic && patient.Clinic.name, 255),
-            agentName: cleanText(userLabel(req.user), 255),
-            extension: cleanText(account && account.username, 128),
-            dialedNumber: patientNumber,
-            dialedAt: new Date()
+        const attempt = await db.sequelize.transaction(async transaction => {
+            const claimExtended = await updateOwnedCallCenterClaim(patient.id, req.user.id, true, {
+                transaction,
+                requireUnexpired: true
+            });
+            if (!claimExtended) {
+                const error = new Error('Patient claim expired. Click the phone icon and try again.');
+                error.status = 409;
+                throw error;
+            }
+            return db.CallCenterCallAttempt.create({
+                patientId: patient.id,
+                userId: req.user.id,
+                correlationId: crypto.randomUUID(),
+                phoneClient: 'rx_softphone',
+                direction: 'outbound',
+                state: 'dialing',
+                patientCode: cleanText(patient.patientCode, 60),
+                patientName: cleanText(`${patient.firstName || ''} ${patient.lastName || ''}`.trim(), 255),
+                clinicName: cleanText(patient.Clinic && patient.Clinic.name, 255),
+                agentName: cleanText(userLabel(req.user), 255),
+                extension: cleanText(account && account.username, 128),
+                dialedNumber: patientNumber,
+                dialedAt: new Date()
+            }, { transaction });
         });
         res.status(201).json({ attempt: publicAttempt(attempt) });
     } catch (err) {
-        console.error('[Call Attempts] start error:', err);
-        res.status(500).json({ error: 'Could not start the call-attempt record.' });
+        const status = err.status || 500;
+        if (status >= 500) console.error('[Call Attempts] start error:', err);
+        res.status(status).json({ error: status >= 500 ? 'Could not start the call-attempt record.' : err.message });
     }
 };
 
@@ -239,6 +252,10 @@ exports.updateAttempt = async (req, res) => {
                 await updateCalledAudit(attempt, transaction);
             }
             await attempt.save({ transaction });
+            await updateOwnedCallCenterClaim(attempt.patientId, attempt.userId, !TERMINAL_STATES.has(state), {
+                transaction,
+                requireUnexpired: false
+            });
             return attempt;
         });
 

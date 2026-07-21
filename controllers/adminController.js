@@ -343,10 +343,11 @@ exports.getSettings = (req, res) => {
 
 exports.saveSettings = (req, res) => {
     try {
-        const allowed = ['backupPath','backupRetentionDays','appName','sessionTimeoutMinutes','maxLoginAttempts','maintenanceMode','serviceDateOverrideEnabled','callCenterLeadDays','callCenterPhoneClient'];
+        const allowed = ['backupPath','backupRetentionDays','appName','sessionTimeoutMinutes','maxLoginAttempts','maintenanceMode','serviceDateOverrideEnabled','callCenterLeadDays','callCenterPhoneClient','callCenterInactiveClaimSeconds'];
         const current = readSettings();
         const currentLeadDays = fileSettings.getCallCenterLeadDays();
         const currentPhoneClient = fileSettings.getCallCenterPhoneClient();
+        const currentInactiveClaimSeconds = fileSettings.getCallCenterInactiveClaimSeconds();
         const next    = { ...current };
         for (const key of allowed) if (req.body[key] !== undefined) next[key] = req.body[key];
         next.maintenanceMode = next.maintenanceMode === true || next.maintenanceMode === 'true';
@@ -359,6 +360,10 @@ exports.saveSettings = (req, res) => {
         next.callCenterPhoneClient = String(next.callCenterPhoneClient || currentPhoneClient).trim().toLowerCase();
         if (!['microsip', 'rx_softphone', 'auto'].includes(next.callCenterPhoneClient)) {
             return res.status(400).json({ error: 'Call Center phone client must be MicroSIP, RX Softphone, or Automatic.' });
+        }
+        next.callCenterInactiveClaimSeconds = Number.parseInt(next.callCenterInactiveClaimSeconds, 10);
+        if (!Number.isInteger(next.callCenterInactiveClaimSeconds) || next.callCenterInactiveClaimSeconds < 5 || next.callCenterInactiveClaimSeconds > 300) {
+            return res.status(400).json({ error: 'Inactive Call Center claim timeout must be a whole number from 5 to 300 seconds.' });
         }
         if (next.backupPath) { try { fs.mkdirSync(next.backupPath, { recursive: true }); } catch {} }
         fileSettings.writeSettings(next);
@@ -398,6 +403,19 @@ exports.saveSettings = (req, res) => {
                 recordId: null,
                 previousValue: { callCenterPhoneClient: currentPhoneClient },
                 newValue: { callCenterPhoneClient: next.callCenterPhoneClient },
+                ipAddress: req.ip || (req.socket ? req.socket.remoteAddress : 'unknown')
+            }).catch(function() {});
+        }
+        if (currentInactiveClaimSeconds !== next.callCenterInactiveClaimSeconds) {
+            db.AuditLog.create({
+                userId: req.user ? req.user.id : null,
+                date: new Date().toISOString().split('T')[0],
+                time: new Date().toTimeString().split(' ')[0],
+                module: 'Backoffice',
+                action: 'Call Center Inactive Claim Timeout Changed',
+                recordId: null,
+                previousValue: { callCenterInactiveClaimSeconds: currentInactiveClaimSeconds },
+                newValue: { callCenterInactiveClaimSeconds: next.callCenterInactiveClaimSeconds },
                 ipAddress: req.ip || (req.socket ? req.socket.remoteAddress : 'unknown')
             }).catch(function() {});
         }

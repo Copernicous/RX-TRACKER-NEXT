@@ -17,7 +17,8 @@ const DEFAULT_SETTINGS = {
     serviceDateOverrideEnabled: false,
     serviceWindowDays: 90,
     callCenterLeadDays: 10,
-    callCenterPhoneClient: 'microsip'
+    callCenterPhoneClient: 'microsip',
+    callCenterInactiveClaimSeconds: 15
 };
 
 function ensureSettingsDir() {
@@ -77,6 +78,13 @@ function getCallCenterPhoneClient() {
         : DEFAULT_SETTINGS.callCenterPhoneClient;
 }
 
+function getCallCenterInactiveClaimSeconds() {
+    const value = Number.parseInt(readSettings().callCenterInactiveClaimSeconds, 10);
+    return Number.isInteger(value) && value >= 5 && value <= 300
+        ? value
+        : DEFAULT_SETTINGS.callCenterInactiveClaimSeconds;
+}
+
 module.exports = {
     DEFAULT_SETTINGS,
     SETTINGS_PATH,
@@ -85,5 +93,6 @@ module.exports = {
     isServiceDateOverrideEnabled,
     getServiceWindowDays,
     getCallCenterLeadDays,
-    getCallCenterPhoneClient
+    getCallCenterPhoneClient,
+    getCallCenterInactiveClaimSeconds
 };

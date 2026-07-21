@@ -16,6 +16,10 @@ const {
 const sessionIdleService = require('../services/sessionIdleService');
 const { getServiceWindowDays, getCallCenterLeadDays, getCallCenterPhoneClient } = require('../utils/globalSettings');
 const {
+    makeCallCenterClaimExpiresAt,
+    refreshOwnedCallCenterClaim
+} = require('../services/callCenterClaimService');
+const {
     getEligibilityCutoffIso,
     evaluateServiceWindow,
     isCallCenterCandidate,
@@ -26,7 +30,6 @@ const MODULE_NAME = 'Call Center';
 const CALL_ACTION = 'Called';
 const NOTE_ACTION = 'Note Added';
 const SERVICE_DATE_ACTION = 'Service Date Added';
-const CALL_LOCK_TTL_MS = 10 * 60 * 1000;
 
 function localDateOnly(date) {
     const d = date instanceof Date ? date : new Date(date);
@@ -258,10 +261,6 @@ function sortPatients(rows, sortConfig, callHistory) {
     return sorted;
 }
 
-function makeLockExpiresAt() {
-    return new Date(Date.now() + CALL_LOCK_TTL_MS);
-}
-
 function normalizeNumericId(value) {
     const normalized = Number.parseInt(value, 10);
     return Number.isFinite(normalized) ? normalized : null;
@@ -351,7 +350,7 @@ async function acquireCallCenterLock(patientId, req, options) {
         await lock.update({
             userId,
             lockedAt: lockUserId === userId && new Date(lock.expiresAt) > now ? lock.lockedAt : now,
-            expiresAt: makeLockExpiresAt()
+            expiresAt: makeCallCenterClaimExpiresAt(false)
         }, transaction ? { transaction } : {});
         return { ok: true, lock };
     }
@@ -361,7 +360,7 @@ async function acquireCallCenterLock(patientId, req, options) {
             patientId,
             userId,
             lockedAt: now,
-            expiresAt: makeLockExpiresAt()
+            expiresAt: makeCallCenterClaimExpiresAt(false)
         }, transaction ? { transaction } : {});
         return { ok: true, lock };
     } catch (err) {
@@ -585,16 +584,8 @@ exports.refreshLocks = async (req, res) => {
         const refreshed = [];
         const conflicts = [];
         for (const patientId of patientIds) {
-            const [updated] = await db.CallCenterLock.update({
-                expiresAt: makeLockExpiresAt()
-            }, {
-                where: {
-                    patientId,
-                    userId,
-                    expiresAt: { [Op.gt]: new Date() }
-                }
-            });
-            if (updated) {
+            const result = await refreshOwnedCallCenterClaim(patientId, userId);
+            if (result.refreshed) {
                 refreshed.push(patientId);
                 continue;
             }

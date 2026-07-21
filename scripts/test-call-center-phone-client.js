@@ -58,13 +58,14 @@ try {
         }
     };
     adminController.saveSettings({
-        body: { callCenterPhoneClient: 'rx_softphone' },
+        body: { callCenterPhoneClient: 'rx_softphone', callCenterInactiveClaimSeconds: 15 },
         user: { id: 1 },
         ip: '127.0.0.1',
         socket: { remoteAddress: '127.0.0.1' }
     }, response);
     assert.strictEqual(response.statusCode, 200, 'Backoffice should accept RX Softphone.');
     assert.strictEqual(settings.getCallCenterPhoneClient(), 'rx_softphone', 'Backoffice selection was not written.');
+    assert.strictEqual(settings.getCallCenterInactiveClaimSeconds(), 15, 'Backoffice inactive patient-claim timeout was not written.');
 
     response.statusCode = 200;
     response.payload = null;
@@ -99,6 +100,11 @@ try {
     assert(!callCenterController.includes('await acquireCallCenterLock(filtered[i].id, req)'), 'Viewing a Call Center queue page must not claim every displayed patient.');
     assert(callCenterScript.includes("if (!await claimRow(patientId)) return;\n            openMicroSip"), 'MicroSIP dialing must claim the patient before launch.');
     assert(callCenterScript.includes('function resizeRowNote'), 'Call Center comments must expand the patient row while typing.');
+
+    const backofficeView = fs.readFileSync(path.join(__dirname, '..', 'views', 'backoffice.ejs'), 'utf8');
+    const backofficeScript = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'backoffice-features.js'), 'utf8');
+    assert(backofficeView.includes('sCallCenterInactiveClaimSeconds'), 'Backoffice inactive patient-claim timeout control is missing.');
+    assert(backofficeScript.includes('callCenterInactiveClaimSeconds'), 'Backoffice inactive patient-claim timeout save/load integration is missing.');
 
     const webRoutes = fs.readFileSync(path.join(__dirname, '..', 'routes', 'webRoutes.js'), 'utf8');
     assert(webRoutes.includes('http://127.0.0.1:5188'), 'Call Center CSP must allow the local softphone origin.');

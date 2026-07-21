@@ -7,6 +7,7 @@ const { Op } = require('sequelize');
 const db = require('../models');
 const adminController = require('../controllers/adminController');
 const callCenterController = require('../controllers/callCenterController');
+const { getCallCenterInactiveClaimSeconds } = require('../utils/globalSettings');
 
 const RUN_ID = `cc-reopen-${Date.now()}`;
 
@@ -165,6 +166,10 @@ async function main() {
             user: { id: callCenterUser.id, role: 'Call Center' }
         }, firstClaimRes);
         assert.strictEqual(firstClaimRes.statusCode, 200, 'First agent should claim the patient when dialing.');
+        const firstAgentLock = await db.CallCenterLock.findOne({ where: { patientId: patient.id, userId: callCenterUser.id } });
+        const initialLeaseMs = new Date(firstAgentLock.expiresAt).getTime() - Date.now();
+        const expectedInactiveLeaseMs = getCallCenterInactiveClaimSeconds() * 1000;
+        assert(initialLeaseMs > 0 && initialLeaseMs <= expectedInactiveLeaseMs + 1000, 'Phone-click claim must use the configured inactive timeout before a call starts.');
 
         const secondAgentListRes = makeRes();
         await callCenterController.listPatients({
