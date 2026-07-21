@@ -2,12 +2,37 @@ const db = require('../models');
 const bcrypt = require('bcryptjs');
 const emailService = require('../services/emailService'); // IMPROVE-04: welcome email
 
+async function withPhoneAccountStatus(users) {
+    const list = Array.isArray(users) ? users : [users];
+    const ids = list.filter(Boolean).map(user => user.id);
+    const accounts = ids.length ? await db.UserSoftphoneAccount.findAll({
+        where: { userId: { [db.Sequelize.Op.in]: ids } },
+        attributes: ['userId', 'isEnabled']
+    }) : [];
+    const byUserId = new Map(accounts.map(account => [Number(account.userId), account]));
+    const mapped = list.map(user => {
+        if (!user) return null;
+        const plain = typeof user.toJSON === 'function' ? user.toJSON() : user;
+        const account = byUserId.get(Number(plain.id));
+        const setupAvailable = plain.phoneAccountSetupAllowed === true;
+        return {
+            ...plain,
+            phoneAccountConfigured: !!(account && account.isEnabled !== false),
+            phoneAccountSetupAvailable: setupAvailable,
+            phoneAccountStatus: setupAvailable
+                ? 'Setup available'
+                : (account && account.isEnabled !== false ? 'Configured' : 'Not configured')
+        };
+    });
+    return Array.isArray(users) ? mapped : mapped[0];
+}
+
 exports.getAll = async (req, res) => {
     try {
         const includeInactive = req.query.includeInactive === 'true';
         const where = includeInactive ? {} : { isActive: true };
         const data = await db.User.findAll({ where, attributes: { exclude: ['passwordHash'] }, include: [db.Role] });
-        res.json(data);
+        res.json(await withPhoneAccountStatus(data));
     } catch (err) { res.status(500).json({ error: err.message }); }
 };
 
@@ -15,7 +40,7 @@ exports.getOne = async (req, res) => {
     try {
         const data = await db.User.findByPk(req.params.id, { attributes: { exclude: ['passwordHash'] }, include: [db.Role] });
         if (!data) return res.status(404).json({ message: 'Not found' });
-        res.json(data);
+        res.json(await withPhoneAccountStatus(data));
     } catch (err) { res.status(500).json({ error: err.message }); }
 };
 

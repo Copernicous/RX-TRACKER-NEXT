@@ -14,6 +14,23 @@ const sessionTracker = require('../services/sessionTracker');
 const sessionIdleService = require('../services/sessionIdleService');
 const { getWritableRoot } = require('../utils/runtimePaths');
 const { spawn } = require('child_process');
+const rateLimit = require('express-rate-limit');
+
+const phoneAccountSaveLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 5,
+    standardHeaders: true,
+    legacyHeaders: false,
+    skipSuccessfulRequests: true,
+    message: { error: 'Too many rejected phone-account save attempts. Try again in 15 minutes.' }
+});
+const softphoneRelayPairLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 20,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Too many softphone pairing attempts. Try again in 15 minutes.' }
+});
 
 function getCookie(cookieHeader, name) {
     if (!cookieHeader) return null;
@@ -28,6 +45,9 @@ const userController = require('../controllers/userController');
 const workflowActionController = require('../controllers/workflowActionController');
 const patientController = require('../controllers/patientController');
 const callCenterController = require('../controllers/callCenterController');
+const callAttemptController = require('../controllers/callAttemptController');
+const softphoneAccountController = require('../controllers/softphoneAccountController');
+const softphoneRelayController = require('../controllers/softphoneRelayController');
 const rxController = require('../controllers/rxController');
 const dashboardController = require('../controllers/dashboardController');
 const reportController = require('../controllers/reportController');
@@ -142,6 +162,7 @@ function restrictCallCenterApi(req, res, next) {
     const p = req.path || '';
     const allowed =
         p.startsWith('/call-center') ||
+        p.startsWith('/phone-account/setup') ||
         p === '/auth/logout' ||
         p === '/session-config' ||
         p === '/session/activity' ||
@@ -160,6 +181,9 @@ function restrictCallCenterApi(req, res, next) {
 
 // ── Public routes (no auth required) — must be declared BEFORE router.use(auth) ──
 // All remaining API routes require authentication
+router.post('/softphone-relay/device/pair', softphoneRelayPairLimiter, softphoneRelayController.pairDevice);
+router.post('/softphone-relay/device/poll', softphoneRelayController.pollDevice);
+
 router.use(auth);
 router.use(restrictCallCenterApi);
 
@@ -167,8 +191,20 @@ router.get('/version', adminOnly, sendVersionResponse);
 router.get('/staging/implementation-version', adminOnly, sendStagingManifestResponse);
 
 router.get('/call-center/patients', callCenterController.requireAccess, callCenterController.listPatients);
+router.get('/call-center/phone-account', callCenterController.requireAccess, softphoneAccountController.getOwnAccount);
+router.post('/call-center/phone-account/registration', callCenterController.requireAccess, softphoneAccountController.getOwnRegistration);
+router.get('/phone-account/setup', softphoneAccountController.getOwnSetup);
+router.post('/phone-account/setup', phoneAccountSaveLimiter, softphoneAccountController.saveOwnSetup);
+router.post('/call-center/call-attempts', callCenterController.requireWriteAccess, callAttemptController.startAttempt);
+router.post('/call-center/softphone-relay/pairing-code', callCenterController.requireAccess, softphoneRelayController.createPairingCode);
+router.get('/call-center/softphone-relay/status', callCenterController.requireAccess, softphoneRelayController.getStatus);
+router.post('/call-center/softphone-relay/calls', callCenterController.requireWriteAccess, softphoneRelayController.queueDial);
+router.delete('/call-center/softphone-relay/calls/current', callCenterController.requireWriteAccess, softphoneRelayController.queueHangup);
+router.get('/call-center/call-attempts/by-correlation/:correlationId', callCenterController.requireAccess, callAttemptController.getOwnAttemptByCorrelation);
+router.patch('/call-center/call-attempts/:id', callCenterController.requireWriteAccess, callAttemptController.updateAttempt);
 router.post('/call-center/patients/:id/claim', callCenterController.requireWriteAccess, callCenterController.claimPatient);
 router.post('/call-center/patients/:id/actions', callCenterController.requireWriteAccess, callCenterController.savePatientAction);
+router.get('/call-center/locks/status', callCenterController.requireAccess, callCenterController.getLockStatuses);
 router.post('/call-center/locks/refresh', callCenterController.requireWriteAccess, callCenterController.refreshLocks);
 router.post('/call-center/locks/release', callCenterController.requireWriteAccess, callCenterController.releaseLocks);
 router.get('/call-center/metrics/queue', callCenterController.requireAccess, callCenterController.getQueueMetrics);
@@ -240,6 +276,7 @@ const generateCRUDRoutes = (path, controller, moduleName) => {
 
 // Pharmacy purge (admin only) — must be BEFORE generateCRUDRoutes to avoid :id conflict
 router.delete('/pharmacies/purge', rbac.requireRole(['Administrator']), requireStagingDestructiveConfirmation, auditLogger('Pharmacies'), pharmacyController.purge);
+router.post('/users/:id/phone-account/setup-access', rbac.requireRole(['Administrator']), softphoneAccountController.enableSetupAccess);
 
 generateCRUDRoutes('/pharmacies', pharmacyController, 'Pharmacies');
 router.put('/pharmacies/:id/restore', rbac.requirePermission('pharmacies', 'edit'), auditLogger('Pharmacies'), pharmacyController.restore);
@@ -326,6 +363,7 @@ router.get('/reports/patients', rbac.requirePermission('reports', 'read'), repor
 router.get('/reports/rx-receipts', rbac.requirePermission('reports', 'read'), reportController.getRXReceiptReport);
 router.get('/reports/rx-actions', rbac.requirePermission('reports', 'read'), reportController.getRXActionReport);
 router.get('/reports/call-center', rbac.requirePermission('reports', 'read'), reportController.getCallCenterReport);
+router.get('/reports/call-center-attempts', rbac.requirePermission('reports', 'read'), reportController.getCallCenterAttemptReport);
 
 // Audit Log — controlled by its own audit_log permission
 router.get('/audit-logs',              rbac.requirePermission('audit_log', 'read'),  auditLogController.getAll);
@@ -685,7 +723,6 @@ router.patch('/admin/users/:id',        masterOnly, adminController.updateUser);
 router.post('/admin/users/:id/reset-password', masterOnly, adminController.adminResetPassword);
 router.post('/admin/users/:id/unlock',          masterOnly, require('../controllers/twoFactorController').adminUnlock);
 router.delete('/admin/users/:id/reset-2fa',    masterOnly, requireStagingDestructiveConfirmation, require('../controllers/twoFactorController').adminReset);
-
 
 // Error Log Manager
 router.get('/admin/error-logs',            masterOnly, adminController.getErrorLogs);

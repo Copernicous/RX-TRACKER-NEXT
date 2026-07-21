@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>RX Native Softphone</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">LOCAL WINDOWS CLIENT</p>
+        <h1>RX Native Softphone</h1>
+        <p class="subtitle">Direct Asterisk registration and audio over SIP/RTP—no WebSocket.</p>
+      </div>
+      <div class="status-stack" aria-live="polite">
+        <span id="registrationBadge" class="status-badge offline"><span class="status-dot"></span>Offline</span>
+        <span id="callBadge" class="call-badge">Idle</span>
+      </div>
+    </header>
+
+    <section class="layout">
+      <aside class="card settings-card">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">ACCOUNT</p>
+            <h2>PBX registration</h2>
+          </div>
+          <span class="protocol">SIP / UDP</span>
+        </div>
+
+        <form id="registrationForm" autocomplete="off">
+          <label>PBX server
+            <input id="server" name="server" value="192.168.15.200" inputmode="url" required>
+          </label>
+          <div class="field-row">
+            <label>SIP port
+              <input id="port" name="port" value="5060" type="number" min="1" max="65535" required>
+            </label>
+            <label>Local SIP port
+              <input id="localSipPort" name="localSipPort" value="0" type="number" min="0" max="65535">
+              <small>0 selects a free port</small>
+            </label>
+          </div>
+          <div class="field-row">
+            <label>Extension
+              <input id="username" name="username" value="1006" autocomplete="username" required>
+            </label>
+            <label>Display name
+              <input id="displayName" name="displayName" value="RX Test Phone">
+            </label>
+          </div>
+          <label>Password
+            <div class="password-wrap">
+              <input id="password" name="password" type="password" autocomplete="current-password" required>
+              <button id="togglePassword" class="text-button" type="button" aria-label="Show password">Show</button>
+            </div>
+            <small>Kept only in this program's memory while registered.</small>
+          </label>
+          <div class="button-row">
+            <button id="registerButton" class="primary" type="submit">Register</button>
+            <button id="unregisterButton" class="secondary" type="button">Unregister</button>
+          </div>
+        </form>
+
+        <div class="relay-panel">
+          <div class="relay-heading">
+            <div>
+              <p class="eyebrow">REMOTE BROWSER RELAY</p>
+              <h2>RX Tracker pairing</h2>
+            </div>
+            <span id="relayBadge" class="relay-badge offline">Not paired</span>
+          </div>
+          <p class="relay-copy">Pair once so a Kasm or other remote browser can send calls to this Windows phone. SIP and audio remain on this PC.</p>
+          <form id="relayForm" autocomplete="off">
+            <label>RX Tracker server
+              <input id="relayTrackerUrl" type="url" placeholder="http://192.168.15.87:3100" required>
+            </label>
+            <label>8-digit pairing code
+              <input id="relayPairingCode" inputmode="numeric" pattern="[0-9]{8}" maxlength="8" placeholder="00000000" required>
+            </label>
+            <div class="button-row">
+              <button id="relayPairButton" class="primary" type="submit">Pair</button>
+              <button id="relayDisconnectButton" class="secondary" type="button">Remove pairing</button>
+            </div>
+          </form>
+          <small id="relayMessage">Generate a pairing code from RX Tracker Call Center.</small>
+        </div>
+
+        <div class="codec-panel">
+          <p class="eyebrow">SUPPORTED AUDIO CODECS</p>
+          <div class="codec-list" aria-label="Supported audio codecs">
+            <span>G.711 &mu;-law <small>PCMU</small></span>
+            <span>G.711 A-law <small>PCMA</small></span>
+            <span>G.722</span>
+            <span>G.729</span>
+          </div>
+          <p>The PBX selects a common codec automatically for each call.</p>
+        </div>
+
+        <div class="security-note">
+          <span aria-hidden="true">⌂</span>
+          <p>The control panel is bound to <strong>127.0.0.1</strong>. SIP and RTP are handled by the native Windows process.</p>
+        </div>
+      </aside>
+
+      <section class="card phone-card">
+        <div class="phone-head">
+          <div>
+            <p class="eyebrow">PHONE</p>
+            <h2 id="callTitle">Ready to dial</h2>
+          </div>
+          <span id="timer" class="timer">00:00</span>
+        </div>
+
+        <div id="incomingPanel" class="incoming-panel" hidden>
+          <div>
+            <p>Incoming call</p>
+            <strong id="incomingPeer">Unknown</strong>
+          </div>
+          <div class="incoming-actions">
+            <button id="answerButton" class="answer" type="button">Answer</button>
+            <button id="rejectButton" class="danger-outline" type="button">Reject</button>
+          </div>
+        </div>
+
+        <label class="destination-label" for="destination">Number or extension</label>
+        <div class="destination-row">
+          <input id="destination" class="destination" inputmode="tel" placeholder="Enter number" aria-label="Number or extension">
+          <button id="clearButton" class="clear-button" type="button" aria-label="Clear number">×</button>
+        </div>
+
+        <div class="dialpad" aria-label="Dial pad">
+          <button type="button" data-key="1"><strong>1</strong><span>&nbsp;</span></button>
+          <button type="button" data-key="2"><strong>2</strong><span>ABC</span></button>
+          <button type="button" data-key="3"><strong>3</strong><span>DEF</span></button>
+          <button type="button" data-key="4"><strong>4</strong><span>GHI</span></button>
+          <button type="button" data-key="5"><strong>5</strong><span>JKL</span></button>
+          <button type="button" data-key="6"><strong>6</strong><span>MNO</span></button>
+          <button type="button" data-key="7"><strong>7</strong><span>PQRS</span></button>
+          <button type="button" data-key="8"><strong>8</strong><span>TUV</span></button>
+          <button type="button" data-key="9"><strong>9</strong><span>WXYZ</span></button>
+          <button type="button" data-key="*"><strong>*</strong><span>&nbsp;</span></button>
+          <button type="button" data-key="0"><strong>0</strong><span>+</span></button>
+          <button type="button" data-key="#"><strong>#</strong><span>&nbsp;</span></button>
+        </div>
+
+        <div class="call-controls">
+          <button id="muteButton" class="round-action" type="button" disabled><span aria-hidden="true">◉</span>Mute</button>
+          <button id="callButton" class="call-button" type="button" aria-label="Place call"><span aria-hidden="true">☎</span></button>
+          <button id="hangupButton" class="hangup-button" type="button" aria-label="Hang up" hidden><span aria-hidden="true">☎</span></button>
+          <button id="backspaceButton" class="round-action" type="button"><span aria-hidden="true">⌫</span>Delete</button>
+        </div>
+        <p id="phoneHint" class="phone-hint">Register to the PBX before placing a call.</p>
+      </section>
+
+      <aside class="card activity-card">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">ACTIVITY</p>
+            <h2>Phone events</h2>
+          </div>
+          <button id="clearLogButton" class="text-button" type="button">Clear view</button>
+        </div>
+        <div class="connection-details">
+          <div><span>PBX</span><strong id="detailPbx">192.168.15.200:5060</strong></div>
+          <div><span>Extension</span><strong id="detailExtension">1006</strong></div>
+          <div><span>Local UDP</span><strong id="detailLocalPort">Not open</strong></div>
+          <div><span>Registration</span><strong>Refresh every 300s</strong></div>
+          <div><span>Keep-alive</span><strong>UDP every 15s</strong></div>
+          <div><span>Encryption</span><strong>Disabled</strong></div>
+        </div>
+        <ol id="eventLog" class="event-log" aria-live="polite"></ol>
+      </aside>
+    </section>
+
+    <div id="toast" class="toast" role="status" hidden></div>
+  </main>
+  <script src="/app.js" defer></script>
+</body>
+</html>

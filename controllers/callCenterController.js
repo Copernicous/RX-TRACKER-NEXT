@@ -14,7 +14,12 @@ const {
     syncPatientServiceDateCycles
 } = require('../services/patientServiceDateCycleService');
 const sessionIdleService = require('../services/sessionIdleService');
-const { getServiceWindowDays, getCallCenterLeadDays } = require('../utils/globalSettings');
+const { getServiceWindowDays, getCallCenterLeadDays, getCallCenterPhoneClient } = require('../utils/globalSettings');
+const {
+    ACTIVE_CALL_STATES,
+    makeCallCenterClaimExpiresAt,
+    refreshOwnedCallCenterClaim
+} = require('../services/callCenterClaimService');
 const {
     getEligibilityCutoffIso,
     evaluateServiceWindow,
@@ -26,7 +31,6 @@ const MODULE_NAME = 'Call Center';
 const CALL_ACTION = 'Called';
 const NOTE_ACTION = 'Note Added';
 const SERVICE_DATE_ACTION = 'Service Date Added';
-const CALL_LOCK_TTL_MS = 10 * 60 * 1000;
 
 function localDateOnly(date) {
     const d = date instanceof Date ? date : new Date(date);
@@ -97,34 +101,41 @@ function cleanNote(value) {
     return String(value || '').trim().slice(0, 4000);
 }
 
+function cleanCallTimestamp(value) {
+    if (!value) return null;
+    const parsed = new Date(String(value));
+    if (isNaN(parsed.getTime())) return null;
+    return parsed.toISOString();
+}
+
+function getClientCallAcknowledgement(body, called) {
+    if (!called || body.phoneClient !== 'rx_softphone') return null;
+    const answeredAt = cleanCallTimestamp(body.callAnsweredAt);
+    if (!answeredAt) return null;
+    const parsedEndedAt = cleanCallTimestamp(body.callEndedAt);
+    const endedAt = parsedEndedAt && new Date(parsedEndedAt) >= new Date(answeredAt) ? parsedEndedAt : null;
+    const durationValue = body.callDurationSeconds;
+    const rawDuration = durationValue === null || durationValue === undefined || durationValue === ''
+        ? NaN
+        : Number(durationValue);
+    const durationSeconds = Number.isFinite(rawDuration)
+        ? Math.max(0, Math.min(Math.round(rawDuration), 24 * 60 * 60))
+        : null;
+    return {
+        phoneClient: 'rx_softphone',
+        answerAcknowledged: true,
+        callAnsweredAt: answeredAt,
+        callEndedAt: endedAt,
+        callDurationSeconds: durationSeconds
+    };
+}
+
 function getUserLabel(user) {
     if (!user) return 'System';
     const first = user.firstName || '';
     const last = user.lastName || '';
     const full = `${first} ${last}`.trim();
     return full || user.username || `User ${user.id}`;
-}
-
-function isQueueWorker(user) {
-    const role = normalizeRoleName(user);
-    if (role === 'administrator' || role === 'supervisor') return false;
-    if (role === 'call center') return true;
-    const p = user && user.permissions && user.permissions.call_center;
-    return !!(p && p.canAdd);
-}
-
-function lockHolderToUser(lock) {
-    const plain = lock && typeof lock.toJSON === 'function' ? lock.toJSON() : lock;
-    const holder = plain && plain.User ? plain.User : null;
-    if (!holder) return null;
-    return {
-        id: holder.id,
-        username: holder.username,
-        firstName: holder.firstName,
-        lastName: holder.lastName,
-        role: holder.Role ? holder.Role.name : holder.role,
-        permissions: holder.Role ? holder.Role.permissions : holder.permissions
-    };
 }
 
 function requestIp(req) {
@@ -174,7 +185,7 @@ function patientMatchesSearch(patient, q) {
 
 function parsePaging(query) {
     const size = parseInt(query.pageSize || query.limit || 10, 10);
-    const pageSize = size === 5 ? 5 : 10;
+    const pageSize = [5, 10, 25, 50].includes(size) ? size : 10;
     const page = Math.max(parseInt(query.page || 1, 10) || 1, 1);
     return { page, pageSize };
 }
@@ -229,10 +240,6 @@ function sortPatients(rows, sortConfig, callHistory) {
     return sorted;
 }
 
-function makeLockExpiresAt() {
-    return new Date(Date.now() + CALL_LOCK_TTL_MS);
-}
-
 function normalizeNumericId(value) {
     const normalized = Number.parseInt(value, 10);
     return Number.isFinite(normalized) ? normalized : null;
@@ -267,13 +274,11 @@ async function getActiveLockedPatientIds(excludeUserId) {
             model: db.User,
             as: 'User',
             attributes: ['id', 'username', 'firstName', 'lastName'],
-            required: false,
-            include: [{ model: db.Role, attributes: ['name', 'permissions'], required: false }]
+            required: false
         }]
     });
     const set = new Set();
     locks.forEach((lock) => {
-        if (!isQueueWorker(lockHolderToUser(lock))) return;
         const id = parseInt(lock.patientId, 10);
         if (Number.isFinite(id)) set.add(id);
     });
@@ -307,22 +312,19 @@ async function acquireCallCenterLock(patientId, req, options) {
             }],
             transaction
         });
-        const holderIsQueueWorker = isQueueWorker(lockHolderToUser(withUser || lock));
-        if (holderIsQueueWorker) {
-            return {
-                ok: false,
-                status: 409,
-                error: 'This patient is already claimed by another Call Center user.',
-                lock: serializeLock(withUser || lock)
-            };
-        }
+        return {
+            ok: false,
+            status: 409,
+            error: 'This patient is already claimed by another Call Center user.',
+            lock: serializeLock(withUser || lock)
+        };
     }
 
     if (lock) {
         await lock.update({
             userId,
             lockedAt: lockUserId === userId && new Date(lock.expiresAt) > now ? lock.lockedAt : now,
-            expiresAt: makeLockExpiresAt()
+            expiresAt: makeCallCenterClaimExpiresAt(false)
         }, transaction ? { transaction } : {});
         return { ok: true, lock };
     }
@@ -332,7 +334,7 @@ async function acquireCallCenterLock(patientId, req, options) {
             patientId,
             userId,
             lockedAt: now,
-            expiresAt: makeLockExpiresAt()
+            expiresAt: makeCallCenterClaimExpiresAt(false)
         }, transaction ? { transaction } : {});
         return { ok: true, lock };
     } catch (err) {
@@ -550,13 +552,33 @@ exports.claimPatient = async (req, res) => {
 
 exports.refreshLocks = async (req, res) => {
     try {
+        const userId = normalizeNumericId(req.user && req.user.id);
+        if (!userId) return res.status(401).json({ error: 'Unauthorized.' });
         const patientIds = parsePatientIds((req.body && req.body.patientIds) || []);
         const refreshed = [];
         const conflicts = [];
         for (const patientId of patientIds) {
-            const claim = await acquireCallCenterLock(patientId, req);
-            if (claim.ok) refreshed.push(patientId);
-            else conflicts.push({ patientId, lock: claim.lock || null, error: claim.error });
+            const result = await refreshOwnedCallCenterClaim(patientId, userId);
+            if (result.refreshed) {
+                refreshed.push(patientId);
+                continue;
+            }
+            const lock = await db.CallCenterLock.findOne({
+                where: { patientId },
+                include: [{
+                    model: db.User,
+                    as: 'User',
+                    attributes: ['id', 'firstName', 'lastName', 'username'],
+                    required: false
+                }]
+            });
+            conflicts.push({
+                patientId,
+                lock: serializeLock(lock),
+                error: lock && new Date(lock.expiresAt) > new Date()
+                    ? 'This patient is already claimed by another Call Center user.'
+                    : 'This patient claim is no longer active. Click the phone icon to claim it again.'
+            });
         }
         res.json({ ok: true, refreshed, conflicts });
     } catch (err) {
@@ -573,6 +595,71 @@ exports.releaseLocks = async (req, res) => {
     } catch (err) {
         console.error('[Call Center] releaseLocks error:', err);
         res.status(500).json({ error: err.message });
+    }
+};
+
+exports.getLockStatuses = async (req, res) => {
+    try {
+        const rawPatientIds = req.query && req.query.patientIds;
+        const patientIds = parsePatientIds(Array.isArray(rawPatientIds)
+            ? rawPatientIds
+            : String(rawPatientIds || '').split(','))
+            .slice(0, 100);
+        if (!patientIds.length) return res.json({ statuses: [] });
+
+        const now = new Date();
+        const locks = await db.CallCenterLock.findAll({
+            where: {
+                patientId: { [Op.in]: patientIds },
+                expiresAt: { [Op.gt]: now }
+            },
+            attributes: ['patientId', 'userId', 'lockedAt', 'expiresAt'],
+            include: [{
+                model: db.User,
+                as: 'User',
+                attributes: ['id', 'username', 'firstName', 'lastName'],
+                required: false
+            }]
+        });
+
+        const activeAttempts = locks.length
+            ? await db.CallCenterCallAttempt.findAll({
+                where: {
+                    patientId: { [Op.in]: locks.map((lock) => lock.patientId) },
+                    state: { [Op.in]: ACTIVE_CALL_STATES },
+                    endedAt: null
+                },
+                attributes: ['patientId', 'userId', 'state', 'dialedAt', 'answeredAt'],
+                order: [['dialedAt', 'DESC']]
+            })
+            : [];
+        const activeByKey = new Map();
+        activeAttempts.forEach((attempt) => {
+            const key = `${attempt.patientId}:${attempt.userId}`;
+            if (!activeByKey.has(key)) activeByKey.set(key, attempt);
+        });
+        const requestUserId = normalizeNumericId(req.user && req.user.id);
+        const statuses = locks.map((lock) => {
+            const expiresAt = new Date(lock.expiresAt);
+            const activeAttempt = activeByKey.get(`${lock.patientId}:${lock.userId}`) || null;
+            const active = !!activeAttempt;
+            return {
+                patientId: lock.patientId,
+                status: active ? 'active' : 'cooldown',
+                userId: lock.userId,
+                user: getUserLabel(lock.User),
+                mine: normalizeNumericId(lock.userId) === requestUserId,
+                expiresAt: lock.expiresAt,
+                secondsRemaining: Math.max(0, Math.ceil((expiresAt.getTime() - now.getTime()) / 1000)),
+                callState: activeAttempt ? activeAttempt.state : null,
+                connectedAt: activeAttempt && activeAttempt.answeredAt ? activeAttempt.answeredAt : null
+            };
+        });
+        if (typeof res.set === 'function') res.set('Cache-Control', 'no-store');
+        res.json({ statuses });
+    } catch (err) {
+        console.error('[Call Center] getLockStatuses error:', err);
+        res.status(500).json({ error: 'Could not load phone availability.' });
     }
 };
 
@@ -596,13 +683,8 @@ exports.listPatients = async (req, res) => {
             order: [['serviceDate', 'ASC'], ['lastName', 'ASC'], ['firstName', 'ASC'], ['id', 'ASC']]
         });
 
-        const shouldClaimRows = isQueueWorker(req.user);
-        const lockedByOthers = shouldClaimRows
-            ? await getActiveLockedPatientIds(req.user && req.user.id)
-            : new Set();
         let filtered = rows.filter((row) =>
             isEligiblePatient(row) &&
-            !lockedByOthers.has(row.id) &&
             patientMatchesSearch(row, q)
         );
         const sortHistory = ['callCount', 'lastCall'].includes(sortConfig.sort)
@@ -613,15 +695,7 @@ exports.listPatients = async (req, res) => {
         const totalPages = Math.max(Math.ceil(total / paging.pageSize), 1);
         const page = Math.min(paging.page, totalPages);
         const start = (page - 1) * paging.pageSize;
-        const pageRows = [];
-        for (let i = start; i < filtered.length && pageRows.length < paging.pageSize; i += 1) {
-            if (!shouldClaimRows) {
-                pageRows.push(filtered[i]);
-                continue;
-            }
-            const claim = await acquireCallCenterLock(filtered[i].id, req);
-            if (claim.ok) pageRows.push(filtered[i]);
-        }
+        const pageRows = filtered.slice(start, start + paging.pageSize);
         const ids = pageRows.map((row) => row.id);
         const callHistory = await getCallHistoryForPatients(ids);
         const noteHistory = await getRecentNotesForPatients(ids);
@@ -634,9 +708,11 @@ exports.listPatients = async (req, res) => {
             view: 'queue',
             serviceWindowDays: getServiceWindowDays(),
             callCenterLeadDays: getCallCenterLeadDays(),
+            phoneClient: getCallCenterPhoneClient(),
             callCenterThresholdDays: getCallCenterThresholdDays(),
             eligibilityCutoff: eligibilityCutoffIso(),
-            locksAcquired: shouldClaimRows,
+            locksAcquired: false,
+            claimMode: 'on_dial',
             rows: pageRows.map((row) => serializePatient(row, callHistory, noteHistory))
         });
     } catch (err) {
@@ -726,6 +802,7 @@ async function listActivityPatients(req, res, view) {
         view,
         serviceWindowDays: getServiceWindowDays(),
         callCenterLeadDays: getCallCenterLeadDays(),
+        phoneClient: getCallCenterPhoneClient(),
         callCenterThresholdDays: getCallCenterThresholdDays(),
         eligibilityCutoff: eligibilityCutoffIso(),
         activityTotal,
@@ -741,6 +818,10 @@ exports.savePatientAction = async (req, res) => {
     const body = req.body || {};
     const called = body.called === true || body.called === 'true' || body.called === '1';
     const note = cleanNote(body.note);
+    const clientCallAcknowledgement = getClientCallAcknowledgement(body, called);
+    const launchedPhoneClient = called && ['microsip', 'rx_softphone'].includes(body.phoneClient)
+        ? body.phoneClient
+        : 'manual';
     const newServiceDateRaw = body.newServiceDate === undefined ? '' : String(body.newServiceDate || '').trim();
     const newServiceDate = newServiceDateRaw ? parseDate(newServiceDateRaw) : null;
 
@@ -841,7 +922,11 @@ exports.savePatientAction = async (req, res) => {
                     patientName: patientLabel,
                     phone: patient.phone || '',
                     noteAdded: !!note,
-                    serviceDateAdded: !!(newServiceDate && newServiceDate !== previousServiceDate)
+                    serviceDateAdded: !!(newServiceDate && newServiceDate !== previousServiceDate),
+                    ...(clientCallAcknowledgement || {
+                        phoneClient: launchedPhoneClient,
+                        answerAcknowledged: false
+                    })
                 }, transaction);
                 actionCount += 1;
             }

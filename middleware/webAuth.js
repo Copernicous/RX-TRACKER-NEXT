@@ -44,6 +44,7 @@ module.exports = async (req, res, next) => {
     res.locals.userPerms   = null;
     res.locals.isAdmin     = false;
     res.locals.isMaster    = false;
+    res.locals.phoneAccountSetupAllowed = false;
 
     try {
         const cookies = parseCookies(req.headers.cookie);
@@ -70,6 +71,7 @@ module.exports = async (req, res, next) => {
         res.locals.userPerms   = decoded.permissions || {};
         res.locals.isAdmin     = decoded.role === 'Administrator';
         res.locals.isMaster    = decoded.isMaster === true;
+        res.locals.phoneAccountSetupAllowed = decoded.phoneAccountSetupAllowed === true;
     } catch (e) {
         // Expired or tampered token — clear it gracefully
         clearAuthCookies(res);

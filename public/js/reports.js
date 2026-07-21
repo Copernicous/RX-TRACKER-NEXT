@@ -1,13 +1,16 @@
     var allPatientReport = [];
     var allRxReport = [];
     var allCcReport = [];
+    var allCcAttempts = [];
     var allWorkflowActions = [];
     var prSortCol = 'id', prSortDir = 'desc';
     var rrSortCol = 'id', rrSortDir = 'desc';
     var ccrSortCol = 'lastActionAt', ccrSortDir = 'desc';
+    var ccaSortCol = 'dialedAt', ccaSortDir = 'desc';
     var prPage = 1, prPageSize = 10;
     var rrPage = 1, rrPageSize = 10;
     var ccrPage = 1, ccrPageSize = 10;
+    var ccaPage = 1, ccaPageSize = 20;
     var _panelStates = {};
 
     function togglePanel(panelId, chevronId, stateKey) {
@@ -24,11 +27,11 @@
         setupReportExports();
 
         const reportPerms = typeof getPagePerms === 'function' ? getPagePerms() : { canExport: true, canPrint: true };
-        ['exportPatientCsv','exportPatientXls','exportRxCsv','exportRxXls','exportCcCsv','exportCcXls'].forEach(id => {
+        ['exportPatientCsv','exportPatientXls','exportRxCsv','exportRxXls','exportCcCsv','exportCcXls','exportCcAttemptsCsv','exportCcAttemptsXls'].forEach(id => {
             const el = document.getElementById(id);
             if (el && typeof setRoleActionDisabled === 'function') setRoleActionDisabled(el, !reportPerms.canExport, 'Export disabled for this role.');
         });
-        ['exportPatientPdf','exportRxPdf','printPatientBtn','printRxBtn','printCcBtn'].forEach(id => {
+        ['exportPatientPdf','exportRxPdf','printPatientBtn','printRxBtn','printCcBtn','printCcAttemptsBtn'].forEach(id => {
             const el = document.getElementById(id);
             if (el && typeof setRoleActionDisabled === 'function') setRoleActionDisabled(el, !reportPerms.canPrint, 'Print disabled for this role.');
         });
@@ -42,7 +45,7 @@
             allWorkflowActions = Array.isArray(wfRes)  ? wfRes  : [];
             setDefaultCallCenterDates();
             buildAutocompletes();
-            await Promise.all([renderPatientReport(), renderRxActionReport(), renderCallCenterReport()]);
+            await Promise.all([renderPatientReport(), renderRxActionReport(), renderCallCenterReports()]);
         } catch(e) {
             console.error('Report load error:', e);
         }
@@ -165,6 +168,38 @@
 
     async function fetchCallCenterReportRows(options) {
         const data = await fetchReportJson('/api/reports/call-center?' + buildCallCenterReportParams(options || {}).toString());
+        return data && Array.isArray(data.rows) ? data.rows : [];
+    }
+
+    function buildCallAttemptReportParams(options) {
+        options = options || {};
+        var params = new URLSearchParams();
+        params.set('paginated', 'true');
+        if (options.exportAll) {
+            params.set('exportAll', 'true');
+            params.set('page', '1');
+            params.set('pageSize', '500');
+        } else {
+            params.set('page', String(ccaPage));
+            params.set('pageSize', String(ccaPageSize));
+        }
+        params.set('sort', ccaSortCol || 'dialedAt');
+        params.set('dir', ccaSortDir || 'desc');
+        setReportParam(params, 'dateFrom', document.getElementById('ccrDateFrom')?.value || '');
+        setReportParam(params, 'dateTo', document.getElementById('ccrDateTo')?.value || '');
+        setReportParam(params, 'userId', document.getElementById('ccrUser')?.value || '');
+        setReportParam(params, 'patientCode', getVal('ccrPatientCode'));
+        setReportParam(params, 'firstName', getVal('ccrFirstName'));
+        setReportParam(params, 'lastName', getVal('ccrLastName'));
+        setReportParam(params, 'phone', getVal('ccrPhone'));
+        setReportParam(params, 'clinic', getVal('ccrClinic'));
+        setReportParam(params, 'outcome', document.getElementById('ccrAttemptOutcome')?.value || '');
+        setReportParam(params, 'extension', getVal('ccrExtension'));
+        return params;
+    }
+
+    async function fetchCallAttemptReportRows(options) {
+        const data = await fetchReportJson('/api/reports/call-center-attempts?' + buildCallAttemptReportParams(options || {}).toString());
         return data && Array.isArray(data.rows) ? data.rows : [];
     }
 
@@ -376,12 +411,19 @@
         ccrPage = 1;
         renderCallCenterReport();
     }
+    function ccaChangeSize(value) {
+        ccaPageSize = parseInt(value, 10) || 20;
+        ccaPage = 1;
+        renderCallAttemptReport();
+    }
     window.prChangeSize = prChangeSize;
     window.rrChangeSize = rrChangeSize;
     window.ccrChangeSize = ccrChangeSize;
+    window.ccaChangeSize = ccaChangeSize;
     window.renderPatientReport = renderPatientReport;
     window.renderRxActionReport = renderRxActionReport;
     window.renderCallCenterReport = renderCallCenterReport;
+    window.renderCallCenterReports = renderCallCenterReports;
 
     function renderPatientReport() {
         validateDateRange('patientDateFrom', 'patientDateTo', 'Patient report date range');
@@ -598,6 +640,7 @@
         totals = totals || {};
         const set = (id, value) => { const el = document.getElementById(id); if (el) el.textContent = value; };
         set('ccrMPatients', totals.patients || 0);
+        set('ccActivityTabCount', totals.patients || 0);
         set('ccrMCalls', totals.calls || 0);
         set('ccrMRepeats', totals.repeatCalls || 0);
         set('ccrMDates', totals.serviceDates || 0);
@@ -633,6 +676,9 @@
             let html = '';
             data.forEach(function(row) {
                 const name = ((row.firstName || '') + ' ' + (row.lastName || '')).trim() || '-';
+                const attemptsButton = row.patientCode
+                    ? '<button type="button" class="btn btn-outline-primary btn-sm mt-2 cc-open-attempts" data-patient-code="' + escHtml(row.patientCode) + '"><i class="fas fa-phone-volume me-1"></i>View attempts</button>'
+                    : '';
                 html += '<tr>' +
                     '<td><span class="badge bg-primary">' + escHtml(row.patientCode || '') + '</span></td>' +
                     '<td><div class="fw-semibold">' + escHtml(name) + '</div><small class="text-muted">' + escHtml(row.status || '') + '</small></td>' +
@@ -645,10 +691,15 @@
                     '<td class="text-end">' + (row.serviceDates || 0) + '</td>' +
                     '<td class="text-end">' + (row.notes || 0) + '</td>' +
                     '<td><div>' + escHtml(formatCcDateTime(row.lastActionAt)) + '</div><small class="text-muted">' + escHtml(row.lastActionBy || '') + '</small></td>' +
-                    '<td class="cc-history-cell">' + ccMiniHistory(row) + '</td>' +
+                    '<td class="cc-history-cell">' + ccMiniHistory(row) + attemptsButton + '</td>' +
                 '</tr>';
             });
             tbody.innerHTML = html;
+            tbody.querySelectorAll('.cc-open-attempts').forEach(function(button) {
+                button.addEventListener('click', function() {
+                    openPatientCallAttempts(button.getAttribute('data-patient-code') || '');
+                });
+            });
             if (countEl) countEl.textContent = 'Showing ' + (startIndex + 1) + '-' + endIndex + ' of ' + totalRecords;
             renderReportPager('ccrPagNav', ccrPage, totalPages, function(page) {
                 ccrPage = page;
@@ -660,6 +711,142 @@
             if (navEl) navEl.innerHTML = '';
             console.error('Call Center report load error:', err);
         });
+    }
+
+    function renderCallCenterReports() {
+        return Promise.all([renderCallCenterReport(), renderCallAttemptReport()]);
+    }
+
+    function formatCcDuration(value) {
+        if (value === null || value === undefined || value === '') return '-';
+        var seconds = Math.max(0, Number(value) || 0);
+        var hours = Math.floor(seconds / 3600);
+        var minutes = Math.floor((seconds % 3600) / 60);
+        var remainder = Math.floor(seconds % 60);
+        if (hours) return hours + ':' + String(minutes).padStart(2, '0') + ':' + String(remainder).padStart(2, '0');
+        return minutes + ':' + String(remainder).padStart(2, '0');
+    }
+
+    function callAttemptOutcome(row) {
+        return row && row.outcome ? String(row.outcome) : 'in_progress';
+    }
+
+    function callAttemptOutcomeBadge(row) {
+        var outcome = callAttemptOutcome(row);
+        var labels = {
+            answered: 'Answered', no_answer: 'No Answer', busy: 'Busy', rejected: 'Rejected',
+            unavailable: 'Unavailable', cancelled: 'Cancelled', failed: 'Failed', in_progress: 'In Progress'
+        };
+        var classes = {
+            answered: 'bg-success', no_answer: 'bg-secondary', busy: 'bg-warning text-dark',
+            rejected: 'bg-danger', unavailable: 'bg-dark', cancelled: 'bg-secondary',
+            failed: 'bg-danger', in_progress: 'bg-info text-dark'
+        };
+        return '<span class="badge ' + (classes[outcome] || 'bg-secondary') + '">' + escHtml(labels[outcome] || outcome) + '</span>';
+    }
+
+    function setCallAttemptTotals(totals) {
+        totals = totals || {};
+        var set = function(id, value) { var el = document.getElementById(id); if (el) el.textContent = value; };
+        set('ccaMAttempts', totals.attempts || 0);
+        set('ccAttemptsTabCount', totals.attempts || 0);
+        set('ccaMAnswered', totals.answered || 0);
+        set('ccaMUnanswered', totals.unanswered || 0);
+        set('ccaMAnswerRate', (totals.answerRate || 0) + '%');
+        set('ccaMAvgRing', formatCcDuration(Number(totals.averageRingSeconds) || 0));
+        set('ccaMAvgTalk', formatCcDuration(Number(totals.averageConversationSeconds) || 0));
+    }
+
+    function renderCallAttemptReport() {
+        validateDateRange('ccrDateFrom', 'ccrDateTo', 'Call attempt date range');
+        var tbody = document.getElementById('ccAttemptReportBody');
+        var countEl = document.getElementById('ccaReportCount');
+        var navEl = document.getElementById('ccaPagNav');
+        if (!tbody) return Promise.resolve();
+        tbody.innerHTML = '<tr><td colspan="11" class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin me-2"></i>Loading...</td></tr>';
+
+        return fetchReportJson('/api/reports/call-center-attempts?' + buildCallAttemptReportParams().toString()).then(function(result) {
+            var data = result && Array.isArray(result.rows) ? result.rows : [];
+            allCcAttempts = data;
+            setCallAttemptTotals(result.totals || {});
+            if (!data.length) {
+                tbody.innerHTML = '<tr><td colspan="11" class="text-center text-muted py-4">No automatic call attempts found</td></tr>';
+                if (countEl) countEl.textContent = '0 records';
+                if (navEl) navEl.innerHTML = '';
+                return;
+            }
+            var totalRecords = Number(result.total || data.length || 0);
+            var totalPages = Number(result.totalPages || Math.max(1, Math.ceil(totalRecords / ccaPageSize)));
+            ccaPage = Number(result.page || ccaPage || 1);
+            ccaPageSize = Number(result.pageSize || ccaPageSize || 20);
+            var startIndex = (ccaPage - 1) * ccaPageSize;
+            var endIndex = Math.min(startIndex + data.length, totalRecords);
+            var html = '';
+            data.forEach(function(row) {
+                var patientLabel = row.patientName || 'Deleted patient';
+                var patientCode = row.patientCode || '';
+                var patientReference = patientCode
+                    ? '<button type="button" class="btn btn-link btn-sm p-0 text-decoration-none cc-open-activity" data-patient-code="' + escHtml(patientCode) + '">' + escHtml(patientCode) + '</button>'
+                    : '<span class="text-muted">Historical record</span>';
+                var sip = row.sipResponseCode ? String(row.sipResponseCode) : '';
+                if (row.sipReason) sip += (sip ? ' — ' : '') + row.sipReason;
+                html += '<tr>' +
+                    '<td><div class="fw-semibold">' + escHtml(patientLabel) + '</div><small>' + patientReference + (row.clinicName ? '<span class="text-muted"> · ' + escHtml(row.clinicName) + '</span>' : '') + '</small></td>' +
+                    '<td><div>' + escHtml(row.agentName || '-') + '</div><small class="text-muted">Ext. ' + escHtml(row.extension || '-') + '</small></td>' +
+                    '<td><div class="fw-semibold">' + escHtml(row.dialedNumber || '-') + '</div><small class="text-muted">' + escHtml(row.phoneClient || '') + '</small></td>' +
+                    '<td>' + callAttemptOutcomeBadge(row) + '</td>' +
+                    '<td>' + escHtml(sip || '-') + '</td>' +
+                    '<td>' + escHtml(formatCcDateTime(row.dialedAt)) + '</td>' +
+                    '<td>' + escHtml(formatCcDateTime(row.ringingAt)) + '</td>' +
+                    '<td>' + escHtml(formatCcDateTime(row.answeredAt)) + '</td>' +
+                    '<td>' + escHtml(formatCcDateTime(row.endedAt)) + '</td>' +
+                    '<td>' + escHtml(formatCcDuration(row.ringDurationSeconds)) + '</td>' +
+                    '<td>' + escHtml(formatCcDuration(row.conversationDurationSeconds)) + '</td>' +
+                '</tr>';
+            });
+            tbody.innerHTML = html;
+            tbody.querySelectorAll('.cc-open-activity').forEach(function(button) {
+                button.addEventListener('click', function() {
+                    openPatientActivity(button.getAttribute('data-patient-code') || '');
+                });
+            });
+            if (countEl) countEl.textContent = 'Showing ' + (startIndex + 1) + '-' + endIndex + ' of ' + totalRecords;
+            renderReportPager('ccaPagNav', ccaPage, totalPages, function(page) {
+                ccaPage = page;
+                renderCallAttemptReport();
+            });
+        }).catch(function(err) {
+            tbody.innerHTML = '<tr><td colspan="11" class="text-center text-danger py-4">Could not load automatic call attempts.</td></tr>';
+            if (countEl) countEl.textContent = '';
+            if (navEl) navEl.innerHTML = '';
+            console.error('Call attempt report load error:', err);
+        });
+    }
+
+    function showCallCenterReportView(triggerId) {
+        var trigger = document.getElementById(triggerId);
+        if (!trigger) return;
+        if (window.bootstrap && bootstrap.Tab) {
+            bootstrap.Tab.getOrCreateInstance(trigger).show();
+            return;
+        }
+        trigger.click();
+    }
+
+    function openPatientCallAttempts(patientCode) {
+        var input = document.getElementById('ccrPatientCode');
+        if (input) input.value = patientCode;
+        ccaPage = 1;
+        showCallCenterReportView('ccAttemptsViewTab');
+        renderCallAttemptReport();
+    }
+
+    function openPatientActivity(patientCode) {
+        var input = document.getElementById('ccrPatientCode');
+        if (input) input.value = patientCode;
+        ccrPage = 1;
+        showCallCenterReportView('ccActivityViewTab');
+        renderCallCenterReport();
     }
 
     function sortCallCenterReport(col) {
@@ -676,16 +863,19 @@
     }
 
     function clearCallCenterFilters() {
-        ['ccrDateFrom','ccrDateTo','ccrPatientCode','ccrFirstName','ccrLastName','ccrPhone','ccrClinic','ccrServiceFrom','ccrServiceTo']
+        ['ccrDateFrom','ccrDateTo','ccrPatientCode','ccrFirstName','ccrLastName','ccrPhone','ccrClinic','ccrServiceFrom','ccrServiceTo','ccrExtension']
             .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
-        ['ccrUser','ccrActionType','ccrStatus'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+        ['ccrUser','ccrActionType','ccrStatus','ccrAttemptOutcome'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
         setDefaultCallCenterDates();
         ccrPage = 1;
-        renderCallCenterReport();
+        ccaPage = 1;
+        renderCallCenterReports();
     }
 
     window.sortCallCenterReport = sortCallCenterReport;
     window.clearCallCenterFilters = clearCallCenterFilters;
+    window.openPatientCallAttempts = openPatientCallAttempts;
+    window.openPatientActivity = openPatientActivity;
 
     function callCenterHeaders() {
         return [
@@ -717,6 +907,27 @@
             row.serviceDateHistoryText || '',
             row.noteHistoryText || ''
         ]);
+    }
+
+    function callAttemptHeaders() {
+        return [
+            'Patient ID', 'Patient', 'Clinic / Location', 'Agent', 'Extension', 'Dialed Number', 'Phone Client',
+            'Outcome', 'SIP Response Code', 'SIP Reason', 'Dialed At', 'Ringing At', 'Answered At', 'Ended At',
+            'Ring Duration', 'Ring Duration Seconds', 'Conversation Duration', 'Conversation Duration Seconds'
+        ];
+    }
+
+    function callAttemptExportRows(data) {
+        return (data || []).map(function(row) {
+            return [
+                row.patientCode || '', row.patientName || 'Deleted patient', row.clinicName || '',
+                row.agentName || '', row.extension || '', row.dialedNumber || '', row.phoneClient || '',
+                callAttemptOutcome(row), row.sipResponseCode || '', row.sipReason || '',
+                formatCcDateTime(row.dialedAt), formatCcDateTime(row.ringingAt), formatCcDateTime(row.answeredAt), formatCcDateTime(row.endedAt),
+                formatCcDuration(row.ringDurationSeconds), row.ringDurationSeconds == null ? '' : row.ringDurationSeconds,
+                formatCcDuration(row.conversationDurationSeconds), row.conversationDurationSeconds == null ? '' : row.conversationDurationSeconds
+            ];
+        });
     }
 
     function setupReportExports() {
@@ -763,6 +974,14 @@
             if (!data.length) { showToast('No Call Center data to export', 'warning'); return; }
             downloadCsv('call_center_report_' + new Date().toISOString().slice(0,10) + '.csv', callCenterHeaders(), callCenterExportRows(data));
             showToast('Call Center report exported!', 'success');
+        });
+
+        const attemptsCsv = document.getElementById('exportCcAttemptsCsv');
+        if (attemptsCsv) attemptsCsv.addEventListener('click', async () => {
+            const data = await fetchCallAttemptReportRows({ exportAll: true });
+            if (!data.length) { showToast('No call attempts to export', 'warning'); return; }
+            downloadCsv('call_attempts_' + new Date().toISOString().slice(0,10) + '.csv', callAttemptHeaders(), callAttemptExportRows(data));
+            showToast('Call attempts exported!', 'success');
         });
     }
 
@@ -870,5 +1089,14 @@
         });
         var ccPrint = document.getElementById('printCcBtn');
         if (ccPrint) ccPrint.addEventListener('click', function() { printReport('Call Center Report', 'ccReportTable'); });
+        var attemptsXls = document.getElementById('exportCcAttemptsXls');
+        if (attemptsXls) attemptsXls.addEventListener('click', async function() {
+            var data = await fetchCallAttemptReportRows({ exportAll: true });
+            if (!data.length) { showToast('No call attempts to export', 'warning'); return; }
+            downloadXls('call_attempts_' + new Date().toISOString().slice(0,10) + '.xls', callAttemptHeaders(), callAttemptExportRows(data));
+            showToast('Call attempts exported as Excel!', 'success');
+        });
+        var attemptsPrint = document.getElementById('printCcAttemptsBtn');
+        if (attemptsPrint) attemptsPrint.addEventListener('click', function() { printReport('Automatic Call Attempts', 'ccAttemptReportTable'); });
     });
 

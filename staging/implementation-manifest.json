@@ -1,8 +1,8 @@
 {
   "environment": "staging",
   "manifestVersion": "staging-impl-v1",
-  "implementationVersion": "3.0.9-staging-2026.07.19.02",
-  "effectiveFrom": "2026-07-19T11:51:51-04:00",
+  "implementationVersion": "3.3.0-staging-2026.07.21.11",
+  "effectiveFrom": "2026-07-21T09:30:00-04:00",
   "appliesTo": "APP_ENV/APP_INSTANCE contains 'staging' or 'stage'",
   "status": "active",
   "rollbackPolicy": {
@@ -14,6 +14,127 @@
     ]
   },
   "implementations": [
+    {
+      "id": "STS-CC-CONNECTED-TIMER-001",
+      "file": "controllers/callCenterController.js, public/js/call-center.js, views/call-center.ejs",
+      "component": "Call Center connected-call timer",
+      "summary": "Reuse the phone-icon status badge to show live elapsed time after an RX Softphone call connects.",
+      "effect": "Cooldown remains an amber seconds countdown; a connected call displays a red m:ss or h:mm:ss timer based on the persisted answer timestamp and resets when the call ends.",
+      "risk": "The connected timer is available only for RX Softphone calls that report an answered timestamp; MicroSIP cannot provide browser-visible call state.",
+      "rollback": {
+        "action": "Remove connectedAt/callState from lock status and restore the badge to cooldown-only rendering."
+      }
+    },
+    {
+      "id": "STS-CRUD-PERMISSION-BANNER-001",
+      "file": "public/js/app.js",
+      "component": "Shared CRUD permission banner",
+      "summary": "Hide the View Only banner correctly when the current user has Add or Edit permission.",
+      "effect": "Administrators no longer see a false View Only warning in User, Pharmacy, Clinic, transport, or other shared Add/Edit dialogs.",
+      "risk": "Presentation-only change; server authorization and stored role permissions are unchanged.",
+      "rollback": {
+        "action": "Restore the previous inline display assignment in the shared CRUD modal."
+      }
+    },
+    {
+      "id": "STS-CC-PHONE-ASSIGN-001",
+      "file": "controllers/softphoneAccountController.js, routes/apiRoutes.js, views/phone-account-setup.ejs, public/js/phone-account-setup.js, public/js/app.js",
+      "component": "Per-user RX Softphone setup",
+      "summary": "Add an administrator-authorized, one-time Phone Account Setup menu for an individual RX user.",
+      "effect": "An Administrator selects Allow setup in User Management; the selected user enters the PBX server, SIP port, extension, display name, local port, and write-only password once. The menu closes after save and the assignment registers automatically and remains read-only until an Administrator reopens setup.",
+      "risk": "A wrong PBX credential prevents only the selected user's softphone registration; leaving the password blank during an edit preserves the existing encrypted password.",
+      "rollback": {
+        "action": "Redeploy the prior application build. Existing UserSoftphoneAccounts rows remain compatible and require no database rollback."
+      }
+    },
+    {
+      "id": "STS-CC-PHONE-ADMIN-001",
+      "file": "controllers/softphoneAccountController.js, routes/apiRoutes.js, public/js/call-center.js, views/call-center.ejs",
+      "component": "Softphone account authorization",
+      "summary": "Make phone-account configuration Administrator-only while preserving automatic registration for assigned Call Center users.",
+      "effect": "Call Center users can view and use their assigned extension but cannot save PBX, extension, port, display-name, or password changes; the environment PIN adds a second approval check for administrators.",
+      "risk": "Administrators must perform future phone-account assignment changes; existing saved assignments continue to operate without modification.",
+      "rollback": {
+        "action": "Remove the Administrator authorization middleware and canManage read-only state, restoring PIN-only account saves."
+      }
+    },
+    {
+      "id": "STS-CC-AVAILABILITY-001",
+      "file": "controllers/callCenterController.js, routes/apiRoutes.js, public/js/call-center.js, views/call-center.ejs",
+      "component": "Call Center phone availability",
+      "summary": "Keep claimed patients visible and refresh only their phone availability without reloading the roster.",
+      "effect": "The phone icon is green when callable, red during an active call, and amber during the configured cooldown; red and amber states identify the claiming agent, and amber shows a live seconds badge directly on the icon.",
+      "risk": "MicroSIP cannot report native call state, so its claim appears as cooldown for the configured inactive timeout.",
+      "rollback": {
+        "action": "Remove the lock-status endpoint and status poll, then restore filtering of locks held by other agents from the queue response."
+      }
+    },
+    {
+      "id": "STS-CC-CLAIMS-002",
+      "file": "controllers/callCenterController.js, public/js/call-center.js",
+      "component": "Call Center patient concurrency",
+      "summary": "Acquire a patient claim only when an agent clicks the phone icon instead of claiming every patient displayed on a queue page; heartbeat requests may extend but never create claims.",
+      "effect": "Multiple agents can browse the same queue concurrently while duplicate calls to the same patient remain blocked during an active RX Softphone workflow. Backoffice controls the inactive claim timeout from 5 to 300 seconds, defaulting to 15.",
+      "risk": "MicroSIP cannot report call state, so its claim uses the configured inactive timeout even if the external MicroSIP call continues longer.",
+      "rollback": {
+        "action": "Restore queue-page claim acquisition and the locksAcquired roster response behavior."
+      }
+    },
+    {
+      "id": "STS-CC-REPORTS-002",
+      "file": "views/reports.ejs, public/js/reports.js",
+      "component": "Call Center reporting navigation",
+      "summary": "Present Patient Activity and Call Attempts as linked views under the same Call Center filters instead of vertically stacking both reports.",
+      "effect": "Administrators keep the selected patient and date context while switching between patient-level activity and detailed automatic call telemetry; each view retains its own metrics, pagination, and exports.",
+      "risk": "The detailed Call Attempts view is populated only by RX Softphone telemetry recorded after this feature is deployed; historical manual or MicroSIP calls cannot be reconstructed.",
+      "rollback": {
+        "action": "Restore the vertically stacked report markup and remove the cross-view navigation handlers."
+      }
+    },
+    {
+      "id": "STS-CC-SIM-001",
+      "file": "scripts/reset-staging-call-simulation.js",
+      "component": "Staging Call Center simulation",
+      "summary": "Clear only staging Call Center history and create one linked, clearly identified answered RX Softphone simulation.",
+      "effect": "Provides a deterministic report fixture while preserving patients, users, phone assignments, RX records, and all non-Call-Center history.",
+      "risk": "Call Center attempts, locks, notes, service-date history, and audits in the explicitly confirmed staging database are deleted when the script runs.",
+      "rollback": {
+        "action": "Restore the deleted staging Call Center history from a database backup; the reset is intentionally not available for production-named or shared databases."
+      }
+    },
+    {
+      "id": "STS-CC-ATTEMPTS-001",
+      "file": "controllers/callAttemptController.js",
+      "component": "RX Softphone call analytics",
+      "summary": "Persist every RX Softphone dial attempt before local dialing and automatically record Called only after an answered state.",
+      "effect": "Administrators can report call timing, duration, outcome, SIP result, patient snapshot, agent, extension, and dialed number while unanswered attempts remain separate from Called activity.",
+      "risk": "RX Softphone versions before 0.3.0 do not provide the complete native timestamp/outcome telemetry.",
+      "rollback": {
+        "action": "Redeploy version 3.1.0 and leave the additive CallCenterCallAttempts table in place for forward recovery."
+      }
+    },
+    {
+      "id": "STS-CC-PIN-001",
+      "file": "controllers/softphoneAccountController.js",
+      "component": "Softphone account approval",
+      "summary": "Require a timing-safe administrator PIN for phone-account saves when SOFTPHONE_ACCOUNT_ADMIN_PIN is configured.",
+      "effect": "Prevents accidental SIP assignment edits while keeping automatic per-user registration and local Disconnect behavior unchanged.",
+      "risk": "Users cannot save account changes if the configured administrator PIN is unavailable.",
+      "rollback": {
+        "action": "Remove SOFTPHONE_ACCOUNT_ADMIN_PIN from the staging environment and restart, or redeploy the previous version."
+      }
+    },
+    {
+      "id": "STS-UI-SMOKE-002",
+      "file": "scripts/run-isolated-staging-ui-smoke.js",
+      "component": "Staging browser smoke isolation",
+      "summary": "Run browser fixtures on a dedicated *_ui_smoke database and random loopback port.",
+      "effect": "Automated test patients and related records no longer appear or disappear in shared staging during manual testing.",
+      "risk": "The staging PostgreSQL user needs permission to create the isolated smoke database on first run.",
+      "rollback": {
+        "action": "Use the core smoke script only with STAGING_UI_SMOKE_ALLOW_SHARED_DB=true after explicitly accepting shared-data mutation risk."
+      }
+    },
     {
       "id": "STS-APP-001",
       "file": "app.js",

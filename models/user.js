@@ -46,6 +46,8 @@ module.exports = (sequelize, DataTypes) => {
     lockedUntil:      DataTypes.DATE,
     // Token version — increment on password change to invalidate old JWTs
     tokenVersion:     { type: DataTypes.INTEGER, defaultValue: 0 },
+    // One-time, administrator-granted access to the self-service SIP setup page.
+    phoneAccountSetupAllowed: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
     // MASTER admin flag — grants access to /backoffice (Data Control Center).
     // ⚠️  This field can ONLY be set via direct SQL on PostgreSQL.
     // ⚠️  No API endpoint or UI exposes this field. See OPERATIONS_MANUAL for recovery SQL.

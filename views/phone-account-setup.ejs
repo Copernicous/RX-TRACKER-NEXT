@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <script>!function(){var t=localStorage.getItem("rxTheme");if(t)document.documentElement.setAttribute("data-theme",t)}();</script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phone Account Setup - Patient RX System</title>
+    <link href="/assets/bootstrap.min.css" rel="stylesheet">
+    <link href="/assets/inter.css" rel="stylesheet">
+    <link rel="stylesheet" href="/assets/fontawesome.all.min.css">
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<div class="wrapper">
+    <%- include('partials/sidebar') %>
+    <div id="content">
+        <nav class="navbar navbar-expand-lg px-4 mb-4">
+            <button type="button" id="sidebarCollapse" class="btn btn-primary btn-sm"><i class="fas fa-bars"></i></button>
+            <span class="ms-3 fw-bold fs-5"><i class="fas fa-phone-alt me-2 text-success"></i>Phone Account Setup</span>
+            <div class="ms-auto d-flex align-items-center gap-3">
+                <button id="themeToggle" class="btn btn-outline-secondary btn-sm"><i class="fas fa-moon"></i></button>
+                <span id="userGreeting" class="text-muted small"></span>
+                <button id="logoutBtn" class="btn btn-danger btn-sm"><i class="fas fa-sign-out-alt me-1"></i>Logout</button>
+            </div>
+        </nav>
+
+        <div class="container-fluid px-4 pb-4">
+            <div class="row justify-content-center">
+                <div class="col-xl-8 col-xxl-7">
+                    <div class="glass-card p-4">
+                        <div class="d-flex align-items-start gap-3 mb-4">
+                            <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0" style="width:48px;height:48px;background:rgba(34,197,94,.14);color:#16a34a">
+                                <i class="fas fa-headset fs-4"></i>
+                            </div>
+                            <div>
+                                <h4 class="mb-1">Configure your RX Softphone account</h4>
+                                <p class="text-muted mb-0">Enter the SIP account supplied by your administrator. This is a one-time setup.</p>
+                            </div>
+                        </div>
+
+                        <div class="alert alert-info d-flex gap-2 align-items-start">
+                            <i class="fas fa-info-circle mt-1"></i>
+                            <div>After a successful save, this menu disappears and the settings become locked. An administrator can use <strong>Allow setup</strong> in User Management if a correction is needed later.</div>
+                        </div>
+                        <div class="alert alert-secondary" id="phoneSetupMessage" role="status">Loading phone-account setup...</div>
+
+                        <form id="phoneAccountSetupForm" data-success-path="<%= setupSuccessPath %>" autocomplete="off">
+                            <div class="row g-3">
+                                <div class="col-md-8">
+                                    <label class="form-label" for="phoneSetupServer">SIP server / PBX</label>
+                                    <input type="text" class="form-control" id="phoneSetupServer" maxlength="253" placeholder="192.168.15.200" required>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label" for="phoneSetupPort">SIP port</label>
+                                    <input type="number" class="form-control" id="phoneSetupPort" min="1" max="65535" value="5060" required>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label" for="phoneSetupUsername">Extension / username</label>
+                                    <input type="text" class="form-control" id="phoneSetupUsername" maxlength="128" autocomplete="username" placeholder="1006" required>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label" for="phoneSetupDisplayName">Display name</label>
+                                    <input type="text" class="form-control" id="phoneSetupDisplayName" maxlength="128" placeholder="Same as extension">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label" for="phoneSetupPassword">SIP password</label>
+                                    <div class="input-group">
+                                        <input type="password" class="form-control" id="phoneSetupPassword" maxlength="256" autocomplete="new-password" required>
+                                        <button class="btn btn-outline-secondary" type="button" id="phoneSetupPasswordToggle">Show</button>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label" for="phoneSetupPasswordConfirm">Confirm SIP password</label>
+                                    <input type="password" class="form-control" id="phoneSetupPasswordConfirm" maxlength="256" autocomplete="new-password" required>
+                                </div>
+                                <div class="col-md-5">
+                                    <label class="form-label" for="phoneSetupLocalPort">Local SIP port</label>
+                                    <input type="number" class="form-control" id="phoneSetupLocalPort" min="0" max="65535" value="0">
+                                    <div class="form-text">Use 0 for automatic selection.</div>
+                                </div>
+                                <div class="col-12">
+                                    <div class="form-label mb-2">Supported audio codecs</div>
+                                    <div class="d-flex gap-2 flex-wrap">
+                                        <span class="badge bg-secondary">G.711 &mu;-law (PCMU)</span>
+                                        <span class="badge bg-secondary">G.711 A-law (PCMA)</span>
+                                        <span class="badge bg-secondary">G.722</span>
+                                        <span class="badge bg-secondary">G.729</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="border rounded p-3 mt-4 small text-muted">
+                                <i class="fas fa-shield-alt text-success me-1"></i>
+                                The SIP password is encrypted before it is stored. It is delivered only to the authenticated RX Softphone running locally on <code>127.0.0.1</code> or to the user's paired outbound relay device, and is not stored by the Windows client.
+                            </div>
+
+                            <div class="d-flex justify-content-end mt-4">
+                                <button type="submit" class="btn btn-success" id="phoneSetupSaveBtn">
+                                    <i class="fas fa-save me-1"></i>Save Phone Account
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index:1100"></div>
+<script src="/assets/bootstrap.bundle.min.js"></script>
+<script src="/js/base.js?v=<%= appBuild %>"></script>
+<script src="/js/app.js?v=<%= appBuild %>"></script>
+<script src="/js/phone-account-setup.js?v=<%= appBuild %>"></script>
+</body>
+</html>

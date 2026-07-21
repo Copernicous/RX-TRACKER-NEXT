@@ -19,7 +19,8 @@ async function loadUserAuthContext(userId) {
             'roleId',
             'isActive',
             'tokenVersion',
-            'isMaster'
+            'isMaster',
+            'phoneAccountSetupAllowed'
         ],
         include: [{ model: db.Role, attributes: ['id', 'name', 'isSystem', 'permissions'] }]
     });
@@ -42,6 +43,7 @@ function hydrateDecodedUser(decoded, context) {
     decoded.roleId = context.user.roleId;
     decoded.permissions = context.permissions;
     decoded.isMaster = context.user.isMaster === true;
+    decoded.phoneAccountSetupAllowed = context.user.phoneAccountSetupAllowed === true;
     return decoded;
 }
 

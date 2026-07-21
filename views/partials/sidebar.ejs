@@ -25,11 +25,12 @@
   const hideVersionSidebar = isCallCenterSidebar || ap === 'call-center';
   const refActive   = ['pharmacies','patient-transport','pharmacy-transport','clinics','workflow-actions','medication-catalog'].includes(ap);
   const rptActive   = ['reports','audit-log'].includes(ap);
-  const adminActive = ['roles','users','system-settings','backups','import','active-users'].includes(ap);
+  const adminActive = ['roles','users','system-settings','backups','import','active-users','phone-account-setup'].includes(ap);
 
   const refVisible   = sv('pharmacies') || sv('patient_transport') || sv('pharmacy_transport') || sv('clinics') || sv('workflow_actions') || sv('medication_catalog');
   const rptVisible   = sv('reports') || sv('audit_log');
-  const adminVisible = sv('users') || sv('backups') || sv('system_settings') || sv('import') || sv('active_users');
+  const phoneSetupVisible = locals.phoneAccountSetupAllowed === true;
+  const adminVisible = sv('users') || sv('backups') || sv('system_settings') || sv('import') || sv('active_users') || phoneSetupVisible;
 %>
 <!-- xa-base: FortiGate rewrites <a href> — used by base.js to compute proxy path prefix -->
 <a id="xa-base" href="/login" style="display:none" aria-hidden="true"></a>
@@ -55,6 +56,11 @@
         <li class="<%= ap === 'call-center' ? 'active' : '' %>">
             <a href="/call-center"><i class="fas fa-headset me-2"></i>Call Center</a>
         </li>
+        <% if (phoneSetupVisible) { %>
+        <li class="<%= ap === 'phone-account-setup' ? 'active' : '' %>">
+            <a href="/phone-account-setup"><i class="fas fa-phone-alt me-2"></i>Phone Account Setup</a>
+        </li>
+        <% } %>
         <% } else { %>
 
         <li class="<%= ap === 'dashboard' ? 'active' : '' %>">
@@ -181,6 +187,11 @@
                         <i class="fas fa-users me-2"></i>Who's Online
                         <span id="sidebarOnlineBadge" style="display:none;margin-left:auto;background:#22c55e;color:#fff;border-radius:20px;padding:1px 7px;font-size:.65rem;font-weight:700;line-height:1.6">0</span>
                     </a>
+                </li>
+                <% } %>
+                <% if (phoneSetupVisible) { %>
+                <li class="<%= ap === 'phone-account-setup' ? 'active' : '' %>">
+                    <a href="/phone-account-setup"><i class="fas fa-phone-alt me-2"></i>Phone Account Setup</a>
                 </li>
                 <% } %>
             </ul>

@@ -42,6 +42,7 @@ const filesToCopy = [
     'OPERATIONS_MANUAL.md',
     'NEW_SERVER_SETUP_RECOVERY.md',
     path.join('docs', 'PRODUCTION_MICROSIP_CHROME_POLICY.md'),
+    path.join('docs', 'RX_SOFTPHONE_REMOTE_TESTING.md'),
     path.join('scripts', 'install-production-microsip-chrome-policy.ps1'),
     'install-service.ps1',
     'uninstall-service.ps1',

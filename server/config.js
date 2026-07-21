@@ -8,6 +8,7 @@ module.exports = {
     password: process.env.DB_PASS || 'password',
     database: process.env.DB_NAME || 'patient_rx_dev',
     host: process.env.DB_HOST || '127.0.0.1',
+    port: parseInt(process.env.DB_PORT || '5432', 10),
     dialect: 'postgres',
     logging: false
   },
@@ -16,6 +17,7 @@ module.exports = {
     password: process.env.DB_PASS || 'password',
     database: process.env.DB_NAME || 'patient_rx_dev',
     host: process.env.DB_HOST || '127.0.0.1',
+    port: parseInt(process.env.DB_PORT || '5432', 10),
     dialect: 'postgres',
     logging: false
   }

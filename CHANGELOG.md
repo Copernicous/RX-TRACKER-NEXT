@@ -7,6 +7,107 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+## [3.3.0] - 2026-07-21
+
+### Added
+
+- Brought the customized RX Softphone 0.4.1 source into the RX Tracker repository under `rx-softphone-desktop`, with repeatable self-contained release packaging and generated binaries excluded from Git.
+- Added a remote Windows installation, persistent startup, pairing, two-computer/shared-extension, production secret, backup, migration, and acceptance-test runbook to the administrator manual and release package.
+- Added an administrator-facing <strong>System Settings &rarr; Manual &rarr; RX Softphone</strong> guide covering remote Windows installation, per-user relay pairing, Kasm session behavior, FortiClient VPN or Cloudflare Mesh connectivity for a private PBX, local and externally hosted PBX SIP/RTP requirements, daily operation, re-pairing, and common troubleshooting.
+- Added a paired outbound Windows RX Softphone relay for Kasm and other remote-browser sessions. The native client polls RX Tracker over HTTP/HTTPS for short-lived dial/hangup commands, reports registration and call telemetry back to the existing attempt analytics, and automatically loads the authenticated user's encrypted server-side SIP assignment without exposing the loopback API to the network.
+- Added one-time 8-digit pairing codes, hashed long-lived device tokens, device heartbeat/state storage, an expiring command queue, and a Call Center pairing dialog. Direct browser-to-loopback calling remains preferred for local and FortiGate sessions; relay is selected only when loopback is unavailable and the paired device is online.
+- Added a live connected-call duration badge above the patient phone icon. The existing badge remains amber with seconds remaining during cooldown and switches to a red `m:ss`/`h:mm:ss` elapsed timer after RX Softphone reports the call connected.
+- Added a per-user, administrator-authorized **Phone Account Setup** workflow. An Administrator selects **Allow setup** in User Management; the selected user enters the PBX account once, the encrypted assignment becomes read-only after save, and an Administrator can reopen setup later for corrections. The same extension may be configured for multiple users when the PBX supports simultaneous registrations.
+- Added live Call Center phone availability without reloading the roster: green means callable, red identifies the agent with an active call, and amber identifies the agent holding the short cooldown with the remaining seconds. The amber icon now carries a prominent live seconds badge and automatically returns to green at zero. Claimed patients remain visible, while the server still rejects simultaneous claims for the same patient.
+
+**Database impact:** Adds `SoftphoneRelayDevices` for per-user pairing/heartbeat state and `SoftphoneRelayCommands` for expiring dial/hangup delivery. Removing a user cascades relay device/command rows; removing a call attempt retains its command history with a null attempt link.
+
+### Security
+
+- Kept the RX Softphone control API bound to `127.0.0.1` while adding outbound-only relay connectivity. Pairing codes expire after ten minutes and are single-use; device tokens are stored only as HMAC hashes on the server and encrypted with Windows DPAPI on the client. SIP passwords remain encrypted at rest on RX Tracker, are returned only to the authenticated paired device with `no-store`, and remain runtime-only in the native SIP process.
+- Restricted per-user phone assignment APIs to master administrators, kept SIP passwords and encrypted credential values out of API responses and audit values, required the optional environment PIN at save time, rate-limited rejected saves, and recorded the target user plus password-change status in the audit trail.
+- Made RX Softphone account changes Administrator-only at both the API and Call Center UI layers. Call Center users can still use their assigned account and automatic registration, but the PBX, extension, port, display name, and SIP password are read-only. The optional environment PIN is now an additional approval check for administrators rather than the only barrier protecting account changes.
+
+### Fixed
+
+- Hardened the softphone and Call Center migrations to recognize tables, columns, and indexes already created by the application's startup model sync. Development and production promotion can now advance the migration ledger without recreating an existing relation, while an incomplete pre-existing schema fails with an explicit missing-column error.
+- Fixed the Call Center cooldown badge remaining stuck at its configured maximum. Relay snapshots are now compared after canonical normalization, completed call attempts cannot be reopened by delayed state reports, repeated terminal reports no longer extend the patient claim expiration, and inactive browser heartbeats recognize but do not renew a cooldown.
+- Prevented FortiGate SSL-VPN web mode from rewriting the RX Softphone loopback API into a FortiGate `/proxy/.../http/127.0.0.1:5188` request. The Call Center assembles the local address at runtime and uses a clean same-origin browser frame for only the fixed loopback API, bypassing FortiGate's injected `window.fetch` wrapper while all normal application traffic remains proxied.
+- Made the shared Call Center phone indicator show the server-reported `Dialing`, `Trying`, `Ringing`, or `Connected` state and connected duration to every user viewing that patient. Also clarified that a Kasm/remote browser cannot reach RX Softphone running on the employee's separate Windows computer.
+- Fixed the shared Add/Edit modal incorrectly displaying a **View Only** banner to Administrators. Bootstrap's forced `d-flex` display was overriding the previous hide instruction even though the fields and Save action remained enabled.
+- Released RX Softphone 0.4.1 so a local or relay hangup before answer is reported as `cancelled` instead of `failed`, while retaining SIP progress and ring duration and never creating a Called record.
+
+### Testing
+
+- Made the MicroSIP claim-before-launch source assertion portable across LF and Windows CRLF development worktrees.
+- Added a staging relay integration test covering one-time pairing, hashed bearer authentication, transient SIP registration handoff, command delivery, and acknowledgement. Passed the complete staging smoke suite, isolated browser click suite, call-attempt lifecycle, shared-state, phone-client regression, public JavaScript validation, and RX Softphone 0.4.1 self-contained Release build.
+- Completed live development relay calls against extension 1006: an answered call stored SIP 200, 13 seconds of ringing, 21 seconds of conversation, and an automatic Called audit; a pre-voicemail hangup stored `cancelled`, 6 seconds of ringing, no answer timestamp, and no Called audit.
+
+## [3.2.0] - 2026-07-20
+
+### Added
+
+- Added durable RX Softphone call-attempt records created before the local call is placed. Each record stores dial, ring, answer, and end timestamps; ring and conversation durations; answered/no-answer/busy/rejected/unavailable/cancelled/failed outcome; SIP response code/reason; and patient, clinic, agent, extension, and dialed-number snapshots.
+- Added automatic **Called** recording when RX Softphone reports that the remote party answered. Unanswered attempts remain in analytics but do not mark the patient Called. The roster Save action is now reserved for notes and new service dates after an automatically recorded answer.
+- Added administrator Call Center attempt analytics with outcome/agent/extension/date/patient filters, answer-rate and duration metrics, detailed history, pagination, print, and CSV/Excel export.
+- Split the Call Center report into linked **Patient Activity** and **Call Attempts** views under one shared filter bar. Each view keeps its own metrics, pagination, and exports, and patient links switch views while preserving the selected patient filter.
+- Changed Call Center patient claims to begin only when an agent clicks the phone icon. Opening, paging, sorting, searching, or refreshing the roster no longer reserves every displayed patient, and heartbeat requests can extend but never create a claim; an active dial workflow still prevents a second agent from calling the same patient.
+- Added a Backoffice **Inactive Patient Claim** timeout (5–300 seconds, default 15). Inactive/MicroSIP claims expire quickly, RX Softphone dialing/ringing/connected calls retain the longer active lease, and terminal calls shorten back to the configured timeout without a schema migration.
+- Added an optional server-side `SOFTPHONE_ACCOUNT_ADMIN_PIN` approval gate for phone-account saves. The account remains permanently assigned and registers automatically when the user loads Call Center; the PIN is needed only to save changes.
+
+### Security
+
+- Compared the phone-account administrator PIN using fixed-length SHA-256 digests and timing-safe comparison. The PIN is never returned, persisted in browser storage, or included in audit values; rejected approvals are rate-limited and audited.
+- Preserved call analytics through normal patient deletion using nullable patient/user/audit links plus historical snapshots. This retains operational reporting without requiring the live patient row; a separate privacy purge can anonymize snapshots later.
+
+### Fixed
+
+- Isolated staging browser-smoke fixtures in a dedicated `*_ui_smoke` database and random local server port, preventing automated smoke patients from being edited or deleted while a person is testing shared staging.
+
+### Testing
+
+- Added call-lifecycle regression coverage for idempotent automatic Called recording, unanswered-attempt behavior, durations, and history retention after hard patient deletion.
+- Extended the isolated browser smoke to verify PIN rejection/approval, encrypted account storage, automatic-attempt metrics and SIP details, and attempt CSV/Excel exports.
+- Added a staging-only, exact-database-confirmed Call Center reset/simulation tool that clears only Call Center history, preserves users/patients/phone assignments, and creates one clearly marked answered-call simulation. It refuses production-named or shared databases.
+- Passed public JavaScript validation, phone-client/PIN regression, call-attempt lifecycle integration, isolated full browser click smoke, and RX Softphone Release build.
+
+**Database impact:** Adds `CallCenterCallAttempts`. Patient, user, and Called-audit foreign keys use `ON DELETE SET NULL`; report snapshots and operational timing/outcome data remain available when linked source records are removed.
+
+## [3.1.0] - 2026-07-20
+
+### Added
+
+- Added a master Backoffice selector for **MicroSIP**, **RX Softphone**, or **Automatic** phone routing. The default remains MicroSIP for upgrade compatibility.
+- Integrated the Call Center with the loopback-only RX Softphone API at `127.0.0.1:5188`, including registration/call status, outgoing dialing, and an in-program Hang Up control.
+- Added answered-call acknowledgement: when RX Softphone reports `connected`, the matching patient row is visibly marked and **Called** is selected. The agent still clicks **Save** so notes and a new service date can be submitted with the call.
+- Added RX Softphone acknowledgement metadata to the existing Call Center `Called` audit record: selected phone client, reported answer/end timestamps, and bounded duration.
+- Added Automatic fallback to the existing MicroSIP `callto:` handoff whenever RX Softphone is absent or not registered.
+- Added a per-user RX Softphone account editor in Call Center. SIP settings are assigned to the authenticated RX user on the server and the local softphone connects automatically when that user loads Call Center.
+- Reorganized each Call Center patient into a compact one-line 10-field grid by combining the patient name and tightening notes/history/actions, reducing the old 1650px minimum width so the complete row fits the wide desktop workspace. Stronger alternating green/blue row colors, matching left accents, and an amber hover state keep adjacent patients visually distinct. Rows now grow naturally with note/call history, and the Add Note field expands as an agent types multiple lines.
+- Displayed the RX Softphone audio formats supported by the native client: G.711 &mu;-law (PCMU), G.711 A-law (PCMA), G.722, and G.729. Codec selection remains automatic through SIP/SDP negotiation with Asterisk.
+- Placed the RX Softphone Hang Up control directly beneath the active patient's dial icon, keeping call control attached to the correct roster row as comments and call history expand. Added 25- and 50-patient page sizes so agents can use a longer scrolling roster with less pagination.
+
+### Security
+
+- Kept the RX Softphone API bound to the user's loopback interface. RX Tracker now stores each assigned SIP password with AES-256-GCM authenticated encryption, bound to the RX user ID; account APIs are authenticated, CSRF-protected, audited, and sent with `no-store` cache controls.
+- The browser never persists SIP credentials. On Call Center load, it acts only as a transient authenticated bridge from RX Tracker to the user's loopback RX Softphone process, which owns SIP registration and audio.
+- Allowed the softphone loopback origin only on the Call Center page's `connect-src` policy instead of widening the application-wide policy.
+- RX Softphone 0.2.0 uses an exact browser-origin allowlist for the two production origins, staging/LAN origins, and localhost, with compatible CORS/local-network preflight responses. Unknown origins receive `403`.
+- Extended the managed-workstation Chrome installer with the exact-origin `LocalNetworkAccessAllowedForUrls` policy required for RX Tracker pages to reach the loopback softphone on current Chrome versions.
+- Treated the browser-reported answer as an acknowledgement in audit metadata, not as trusted server-side PBX proof.
+
+### Testing
+
+- Updated the staging UI smoke assertions for the selectable phone-client API, normalized dial fallback, status indicator, and non-automatic recording behavior.
+- Added regression checks for credential encryption/user binding, absence of browser credential storage, automatic registration bootstrapping, and the compact one-line roster layout.
+- Moved browser UI smoke fixtures to a dedicated local server and `*_ui_smoke` database. Automated patients, clinics, transports, users, calls, and credentials can no longer appear or disappear in the shared staging workspace while a person is testing it; direct shared-database execution is refused unless explicitly overridden.
+- Kept staging UI smoke credentials isolated from the real loopback softphone by removing the temporary per-user assignment before any workspace reload.
+- Passed public JavaScript validation, configurable service-window regression, Call Center queue-reopen regression against the isolated staging database, RX Softphone Release build, and allow/deny CORS preflight checks.
+
+**Files changed:** Backoffice settings controller/UI, global settings helper, Call Center controller/UI/routes, per-user softphone model/service/migration, staging UI smoke, environment templates, package metadata, and changelog.
+
+**Database impact:** Adds `UserSoftphoneAccounts`, with one encrypted SIP assignment per RX user and cascade cleanup when the user is deleted. The master phone-client selector remains file-backed and call acknowledgements continue using the existing audit JSON fields.
+
 ## [3.0.12] - 2026-07-20
 
 ### Added
