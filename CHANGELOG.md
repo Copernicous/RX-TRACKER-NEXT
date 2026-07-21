@@ -14,6 +14,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 - Added durable RX Softphone call-attempt records created before the local call is placed. Each record stores dial, ring, answer, and end timestamps; ring and conversation durations; answered/no-answer/busy/rejected/unavailable/cancelled/failed outcome; SIP response code/reason; and patient, clinic, agent, extension, and dialed-number snapshots.
 - Added automatic **Called** recording when RX Softphone reports that the remote party answered. Unanswered attempts remain in analytics but do not mark the patient Called. The roster Save action is now reserved for notes and new service dates after an automatically recorded answer.
 - Added administrator Call Center attempt analytics with outcome/agent/extension/date/patient filters, answer-rate and duration metrics, detailed history, pagination, print, and CSV/Excel export.
+- Split the Call Center report into linked **Patient Activity** and **Call Attempts** views under one shared filter bar. Each view keeps its own metrics, pagination, and exports, and patient links switch views while preserving the selected patient filter.
 - Added an optional server-side `SOFTPHONE_ACCOUNT_ADMIN_PIN` approval gate for phone-account saves. The account remains permanently assigned and registers automatically when the user loads Call Center; the PIN is needed only to save changes.
 
 ### Security
@@ -29,6 +30,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 - Added call-lifecycle regression coverage for idempotent automatic Called recording, unanswered-attempt behavior, durations, and history retention after hard patient deletion.
 - Extended the isolated browser smoke to verify PIN rejection/approval, encrypted account storage, automatic-attempt metrics and SIP details, and attempt CSV/Excel exports.
+- Added a staging-only, exact-database-confirmed Call Center reset/simulation tool that clears only Call Center history, preserves users/patients/phone assignments, and creates one clearly marked answered-call simulation. It refuses production-named or shared databases.
 - Passed public JavaScript validation, phone-client/PIN regression, call-attempt lifecycle integration, isolated full browser click smoke, and RX Softphone Release build.
 
 **Database impact:** Adds `CallCenterCallAttempts`. Patient, user, and Called-audit foreign keys use `ON DELETE SET NULL`; report snapshots and operational timing/outcome data remain available when linked source records are removed.

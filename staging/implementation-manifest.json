@@ -1,7 +1,7 @@
 {
   "environment": "staging",
   "manifestVersion": "staging-impl-v1",
-  "implementationVersion": "3.2.0-staging-2026.07.20.01",
+  "implementationVersion": "3.2.0-staging-2026.07.20.02",
   "effectiveFrom": "2026-07-20T21:55:00-04:00",
   "appliesTo": "APP_ENV/APP_INSTANCE contains 'staging' or 'stage'",
   "status": "active",
@@ -14,6 +14,28 @@
     ]
   },
   "implementations": [
+    {
+      "id": "STS-CC-REPORTS-002",
+      "file": "views/reports.ejs, public/js/reports.js",
+      "component": "Call Center reporting navigation",
+      "summary": "Present Patient Activity and Call Attempts as linked views under the same Call Center filters instead of vertically stacking both reports.",
+      "effect": "Administrators keep the selected patient and date context while switching between patient-level activity and detailed automatic call telemetry; each view retains its own metrics, pagination, and exports.",
+      "risk": "The detailed Call Attempts view is populated only by RX Softphone telemetry recorded after this feature is deployed; historical manual or MicroSIP calls cannot be reconstructed.",
+      "rollback": {
+        "action": "Restore the vertically stacked report markup and remove the cross-view navigation handlers."
+      }
+    },
+    {
+      "id": "STS-CC-SIM-001",
+      "file": "scripts/reset-staging-call-simulation.js",
+      "component": "Staging Call Center simulation",
+      "summary": "Clear only staging Call Center history and create one linked, clearly identified answered RX Softphone simulation.",
+      "effect": "Provides a deterministic report fixture while preserving patients, users, phone assignments, RX records, and all non-Call-Center history.",
+      "risk": "Call Center attempts, locks, notes, service-date history, and audits in the explicitly confirmed staging database are deleted when the script runs.",
+      "rollback": {
+        "action": "Restore the deleted staging Call Center history from a database backup; the reset is intentionally not available for production-named or shared databases."
+      }
+    },
     {
       "id": "STS-CC-ATTEMPTS-001",
       "file": "controllers/callAttemptController.js",

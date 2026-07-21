@@ -20,6 +20,7 @@
     "staging:call-center-security": "node scripts/smoke-staging-call-center-security.js",
     "staging:backup-restore-smoke": "node scripts/smoke-staging-backup-restore.js",
     "staging:reset-data": "node scripts/reset-staging-data.js",
+    "staging:reset-call-simulation": "node scripts/reset-staging-call-simulation.js",
     "staging:ui-click-smoke": "node scripts/run-isolated-staging-ui-smoke.js",
     "staging:full-smoke": "node scripts/smoke-staging-full.js",
     "check:public-js": "node scripts/check-public-js.js",

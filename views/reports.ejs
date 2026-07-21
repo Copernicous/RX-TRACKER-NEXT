@@ -392,9 +392,6 @@
                             <div class="col-md-2 d-flex align-items-end gap-2">
                                 <button class="btn btn-primary btn-sm" onclick="ccrPage=1;ccaPage=1;renderCallCenterReports()" title="Search"><i class="fas fa-search"></i></button>
                                 <button class="btn btn-outline-secondary btn-sm" onclick="clearCallCenterFilters()" title="Clear"><i class="fas fa-times"></i></button>
-                                <button class="btn btn-outline-success btn-sm flex-grow-1" id="exportCcCsv"><i class="fas fa-file-csv me-1"></i>CSV</button>
-                                <button class="btn btn-outline-primary btn-sm" id="exportCcXls" title="Export Excel"><i class="fas fa-file-excel"></i></button>
-                                <button class="btn btn-outline-secondary btn-sm" title="Print" id="printCcBtn"><i class="fas fa-print"></i></button>
                             </div>
                         </div>
 
@@ -453,6 +450,33 @@
                             </div>
                         </div>
 
+                        <ul class="nav nav-pills gap-2 mt-3 mb-3 border-bottom pb-3" id="ccReportViewTabs" role="tablist">
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link active" id="ccActivityViewTab" data-bs-toggle="pill" data-bs-target="#ccActivityReportPane" type="button" role="tab" aria-controls="ccActivityReportPane" aria-selected="true">
+                                    <i class="fas fa-users me-1"></i>Patient Activity <span class="badge bg-secondary ms-1" id="ccActivityTabCount">0</span>
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="ccAttemptsViewTab" data-bs-toggle="pill" data-bs-target="#ccAttemptsReportPane" type="button" role="tab" aria-controls="ccAttemptsReportPane" aria-selected="false">
+                                    <i class="fas fa-phone-volume me-1"></i>Call Attempts <span class="badge bg-secondary ms-1" id="ccAttemptsTabCount">0</span>
+                                </button>
+                            </li>
+                        </ul>
+
+                        <div class="tab-content" id="ccReportViewContent">
+                        <div class="tab-pane fade show active" id="ccActivityReportPane" role="tabpanel" aria-labelledby="ccActivityViewTab" tabindex="0">
+                        <div class="d-flex flex-wrap align-items-start justify-content-between gap-2 mb-2">
+                            <div>
+                                <h5 class="mb-1"><i class="fas fa-users me-2 text-primary"></i>Patient Activity Summary</h5>
+                                <div class="small text-muted">One row per patient with Called, repeat-call, service-date, and note totals.</div>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-outline-success btn-sm" id="exportCcCsv"><i class="fas fa-file-csv me-1"></i>CSV</button>
+                                <button class="btn btn-outline-primary btn-sm" id="exportCcXls" title="Export Excel"><i class="fas fa-file-excel me-1"></i>Excel</button>
+                                <button class="btn btn-outline-secondary btn-sm" title="Print" id="printCcBtn"><i class="fas fa-print"></i></button>
+                            </div>
+                        </div>
+
                         <div class="d-flex flex-wrap gap-2 my-3" id="ccrMetrics">
                             <div class="cc-report-metric"><div class="small text-muted fw-bold">Patients</div><div class="fs-5 fw-bold" id="ccrMPatients">--</div></div>
                             <div class="cc-report-metric"><div class="small text-muted fw-bold">Calls</div><div class="fs-5 fw-bold" id="ccrMCalls">--</div></div>
@@ -500,8 +524,9 @@
                                 </tbody>
                             </table>
                         </div>
+                        </div>
 
-                        <hr class="my-4">
+                        <div class="tab-pane fade" id="ccAttemptsReportPane" role="tabpanel" aria-labelledby="ccAttemptsViewTab" tabindex="0">
                         <div class="d-flex flex-wrap align-items-start justify-content-between gap-2 mb-2">
                             <div>
                                 <h5 class="mb-1"><i class="fas fa-phone-volume me-2 text-primary"></i>Automatic Call Attempts</h5>
@@ -558,6 +583,8 @@
                                     <tr><td colspan="11" class="text-center text-muted py-4">Loading...</td></tr>
                                 </tbody>
                             </table>
+                        </div>
+                        </div>
                         </div>
                     </div>
                 </div>

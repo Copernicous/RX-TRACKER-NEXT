@@ -446,6 +446,14 @@ async function runAdminDashboardAndReports(fixtures) {
     assert.strictEqual((await page.locator('#ccrMNotes').innerText()).trim(), '1', 'Call Center report filtered note total mismatch.');
     const reportText = await page.locator('#ccReportBody').innerText();
     assert(reportText.includes('Smoke report call center note'), 'Call Center report did not show note history.');
+    pass('Call Center Patient Activity filters and calculators');
+    await page.locator('#ccReportTable th:has-text("Calls")').click();
+    pass('Call Center Patient Activity sorting click');
+    await expectDownload(page, '#exportCcCsv', 'Call Center Patient Activity CSV export');
+    await expectDownload(page, '#exportCcXls', 'Call Center Patient Activity Excel export');
+
+    await page.locator('#ccReportBody .cc-open-attempts').first().click();
+    await expectVisible(page, '#ccAttemptsReportPane.active.show', 'Call Attempts report view visible');
     await page.waitForFunction((code) => {
         const body = document.querySelector('#ccAttemptReportBody');
         return body && body.textContent.indexOf(code) !== -1;
@@ -453,13 +461,11 @@ async function runAdminDashboardAndReports(fixtures) {
     assert.strictEqual((await page.locator('#ccaMAttempts').innerText()).trim(), '1', 'Automatic attempt total mismatch.');
     assert.strictEqual((await page.locator('#ccaMAnswered').innerText()).trim(), '1', 'Automatic answered total mismatch.');
     assert((await page.locator('#ccAttemptReportBody').innerText()).includes('200 — OK'), 'Automatic attempt SIP result was not rendered.');
-    pass('Call Center Report filters and calculators');
-    await page.locator('#ccReportTable th:has-text("Calls")').click();
-    pass('Call Center Report sorting click');
-    await expectDownload(page, '#exportCcCsv', 'Call Center Report CSV export');
-    await expectDownload(page, '#exportCcXls', 'Call Center Report Excel export');
+    pass('Call Center Call Attempts filters and calculators');
     await expectDownload(page, '#exportCcAttemptsCsv', 'Call attempt CSV export');
     await expectDownload(page, '#exportCcAttemptsXls', 'Call attempt Excel export');
+    await page.locator('#ccAttemptReportBody .cc-open-activity').first().click();
+    await expectVisible(page, '#ccActivityReportPane.active.show', 'Patient Activity report return link');
 
     assertNoBrowserErrors('admin dashboard/report flow');
     await context.close();

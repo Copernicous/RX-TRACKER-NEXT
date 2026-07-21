@@ -640,6 +640,7 @@
         totals = totals || {};
         const set = (id, value) => { const el = document.getElementById(id); if (el) el.textContent = value; };
         set('ccrMPatients', totals.patients || 0);
+        set('ccActivityTabCount', totals.patients || 0);
         set('ccrMCalls', totals.calls || 0);
         set('ccrMRepeats', totals.repeatCalls || 0);
         set('ccrMDates', totals.serviceDates || 0);
@@ -675,6 +676,9 @@
             let html = '';
             data.forEach(function(row) {
                 const name = ((row.firstName || '') + ' ' + (row.lastName || '')).trim() || '-';
+                const attemptsButton = row.patientCode
+                    ? '<button type="button" class="btn btn-outline-primary btn-sm mt-2 cc-open-attempts" data-patient-code="' + escHtml(row.patientCode) + '"><i class="fas fa-phone-volume me-1"></i>View attempts</button>'
+                    : '';
                 html += '<tr>' +
                     '<td><span class="badge bg-primary">' + escHtml(row.patientCode || '') + '</span></td>' +
                     '<td><div class="fw-semibold">' + escHtml(name) + '</div><small class="text-muted">' + escHtml(row.status || '') + '</small></td>' +
@@ -687,10 +691,15 @@
                     '<td class="text-end">' + (row.serviceDates || 0) + '</td>' +
                     '<td class="text-end">' + (row.notes || 0) + '</td>' +
                     '<td><div>' + escHtml(formatCcDateTime(row.lastActionAt)) + '</div><small class="text-muted">' + escHtml(row.lastActionBy || '') + '</small></td>' +
-                    '<td class="cc-history-cell">' + ccMiniHistory(row) + '</td>' +
+                    '<td class="cc-history-cell">' + ccMiniHistory(row) + attemptsButton + '</td>' +
                 '</tr>';
             });
             tbody.innerHTML = html;
+            tbody.querySelectorAll('.cc-open-attempts').forEach(function(button) {
+                button.addEventListener('click', function() {
+                    openPatientCallAttempts(button.getAttribute('data-patient-code') || '');
+                });
+            });
             if (countEl) countEl.textContent = 'Showing ' + (startIndex + 1) + '-' + endIndex + ' of ' + totalRecords;
             renderReportPager('ccrPagNav', ccrPage, totalPages, function(page) {
                 ccrPage = page;
@@ -740,6 +749,7 @@
         totals = totals || {};
         var set = function(id, value) { var el = document.getElementById(id); if (el) el.textContent = value; };
         set('ccaMAttempts', totals.attempts || 0);
+        set('ccAttemptsTabCount', totals.attempts || 0);
         set('ccaMAnswered', totals.answered || 0);
         set('ccaMUnanswered', totals.unanswered || 0);
         set('ccaMAnswerRate', (totals.answerRate || 0) + '%');
@@ -774,10 +784,14 @@
             var html = '';
             data.forEach(function(row) {
                 var patientLabel = row.patientName || 'Deleted patient';
+                var patientCode = row.patientCode || '';
+                var patientReference = patientCode
+                    ? '<button type="button" class="btn btn-link btn-sm p-0 text-decoration-none cc-open-activity" data-patient-code="' + escHtml(patientCode) + '">' + escHtml(patientCode) + '</button>'
+                    : '<span class="text-muted">Historical record</span>';
                 var sip = row.sipResponseCode ? String(row.sipResponseCode) : '';
                 if (row.sipReason) sip += (sip ? ' — ' : '') + row.sipReason;
                 html += '<tr>' +
-                    '<td><div class="fw-semibold">' + escHtml(patientLabel) + '</div><small class="text-muted">' + escHtml(row.patientCode || 'Historical record') + (row.clinicName ? ' · ' + escHtml(row.clinicName) : '') + '</small></td>' +
+                    '<td><div class="fw-semibold">' + escHtml(patientLabel) + '</div><small>' + patientReference + (row.clinicName ? '<span class="text-muted"> · ' + escHtml(row.clinicName) + '</span>' : '') + '</small></td>' +
                     '<td><div>' + escHtml(row.agentName || '-') + '</div><small class="text-muted">Ext. ' + escHtml(row.extension || '-') + '</small></td>' +
                     '<td><div class="fw-semibold">' + escHtml(row.dialedNumber || '-') + '</div><small class="text-muted">' + escHtml(row.phoneClient || '') + '</small></td>' +
                     '<td>' + callAttemptOutcomeBadge(row) + '</td>' +
@@ -791,6 +805,11 @@
                 '</tr>';
             });
             tbody.innerHTML = html;
+            tbody.querySelectorAll('.cc-open-activity').forEach(function(button) {
+                button.addEventListener('click', function() {
+                    openPatientActivity(button.getAttribute('data-patient-code') || '');
+                });
+            });
             if (countEl) countEl.textContent = 'Showing ' + (startIndex + 1) + '-' + endIndex + ' of ' + totalRecords;
             renderReportPager('ccaPagNav', ccaPage, totalPages, function(page) {
                 ccaPage = page;
@@ -802,6 +821,32 @@
             if (navEl) navEl.innerHTML = '';
             console.error('Call attempt report load error:', err);
         });
+    }
+
+    function showCallCenterReportView(triggerId) {
+        var trigger = document.getElementById(triggerId);
+        if (!trigger) return;
+        if (window.bootstrap && bootstrap.Tab) {
+            bootstrap.Tab.getOrCreateInstance(trigger).show();
+            return;
+        }
+        trigger.click();
+    }
+
+    function openPatientCallAttempts(patientCode) {
+        var input = document.getElementById('ccrPatientCode');
+        if (input) input.value = patientCode;
+        ccaPage = 1;
+        showCallCenterReportView('ccAttemptsViewTab');
+        renderCallAttemptReport();
+    }
+
+    function openPatientActivity(patientCode) {
+        var input = document.getElementById('ccrPatientCode');
+        if (input) input.value = patientCode;
+        ccrPage = 1;
+        showCallCenterReportView('ccActivityViewTab');
+        renderCallCenterReport();
     }
 
     function sortCallCenterReport(col) {
@@ -829,6 +874,8 @@
 
     window.sortCallCenterReport = sortCallCenterReport;
     window.clearCallCenterFilters = clearCallCenterFilters;
+    window.openPatientCallAttempts = openPatientCallAttempts;
+    window.openPatientActivity = openPatientActivity;
 
     function callCenterHeaders() {
         return [
