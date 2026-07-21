@@ -187,6 +187,7 @@ router.get('/call-center/call-attempts/by-correlation/:correlationId', callCente
 router.patch('/call-center/call-attempts/:id', callCenterController.requireWriteAccess, callAttemptController.updateAttempt);
 router.post('/call-center/patients/:id/claim', callCenterController.requireWriteAccess, callCenterController.claimPatient);
 router.post('/call-center/patients/:id/actions', callCenterController.requireWriteAccess, callCenterController.savePatientAction);
+router.get('/call-center/locks/status', callCenterController.requireAccess, callCenterController.getLockStatuses);
 router.post('/call-center/locks/refresh', callCenterController.requireWriteAccess, callCenterController.refreshLocks);
 router.post('/call-center/locks/release', callCenterController.requireWriteAccess, callCenterController.releaseLocks);
 router.get('/call-center/metrics/queue', callCenterController.requireAccess, callCenterController.getQueueMetrics);

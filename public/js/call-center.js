@@ -19,6 +19,7 @@
             metrics: h('xa-cc-metrics', '/api/call-center/metrics/me'),
             lockRefresh: h('xa-cc-lock-refresh', '/api/call-center/locks/refresh'),
             lockRelease: h('xa-cc-lock-release', '/api/call-center/locks/release'),
+            lockStatus: h('xa-cc-lock-status', '/api/call-center/locks/status'),
             phoneAccount: h('xa-cc-phone-account', '/api/call-center/phone-account'),
             phoneRegistration: h('xa-cc-phone-registration', '/api/call-center/phone-account/registration'),
             callAttempts: h('xa-cc-call-attempts', '/api/call-center/call-attempts')
@@ -27,6 +28,8 @@
 
     var lockedPatientIds = [];
     var lockHeartbeatTimer = null;
+    var lockStatusTimer = null;
+    var lockStatusPromise = null;
     var serviceWindowDays = Number(window.SERVICE_WINDOW_DAYS) || 90;
     var callCenterLeadDays = Number(window.CALL_CENTER_LEAD_DAYS) || 0;
     var rxSoftphoneBaseUrl = 'http://127.0.0.1:5188';
@@ -125,14 +128,100 @@
         return '<div class="cc-phone-wrap">' + phoneHtml +
             '<span class="cc-phone-action-stack">' +
                 '<a class="cc-call-link" data-action="phone-call" data-patient-id="' + esc(row.id) + '" data-dial-number="' + esc(dialNumber) + '" href="callto:' + esc(dialNumber) + '"' +
-                    ' title="' + esc(label) + '" aria-label="' + esc(label) + '">' +
+                    ' data-call-label="' + esc(label) + '" title="' + esc(label) + '" aria-label="' + esc(label) + '">' +
                     '<i class="fas fa-phone-alt" aria-hidden="true"></i>' +
                 '</a>' +
                 '<button type="button" class="cc-row-hangup d-none" data-action="phone-hangup" data-patient-id="' + esc(row.id) + '" title="Hang up this call" aria-label="Hang up this call">' +
                     '<i class="fas fa-phone-slash" aria-hidden="true"></i>' +
                 '</button>' +
             '</span>' +
+            '<small class="cc-phone-lock-status" data-lock-label-for="' + esc(row.id) + '" aria-live="polite"></small>' +
         '</div>';
+    }
+
+    function displayedPatientIds() {
+        var links = document.querySelectorAll('[data-action="phone-call"][data-patient-id]');
+        var ids = [];
+        for (var i = 0; i < links.length; i++) {
+            var id = parseInt(links[i].getAttribute('data-patient-id'), 10);
+            if (Number.isFinite(id) && ids.indexOf(id) === -1) ids.push(id);
+        }
+        return ids;
+    }
+
+    function applyPhoneAvailability(statuses) {
+        var statusByPatient = {};
+        for (var i = 0; i < (statuses || []).length; i++) {
+            var item = statuses[i] || {};
+            statusByPatient[String(item.patientId)] = item;
+        }
+
+        var links = document.querySelectorAll('[data-action="phone-call"][data-patient-id]');
+        for (var j = 0; j < links.length; j++) {
+            var link = links[j];
+            var patientId = link.getAttribute('data-patient-id');
+            var status = statusByPatient[patientId] || { status: 'available' };
+            var stateName = status.status === 'active' || status.status === 'cooldown'
+                ? status.status
+                : 'available';
+            var owner = status.mine ? 'You' : (status.user || 'Another user');
+            var baseLabel = link.getAttribute('data-call-label') || 'Call patient';
+            var label = link.closest('.cc-phone-wrap').querySelector('[data-lock-label-for="' + patientId + '"]');
+
+            link.classList.remove('cc-availability-active', 'cc-availability-cooldown');
+            link.setAttribute('data-lock-status', stateName);
+            link.removeAttribute('aria-disabled');
+            link.removeAttribute('data-lock-message');
+            if (label) {
+                label.className = 'cc-phone-lock-status';
+                label.textContent = '';
+                label.title = '';
+            }
+
+            if (stateName === 'active') {
+                var activeMessage = 'In use by ' + owner;
+                link.classList.add('cc-availability-active');
+                link.setAttribute('aria-disabled', 'true');
+                link.setAttribute('data-lock-message', activeMessage);
+                link.title = activeMessage;
+                link.setAttribute('aria-label', activeMessage);
+                if (label) {
+                    label.classList.add('visible', 'active');
+                    label.textContent = activeMessage;
+                    label.title = activeMessage;
+                }
+            } else if (stateName === 'cooldown') {
+                var seconds = Math.max(0, Number(status.secondsRemaining) || 0);
+                var cooldownMessage = 'Cooldown: ' + owner + (seconds ? ' · ' + seconds + 's' : '');
+                link.classList.add('cc-availability-cooldown');
+                link.setAttribute('aria-disabled', 'true');
+                link.setAttribute('data-lock-message', cooldownMessage);
+                link.title = cooldownMessage;
+                link.setAttribute('aria-label', cooldownMessage);
+                if (label) {
+                    label.classList.add('visible', 'cooldown');
+                    label.textContent = cooldownMessage;
+                    label.title = cooldownMessage;
+                }
+            } else {
+                link.title = baseLabel;
+                link.setAttribute('aria-label', baseLabel);
+            }
+        }
+    }
+
+    async function refreshPhoneAvailability() {
+        var patientIds = displayedPatientIds();
+        if (!patientIds.length || lockStatusPromise) return lockStatusPromise;
+        lockStatusPromise = fetchWithAuth(api.lockStatus + '?patientIds=' + encodeURIComponent(patientIds.join(',')), { silent: true })
+            .then(async function(res) {
+                if (!res || !res.ok) return;
+                var data = await res.json();
+                applyPhoneAvailability(data.statuses || []);
+            })
+            .catch(function() {})
+            .finally(function() { lockStatusPromise = null; });
+        return lockStatusPromise;
     }
 
     function setText(id, value) {
@@ -670,6 +759,11 @@
     }
 
     async function startPhoneCall(link) {
+        if (link.getAttribute('aria-disabled') === 'true') {
+            toast(link.getAttribute('data-lock-message') || 'This phone is not available yet.', 'warning');
+            refreshPhoneAvailability();
+            return;
+        }
         var dialNumber = link.getAttribute('data-dial-number') || '';
         var patientId = parseInt(link.getAttribute('data-patient-id'), 10);
         if (!dialNumber) return;
@@ -852,6 +946,7 @@
                 if (lockedPatientIds.indexOf(id) === -1) {
                     lockedPatientIds.push(id);
                 }
+                refreshPhoneAvailability();
                 return true;
             }
             if (res && res.status === 401) {
@@ -869,6 +964,7 @@
             var lock = data && data.lock ? (' by ' + (data.lock.user || 'another user')) : '';
             var claimError = data && (data.error || data.message) ? (data.error || data.message) : 'This patient is already claimed';
             toast(claimError + lock + '.', 'warning');
+            refreshPhoneAvailability();
             return false;
         } catch (err) {
             toast('Could not claim patient. Try refreshing.', 'warning');
@@ -964,6 +1060,7 @@
         }
         tbody.innerHTML = html;
         renderPhoneClientStatus();
+        refreshPhoneAvailability();
     }
 
     function resizeRowNote(textarea) {
@@ -1285,8 +1382,10 @@
         loadMetrics();
         loadPatients();
         lockHeartbeatTimer = setInterval(refreshCurrentLocks, 30000);
+        lockStatusTimer = setInterval(refreshPhoneAvailability, 1000);
         window.addEventListener('beforeunload', function() {
             if (rxPhone.monitorTimer) clearInterval(rxPhone.monitorTimer);
+            if (lockStatusTimer) clearInterval(lockStatusTimer);
             if (!lockedPatientIds.length) return;
             try {
                 fetch(api.lockRelease, {

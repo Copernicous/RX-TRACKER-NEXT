@@ -7,6 +7,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+### Added
+
+- Added live Call Center phone availability without reloading the roster: green means callable, red identifies the agent with an active call, and amber identifies the agent holding the short cooldown with the remaining seconds. Claimed patients remain visible, while the server still rejects simultaneous claims for the same patient.
+
+**Database impact:** None.
+
 ## [3.2.0] - 2026-07-20
 
 ### Added

@@ -1,7 +1,7 @@
 {
   "environment": "staging",
   "manifestVersion": "staging-impl-v1",
-  "implementationVersion": "3.2.0-staging-2026.07.20.04",
+  "implementationVersion": "3.2.0-staging-2026.07.20.05",
   "effectiveFrom": "2026-07-20T21:55:00-04:00",
   "appliesTo": "APP_ENV/APP_INSTANCE contains 'staging' or 'stage'",
   "status": "active",
@@ -14,6 +14,17 @@
     ]
   },
   "implementations": [
+    {
+      "id": "STS-CC-AVAILABILITY-001",
+      "file": "controllers/callCenterController.js, routes/apiRoutes.js, public/js/call-center.js, views/call-center.ejs",
+      "component": "Call Center phone availability",
+      "summary": "Keep claimed patients visible and refresh only their phone availability without reloading the roster.",
+      "effect": "The phone icon is green when callable, red during an active call, and amber during the configured cooldown; red and amber states identify the claiming agent and amber shows the remaining seconds.",
+      "risk": "MicroSIP cannot report native call state, so its claim appears as cooldown for the configured inactive timeout.",
+      "rollback": {
+        "action": "Remove the lock-status endpoint and status poll, then restore filtering of locks held by other agents from the queue response."
+      }
+    },
     {
       "id": "STS-CC-CLAIMS-002",
       "file": "controllers/callCenterController.js, public/js/call-center.js",

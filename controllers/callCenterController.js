@@ -16,6 +16,7 @@ const {
 const sessionIdleService = require('../services/sessionIdleService');
 const { getServiceWindowDays, getCallCenterLeadDays, getCallCenterPhoneClient } = require('../utils/globalSettings');
 const {
+    ACTIVE_CALL_STATES,
     makeCallCenterClaimExpiresAt,
     refreshOwnedCallCenterClaim
 } = require('../services/callCenterClaimService');
@@ -135,28 +136,6 @@ function getUserLabel(user) {
     const last = user.lastName || '';
     const full = `${first} ${last}`.trim();
     return full || user.username || `User ${user.id}`;
-}
-
-function isQueueWorker(user) {
-    const role = normalizeRoleName(user);
-    if (role === 'administrator' || role === 'supervisor') return false;
-    if (role === 'call center') return true;
-    const p = user && user.permissions && user.permissions.call_center;
-    return !!(p && p.canAdd);
-}
-
-function lockHolderToUser(lock) {
-    const plain = lock && typeof lock.toJSON === 'function' ? lock.toJSON() : lock;
-    const holder = plain && plain.User ? plain.User : null;
-    if (!holder) return null;
-    return {
-        id: holder.id,
-        username: holder.username,
-        firstName: holder.firstName,
-        lastName: holder.lastName,
-        role: holder.Role ? holder.Role.name : holder.role,
-        permissions: holder.Role ? holder.Role.permissions : holder.permissions
-    };
 }
 
 function requestIp(req) {
@@ -295,13 +274,11 @@ async function getActiveLockedPatientIds(excludeUserId) {
             model: db.User,
             as: 'User',
             attributes: ['id', 'username', 'firstName', 'lastName'],
-            required: false,
-            include: [{ model: db.Role, attributes: ['name', 'permissions'], required: false }]
+            required: false
         }]
     });
     const set = new Set();
     locks.forEach((lock) => {
-        if (!isQueueWorker(lockHolderToUser(lock))) return;
         const id = parseInt(lock.patientId, 10);
         if (Number.isFinite(id)) set.add(id);
     });
@@ -335,15 +312,12 @@ async function acquireCallCenterLock(patientId, req, options) {
             }],
             transaction
         });
-        const holderIsQueueWorker = isQueueWorker(lockHolderToUser(withUser || lock));
-        if (holderIsQueueWorker) {
-            return {
-                ok: false,
-                status: 409,
-                error: 'This patient is already claimed by another Call Center user.',
-                lock: serializeLock(withUser || lock)
-            };
-        }
+        return {
+            ok: false,
+            status: 409,
+            error: 'This patient is already claimed by another Call Center user.',
+            lock: serializeLock(withUser || lock)
+        };
     }
 
     if (lock) {
@@ -624,6 +598,66 @@ exports.releaseLocks = async (req, res) => {
     }
 };
 
+exports.getLockStatuses = async (req, res) => {
+    try {
+        const rawPatientIds = req.query && req.query.patientIds;
+        const patientIds = parsePatientIds(Array.isArray(rawPatientIds)
+            ? rawPatientIds
+            : String(rawPatientIds || '').split(','))
+            .slice(0, 100);
+        if (!patientIds.length) return res.json({ statuses: [] });
+
+        const now = new Date();
+        const locks = await db.CallCenterLock.findAll({
+            where: {
+                patientId: { [Op.in]: patientIds },
+                expiresAt: { [Op.gt]: now }
+            },
+            attributes: ['patientId', 'userId', 'lockedAt', 'expiresAt'],
+            include: [{
+                model: db.User,
+                as: 'User',
+                attributes: ['id', 'username', 'firstName', 'lastName'],
+                required: false
+            }]
+        });
+
+        const activeAttempts = locks.length
+            ? await db.CallCenterCallAttempt.findAll({
+                where: {
+                    patientId: { [Op.in]: locks.map((lock) => lock.patientId) },
+                    state: { [Op.in]: ACTIVE_CALL_STATES },
+                    endedAt: null
+                },
+                attributes: ['patientId', 'userId', 'state', 'dialedAt'],
+                order: [['dialedAt', 'DESC']]
+            })
+            : [];
+        const activeKeys = new Set(activeAttempts.map((attempt) =>
+            `${attempt.patientId}:${attempt.userId}`
+        ));
+        const requestUserId = normalizeNumericId(req.user && req.user.id);
+        const statuses = locks.map((lock) => {
+            const expiresAt = new Date(lock.expiresAt);
+            const active = activeKeys.has(`${lock.patientId}:${lock.userId}`);
+            return {
+                patientId: lock.patientId,
+                status: active ? 'active' : 'cooldown',
+                userId: lock.userId,
+                user: getUserLabel(lock.User),
+                mine: normalizeNumericId(lock.userId) === requestUserId,
+                expiresAt: lock.expiresAt,
+                secondsRemaining: Math.max(0, Math.ceil((expiresAt.getTime() - now.getTime()) / 1000))
+            };
+        });
+        if (typeof res.set === 'function') res.set('Cache-Control', 'no-store');
+        res.json({ statuses });
+    } catch (err) {
+        console.error('[Call Center] getLockStatuses error:', err);
+        res.status(500).json({ error: 'Could not load phone availability.' });
+    }
+};
+
 exports.listPatients = async (req, res) => {
     try {
         const view = String((req.query && req.query.view) || 'queue').trim().toLowerCase();
@@ -644,13 +678,8 @@ exports.listPatients = async (req, res) => {
             order: [['serviceDate', 'ASC'], ['lastName', 'ASC'], ['firstName', 'ASC'], ['id', 'ASC']]
         });
 
-        const shouldRespectClaims = isQueueWorker(req.user);
-        const lockedByOthers = shouldRespectClaims
-            ? await getActiveLockedPatientIds(req.user && req.user.id)
-            : new Set();
         let filtered = rows.filter((row) =>
             isEligiblePatient(row) &&
-            !lockedByOthers.has(row.id) &&
             patientMatchesSearch(row, q)
         );
         const sortHistory = ['callCount', 'lastCall'].includes(sortConfig.sort)

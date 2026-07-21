@@ -183,8 +183,9 @@
             overflow-wrap: anywhere;
         }
         .cc-phone-wrap {
-            display: inline-flex;
-            align-items: flex-start;
+            display: inline-grid;
+            grid-template-columns: auto 32px;
+            align-items: center;
             gap: 7px;
             white-space: nowrap;
         }
@@ -225,6 +226,46 @@
             color: var(--text-muted);
             cursor: not-allowed;
             opacity: .55;
+        }
+        .cc-call-link.cc-availability-active {
+            border-color: #dc3545;
+            background: rgba(220, 53, 69, .14);
+            color: #dc3545;
+            cursor: not-allowed;
+        }
+        .cc-call-link.cc-availability-cooldown {
+            border-color: #f59f00;
+            background: rgba(245, 159, 0, .16);
+            color: #b26a00;
+            cursor: wait;
+        }
+        .cc-call-link.cc-availability-active:hover,
+        .cc-call-link.cc-availability-active:focus-visible,
+        .cc-call-link.cc-availability-cooldown:hover,
+        .cc-call-link.cc-availability-cooldown:focus-visible {
+            color: inherit;
+            transform: none;
+        }
+        .cc-phone-lock-status {
+            display: none;
+            grid-column: 1 / -1;
+            max-width: 145px;
+            margin-top: -4px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            color: var(--text-muted);
+            font-size: .66rem;
+            font-weight: 800;
+            line-height: 1.2;
+        }
+        .cc-phone-lock-status.visible {
+            display: block;
+        }
+        .cc-phone-lock-status.active {
+            color: #dc3545;
+        }
+        .cc-phone-lock-status.cooldown {
+            color: #b26a00;
         }
         .cc-row-hangup {
             width: 28px;
@@ -294,6 +335,11 @@
             background: #198754;
             color: #fff;
             animation: cc-phone-pulse 1.25s infinite;
+        }
+        .cc-call-link.cc-availability-active.is-calling {
+            border-color: #dc3545;
+            background: #dc3545;
+            color: #fff;
         }
         @keyframes cc-phone-pulse {
             50% { box-shadow: 0 0 0 6px rgba(25, 135, 84, .12); }
@@ -614,6 +660,7 @@
     <a id="xa-cc-metrics" href="/api/call-center/metrics/queue"></a>
     <a id="xa-cc-lock-refresh" href="/api/call-center/locks/refresh"></a>
     <a id="xa-cc-lock-release" href="/api/call-center/locks/release"></a>
+    <a id="xa-cc-lock-status" href="/api/call-center/locks/status"></a>
     <a id="xa-cc-phone-account" href="/api/call-center/phone-account"></a>
     <a id="xa-cc-phone-registration" href="/api/call-center/phone-account/registration"></a>
     <a id="xa-cc-call-attempts" href="/api/call-center/call-attempts"></a>
