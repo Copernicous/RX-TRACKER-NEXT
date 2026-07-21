@@ -14,6 +14,17 @@ The Windows computer needs:
 
 For the local PBX test, the computer must reach `192.168.15.200` on UDP `5060` and the RTP range configured in Asterisk. An Internet-only remote computer needs the approved VPN/private route, or a public provider/PBX address configured for NAT and firewall traversal.
 
+### Private PBX connectivity
+
+Keep the PBX private. Use one of these approved routed-network approaches on the physical Windows computer:
+
+- **Recommended — FortiClient VPN:** connect the Windows computer to a FortiGate tunnel-mode VPN. The VPN policy and split routes must include `192.168.15.200` and the Asterisk RTP range. The FortiGate browser-only SSL-VPN portal is not sufficient because it does not provide the Windows softphone with a routed UDP path.
+- **Cloudflare — Mesh/subnet routing:** use Cloudflare Mesh with a subnet router for the PBX network and enroll the Windows computer in the Cloudflare One Client. A normal proxied hostname or outbound `cloudflared` Tunnel can carry the RX Tracker website and relay commands, but Cloudflare documents that ordinary Tunnel does not support server-initiated VoIP/SIP.
+
+Do not publish SIP UDP `5060` directly to the Internet solely for this integration. Whichever private tunnel is selected must carry bidirectional SIP and RTP traffic and allow the PBX to return media to the Windows computer.
+
+References: [Cloudflare connectivity options](https://developers.cloudflare.com/cloudflare-one/networks/connectivity-options/) and [Cloudflare private networks](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/private-net/).
+
 ## 2. Install and start RX Softphone
 
 1. Create a permanent folder such as `C:\RX-Softphone`.

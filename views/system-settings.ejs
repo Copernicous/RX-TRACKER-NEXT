@@ -957,15 +957,15 @@
                                     <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#sp3">3. Approved remote-access methods</button>
                                     <div id="sp3" class="accordion-collapse collapse" data-bs-parent="#accSoftphone">
                                         <div class="accordion-body small text-muted">
-                                            <p><strong>Cloudflare Zero Trust:</strong> the physical Windows computer must use the approved Zero Trust/WARP private-network route. That route must provide access to RX Tracker and to the private Asterisk SIP/RTP addresses. Opening only the Cloudflare-proxied web page or Kasm session does not give the Windows softphone a route to the PBX.</p>
-                                            <p class="mb-0"><strong>FortiGate VPN:</strong> connect the physical Windows computer to the approved VPN, then use the private RX Tracker address. Staging example: <code>http://192.168.15.87:3100</code>. The VPN must also route the PBX at <code>192.168.15.200</code>, SIP UDP port <code>5060</code>, and the configured RTP/audio port range.</p>
+                                            <p><strong>Cloudflare Zero Trust:</strong> the normal proxied website and outbound <code>cloudflared</code> Tunnel carry RX Tracker and relay commands, but ordinary Tunnel does not support server-initiated VoIP/SIP. A private PBX requires Cloudflare Mesh/subnet routing on the physical Windows computer, or a separate routed VPN.</p>
+                                            <p class="mb-0"><strong>FortiGate VPN (recommended):</strong> connect the physical Windows computer with FortiClient tunnel mode, not only the browser SSL-VPN portal. The VPN policy and split routes must include the PBX at <code>192.168.15.200</code>, SIP UDP port <code>5060</code>, and the configured RTP/audio port range.</p>
                                         </div>
                                     </div>
                                 </div>
                                 <div class="accordion-item border-0 mb-1" style="background:var(--bg-subtle,#f8fafc);border-radius:8px;overflow:hidden">
                                     <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#sp4">4. What the relay does and does not carry</button>
                                     <div id="sp4" class="accordion-collapse collapse" data-bs-parent="#accSoftphone">
-                                        <div class="accordion-body small text-muted">The outbound relay carries dial, hang-up, registration state, and call-status commands between RX Tracker and the Windows application. <strong>SIP registration and audio do not pass through the web relay</strong>; they travel directly between the physical Windows computer and Asterisk over the approved Cloudflare private-network route or FortiGate VPN.</div>
+                                        <div class="accordion-body small text-muted">The outbound relay carries dial, hang-up, registration state, and call-status commands between RX Tracker and the Windows application. <strong>SIP registration and audio do not pass through the web relay</strong>; they travel directly between the physical Windows computer and Asterisk over FortiClient VPN, Cloudflare Mesh/subnet routing, or another approved bidirectional private tunnel.</div>
                                     </div>
                                 </div>
                                 <div class="accordion-item border-0 mb-1" style="background:var(--bg-subtle,#f8fafc);border-radius:8px;overflow:hidden">
@@ -988,7 +988,7 @@
                                                 <li class="mb-2"><strong>No Pair Windows phone button:</strong> hard-refresh Call Center or open it in a new tab.</li>
                                                 <li class="mb-2"><strong>Pairing code cannot be generated:</strong> assign a phone account to the signed-in user first.</li>
                                                 <li class="mb-2"><strong>Relay online but Call Center is offline:</strong> verify that Call Center is signed in as the same RX Tracker user that generated the code.</li>
-                                                <li class="mb-2"><strong>Relay online but SIP is not registered:</strong> verify the Cloudflare private route or FortiGate VPN, then verify the user's PBX address, extension, and SIP password.</li>
+                                                <li class="mb-2"><strong>Relay online but SIP is not registered:</strong> verify FortiClient tunnel mode or Cloudflare Mesh can route the physical Windows PC to the private PBX, then verify the user's PBX address, extension, and SIP password.</li>
                                                 <li><strong>Local RX Softphone page is unavailable:</strong> start RX Softphone on that Windows computer, then refresh <code>http://127.0.0.1:5188</code>.</li>
                                             </ul>
                                         </div>
