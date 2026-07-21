@@ -38,6 +38,7 @@
         snapshot: null,
         probePromise: null,
         monitorTimer: null,
+        loopbackPermission: 'unknown',
         account: null,
         accountLoaded: false,
         accountPromise: null,
@@ -803,7 +804,9 @@
             // permission prompt for a public HTTPS origin.
             var snapshot = await rxFetch('/api/status');
             rxPhone.reachable = true;
+            rxPhone.loopbackPermission = 'granted';
             handleRxSnapshot(snapshot);
+            startRxPhonePolling();
             return snapshot;
         } catch (err) {
             rxPhone.reachable = false;
@@ -813,7 +816,35 @@
         }
     }
 
-    function configurePhoneMonitor() {
+    function isPublicHttpsPage() {
+        if (window.location.protocol !== 'https:') return false;
+        var host = String(window.location.hostname || '').toLowerCase();
+        if (host === 'localhost' || host === '::1' || /^127\./.test(host)) return false;
+        if (/^10\./.test(host) || /^192\.168\./.test(host)) return false;
+        var private172 = host.match(/^172\.(\d{1,3})\./);
+        if (private172 && Number(private172[1]) >= 16 && Number(private172[1]) <= 31) return false;
+        return true;
+    }
+
+    async function readLoopbackPermission() {
+        if (!isPublicHttpsPage()) return 'not-required';
+        if (!navigator.permissions || typeof navigator.permissions.query !== 'function') return 'unsupported';
+        try {
+            var permission = await navigator.permissions.query({ name: 'loopback-network' });
+            return permission && permission.state ? permission.state : 'prompt';
+        } catch (_) {
+            // Browsers released before the split loopback permission do not know
+            // this descriptor and should continue using the existing probe path.
+            return 'unsupported';
+        }
+    }
+
+    function startRxPhonePolling() {
+        if (state.phoneClient === 'microsip' || rxPhone.monitorTimer) return;
+        rxPhone.monitorTimer = setInterval(probeRxPhone, 1200);
+    }
+
+    async function configurePhoneMonitor() {
         if (rxPhone.monitorTimer) {
             clearInterval(rxPhone.monitorTimer);
             rxPhone.monitorTimer = null;
@@ -822,10 +853,17 @@
         if (state.phoneClient === 'microsip') return;
         rxPhone.autoRegistrationAttempted = false;
         rxPhone.suppressAutoRegistration = false;
+        rxPhone.loopbackPermission = await readLoopbackPermission();
+        if (rxPhone.loopbackPermission === 'prompt' || rxPhone.loopbackPermission === 'denied') {
+            // A public HTTPS page must not consume Chrome's loopback permission
+            // request from an automatic poll. The phone click below supplies the
+            // user gesture that Chrome can associate with its permission prompt.
+            return;
+        }
         probeRxPhone().then(function() {
             connectAssignedPhone(false, false);
         });
-        rxPhone.monitorTimer = setInterval(probeRxPhone, 1200);
+        startRxPhonePolling();
     }
 
     function openMicroSip(dialNumber, fallback, patientId) {
