@@ -579,13 +579,41 @@ exports.claimPatient = async (req, res) => {
 
 exports.refreshLocks = async (req, res) => {
     try {
+        const userId = normalizeNumericId(req.user && req.user.id);
+        if (!userId) return res.status(401).json({ error: 'Unauthorized.' });
         const patientIds = parsePatientIds((req.body && req.body.patientIds) || []);
         const refreshed = [];
         const conflicts = [];
         for (const patientId of patientIds) {
-            const claim = await acquireCallCenterLock(patientId, req);
-            if (claim.ok) refreshed.push(patientId);
-            else conflicts.push({ patientId, lock: claim.lock || null, error: claim.error });
+            const [updated] = await db.CallCenterLock.update({
+                expiresAt: makeLockExpiresAt()
+            }, {
+                where: {
+                    patientId,
+                    userId,
+                    expiresAt: { [Op.gt]: new Date() }
+                }
+            });
+            if (updated) {
+                refreshed.push(patientId);
+                continue;
+            }
+            const lock = await db.CallCenterLock.findOne({
+                where: { patientId },
+                include: [{
+                    model: db.User,
+                    as: 'User',
+                    attributes: ['id', 'firstName', 'lastName', 'username'],
+                    required: false
+                }]
+            });
+            conflicts.push({
+                patientId,
+                lock: serializeLock(lock),
+                error: lock && new Date(lock.expiresAt) > new Date()
+                    ? 'This patient is already claimed by another Call Center user.'
+                    : 'This patient claim is no longer active. Click the phone icon to claim it again.'
+            });
         }
         res.json({ ok: true, refreshed, conflicts });
     } catch (err) {

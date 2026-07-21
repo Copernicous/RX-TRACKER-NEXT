@@ -202,6 +202,16 @@ async function main() {
         }, secondReleaseRes);
         assert.strictEqual(secondReleaseRes.statusCode, 200, 'Second agent lock release failed.');
 
+        const heartbeatWithoutClaimRes = makeRes();
+        await callCenterController.refreshLocks({
+            body: { patientIds: [patient.id] },
+            user: { id: callCenterUser.id, role: 'Call Center' }
+        }, heartbeatWithoutClaimRes);
+        assert.strictEqual(heartbeatWithoutClaimRes.statusCode, 200, 'Claim heartbeat request failed.');
+        assert.deepStrictEqual(heartbeatWithoutClaimRes.body.refreshed, [], 'A heartbeat must not create a patient claim.');
+        assert.strictEqual(heartbeatWithoutClaimRes.body.conflicts.length, 1, 'Missing claim heartbeat should tell the browser to stop refreshing it.');
+        assert.strictEqual(await db.CallCenterLock.count({ where: { patientId: patient.id } }), 0, 'A heartbeat without a phone-click claim must leave the patient unlocked.');
+
         const adminReviewRes = makeRes();
         await callCenterController.listPatients({
             query: { q: patient.lastName, page: 1, pageSize: 10 },

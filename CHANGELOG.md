@@ -15,7 +15,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 - Added automatic **Called** recording when RX Softphone reports that the remote party answered. Unanswered attempts remain in analytics but do not mark the patient Called. The roster Save action is now reserved for notes and new service dates after an automatically recorded answer.
 - Added administrator Call Center attempt analytics with outcome/agent/extension/date/patient filters, answer-rate and duration metrics, detailed history, pagination, print, and CSV/Excel export.
 - Split the Call Center report into linked **Patient Activity** and **Call Attempts** views under one shared filter bar. Each view keeps its own metrics, pagination, and exports, and patient links switch views while preserving the selected patient filter.
-- Changed Call Center patient claims to begin only when an agent clicks the phone icon. Opening, paging, sorting, searching, or refreshing the roster no longer reserves every displayed patient; an active dial workflow still prevents a second agent from calling the same patient.
+- Changed Call Center patient claims to begin only when an agent clicks the phone icon. Opening, paging, sorting, searching, or refreshing the roster no longer reserves every displayed patient, and heartbeat requests can extend but never create a claim; an active dial workflow still prevents a second agent from calling the same patient.
 - Added an optional server-side `SOFTPHONE_ACCOUNT_ADMIN_PIN` approval gate for phone-account saves. The account remains permanently assigned and registers automatically when the user loads Call Center; the PIN is needed only to save changes.
 
 ### Security

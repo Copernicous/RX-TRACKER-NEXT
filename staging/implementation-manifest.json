@@ -18,7 +18,7 @@
       "id": "STS-CC-CLAIMS-002",
       "file": "controllers/callCenterController.js, public/js/call-center.js",
       "component": "Call Center patient concurrency",
-      "summary": "Acquire a patient claim only when an agent clicks the phone icon instead of claiming every patient displayed on a queue page.",
+      "summary": "Acquire a patient claim only when an agent clicks the phone icon instead of claiming every patient displayed on a queue page; heartbeat requests may extend but never create claims.",
       "effect": "Multiple agents can browse the same queue concurrently while duplicate calls to the same patient remain blocked during an active call workflow.",
       "risk": "A MicroSIP claim remains active until the agent saves, navigates away, refreshes the queue, closes the page, or its ten-minute heartbeat lease expires because MicroSIP does not report call completion.",
       "rollback": {
