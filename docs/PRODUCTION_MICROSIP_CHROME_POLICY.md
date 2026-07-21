@@ -1,4 +1,4 @@
-# Production MicroSIP Chrome policy
+# Call Center MicroSIP and RX Softphone Chrome policy
 
 RX Tracker launches MicroSIP through the `callto:` protocol after an agent clicks the green phone icon. Chrome normally asks the user to confirm before opening an external application.
 
@@ -13,6 +13,8 @@ On dedicated, managed Call Center workstations, Chrome can skip that prompt for 
   - `http://192.168.15.87:3100`
 
 The `192.168.15.x` workstation subnet is not wildcarded. Chrome checks the website origin, so only the known RX Tracker server URLs are allowlisted.
+
+The same installer also sets `LocalNetworkAccessAllowedForUrls` for those exact website origins. This lets current managed Chrome versions connect from RX Tracker to the RX Softphone service on `http://127.0.0.1:5188`. It does not expose the softphone to the LAN: the service remains bound to loopback and independently rejects browser origins outside its own allowlist.
 
 ## Server origin configuration
 
@@ -36,8 +38,8 @@ Restart the application after changing its environment file. The Chrome policy a
 
 4. Restart Chrome.
 5. Open `chrome://policy` and click **Reload policies**.
-6. Confirm that `AutoLaunchProtocolsFromOrigins` has status **OK**.
-7. Open production and test the green phone icon.
+6. Confirm that `AutoLaunchProtocolsFromOrigins` and `LocalNetworkAccessAllowedForUrls` have status **OK**.
+7. Open production or staging and test the green phone icon.
 
 The installer preserves other protocols and origins already present in the Chrome policy. Do not replace the production origins with `*`.
 
@@ -53,7 +55,7 @@ Restart Chrome and reload `chrome://policy` afterward.
 
 ## Central deployment
 
-For multiple managed workstations, deploy the Chrome `AutoLaunchProtocolsFromOrigins` machine policy through Active Directory Group Policy or Chrome Enterprise. Use this policy value:
+For multiple managed workstations, deploy both Chrome machine policies through Active Directory Group Policy or Chrome Enterprise. Use this `AutoLaunchProtocolsFromOrigins` value:
 
 ```json
 [
@@ -68,6 +70,12 @@ For multiple managed workstations, deploy the Chrome `AutoLaunchProtocolsFromOri
     "protocol": "callto"
   }
 ]
+```
+
+Set `LocalNetworkAccessAllowedForUrls` to the same five exact origins. On Windows registry policy, create numbered string values beneath:
+
+```text
+Software\Policies\Google\Chrome\LocalNetworkAccessAllowedForUrls
 ```
 
 The policy must remain limited to the trusted production and testing origins. The user's click on the green phone icon provides the required user gesture.

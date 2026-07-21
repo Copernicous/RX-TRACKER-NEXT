@@ -10,6 +10,8 @@ $ErrorActionPreference = 'Stop'
 
 $policyPath = 'HKLM:\SOFTWARE\Policies\Google\Chrome'
 $policyName = 'AutoLaunchProtocolsFromOrigins'
+$localNetworkPolicyName = 'LocalNetworkAccessAllowedForUrls'
+$localNetworkPolicyPath = Join-Path $policyPath $localNetworkPolicyName
 $targetProtocol = 'callto'
 $targetOrigins = @(
     'http://192.168.15.87:3000',
@@ -36,7 +38,44 @@ function Get-ProtocolPolicyEntries {
     }
 }
 
+function Get-ListPolicyEntries {
+    param([Parameter(Mandatory)][string]$Path)
+
+    if (-not (Test-Path -LiteralPath $Path)) {
+        return @()
+    }
+
+    return @(Get-ItemProperty -LiteralPath $Path).PSObject.Properties |
+        Where-Object { $_.Name -match '^\d+$' } |
+        Sort-Object { [int]$_.Name } |
+        ForEach-Object { [string]$_.Value } |
+        Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+}
+
+function Set-ListPolicyEntries {
+    param(
+        [Parameter(Mandatory)][string]$Path,
+        [Parameter(Mandatory)][AllowEmptyCollection()][string[]]$Values
+    )
+
+    if (Test-Path -LiteralPath $Path) {
+        @(Get-ItemProperty -LiteralPath $Path).PSObject.Properties |
+            Where-Object { $_.Name -match '^\d+$' } |
+            ForEach-Object { Remove-ItemProperty -LiteralPath $Path -Name $_.Name }
+    }
+
+    if ($Values.Count -eq 0) {
+        return
+    }
+
+    New-Item -Path $Path -Force | Out-Null
+    for ($index = 0; $index -lt $Values.Count; $index += 1) {
+        New-ItemProperty -LiteralPath $Path -Name ([string]($index + 1)) -PropertyType String -Value $Values[$index] -Force | Out-Null
+    }
+}
+
 $existingEntries = @(Get-ProtocolPolicyEntries)
+$existingLocalNetworkOrigins = @(Get-ListPolicyEntries -Path $localNetworkPolicyPath)
 $preservedEntries = @($existingEntries | Where-Object {
     -not ([string]$_.protocol -ieq $targetProtocol)
 })
@@ -51,6 +90,14 @@ if ($Remove) {
     } | Sort-Object -Unique)
 } else {
     $calltoOrigins = @($existingCalltoOrigins + $targetOrigins | Sort-Object -Unique)
+}
+
+if ($Remove) {
+    $localNetworkOrigins = @($existingLocalNetworkOrigins | Where-Object {
+        $targetOrigins -notcontains [string]$_
+    } | Sort-Object -Unique)
+} else {
+    $localNetworkOrigins = @($existingLocalNetworkOrigins + $targetOrigins | Sort-Object -Unique)
 }
 
 $updatedEntries = @($preservedEntries)
@@ -71,11 +118,16 @@ if ($updatedEntries.Count -eq 0) {
     New-ItemProperty -LiteralPath $policyPath -Name $policyName -PropertyType String -Value $json -Force | Out-Null
 }
 
+Set-ListPolicyEntries -Path $localNetworkPolicyPath -Values $localNetworkOrigins
+
 if ($Remove) {
     Write-Host "Removed prompt-free MicroSIP launch permission for: $($targetOrigins -join ', ')." -ForegroundColor Yellow
+    Write-Host "Removed RX Softphone local-network permission for the same origins." -ForegroundColor Yellow
 } else {
     Write-Host "Enabled prompt-free MicroSIP launch for: $($targetOrigins -join ', ')." -ForegroundColor Green
+    Write-Host "Enabled RX Softphone local-network permission for the same origins." -ForegroundColor Green
 }
 
 Write-Host 'Restart Chrome, open chrome://policy, and click Reload policies.'
 Write-Host "Verify that $policyName has Status OK."
+Write-Host "Verify that $localNetworkPolicyName has Status OK."

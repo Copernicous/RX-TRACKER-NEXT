@@ -22,6 +22,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 - Kept the RX Softphone API bound to the user's loopback interface; no PBX password or SIP registration request passes through RX Tracker.
 - Allowed the softphone loopback origin only on the Call Center page's `connect-src` policy instead of widening the application-wide policy.
 - RX Softphone 0.2.0 uses an exact browser-origin allowlist for the two production origins, staging/LAN origins, and localhost, with compatible CORS/local-network preflight responses. Unknown origins receive `403`.
+- Extended the managed-workstation Chrome installer with the exact-origin `LocalNetworkAccessAllowedForUrls` policy required for RX Tracker pages to reach the loopback softphone on current Chrome versions.
 - Treated the browser-reported answer as an acknowledgement in audit metadata, not as trusted server-side PBX proof.
 
 ### Testing
