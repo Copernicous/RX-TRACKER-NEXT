@@ -2,17 +2,15 @@
 
 RX Tracker launches MicroSIP through the `callto:` protocol after an agent clicks the green phone icon. Chrome normally asks the user to confirm before opening an external application.
 
-On dedicated, managed Call Center workstations, Chrome can skip that prompt for the exact approved RX Tracker production and local-testing origins:
+On dedicated, managed Call Center workstations, Chrome can skip that prompt for the exact approved RX Tracker production origins:
 
 - Protocol: `callto`
 - Allowed origins:
-  - `https://portal.rbandrc.com`
+  - `https://rx.rbandrc.com`
   - `https://rx.camperos.net:10443`
-  - `http://192.168.62.21:3000`
-  - `http://192.168.15.87:3000`
-  - `http://192.168.15.87:3100`
+  - `http://192.168.60.21:3000`
 
-The `192.168.15.x` workstation subnet is not wildcarded. Chrome checks the website origin, so only the known RX Tracker server URLs are allowlisted.
+Development and staging origins are intentionally excluded. `https://portal.rbandrc.com` is also excluded because RX Tracker runs inside Kasm there; a protocol launch inside Kasm cannot open MicroSIP on the physical Windows host. When installed, the script removes those three legacy entries if an older copy added them.
 
 The same installer also sets Chrome's legacy `LocalNetworkAccessAllowedForUrls` policy and the current `LocalNetworkAllowedForUrls` and `LoopbackNetworkAllowedForUrls` policies for those exact website origins. Chrome 145 and later classify `127.0.0.1` separately as the `loopback` address space, so RX Tracker declares `targetAddressSpace: "loopback"` and the dedicated loopback policy grants access to the RX Softphone service on `http://127.0.0.1:5188`. These policies do not expose the softphone to the LAN: the service remains bound to loopback and independently rejects browser origins outside its own allowlist.
 
@@ -21,7 +19,7 @@ The same installer also sets Chrome's legacy `LocalNetworkAccessAllowedForUrls` 
 Environment files are intentionally excluded from Git. On the second server and production server, configure the application allowlist explicitly:
 
 ```dotenv
-APP_ORIGINS=https://rx.camperos.net:10443,https://portal.rbandrc.com,http://192.168.62.21:3000,http://192.168.15.87:3000,http://localhost:3000
+APP_ORIGINS=https://rx.rbandrc.com,https://rx.camperos.net:10443,https://portal.rbandrc.com,http://192.168.60.21:3000
 ```
 
 Restart the application after changing its environment file. The Chrome policy and the application origin allowlist are separate controls; both must include the browser URL being tested.
@@ -70,10 +68,8 @@ For multiple managed workstations, deploy both Chrome machine policies through A
 [
   {
     "allowed_origins": [
-      "http://192.168.15.87:3000",
-      "http://192.168.15.87:3100",
-      "http://192.168.62.21:3000",
-      "https://portal.rbandrc.com",
+      "http://192.168.60.21:3000",
+      "https://rx.rbandrc.com",
       "https://rx.camperos.net:10443"
     ],
     "protocol": "callto"
@@ -81,7 +77,7 @@ For multiple managed workstations, deploy both Chrome machine policies through A
 ]
 ```
 
-Set all three local-network policies to the same five exact origins. On Windows registry policy, create numbered string values beneath each path:
+Set all three local-network policies to the same three exact direct-browser production origins. On Windows registry policy, create numbered string values beneath each path:
 
 ```text
 Software\Policies\Google\Chrome\LocalNetworkAccessAllowedForUrls

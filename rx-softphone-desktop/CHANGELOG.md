@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.2 - 2026-07-21
+
+- Enabled managed mode by default: RX Tracker supplies the assigned PBX account, while local PBX fields, Register/Unregister, and Remove pairing are locked in both the interface and loopback API.
+- Added client-version and managed-policy reporting so Administrators can identify outdated, unsynchronized, offline, or unregistered workstations in RX Tracker.
+- Deferred account replacement during active calls and held relay dial commands until registration succeeds.
+- Stopped a permanent SIP registration failure from repeatedly using the rejected credential; the client waits for an updated Administrator assignment.
+- Added bounded relay network backoff and automatic local cleanup when an Administrator revokes or replaces the pairing.
+- Preserved local manual dialing, direct SIP/RTP, DPAPI-protected pairing, and the existing 0.4.1 pre-answer cancellation behavior.
+
 ## 0.4.1 - 2026-07-21
 
 - Fixed a local or relay hangup before answer being reported as `failed`; it is now recorded as `cancelled` while retaining the SIP response and ring duration.

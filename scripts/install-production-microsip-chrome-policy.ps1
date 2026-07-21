@@ -17,12 +17,17 @@ $localNetworkPolicyNames = @(
 )
 $targetProtocol = 'callto'
 $targetOrigins = @(
-    'http://192.168.15.87:3000',
-    'http://192.168.15.87:3100',
-    'http://192.168.62.21:3000',
-    'https://portal.rbandrc.com',
+    'http://192.168.60.21:3000',
+    'https://rx.rbandrc.com',
     'https://rx.camperos.net:10443'
 )
+$legacyOriginsToRemove = @(
+    'http://192.168.62.21:3000',
+    'http://192.168.15.87:3000',
+    'http://192.168.15.87:3100',
+    'https://portal.rbandrc.com'
+)
+$managedOrigins = @($targetOrigins + $legacyOriginsToRemove)
 
 function Get-ProtocolPolicyEntries {
     if (-not (Test-Path -LiteralPath $policyPath)) {
@@ -88,10 +93,14 @@ $existingCalltoOrigins = @($existingEntries |
 
 if ($Remove) {
     $calltoOrigins = @($existingCalltoOrigins | Where-Object {
-        $targetOrigins -notcontains [string]$_
+        $managedOrigins -notcontains [string]$_
     } | Sort-Object -Unique)
 } else {
-    $calltoOrigins = @($existingCalltoOrigins + $targetOrigins | Sort-Object -Unique)
+    $calltoOrigins = @(
+        $existingCalltoOrigins |
+            Where-Object { $legacyOriginsToRemove -notcontains [string]$_ }
+    )
+    $calltoOrigins = @($calltoOrigins + $targetOrigins | Sort-Object -Unique)
 }
 
 $updatedEntries = @($preservedEntries)
@@ -117,10 +126,14 @@ foreach ($localNetworkPolicyName in $localNetworkPolicyNames) {
     $existingLocalNetworkOrigins = @(Get-ListPolicyEntries -Path $localNetworkPolicyPath)
     if ($Remove) {
         $localNetworkOrigins = @($existingLocalNetworkOrigins | Where-Object {
-            $targetOrigins -notcontains [string]$_
+            $managedOrigins -notcontains [string]$_
         } | Sort-Object -Unique)
     } else {
-        $localNetworkOrigins = @($existingLocalNetworkOrigins + $targetOrigins | Sort-Object -Unique)
+        $localNetworkOrigins = @(
+            $existingLocalNetworkOrigins |
+                Where-Object { $legacyOriginsToRemove -notcontains [string]$_ }
+        )
+        $localNetworkOrigins = @($localNetworkOrigins + $targetOrigins | Sort-Object -Unique)
     }
     Set-ListPolicyEntries -Path $localNetworkPolicyPath -Values $localNetworkOrigins
 }
@@ -131,6 +144,7 @@ if ($Remove) {
 } else {
     Write-Host "Enabled prompt-free MicroSIP launch for: $($targetOrigins -join ', ')." -ForegroundColor Green
     Write-Host "Enabled RX Softphone local-network permission for the same origins." -ForegroundColor Green
+    Write-Host "Removed legacy development, staging, and Kasm-only origins: $($legacyOriginsToRemove -join ', ')." -ForegroundColor Yellow
 }
 
 Write-Host 'Restart Chrome, open chrome://policy, and click Reload policies.'

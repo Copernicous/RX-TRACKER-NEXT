@@ -1,4 +1,6 @@
 {
+  "callCenterPhoneClient": "rx_softphone",
+  "callCenterInactiveClaimSeconds": 15,
   "siteBackupSchedule": "0 3 * * 0",
   "backupSchedule": "0 2 * * *"
 }

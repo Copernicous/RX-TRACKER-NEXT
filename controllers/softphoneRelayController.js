@@ -8,6 +8,7 @@ const { updateAttemptForUser, publicAttempt } = require('./callAttemptController
 const ONLINE_WINDOW_MS = 12 * 1000;
 const PAIRING_WINDOW_MS = 10 * 60 * 1000;
 const COMMAND_WINDOW_MS = 25 * 1000;
+const MINIMUM_MANAGED_CLIENT_VERSION = '0.4.2';
 const ACTIVE_CALL_STATES = new Set(['dialing', 'trying', 'ringing', 'answering', 'connected', 'incoming']);
 
 function secret() {
@@ -41,7 +42,16 @@ function isOnline(device) {
         && Date.now() - new Date(device.lastSeenAt).getTime() <= ONLINE_WINDOW_MS);
 }
 
-function safeSnapshot(value) {
+function safeClientInfo(value) {
+    const source = value && typeof value === 'object' ? value : {};
+    return {
+        version: cleanText(source.version, 32) || null,
+        managedMode: source.managedMode === true,
+        allowManualDialing: source.allowManualDialing !== false
+    };
+}
+
+function safeSnapshot(value, clientInfo, accountUpdatedAt) {
     const source = value && typeof value === 'object' ? value : {};
     const call = cleanText(source.call || 'idle', 24).toLowerCase();
     const registration = cleanText(source.registration || 'offline', 24).toLowerCase();
@@ -62,7 +72,62 @@ function safeSnapshot(value) {
         server: cleanText(source.server, 255),
         port: Number(source.port) || 5060,
         username: cleanText(source.username, 128),
-        localSipPort: Number(source.localSipPort) || 0
+        localSipPort: Number(source.localSipPort) || 0,
+        clientVersion: clientInfo && clientInfo.version || null,
+        managedMode: clientInfo && clientInfo.managedMode === true,
+        allowManualDialing: !clientInfo || clientInfo.allowManualDialing !== false,
+        accountUpdatedAt: cleanText(accountUpdatedAt, 64) || null
+    };
+}
+
+function versionAtLeast(value, minimum) {
+    const parse = input => String(input || '').split('.').slice(0, 3).map(part => Number.parseInt(part, 10));
+    const actual = parse(value);
+    const required = parse(minimum);
+    if (actual.length < 2 || actual.some(number => !Number.isInteger(number))) return false;
+    for (let index = 0; index < 3; index += 1) {
+        const left = actual[index] || 0;
+        const right = required[index] || 0;
+        if (left > right) return true;
+        if (left < right) return false;
+    }
+    return true;
+}
+
+async function auditRelayEvent(req, action, targetUserId, previousValue, newValue, transaction) {
+    const now = new Date();
+    return db.AuditLog.create({
+        userId: req.user && req.user.id ? req.user.id : targetUserId,
+        date: now.toISOString().slice(0, 10),
+        time: now.toTimeString().split(' ')[0],
+        module: 'Call Center',
+        action,
+        recordId: targetUserId,
+        previousValue,
+        newValue,
+        ipAddress: requestIp(req)
+    }, { transaction });
+}
+
+function publicDevice(device) {
+    const snapshot = device && device.snapshot && typeof device.snapshot === 'object' ? device.snapshot : {};
+    const paired = !!(device && device.tokenHash && device.isEnabled !== false);
+    const online = isOnline(device);
+    const clientVersion = cleanText(snapshot.clientVersion, 32) || null;
+    return {
+        paired,
+        online,
+        deviceName: device && device.deviceName || null,
+        pairedAt: device && device.pairedAt || null,
+        lastSeenAt: device && device.lastSeenAt || null,
+        registrationState: online ? (device.registrationState || 'offline') : 'offline',
+        callState: online ? (device.callState || 'idle') : 'idle',
+        clientVersion,
+        managedMode: snapshot.managedMode === true,
+        allowManualDialing: snapshot.allowManualDialing !== false,
+        accountUpdatedAt: cleanText(snapshot.accountUpdatedAt, 64) || null,
+        minimumClientVersion: MINIMUM_MANAGED_CLIENT_VERSION,
+        updateRequired: paired && !versionAtLeast(clientVersion, MINIMUM_MANAGED_CLIENT_VERSION)
     };
 }
 
@@ -169,6 +234,7 @@ exports.pairDevice = async (req, res) => {
     try {
         const code = String(req.body && req.body.pairingCode || '').replace(/\D/g, '');
         if (code.length !== 8) return res.status(400).json({ error: 'Enter the 8-digit pairing code shown in RX Tracker.' });
+        const client = safeClientInfo(req.body && req.body.client);
         const token = crypto.randomBytes(48).toString('base64url');
         const deviceKey = crypto.randomUUID();
         const device = await db.sequelize.transaction(async transaction => {
@@ -197,8 +263,26 @@ exports.pairDevice = async (req, res) => {
             return match;
         });
         if (!device) return res.status(404).json({ error: 'Pairing code is invalid or expired.' });
+        await auditRelayEvent(req, 'RX Softphone Device Paired', device.userId, null, {
+            deviceName: device.deviceName,
+            clientVersion: client.version,
+            managedMode: client.managedMode,
+            pairingTokenStored: false
+        }).catch(err => console.error('[Softphone Relay] pairing audit error:', err.message));
         res.set('Cache-Control', 'no-store');
-        res.json({ deviceToken: token, deviceKey, userId: device.userId });
+        res.json({
+            deviceToken: token,
+            deviceKey,
+            userId: device.userId,
+            policy: {
+                mode: 'managed',
+                allowLocalAccountChanges: false,
+                allowLocalUnpair: false,
+                allowManualDialing: true,
+                minimumClientVersion: MINIMUM_MANAGED_CLIENT_VERSION,
+                accountAssigned: true
+            }
+        });
     } catch (err) {
         console.error('[Softphone Relay] pair error:', err.message);
         res.status(500).json({ error: 'Could not pair the Windows softphone.' });
@@ -210,11 +294,19 @@ exports.pollDevice = async (req, res) => {
         const device = await authenticateDevice(req, res);
         if (!device) return;
 
-        const snapshot = safeSnapshot(req.body && req.body.snapshot);
+        const clientInfo = safeClientInfo(req.body && req.body.client);
+        const clientAccountVersion = cleanText(req.body && req.body.accountUpdatedAt, 64);
+        const snapshot = safeSnapshot(req.body && req.body.snapshot, clientInfo, clientAccountVersion);
         // PostgreSQL JSONB does not preserve the JavaScript insertion order of
         // object keys. Normalize both sides before comparing so an unchanged
         // terminal snapshot is not replayed on every relay poll.
-        const previousSnapshot = device.snapshot ? safeSnapshot(device.snapshot) : null;
+        const previousSnapshot = device.snapshot
+            ? safeSnapshot(device.snapshot, {
+                version: device.snapshot.clientVersion,
+                managedMode: device.snapshot.managedMode === true,
+                allowManualDialing: device.snapshot.allowManualDialing !== false
+            }, device.snapshot.accountUpdatedAt)
+            : null;
         const snapshotChanged = JSON.stringify(previousSnapshot) !== JSON.stringify(snapshot);
         await completeCommands(device, req.body && req.body.completedCommands);
         await device.update({
@@ -226,6 +318,20 @@ exports.pollDevice = async (req, res) => {
             snapshot
         });
         if (snapshotChanged) await syncAttemptFromSnapshot(device, snapshot, requestIp(req));
+        if (snapshot.clientVersion && snapshot.clientVersion !== (previousSnapshot && previousSnapshot.clientVersion)) {
+            await auditRelayEvent(req, 'RX Softphone Client Version Reported', device.userId,
+                previousSnapshot && previousSnapshot.clientVersion || null,
+                { clientVersion: snapshot.clientVersion, managedMode: snapshot.managedMode }
+            ).catch(err => console.error('[Softphone Relay] version audit error:', err.message));
+        }
+        if (previousSnapshot && previousSnapshot.registration !== snapshot.registration
+            && ['registered', 'failed'].includes(snapshot.registration)) {
+            await auditRelayEvent(req, `RX Softphone Registration ${snapshot.registration === 'registered' ? 'Succeeded' : 'Failed'}`,
+                device.userId,
+                { registration: previousSnapshot.registration },
+                { registration: snapshot.registration, server: snapshot.server, username: snapshot.username }
+            ).catch(err => console.error('[Softphone Relay] registration audit error:', err.message));
+        }
 
         await db.SoftphoneRelayCommand.update({ status: 'expired', completedAt: new Date() }, {
             where: { deviceId: device.id, status: 'queued', expiresAt: { [db.Sequelize.Op.lte]: new Date() } }
@@ -244,14 +350,12 @@ exports.pollDevice = async (req, res) => {
 
         const account = await db.UserSoftphoneAccount.findOne({ where: { userId: device.userId, isEnabled: true } });
         const accountUpdatedAt = account ? account.updatedAt.toISOString() : null;
-        const clientAccountVersion = cleanText(req.body && req.body.accountUpdatedAt, 64);
         let registration = null;
-        const registeredToAssignedAccount = !!(account
-            && snapshot.registration === 'registered'
+        const assignedIdentityMatches = !!(account
             && String(snapshot.server || '').toLowerCase() === String(account.server || '').toLowerCase()
             && Number(snapshot.port || 5060) === Number(account.port || 5060)
             && String(snapshot.username || '') === String(account.username || ''));
-        if (account && (!registeredToAssignedAccount || clientAccountVersion !== accountUpdatedAt)) {
+        if (account && (!assignedIdentityMatches || clientAccountVersion !== accountUpdatedAt)) {
             registration = {
                 server: account.server,
                 port: account.port,
@@ -267,6 +371,14 @@ exports.pollDevice = async (req, res) => {
             serverTime: new Date().toISOString(),
             accountUpdatedAt,
             registration,
+            policy: {
+                mode: 'managed',
+                allowLocalAccountChanges: false,
+                allowLocalUnpair: false,
+                allowManualDialing: true,
+                minimumClientVersion: MINIMUM_MANAGED_CLIENT_VERSION,
+                accountAssigned: !!account
+            },
             command: command ? {
                 id: command.id,
                 type: command.commandType,
@@ -296,10 +408,128 @@ exports.getStatus = async (req, res) => {
             deviceName: device && device.deviceName || null,
             lastSeenAt: device && device.lastSeenAt || null,
             snapshot: online ? device.snapshot : null,
+            clientVersion: device && device.snapshot && device.snapshot.clientVersion || null,
+            managedMode: !!(device && device.snapshot && device.snapshot.managedMode === true),
+            minimumClientVersion: MINIMUM_MANAGED_CLIENT_VERSION,
+            updateRequired: !!(device && device.tokenHash
+                && !versionAtLeast(device.snapshot && device.snapshot.clientVersion, MINIMUM_MANAGED_CLIENT_VERSION)),
             activeAttempt
         });
     } catch (err) {
         res.status(500).json({ error: 'Could not load relay status.' });
+    }
+};
+
+exports.getAdminDevices = async (req, res) => {
+    try {
+        const [users, accounts, devices] = await Promise.all([
+            db.User.findAll({
+                attributes: ['id', 'username', 'firstName', 'lastName', 'email', 'isActive'],
+                include: [{ model: db.Role, attributes: ['name'], required: false }],
+                order: [['firstName', 'ASC'], ['lastName', 'ASC'], ['username', 'ASC']]
+            }),
+            db.UserSoftphoneAccount.findAll({
+                attributes: ['userId', 'server', 'port', 'username', 'displayName', 'localSipPort', 'isEnabled', 'updatedAt']
+            }),
+            db.SoftphoneRelayDevice.findAll()
+        ]);
+        const accountByUser = new Map(accounts.map(account => [Number(account.userId), account]));
+        const deviceByUser = new Map(devices.map(device => [Number(device.userId), device]));
+        res.set('Cache-Control', 'no-store, private');
+        res.json({
+            minimumClientVersion: MINIMUM_MANAGED_CLIENT_VERSION,
+            users: users.map(user => {
+                const account = accountByUser.get(Number(user.id));
+                const device = publicDevice(deviceByUser.get(Number(user.id)));
+                device.accountSynchronized = !!(account && account.isEnabled !== false
+                    && device.accountUpdatedAt
+                    && device.accountUpdatedAt === account.updatedAt.toISOString());
+                return {
+                    id: user.id,
+                    username: user.username,
+                    firstName: user.firstName || '',
+                    lastName: user.lastName || '',
+                    email: user.email || '',
+                    roleName: user.Role ? user.Role.name : '',
+                    isActive: user.isActive !== false,
+                    account: account ? {
+                        configured: true,
+                        isEnabled: account.isEnabled !== false,
+                        server: account.server,
+                        port: account.port,
+                        username: account.username,
+                        displayName: account.displayName || account.username,
+                        localSipPort: account.localSipPort || 0,
+                        updatedAt: account.updatedAt
+                    } : { configured: false, isEnabled: false },
+                    device
+                };
+            })
+        });
+    } catch (err) {
+        console.error('[Softphone Relay] admin devices error:', err.message);
+        res.status(500).json({ error: 'Could not load RX Softphone devices.' });
+    }
+};
+
+exports.revokeAdminDevice = async (req, res) => {
+    const targetUserId = Number.parseInt(req.params.userId, 10);
+    if (!Number.isInteger(targetUserId) || targetUserId < 1) {
+        return res.status(400).json({ error: 'A valid user is required.' });
+    }
+    try {
+        let revokedDeviceName = null;
+        await db.sequelize.transaction(async transaction => {
+            const device = await db.SoftphoneRelayDevice.findOne({
+                where: { userId: targetUserId },
+                transaction,
+                lock: transaction.LOCK.UPDATE
+            });
+            if (!device || !device.tokenHash || device.isEnabled === false) {
+                const error = new Error('This user does not have an active RX Softphone pairing.');
+                error.status = 404;
+                throw error;
+            }
+            if (isOnline(device) && ACTIVE_CALL_STATES.has(String(device.callState || '').toLowerCase())) {
+                const error = new Error('The RX Softphone has an active call. End the call before revoking its pairing.');
+                error.status = 409;
+                throw error;
+            }
+            revokedDeviceName = device.deviceName || 'Windows RX Softphone';
+            const previousValue = publicDevice(device);
+            await db.SoftphoneRelayCommand.update({
+                status: 'expired',
+                completedAt: new Date(),
+                errorMessage: 'Pairing revoked by an Administrator.'
+            }, {
+                where: {
+                    deviceId: device.id,
+                    status: { [db.Sequelize.Op.in]: ['queued', 'delivered'] }
+                },
+                transaction
+            });
+            await device.update({
+                deviceKey: null,
+                tokenHash: null,
+                pairingCodeHash: null,
+                pairingExpiresAt: null,
+                isEnabled: false,
+                registrationState: 'offline',
+                callState: 'idle',
+                callId: null,
+                peer: null,
+                snapshot: null
+            }, { transaction });
+            await auditRelayEvent(req, 'RX Softphone Device Pairing Revoked', targetUserId, previousValue, {
+                paired: false,
+                deviceName: revokedDeviceName
+            }, transaction);
+        });
+        res.json({ message: `${revokedDeviceName} pairing was revoked. The workstation must pair again before it can receive calls.` });
+    } catch (err) {
+        const status = err.status || 500;
+        if (status >= 500) console.error('[Softphone Relay] revoke device error:', err.message);
+        res.status(status).json({ error: status >= 500 ? 'Could not revoke the RX Softphone pairing.' : err.message });
     }
 };
 

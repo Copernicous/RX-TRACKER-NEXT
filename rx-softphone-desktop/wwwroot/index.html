@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light">
-  <title>RX Native Softphone</title>
+  <title>RX Native Softphone v0.4.2</title>
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
@@ -16,6 +16,7 @@
         <p class="subtitle">Direct Asterisk registration and audio over SIP/RTP—no WebSocket.</p>
       </div>
       <div class="status-stack" aria-live="polite">
+        <span id="versionBadge" class="version-badge">v0.4.2</span>
         <span id="registrationBadge" class="status-badge offline"><span class="status-dot"></span>Offline</span>
         <span id="callBadge" class="call-badge">Idle</span>
       </div>
@@ -31,9 +32,14 @@
           <span class="protocol">SIP / UDP</span>
         </div>
 
+        <div id="managedNotice" class="managed-notice" hidden>
+          <strong>Managed by RX Tracker</strong>
+          <span>The Administrator assigns the PBX account. Local account changes are locked on this workstation.</span>
+        </div>
+
         <form id="registrationForm" autocomplete="off">
           <label>PBX server
-            <input id="server" name="server" value="192.168.15.200" inputmode="url" required>
+            <input id="server" name="server" placeholder="Assigned by RX Tracker" inputmode="url" required>
           </label>
           <div class="field-row">
             <label>SIP port
@@ -46,20 +52,20 @@
           </div>
           <div class="field-row">
             <label>Extension
-              <input id="username" name="username" value="1006" autocomplete="username" required>
+              <input id="username" name="username" placeholder="Assigned extension" autocomplete="username" required>
             </label>
             <label>Display name
-              <input id="displayName" name="displayName" value="RX Test Phone">
+              <input id="displayName" name="displayName" placeholder="Assigned display name">
             </label>
           </div>
-          <label>Password
+          <label id="passwordField">Password
             <div class="password-wrap">
               <input id="password" name="password" type="password" autocomplete="current-password" required>
               <button id="togglePassword" class="text-button" type="button" aria-label="Show password">Show</button>
             </div>
             <small>Kept only in this program's memory while registered.</small>
           </label>
-          <div class="button-row">
+          <div id="registrationActions" class="button-row">
             <button id="registerButton" class="primary" type="submit">Register</button>
             <button id="unregisterButton" class="secondary" type="button">Unregister</button>
           </div>
@@ -165,8 +171,8 @@
           <button id="clearLogButton" class="text-button" type="button">Clear view</button>
         </div>
         <div class="connection-details">
-          <div><span>PBX</span><strong id="detailPbx">192.168.15.200:5060</strong></div>
-          <div><span>Extension</span><strong id="detailExtension">1006</strong></div>
+          <div><span>PBX</span><strong id="detailPbx">Not assigned</strong></div>
+          <div><span>Extension</span><strong id="detailExtension">Not assigned</strong></div>
           <div><span>Local UDP</span><strong id="detailLocalPort">Not open</strong></div>
           <div><span>Registration</span><strong>Refresh every 300s</strong></div>
           <div><span>Keep-alive</span><strong>UDP every 15s</strong></div>

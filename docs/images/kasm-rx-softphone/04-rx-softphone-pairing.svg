@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="780" viewBox="0 0 1200 780" role="img" aria-labelledby="title desc">
+  <title id="title">RX Softphone pairing screen</title>
+  <desc id="desc">A local RX Softphone screen reference showing the correct relay URL, redacted one-time pairing code, Relay Online and Registered status.</desc>
+  <style>.h1{font:700 32px 'Segoe UI',Arial;fill:#12372d}.sub{font:17px 'Segoe UI',Arial;fill:#49675f}.sect{font:700 13px 'Segoe UI',Arial;fill:#16815d;letter-spacing:2px}.h2{font:700 23px 'Segoe UI',Arial;fill:#122c25}.lab{font:700 15px 'Segoe UI',Arial;fill:#49675f}.val{font:18px 'Segoe UI',Arial;fill:#14382d}.small{font:14px 'Segoe UI',Arial;fill:#68827a}.pill{font:700 13px 'Segoe UI',Arial;fill:#0b6b45}.button{font:700 18px 'Segoe UI',Arial;fill:white}</style>
+  <rect width="1200" height="780" rx="24" fill="#eef7f2"/>
+  <text x="55" y="62" class="h1">RX Native Softphone</text><text x="55" y="92" class="sub">Local Windows application at http://127.0.0.1:5188</text>
+  <rect x="55" y="125" width="1090" height="585" rx="24" fill="#fbfffd" stroke="#c3ddd3" stroke-width="2"/>
+
+  <text x="90" y="172" class="sect">REMOTE BROWSER RELAY</text><text x="90" y="208" class="h2">RX Tracker pairing</text>
+  <rect x="908" y="151" width="180" height="43" rx="22" fill="#dbf7e8" stroke="#8bd3ad"/><text x="936" y="178" class="pill">RELAY ONLINE</text>
+  <text x="90" y="246" class="sub">Pair once so a Kasm browser can send calls to this physical Windows phone.</text>
+
+  <text x="90" y="297" class="lab">RX Tracker server</text><rect x="90" y="313" width="998" height="62" rx="12" fill="#f6fffa" stroke="#22a66f" stroke-width="3"/><text x="112" y="351" class="val">https://rx-relay.rbandrc.com</text>
+  <text x="90" y="417" class="lab">8-digit pairing code</text><rect x="90" y="433" width="998" height="62" rx="12" fill="#f6fffa" stroke="#b8cec5"/><text x="112" y="471" class="val">••••••••   single-use • expires in 10 minutes</text>
+  <rect x="90" y="523" width="245" height="60" rx="12" fill="#168b58"/><text x="188" y="560" class="button">Pair</text>
+  <rect x="355" y="523" width="245" height="60" rx="12" fill="#eef3f0" stroke="#c7d6d0"/><text x="397" y="560" class="lab">Remove pairing</text>
+
+  <rect x="90" y="616" width="998" height="62" rx="14" fill="#e9f9f0" stroke="#8bd3ad"/>
+  <circle cx="125" cy="647" r="13" fill="#22c55e"/><path d="M119 647 l5 5 9-11" fill="none" stroke="white" stroke-width="3"/>
+  <text x="153" y="653" class="h2">Registered</text><text x="310" y="653" class="sub">Connected to RX Tracker. Remote browser calls are enabled.</text>
+  <text x="55" y="747" class="small">Screen reference • The relay URL is not portal.rbandrc.com, rx.rbandrc.com, or a private IP.</text>
+</svg>

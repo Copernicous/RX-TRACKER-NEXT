@@ -155,9 +155,30 @@ try {
     assert(!sidebarView.includes("sv('phone_account_setup')"), 'Phone Account Setup must not depend on a role-wide permission.');
     assert(apiRoutes.includes("/users/:id/phone-account/setup-access"), 'Administrator setup re-enable endpoint is missing.');
     assert(!apiRoutes.includes("/admin/softphone-accounts"), 'Retired Backoffice phone-account assignment API must not remain exposed.');
+    assert(apiRoutes.includes("/admin/softphone-devices"), 'Administrator managed-device inventory API is missing.');
+    assert(apiRoutes.includes("/admin/softphone-devices/:userId"), 'Administrator workstation revocation API is missing.');
+    assert(sidebarView.includes('Phone Devices'), 'Administrator Phone Devices navigation is missing.');
 
     const webRoutes = fs.readFileSync(path.join(__dirname, '..', 'routes', 'webRoutes.js'), 'utf8');
     assert(webRoutes.includes('http://127.0.0.1:5188'), 'Call Center CSP must allow the local softphone origin.');
+    assert(webRoutes.includes("'/softphone-devices'"), 'Administrator Phone Devices page route is missing.');
+
+    const softphoneProgram = fs.readFileSync(path.join(__dirname, '..', 'rx-softphone-desktop', 'Program.cs'), 'utf8');
+    const softphoneRelay = fs.readFileSync(path.join(__dirname, '..', 'rx-softphone-desktop', 'SoftphoneRelayService.cs'), 'utf8');
+    const softphoneSip = fs.readFileSync(path.join(__dirname, '..', 'rx-softphone-desktop', 'SipPhoneService.cs'), 'utf8');
+    const softphoneUi = fs.readFileSync(path.join(__dirname, '..', 'rx-softphone-desktop', 'wwwroot', 'app.js'), 'utf8');
+    const softphonePage = fs.readFileSync(path.join(__dirname, '..', 'rx-softphone-desktop', 'wwwroot', 'index.html'), 'utf8');
+    const softphoneConfig = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'rx-softphone-desktop', 'appsettings.json'), 'utf8'));
+    assert(softphoneProgram.includes('GetValue("Softphone:ManagedMode", true)'), 'Packaged RX Softphone must default to managed mode.');
+    assert(softphoneProgram.includes('managed pairing can be revoked only from RX Tracker'), 'Local unpairing must be blocked in managed mode.');
+    assert(softphoneRelay.includes('MaximumFailureDelay = TimeSpan.FromSeconds(5)'), 'Relay failures must use bounded network backoff.');
+    assert(softphoneRelay.includes('InvalidatePairingAsync'), 'Revoked device tokens must clear the local pairing and registration.');
+    assert(softphoneSip.includes('Automatic registration stopped'), 'Permanent SIP failures must stop the credential retry cycle.');
+    assert(softphonePage.includes('Managed by RX Tracker'), 'Managed client UI must identify the Administrator-owned account.');
+    assert(softphoneUi.includes('elements.registrationActions.hidden = managed'), 'Managed client UI must hide local registration controls.');
+    assert.strictEqual(softphoneConfig.Softphone.ManagedMode, true, 'Distributed softphone configuration must remain managed.');
+    assert(!softphoneConfig.Softphone.AllowedOrigins.includes('https://portal.rbandrc.com'), 'Kasm portal must use the relay instead of direct loopback access.');
+    assert(!softphoneConfig.Softphone.AllowedOrigins.some(origin => origin.includes('192.168.15.87')), 'Development origins must not ship in the production softphone allowlist.');
 
     console.log('PASS Call Center phone-client selector and RX Softphone integration regression.');
 } finally {

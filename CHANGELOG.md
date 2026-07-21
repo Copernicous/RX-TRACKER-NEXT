@@ -7,6 +7,33 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+## [3.3.1] - 2026-07-21
+
+### Added
+
+- Added **Administration > Phone Devices** for Administrators to see each RX user's assigned account, paired Windows workstation, client version, managed status, registration/call state, last heartbeat, and account synchronization state. Administrators can revoke an idle workstation pairing without exposing SIP passwords.
+- Added managed-device policy negotiation to relay pairing and polling. RX Tracker now identifies RX Softphone 0.4.2 as the minimum managed client and reports upgrade status for older paired clients.
+
+### Security
+
+- Released RX Softphone 0.4.2 in managed mode by default. PBX server, port, extension, password, Register/Unregister, and local unpair controls are enforced as Administrator-owned by the local API as well as hidden or locked in the interface. Manual dialing remains available unless disabled in the packaged configuration.
+- Revoking a pairing invalidates its bearer token immediately, expires queued/delivered commands, clears registration on the next client poll, and records an Administrator audit event. Active calls must end before revocation.
+
+### Fixed
+
+- Prevented an incorrect SIP assignment from being retransmitted on every relay heartbeat. The server sends an assignment only when its version or identity changes; RX Softphone stops after a permanent registration failure and waits for an Administrator correction, reducing lockout and Fail2ban risk.
+- Deferred managed account changes while a call is active and held relay dial commands until the assigned account is registered. Revoked/invalid device tokens now clear the saved Windows pairing and SIP runtime automatically.
+- Added bounded relay retry backoff for transient network failures while preserving automatic recovery after RX Tracker, Cloudflare, VPN, sleep, or network interruptions.
+- Limited the production MicroSIP Chrome installer to direct Windows-browser production origins, aligned the LAN origin with the live `192.168.60.21` server, added `https://rx.rbandrc.com`, and removed legacy development, staging, incorrect-server, and Kasm-only origins from existing managed policies.
+
+### Testing
+
+- Added managed relay regression coverage for client-policy exchange, one-time account handoff after a failed registration, device inventory, account synchronization, Administrator revocation, token invalidation, and the local managed-control boundary.
+- Passed the complete staging smoke suite, including isolated browser clicks, import rollback, security alerts/hardening, Call Center API restrictions, reporting, one-time setup, shared call state, and automatic call telemetry.
+- Built RX Softphone 0.4.2 with the pinned .NET 10 SDK with zero warnings, validated all public JavaScript syntax, and produced verified server and Windows-client release archives.
+
+**Database impact:** None. This release uses the existing relay device snapshot JSON for client version, policy, and account synchronization metadata; it adds no migration or schema change.
+
 ## [3.3.0] - 2026-07-21
 
 ### Added

@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="700" viewBox="0 0 1400 700" role="img" aria-labelledby="title desc">
+  <title id="title">Required Cloudflare published application routes</title>
+  <desc id="desc">Cloudflare dashboard-style table showing portal, restricted relay, and direct RX Tracker hostnames with correct origins.</desc>
+  <style>.h1{font:700 32px 'Segoe UI',Arial;fill:#f8fafc}.tab{font:700 18px 'Segoe UI',Arial;fill:#e2e8f0}.head{font:700 15px 'Segoe UI',Arial;fill:#93a4bd}.cell{font:18px 'Segoe UI',Arial;fill:#e5edf8}.host{font:700 18px 'Segoe UI',Arial;fill:#60a5fa}.mono{font:16px Consolas,monospace;fill:#dbeafe}.note{font:16px 'Segoe UI',Arial;fill:#aabbd0}.ok{font:700 14px 'Segoe UI',Arial;fill:#052e16}</style>
+  <rect width="1400" height="700" rx="22" fill="#080d17"/>
+  <text x="52" y="62" class="h1">Published application routes</text>
+  <rect x="52" y="92" width="1260" height="65" rx="12" fill="#111a2a" stroke="#334155"/>
+  <text x="82" y="133" class="tab">Cloudflare Zero Trust  ›  Networks  ›  Tunnels &amp; Mesh  ›  portal</text>
+
+  <rect x="52" y="188" width="1260" height="58" rx="8" fill="#152033"/>
+  <text x="82" y="223" class="head">PUBLIC HOSTNAME</text><text x="450" y="223" class="head">PATH</text><text x="850" y="223" class="head">ORIGIN SERVICE</text><text x="1195" y="223" class="head">STATUS</text>
+
+  <rect x="52" y="246" width="1260" height="90" fill="#0e1726" stroke="#26344a"/>
+  <text x="82" y="282" class="host">portal.rbandrc.com</text><text x="450" y="282" class="mono">*</text><text x="850" y="282" class="mono">https://127.0.0.1:443</text>
+  <text x="82" y="311" class="note">Employee Kasm portal</text><rect x="1190" y="267" width="90" height="30" rx="15" fill="#bbf7d0"/><text x="1206" y="288" class="ok">HEALTHY</text>
+
+  <rect x="52" y="336" width="1260" height="105" fill="#0e1726" stroke="#22c55e" stroke-width="2"/>
+  <text x="82" y="374" class="host">rx-relay.rbandrc.com</text><text x="450" y="374" class="mono">^/api/softphone-relay/device/(pair|poll)$</text><text x="850" y="374" class="mono">http://192.168.60.21:3000</text>
+  <text x="82" y="407" class="note">Windows outbound device relay only</text><rect x="1190" y="358" width="90" height="30" rx="15" fill="#bbf7d0"/><text x="1206" y="379" class="ok">HEALTHY</text>
+
+  <rect x="52" y="441" width="1260" height="90" fill="#0e1726" stroke="#26344a"/>
+  <text x="82" y="478" class="host">rx.rbandrc.com</text><text x="450" y="478" class="mono">*</text><text x="850" y="478" class="mono">http://192.168.60.21:3000</text>
+  <text x="82" y="507" class="note">Optional direct RX Tracker browser entry</text><rect x="1190" y="463" width="90" height="30" rx="15" fill="#bbf7d0"/><text x="1206" y="484" class="ok">HEALTHY</text>
+
+  <rect x="52" y="565" width="1260" height="78" rx="12" fill="#211b0d" stroke="#f59e0b"/>
+  <text x="82" y="596" class="cell">Important: the relay origin is 192.168.60.21—not 192.168.62.21.</text>
+  <text x="82" y="625" class="note">Keep the relay path restricted. Do not send relay traffic to Kasm and do not publish port 3000 directly.</text>
+  <text x="52" y="677" class="note">Screen reference • Cloudflare dashboard layout</text>
+</svg>

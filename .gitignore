@@ -22,6 +22,7 @@ server.log
 
 # Runtime data
 pids/
+runtime/
 runtime/project-control/
 *.pid
 *.seed

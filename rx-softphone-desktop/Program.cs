@@ -1,8 +1,20 @@
 using System.Diagnostics;
 using System.Net;
+using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using RxSoftphone;
+
+var executableVersion = Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "0.4.2";
+var versionOnly = args.Any(x =>
+    string.Equals(x, "--version", StringComparison.OrdinalIgnoreCase) ||
+    string.Equals(x, "--v", StringComparison.OrdinalIgnoreCase) ||
+    string.Equals(x, "-v", StringComparison.OrdinalIgnoreCase));
+if (versionOnly)
+{
+    Console.WriteLine($"RX Softphone {executableVersion}");
+    return;
+}
 
 var noBrowser = args.Any(x => string.Equals(x, "--no-browser", StringComparison.OrdinalIgnoreCase));
 var testRingtone = args.Any(x => string.Equals(x, "--test-ringtone", StringComparison.OrdinalIgnoreCase));
@@ -22,6 +34,10 @@ if (testRingtone)
 
 var builder = WebApplication.CreateBuilder(hostArgs);
 var webUrl = builder.Configuration["Softphone:WebUrl"] ?? "http://127.0.0.1:5188";
+var clientVersion = executableVersion;
+var managedMode = builder.Configuration.GetValue("Softphone:ManagedMode", true);
+var allowManualDialing = builder.Configuration.GetValue("Softphone:AllowManualDialing", true);
+var clientOptions = new SoftphoneClientOptions(managedMode, allowManualDialing, clientVersion);
 var allowedOrigins = builder.Configuration
     .GetSection("Softphone:AllowedOrigins")
     .GetChildren()
@@ -38,6 +54,7 @@ builder.WebHost.UseUrls(webUrl);
 builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.CamelCase)));
 builder.Services.AddSingleton<SipPhoneService>();
+builder.Services.AddSingleton(clientOptions);
 builder.Services.AddSingleton<RelaySettingsStore>();
 builder.Services.AddSingleton<SoftphoneRelayService>();
 builder.Services.AddHostedService(provider => provider.GetRequiredService<SoftphoneRelayService>());
@@ -92,15 +109,28 @@ app.UseDefaultFiles();
 app.UseStaticFiles();
 
 app.MapGet("/api/status", (SipPhoneService phone) => phone.GetSnapshot());
+app.MapGet("/api/client", (SoftphoneClientOptions options) =>
+    new SoftphoneClientStatus(options.ManagedMode, options.AllowManualDialing, options.Version));
 
-app.MapPost("/api/register", async (RegisterRequest request, SipPhoneService phone) =>
-    await RunPhoneOperation(() => phone.RegisterAsync(request)));
+app.MapPost("/api/register", async (RegisterRequest request, SipPhoneService phone, SoftphoneClientOptions options) =>
+{
+    if (options.ManagedMode) return Results.Conflict(new ApiError("Phone registration is managed by RX Tracker. Ask an Administrator to change the assigned account."));
+    return await RunPhoneOperation(() => phone.RegisterAsync(request));
+});
 
-app.MapPost("/api/unregister", async (SipPhoneService phone) =>
-    await RunPhoneOperation(phone.UnregisterAsync));
+app.MapPost("/api/unregister", async (SipPhoneService phone, SoftphoneClientOptions options) =>
+{
+    if (options.ManagedMode) return Results.Conflict(new ApiError("Phone registration is managed by RX Tracker. An Administrator can revoke the workstation pairing."));
+    return await RunPhoneOperation(phone.UnregisterAsync);
+});
 
-app.MapPost("/api/calls", async (DialRequest request, SipPhoneService phone) =>
-    await RunPhoneOperation(() => phone.DialAsync(request.Destination, request.CorrelationId)));
+app.MapPost("/api/calls", async (DialRequest request, SipPhoneService phone, SoftphoneClientOptions options) =>
+{
+    if (options.ManagedMode && !options.AllowManualDialing) {
+        return Results.Conflict(new ApiError("Manual dialing is disabled. Start the call from RX Tracker."));
+    }
+    return await RunPhoneOperation(() => phone.DialAsync(request.Destination, request.CorrelationId));
+});
 
 app.MapPost("/api/calls/answer", async (SipPhoneService phone) =>
     await RunPhoneOperation(phone.AnswerAsync));
@@ -122,8 +152,11 @@ app.MapGet("/api/relay/status", (SoftphoneRelayService relay) => relay.GetStatus
 app.MapPost("/api/relay/pair", async (RelayPairRequest request, SoftphoneRelayService relay, CancellationToken cancellationToken) =>
     await RunRelayOperation(() => relay.PairAsync(request, cancellationToken)));
 
-app.MapDelete("/api/relay/pairing", (SoftphoneRelayService relay) =>
+app.MapDelete("/api/relay/pairing", (SoftphoneRelayService relay, SoftphoneClientOptions options) =>
 {
+    if (options.ManagedMode) {
+        return Results.Conflict(new ApiError("This managed pairing can be revoked only from RX Tracker Administration > Phone Devices."));
+    }
     relay.Disconnect();
     return Results.Ok(relay.GetStatus());
 });

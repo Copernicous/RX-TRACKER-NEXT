@@ -107,6 +107,8 @@ module.exports = {
     'PUT /api/users/:id/restore': { category:'admin', desc:'Restore a deleted user.',         perm:'Administrator', admin:true },
     'DELETE /api/users/:id':      { category:'admin', desc:'Delete a user account.',          perm:'Administrator', admin:true },
     'POST /api/users/:id/phone-account/setup-access': { category:'admin', desc:'Allow a user to run one-time Phone Account Setup again.', perm:'Administrator', admin:true },
+    'GET /api/admin/softphone-devices': { category:'admin', desc:'List paired RX Softphone workstations, versions, and managed status.', perm:'Administrator', admin:true },
+    'DELETE /api/admin/softphone-devices/:userId': { category:'admin', desc:'Revoke one user\'s RX Softphone workstation pairing.', perm:'Administrator', admin:true },
     'GET /api/phone-account/setup':  { category:'admin', desc:'Load the current user\'s individually authorized phone-account setup.', perm:'Per-user setup authorization', admin:false },
     'POST /api/phone-account/setup': { category:'admin', desc:'Complete and close the current user\'s one-time encrypted SIP setup.', perm:'Per-user setup authorization', admin:false },
 

@@ -10,6 +10,11 @@ const elements = {
   togglePassword: $('#togglePassword'),
   register: $('#registerButton'),
   unregister: $('#unregisterButton'),
+  passwordField: $('#passwordField'),
+  registrationActions: $('#registrationActions'),
+  managedNotice: $('#managedNotice'),
+  managedNoticeText: $('#managedNotice span'),
+  versionBadge: $('#versionBadge'),
   registrationBadge: $('#registrationBadge'),
   callBadge: $('#callBadge'),
   callTitle: $('#callTitle'),
@@ -46,6 +51,7 @@ let hiddenThroughSequence = 0;
 let toastTimer = null;
 let polling = false;
 let relayPolling = false;
+let clientStatus = { managedMode: true, allowManualDialing: true, version: '0.4.2' };
 
 async function api(path, options = {}) {
   const response = await fetch(path, {
@@ -75,12 +81,33 @@ function isCallBusy(call) {
   return !['idle', 'ended', 'failed'].includes(call);
 }
 
+function renderClient(status) {
+  clientStatus = status || clientStatus;
+  const managed = clientStatus.managedMode === true;
+  const version = clientStatus.version || '0.4.2';
+  elements.versionBadge.textContent = `v${version}`;
+  document.title = `RX Native Softphone v${version}`;
+  elements.managedNotice.hidden = !managed;
+  elements.passwordField.hidden = managed;
+  elements.registrationActions.hidden = managed;
+  elements.relayDisconnect.hidden = managed;
+  if (state) render(state);
+}
+
 function render(snapshot) {
   state = snapshot;
   const registration = snapshot.registration || 'offline';
   const call = snapshot.call || 'idle';
   const registered = registration === 'registered';
   const busy = isCallBusy(call);
+  const accountLocked = clientStatus.managedMode === true;
+
+  if (accountLocked) {
+    elements.server.value = snapshot.server || '';
+    elements.port.value = snapshot.port || 5060;
+    elements.localSipPort.value = snapshot.localSipPort || 0;
+    elements.username.value = snapshot.username || '';
+  }
 
   elements.registrationBadge.className = `status-badge ${registration}`;
   elements.registrationBadge.innerHTML = `<span class="status-dot"></span>${titleCase(registration)}`;
@@ -99,26 +126,30 @@ function render(snapshot) {
   elements.incomingPeer.textContent = snapshot.peer || 'Unknown';
   elements.call.hidden = busy;
   elements.hangup.hidden = !busy;
-  elements.call.disabled = !registered || !elements.destination.value.trim();
+  elements.call.disabled = !registered || !elements.destination.value.trim() || clientStatus.allowManualDialing === false;
   elements.mute.disabled = call !== 'connected';
   elements.mute.classList.toggle('active', snapshot.muted);
   elements.mute.lastChild.textContent = snapshot.muted ? 'Unmute' : 'Mute';
   elements.register.disabled = registration === 'registering';
   elements.unregister.disabled = registration === 'offline';
-  elements.server.disabled = registration !== 'offline' && registration !== 'failed';
+  elements.server.disabled = accountLocked || registration !== 'offline' && registration !== 'failed';
   elements.port.disabled = elements.server.disabled;
   elements.localSipPort.disabled = elements.server.disabled;
   elements.username.disabled = elements.server.disabled;
   elements.displayName.disabled = elements.server.disabled;
 
   elements.hint.textContent = !registered
-    ? 'Enter the account password and register to the PBX.'
+    ? accountLocked
+      ? 'Waiting for the RX Tracker-assigned phone account to register.'
+      : 'Enter the account password and register to the PBX.'
+    : clientStatus.allowManualDialing === false
+      ? 'Registered. Start calls from RX Tracker.'
     : call === 'connected'
       ? 'Audio is using the Windows default microphone and speakers.'
       : 'Registered. Enter a number or extension to call.';
 
-  elements.detailPbx.textContent = `${snapshot.server}:${snapshot.port}`;
-  elements.detailExtension.textContent = snapshot.username || '—';
+  elements.detailPbx.textContent = snapshot.server ? `${snapshot.server}:${snapshot.port}` : 'Not assigned';
+  elements.detailExtension.textContent = snapshot.username || 'Not assigned';
   elements.detailLocalPort.textContent = snapshot.localSipPort ? `UDP ${snapshot.localSipPort}` : 'Not open';
 
   renderEvents(snapshot.events || []);
@@ -177,18 +208,34 @@ async function poll() {
 function renderRelay(status) {
   const configured = status?.configured === true;
   const connected = status?.connected === true;
+  const managed = status?.managedMode === true || clientStatus.managedMode === true;
+  const accountAssigned = status?.policy?.accountAssigned !== false;
   elements.relayBadge.className = `relay-badge ${connected ? 'online' : configured ? 'waiting' : 'offline'}`;
   elements.relayBadge.textContent = connected ? 'Relay online' : configured ? 'Connecting' : 'Not paired';
   elements.relayDisconnect.disabled = !configured;
+  elements.relayDisconnect.hidden = managed;
+  elements.relayTrackerUrl.disabled = configured;
+  elements.relayPairingCode.disabled = configured;
+  elements.relayPair.hidden = configured;
   if (status?.trackerUrl && !elements.relayTrackerUrl.value) elements.relayTrackerUrl.value = status.trackerUrl;
   elements.relayMessage.textContent = connected
-    ? `Connected to ${status.trackerUrl}. Remote browser calls will ring on this PC.`
+    ? accountAssigned
+      ? `Connected to ${status.trackerUrl}. Remote browser calls will ring on this PC.`
+      : 'Relay is connected, but no phone account is assigned to this RX Tracker user.'
     : status?.error
       ? status.error
       : configured
         ? `Waiting for ${status.trackerUrl}. The phone will reconnect automatically.`
         : 'Generate a pairing code from RX Tracker Call Center.';
+  if (managed && configured && accountAssigned) {
+    elements.managedNoticeText.textContent = 'The Administrator assigns the PBX account and can revoke this workstation pairing from Phone Devices.';
+  }
   elements.relayBadge.classList.toggle('error', !!status?.error && !connected);
+}
+
+async function pollClient() {
+  try { renderClient(await api('/api/client')); }
+  catch (_) { /* Packaged defaults remain safe if the metadata request fails. */ }
 }
 
 async function pollRelay() {
@@ -314,5 +361,6 @@ elements.relayDisconnect.addEventListener('click', async () => {
 setInterval(poll, 750);
 setInterval(pollRelay, 1500);
 setInterval(renderTimer, 1000);
+pollClient();
 poll();
 pollRelay();

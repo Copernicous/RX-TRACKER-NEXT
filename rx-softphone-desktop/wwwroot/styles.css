@@ -31,7 +31,7 @@ h2 { margin-bottom: 0; font-size: 1.05rem; letter-spacing: -.015em; }
 .eyebrow { margin-bottom: 5px; color: #198754; font-size: .68rem; font-weight: 800; letter-spacing: .14em; }
 
 .status-stack { display: flex; align-items: center; gap: 10px; }
-.status-badge, .call-badge, .protocol {
+.status-badge, .call-badge, .protocol, .version-badge {
   display: inline-flex;
   align-items: center;
   gap: 7px;
@@ -45,6 +45,7 @@ h2 { margin-bottom: 0; font-size: 1.05rem; letter-spacing: -.015em; }
   text-transform: uppercase;
   letter-spacing: .05em;
 }
+.version-badge { color: #286148; background: #edf8f2; border-color: #c8e2d4; }
 .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #8c9993; box-shadow: 0 0 0 4px rgba(140, 153, 147, .13); }
 .status-badge.registered { color: #12673f; background: #e6f7ee; border-color: #bde6cf; }
 .status-badge.registered .status-dot { background: #21a366; box-shadow: 0 0 0 4px rgba(33, 163, 102, .13); }
@@ -59,6 +60,10 @@ h2 { margin-bottom: 0; font-size: 1.05rem; letter-spacing: -.015em; }
 .phone-card { padding: 26px; }
 .section-heading, .phone-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 20px; }
 .protocol { color: #2b6c53; background: #edf7f2; }
+.managed-notice { display: grid; gap: 3px; margin: -4px 0 16px; padding: 12px 13px; border: 1px solid #b8d7c7; border-radius: 12px; background: #edf8f2; color: #225c43; }
+.managed-notice strong { font-size: .78rem; }
+.managed-notice span { color: #587266; font-size: .69rem; line-height: 1.45; }
+.settings-card input:disabled { opacity: 1; border-color: #dbe4df; background: #f0f4f2; color: #5c6b64; cursor: not-allowed; }
 
 form { display: grid; gap: 14px; }
 label { display: grid; gap: 6px; color: #4d5d56; font-size: .78rem; font-weight: 700; }

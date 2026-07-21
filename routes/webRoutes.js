@@ -20,6 +20,12 @@ function requireVisibleModule(moduleKey) {
     };
 }
 
+function requireAdministratorWeb(req, res, next) {
+    if (!res.locals || !res.locals.currentUser) return proxyRedirect(req, res, '/login');
+    if (res.locals.isAdmin) return next();
+    return proxyRedirect(req, res, '/dashboard');
+}
+
 function redirectCallCenterRole(req, res, next) {
     const user = res.locals && res.locals.currentUser;
     if (isCallCenterRole(user) && !['/call-center', '/phone-account-setup'].includes(req.path)) {
@@ -107,6 +113,10 @@ router.get('/users', requireWebLogin, (req, res) => {
 
 router.get('/roles', requireWebLogin, requireVisibleModule('users'), (req, res) => {
     res.render('roles', { title: 'Roles Management', activePage: 'roles' });
+});
+
+router.get('/softphone-devices', requireWebLogin, requireAdministratorWeb, (req, res) => {
+    res.render('softphone-devices', { title: 'RX Softphone Devices', activePage: 'softphone-devices' });
 });
 
 router.get('/workflow-actions', requireWebLogin, (req, res) => {

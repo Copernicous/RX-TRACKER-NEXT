@@ -7,8 +7,10 @@ namespace RxSoftphone;
 public sealed class SoftphoneRelayService : BackgroundService
 {
     private static readonly TimeSpan PollInterval = TimeSpan.FromMilliseconds(800);
+    private static readonly TimeSpan MaximumFailureDelay = TimeSpan.FromSeconds(5);
     private readonly SipPhoneService _phone;
     private readonly RelaySettingsStore _store;
+    private readonly SoftphoneClientOptions _clientOptions;
     private readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(10) };
     private readonly object _stateLock = new();
     private readonly SemaphoreSlim _pairGate = new(1, 1);
@@ -17,14 +19,20 @@ public sealed class SoftphoneRelayService : BackgroundService
     private string? _deviceName;
     private string? _token;
     private string? _accountUpdatedAt;
+    private RegisterRequest? _pendingRegistration;
+    private string? _pendingAccountUpdatedAt;
+    private RelayCommand? _pendingCommand;
+    private ManagedDevicePolicy? _policy;
     private bool _connected;
     private DateTimeOffset? _lastConnectedAt;
     private string? _error;
+    private int _consecutiveFailures;
 
-    public SoftphoneRelayService(SipPhoneService phone, RelaySettingsStore store)
+    public SoftphoneRelayService(SipPhoneService phone, RelaySettingsStore store, SoftphoneClientOptions clientOptions)
     {
         _phone = phone;
         _store = store;
+        _clientOptions = clientOptions;
         var saved = store.Load();
         if (saved is not null)
         {
@@ -44,7 +52,11 @@ public sealed class SoftphoneRelayService : BackgroundService
                 _trackerUrl,
                 _deviceName,
                 _lastConnectedAt,
-                _error);
+                _error,
+                _clientOptions.Version,
+                _clientOptions.ManagedMode,
+                _clientOptions.AllowManualDialing,
+                _policy);
         }
     }
 
@@ -53,13 +65,20 @@ public sealed class SoftphoneRelayService : BackgroundService
         await _pairGate.WaitAsync(cancellationToken);
         try
         {
+            lock (_stateLock)
+            {
+                if (!string.IsNullOrWhiteSpace(_token))
+                {
+                    throw new PhoneOperationException("This workstation is already paired. An Administrator must revoke the current pairing before it can be replaced.");
+                }
+            }
             var trackerUrl = NormalizeTrackerUrl(request.TrackerUrl);
             var pairingCode = new string((request.PairingCode ?? string.Empty).Where(char.IsDigit).ToArray());
             if (pairingCode.Length != 8) throw new ArgumentException("Enter the 8-digit pairing code shown in RX Tracker.");
             var deviceName = $"{Environment.MachineName} RX Softphone";
             using var response = await _http.PostAsJsonAsync(
                 ApiUrl(trackerUrl, "api/softphone-relay/device/pair"),
-                new RelayPairPayload(pairingCode, deviceName),
+                new RelayPairPayload(pairingCode, deviceName, ClientInfo()),
                 cancellationToken);
             var body = await response.Content.ReadFromJsonAsync<RelayPairResponse>(cancellationToken: cancellationToken);
             if (!response.IsSuccessStatusCode || body is null || string.IsNullOrWhiteSpace(body.DeviceToken))
@@ -74,8 +93,13 @@ public sealed class SoftphoneRelayService : BackgroundService
                 _deviceName = deviceName;
                 _token = body.DeviceToken;
                 _accountUpdatedAt = null;
+                _pendingRegistration = null;
+                _pendingAccountUpdatedAt = null;
+                _pendingCommand = null;
+                _policy = body.Policy;
                 _connected = false;
                 _error = null;
+                _consecutiveFailures = 0;
             }
             return new RelayPairResult(true, trackerUrl, deviceName);
         }
@@ -94,10 +118,15 @@ public sealed class SoftphoneRelayService : BackgroundService
             _deviceName = null;
             _token = null;
             _accountUpdatedAt = null;
+            _pendingRegistration = null;
+            _pendingAccountUpdatedAt = null;
+            _pendingCommand = null;
+            _policy = null;
             _connected = false;
             _lastConnectedAt = null;
             _error = null;
             _completed.Clear();
+            _consecutiveFailures = 0;
         }
     }
 
@@ -105,9 +134,11 @@ public sealed class SoftphoneRelayService : BackgroundService
     {
         while (!stoppingToken.IsCancellationRequested)
         {
+            var delay = PollInterval;
             try
             {
                 await PollOnceAsync(stoppingToken);
+                lock (_stateLock) _consecutiveFailures = 0;
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
@@ -119,10 +150,15 @@ public sealed class SoftphoneRelayService : BackgroundService
                 {
                     _connected = false;
                     _error = SafeError(ex);
+                    _consecutiveFailures = Math.Min(_consecutiveFailures + 1, 8);
+                    var milliseconds = Math.Min(
+                        MaximumFailureDelay.TotalMilliseconds,
+                        PollInterval.TotalMilliseconds * Math.Pow(1.65, _consecutiveFailures));
+                    delay = TimeSpan.FromMilliseconds(milliseconds);
                 }
             }
 
-            await Task.Delay(PollInterval, stoppingToken);
+            await Task.Delay(delay, stoppingToken);
         }
     }
 
@@ -143,8 +179,13 @@ public sealed class SoftphoneRelayService : BackgroundService
 
         var request = new HttpRequestMessage(HttpMethod.Post, ApiUrl(trackerUrl, "api/softphone-relay/device/poll"));
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        request.Content = JsonContent.Create(new RelayPollPayload(_phone.GetSnapshot(), accountUpdatedAt, completed));
+        request.Content = JsonContent.Create(new RelayPollPayload(_phone.GetSnapshot(), accountUpdatedAt, completed, ClientInfo()));
         using var response = await _http.SendAsync(request, cancellationToken);
+        if (response.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            await InvalidatePairingAsync("RX Tracker revoked or replaced this workstation pairing. Generate a new pairing code to reconnect.");
+            return;
+        }
         if (!response.IsSuccessStatusCode)
         {
             throw new PhoneOperationException(await ReadErrorAsync(response, "Relay connection was rejected.", cancellationToken));
@@ -158,21 +199,97 @@ public sealed class SoftphoneRelayService : BackgroundService
             _connected = true;
             _lastConnectedAt = DateTimeOffset.UtcNow;
             _error = null;
+            _policy = poll.Policy;
         }
 
         if (poll.Registration is not null)
         {
-            await _phone.RegisterAsync(poll.Registration);
-            lock (_stateLock) _accountUpdatedAt = poll.AccountUpdatedAt;
+            lock (_stateLock)
+            {
+                _pendingRegistration = poll.Registration;
+                _pendingAccountUpdatedAt = poll.AccountUpdatedAt;
+            }
         }
-        else if (_phone.GetSnapshot().Registration == "offline")
+        else if (poll.Policy is { AccountAssigned: false })
         {
-            lock (_stateLock) _accountUpdatedAt = null;
+            var snapshot = _phone.GetSnapshot();
+            if (snapshot.Registration != "offline" || !string.IsNullOrWhiteSpace(accountUpdatedAt))
+            {
+                await _phone.UnregisterAsync();
+            }
+            lock (_stateLock)
+            {
+                _accountUpdatedAt = null;
+                _pendingRegistration = null;
+                _pendingAccountUpdatedAt = null;
+            }
         }
 
         if (poll.Command is not null)
         {
-            await ExecuteCommandAsync(poll.Command);
+            lock (_stateLock)
+            {
+                if (_pendingCommand is null)
+                {
+                    _pendingCommand = poll.Command;
+                }
+                else if (_pendingCommand.Id != poll.Command.Id)
+                {
+                    _completed.Add(new RelayCommandResult(poll.Command.Id, false, "Another relay command is still pending."));
+                }
+            }
+        }
+
+        await ApplyPendingRegistrationAsync();
+        await ExecutePendingCommandAsync();
+    }
+
+    private async Task ApplyPendingRegistrationAsync()
+    {
+        RegisterRequest? registration;
+        string? accountUpdatedAt;
+        lock (_stateLock)
+        {
+            registration = _pendingRegistration;
+            accountUpdatedAt = _pendingAccountUpdatedAt;
+        }
+        if (registration is null) return;
+
+        var snapshot = _phone.GetSnapshot();
+        if (IsCallBusy(snapshot.Call)) return;
+
+        try
+        {
+            await _phone.RegisterAsync(registration);
+        }
+        finally
+        {
+            lock (_stateLock)
+            {
+                if (ReferenceEquals(_pendingRegistration, registration))
+                {
+                    _pendingRegistration = null;
+                    _pendingAccountUpdatedAt = null;
+                    _accountUpdatedAt = accountUpdatedAt;
+                }
+            }
+        }
+    }
+
+    private async Task ExecutePendingCommandAsync()
+    {
+        RelayCommand? command;
+        lock (_stateLock) command = _pendingCommand;
+        if (command is null) return;
+        if (command.Type.Equals("dial", StringComparison.OrdinalIgnoreCase)
+            && _phone.GetSnapshot().Registration != "registered")
+        {
+            if (command.ExpiresAt > DateTimeOffset.UtcNow) return;
+        }
+        await ExecuteCommandAsync(command);
+        lock (_stateLock)
+        {
+            if (_pendingCommand?.Id == command.Id) _pendingCommand = null;
         }
     }
 
@@ -202,6 +319,37 @@ public sealed class SoftphoneRelayService : BackgroundService
         }
         lock (_stateLock) _completed.Add(result);
     }
+
+    private async Task InvalidatePairingAsync(string message)
+    {
+        _store.Clear();
+        var snapshot = _phone.GetSnapshot();
+        if (snapshot.Registration != "offline")
+        {
+            await _phone.UnregisterAsync();
+        }
+        lock (_stateLock)
+        {
+            _token = null;
+            _accountUpdatedAt = null;
+            _pendingRegistration = null;
+            _pendingAccountUpdatedAt = null;
+            _pendingCommand = null;
+            _policy = null;
+            _connected = false;
+            _lastConnectedAt = null;
+            _error = message;
+            _completed.Clear();
+        }
+    }
+
+    private RelayClientInfo ClientInfo() => new(
+        _clientOptions.Version,
+        _clientOptions.ManagedMode,
+        _clientOptions.AllowManualDialing);
+
+    private static bool IsCallBusy(string? call) =>
+        call is "dialing" or "trying" or "ringing" or "answering" or "connected" or "incoming";
 
     private static string NormalizeTrackerUrl(string? value)
     {

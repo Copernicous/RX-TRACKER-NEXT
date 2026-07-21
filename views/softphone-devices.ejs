@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <script>!function(){var t=localStorage.getItem("rxTheme");if(t)document.documentElement.setAttribute("data-theme",t)}();</script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RX Softphone Devices - Patient RX System</title>
+    <link href="/assets/bootstrap.min.css" rel="stylesheet">
+    <link href="/assets/inter.css" rel="stylesheet">
+    <link rel="stylesheet" href="/assets/fontawesome.all.min.css">
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        .device-stat { border:1px solid var(--border,#e2e8f0); border-radius:14px; padding:1rem 1.1rem; background:var(--surface,#fff); }
+        .device-stat strong { display:block; font-size:1.6rem; line-height:1.1; }
+        .device-stat span { color:var(--text-muted,#64748b); font-size:.75rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em; }
+        .device-pill { display:inline-flex; align-items:center; gap:.35rem; border-radius:999px; padding:.22rem .55rem; font-size:.7rem; font-weight:750; white-space:nowrap; }
+        .device-pill.good { color:#047857; background:rgba(16,185,129,.12); border:1px solid rgba(16,185,129,.28); }
+        .device-pill.warn { color:#b45309; background:rgba(245,158,11,.12); border:1px solid rgba(245,158,11,.3); }
+        .device-pill.bad { color:#b91c1c; background:rgba(239,68,68,.11); border:1px solid rgba(239,68,68,.28); }
+        .device-pill.neutral { color:#475569; background:rgba(100,116,139,.1); border:1px solid rgba(100,116,139,.22); }
+        [data-theme="dark"] .device-pill.good { color:#86efac; }
+        [data-theme="dark"] .device-pill.warn { color:#fcd34d; }
+        [data-theme="dark"] .device-pill.bad { color:#fca5a5; }
+        [data-theme="dark"] .device-pill.neutral { color:#cbd5e1; }
+        .device-table td, .device-table th { vertical-align:middle; }
+        .device-meta { color:var(--text-muted,#64748b); font-size:.72rem; margin-top:.2rem; }
+        .managed-note { border:1px solid rgba(14,165,233,.28); background:rgba(14,165,233,.07); border-radius:14px; }
+    </style>
+</head>
+<body>
+<div class="wrapper">
+    <%- include('partials/sidebar') %>
+    <div id="content">
+        <nav class="navbar navbar-expand-lg px-4 mb-4">
+            <button type="button" id="sidebarCollapse" class="btn btn-primary btn-sm"><i class="fas fa-bars"></i></button>
+            <span class="ms-3 fw-bold fs-5"><i class="fas fa-headset me-2 text-success"></i>RX Softphone Devices</span>
+            <div class="ms-auto d-flex align-items-center gap-3">
+                <button id="themeToggle" class="btn btn-outline-secondary btn-sm"><i class="fas fa-moon"></i></button>
+                <span id="userGreeting" class="text-muted small"></span>
+                <button id="logoutBtn" class="btn btn-danger btn-sm"><i class="fas fa-sign-out-alt me-1"></i>Logout</button>
+            </div>
+        </nav>
+
+        <div class="container-fluid px-4 pb-4">
+            <div class="managed-note p-3 mb-4 d-flex gap-3 align-items-start">
+                <i class="fas fa-shield-alt text-info mt-1"></i>
+                <div>
+                    <div class="fw-bold">Managed workstation control</div>
+                    <div class="text-muted small">RX Softphone 0.4.2 locks SIP account changes on the Windows PC. Configure the user's account through the individually authorized Phone Account Setup workflow; use this page to monitor or revoke the paired workstation.</div>
+                </div>
+            </div>
+
+            <div class="row g-3 mb-4">
+                <div class="col-6 col-lg"><div class="device-stat"><strong id="deviceStatPaired">—</strong><span>Paired</span></div></div>
+                <div class="col-6 col-lg"><div class="device-stat"><strong id="deviceStatOnline">—</strong><span>Online</span></div></div>
+                <div class="col-6 col-lg"><div class="device-stat"><strong id="deviceStatRegistered">—</strong><span>Registered</span></div></div>
+                <div class="col-6 col-lg"><div class="device-stat"><strong id="deviceStatManaged">—</strong><span>Managed 0.4.2+</span></div></div>
+                <div class="col-6 col-lg"><div class="device-stat"><strong id="deviceStatUpgrade">—</strong><span>Upgrade Needed</span></div></div>
+            </div>
+
+            <div class="glass-card p-4">
+                <div class="d-flex justify-content-between align-items-center gap-3 flex-wrap mb-3">
+                    <div>
+                        <h5 class="mb-1">Assigned users and paired Windows phones</h5>
+                        <p class="text-muted small mb-0">Live status refreshes automatically. Revocation is blocked while the device reports an active call.</p>
+                    </div>
+                    <div class="d-flex gap-2 align-items-center flex-wrap">
+                        <div class="input-group input-group-sm" style="width:min(320px,75vw)">
+                            <span class="input-group-text"><i class="fas fa-search"></i></span>
+                            <input id="deviceSearch" class="form-control" placeholder="User, extension, computer, or PBX">
+                        </div>
+                        <button id="deviceRefresh" class="btn btn-outline-primary btn-sm"><i class="fas fa-sync-alt me-1"></i>Refresh</button>
+                    </div>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle device-table mb-0">
+                        <thead>
+                            <tr>
+                                <th>User</th>
+                                <th>Phone account</th>
+                                <th>Windows device</th>
+                                <th>Client policy</th>
+                                <th>Phone state</th>
+                                <th>Last seen</th>
+                                <th class="text-end">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="deviceRows">
+                            <tr><td colspan="7" class="text-center text-muted py-5"><i class="fas fa-spinner fa-spin me-2"></i>Loading devices...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index:1100" id="deviceToasts"></div>
+
+<script src="/assets/bootstrap.bundle.min.js"></script>
+<script src="/js/base.js"></script>
+<script src="/js/app.js"></script>
+<script src="/js/help.js"></script>
+<script src="/js/softphone-devices.js"></script>
+</body>
+</html>

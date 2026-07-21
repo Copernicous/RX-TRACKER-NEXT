@@ -1,5 +1,8 @@
 namespace RxSoftphone;
 
+public sealed record SoftphoneClientOptions(bool ManagedMode, bool AllowManualDialing, string Version);
+public sealed record SoftphoneClientStatus(bool ManagedMode, bool AllowManualDialing, string Version);
+
 public sealed record RegisterRequest(
     string Server,
     int Port,

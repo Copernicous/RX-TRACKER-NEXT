@@ -45,12 +45,13 @@ public sealed partial class SipPhoneService : IAsyncDisposable
     private string? _sipReason;
     private long _eventSequence;
 
-    private string _server = "192.168.15.200";
+    private string _server = string.Empty;
     private int _port = 5060;
-    private string _username = "1006";
+    private string _username = string.Empty;
     private string _password = string.Empty;
     private string? _displayName;
     private int _localSipPort;
+    private bool _registrationPermanentlyFailed;
     private bool _disposed;
 
     public SipPhoneService()
@@ -105,6 +106,7 @@ public sealed partial class SipPhoneService : IAsyncDisposable
             _username = username;
             _password = password;
             _displayName = string.IsNullOrWhiteSpace(request.DisplayName) ? username : request.DisplayName.Trim();
+            _registrationPermanentlyFailed = false;
             _registration = "registering";
             AddEvent("info", $"Registering extension {username} to {server}:{port} over SIP/UDP.");
 
@@ -130,6 +132,7 @@ public sealed partial class SipPhoneService : IAsyncDisposable
 
                 _registrationAgent.RegistrationSuccessful += (_, _) =>
                 {
+                    _registrationPermanentlyFailed = false;
                     SetRegistration("registered");
                     AddEvent("success", $"Extension {username} is registered.");
                 };
@@ -140,11 +143,16 @@ public sealed partial class SipPhoneService : IAsyncDisposable
                 };
                 _registrationAgent.RegistrationFailed += (_, response, message) =>
                 {
+                    _registrationPermanentlyFailed = true;
                     SetRegistration("failed");
                     AddEvent("error", SafeSipFailure("Registration failed", response, message));
+                    AddEvent("warning", "Automatic registration stopped. Correct the assigned phone account in RX Tracker before trying again.");
+                    _password = string.Empty;
+                    _registrationAgent?.Stop();
                 };
                 _registrationAgent.RegistrationRemoved += (_, _) =>
                 {
+                    if (_registrationPermanentlyFailed) return;
                     SetRegistration("offline");
                     AddEvent("info", "PBX registration removed.");
                 };
@@ -533,6 +541,7 @@ public sealed partial class SipPhoneService : IAsyncDisposable
         _userAgent = null;
         _transport = null;
         _udpChannel = null;
+        _registrationPermanentlyFailed = false;
         CleanupCall("idle");
         SetRegistration("offline");
         _localSipPort = 0;

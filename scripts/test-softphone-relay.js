@@ -52,14 +52,18 @@ async function main() {
         assert.match(codeResponse.body.pairingCode, /^\d{8}$/);
 
         const baseUrl = `http://127.0.0.1:${process.env.PORT || 3100}`;
+        const client = { version: '0.4.2', managedMode: true, allowManualDialing: true };
         const pairResponse = await fetch(`${baseUrl}/api/softphone-relay/device/pair`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ pairingCode: codeResponse.body.pairingCode, deviceName: 'Relay Smoke Device' })
+            body: JSON.stringify({ pairingCode: codeResponse.body.pairingCode, deviceName: 'Relay Smoke Device', client })
         });
         const pair = await pairResponse.json();
         assert.strictEqual(pairResponse.status, 200);
         assert.ok(pair.deviceToken && pair.deviceToken.length >= 32);
+        assert.strictEqual(pair.policy.mode, 'managed');
+        assert.strictEqual(pair.policy.minimumClientVersion, '0.4.2');
+        assert.strictEqual(pair.policy.allowLocalAccountChanges, false);
 
         const device = await db.SoftphoneRelayDevice.findOne({ where: { userId: user.id } });
         assert.ok(device && device.tokenHash);
@@ -78,30 +82,74 @@ async function main() {
         const pollResponse = await fetch(`${baseUrl}/api/softphone-relay/device/poll`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${pair.deviceToken}` },
-            body: JSON.stringify({ snapshot, accountUpdatedAt: null, completedCommands: [] })
+            body: JSON.stringify({ snapshot, accountUpdatedAt: null, completedCommands: [], client })
         });
         const poll = await pollResponse.json();
         assert.strictEqual(pollResponse.status, 200);
         assert.strictEqual(poll.command.id, command.id);
         assert.strictEqual(poll.command.type, 'hangup');
         assert.strictEqual(poll.registration.username, `9${user.id}`);
+        assert.strictEqual(poll.policy.accountAssigned, true);
+        assert.strictEqual(poll.policy.allowLocalUnpair, false);
         assert.ok(poll.registration.password);
-        poll.registration.password = '';
+
+        const synchronizedSnapshot = {
+            ...snapshot,
+            registration: 'failed',
+            server: poll.registration.server,
+            port: poll.registration.port,
+            username: poll.registration.username
+        };
 
         const completeResponse = await fetch(`${baseUrl}/api/softphone-relay/device/poll`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${pair.deviceToken}` },
             body: JSON.stringify({
-                snapshot,
+                snapshot: synchronizedSnapshot,
                 accountUpdatedAt: poll.accountUpdatedAt,
-                completedCommands: [{ commandId: command.id, success: true, error: null }]
+                completedCommands: [{ commandId: command.id, success: true, error: null }],
+                client
             })
         });
+        const completedPoll = await completeResponse.json();
         assert.strictEqual(completeResponse.status, 200);
+        assert.strictEqual(completedPoll.registration, null, 'A failed managed account must not be resent on every relay poll.');
         await command.reload();
         assert.strictEqual(command.status, 'completed');
 
-        console.log('PASS outbound Windows softphone relay pairing, authentication, registration handoff, and command acknowledgement.');
+        await device.reload();
+        assert.strictEqual(device.snapshot.clientVersion, '0.4.2');
+        assert.strictEqual(device.snapshot.managedMode, true);
+
+        const adminListResponse = mockResponse();
+        await relayController.getAdminDevices({ user: { id: user.id }, headers: {} }, adminListResponse);
+        assert.strictEqual(adminListResponse.statusCode, 200);
+        const adminEntry = adminListResponse.body.users.find(entry => Number(entry.id) === Number(user.id));
+        assert.ok(adminEntry, 'Managed device must appear in the Administrator phone-device inventory.');
+        assert.strictEqual(adminEntry.device.clientVersion, '0.4.2');
+        assert.strictEqual(adminEntry.device.updateRequired, false);
+        assert.strictEqual(adminEntry.device.accountSynchronized, true);
+
+        const revokeResponse = mockResponse();
+        await relayController.revokeAdminDevice({
+            params: { userId: String(user.id) },
+            user: { id: user.id },
+            headers: {},
+            ip: '127.0.0.1'
+        }, revokeResponse);
+        assert.strictEqual(revokeResponse.statusCode, 200);
+        await device.reload();
+        assert.strictEqual(device.isEnabled, false);
+        assert.strictEqual(device.tokenHash, null);
+
+        const revokedPollResponse = await fetch(`${baseUrl}/api/softphone-relay/device/poll`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${pair.deviceToken}` },
+            body: JSON.stringify({ snapshot: synchronizedSnapshot, accountUpdatedAt: poll.accountUpdatedAt, completedCommands: [], client })
+        });
+        assert.strictEqual(revokedPollResponse.status, 401, 'A revoked workstation token must stop working immediately.');
+
+        console.log('PASS managed Windows softphone relay pairing, stable registration handoff, device inventory, revocation, and command acknowledgement.');
     } finally {
         if (user) {
             await db.SoftphoneRelayCommand.destroy({ where: { userId: user.id } });
