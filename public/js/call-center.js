@@ -130,6 +130,7 @@
                 '<a class="cc-call-link" data-action="phone-call" data-patient-id="' + esc(row.id) + '" data-dial-number="' + esc(dialNumber) + '" href="callto:' + esc(dialNumber) + '"' +
                     ' data-call-label="' + esc(label) + '" title="' + esc(label) + '" aria-label="' + esc(label) + '">' +
                     '<i class="fas fa-phone-alt" aria-hidden="true"></i>' +
+                    '<span class="cc-cooldown-countdown" aria-hidden="true"></span>' +
                 '</a>' +
                 '<button type="button" class="cc-row-hangup d-none" data-action="phone-hangup" data-patient-id="' + esc(row.id) + '" title="Hang up this call" aria-label="Hang up this call">' +
                     '<i class="fas fa-phone-slash" aria-hidden="true"></i>' +
@@ -167,6 +168,7 @@
             var owner = status.mine ? 'You' : (status.user || 'Another user');
             var baseLabel = link.getAttribute('data-call-label') || 'Call patient';
             var label = link.closest('.cc-phone-wrap').querySelector('[data-lock-label-for="' + patientId + '"]');
+            var countdown = link.querySelector('.cc-cooldown-countdown');
 
             link.classList.remove('cc-availability-active', 'cc-availability-cooldown');
             link.setAttribute('data-lock-status', stateName);
@@ -176,6 +178,10 @@
                 label.className = 'cc-phone-lock-status';
                 label.textContent = '';
                 label.title = '';
+            }
+            if (countdown) {
+                countdown.classList.remove('visible');
+                countdown.textContent = '';
             }
 
             if (stateName === 'active') {
@@ -202,6 +208,10 @@
                     label.classList.add('visible', 'cooldown');
                     label.textContent = cooldownMessage;
                     label.title = cooldownMessage;
+                }
+                if (countdown && seconds) {
+                    countdown.textContent = String(seconds);
+                    countdown.classList.add('visible');
                 }
             } else {
                 link.title = baseLabel;

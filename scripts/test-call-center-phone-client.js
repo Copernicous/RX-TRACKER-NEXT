@@ -103,6 +103,7 @@ try {
     assert(callCenterScript.includes('function refreshPhoneAvailability'), 'Call Center must refresh phone availability without reloading patient rows.');
     assert(callCenterScript.includes('cc-availability-active'), 'Active calls must render a red phone availability state.');
     assert(callCenterScript.includes('cc-availability-cooldown'), 'Inactive claims must render an amber cooldown state.');
+    assert(callCenterScript.includes('cc-cooldown-countdown'), 'Amber cooldown must display a live seconds badge on the phone icon.');
     assert(callCenterView.includes('cc-phone-lock-status'), 'Phone availability must display the claiming agent beside the phone action.');
 
     const backofficeView = fs.readFileSync(path.join(__dirname, '..', 'views', 'backoffice.ejs'), 'utf8');

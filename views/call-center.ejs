@@ -197,6 +197,7 @@
             gap: 5px;
         }
         .cc-call-link {
+            position: relative;
             width: 32px;
             height: 32px;
             flex: 0 0 32px;
@@ -266,6 +267,29 @@
         }
         .cc-phone-lock-status.cooldown {
             color: #b26a00;
+        }
+        .cc-cooldown-countdown {
+            display: none;
+            position: absolute;
+            top: -8px;
+            right: -9px;
+            min-width: 20px;
+            height: 20px;
+            padding: 0 4px;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid var(--card-bg, #fff);
+            border-radius: 999px;
+            background: #f59f00;
+            color: #212529;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, .2);
+            font-size: .65rem;
+            font-weight: 900;
+            line-height: 1;
+            font-variant-numeric: tabular-nums;
+        }
+        .cc-cooldown-countdown.visible {
+            display: inline-flex;
         }
         .cc-row-hangup {
             width: 28px;
