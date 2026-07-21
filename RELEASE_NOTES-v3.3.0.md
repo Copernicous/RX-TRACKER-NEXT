@@ -2,6 +2,8 @@
 
 ## Highlights
 
+- The customized RX Softphone source is now maintained with RX Tracker under `rx-softphone-desktop`; generated Windows packages remain release artifacts rather than tracked binaries.
+- Added `docs/RX_SOFTPHONE_REMOTE_TESTING.md` for Windows installation, pairing, startup, two-PC/shared-extension validation, and server-side secret/backup/migration preparation.
 - Adds RX Softphone call-state integration with automatic Call Center attempt history, answer acknowledgement, durations, SIP results, and reporting.
 - Adds the outbound Windows relay used by Kasm and other remote browsers while SIP registration and audio remain on the physical Windows computer.
 - Adds per-user, administrator-authorized Phone Account Setup and persistent encrypted SIP assignments.

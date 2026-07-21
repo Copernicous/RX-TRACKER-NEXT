@@ -1,0 +1,16 @@
+.dotnet/
+.chrome-smoke-profile*/
+.vs/
+bin/
+obj/
+publish/
+publish-*/
+release/
+logs/
+local.settings.json
+*.user
+*.suo
+*.pfx
+*.key
+*.secret*
+ui-smoke*.png

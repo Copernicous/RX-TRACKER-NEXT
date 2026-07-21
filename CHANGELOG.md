@@ -11,6 +11,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ### Added
 
+- Brought the customized RX Softphone 0.4.1 source into the RX Tracker repository under `rx-softphone-desktop`, with repeatable self-contained release packaging and generated binaries excluded from Git.
+- Added a remote Windows installation, persistent startup, pairing, two-computer/shared-extension, production secret, backup, migration, and acceptance-test runbook to the administrator manual and release package.
 - Added an administrator-facing <strong>System Settings &rarr; Manual &rarr; RX Softphone</strong> guide covering remote Windows installation, per-user relay pairing, Kasm session behavior, the approved Cloudflare Zero Trust or FortiGate VPN network paths, local and externally hosted PBX SIP/RTP requirements, daily operation, re-pairing, and common troubleshooting.
 - Added a paired outbound Windows RX Softphone relay for Kasm and other remote-browser sessions. The native client polls RX Tracker over HTTP/HTTPS for short-lived dial/hangup commands, reports registration and call telemetry back to the existing attempt analytics, and automatically loads the authenticated user's encrypted server-side SIP assignment without exposing the loopback API to the network.
 - Added one-time 8-digit pairing codes, hashed long-lived device tokens, device heartbeat/state storage, an expiring command queue, and a Call Center pairing dialog. Direct browser-to-loopback calling remains preferred for local and FortiGate sessions; relay is selected only when loopback is unavailable and the paired device is online.

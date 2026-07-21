@@ -934,8 +934,8 @@
                                         <div class="accordion-body small text-muted">
                                             <ol class="mb-0 ps-3">
                                                 <li class="mb-2">Open <strong>Administration &rarr; Users</strong> and select <strong>Allow setup</strong> for the RX Tracker user. That user then completes the one-time <strong>Phone Account Setup</strong>; after saving, the menu closes and the SIP settings become read-only.</li>
-                                                <li class="mb-2">Copy the current <code>RxSoftphone.exe</code> release (version <strong>0.4.1 or later</strong>) to the Windows computer. The release package is stored under <code>RX-SOFTPHONE-DESKTOP\release\0.4.1</code>.</li>
-                                                <li>Run <code>RxSoftphone.exe</code> and, on that same physical Windows computer, open <code>http://127.0.0.1:5188</code>. Keep RX Softphone running while the user makes calls.</li>
+                                                <li class="mb-2">Copy the approved <code>RxSoftphone-0.4.1-win-x64.zip</code> release to the Windows computer and extract it into a permanent folder such as <code>C:\RX-Softphone</code>. The first-party source is maintained with RX Tracker under <code>rx-softphone-desktop</code>; generated ZIP files are distributed through the approved release or software share.</li>
+                                                <li>Run <code>RxSoftphone.exe</code> or <code>Start-Softphone.cmd</code> and, on that same physical Windows computer, open <code>http://127.0.0.1:5188</code>. Keep RX Softphone running while the user makes calls.</li>
                                             </ol>
                                         </div>
                                     </div>
@@ -991,6 +991,20 @@
                                                 <li class="mb-2"><strong>Relay online but SIP is not registered:</strong> verify the Cloudflare private route or FortiGate VPN, then verify the user's PBX address, extension, and SIP password.</li>
                                                 <li><strong>Local RX Softphone page is unavailable:</strong> start RX Softphone on that Windows computer, then refresh <code>http://127.0.0.1:5188</code>.</li>
                                             </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="accordion-item border-0 mb-1" style="background:var(--bg-subtle,#f8fafc);border-radius:8px;overflow:hidden">
+                                    <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#spTest">Remote installation and two-computer acceptance test</button>
+                                    <div id="spTest" class="accordion-collapse collapse" data-bs-parent="#accSoftphone">
+                                        <div class="accordion-body small text-muted">
+                                            <ol class="mb-2 ps-3">
+                                                <li class="mb-2">Install the package on each physical Windows computer and create a startup shortcut by opening <code>shell:startup</code>. Pair each computer while signed into its assigned RX user.</li>
+                                                <li class="mb-2">For a shared-extension test, use two computers and two RX users. Both softphones must show Registered simultaneously before starting two overlapping outbound calls.</li>
+                                                <li class="mb-2">Ask the PBX administrator to confirm two contacts with <code>pjsip show endpoint 1006</code> and <code>pjsip show contacts</code>. The AoR must permit at least two contacts and the provider/trunk must permit two outbound channels.</li>
+                                                <li>Server `.env`, backup, and migration preparation stays on the RX Tracker server; do not copy server secrets to a workstation.</li>
+                                            </ol>
+                                            <div class="alert alert-info py-2 px-3 mb-0">Full printable procedure: <code>docs\RX_SOFTPHONE_REMOTE_TESTING.md</code> in the RX Tracker release package.</div>
                                         </div>
                                     </div>
                                 </div>
