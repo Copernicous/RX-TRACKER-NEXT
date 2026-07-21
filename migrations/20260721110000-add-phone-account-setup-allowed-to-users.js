@@ -13,7 +13,12 @@ module.exports = {
     }
 
     // Remove the short-lived role-wide key if it was applied in staging while
-    // this workflow was being tested. Production roles normally have no key.
+    // this workflow was being tested. A database created only from the
+    // historical migration chain does not have Roles.permissions yet because
+    // that legacy column is startup-managed, so there is nothing to clean.
+    const roleColumns = await queryInterface.describeTable('Roles');
+    if (!roleColumns.permissions) return;
+
     const roles = await queryInterface.sequelize.query(
       'SELECT id, permissions FROM "Roles" ORDER BY id',
       { type: Sequelize.QueryTypes.SELECT }
