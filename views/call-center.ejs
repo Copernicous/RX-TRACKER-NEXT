@@ -253,6 +253,19 @@
             background: rgba(245, 158, 11, .1);
             color: #b7791f;
         }
+        #ccPhoneHangupBtn:not(.d-none) {
+            position: fixed;
+            right: 24px;
+            bottom: 24px;
+            z-index: 1090;
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            min-height: 46px;
+            padding: 10px 17px;
+            border-radius: 999px;
+            box-shadow: 0 12px 30px rgba(220, 53, 69, .38);
+        }
         .cc-called-wrap.rx-answered {
             border-color: #198754;
             background: rgba(25, 135, 84, .18);
@@ -362,6 +375,7 @@
         @media (max-width: 700px) {
             .cc-metrics { grid-template-columns: 1fr; }
             .cc-toolbar { grid-template-columns: 1fr; }
+            #ccPhoneHangupBtn:not(.d-none) { right: 14px; bottom: 14px; }
         }
     </style>
 </head>

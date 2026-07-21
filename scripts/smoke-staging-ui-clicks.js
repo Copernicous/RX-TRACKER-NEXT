@@ -462,6 +462,7 @@ async function runCallCenterWorkspace(fixtures) {
     assert(storedAccount && storedAccount.encryptedPassword.startsWith('rxsoft:v1:'), 'Staging DB should store a versioned encrypted SIP password.');
     assert(!storedAccount.encryptedPassword.includes(sipTestPassword), 'Staging DB must not store the SIP password in plaintext.');
     assert.strictEqual(await page.locator('#ccPhoneSetupModal').count(), 1, 'Call Center should include one server-backed phone account editor.');
+    await db.UserSoftphoneAccount.destroy({ where: { userId: fixtures.callCenterUser.id } });
     pass('Per-user encrypted RX Softphone account API and editor');
 
     const workspaceResponse = await context.request.get(route('/call-center'));

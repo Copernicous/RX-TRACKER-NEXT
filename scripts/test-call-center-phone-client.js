@@ -80,6 +80,7 @@ try {
     const callCenterView = fs.readFileSync(path.join(__dirname, '..', 'views', 'call-center.ejs'), 'utf8');
     assert(callCenterView.includes('cc-record-heading-all'), 'Compact one-line Call Center roster heading is missing.');
     assert(callCenterView.includes('Save &amp; Connect'), 'Server-backed softphone account editor is missing.');
+    assert(callCenterView.includes('#ccPhoneHangupBtn:not(.d-none)'), 'Active-call Hang Up control must remain fixed while scrolling.');
     assert(callCenterScript.includes('function resizeRowNote'), 'Call Center comments must expand the patient row while typing.');
 
     const webRoutes = fs.readFileSync(path.join(__dirname, '..', 'routes', 'webRoutes.js'), 'utf8');
