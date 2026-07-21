@@ -56,6 +56,15 @@ jobs:
           node-version: "22"
           cache: npm
 
+      - name: Use PostgreSQL 17 client tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install --yes postgresql-client-17
+          echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
+          /usr/lib/postgresql/17/bin/pg_dump --version
+
       - name: Install locked dependencies
         run: npm ci
 
