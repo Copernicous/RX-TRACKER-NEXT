@@ -1,8 +1,8 @@
 {
   "environment": "staging",
   "manifestVersion": "staging-impl-v1",
-  "implementationVersion": "3.2.0-staging-2026.07.21.08",
-  "effectiveFrom": "2026-07-21T05:22:28-04:00",
+  "implementationVersion": "3.2.0-staging-2026.07.21.09",
+  "effectiveFrom": "2026-07-21T05:35:00-04:00",
   "appliesTo": "APP_ENV/APP_INSTANCE contains 'staging' or 'stage'",
   "status": "active",
   "rollbackPolicy": {
@@ -14,6 +14,17 @@
     ]
   },
   "implementations": [
+    {
+      "id": "STS-CRUD-PERMISSION-BANNER-001",
+      "file": "public/js/app.js",
+      "component": "Shared CRUD permission banner",
+      "summary": "Hide the View Only banner correctly when the current user has Add or Edit permission.",
+      "effect": "Administrators no longer see a false View Only warning in User, Pharmacy, Clinic, transport, or other shared Add/Edit dialogs.",
+      "risk": "Presentation-only change; server authorization and stored role permissions are unchanged.",
+      "rollback": {
+        "action": "Restore the previous inline display assignment in the shared CRUD modal."
+      }
+    },
     {
       "id": "STS-CC-PHONE-ASSIGN-001",
       "file": "controllers/softphoneAccountController.js, routes/apiRoutes.js, views/backoffice.ejs, public/js/backoffice.js, public/js/backoffice-features.js",

@@ -469,6 +469,16 @@ async function runAdminDashboardAndReports(fixtures) {
     await page.locator('#ccAttemptReportBody .cc-open-activity').first().click();
     await expectVisible(page, '#ccActivityReportPane.active.show', 'Patient Activity report return link');
 
+    await page.goto(route('/users'), { waitUntil: 'domcontentloaded' });
+    await page.waitForLoadState('networkidle').catch(() => {});
+    await page.locator('#addNewBtn').click();
+    await expectVisible(page, '#crudModal', 'Administrator Add User modal');
+    assert.strictEqual(await page.locator('#crudViewOnlyBanner').isHidden(), true, 'Administrator must not see the View Only banner in shared Add/Edit forms.');
+    assert.strictEqual(await page.locator('#saveCrudBtn').isVisible(), true, 'Administrator Save action must remain available in shared Add/Edit forms.');
+    assert.strictEqual(await page.locator('#crudForm input').first().isEditable(), true, 'Administrator fields must remain editable in shared Add/Edit forms.');
+    await page.keyboard.press('Escape');
+    pass('Administrator shared Add/Edit modal permissions');
+
     await page.goto(route('/backoffice'), { waitUntil: 'domcontentloaded' });
     await page.waitForLoadState('networkidle').catch(() => {});
     await page.locator('#tabPhoneAccounts').click();

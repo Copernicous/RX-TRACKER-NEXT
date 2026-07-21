@@ -19,6 +19,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 - Restricted per-user phone assignment APIs to master administrators, kept SIP passwords and encrypted credential values out of API responses and audit values, required the optional environment PIN at save time, rate-limited rejected saves, and recorded the target user plus password-change status in the audit trail.
 - Made RX Softphone account changes Administrator-only at both the API and Call Center UI layers. Call Center users can still use their assigned account and automatic registration, but the PBX, extension, port, display name, and SIP password are read-only. The optional environment PIN is now an additional approval check for administrators rather than the only barrier protecting account changes.
 
+### Fixed
+
+- Fixed the shared Add/Edit modal incorrectly displaying a **View Only** banner to Administrators. Bootstrap's forced `d-flex` display was overriding the previous hide instruction even though the fields and Save action remained enabled.
+
 ## [3.2.0] - 2026-07-20
 
 ### Added

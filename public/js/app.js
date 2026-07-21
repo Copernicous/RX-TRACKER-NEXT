@@ -1557,7 +1557,11 @@ function openModal(id) {
                 var _crudBody = _crudModal.querySelector('.modal-body');
                 if (_crudBody) _crudBody.insertBefore(_crudBanner, _crudBody.firstChild);
             }
-            _crudBanner.style.display = _voEditable ? 'none' : '';
+            // Bootstrap's d-flex utility uses !important, so setting display:none
+            // inline does not hide the banner for users who do have write access.
+            // Toggle the mutually exclusive utility classes instead.
+            _crudBanner.classList.toggle('d-flex', !_voEditable);
+            _crudBanner.classList.toggle('d-none', _voEditable);
         }
     } catch(e) {}
 
