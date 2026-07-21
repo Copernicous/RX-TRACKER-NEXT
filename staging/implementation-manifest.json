@@ -1,7 +1,7 @@
 {
   "environment": "staging",
   "manifestVersion": "staging-impl-v1",
-  "implementationVersion": "3.2.0-staging-2026.07.20.02",
+  "implementationVersion": "3.2.0-staging-2026.07.20.03",
   "effectiveFrom": "2026-07-20T21:55:00-04:00",
   "appliesTo": "APP_ENV/APP_INSTANCE contains 'staging' or 'stage'",
   "status": "active",
@@ -14,6 +14,17 @@
     ]
   },
   "implementations": [
+    {
+      "id": "STS-CC-CLAIMS-002",
+      "file": "controllers/callCenterController.js, public/js/call-center.js",
+      "component": "Call Center patient concurrency",
+      "summary": "Acquire a patient claim only when an agent clicks the phone icon instead of claiming every patient displayed on a queue page.",
+      "effect": "Multiple agents can browse the same queue concurrently while duplicate calls to the same patient remain blocked during an active call workflow.",
+      "risk": "A MicroSIP claim remains active until the agent saves, navigates away, refreshes the queue, closes the page, or its ten-minute heartbeat lease expires because MicroSIP does not report call completion.",
+      "rollback": {
+        "action": "Restore queue-page claim acquisition and the locksAcquired roster response behavior."
+      }
+    },
     {
       "id": "STS-CC-REPORTS-002",
       "file": "views/reports.ejs, public/js/reports.js",

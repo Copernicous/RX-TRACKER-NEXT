@@ -95,6 +95,9 @@ try {
     assert(callCenterView.includes('<option value="50">50</option>'), 'Call Center must support a longer scrolling roster.');
     const callCenterController = fs.readFileSync(path.join(__dirname, '..', 'controllers', 'callCenterController.js'), 'utf8');
     assert(callCenterController.includes('[5, 10, 25, 50].includes(size)'), 'Call Center API must accept the expanded roster page sizes.');
+    assert(callCenterController.includes("claimMode: 'on_dial'"), 'Call Center queue must claim patients only when an agent starts a call.');
+    assert(!callCenterController.includes('await acquireCallCenterLock(filtered[i].id, req)'), 'Viewing a Call Center queue page must not claim every displayed patient.');
+    assert(callCenterScript.includes("if (!await claimRow(patientId)) return;\n            openMicroSip"), 'MicroSIP dialing must claim the patient before launch.');
     assert(callCenterScript.includes('function resizeRowNote'), 'Call Center comments must expand the patient row while typing.');
 
     const webRoutes = fs.readFileSync(path.join(__dirname, '..', 'routes', 'webRoutes.js'), 'utf8');

@@ -674,6 +674,7 @@
         var patientId = parseInt(link.getAttribute('data-patient-id'), 10);
         if (!dialNumber) return;
         if (state.phoneClient === 'microsip') {
+            if (!await claimRow(patientId)) return;
             openMicroSip(dialNumber, false, patientId);
             return;
         }
@@ -684,7 +685,10 @@
         }
         var ready = !!(snapshot && snapshot.registration === 'registered');
         if (!ready) {
-            if (state.phoneClient === 'auto') openMicroSip(dialNumber, true, patientId);
+            if (state.phoneClient === 'auto') {
+                if (!await claimRow(patientId)) return;
+                openMicroSip(dialNumber, true, patientId);
+            }
             else {
                 if (!snapshot) toast('RX Softphone could not be reached. Start version 0.3.0 or later and allow this site to connect to the local softphone.', 'warning');
                 else toast('RX Softphone is not registered. Complete Phone Registration before calling.', 'warning');
@@ -739,6 +743,7 @@
                 }).catch(function() {});
                 rxPhone.activeCall = null;
             }
+            await releasePatientLocks([patientId]);
             toast((err && err.message) || 'RX Softphone could not place the call.', 'danger');
             await probeRxPhone();
         }
@@ -785,10 +790,12 @@
         return api.patients + '?' + parts.join('&');
     }
 
-    async function releaseCurrentLocks() {
-        if (!lockedPatientIds.length) return;
-        var ids = lockedPatientIds.slice();
-        lockedPatientIds = [];
+    async function releasePatientLocks(patientIds) {
+        var ids = (patientIds || []).map(function(id) { return parseInt(id, 10); }).filter(function(id, index, values) {
+            return Number.isFinite(id) && values.indexOf(id) === index;
+        });
+        if (!ids.length) return;
+        lockedPatientIds = lockedPatientIds.filter(function(id) { return ids.indexOf(id) === -1; });
         try {
             await fetchWithAuth(api.lockRelease, {
                 method: 'POST',
@@ -796,6 +803,10 @@
                 silent: true
             });
         } catch (err) {}
+    }
+
+    async function releaseCurrentLocks() {
+        return releasePatientLocks(lockedPatientIds.slice());
     }
 
     async function refreshCurrentLocks() {
@@ -909,9 +920,6 @@
         state.activityLabel = data.activityLabel || '';
         state.view = data.view || state.view;
         renderRows(data.rows || []);
-        lockedPatientIds = (state.view === 'queue' && data.locksAcquired !== false)
-            ? (data.rows || []).map(function(row) { return row.id; })
-            : lockedPatientIds.filter(function() { return false; });
         renderPaging();
         renderActiveView();
     }
@@ -1093,6 +1101,7 @@
                 delete rxPhone.acknowledgements[String(id)];
                 delete rxPhone.callClients[String(id)];
                 toast((data && data.message) || 'Saved.', 'success');
+                await releasePatientLocks([id]);
                 await loadMetrics();
                 await loadPatients();
             } else {

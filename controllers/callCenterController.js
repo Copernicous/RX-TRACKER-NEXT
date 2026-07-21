@@ -625,8 +625,8 @@ exports.listPatients = async (req, res) => {
             order: [['serviceDate', 'ASC'], ['lastName', 'ASC'], ['firstName', 'ASC'], ['id', 'ASC']]
         });
 
-        const shouldClaimRows = isQueueWorker(req.user);
-        const lockedByOthers = shouldClaimRows
+        const shouldRespectClaims = isQueueWorker(req.user);
+        const lockedByOthers = shouldRespectClaims
             ? await getActiveLockedPatientIds(req.user && req.user.id)
             : new Set();
         let filtered = rows.filter((row) =>
@@ -642,15 +642,7 @@ exports.listPatients = async (req, res) => {
         const totalPages = Math.max(Math.ceil(total / paging.pageSize), 1);
         const page = Math.min(paging.page, totalPages);
         const start = (page - 1) * paging.pageSize;
-        const pageRows = [];
-        for (let i = start; i < filtered.length && pageRows.length < paging.pageSize; i += 1) {
-            if (!shouldClaimRows) {
-                pageRows.push(filtered[i]);
-                continue;
-            }
-            const claim = await acquireCallCenterLock(filtered[i].id, req);
-            if (claim.ok) pageRows.push(filtered[i]);
-        }
+        const pageRows = filtered.slice(start, start + paging.pageSize);
         const ids = pageRows.map((row) => row.id);
         const callHistory = await getCallHistoryForPatients(ids);
         const noteHistory = await getRecentNotesForPatients(ids);
@@ -666,7 +658,8 @@ exports.listPatients = async (req, res) => {
             phoneClient: getCallCenterPhoneClient(),
             callCenterThresholdDays: getCallCenterThresholdDays(),
             eligibilityCutoff: eligibilityCutoffIso(),
-            locksAcquired: shouldClaimRows,
+            locksAcquired: false,
+            claimMode: 'on_dial',
             rows: pageRows.map((row) => serializePatient(row, callHistory, noteHistory))
         });
     } catch (err) {

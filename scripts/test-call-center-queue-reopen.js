@@ -80,7 +80,11 @@ async function main() {
         await db.sequelize.sync();
 
         const adminRole = await db.Role.create({ name: `Administrator ${RUN_ID}`, isSystem: false });
-        const callCenterRole = await db.Role.create({ name: `Call Center ${RUN_ID}`, isSystem: false });
+        const callCenterRole = await db.Role.create({
+            name: `Call Center ${RUN_ID}`,
+            isSystem: false,
+            permissions: { call_center: { visible: true, canAdd: true } }
+        });
         created.roles.push(adminRole, callCenterRole);
 
         const adminUser = await db.User.create({
@@ -99,7 +103,15 @@ async function main() {
             roleId: callCenterRole.id,
             isActive: true
         });
-        created.users.push(adminUser, callCenterUser);
+        const secondCallCenterUser = await db.User.create({
+            firstName: 'Queue',
+            lastName: 'Second Agent',
+            username: `${RUN_ID}-agent-2`,
+            passwordHash: 'not-used',
+            roleId: callCenterRole.id,
+            isActive: true
+        });
+        created.users.push(adminUser, callCenterUser, secondCallCenterUser);
 
         const clinic = await db.Clinic.create({
             name: `Queue Repair Clinic ${RUN_ID}`,
@@ -142,8 +154,53 @@ async function main() {
         assert.strictEqual(adminLockedRes.statusCode, 200, 'Call Center list failed with admin-held lock: ' + JSON.stringify(adminLockedRes.body));
         assert.strictEqual(adminLockedRes.body.total, 1, 'Admin-held queue locks should not hide eligible patients from Call Center agents.');
         assert((adminLockedRes.body.rows || []).some((row) => row.id === patient.id), 'Call Center agent should see patient even if an admin viewed the queue first.');
-        const reassignedLock = await db.CallCenterLock.findOne({ where: { patientId: patient.id } });
-        assert.strictEqual(reassignedLock.userId, callCenterUser.id, 'Queue lock should be reassigned to the Call Center agent.');
+        assert.strictEqual(adminLockedRes.body.locksAcquired, false, 'Viewing a queue must not acquire patient claims.');
+        assert.strictEqual(adminLockedRes.body.claimMode, 'on_dial', 'Queue must advertise click-to-dial claim behavior.');
+        const untouchedAdminLock = await db.CallCenterLock.findOne({ where: { patientId: patient.id } });
+        assert.strictEqual(untouchedAdminLock.userId, adminUser.id, 'Viewing a queue must not reassign an existing patient lock.');
+
+        const firstClaimRes = makeRes();
+        await callCenterController.claimPatient({
+            params: { id: String(patient.id) },
+            user: { id: callCenterUser.id, role: 'Call Center' }
+        }, firstClaimRes);
+        assert.strictEqual(firstClaimRes.statusCode, 200, 'First agent should claim the patient when dialing.');
+
+        const secondAgentListRes = makeRes();
+        await callCenterController.listPatients({
+            query: { q: patient.lastName, page: 1, pageSize: 10 },
+            user: { id: secondCallCenterUser.id, role: 'Call Center' }
+        }, secondAgentListRes);
+        assert.strictEqual(secondAgentListRes.statusCode, 200, 'Second agent queue list failed.');
+        assert.strictEqual(secondAgentListRes.body.total, 0, 'An actively claimed patient should be hidden from another agent queue refresh.');
+
+        const conflictingClaimRes = makeRes();
+        await callCenterController.claimPatient({
+            params: { id: String(patient.id) },
+            user: { id: secondCallCenterUser.id, role: 'Call Center' }
+        }, conflictingClaimRes);
+        assert.strictEqual(conflictingClaimRes.statusCode, 409, 'Second agent must not claim a patient while the first dial workflow is active.');
+
+        const firstReleaseRes = makeRes();
+        await callCenterController.releaseLocks({
+            body: { patientIds: [patient.id] },
+            user: { id: callCenterUser.id, role: 'Call Center' }
+        }, firstReleaseRes);
+        assert.strictEqual(firstReleaseRes.statusCode, 200, 'First agent lock release failed.');
+
+        const secondClaimRes = makeRes();
+        await callCenterController.claimPatient({
+            params: { id: String(patient.id) },
+            user: { id: secondCallCenterUser.id, role: 'Call Center' }
+        }, secondClaimRes);
+        assert.strictEqual(secondClaimRes.statusCode, 200, 'Second agent should claim the patient after release.');
+
+        const secondReleaseRes = makeRes();
+        await callCenterController.releaseLocks({
+            body: { patientIds: [patient.id] },
+            user: { id: secondCallCenterUser.id, role: 'Call Center' }
+        }, secondReleaseRes);
+        assert.strictEqual(secondReleaseRes.statusCode, 200, 'Second agent lock release failed.');
 
         const adminReviewRes = makeRes();
         await callCenterController.listPatients({
