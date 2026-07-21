@@ -1,5 +1,9 @@
 'use strict';
 
+const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
+
 // Static requires are deliberate: they allow both Node.js and the compiled
 // rx-db.exe lifecycle tool to execute the exact same audited migration list.
 module.exports = [
@@ -42,5 +46,13 @@ function entry(name, migration) {
   if (!migration || typeof migration.up !== 'function') {
     throw new Error(`Migration ${name} does not export an up() function.`);
   }
-  return Object.freeze({ name, migration });
+  return Object.freeze({ name, migration, checksum: checksumMigration(name) });
+}
+
+function checksumMigration(name) {
+  const filePath = path.join(__dirname, '..', 'migrations', name);
+  const normalized = fs.readFileSync(filePath, 'utf8')
+    .replace(/^\uFEFF/, '')
+    .replace(/\r\n/g, '\n');
+  return crypto.createHash('sha256').update(normalized, 'utf8').digest('hex');
 }

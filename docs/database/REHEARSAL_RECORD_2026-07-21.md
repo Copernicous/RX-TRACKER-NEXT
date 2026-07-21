@@ -9,6 +9,9 @@ RX Softphone files were changed.
 - Fresh provision applied 33 migrations and verified zero missing tables,
   columns, or required unique indexes.
 - A repeated migration applied zero changes.
+- Existing name-only migration history upgraded explicitly to the checksum
+  ledger, and a controlled checksum alteration blocked both startup validation
+  and further migration execution until restored.
 - Reference seeding was idempotent and first-admin bootstrap succeeded once.
 - Repeated web startup returned a healthy API and produced no canonical
   database-content or tracked settings-file change.

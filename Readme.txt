@@ -27,7 +27,8 @@ First verification
 1. Preserve/create .env beside both executables. Never take .env from the ZIP.
 2. Run: rx-db.exe status
 3. Run: rx-db.exe verify
-4. Require READY, 33 applied migrations, and 0 pending migrations.
+4. Require READY, 33 applied migrations, 0 pending migrations, and a verified
+   checksum ledger.
 5. Run: server.exe --v
 6. Require version 4.0.0-next.1.
 

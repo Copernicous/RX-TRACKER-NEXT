@@ -15,6 +15,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 - Added a compiled-compatible database lifecycle engine with explicit `create`, `status`, `migrate`, `verify`, v3.3.1 inspection/adoption, reference-data seeding, first-admin bootstrap, and fresh provisioning commands.
 - Added an audited additive compatibility migration for every table, column, index, and service-date backfill previously performed only by startup DDL or `sequelize.sync()`.
 - Added a model-driven schema verifier and a migration manifest shared by the Node development command and future `rx-db.exe` release tool.
+- Added normalized SHA-256 checksums and applied timestamps to the migration ledger. Status, verification, web startup, and migration execution now reject drift in any previously applied migration file.
 - Added an exact inventory of the 3.3.1 startup mutations and the safe adoption design for imported database copies.
 - Added guarded custom/SQL dump restoration, an end-to-end v3.3.1 rehearsal command, aggregate-only source/copy comparison, and operator runbooks for provisioning, sanitization, cutover, and rollback.
 - Added an atomic test-copy sanitizer that pseudonymizes retained patient/call analytics while deleting credentials, API keys, relay pairings/commands, document pointers, and transient locks. Sanitization requires a safe copy-style database name plus exact confirmation.
@@ -43,6 +44,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 - Passed public JavaScript validation and the Call Center queue, phone-client, shared-state, one-time setup, automatic-attempt, patient-date, RX-override, workflow-date, permanent-delete, and service-window regressions against isolated test databases.
 - Passed dump preflight safety, full restore/adopt/migrate/sanitize rehearsal, sanitizer regression, post-sanitization validation, and schema/aggregate comparison without printing row values.
 - Built and exercised both Windows executables: the compiled lifecycle tool repeated the complete rehearsal on a second target, the compiled server passed its health check, the release archive passed required/forbidden-entry inspection, and the full staging smoke suite passed.
+- Added GitHub Actions lifecycle CI with PostgreSQL 17 for fresh provisioning, checksum tamper detection, atomic sanitization, v3.3.1 dump adoption, application regressions, and a web-start proof using a database role that cannot write.
 - Dependency audit reports 0 critical/high and 2 moderate findings from Sequelize's pinned `uuid@8.3.2` dependency. The available automated remedy is an unsafe Sequelize major downgrade, so it remains monitored in `DEFERRED-ITEMS.txt`; no forced audit rewrite was applied.
 
 **Database impact:** Additive and backward-compatible with 3.3.1. The old application can still read the migrated schema, but NEXT requires the migration ledger and must use its explicit lifecycle tool before startup.

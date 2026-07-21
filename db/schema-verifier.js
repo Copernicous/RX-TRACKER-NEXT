@@ -75,6 +75,15 @@ async function inspectDatabase(db, options = {}) {
     errors.push(`missing unique index ${item.table}(${item.fields.join(', ')})`);
   }
   if (includeMigrations && !migrations.metaExists) errors.push('missing SequelizeMeta migration history');
+  if (includeMigrations && migrations.missingLedgerColumns.length) {
+    errors.push(`migration ledger missing column(s): ${migrations.missingLedgerColumns.join(', ')}`);
+  }
+  if (includeMigrations && migrations.missingChecksums.length) {
+    errors.push(`${migrations.missingChecksums.length} applied migration(s) missing checksums`);
+  }
+  if (includeMigrations && migrations.checksumMismatches.length) {
+    errors.push(`${migrations.checksumMismatches.length} applied migration checksum mismatch(es)`);
+  }
   if (migrations.pending.length) errors.push(`${migrations.pending.length} pending migration(s)`);
   if (migrations.unknown.length) errors.push(`${migrations.unknown.length} unknown migration record(s)`);
 

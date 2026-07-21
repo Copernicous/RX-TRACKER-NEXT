@@ -38,7 +38,7 @@ async function main(argv = process.argv.slice(2)) {
         await db.sequelize.authenticate();
         const status = await getStatus(db.sequelize);
         printMigrationStatus(status);
-        if (!status.metaExists || status.pending.length || status.unknown.length) exitCode = 2;
+        if (!status.metaExists || !status.ledgerReady || status.pending.length || status.unknown.length) exitCode = 2;
         break;
       }
 
@@ -258,8 +258,14 @@ function printMigrationStatus(status) {
   console.log(`[DB] Migration history: ${status.metaExists ? 'present' : 'missing'}`);
   console.log(`[DB] Applied: ${status.applied.length}`);
   console.log(`[DB] Pending: ${status.pending.length}`);
+  console.log(`[DB] Checksum ledger: ${status.ledgerReady ? 'verified' : 'not ready'}`);
   if (status.pending.length) status.pending.forEach((name) => console.log(`  PENDING ${name}`));
   if (status.unknown.length) status.unknown.forEach((name) => console.log(`  UNKNOWN ${name}`));
+  if (status.missingLedgerColumns.length) {
+    console.log(`  LEDGER MISSING COLUMNS ${status.missingLedgerColumns.join(', ')}`);
+  }
+  status.missingChecksums.forEach((name) => console.log(`  CHECKSUM MISSING ${name}`));
+  status.checksumMismatches.forEach((item) => console.log(`  CHECKSUM MISMATCH ${item.name}`));
 }
 
 function printVerification(report) {

@@ -37,6 +37,7 @@
     "test:backoffice-patient-delete": "node scripts/test-backoffice-patient-delete.js",
     "test:service-window": "node scripts/test-configurable-service-window.js",
     "test:db-sanitizer": "node scripts/test-data-sanitizer.js",
+    "test:migration-checksums": "node scripts/test-migration-checksums.js",
     "drive:auth": "node scripts/setup-google-drive-oauth.js",
     "db:create": "node scripts/db-lifecycle.js create",
     "db:status": "node scripts/db-lifecycle.js status",

@@ -1,0 +1,137 @@
+name: NEXT database lifecycle CI
+
+on:
+  push:
+    branches: [main, modernize/database-lifecycle]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  database-lifecycle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: rx_next_ci_base_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d rx_next_ci_base_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      NODE_ENV: development
+      DB_HOST: 127.0.0.1
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASS: postgres
+      DB_NAME: rx_next_ci_base_test
+      PGPASSWORD: postgres
+      JWT_SECRET: rx-next-ci-jwt-secret-with-more-than-32-characters
+      SETTINGS_ENCRYPTION_KEY: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+      SOFTPHONE_CREDENTIAL_KEY: rx-next-ci-softphone-credential-key
+      SOFTPHONE_RELAY_SECRET: rx-next-ci-relay-secret
+      APP_ORIGINS: http://127.0.0.1:3211
+      BACKUP_SCHEDULER_ENABLED: "false"
+      SITE_BACKUP_SCHEDULER_ENABLED: "false"
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Dependency and JavaScript checks
+        run: |
+          npm audit --audit-level=high
+          npm run check:public-js
+
+      - name: Provision and verify a fresh database
+        run: |
+          npm run db:provision
+          npm run db:status
+          npm run db:verify
+          npm run db:migrate
+
+      - name: Verify migration checksum drift protection
+        run: |
+          createdb -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -T rx_next_ci_base_test rx_next_ci_ledger_test
+          DB_NAME=rx_next_ci_ledger_test npm run test:migration-checksums
+
+      - name: Verify atomic test-data sanitization
+        run: |
+          createdb -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -T rx_next_ci_base_test rx_next_ci_sanitizer_test
+          DB_NAME=rx_next_ci_sanitizer_test npm run test:db-sanitizer
+          DB_NAME=rx_next_ci_sanitizer_test npm run db:sanitize:verify
+
+      - name: Rehearse v3.3.1 dump adoption
+        run: |
+          createdb -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -T rx_next_ci_base_test rx_next_ci_v331_copy
+          psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d rx_next_ci_v331_copy -v ON_ERROR_STOP=1 -c 'DROP TABLE "SequelizeMeta";'
+          pg_dump -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -Fc -f /tmp/rx-next-v331.dump rx_next_ci_v331_copy
+          createdb -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -T template0 rx_next_ci_restore_rehearsal
+          DB_NAME=rx_next_ci_restore_rehearsal npm run db:rehearse:v331 -- --dump /tmp/rx-next-v331.dump --confirm-database rx_next_ci_restore_rehearsal
+          DB_NAME=rx_next_ci_restore_rehearsal npm run db:verify
+          DB_NAME=rx_next_ci_restore_rehearsal npm run db:sanitize:verify
+
+      - name: Run application regressions
+        run: |
+          createdb -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -T rx_next_ci_base_test rx_next_ci_regression_test
+          export DB_NAME=rx_next_ci_regression_test
+          npm run test:call-center-queue-reopen
+          npm run test:call-center-phone-client
+          npm run test:call-center-shared-state
+          npm run test:softphone-self-setup
+          npm run test:call-center-call-attempts
+          npm run test:patient-double-update
+          npm run test:rx-override
+          npm run test:workflow-date
+          npm run test:backoffice-patient-delete
+          npm run test:service-window
+
+      - name: Prove web startup works with a read-only database role
+        shell: bash
+        run: |
+          psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d rx_next_ci_base_test -v ON_ERROR_STOP=1 <<'SQL'
+          CREATE ROLE rxnext_runtime_ci LOGIN PASSWORD 'runtime-ci-password';
+          GRANT CONNECT ON DATABASE rx_next_ci_base_test TO rxnext_runtime_ci;
+          GRANT USAGE ON SCHEMA public TO rxnext_runtime_ci;
+          GRANT SELECT ON ALL TABLES IN SCHEMA public TO rxnext_runtime_ci;
+          SQL
+
+          if PGPASSWORD=runtime-ci-password psql -h "$DB_HOST" -p "$DB_PORT" -U rxnext_runtime_ci -d rx_next_ci_base_test -c 'UPDATE "SystemSettings" SET "value" = "value";' 2>/dev/null; then
+            echo "Read-only runtime role unexpectedly accepted a write."
+            exit 1
+          fi
+
+          DB_NAME=rx_next_ci_base_test DB_USER=rxnext_runtime_ci DB_PASS=runtime-ci-password PORT=3211 node app.js > /tmp/rx-next-server.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:3211/api/healthz > /tmp/rx-next-health.json; then
+              break
+            fi
+            sleep 1
+          done
+          grep -q '"status":"ok"' /tmp/rx-next-health.json
+          kill "$server_pid"
+          wait "$server_pid" || true
+          trap - EXIT

@@ -15,6 +15,7 @@ Version: `4.0.0-next.1` preview
 | Area | NEXT behavior |
 |---|---|
 | Web startup | Verifies migration and schema state; performs no schema creation or migration |
+| Migration audit | Stores normalized SHA-256 checksums and blocks edited applied migrations |
 | Fresh database | Explicit `rx-db provision`, followed by one-time administrator bootstrap |
 | 3.3.1 database | Restore to an isolated copy, adopt the verified legacy schema, migrate, and compare |
 | Test data | Explicit sanitizer removes identities, credentials, tokens, pairings, document pointers, and free text |
@@ -29,6 +30,10 @@ production-shaped dump rehearsals and user acceptance are complete.
 - [Sanitized dump rehearsal](docs/database/SANITIZED_DUMP_REHEARSAL.md)
 - [Cutover and rollback](docs/database/CUTOVER_AND_ROLLBACK.md)
 - [3.3.1 startup mutation inventory](docs/database/STARTUP_MUTATION_INVENTORY.md)
+
+Every push and pull request runs the fresh-provision, checksum-drift,
+sanitization, v3.3.1 dump-rehearsal, application-regression, and read-only
+runtime-role checks in GitHub Actions.
 
 For source development, install Node.js and PostgreSQL, create a local `.env`
 from `.env.example`, then run:

@@ -36,7 +36,8 @@ or encryption keys.
    Remove-Item Env:RX_BOOTSTRAP_ADMIN_PASSWORD
    ```
 
-4. Run `.\rx-db.exe verify` and require `READY`, 33 applied, and 0 pending.
+4. Run `.\rx-db.exe verify` and require `READY`, 33 applied, 0 pending, and
+   `Checksum ledger: verified`.
 5. Start `server.exe` only after verification succeeds.
 
 The bootstrap command refuses to run if any user already exists.
@@ -68,8 +69,9 @@ Normal startup performs these database operations only:
 1. authenticate;
 2. read migration state;
 3. inspect required tables, model columns, and unique indexes;
-4. read system settings;
-5. begin serving requests.
+4. verify the normalized SHA-256 checksum of every applied migration;
+5. read system settings;
+6. begin serving requests.
 
 If the ledger or schema is incomplete, startup exits and directs the operator to
 run `rx-db`. It does not call `sequelize.sync()`, create a database, alter a
@@ -86,3 +88,11 @@ table, backfill data, patch roles, seed settings, or create an administrator.
   explicit confirmation.
 - A failed migration is a stop condition. Preserve logs and restore the test
   copy; do not improvise manual schema edits.
+- Applied migration files are immutable. Add a new migration for every later
+  change; editing an applied file causes status, verification, startup, and
+  further migration execution to fail with checksum drift.
+
+The first explicit NEXT `migrate` on a legacy name-only `SequelizeMeta` table
+adds the checksum columns and establishes the audited baseline from this build.
+After that transition, checksums are never silently replaced. This is why the
+3.3.1 schema inspection and protected pre-migration backup are mandatory.

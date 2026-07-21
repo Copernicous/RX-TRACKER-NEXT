@@ -44,8 +44,8 @@ Then run:
 .\rx-db.exe validate-sanitized
 ```
 
-Expected result: `READY`, 33 applied migrations, 0 pending migrations, and a
-sanitized-data `PASS`.
+Expected result: `READY`, 33 applied migrations, 0 pending migrations, a
+verified checksum ledger, and a sanitized-data `PASS`.
 
 ## What the sanitizer does
 
