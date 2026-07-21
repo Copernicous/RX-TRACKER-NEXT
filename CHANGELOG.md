@@ -22,6 +22,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ### Fixed
 
+- Made the shared Call Center phone indicator show the server-reported `Dialing`, `Trying`, `Ringing`, or `Connected` state and connected duration to every user viewing that patient. Also clarified that a Kasm/remote browser cannot reach RX Softphone running on the employee's separate Windows computer.
 - Fixed the shared Add/Edit modal incorrectly displaying a **View Only** banner to Administrators. Bootstrap's forced `d-flex` display was overriding the previous hide instruction even though the fields and Save action remained enabled.
 
 ## [3.2.0] - 2026-07-20

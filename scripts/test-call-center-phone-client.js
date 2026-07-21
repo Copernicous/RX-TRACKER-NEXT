@@ -98,6 +98,7 @@ try {
     assert(callCenterScript.includes("rxFetch('/api/status', { timeoutMs: 30000 })"), 'The user-gesture probe must remain open long enough to approve Chrome\'s permission prompt.');
     assert(callCenterScript.includes('startRxPhonePolling();'), 'Successful user-gesture access must start normal softphone monitoring.');
     assert(callCenterScript.includes('allow access to other apps and services on this device'), 'Loopback permission guidance must use Chrome\'s current local-device wording.');
+    assert(callCenterScript.includes('inside Kasm or another remote browser'), 'Unreachable-softphone guidance must explain the remote-browser loopback limitation.');
     assert(callCenterScript.includes("snapshot.call || 'idle'"), 'Call-state acknowledgement integration is missing.');
     assert(callCenterScript.includes("payload.callAnsweredAt"), 'Answered-call audit metadata is missing.');
     assert(callCenterScript.includes('/api/call-center/phone-account'), 'Server-managed softphone account endpoint is missing.');
@@ -122,6 +123,8 @@ try {
     assert(callCenterScript.includes('cc-availability-cooldown'), 'Inactive claims must render an amber cooldown state.');
     assert(callCenterScript.includes('cc-cooldown-countdown'), 'Amber cooldown must display a live seconds badge on the phone icon.');
     assert(callCenterScript.includes('function formatConnectedDuration'), 'Connected calls must format a live elapsed duration on the phone icon.');
+    assert(callCenterScript.includes('function sharedCallStateLabel'), 'Other users must receive a readable shared dialing, ringing, or connected state.');
+    assert(callCenterScript.includes('sharedCallStateLabel(status.callState)'), 'Phone availability must render the server-provided call state for every user.');
     assert(callCenterScript.includes("countdown.classList.add('visible', 'connected')"), 'Connected calls must activate the duration badge above the phone icon.');
     assert(callCenterView.includes('.cc-cooldown-countdown.connected'), 'Connected duration badge styling is missing.');
     assert(callCenterView.includes('cc-phone-lock-status'), 'Phone availability must display the claiming agent beside the phone action.');

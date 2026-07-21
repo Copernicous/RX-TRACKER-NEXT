@@ -28,6 +28,7 @@
     "smoke:qa": "node qa/smoke-qa.js",
     "test:call-center-queue-reopen": "node scripts/test-call-center-queue-reopen.js",
     "test:call-center-phone-client": "node scripts/test-call-center-phone-client.js",
+    "test:call-center-shared-state": "node scripts/test-call-center-shared-state.js",
     "test:softphone-self-setup": "node scripts/test-softphone-self-setup.js",
     "test:call-center-call-attempts": "node scripts/test-call-center-call-attempts.js",
     "test:patient-double-update": "node scripts/test-patient-service-date-double-update.js",

@@ -176,6 +176,19 @@
         return Number.isFinite(startedMs) ? startedMs : null;
     }
 
+    function sharedCallStateLabel(value) {
+        var callState = String(value || '').trim().toLowerCase();
+        var labels = {
+            dialing: 'Dialing',
+            trying: 'Trying',
+            ringing: 'Ringing',
+            answering: 'Answering',
+            connected: 'Connected',
+            incoming: 'Incoming call'
+        };
+        return labels[callState] || 'Call active';
+    }
+
     function applyPhoneAvailability(statuses) {
         var statusByPatient = {};
         for (var i = 0; i < (statuses || []).length; i++) {
@@ -212,12 +225,13 @@
             }
 
             if (stateName === 'active') {
+                var sharedState = sharedCallStateLabel(status.callState);
                 var connectedAtMs = connectedAtForStatus(status, patientId);
                 var connectedSeconds = connectedAtMs === null
                     ? null
                     : Math.max(0, Math.floor((Date.now() - connectedAtMs) / 1000));
                 var connectedDuration = connectedSeconds === null ? '' : formatConnectedDuration(connectedSeconds);
-                var activeMessage = 'In use by ' + owner + (connectedDuration ? ' · Connected ' + connectedDuration : '');
+                var activeMessage = 'In use by ' + owner + ' · ' + sharedState + (connectedDuration ? ' ' + connectedDuration : '');
                 link.classList.add('cc-availability-active');
                 link.setAttribute('aria-disabled', 'true');
                 link.setAttribute('data-lock-message', activeMessage);
@@ -343,7 +357,7 @@
             badge.innerHTML = '<i class="fas fa-exclamation-triangle"></i> RX Softphone offline';
             if (help) help.textContent = rxPhone.reachable
                 ? 'Open RX Softphone and register it to the PBX before calling.'
-                : 'Start RX Softphone and allow this RX Tracker site to use Local network access in Chrome, then reload.';
+                : 'RX Softphone must run on the same computer as this browser. Remote browsers such as Kasm cannot use a softphone running on your Windows PC.';
         }
 
         var activePatientId = rxPhone.activeCall && isRxCallActive(rxPhone.snapshot)
@@ -907,7 +921,7 @@
             }
             else {
                 if (!snapshot) {
-                    toast('RX Softphone is running locally but Chrome cannot reach it. In this site\'s Chrome settings, allow access to other apps and services on this device, then reload.', 'warning');
+                    toast('RX Softphone could not be reached from this browser. If this page is inside Kasm or another remote browser, open RX Tracker directly on the Windows PC running RX Softphone. Otherwise, allow Local network and Apps on device access, then reload.', 'warning');
                 } else {
                     toast('RX Softphone is not registered. Ask an Administrator to allow Phone Account Setup if the saved account must be corrected.', 'warning');
                 }

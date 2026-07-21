@@ -656,8 +656,8 @@ async function runCallCenterWorkspace(fixtures) {
                 statuses: [{
                     patientId: fixtures.queuePatient.id,
                     status: 'active',
-                    mine: true,
-                    user: 'Smoke CallCenter',
+                    mine: false,
+                    user: 'Another Agent',
                     callState: 'connected',
                     connectedAt: connectedAtForBadge,
                     secondsRemaining: 0
@@ -670,12 +670,14 @@ async function runCallCenterWorkspace(fixtures) {
     const connectedTimerText = (await connectedTimer.innerText()).trim();
     assert(/^1:\d{2}$/.test(connectedTimerText), 'Connected phone badge should display elapsed m:ss duration.');
     assert((await callLink.getAttribute('aria-label')).includes('Connected'), 'Connected phone action should expose elapsed duration accessibly.');
+    const sharedStateText = (await row.locator('.cc-phone-lock-status').innerText()).trim();
+    assert(/In use by Another Agent.*Connected 1:\d{2}/.test(sharedStateText), 'Another user should see the shared connected call state and duration.');
     await page.unroute(lockStatusPattern);
     await page.waitForFunction((patientId) => {
         const badge = document.querySelector('[data-action="phone-call"][data-patient-id="' + patientId + '"] .cc-cooldown-countdown');
         return badge && !badge.classList.contains('connected');
     }, String(fixtures.queuePatient.id), { timeout: 5000 });
-    pass('Call Center connected-call timer badge', connectedTimerText);
+    pass('Call Center shared state and timer badge', connectedTimerText + ' / ' + sharedStateText);
     assert.strictEqual(
         await row.locator('.cc-row-hangup[data-action="phone-hangup"]').count(),
         1,
