@@ -575,6 +575,11 @@
                             <input type="number" class="form-control" id="ccSipLocalPort" min="0" max="65535" value="0">
                             <div class="form-text">Use 0 for automatic.</div>
                         </div>
+                        <div class="col-12" id="ccSipAdminPinGroup" hidden>
+                            <label class="form-label" for="ccSipAdminPin"><i class="fas fa-user-shield me-1 text-primary"></i>Administrator PIN</label>
+                            <input type="password" class="form-control" id="ccSipAdminPin" maxlength="128" autocomplete="off" placeholder="Administrator approval required to save changes">
+                            <div class="form-text">Ask an administrator to enter the PIN. It is validated on the server and is never saved in this browser.</div>
+                        </div>
                         <div class="col-12">
                             <div class="form-label mb-2">Supported audio codecs</div>
                             <div class="cc-codec-list" aria-label="RX Softphone supported audio codecs">
@@ -611,6 +616,7 @@
     <a id="xa-cc-lock-release" href="/api/call-center/locks/release"></a>
     <a id="xa-cc-phone-account" href="/api/call-center/phone-account"></a>
     <a id="xa-cc-phone-registration" href="/api/call-center/phone-account/registration"></a>
+    <a id="xa-cc-call-attempts" href="/api/call-center/call-attempts"></a>
     <a id="xa-cc-logout" href="/api/auth/logout"></a>
 </div>
 

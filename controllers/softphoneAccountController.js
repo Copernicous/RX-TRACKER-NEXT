@@ -1,7 +1,12 @@
 'use strict';
 
 const db = require('../models');
-const { encryptPassword, decryptPassword } = require('../services/softphoneAccountService');
+const {
+    encryptPassword,
+    decryptPassword,
+    isAdminPinRequired,
+    verifyAdminPin
+} = require('../services/softphoneAccountService');
 
 function cleanText(value, maxLength) {
     const clean = String(value || '').trim();
@@ -16,9 +21,10 @@ function parsePort(value, allowZero) {
 }
 
 function accountResponse(account) {
-    if (!account) return { configured: false };
+    if (!account) return { configured: false, adminPinRequired: isAdminPinRequired() };
     return {
         configured: true,
+        adminPinRequired: isAdminPinRequired(),
         server: account.server,
         port: account.port,
         username: account.username,
@@ -62,6 +68,18 @@ exports.getOwnAccount = async (req, res) => {
 
 exports.saveOwnAccount = async (req, res) => {
     const body = req.body || {};
+
+    if (!verifyAdminPin(body.adminPin)) {
+        auditAccountChange(
+            req,
+            'Softphone Account PIN Rejected',
+            null,
+            { accepted: false },
+            null
+        ).catch(err => console.error('[Softphone Account] PIN rejection audit error:', err.message));
+        return res.status(403).json({ error: 'Administrator PIN is incorrect.' });
+    }
+
     const server = cleanText(body.server, 253);
     const username = cleanText(body.username, 128);
     const displayName = body.displayName ? cleanText(body.displayName, 128) : username;

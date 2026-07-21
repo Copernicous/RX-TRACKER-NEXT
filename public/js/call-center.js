@@ -20,7 +20,8 @@
             lockRefresh: h('xa-cc-lock-refresh', '/api/call-center/locks/refresh'),
             lockRelease: h('xa-cc-lock-release', '/api/call-center/locks/release'),
             phoneAccount: h('xa-cc-phone-account', '/api/call-center/phone-account'),
-            phoneRegistration: h('xa-cc-phone-registration', '/api/call-center/phone-account/registration')
+            phoneRegistration: h('xa-cc-phone-registration', '/api/call-center/phone-account/registration'),
+            callAttempts: h('xa-cc-call-attempts', '/api/call-center/call-attempts')
         };
     })();
 
@@ -42,6 +43,7 @@
         suppressAutoRegistration: false,
         savingAccount: false,
         activeCall: null,
+        reconciledCallId: '',
         acknowledgements: {},
         callClients: {}
     };
@@ -192,7 +194,7 @@
                 badge.classList.add('online');
                 badge.innerHTML = '<i class="fas fa-check-circle"></i> RX Softphone ready';
             }
-            if (help) help.textContent = 'RX Softphone reports answered calls here. Confirm any note or service date, then Save.';
+            if (help) help.textContent = 'RX Softphone records attempts and answered calls automatically. Save is only for a note or new service date.';
         } else if (state.phoneClient === 'auto') {
             badge.classList.add('fallback');
             badge.innerHTML = '<i class="fas fa-random"></i> MicroSIP fallback';
@@ -235,6 +237,7 @@
     }
 
     function populateRegistrationForm(account, snapshot) {
+        var accountResponse = account || {};
         account = account && account.configured ? account : {};
         var values = {
             server: account.server || (snapshot && snapshot.server) || '192.168.15.200',
@@ -259,6 +262,14 @@
             password.value = '';
             password.required = !account.passwordConfigured;
             password.placeholder = account.passwordConfigured ? 'Leave blank to keep the saved password' : 'Required for first setup';
+        }
+        var adminPinGroup = document.getElementById('ccSipAdminPinGroup');
+        var adminPin = document.getElementById('ccSipAdminPin');
+        var pinRequired = accountResponse.adminPinRequired === true;
+        if (adminPinGroup) adminPinGroup.hidden = !pinRequired;
+        if (adminPin) {
+            adminPin.value = '';
+            adminPin.required = pinRequired;
         }
     }
 
@@ -298,7 +309,7 @@
         var snapshot = rxPhone.snapshot;
         var registration = snapshot && snapshot.registration ? snapshot.registration : 'offline';
         var busy = rxPhone.savingAccount || !!rxPhone.registrationPromise;
-        ['ccSipServer', 'ccSipPort', 'ccSipUsername', 'ccSipDisplayName', 'ccSipPassword', 'ccSipLocalPort'].forEach(function(id) {
+        ['ccSipServer', 'ccSipPort', 'ccSipUsername', 'ccSipDisplayName', 'ccSipPassword', 'ccSipLocalPort', 'ccSipAdminPin'].forEach(function(id) {
             var input = document.getElementById(id);
             if (input) input.disabled = busy;
         });
@@ -306,12 +317,15 @@
         var registerButton = document.getElementById('ccPhoneRegisterBtn');
         var unregisterButton = document.getElementById('ccPhoneUnregisterBtn');
         var password = document.getElementById('ccSipPassword');
+        var adminPin = document.getElementById('ccSipAdminPin');
+        var pinRequired = !!(account && account.adminPinRequired);
         if (password) {
             password.required = !(account && account.passwordConfigured);
             password.placeholder = account && account.passwordConfigured
                 ? 'Leave blank to keep the saved password'
                 : 'Required for first setup';
         }
+        if (adminPin) adminPin.required = pinRequired;
         if (registerButton) registerButton.disabled = busy;
         if (unregisterButton) unregisterButton.disabled = busy || !rxPhone.reachable || registration === 'offline';
 
@@ -320,7 +334,7 @@
         } else if (!account || !account.configured) {
             setRegistrationMessage('No softphone account is assigned to your RX user. Enter the SIP account once, then Save & Connect.', 'warning');
         } else if (!rxPhone.reachable) {
-            setRegistrationMessage('Account saved on the server. Start RX Softphone 0.2.0 or later on this workstation; it will connect when Call Center loads.', 'warning');
+            setRegistrationMessage('Account saved on the server. Start RX Softphone 0.3.0 or later on this workstation; it will connect when Call Center loads.', 'warning');
         } else if (registration === 'registered') {
             setRegistrationMessage('Connected as extension ' + (snapshot.username || '') + ' to ' + (snapshot.server || '') + ':' + (snapshot.port || 5060) + '. The server assignment remains editable.', 'success');
         } else if (registration === 'registering') {
@@ -418,7 +432,9 @@
             localSipPort: Number(document.getElementById('ccSipLocalPort').value || 0)
         };
         var passwordInput = document.getElementById('ccSipPassword');
+        var adminPinInput = document.getElementById('ccSipAdminPin');
         account.password = passwordInput ? passwordInput.value : '';
+        account.adminPin = adminPinInput ? adminPinInput.value : '';
         var oldHtml = button.innerHTML;
         rxPhone.savingAccount = true;
         button.disabled = true;
@@ -429,7 +445,9 @@
                 body: JSON.stringify(account)
             });
             account.password = '';
+            account.adminPin = '';
             if (passwordInput) passwordInput.value = '';
+            if (adminPinInput) adminPinInput.value = '';
             var response = await savePromise;
             var data = await readResponseBody(response);
             if (!response || !response.ok) {
@@ -445,6 +463,9 @@
             toast((err && err.message) || 'Could not save the softphone account.', 'danger');
         } finally {
             rxPhone.savingAccount = false;
+            account.password = '';
+            account.adminPin = '';
+            if (adminPinInput) adminPinInput.value = '';
             button.innerHTML = oldHtml;
             renderRegistrationFormState();
         }
@@ -472,52 +493,125 @@
         }
     }
 
-    function markAnsweredCall(patientId, snapshot) {
+    function markAnsweredCall(patientId, attempt) {
         var key = String(patientId);
         if (!rxPhone.acknowledgements[key]) {
             rxPhone.acknowledgements[key] = {
                 phoneClient: 'rx_softphone',
-                answeredAt: (snapshot && snapshot.connectedAt) || new Date().toISOString(),
-                endedAt: null,
-                durationSeconds: null
+                answeredAt: (attempt && attempt.answeredAt) || new Date().toISOString(),
+                endedAt: attempt && attempt.endedAt || null,
+                durationSeconds: attempt && attempt.conversationDurationSeconds,
+                autoRecorded: true,
+                attemptId: attempt && attempt.id
             };
-            toast('RX Softphone reports that the call was answered. Called is selected; click Save after adding any note or service date.', 'success');
+            toast('Answered call recorded automatically. Save is needed only for a note or new service date.', 'success');
+            loadMetrics();
+        } else if (attempt) {
+            rxPhone.acknowledgements[key].endedAt = attempt.endedAt || rxPhone.acknowledgements[key].endedAt;
+            rxPhone.acknowledgements[key].durationSeconds = attempt.conversationDurationSeconds;
         }
 
         var row = document.querySelector('tr[data-id="' + key.replace(/"/g, '') + '"]');
         var checkbox = row ? row.querySelector('.cc-called') : null;
         var wrap = row ? row.querySelector('.cc-called-wrap') : null;
-        if (checkbox && !checkbox.disabled) checkbox.checked = true;
+        if (checkbox) {
+            checkbox.checked = true;
+            checkbox.disabled = true;
+        }
         if (wrap) {
             wrap.classList.add('rx-answered');
-            wrap.title = 'Answered through RX Softphone; click Save to record the call';
+            wrap.title = 'Answered and recorded automatically through RX Softphone';
         }
+    }
+
+    function snapshotAttemptPayload(snapshot) {
+        var callState = snapshot && snapshot.call ? snapshot.call : 'idle';
+        return {
+            state: callState === 'idle' ? 'ended' : callState,
+            ringingAt: snapshot && snapshot.ringingAt || null,
+            answeredAt: snapshot && snapshot.connectedAt || null,
+            endedAt: snapshot && snapshot.endedAt || null,
+            outcome: snapshot && snapshot.outcome || null,
+            sipResponseCode: snapshot && snapshot.sipResponseCode || null,
+            sipReason: snapshot && snapshot.sipReason || null
+        };
+    }
+
+    async function updateAttemptRecord(active, snapshot) {
+        if (!active || !active.attemptId) return null;
+        var response = await fetchWithAuth(api.callAttempts + '/' + encodeURIComponent(active.attemptId), {
+            method: 'PATCH',
+            body: JSON.stringify(snapshotAttemptPayload(snapshot))
+        });
+        var data = response ? await response.json().catch(function() { return {}; }) : {};
+        if (!response || !response.ok) throw new Error(data.error || data.message || 'Could not update the call record.');
+        return data;
+    }
+
+    function finalizeActiveCall(active) {
+        var link = document.querySelector('[data-action="phone-call"][data-patient-id="' + String(active.patientId) + '"]');
+        if (link) link.classList.remove('is-calling');
+        if (rxPhone.activeCall === active) rxPhone.activeCall = null;
+        renderPhoneClientStatus();
+    }
+
+    function syncActiveAttempt(snapshot) {
+        var active = rxPhone.activeCall;
+        if (!active || !active.attemptId) return;
+        var payload = snapshotAttemptPayload(snapshot);
+        if (['dialing', 'trying', 'ringing', 'connected', 'ended', 'failed'].indexOf(payload.state) === -1) return;
+        var signature = JSON.stringify(payload);
+        active.syncSignatures = active.syncSignatures || {};
+        if (active.syncSignatures[signature] || signature === active.syncedSignature) return;
+        active.syncSignatures[signature] = true;
+        active.syncChain = (active.syncChain || Promise.resolve()).then(async function() {
+            var data = await updateAttemptRecord(active, snapshot);
+            active.syncedSignature = signature;
+            var attempt = data && data.attempt;
+            if (attempt && attempt.calledRecorded) {
+                active.answered = true;
+                markAnsweredCall(active.patientId, attempt);
+            }
+            if (payload.state === 'ended' || payload.state === 'failed') finalizeActiveCall(active);
+        }).catch(function(err) {
+            delete active.syncSignatures[signature];
+            toast((err && err.message) || 'The call happened, but its analytics update will retry.', 'danger');
+        });
+    }
+
+    async function reconcileRxAttempt(snapshot) {
+        var callId = snapshot && snapshot.callId ? String(snapshot.callId) : '';
+        if (!callId || rxPhone.activeCall || rxPhone.reconciledCallId === callId) return;
+        rxPhone.reconciledCallId = callId;
+        try {
+            var response = await fetchWithAuth(api.callAttempts + '/by-correlation/' + encodeURIComponent(callId), { silent: true });
+            if (!response || !response.ok) return;
+            var data = await response.json();
+            var attempt = data && data.attempt;
+            if (!attempt) return;
+            rxPhone.activeCall = {
+                patientId: attempt.patientId,
+                dialNumber: attempt.dialedNumber,
+                attemptId: attempt.id,
+                correlationId: attempt.correlationId,
+                answered: !!attempt.answeredAt,
+                lastState: attempt.state || 'dialing',
+                syncedSignature: ''
+            };
+            syncActiveAttempt(snapshot);
+            renderPhoneClientStatus();
+        } catch (_) {}
     }
 
     function handleRxSnapshot(snapshot) {
         rxPhone.snapshot = snapshot || null;
         var active = rxPhone.activeCall;
         var callState = snapshot && snapshot.call ? snapshot.call : 'idle';
-        if (active && callState === 'connected') {
-            active.answered = true;
-            markAnsweredCall(active.patientId, snapshot);
-        }
-
-        if (active && ['ended', 'failed', 'idle'].indexOf(callState) !== -1 && active.lastState && active.lastState !== 'idle') {
-            var acknowledgement = rxPhone.acknowledgements[String(active.patientId)];
-            if (acknowledgement) {
-                acknowledgement.endedAt = new Date().toISOString();
-                var startMs = new Date(acknowledgement.answeredAt).getTime();
-                var endMs = new Date(acknowledgement.endedAt).getTime();
-                if (Number.isFinite(startMs) && Number.isFinite(endMs) && endMs >= startMs) {
-                    acknowledgement.durationSeconds = Math.round((endMs - startMs) / 1000);
-                }
-            }
-            var link = document.querySelector('[data-action="phone-call"][data-patient-id="' + String(active.patientId) + '"]');
-            if (link) link.classList.remove('is-calling');
-            rxPhone.activeCall = null;
-        } else if (active) {
+        if (active) {
             active.lastState = callState;
+            syncActiveAttempt(snapshot);
+        } else if (snapshot && snapshot.callId) {
+            reconcileRxAttempt(snapshot);
         }
         renderPhoneClientStatus();
     }
@@ -592,7 +686,7 @@
         if (!ready) {
             if (state.phoneClient === 'auto') openMicroSip(dialNumber, true, patientId);
             else {
-                if (!snapshot) toast('RX Softphone could not be reached. Start version 0.2.0 or later and allow this site to connect to the local softphone.', 'warning');
+                if (!snapshot) toast('RX Softphone could not be reached. Start version 0.3.0 or later and allow this site to connect to the local softphone.', 'warning');
                 else toast('RX Softphone is not registered. Complete Phone Registration before calling.', 'warning');
                 openPhoneSetup();
             }
@@ -605,23 +699,46 @@
         if (!await claimRow(patientId)) return;
 
         link.classList.add('is-calling');
+        var attempt = null;
         try {
-            var dialSnapshot = await rxFetch('/api/calls', {
+            var attemptResponse = await fetchWithAuth(api.callAttempts, {
                 method: 'POST',
-                body: JSON.stringify({ destination: dialNumber })
+                body: JSON.stringify({ patientId: patientId, dialedNumber: dialNumber })
             });
+            var attemptData = attemptResponse ? await attemptResponse.json().catch(function() { return {}; }) : {};
+            if (!attemptResponse || !attemptResponse.ok || !attemptData.attempt) {
+                throw new Error(attemptData.error || attemptData.message || 'The call record could not be created, so the call was not placed.');
+            }
+            attempt = attemptData.attempt;
             rxPhone.activeCall = {
                 patientId: patientId,
                 dialNumber: dialNumber,
+                attemptId: attempt.id,
+                correlationId: attempt.correlationId,
                 answered: false,
-                lastState: dialSnapshot.call || 'dialing'
+                lastState: 'dialing',
+                syncedSignature: ''
             };
+            var dialSnapshot = await rxFetch('/api/calls', {
+                method: 'POST',
+                body: JSON.stringify({ destination: dialNumber, correlationId: attempt.correlationId })
+            });
+            rxPhone.activeCall.lastState = dialSnapshot.call || 'dialing';
             rxPhone.callClients[String(patientId)] = 'rx_softphone';
             rxPhone.reachable = true;
             handleRxSnapshot(dialSnapshot);
             toast('Calling ' + dialNumber + ' with RX Softphone.', 'info');
         } catch (err) {
             link.classList.remove('is-calling');
+            if (attempt && rxPhone.activeCall) {
+                await updateAttemptRecord(rxPhone.activeCall, {
+                    call: 'failed',
+                    endedAt: new Date().toISOString(),
+                    outcome: 'failed',
+                    sipReason: (err && err.message) || 'RX Softphone could not place the call.'
+                }).catch(function() {});
+                rxPhone.activeCall = null;
+            }
             toast((err && err.message) || 'RX Softphone could not place the call.', 'danger');
             await probeRxPhone();
         }
@@ -814,7 +931,7 @@
             var answeredAcknowledgement = rxPhone.acknowledgements[String(row.id)];
             var calledWrapClass = answeredAcknowledgement ? 'cc-called-wrap rx-answered' : 'cc-called-wrap';
             var calledTitle = answeredAcknowledgement
-                ? 'Answered through RX Softphone; click Save to record the call'
+                ? 'Answered and recorded automatically through RX Softphone'
                 : (state.view === 'queue' ? 'Called' : 'Call again');
             var saveButton = canUpdate
                 ? '<button class="btn btn-success btn-sm cc-save" data-action="save" title="Save"><i class="fas fa-save"></i></button>'
@@ -830,7 +947,7 @@
                         '<div class="cc-record-cell"><input type="date" class="form-control form-control-sm cc-new-date" data-field="newServiceDate"' +
                             (state.eligibilityCutoff ? ' min="' + esc(state.eligibilityCutoff) + '"' : '') + disabled + '></div>' +
                         '<div class="cc-record-cell"><textarea class="form-control form-control-sm cc-row-note" data-field="note" maxlength="4000" rows="1"' + disabled + '></textarea></div>' +
-                        '<div class="cc-record-cell text-center"><label class="' + calledWrapClass + '" title="' + calledTitle + '"><input type="checkbox" class="form-check-input cc-called" data-field="called"' + (answeredAcknowledgement ? ' checked' : '') + disabled + '></label></div>' +
+                        '<div class="cc-record-cell text-center"><label class="' + calledWrapClass + '" title="' + calledTitle + '"><input type="checkbox" class="form-check-input cc-called" data-field="called"' + (answeredAcknowledgement ? ' checked disabled' : disabled) + '></label></div>' +
                         '<div class="cc-record-cell cc-record-cell-history">' + renderCallHistory(row) + '</div>' +
                         '<div class="cc-record-cell cc-record-cell-save">' + saveButton + '</div>' +
                     '</div>' +
@@ -938,7 +1055,7 @@
         var note = tr.querySelector('.cc-row-note');
         var date = tr.querySelector('.cc-new-date');
         var payload = {
-            called: !!(called && called.checked),
+            called: !!(called && called.checked && !(rxPhone.acknowledgements[String(id)] || {}).autoRecorded),
             note: note ? note.value.trim() : '',
             newServiceDate: date ? date.value : ''
         };

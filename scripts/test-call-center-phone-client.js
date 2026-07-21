@@ -8,10 +8,11 @@ const path = require('path');
 const runtimeRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'rx-phone-client-'));
 process.env.APP_WRITABLE_ROOT = runtimeRoot;
 const previousCredentialKey = process.env.SOFTPHONE_CREDENTIAL_KEY;
+const previousAdminPin = process.env.SOFTPHONE_ACCOUNT_ADMIN_PIN;
 process.env.SOFTPHONE_CREDENTIAL_KEY = 'call-center-phone-client-regression-key';
 
 try {
-    const { encryptPassword, decryptPassword } = require('../services/softphoneAccountService');
+    const { encryptPassword, decryptPassword, isAdminPinRequired, verifyAdminPin } = require('../services/softphoneAccountService');
     const encryptedPassword = encryptPassword(1006, 'temporary-regression-password');
     assert(encryptedPassword.startsWith('rxsoft:v1:'), 'Softphone password must use the versioned encrypted format.');
     assert(!encryptedPassword.includes('temporary-regression-password'), 'Softphone password must not be stored as plaintext.');
@@ -21,6 +22,13 @@ try {
         /could not be decrypted/,
         'A softphone credential must be cryptographically bound to its assigned RX user.'
     );
+    delete process.env.SOFTPHONE_ACCOUNT_ADMIN_PIN;
+    assert.strictEqual(isAdminPinRequired(), false, 'Phone-account PIN must remain optional until configured by the administrator.');
+    assert.strictEqual(verifyAdminPin(''), true, 'An unconfigured PIN must not block existing installations.');
+    process.env.SOFTPHONE_ACCOUNT_ADMIN_PIN = 'regression-admin-pin';
+    assert.strictEqual(isAdminPinRequired(), true, 'Configured administrator PIN was not detected.');
+    assert.strictEqual(verifyAdminPin('regression-admin-pin'), true, 'Correct administrator PIN was rejected.');
+    assert.strictEqual(verifyAdminPin('wrong-pin'), false, 'Incorrect administrator PIN was accepted.');
 
     const settings = require('../utils/globalSettings');
     assert.strictEqual(settings.getCallCenterPhoneClient(), 'microsip', 'MicroSIP must remain the upgrade-safe default.');
@@ -74,12 +82,14 @@ try {
     assert(callCenterScript.includes("snapshot.call || 'idle'"), 'Call-state acknowledgement integration is missing.');
     assert(callCenterScript.includes("payload.callAnsweredAt"), 'Answered-call audit metadata is missing.');
     assert(callCenterScript.includes('/api/call-center/phone-account'), 'Server-managed softphone account endpoint is missing.');
+    assert(callCenterScript.includes('account.adminPin'), 'Phone-account save must send the administrator PIN only for server validation.');
     assert(callCenterScript.includes('connectAssignedPhone(false, false)'), 'Automatic per-user softphone registration is missing.');
     assert(!callCenterScript.includes('rxCallCenterSoftphoneProfileV1'), 'Softphone account metadata must not be stored in browser localStorage.');
 
     const callCenterView = fs.readFileSync(path.join(__dirname, '..', 'views', 'call-center.ejs'), 'utf8');
     assert(callCenterView.includes('cc-record-heading-all'), 'Compact one-line Call Center roster heading is missing.');
     assert(callCenterView.includes('Save &amp; Connect'), 'Server-backed softphone account editor is missing.');
+    assert(callCenterView.includes('ccSipAdminPin'), 'Administrator PIN approval field is missing from the phone-account editor.');
     assert(callCenterScript.includes('data-action="phone-hangup"'), 'Each callable patient row must provide an inline Hang Up control.');
     assert(callCenterView.includes('.cc-phone-action-stack'), 'Dial and Hang Up controls must remain grouped in the patient phone cell.');
     assert(callCenterView.includes('<option value="50">50</option>'), 'Call Center must support a longer scrolling roster.');
@@ -94,5 +104,7 @@ try {
 } finally {
     if (previousCredentialKey === undefined) delete process.env.SOFTPHONE_CREDENTIAL_KEY;
     else process.env.SOFTPHONE_CREDENTIAL_KEY = previousCredentialKey;
+    if (previousAdminPin === undefined) delete process.env.SOFTPHONE_ACCOUNT_ADMIN_PIN;
+    else process.env.SOFTPHONE_ACCOUNT_ADMIN_PIN = previousAdminPin;
     fs.rmSync(runtimeRoot, { recursive: true, force: true });
 }

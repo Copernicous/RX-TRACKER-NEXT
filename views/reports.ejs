@@ -390,7 +390,7 @@
                                 <input type="text" class="form-control form-control-sm" id="ccrPatientCode" placeholder="PAT..." autocomplete="off">
                             </div>
                             <div class="col-md-2 d-flex align-items-end gap-2">
-                                <button class="btn btn-primary btn-sm" onclick="ccrPage=1;renderCallCenterReport()" title="Search"><i class="fas fa-search"></i></button>
+                                <button class="btn btn-primary btn-sm" onclick="ccrPage=1;ccaPage=1;renderCallCenterReports()" title="Search"><i class="fas fa-search"></i></button>
                                 <button class="btn btn-outline-secondary btn-sm" onclick="clearCallCenterFilters()" title="Clear"><i class="fas fa-times"></i></button>
                                 <button class="btn btn-outline-success btn-sm flex-grow-1" id="exportCcCsv"><i class="fas fa-file-csv me-1"></i>CSV</button>
                                 <button class="btn btn-outline-primary btn-sm" id="exportCcXls" title="Export Excel"><i class="fas fa-file-excel"></i></button>
@@ -432,6 +432,23 @@
                                         <option value="Inactive">Inactive</option>
                                         <option value="Deleted">Deleted</option>
                                     </select>
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small fw-bold mb-1">Call Outcome</label>
+                                    <select class="form-select form-select-sm" id="ccrAttemptOutcome">
+                                        <option value="">All Outcomes</option>
+                                        <option value="answered">Answered</option>
+                                        <option value="no_answer">No Answer</option>
+                                        <option value="busy">Busy</option>
+                                        <option value="rejected">Rejected</option>
+                                        <option value="unavailable">Unavailable</option>
+                                        <option value="cancelled">Cancelled</option>
+                                        <option value="failed">Failed</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small fw-bold mb-1">Extension</label>
+                                    <input type="text" class="form-control form-control-sm" id="ccrExtension" placeholder="Extension..." autocomplete="off">
                                 </div>
                             </div>
                         </div>
@@ -480,6 +497,65 @@
                                 </thead>
                                 <tbody id="ccReportBody">
                                     <tr><td colspan="12" class="text-center text-muted py-4">Loading...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <hr class="my-4">
+                        <div class="d-flex flex-wrap align-items-start justify-content-between gap-2 mb-2">
+                            <div>
+                                <h5 class="mb-1"><i class="fas fa-phone-volume me-2 text-primary"></i>Automatic Call Attempts</h5>
+                                <div class="small text-muted">Saved as soon as Dial is selected. Only answered calls automatically count as Called; all other outcomes remain attempt history.</div>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-outline-success btn-sm" id="exportCcAttemptsCsv"><i class="fas fa-file-csv me-1"></i>CSV</button>
+                                <button class="btn btn-outline-primary btn-sm" id="exportCcAttemptsXls"><i class="fas fa-file-excel me-1"></i>Excel</button>
+                                <button class="btn btn-outline-secondary btn-sm" id="printCcAttemptsBtn"><i class="fas fa-print"></i></button>
+                            </div>
+                        </div>
+
+                        <div class="d-flex flex-wrap gap-2 my-3" id="ccaMetrics">
+                            <div class="cc-report-metric"><div class="small text-muted fw-bold">Attempts</div><div class="fs-5 fw-bold" id="ccaMAttempts">--</div></div>
+                            <div class="cc-report-metric"><div class="small text-muted fw-bold">Answered</div><div class="fs-5 fw-bold text-success" id="ccaMAnswered">--</div></div>
+                            <div class="cc-report-metric"><div class="small text-muted fw-bold">Unanswered</div><div class="fs-5 fw-bold" id="ccaMUnanswered">--</div></div>
+                            <div class="cc-report-metric"><div class="small text-muted fw-bold">Answer Rate</div><div class="fs-5 fw-bold" id="ccaMAnswerRate">--</div></div>
+                            <div class="cc-report-metric"><div class="small text-muted fw-bold">Avg Ring</div><div class="fs-5 fw-bold" id="ccaMAvgRing">--</div></div>
+                            <div class="cc-report-metric"><div class="small text-muted fw-bold">Avg Talk</div><div class="fs-5 fw-bold" id="ccaMAvgTalk">--</div></div>
+                        </div>
+
+                        <div class="pag-bar">
+                            <div class="pag-left">
+                                <label class="small text-muted mb-0">Show</label>
+                                <select class="form-select form-select-sm" style="width:auto" id="ccaPageSize" onchange="ccaChangeSize(this.value)">
+                                    <option value="10">10</option>
+                                    <option value="20" selected>20</option>
+                                    <option value="50">50</option>
+                                    <option value="100">100</option>
+                                </select>
+                                <span class="small text-muted" id="ccaReportCount"></span>
+                            </div>
+                            <div class="pag-right"><nav><ul class="pagination pagination-sm mb-0" id="ccaPagNav"></ul></nav></div>
+                        </div>
+
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle" id="ccAttemptReportTable" style="min-width:1500px">
+                                <thead>
+                                    <tr>
+                                        <th>Patient</th>
+                                        <th>Agent / Extension</th>
+                                        <th>Dialed Number</th>
+                                        <th>Outcome</th>
+                                        <th>SIP Response</th>
+                                        <th>Dialed</th>
+                                        <th>Ringing</th>
+                                        <th>Answered</th>
+                                        <th>Ended</th>
+                                        <th>Ring</th>
+                                        <th>Conversation</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="ccAttemptReportBody">
+                                    <tr><td colspan="11" class="text-center text-muted py-4">Loading...</td></tr>
                                 </tbody>
                             </table>
                         </div>

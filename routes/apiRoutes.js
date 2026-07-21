@@ -14,6 +14,16 @@ const sessionTracker = require('../services/sessionTracker');
 const sessionIdleService = require('../services/sessionIdleService');
 const { getWritableRoot } = require('../utils/runtimePaths');
 const { spawn } = require('child_process');
+const rateLimit = require('express-rate-limit');
+
+const phoneAccountSaveLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 5,
+    standardHeaders: true,
+    legacyHeaders: false,
+    skipSuccessfulRequests: true,
+    message: { error: 'Too many rejected phone-account save attempts. Try again in 15 minutes.' }
+});
 
 function getCookie(cookieHeader, name) {
     if (!cookieHeader) return null;
@@ -28,6 +38,7 @@ const userController = require('../controllers/userController');
 const workflowActionController = require('../controllers/workflowActionController');
 const patientController = require('../controllers/patientController');
 const callCenterController = require('../controllers/callCenterController');
+const callAttemptController = require('../controllers/callAttemptController');
 const softphoneAccountController = require('../controllers/softphoneAccountController');
 const rxController = require('../controllers/rxController');
 const dashboardController = require('../controllers/dashboardController');
@@ -169,8 +180,11 @@ router.get('/staging/implementation-version', adminOnly, sendStagingManifestResp
 
 router.get('/call-center/patients', callCenterController.requireAccess, callCenterController.listPatients);
 router.get('/call-center/phone-account', callCenterController.requireAccess, softphoneAccountController.getOwnAccount);
-router.put('/call-center/phone-account', callCenterController.requireWriteAccess, softphoneAccountController.saveOwnAccount);
+router.put('/call-center/phone-account', callCenterController.requireWriteAccess, phoneAccountSaveLimiter, softphoneAccountController.saveOwnAccount);
 router.post('/call-center/phone-account/registration', callCenterController.requireAccess, softphoneAccountController.getOwnRegistration);
+router.post('/call-center/call-attempts', callCenterController.requireWriteAccess, callAttemptController.startAttempt);
+router.get('/call-center/call-attempts/by-correlation/:correlationId', callCenterController.requireAccess, callAttemptController.getOwnAttemptByCorrelation);
+router.patch('/call-center/call-attempts/:id', callCenterController.requireWriteAccess, callAttemptController.updateAttempt);
 router.post('/call-center/patients/:id/claim', callCenterController.requireWriteAccess, callCenterController.claimPatient);
 router.post('/call-center/patients/:id/actions', callCenterController.requireWriteAccess, callCenterController.savePatientAction);
 router.post('/call-center/locks/refresh', callCenterController.requireWriteAccess, callCenterController.refreshLocks);
@@ -330,6 +344,7 @@ router.get('/reports/patients', rbac.requirePermission('reports', 'read'), repor
 router.get('/reports/rx-receipts', rbac.requirePermission('reports', 'read'), reportController.getRXReceiptReport);
 router.get('/reports/rx-actions', rbac.requirePermission('reports', 'read'), reportController.getRXActionReport);
 router.get('/reports/call-center', rbac.requirePermission('reports', 'read'), reportController.getCallCenterReport);
+router.get('/reports/call-center-attempts', rbac.requirePermission('reports', 'read'), reportController.getCallCenterAttemptReport);
 
 // Audit Log — controlled by its own audit_log permission
 router.get('/audit-logs',              rbac.requirePermission('audit_log', 'read'),  auditLogController.getAll);

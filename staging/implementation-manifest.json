@@ -1,8 +1,8 @@
 {
   "environment": "staging",
   "manifestVersion": "staging-impl-v1",
-  "implementationVersion": "3.0.9-staging-2026.07.19.02",
-  "effectiveFrom": "2026-07-19T11:51:51-04:00",
+  "implementationVersion": "3.2.0-staging-2026.07.20.01",
+  "effectiveFrom": "2026-07-20T21:55:00-04:00",
   "appliesTo": "APP_ENV/APP_INSTANCE contains 'staging' or 'stage'",
   "status": "active",
   "rollbackPolicy": {
@@ -14,6 +14,39 @@
     ]
   },
   "implementations": [
+    {
+      "id": "STS-CC-ATTEMPTS-001",
+      "file": "controllers/callAttemptController.js",
+      "component": "RX Softphone call analytics",
+      "summary": "Persist every RX Softphone dial attempt before local dialing and automatically record Called only after an answered state.",
+      "effect": "Administrators can report call timing, duration, outcome, SIP result, patient snapshot, agent, extension, and dialed number while unanswered attempts remain separate from Called activity.",
+      "risk": "RX Softphone versions before 0.3.0 do not provide the complete native timestamp/outcome telemetry.",
+      "rollback": {
+        "action": "Redeploy version 3.1.0 and leave the additive CallCenterCallAttempts table in place for forward recovery."
+      }
+    },
+    {
+      "id": "STS-CC-PIN-001",
+      "file": "controllers/softphoneAccountController.js",
+      "component": "Softphone account approval",
+      "summary": "Require a timing-safe administrator PIN for phone-account saves when SOFTPHONE_ACCOUNT_ADMIN_PIN is configured.",
+      "effect": "Prevents accidental SIP assignment edits while keeping automatic per-user registration and local Disconnect behavior unchanged.",
+      "risk": "Users cannot save account changes if the configured administrator PIN is unavailable.",
+      "rollback": {
+        "action": "Remove SOFTPHONE_ACCOUNT_ADMIN_PIN from the staging environment and restart, or redeploy the previous version."
+      }
+    },
+    {
+      "id": "STS-UI-SMOKE-002",
+      "file": "scripts/run-isolated-staging-ui-smoke.js",
+      "component": "Staging browser smoke isolation",
+      "summary": "Run browser fixtures on a dedicated *_ui_smoke database and random loopback port.",
+      "effect": "Automated test patients and related records no longer appear or disappear in shared staging during manual testing.",
+      "risk": "The staging PostgreSQL user needs permission to create the isolated smoke database on first run.",
+      "rollback": {
+        "action": "Use the core smoke script only with STAGING_UI_SMOKE_ALLOW_SHARED_DB=true after explicitly accepting shared-data mutation risk."
+      }
+    },
     {
       "id": "STS-APP-001",
       "file": "app.js",

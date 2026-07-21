@@ -49,7 +49,22 @@ function decryptPassword(userId, encryptedPassword) {
     }
 }
 
+function isAdminPinRequired() {
+    return String(process.env.SOFTPHONE_ACCOUNT_ADMIN_PIN || '').length > 0;
+}
+
+function verifyAdminPin(candidate) {
+    const configured = String(process.env.SOFTPHONE_ACCOUNT_ADMIN_PIN || '');
+    if (!configured) return true;
+    const submitted = candidate === undefined || candidate === null ? '' : String(candidate);
+    const expectedDigest = crypto.createHash('sha256').update(configured, 'utf8').digest();
+    const submittedDigest = crypto.createHash('sha256').update(submitted, 'utf8').digest();
+    return crypto.timingSafeEqual(expectedDigest, submittedDigest);
+}
+
 module.exports = {
     encryptPassword,
-    decryptPassword
+    decryptPassword,
+    isAdminPinRequired,
+    verifyAdminPin
 };

@@ -7,7 +7,25 @@ const bcrypt = require('bcryptjs');
 const { chromium } = require('playwright-core');
 const { prepareStagingEnv } = require('./lib/staging-env');
 
-const stagingConfig = prepareStagingEnv();
+const isolatedSmoke = process.env.STAGING_UI_SMOKE_ISOLATED === 'true';
+if (!isolatedSmoke && process.env.STAGING_UI_SMOKE_ALLOW_SHARED_DB !== 'true') {
+    throw new Error(
+        'Refusing to create browser-smoke fixtures in the shared staging database. ' +
+        'Run "npm run staging:ui-click-smoke" for an isolated server/database.'
+    );
+}
+const stagingConfig = isolatedSmoke
+    ? {
+        dbName: process.env.DB_NAME || '',
+        dbHost: process.env.DB_HOST || '127.0.0.1',
+        dbPort: process.env.DB_PORT || '5432',
+        port: process.env.PORT || '',
+        writableRoot: process.env.APP_WRITABLE_ROOT || ''
+    }
+    : prepareStagingEnv();
+if (isolatedSmoke && !/(ui_smoke|smoke_ui|test)/i.test(stagingConfig.dbName)) {
+    throw new Error('Refusing isolated UI smoke because DB_NAME is not marked as a smoke/test database.');
+}
 const db = require('../models');
 const { BUILT_IN_DEFAULTS } = require('../middleware/rbac');
 const Op = db.Sequelize.Op;
@@ -183,6 +201,33 @@ async function seedFixtures() {
         changeSource: 'Call Center',
         reason: 'Staging UI smoke service date history',
         metadata: { runId }
+    });
+    const dialedAt = new Date(Date.now() - 8 * 60 * 1000);
+    const ringingAt = new Date(dialedAt.getTime() + 3000);
+    const answeredAt = new Date(ringingAt.getTime() + 7000);
+    const endedAt = new Date(answeredAt.getTime() + 83000);
+    await db.CallCenterCallAttempt.create({
+        patientId: metricPatient.id,
+        userId: callCenterUser.id,
+        correlationId: 'ui-smoke-attempt-' + runId,
+        phoneClient: 'rx_softphone',
+        direction: 'outbound',
+        state: 'ended',
+        outcome: 'answered',
+        patientCode: metricPatient.patientCode,
+        patientName: metricPatient.firstName + ' ' + metricPatient.lastName,
+        clinicName: clinic.name,
+        agentName: callCenterUser.firstName + ' ' + callCenterUser.lastName,
+        extension: 'smoke-ext',
+        dialedNumber: String(metricPatient.phone).replace(/[^0-9+*#]/g, ''),
+        sipResponseCode: 200,
+        sipReason: 'OK',
+        dialedAt,
+        ringingAt,
+        answeredAt,
+        endedAt,
+        ringDurationSeconds: 7,
+        conversationDurationSeconds: 83
     });
 
     return {
@@ -401,11 +446,20 @@ async function runAdminDashboardAndReports(fixtures) {
     assert.strictEqual((await page.locator('#ccrMNotes').innerText()).trim(), '1', 'Call Center report filtered note total mismatch.');
     const reportText = await page.locator('#ccReportBody').innerText();
     assert(reportText.includes('Smoke report call center note'), 'Call Center report did not show note history.');
+    await page.waitForFunction((code) => {
+        const body = document.querySelector('#ccAttemptReportBody');
+        return body && body.textContent.indexOf(code) !== -1;
+    }, fixtures.metricPatient.patientCode, { timeout: 15000 });
+    assert.strictEqual((await page.locator('#ccaMAttempts').innerText()).trim(), '1', 'Automatic attempt total mismatch.');
+    assert.strictEqual((await page.locator('#ccaMAnswered').innerText()).trim(), '1', 'Automatic answered total mismatch.');
+    assert((await page.locator('#ccAttemptReportBody').innerText()).includes('200 — OK'), 'Automatic attempt SIP result was not rendered.');
     pass('Call Center Report filters and calculators');
     await page.locator('#ccReportTable th:has-text("Calls")').click();
     pass('Call Center Report sorting click');
     await expectDownload(page, '#exportCcCsv', 'Call Center Report CSV export');
     await expectDownload(page, '#exportCcXls', 'Call Center Report Excel export');
+    await expectDownload(page, '#exportCcAttemptsCsv', 'Call attempt CSV export');
+    await expectDownload(page, '#exportCcAttemptsXls', 'Call attempt Excel export');
 
     assertNoBrowserErrors('admin dashboard/report flow');
     await context.close();
@@ -417,10 +471,21 @@ async function runCallCenterWorkspace(fixtures) {
 
     const accountBefore = await context.request.get(route('/api/call-center/phone-account'));
     assert.strictEqual(accountBefore.status(), 200, 'Call Center user should be able to load their own softphone assignment.');
-    assert.strictEqual((await accountBefore.json()).configured, false, 'Temporary Call Center user should begin without a softphone assignment.');
+    const accountBeforeBody = await accountBefore.json();
+    assert.strictEqual(accountBeforeBody.configured, false, 'Temporary Call Center user should begin without a softphone assignment.');
+    assert.strictEqual(accountBeforeBody.adminPinRequired, true, 'Isolated staging must require the administrator PIN for phone-account saves.');
+
+    const rejectedSave = await page.evaluate(async () => {
+        const response = await fetchWithAuth('/api/call-center/phone-account', {
+            method: 'PUT',
+            body: JSON.stringify({ adminPin: 'incorrect-isolated-pin' })
+        });
+        return { status: response.status, body: await response.json().catch(() => ({})) };
+    });
+    assert.strictEqual(rejectedSave.status, 403, 'Incorrect administrator PIN must reject a phone-account save.');
 
     const sipTestPassword = 'SipSmoke!' + runId;
-    const accountSave = await page.evaluate(async ({ password: transientPassword }) => {
+    const accountSave = await page.evaluate(async ({ password: transientPassword, adminPin }) => {
         const response = await fetchWithAuth('/api/call-center/phone-account', {
             method: 'PUT',
             body: JSON.stringify({
@@ -429,12 +494,13 @@ async function runCallCenterWorkspace(fixtures) {
                 username: 'smoke-' + Date.now(),
                 displayName: 'Staging Smoke Softphone',
                 localSipPort: 0,
-                password: transientPassword
+                password: transientPassword,
+                adminPin
             })
         });
         const body = await response.json().catch(() => ({}));
         return { status: response.status, configured: !!(body.account && body.account.configured), passwordExposed: Object.hasOwn(body.account || {}, 'password') || Object.hasOwn(body.account || {}, 'encryptedPassword') };
-    }, { password: sipTestPassword });
+    }, { password: sipTestPassword, adminPin: process.env.SOFTPHONE_ACCOUNT_ADMIN_PIN });
     assert.strictEqual(accountSave.status, 200, 'Call Center user should be able to save their own softphone assignment.');
     assert.strictEqual(accountSave.configured, true, 'Saved softphone assignment should be configured.');
     assert.strictEqual(accountSave.passwordExposed, false, 'Softphone account save response must not expose password material.');
@@ -645,6 +711,7 @@ async function cleanup() {
     await new Promise(resolve => setTimeout(resolve, 500));
 
     if (patientIds.length) {
+        if (db.CallCenterCallAttempt) await db.CallCenterCallAttempt.destroy({ where: { patientId: { [Op.in]: patientIds } } }).catch(() => {});
         if (db.CallCenterLock) await db.CallCenterLock.destroy({ where: { patientId: { [Op.in]: patientIds } } }).catch(() => {});
         if (db.PatientLock) await db.PatientLock.destroy({ where: { patientId: { [Op.in]: patientIds } } }).catch(() => {});
         await db.PatientNote.destroy({ where: { patientId: { [Op.in]: patientIds } } }).catch(() => {});

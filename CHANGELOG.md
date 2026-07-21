@@ -7,6 +7,32 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+## [3.2.0] - 2026-07-20
+
+### Added
+
+- Added durable RX Softphone call-attempt records created before the local call is placed. Each record stores dial, ring, answer, and end timestamps; ring and conversation durations; answered/no-answer/busy/rejected/unavailable/cancelled/failed outcome; SIP response code/reason; and patient, clinic, agent, extension, and dialed-number snapshots.
+- Added automatic **Called** recording when RX Softphone reports that the remote party answered. Unanswered attempts remain in analytics but do not mark the patient Called. The roster Save action is now reserved for notes and new service dates after an automatically recorded answer.
+- Added administrator Call Center attempt analytics with outcome/agent/extension/date/patient filters, answer-rate and duration metrics, detailed history, pagination, print, and CSV/Excel export.
+- Added an optional server-side `SOFTPHONE_ACCOUNT_ADMIN_PIN` approval gate for phone-account saves. The account remains permanently assigned and registers automatically when the user loads Call Center; the PIN is needed only to save changes.
+
+### Security
+
+- Compared the phone-account administrator PIN using fixed-length SHA-256 digests and timing-safe comparison. The PIN is never returned, persisted in browser storage, or included in audit values; rejected approvals are rate-limited and audited.
+- Preserved call analytics through normal patient deletion using nullable patient/user/audit links plus historical snapshots. This retains operational reporting without requiring the live patient row; a separate privacy purge can anonymize snapshots later.
+
+### Fixed
+
+- Isolated staging browser-smoke fixtures in a dedicated `*_ui_smoke` database and random local server port, preventing automated smoke patients from being edited or deleted while a person is testing shared staging.
+
+### Testing
+
+- Added call-lifecycle regression coverage for idempotent automatic Called recording, unanswered-attempt behavior, durations, and history retention after hard patient deletion.
+- Extended the isolated browser smoke to verify PIN rejection/approval, encrypted account storage, automatic-attempt metrics and SIP details, and attempt CSV/Excel exports.
+- Passed public JavaScript validation, phone-client/PIN regression, call-attempt lifecycle integration, isolated full browser click smoke, and RX Softphone Release build.
+
+**Database impact:** Adds `CallCenterCallAttempts`. Patient, user, and Called-audit foreign keys use `ON DELETE SET NULL`; report snapshots and operational timing/outcome data remain available when linked source records are removed.
+
 ## [3.1.0] - 2026-07-20
 
 ### Added
@@ -34,6 +60,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 - Updated the staging UI smoke assertions for the selectable phone-client API, normalized dial fallback, status indicator, and non-automatic recording behavior.
 - Added regression checks for credential encryption/user binding, absence of browser credential storage, automatic registration bootstrapping, and the compact one-line roster layout.
+- Moved browser UI smoke fixtures to a dedicated local server and `*_ui_smoke` database. Automated patients, clinics, transports, users, calls, and credentials can no longer appear or disappear in the shared staging workspace while a person is testing it; direct shared-database execution is refused unless explicitly overridden.
 - Kept staging UI smoke credentials isolated from the real loopback softphone by removing the temporary per-user assignment before any workspace reload.
 - Passed public JavaScript validation, configurable service-window regression, Call Center queue-reopen regression against the isolated staging database, RX Softphone Release build, and allow/deny CORS preflight checks.
 
