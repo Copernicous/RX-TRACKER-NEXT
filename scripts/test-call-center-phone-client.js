@@ -96,6 +96,8 @@ try {
     assert(callCenterScript.includes("payload.callAnsweredAt"), 'Answered-call audit metadata is missing.');
     assert(callCenterScript.includes('/api/call-center/phone-account'), 'Server-managed softphone account endpoint is missing.');
     assert(callCenterScript.includes('connectAssignedPhone(false, false)'), 'Automatic per-user softphone registration is missing.');
+    assert(callCenterScript.includes('Allow Local network access for this RX Tracker site'), 'Proxy-to-loopback failure guidance must identify Chrome Local network access.');
+    assert(!callCenterScript.includes("toast('Phone registration window is unavailable."), 'Call failures must not open the retired phone-registration modal.');
     assert(!callCenterScript.includes('rxCallCenterSoftphoneProfileV1'), 'Softphone account metadata must not be stored in browser localStorage.');
 
     const callCenterView = fs.readFileSync(path.join(__dirname, '..', 'views', 'call-center.ejs'), 'utf8');

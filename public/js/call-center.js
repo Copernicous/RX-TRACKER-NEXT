@@ -339,7 +339,7 @@
             badge.innerHTML = '<i class="fas fa-exclamation-triangle"></i> RX Softphone offline';
             if (help) help.textContent = rxPhone.reachable
                 ? 'Open RX Softphone and register it to the PBX before calling.'
-                : 'Start RX Softphone on this computer, then wait for this status to become ready.';
+                : 'Start RX Softphone and allow this RX Tracker site to use Local network access in Chrome, then reload.';
         }
 
         var activePatientId = rxPhone.activeCall && isRxCallActive(rxPhone.snapshot)
@@ -494,18 +494,6 @@
         } else {
             setRegistrationMessage('The account is saved on the server but this workstation is disconnected. Select Save & Connect, or reload Call Center to connect automatically.', 'secondary');
         }
-    }
-
-    async function openPhoneSetup() {
-        var modalElement = document.getElementById('ccPhoneSetupModal');
-        if (!modalElement || !window.bootstrap || !bootstrap.Modal) {
-            toast('Phone registration window is unavailable.', 'danger');
-            return;
-        }
-        var results = await Promise.all([loadPhoneAccount(true), probeRxPhone()]);
-        populateRegistrationForm(results[0], results[1]);
-        renderRegistrationFormState();
-        bootstrap.Modal.getOrCreateInstance(modalElement).show();
     }
 
     async function connectAssignedPhone(force, notifyUser) {
@@ -855,9 +843,11 @@
                 openMicroSip(dialNumber, true, patientId);
             }
             else {
-                if (!snapshot) toast('RX Softphone could not be reached. Start version 0.3.0 or later and allow this site to connect to the local softphone.', 'warning');
-                else toast('RX Softphone is not registered. Complete Phone Registration before calling.', 'warning');
-                openPhoneSetup();
+                if (!snapshot) {
+                    toast('RX Softphone is running locally but Chrome cannot reach it. Allow Local network access for this RX Tracker site, then reload the page.', 'warning');
+                } else {
+                    toast('RX Softphone is not registered. Ask an Administrator to allow Phone Account Setup if the saved account must be corrected.', 'warning');
+                }
             }
             return;
         }
@@ -1376,7 +1366,6 @@
                 if (e.target && e.target.classList.contains('cc-row-note')) resizeRowNote(e.target);
             });
         }
-        if (phoneSetup) phoneSetup.addEventListener('click', openPhoneSetup);
         if (phoneSetupForm && phoneRegister) {
             phoneSetupForm.addEventListener('submit', function(e) {
                 e.preventDefault();
