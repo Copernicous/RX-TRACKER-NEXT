@@ -121,10 +121,15 @@
 
         var label = 'Call ' + (phone || dialNumber) + ' with ' + phoneClientLabel();
         return '<div class="cc-phone-wrap">' + phoneHtml +
-            '<a class="cc-call-link" data-action="phone-call" data-patient-id="' + esc(row.id) + '" data-dial-number="' + esc(dialNumber) + '" href="callto:' + esc(dialNumber) + '"' +
-                ' title="' + esc(label) + '" aria-label="' + esc(label) + '">' +
-                '<i class="fas fa-phone-alt" aria-hidden="true"></i>' +
-            '</a>' +
+            '<span class="cc-phone-action-stack">' +
+                '<a class="cc-call-link" data-action="phone-call" data-patient-id="' + esc(row.id) + '" data-dial-number="' + esc(dialNumber) + '" href="callto:' + esc(dialNumber) + '"' +
+                    ' title="' + esc(label) + '" aria-label="' + esc(label) + '">' +
+                    '<i class="fas fa-phone-alt" aria-hidden="true"></i>' +
+                '</a>' +
+                '<button type="button" class="cc-row-hangup d-none" data-action="phone-hangup" data-patient-id="' + esc(row.id) + '" title="Hang up this call" aria-label="Hang up this call">' +
+                    '<i class="fas fa-phone-slash" aria-hidden="true"></i>' +
+                '</button>' +
+            '</span>' +
         '</div>';
     }
 
@@ -171,7 +176,6 @@
     function renderPhoneClientStatus() {
         var badge = document.getElementById('ccPhoneClientStatus');
         var setup = document.getElementById('ccPhoneSetupBtn');
-        var hangup = document.getElementById('ccPhoneHangupBtn');
         var help = document.getElementById('ccSoftphoneHelp');
         if (!badge) return;
 
@@ -201,9 +205,17 @@
                 : 'Start RX Softphone on this computer, then wait for this status to become ready.';
         }
 
-        if (hangup) {
-            hangup.classList.toggle('d-none', !(rxPhone.reachable && isRxCallActive(rxPhone.snapshot)));
-            hangup.disabled = false;
+        var activePatientId = rxPhone.activeCall && isRxCallActive(rxPhone.snapshot)
+            ? String(rxPhone.activeCall.patientId)
+            : '';
+        var rowHangups = document.querySelectorAll('.cc-row-hangup');
+        for (var i = 0; i < rowHangups.length; i++) {
+            var rowHangup = rowHangups[i];
+            var isActivePatient = rxPhone.reachable
+                && activePatientId
+                && rowHangup.getAttribute('data-patient-id') === activePatientId;
+            rowHangup.classList.toggle('d-none', !isActivePatient);
+            if (!isActivePatient) rowHangup.disabled = false;
         }
         if (setup) {
             var registered = !!(rxPhone.snapshot && rxPhone.snapshot.registration === 'registered');
@@ -772,6 +784,8 @@
         setText('ccEligibleWindowLabel', 'Calling from day ' + (serviceWindowDays - callCenterLeadDays) + ' · Service eligible day ' + serviceWindowDays);
         state.page = data.page || 1;
         state.pageSize = data.pageSize || state.pageSize;
+        var pageSizeControl = document.getElementById('ccPageSize');
+        if (pageSizeControl) pageSizeControl.value = String(state.pageSize);
         state.total = data.total || 0;
         state.totalPages = data.totalPages || 1;
         state.activityTotal = data.activityTotal === undefined ? null : data.activityTotal;
@@ -824,6 +838,7 @@
             '</tr>';
         }
         tbody.innerHTML = html;
+        renderPhoneClientStatus();
     }
 
     function resizeRowNote(textarea) {
@@ -992,7 +1007,6 @@
         var next = document.getElementById('ccNextBtn');
         var rows = document.getElementById('ccPatientRows');
         var phoneSetup = document.getElementById('ccPhoneSetupBtn');
-        var hangup = document.getElementById('ccPhoneHangupBtn');
         var phoneSetupForm = document.getElementById('ccPhoneSetupForm');
         var phoneSetupModal = document.getElementById('ccPhoneSetupModal');
         var phoneRegister = document.getElementById('ccPhoneRegisterBtn');
@@ -1003,7 +1017,8 @@
 
         if (pageSize) {
             pageSize.addEventListener('change', function() {
-                state.pageSize = this.value === '5' ? 5 : 10;
+                var requestedSize = Number(this.value);
+                state.pageSize = [5, 10, 25, 50].indexOf(requestedSize) !== -1 ? requestedSize : 10;
                 state.page = 1;
                 releaseCurrentLocks().then(loadPatients);
             });
@@ -1054,16 +1069,17 @@
                     startPhoneCall(callLink);
                     return;
                 }
+                var hangupButton = e.target.closest('[data-action="phone-hangup"]');
+                if (hangupButton) {
+                    e.preventDefault();
+                    hangupRxCall(hangupButton);
+                    return;
+                }
                 var btn = e.target.closest('[data-action="save"]');
                 if (btn) saveRow(btn);
             });
             rows.addEventListener('input', function(e) {
                 if (e.target && e.target.classList.contains('cc-row-note')) resizeRowNote(e.target);
-            });
-        }
-        if (hangup) {
-            hangup.addEventListener('click', function() {
-                hangupRxCall(hangup);
             });
         }
         if (phoneSetup) phoneSetup.addEventListener('click', openPhoneSetup);

@@ -203,7 +203,7 @@ function patientMatchesSearch(patient, q) {
 
 function parsePaging(query) {
     const size = parseInt(query.pageSize || query.limit || 10, 10);
-    const pageSize = size === 5 ? 5 : 10;
+    const pageSize = [5, 10, 25, 50].includes(size) ? size : 10;
     const page = Math.max(parseInt(query.page || 1, 10) || 1, 1);
     return { page, pageSize };
 }

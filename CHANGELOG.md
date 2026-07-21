@@ -19,7 +19,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 - Added a per-user RX Softphone account editor in Call Center. SIP settings are assigned to the authenticated RX user on the server and the local softphone connects automatically when that user loads Call Center.
 - Reorganized each Call Center patient into a compact one-line 10-field grid by combining the patient name and tightening notes/history/actions, reducing the old 1650px minimum width so the complete row fits the wide desktop workspace. Stronger alternating green/blue row colors, matching left accents, and an amber hover state keep adjacent patients visually distinct. Rows now grow naturally with note/call history, and the Add Note field expands as an agent types multiple lines.
 - Displayed the RX Softphone audio formats supported by the native client: G.711 &mu;-law (PCMU), G.711 A-law (PCMA), G.722, and G.729. Codec selection remains automatic through SIP/SDP negotiation with Asterisk.
-- Kept the RX Softphone Hang Up control fixed at the lower-right during an active call so it remains accessible while the agent scrolls.
+- Placed the RX Softphone Hang Up control directly beneath the active patient's dial icon, keeping call control attached to the correct roster row as comments and call history expand. Added 25- and 50-patient page sizes so agents can use a longer scrolling roster with less pagination.
 
 ### Security
 

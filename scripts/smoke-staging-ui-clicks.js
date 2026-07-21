@@ -486,8 +486,18 @@ async function runCallCenterWorkspace(fixtures) {
     await expectVisible(page, '#ccCardQueue', 'Call Center queue card visible');
     await waitForNonPlaceholder(page, '#ccMetricEligible', 'Call Center eligible metric loaded');
     const pageSizeOptions = await page.locator('#ccPageSize option').evaluateAll(options => options.map(option => option.value));
-    assert.deepStrictEqual(pageSizeOptions, ['5', '10'], 'Call Center page size options should be only 5 and 10.');
-    pass('Call Center pagination options limited to 5 and 10');
+    assert.deepStrictEqual(pageSizeOptions, ['5', '10', '25', '50'], 'Call Center page size options should support longer scrolling rosters.');
+    pass('Call Center pagination options support 5, 10, 25, and 50 patients');
+    const expandedRosterResponsePromise = page.waitForResponse(response =>
+        response.url().includes('/api/call-center/patients?')
+        && response.url().includes('pageSize=25')
+        && response.status() === 200
+    );
+    await page.selectOption('#ccPageSize', '25');
+    const expandedRosterResponse = await expandedRosterResponsePromise;
+    const expandedRosterData = await expandedRosterResponse.json();
+    assert.strictEqual(expandedRosterData.pageSize, 25, 'Call Center API should honor the selected longer roster size.');
+    pass('Call Center expanded scrolling roster loaded', '25 patients per page');
 
     await page.fill('#ccSearch', fixtures.queueSearch);
     await page.click('#ccSearchBtn');
@@ -548,6 +558,27 @@ async function runCallCenterWorkspace(fixtures) {
     );
     const callLink = row.locator('.cc-call-link[data-action="phone-call"]');
     await callLink.waitFor({ state: 'visible', timeout: 15000 });
+    assert.strictEqual(
+        await row.locator('.cc-row-hangup[data-action="phone-hangup"]').count(),
+        1,
+        'Call Center should place the Hang Up control beneath this patient dial icon.'
+    );
+    const hangupPlacement = await row.evaluate(element => {
+        const dial = element.querySelector('.cc-call-link[data-action="phone-call"]');
+        const hangup = element.querySelector('.cc-row-hangup[data-action="phone-hangup"]');
+        hangup.classList.remove('d-none');
+        const dialRect = dial.getBoundingClientRect();
+        const hangupRect = hangup.getBoundingClientRect();
+        const placement = {
+            belowDial: hangupRect.top >= dialRect.bottom,
+            centered: Math.abs((hangupRect.left + (hangupRect.width / 2)) - (dialRect.left + (dialRect.width / 2))) <= 2
+        };
+        hangup.classList.add('d-none');
+        return placement;
+    });
+    assert(hangupPlacement.belowDial, 'Hang Up control should render below the dial icon.');
+    assert(hangupPlacement.centered, 'Hang Up control should remain centered with the dial icon.');
+    pass('Call Center inline Hang Up control placement');
     const expectedDialNumber = String(fixtures.queuePatient.phone || '').replace(/\D/g, '');
     assert.strictEqual(
         await callLink.getAttribute('href'),

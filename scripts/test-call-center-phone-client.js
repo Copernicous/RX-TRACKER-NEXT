@@ -80,7 +80,11 @@ try {
     const callCenterView = fs.readFileSync(path.join(__dirname, '..', 'views', 'call-center.ejs'), 'utf8');
     assert(callCenterView.includes('cc-record-heading-all'), 'Compact one-line Call Center roster heading is missing.');
     assert(callCenterView.includes('Save &amp; Connect'), 'Server-backed softphone account editor is missing.');
-    assert(callCenterView.includes('#ccPhoneHangupBtn:not(.d-none)'), 'Active-call Hang Up control must remain fixed while scrolling.');
+    assert(callCenterScript.includes('data-action="phone-hangup"'), 'Each callable patient row must provide an inline Hang Up control.');
+    assert(callCenterView.includes('.cc-phone-action-stack'), 'Dial and Hang Up controls must remain grouped in the patient phone cell.');
+    assert(callCenterView.includes('<option value="50">50</option>'), 'Call Center must support a longer scrolling roster.');
+    const callCenterController = fs.readFileSync(path.join(__dirname, '..', 'controllers', 'callCenterController.js'), 'utf8');
+    assert(callCenterController.includes('[5, 10, 25, 50].includes(size)'), 'Call Center API must accept the expanded roster page sizes.');
     assert(callCenterScript.includes('function resizeRowNote'), 'Call Center comments must expand the patient row while typing.');
 
     const webRoutes = fs.readFileSync(path.join(__dirname, '..', 'routes', 'webRoutes.js'), 'utf8');
