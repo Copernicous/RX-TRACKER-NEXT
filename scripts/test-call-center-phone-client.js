@@ -93,6 +93,9 @@ try {
     const callCenterScript = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'call-center.js'), 'utf8');
     assert(!callCenterScript.includes('http://127.0.0.1:5188'), 'FortiGate must not receive a literal loopback URL that its web proxy can rewrite.');
     assert(callCenterScript.includes("['127', '0', '0', '1'].join('.')"), 'The browser must construct the RX Softphone loopback address at runtime.');
+    assert(callCenterScript.includes('function getRxSoftphoneFetch'), 'RX Softphone requests must use a browser realm isolated from FortiGate sslvpn.js.');
+    assert(callCenterScript.includes('frameWindow.fetch.bind(frameWindow)'), 'The FortiGate-safe loopback request must use the clean frame fetch implementation.');
+    assert(callCenterScript.includes('getRxSoftphoneFetch()(rxSoftphoneBaseUrl + path'), 'RX Softphone status and call requests must bypass the injected FortiGate fetch wrapper.');
     assert(callCenterScript.includes("targetAddressSpace: 'loopback'"), 'Browser request must identify Chrome\'s loopback address space for 127.0.0.1.');
     assert(callCenterScript.includes('probeRxPhoneFromUserGesture'), 'Phone clicks must issue a fresh loopback request from the user gesture.');
     assert(callCenterScript.includes("navigator.permissions.query({ name: 'loopback-network' })"), 'Call Center must inspect Chrome\'s split loopback permission before polling.');

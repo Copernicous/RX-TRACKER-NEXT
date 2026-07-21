@@ -22,7 +22,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ### Fixed
 
-- Prevented FortiGate SSL-VPN web mode from rewriting the RX Softphone loopback API into a FortiGate `/proxy/.../http/127.0.0.1:5188` request. The Call Center now assembles the local address in the browser at runtime so calls reach the Windows softphone directly.
+- Prevented FortiGate SSL-VPN web mode from rewriting the RX Softphone loopback API into a FortiGate `/proxy/.../http/127.0.0.1:5188` request. The Call Center assembles the local address at runtime and uses a clean same-origin browser frame for only the fixed loopback API, bypassing FortiGate's injected `window.fetch` wrapper while all normal application traffic remains proxied.
 - Made the shared Call Center phone indicator show the server-reported `Dialing`, `Trying`, `Ringing`, or `Connected` state and connected duration to every user viewing that patient. Also clarified that a Kasm/remote browser cannot reach RX Softphone running on the employee's separate Windows computer.
 - Fixed the shared Add/Edit modal incorrectly displaying a **View Only** banner to Administrators. Bootstrap's forced `d-flex` display was overriding the previous hide instruction even though the fields and Save action remained enabled.
 

@@ -42,6 +42,32 @@
         ':',
         String(5188)
     ].join('');
+    var rxSoftphoneFetch = null;
+    var rxSoftphoneFetchFrame = null;
+
+    function getRxSoftphoneFetch() {
+        if (rxSoftphoneFetch) return rxSoftphoneFetch;
+
+        // FortiGate also injects sslvpn.js, which replaces window.fetch and
+        // redirects runtime loopback requests through the VPN web proxy. A
+        // dynamically-created same-origin frame has its own native fetch realm
+        // and therefore reaches only the fixed desktop loopback API below.
+        var frame = document.createElement('iframe');
+        frame.hidden = true;
+        frame.tabIndex = -1;
+        frame.setAttribute('aria-hidden', 'true');
+        frame.setAttribute('title', 'RX Softphone local connection');
+        (document.body || document.documentElement).appendChild(frame);
+
+        var frameWindow = frame.contentWindow;
+        if (!frameWindow || typeof frameWindow.fetch !== 'function') {
+            frame.remove();
+            throw new Error('The browser could not create a direct local softphone connection.');
+        }
+        rxSoftphoneFetchFrame = frame;
+        rxSoftphoneFetch = frameWindow.fetch.bind(frameWindow);
+        return rxSoftphoneFetch;
+    }
     var rxPhone = {
         reachable: false,
         snapshot: null,
@@ -319,7 +345,7 @@
             fetchOptions.headers = Object.assign({ 'Content-Type': 'application/json' }, fetchOptions.headers || {});
         }
         try {
-            var response = await fetch(rxSoftphoneBaseUrl + path, fetchOptions);
+            var response = await getRxSoftphoneFetch()(rxSoftphoneBaseUrl + path, fetchOptions);
             var data = await response.json().catch(function() { return {}; });
             if (!response.ok) {
                 var error = new Error((data && (data.error || data.detail || data.title)) || 'RX Softphone request failed.');
