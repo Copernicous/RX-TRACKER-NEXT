@@ -111,6 +111,9 @@ async function loadSettings() {
         document.getElementById('sSessionTimeout').value = data.sessionTimeoutMinutes || 60;
         document.getElementById('sMaxLogin').value       = data.maxLoginAttempts || 5;
         document.getElementById('sCallCenterLeadDays').value = data.callCenterLeadDays === undefined ? 10 : data.callCenterLeadDays;
+        document.getElementById('sCallCenterPhoneClient').value = ['microsip', 'rx_softphone', 'auto'].includes(data.callCenterPhoneClient)
+            ? data.callCenterPhoneClient
+            : 'microsip';
         var cb = document.getElementById('sMaintenanceMode');
         cb.checked = !!data.maintenanceMode;
         var svcCb = document.getElementById('sServiceDateOverrideEnabled');
@@ -138,6 +141,7 @@ async function saveSettings(e) {
             sessionTimeoutMinutes: parseInt(document.getElementById('sSessionTimeout').value, 10),
             maxLoginAttempts:      parseInt(document.getElementById('sMaxLogin').value, 10),
             callCenterLeadDays:    parseInt(document.getElementById('sCallCenterLeadDays').value, 10),
+            callCenterPhoneClient: document.getElementById('sCallCenterPhoneClient').value,
             maintenanceMode:       document.getElementById('sMaintenanceMode').checked,
             serviceDateOverrideEnabled: document.getElementById('sServiceDateOverrideEnabled').checked
         };

@@ -415,6 +415,14 @@ async function runCallCenterWorkspace(fixtures) {
     const { context, page } = await newContext();
     await login(page, fixtures.callCenterUser.username, '/call-center');
 
+    const workspaceResponse = await context.request.get(route('/call-center'));
+    assert.strictEqual(workspaceResponse.status(), 200, 'Authenticated Call Center page should load.');
+    assert(
+        String(workspaceResponse.headers()['content-security-policy'] || '').includes('http://127.0.0.1:5188'),
+        'Call Center CSP should allow only its local RX Softphone connection.'
+    );
+    pass('Call Center page-scoped RX Softphone CSP');
+
     let res = await context.request.get(route('/api/dashboard/stats'));
     assert.strictEqual(res.status(), 403, 'Call Center should get 403 on dashboard API.');
     res = await context.request.get(route('/api/version'));
@@ -466,22 +474,24 @@ async function runCallCenterWorkspace(fixtures) {
     assert.strictEqual(patientTransportSearchRow.patientTransportName, fixtures.patientTransport.companyName, 'Call Center API should expose the assigned patient transport company.');
     pass('Call Center patient transport displayed and searchable', fixtures.patientTransport.companyName);
 
-    const callLink = row.locator('.cc-call-link[data-action="microsip-call"]');
+    const selectedPhoneClient = patientTransportSearchData.phoneClient;
+    assert(
+        ['microsip', 'rx_softphone', 'auto'].includes(selectedPhoneClient),
+        'Call Center API should expose a supported Backoffice phone-client selection.'
+    );
+    const callLink = row.locator('.cc-call-link[data-action="phone-call"]');
     await callLink.waitFor({ state: 'visible', timeout: 15000 });
     const expectedDialNumber = String(fixtures.queuePatient.phone || '').replace(/\D/g, '');
     assert.strictEqual(
         await callLink.getAttribute('href'),
         'callto:' + expectedDialNumber,
-        'Call Center phone icon should hand the normalized number to the local MicroSIP-compatible CALLTO protocol handler.'
+        'Call Center phone icon should keep a normalized MicroSIP-compatible CALLTO fallback.'
     );
     assert.strictEqual(await callLink.getAttribute('data-dial-number'), expectedDialNumber, 'Call Center link should retain the number shown in the launch message.');
     assert.strictEqual(await row.locator('.cc-called').isChecked(), false, 'Rendering click-to-call must not pre-record a call.');
-    assert.match(
-        await page.locator('#ccSoftphoneHelp').innerText(),
-        /must show Online/i,
-        'Call Center should explain that MicroSIP must be online before dialing.'
-    );
-    pass('Call Center MicroSIP click-to-call link configured', 'callto:' + expectedDialNumber);
+    await page.locator('#ccPhoneClientStatus').waitFor({ state: 'visible', timeout: 15000 });
+    assert((await page.locator('#ccSoftphoneHelp').innerText()).trim(), 'Call Center should display guidance for the selected phone client.');
+    pass('Call Center selectable phone integration configured', selectedPhoneClient + ' / callto:' + expectedDialNumber);
 
     await row.locator('.cc-row-note').fill('First smoke call note ' + runId);
     await row.locator('.cc-called').check();

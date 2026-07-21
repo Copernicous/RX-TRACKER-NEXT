@@ -161,6 +161,48 @@
             font-size: .78rem;
             line-height: 1.4;
         }
+        .cc-phone-client-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            min-height: 28px;
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            padding: 4px 10px;
+            background: rgba(108, 117, 125, .08);
+            color: var(--text-muted);
+            font-size: .72rem;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+        .cc-phone-client-status.online {
+            border-color: rgba(25, 135, 84, .42);
+            background: rgba(25, 135, 84, .1);
+            color: #198754;
+        }
+        .cc-phone-client-status.calling {
+            border-color: rgba(13, 110, 253, .4);
+            background: rgba(13, 110, 253, .1);
+            color: #0d6efd;
+        }
+        .cc-phone-client-status.fallback {
+            border-color: rgba(245, 158, 11, .45);
+            background: rgba(245, 158, 11, .1);
+            color: #b7791f;
+        }
+        .cc-called-wrap.rx-answered {
+            border-color: #198754;
+            background: rgba(25, 135, 84, .18);
+            box-shadow: 0 0 0 3px rgba(25, 135, 84, .08);
+        }
+        .cc-call-link.is-calling {
+            background: #198754;
+            color: #fff;
+            animation: cc-phone-pulse 1.25s infinite;
+        }
+        @keyframes cc-phone-pulse {
+            50% { box-shadow: 0 0 0 6px rgba(25, 135, 84, .12); }
+        }
         .cc-note-preview {
             max-height: 74px;
             overflow: auto;
@@ -313,7 +355,11 @@
                             <i class="fas fa-info-circle me-1"></i>The green phone opens MicroSIP with the number. MicroSIP must show Online before it can place the call. After the call, mark Called and Save.
                         </div>
                     </div>
-                    <span class="badge rounded-pill bg-secondary" id="ccRangeLabel">--</span>
+                    <div class="d-flex align-items-center justify-content-end gap-2 flex-wrap">
+                        <span class="cc-phone-client-status" id="ccPhoneClientStatus"><i class="fas fa-phone-alt"></i>Loading phone client</span>
+                        <button type="button" class="btn btn-danger btn-sm d-none" id="ccPhoneHangupBtn"><i class="fas fa-phone-slash me-1"></i>Hang up</button>
+                        <span class="badge rounded-pill bg-secondary" id="ccRangeLabel">--</span>
+                    </div>
                 </div>
                 <div class="table-responsive">
                     <table class="table table-hover align-middle mb-0 cc-table">

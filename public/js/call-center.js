@@ -26,6 +26,16 @@
     var lockHeartbeatTimer = null;
     var serviceWindowDays = Number(window.SERVICE_WINDOW_DAYS) || 90;
     var callCenterLeadDays = Number(window.CALL_CENTER_LEAD_DAYS) || 0;
+    var rxSoftphoneBaseUrl = 'http://127.0.0.1:5188';
+    var rxPhone = {
+        reachable: false,
+        snapshot: null,
+        probePromise: null,
+        monitorTimer: null,
+        activeCall: null,
+        acknowledgements: {},
+        callClients: {}
+    };
 
     var state = {
         page: 1,
@@ -39,7 +49,8 @@
         activeCard: 'queue',
         sort: '',
         dir: 'asc',
-        eligibilityCutoff: ''
+        eligibilityCutoff: '',
+        phoneClient: 'microsip'
     };
 
     var cardTitles = {
@@ -75,6 +86,16 @@
         return raw.charAt(0) === '+' ? ('+' + digits) : digits;
     }
 
+    function normalizePhoneClient(value) {
+        return ['microsip', 'rx_softphone', 'auto'].indexOf(value) !== -1 ? value : 'microsip';
+    }
+
+    function phoneClientLabel() {
+        if (state.phoneClient === 'rx_softphone') return 'RX Softphone';
+        if (state.phoneClient === 'auto') return 'RX Softphone or MicroSIP';
+        return 'MicroSIP';
+    }
+
     function renderPhone(row, canUpdate) {
         var phone = String(row.phone || '').trim();
         var dialNumber = normalizeDialNumber(phone);
@@ -89,9 +110,9 @@
             '</div>';
         }
 
-        var label = 'Call ' + (phone || dialNumber) + ' with MicroSIP';
+        var label = 'Call ' + (phone || dialNumber) + ' with ' + phoneClientLabel();
         return '<div class="cc-phone-wrap">' + phoneHtml +
-            '<a class="cc-call-link" data-action="microsip-call" data-dial-number="' + esc(dialNumber) + '" href="callto:' + esc(dialNumber) + '"' +
+            '<a class="cc-call-link" data-action="phone-call" data-patient-id="' + esc(row.id) + '" data-dial-number="' + esc(dialNumber) + '" href="callto:' + esc(dialNumber) + '"' +
                 ' title="' + esc(label) + '" aria-label="' + esc(label) + '">' +
                 '<i class="fas fa-phone-alt" aria-hidden="true"></i>' +
             '</a>' +
@@ -105,6 +126,223 @@
 
     function toast(message, type) {
         if (typeof showToast === 'function') showToast(message, type || 'info');
+    }
+
+    async function rxFetch(path, options) {
+        var controller = typeof AbortController === 'function' ? new AbortController() : null;
+        var timeout = controller ? setTimeout(function() { controller.abort(); }, 2500) : null;
+        var fetchOptions = Object.assign({
+            mode: 'cors',
+            cache: 'no-store',
+            targetAddressSpace: 'loopback'
+        }, options || {});
+        if (controller) fetchOptions.signal = controller.signal;
+        if (fetchOptions.body) {
+            fetchOptions.headers = Object.assign({ 'Content-Type': 'application/json' }, fetchOptions.headers || {});
+        }
+        try {
+            var response = await fetch(rxSoftphoneBaseUrl + path, fetchOptions);
+            var data = await response.json().catch(function() { return {}; });
+            if (!response.ok) {
+                var error = new Error((data && (data.error || data.detail || data.title)) || 'RX Softphone request failed.');
+                error.status = response.status;
+                throw error;
+            }
+            return data;
+        } finally {
+            if (timeout) clearTimeout(timeout);
+        }
+    }
+
+    function isRxCallActive(snapshot) {
+        var callState = snapshot && snapshot.call ? snapshot.call : 'idle';
+        return ['dialing', 'trying', 'ringing', 'answering', 'connected', 'incoming'].indexOf(callState) !== -1;
+    }
+
+    function renderPhoneClientStatus() {
+        var badge = document.getElementById('ccPhoneClientStatus');
+        var hangup = document.getElementById('ccPhoneHangupBtn');
+        var help = document.getElementById('ccSoftphoneHelp');
+        if (!badge) return;
+
+        badge.classList.remove('online', 'calling', 'fallback');
+        if (state.phoneClient === 'microsip') {
+            badge.innerHTML = '<i class="fas fa-phone-alt"></i> MicroSIP';
+            if (help) help.textContent = 'Calls open in MicroSIP. After the call, mark Called and Save.';
+        } else if (rxPhone.reachable && rxPhone.snapshot && rxPhone.snapshot.registration === 'registered') {
+            var callState = rxPhone.snapshot.call || 'idle';
+            if (isRxCallActive(rxPhone.snapshot)) {
+                badge.classList.add('calling');
+                badge.innerHTML = '<i class="fas fa-phone-volume"></i> RX: ' + esc(callState);
+            } else {
+                badge.classList.add('online');
+                badge.innerHTML = '<i class="fas fa-check-circle"></i> RX Softphone ready';
+            }
+            if (help) help.textContent = 'RX Softphone reports answered calls here. Confirm any note or service date, then Save.';
+        } else if (state.phoneClient === 'auto') {
+            badge.classList.add('fallback');
+            badge.innerHTML = '<i class="fas fa-random"></i> MicroSIP fallback';
+            if (help) help.textContent = 'RX Softphone is not registered, so calls will open in MicroSIP.';
+        } else {
+            badge.classList.add('fallback');
+            badge.innerHTML = '<i class="fas fa-exclamation-triangle"></i> RX Softphone offline';
+            if (help) help.textContent = rxPhone.reachable
+                ? 'Open RX Softphone and register it to the PBX before calling.'
+                : 'Start RX Softphone on this computer, then wait for this status to become ready.';
+        }
+
+        if (hangup) {
+            hangup.classList.toggle('d-none', !(rxPhone.reachable && isRxCallActive(rxPhone.snapshot)));
+            hangup.disabled = false;
+        }
+    }
+
+    function markAnsweredCall(patientId, snapshot) {
+        var key = String(patientId);
+        if (!rxPhone.acknowledgements[key]) {
+            rxPhone.acknowledgements[key] = {
+                phoneClient: 'rx_softphone',
+                answeredAt: (snapshot && snapshot.connectedAt) || new Date().toISOString(),
+                endedAt: null,
+                durationSeconds: null
+            };
+            toast('RX Softphone reports that the call was answered. Called is selected; click Save after adding any note or service date.', 'success');
+        }
+
+        var row = document.querySelector('tr[data-id="' + key.replace(/"/g, '') + '"]');
+        var checkbox = row ? row.querySelector('.cc-called') : null;
+        var wrap = row ? row.querySelector('.cc-called-wrap') : null;
+        if (checkbox && !checkbox.disabled) checkbox.checked = true;
+        if (wrap) {
+            wrap.classList.add('rx-answered');
+            wrap.title = 'Answered through RX Softphone; click Save to record the call';
+        }
+    }
+
+    function handleRxSnapshot(snapshot) {
+        rxPhone.snapshot = snapshot || null;
+        var active = rxPhone.activeCall;
+        var callState = snapshot && snapshot.call ? snapshot.call : 'idle';
+        if (active && callState === 'connected') {
+            active.answered = true;
+            markAnsweredCall(active.patientId, snapshot);
+        }
+
+        if (active && ['ended', 'failed', 'idle'].indexOf(callState) !== -1 && active.lastState && active.lastState !== 'idle') {
+            var acknowledgement = rxPhone.acknowledgements[String(active.patientId)];
+            if (acknowledgement) {
+                acknowledgement.endedAt = new Date().toISOString();
+                var startMs = new Date(acknowledgement.answeredAt).getTime();
+                var endMs = new Date(acknowledgement.endedAt).getTime();
+                if (Number.isFinite(startMs) && Number.isFinite(endMs) && endMs >= startMs) {
+                    acknowledgement.durationSeconds = Math.round((endMs - startMs) / 1000);
+                }
+            }
+            var link = document.querySelector('[data-action="phone-call"][data-patient-id="' + String(active.patientId) + '"]');
+            if (link) link.classList.remove('is-calling');
+            rxPhone.activeCall = null;
+        } else if (active) {
+            active.lastState = callState;
+        }
+        renderPhoneClientStatus();
+    }
+
+    async function probeRxPhone() {
+        if (state.phoneClient === 'microsip') return null;
+        if (rxPhone.probePromise) return rxPhone.probePromise;
+        rxPhone.probePromise = rxFetch('/api/status')
+            .then(function(snapshot) {
+                rxPhone.reachable = true;
+                handleRxSnapshot(snapshot);
+                return snapshot;
+            })
+            .catch(function() {
+                rxPhone.reachable = false;
+                rxPhone.snapshot = null;
+                renderPhoneClientStatus();
+                return null;
+            })
+            .finally(function() {
+                rxPhone.probePromise = null;
+            });
+        return rxPhone.probePromise;
+    }
+
+    function configurePhoneMonitor() {
+        if (rxPhone.monitorTimer) {
+            clearInterval(rxPhone.monitorTimer);
+            rxPhone.monitorTimer = null;
+        }
+        renderPhoneClientStatus();
+        if (state.phoneClient === 'microsip') return;
+        probeRxPhone();
+        rxPhone.monitorTimer = setInterval(probeRxPhone, 1200);
+    }
+
+    function openMicroSip(dialNumber, fallback, patientId) {
+        if (Number.isFinite(patientId)) rxPhone.callClients[String(patientId)] = 'microsip';
+        toast((fallback ? 'RX Softphone is unavailable. Opening MicroSIP with ' : 'Opening MicroSIP with ') + dialNumber + '.', fallback ? 'warning' : 'info');
+        window.location.href = 'callto:' + dialNumber;
+    }
+
+    async function startPhoneCall(link) {
+        var dialNumber = link.getAttribute('data-dial-number') || '';
+        var patientId = parseInt(link.getAttribute('data-patient-id'), 10);
+        if (!dialNumber) return;
+        if (state.phoneClient === 'microsip') {
+            openMicroSip(dialNumber, false, patientId);
+            return;
+        }
+
+        var snapshot = await probeRxPhone();
+        var ready = !!(snapshot && snapshot.registration === 'registered');
+        if (!ready) {
+            if (state.phoneClient === 'auto') openMicroSip(dialNumber, true, patientId);
+            else if (!snapshot) toast('RX Softphone could not be reached. Start version 0.2.0 or later and allow this site to connect to the local softphone.', 'warning');
+            else toast('RX Softphone is not registered. Open it and register to the PBX before calling.', 'warning');
+            return;
+        }
+        if (isRxCallActive(snapshot)) {
+            toast('RX Softphone already has a call in progress.', 'warning');
+            return;
+        }
+        if (!await claimRow(patientId)) return;
+
+        link.classList.add('is-calling');
+        try {
+            var dialSnapshot = await rxFetch('/api/calls', {
+                method: 'POST',
+                body: JSON.stringify({ destination: dialNumber })
+            });
+            rxPhone.activeCall = {
+                patientId: patientId,
+                dialNumber: dialNumber,
+                answered: false,
+                lastState: dialSnapshot.call || 'dialing'
+            };
+            rxPhone.callClients[String(patientId)] = 'rx_softphone';
+            rxPhone.reachable = true;
+            handleRxSnapshot(dialSnapshot);
+            toast('Calling ' + dialNumber + ' with RX Softphone.', 'info');
+        } catch (err) {
+            link.classList.remove('is-calling');
+            toast((err && err.message) || 'RX Softphone could not place the call.', 'danger');
+            await probeRxPhone();
+        }
+    }
+
+    async function hangupRxCall(button) {
+        button.disabled = true;
+        try {
+            var snapshot = await rxFetch('/api/calls/current', { method: 'DELETE' });
+            rxPhone.reachable = true;
+            handleRxSnapshot(snapshot);
+            toast('RX Softphone call ended.', 'info');
+        } catch (err) {
+            toast((err && err.message) || 'Could not end the RX Softphone call.', 'danger');
+        } finally {
+            button.disabled = false;
+        }
     }
 
     function fmtDateTime(value) {
@@ -243,6 +481,9 @@
         var data = await res.json();
         serviceWindowDays = Number(data.serviceWindowDays) || serviceWindowDays;
         callCenterLeadDays = Number(data.callCenterLeadDays) || 0;
+        var previousPhoneClient = state.phoneClient;
+        state.phoneClient = normalizePhoneClient(data.phoneClient);
+        if (previousPhoneClient !== state.phoneClient || !rxPhone.monitorTimer) configurePhoneMonitor();
         state.eligibilityCutoff = data.eligibilityCutoff || state.eligibilityCutoff;
         setText('ccEligibleWindowLabel', 'Calling from day ' + (serviceWindowDays - callCenterLeadDays) + ' · Service eligible day ' + serviceWindowDays);
         state.page = data.page || 1;
@@ -272,6 +513,11 @@
             var row = rows[i];
             var canUpdate = row.isCurrentlyEligible === true;
             var disabled = canUpdate ? '' : ' disabled';
+            var answeredAcknowledgement = rxPhone.acknowledgements[String(row.id)];
+            var calledWrapClass = answeredAcknowledgement ? 'cc-called-wrap rx-answered' : 'cc-called-wrap';
+            var calledTitle = answeredAcknowledgement
+                ? 'Answered through RX Softphone; click Save to record the call'
+                : (state.view === 'queue' ? 'Called' : 'Call again');
             var saveButton = canUpdate
                 ? '<button class="btn btn-success btn-sm cc-save" data-action="save" title="Save"><i class="fas fa-save"></i></button>'
                 : '<span class="badge bg-success">Done</span>';
@@ -285,7 +531,7 @@
                 '<td><input type="date" class="form-control form-control-sm cc-new-date" data-field="newServiceDate"' +
                     (state.eligibilityCutoff ? ' min="' + esc(state.eligibilityCutoff) + '"' : '') + disabled + '></td>' +
                 '<td><textarea class="form-control form-control-sm cc-row-note" data-field="note" maxlength="4000"' + disabled + '></textarea></td>' +
-                '<td class="text-center"><label class="cc-called-wrap" title="' + (state.view === 'queue' ? 'Called' : 'Call again') + '"><input type="checkbox" class="form-check-input cc-called" data-field="called"' + disabled + '></label></td>' +
+                '<td class="text-center"><label class="' + calledWrapClass + '" title="' + calledTitle + '"><input type="checkbox" class="form-check-input cc-called" data-field="called"' + (answeredAcknowledgement ? ' checked' : '') + disabled + '></label></td>' +
                 '<td>' + renderCallHistory(row) + '</td>' +
                 '<td class="text-end">' + saveButton + '</td>' +
             '</tr>';
@@ -388,6 +634,16 @@
             note: note ? note.value.trim() : '',
             newServiceDate: date ? date.value : ''
         };
+        var acknowledgement = rxPhone.acknowledgements[String(id)];
+        var launchedPhoneClient = rxPhone.callClients[String(id)];
+        if (payload.called && acknowledgement) {
+            payload.phoneClient = acknowledgement.phoneClient;
+            payload.callAnsweredAt = acknowledgement.answeredAt;
+            payload.callEndedAt = acknowledgement.endedAt;
+            payload.callDurationSeconds = acknowledgement.durationSeconds;
+        } else if (payload.called && launchedPhoneClient) {
+            payload.phoneClient = launchedPhoneClient;
+        }
 
         if (!payload.called && !payload.note && !payload.newServiceDate) {
             toast('Select Called, add a note, or enter a new service date.', 'warning');
@@ -409,6 +665,8 @@
             });
             var data = res ? await res.json().catch(function() { return {}; }) : {};
             if (res && res.ok) {
+                delete rxPhone.acknowledgements[String(id)];
+                delete rxPhone.callClients[String(id)];
                 toast((data && data.message) || 'Saved.', 'success');
                 await loadMetrics();
                 await loadPatients();
@@ -440,6 +698,7 @@
         var prev = document.getElementById('ccPrevBtn');
         var next = document.getElementById('ccNextBtn');
         var rows = document.getElementById('ccPatientRows');
+        var hangup = document.getElementById('ccPhoneHangupBtn');
         var cards = document.querySelectorAll('.cc-metric[data-view]');
         var sortButtons = document.querySelectorAll('.cc-sort[data-sort]');
 
@@ -490,14 +749,19 @@
         }
         if (rows) {
             rows.addEventListener('click', function(e) {
-                var callLink = e.target.closest('[data-action="microsip-call"]');
+                var callLink = e.target.closest('[data-action="phone-call"]');
                 if (callLink) {
-                    var dialNumber = callLink.getAttribute('data-dial-number') || '';
-                    toast('Opening MicroSIP with ' + dialNumber + '. MicroSIP must show Online before it can place the call; if it shows Connecting, the call will wait for SIP registration.', 'info');
+                    e.preventDefault();
+                    startPhoneCall(callLink);
                     return;
                 }
                 var btn = e.target.closest('[data-action="save"]');
                 if (btn) saveRow(btn);
+            });
+        }
+        if (hangup) {
+            hangup.addEventListener('click', function() {
+                hangupRxCall(hangup);
             });
         }
         for (var i = 0; i < cards.length; i++) {
@@ -543,6 +807,7 @@
         loadPatients();
         lockHeartbeatTimer = setInterval(refreshCurrentLocks, 30000);
         window.addEventListener('beforeunload', function() {
+            if (rxPhone.monitorTimer) clearInterval(rxPhone.monitorTimer);
             if (!lockedPatientIds.length) return;
             try {
                 fetch(api.lockRelease, {

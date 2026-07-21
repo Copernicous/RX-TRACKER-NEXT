@@ -7,6 +7,32 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+## [3.1.0] - 2026-07-20
+
+### Added
+
+- Added a master Backoffice selector for **MicroSIP**, **RX Softphone**, or **Automatic** phone routing. The default remains MicroSIP for upgrade compatibility.
+- Integrated the Call Center with the loopback-only RX Softphone API at `127.0.0.1:5188`, including registration/call status, outgoing dialing, and an in-program Hang Up control.
+- Added answered-call acknowledgement: when RX Softphone reports `connected`, the matching patient row is visibly marked and **Called** is selected. The agent still clicks **Save** so notes and a new service date can be submitted with the call.
+- Added RX Softphone acknowledgement metadata to the existing Call Center `Called` audit record: selected phone client, reported answer/end timestamps, and bounded duration.
+- Added Automatic fallback to the existing MicroSIP `callto:` handoff whenever RX Softphone is absent or not registered.
+
+### Security
+
+- Kept the RX Softphone API bound to the user's loopback interface; no PBX password or SIP registration request passes through RX Tracker.
+- Allowed the softphone loopback origin only on the Call Center page's `connect-src` policy instead of widening the application-wide policy.
+- RX Softphone 0.2.0 uses an exact browser-origin allowlist for the two production origins, staging/LAN origins, and localhost, with compatible CORS/local-network preflight responses. Unknown origins receive `403`.
+- Treated the browser-reported answer as an acknowledgement in audit metadata, not as trusted server-side PBX proof.
+
+### Testing
+
+- Updated the staging UI smoke assertions for the selectable phone-client API, normalized dial fallback, status indicator, and non-automatic recording behavior.
+- Passed public JavaScript validation, configurable service-window regression, Call Center queue-reopen regression against the isolated staging database, RX Softphone Release build, and allow/deny CORS preflight checks.
+
+**Files changed:** Backoffice settings controller/UI, global settings helper, Call Center controller/UI/routes, staging UI smoke, package metadata, and changelog.
+
+**Database impact:** None. The selector remains file-backed and call acknowledgements use the existing audit JSON fields.
+
 ## [3.0.12] - 2026-07-20
 
 ### Added

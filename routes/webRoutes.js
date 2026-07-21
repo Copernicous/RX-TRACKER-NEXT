@@ -34,6 +34,19 @@ function requireCallCenterPage(req, res, next) {
     return proxyRedirect(req, res, '/dashboard');
 }
 
+function allowRxSoftphoneConnection(req, res, next) {
+    const headerName = 'Content-Security-Policy';
+    const current = String(res.getHeader(headerName) || '');
+    const softphoneOrigin = 'http://127.0.0.1:5188';
+    if (current && !current.includes(softphoneOrigin)) {
+        res.setHeader(headerName, current.replace(
+            "connect-src 'self'",
+            "connect-src 'self' " + softphoneOrigin
+        ));
+    }
+    next();
+}
+
 // Root → redirect to login
 router.get('/', (req, res) => {
     if (res.locals && isCallCenterRole(res.locals.currentUser)) return proxyRedirect(req, res, '/call-center');
@@ -45,7 +58,7 @@ router.get('/login', (req, res) => {
     res.render('login', { title: 'Login - Patient RX System' });
 });
 
-router.get('/call-center', requireWebLogin, requireCallCenterPage, (req, res) => {
+router.get('/call-center', requireWebLogin, requireCallCenterPage, allowRxSoftphoneConnection, (req, res) => {
     res.render('call-center', { title: 'Call Center', activePage: 'call-center' });
 });
 

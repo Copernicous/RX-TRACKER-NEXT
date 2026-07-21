@@ -16,7 +16,8 @@ const DEFAULT_SETTINGS = {
     maintenanceMode: false,
     serviceDateOverrideEnabled: false,
     serviceWindowDays: 90,
-    callCenterLeadDays: 10
+    callCenterLeadDays: 10,
+    callCenterPhoneClient: 'microsip'
 };
 
 function ensureSettingsDir() {
@@ -69,6 +70,13 @@ function getCallCenterLeadDays() {
     return Number.isInteger(value) && value >= 0 && value <= 89 ? value : DEFAULT_SETTINGS.callCenterLeadDays;
 }
 
+function getCallCenterPhoneClient() {
+    const value = String(readSettings().callCenterPhoneClient || '').trim().toLowerCase();
+    return ['microsip', 'rx_softphone', 'auto'].includes(value)
+        ? value
+        : DEFAULT_SETTINGS.callCenterPhoneClient;
+}
+
 module.exports = {
     DEFAULT_SETTINGS,
     SETTINGS_PATH,
@@ -76,5 +84,6 @@ module.exports = {
     writeSettings,
     isServiceDateOverrideEnabled,
     getServiceWindowDays,
-    getCallCenterLeadDays
+    getCallCenterLeadDays,
+    getCallCenterPhoneClient
 };

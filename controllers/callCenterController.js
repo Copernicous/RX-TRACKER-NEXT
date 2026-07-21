@@ -14,7 +14,7 @@ const {
     syncPatientServiceDateCycles
 } = require('../services/patientServiceDateCycleService');
 const sessionIdleService = require('../services/sessionIdleService');
-const { getServiceWindowDays, getCallCenterLeadDays } = require('../utils/globalSettings');
+const { getServiceWindowDays, getCallCenterLeadDays, getCallCenterPhoneClient } = require('../utils/globalSettings');
 const {
     getEligibilityCutoffIso,
     evaluateServiceWindow,
@@ -95,6 +95,35 @@ function dateOnly(value) {
 
 function cleanNote(value) {
     return String(value || '').trim().slice(0, 4000);
+}
+
+function cleanCallTimestamp(value) {
+    if (!value) return null;
+    const parsed = new Date(String(value));
+    if (isNaN(parsed.getTime())) return null;
+    return parsed.toISOString();
+}
+
+function getClientCallAcknowledgement(body, called) {
+    if (!called || body.phoneClient !== 'rx_softphone') return null;
+    const answeredAt = cleanCallTimestamp(body.callAnsweredAt);
+    if (!answeredAt) return null;
+    const parsedEndedAt = cleanCallTimestamp(body.callEndedAt);
+    const endedAt = parsedEndedAt && new Date(parsedEndedAt) >= new Date(answeredAt) ? parsedEndedAt : null;
+    const durationValue = body.callDurationSeconds;
+    const rawDuration = durationValue === null || durationValue === undefined || durationValue === ''
+        ? NaN
+        : Number(durationValue);
+    const durationSeconds = Number.isFinite(rawDuration)
+        ? Math.max(0, Math.min(Math.round(rawDuration), 24 * 60 * 60))
+        : null;
+    return {
+        phoneClient: 'rx_softphone',
+        answerAcknowledged: true,
+        callAnsweredAt: answeredAt,
+        callEndedAt: endedAt,
+        callDurationSeconds: durationSeconds
+    };
 }
 
 function getUserLabel(user) {
@@ -634,6 +663,7 @@ exports.listPatients = async (req, res) => {
             view: 'queue',
             serviceWindowDays: getServiceWindowDays(),
             callCenterLeadDays: getCallCenterLeadDays(),
+            phoneClient: getCallCenterPhoneClient(),
             callCenterThresholdDays: getCallCenterThresholdDays(),
             eligibilityCutoff: eligibilityCutoffIso(),
             locksAcquired: shouldClaimRows,
@@ -726,6 +756,7 @@ async function listActivityPatients(req, res, view) {
         view,
         serviceWindowDays: getServiceWindowDays(),
         callCenterLeadDays: getCallCenterLeadDays(),
+        phoneClient: getCallCenterPhoneClient(),
         callCenterThresholdDays: getCallCenterThresholdDays(),
         eligibilityCutoff: eligibilityCutoffIso(),
         activityTotal,
@@ -741,6 +772,10 @@ exports.savePatientAction = async (req, res) => {
     const body = req.body || {};
     const called = body.called === true || body.called === 'true' || body.called === '1';
     const note = cleanNote(body.note);
+    const clientCallAcknowledgement = getClientCallAcknowledgement(body, called);
+    const launchedPhoneClient = called && ['microsip', 'rx_softphone'].includes(body.phoneClient)
+        ? body.phoneClient
+        : 'manual';
     const newServiceDateRaw = body.newServiceDate === undefined ? '' : String(body.newServiceDate || '').trim();
     const newServiceDate = newServiceDateRaw ? parseDate(newServiceDateRaw) : null;
 
@@ -841,7 +876,11 @@ exports.savePatientAction = async (req, res) => {
                     patientName: patientLabel,
                     phone: patient.phone || '',
                     noteAdded: !!note,
-                    serviceDateAdded: !!(newServiceDate && newServiceDate !== previousServiceDate)
+                    serviceDateAdded: !!(newServiceDate && newServiceDate !== previousServiceDate),
+                    ...(clientCallAcknowledgement || {
+                        phoneClient: launchedPhoneClient,
+                        answerAcknowledged: false
+                    })
                 }, transaction);
                 actionCount += 1;
             }
