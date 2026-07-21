@@ -7,6 +7,39 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+## [4.0.0-next.1] - 2026-07-21
+
+### Added
+
+- Established RX-TRACKER-NEXT from a clean one-commit snapshot of RX Tracker 3.3.1. The new repository does not inherit the legacy Git history or any local environment, database, log, upload, backup, or build artifact.
+- Added a compiled-compatible database lifecycle engine with explicit `create`, `status`, `migrate`, `verify`, v3.3.1 inspection/adoption, reference-data seeding, first-admin bootstrap, and fresh provisioning commands.
+- Added an audited additive compatibility migration for every table, column, index, and service-date backfill previously performed only by startup DDL or `sequelize.sync()`.
+- Added a model-driven schema verifier and a migration manifest shared by the Node development command and future `rx-db.exe` release tool.
+- Added an exact inventory of the 3.3.1 startup mutations and the safe adoption design for imported database copies.
+
+### Changed
+
+- Normal web-server startup now performs read-only migration/schema validation and refuses to start when the ledger or model schema is incomplete. Database creation, schema changes, data backfills, role patching, setting initialization, and administrator creation are explicit operations.
+- System-setting loading is read-only. Missing default rows and encryption of legacy plaintext sensitive settings occur only during the explicit reference-data lifecycle command.
+- Backup schedulers no longer rewrite `data/settings.json` merely because the server started; administrator-initiated schedule changes remain persistent.
+- NEXT is versioned independently as `4.0.0-next.1`. RX Softphone remains unchanged.
+
+### Security
+
+- Added ignore rules for database dumps, SQL files, CSV exports, database work directories, imports, exports, and sanitized-data workspaces.
+- Removed the known `admin123` startup account path. First-admin bootstrap requires a strong password supplied through a named environment variable and refuses to alter a database that already has users.
+- v3.3.1 adoption requires an exact database-name confirmation and refuses incomplete schemas before recording legacy migration history.
+
+### Testing
+
+- Provisioned an isolated PostgreSQL 17 cluster on a non-application port and successfully applied all 33 migrations to a fresh database.
+- Verified repeat migration is a zero-change operation, all model tables/columns and required unique indexes are present, reference seeding is idempotent, and first-admin bootstrap succeeds once.
+- Rehearsed v3.3.1 adoption from a complete schema with no migration ledger: 32 legacy records were adopted, the single NEXT migration applied, and final verification passed 33/33.
+- Confirmed repeated web-server startup returns a healthy API while producing no database-content change and no tracked settings-file change.
+- Passed public JavaScript validation and the Call Center queue, phone-client, shared-state, one-time setup, automatic-attempt, patient-date, RX-override, workflow-date, permanent-delete, and service-window regressions against isolated test databases.
+
+**Database impact:** Additive and backward-compatible with 3.3.1. The old application can still read the migrated schema, but NEXT requires the migration ledger and must use its explicit lifecycle tool before startup.
+
 ## [3.3.1] - 2026-07-21
 
 ### Added

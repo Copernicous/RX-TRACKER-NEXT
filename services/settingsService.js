@@ -62,6 +62,8 @@ const DEFAULTS = {
     max_failed_logins:       process.env.MAX_FAILED_LOGINS        || '5'
 };
 
+exports.DEFAULTS = Object.freeze({ ...DEFAULTS });
+
 let _cache = { ...DEFAULTS };
 let _db = null;
 
@@ -94,46 +96,60 @@ const KNOWN_TIMEZONES = [
 exports.KNOWN_TIMEZONES = KNOWN_TIMEZONES;
 
 /**
- * Load all settings from the DB into the in-memory cache.
- * Should be called once during server startup (after DB is ready).
+ * Load all settings from the DB into the in-memory cache without writing.
+ * Missing rows use in-memory defaults until the explicit database lifecycle
+ * command seeds them.
  */
 exports.load = async () => {
-    try {
-        if (!_db) _db = require('../models');
-        const rows = await _db.SystemSetting.findAll();
-        for (const row of rows) {
-            const decrypted = _decryptSettingValue(row.key, row.value);
-            _cache[row.key] = decrypted;
-
-            // Migrate any existing plaintext sensitive value to encrypted storage.
-            if (SENSITIVE_KEYS.has(row.key) && row.value && !_isEncryptedValue(row.value)) {
-                const encrypted = _encryptSettingValue(row.key, row.value);
-                if (encrypted !== row.value) {
-                    row.value = encrypted;
-                    await row.save();
-                    console.log(`[Settings] Encrypted sensitive setting at rest: ${row.key}`);
-                }
-            }
-        }
-        // Seed default rows for any missing keys
-        for (const [key, value] of Object.entries(DEFAULTS)) {
-            if (!rows.find(r => r.key === key)) {
-                await _db.SystemSetting.create({
-                    key,
-                    value: _encryptSettingValue(key, value),
-                    description: `Default: ${key}`
-                });
-                _cache[key] = value;
-            }
-        }
-        // Apply timezone immediately after loading
-        _applyTimezone(_cache['app_timezone']);
-        // Apply SMTP settings to process.env so emailService can also use them
-        _applySmtp();
-        console.log(`[Settings] Loaded. Timezone: ${_cache['app_timezone']} | SMTP: ${_cache['smtp_user'] || '(not set)'}`);
-    } catch (e) {
-        console.warn('[Settings] Could not load from DB, using defaults:', e.message);
+    if (!_db) _db = require('../models');
+    _cache = { ...DEFAULTS };
+    const rows = await _db.SystemSetting.findAll();
+    for (const row of rows) {
+        _cache[row.key] = _decryptSettingValue(row.key, row.value);
     }
+
+    _applyTimezone(_cache['app_timezone']);
+    _applySmtp();
+    console.log(`[Settings] Loaded read-only. Timezone: ${_cache['app_timezone']} | SMTP: ${_cache['smtp_user'] || '(not set)'}`);
+};
+
+/**
+ * Explicit lifecycle operation: create missing default rows and encrypt any
+ * legacy plaintext sensitive values. This function is never called by normal
+ * web-server startup.
+ */
+exports.initializeDefaults = async (database = null) => {
+    if (database) _db = database;
+    if (!_db) _db = require('../models');
+
+    const rows = await _db.SystemSetting.findAll();
+    const byKey = new Map(rows.map(row => [row.key, row]));
+    let created = 0;
+    let encrypted = 0;
+
+    for (const [key, value] of Object.entries(DEFAULTS)) {
+        const existing = byKey.get(key);
+        if (!existing) {
+            await _db.SystemSetting.create({
+                key,
+                value: _encryptSettingValue(key, value),
+                description: `Default: ${key}`
+            });
+            created += 1;
+            continue;
+        }
+
+        if (SENSITIVE_KEYS.has(key) && existing.value && !_isEncryptedValue(existing.value)) {
+            const protectedValue = _encryptSettingValue(key, existing.value);
+            if (protectedValue !== existing.value) {
+                await existing.update({ value: protectedValue });
+                encrypted += 1;
+            }
+        }
+    }
+
+    await exports.load();
+    return { created, encrypted };
 };
 
 /**

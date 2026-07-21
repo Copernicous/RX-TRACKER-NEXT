@@ -260,17 +260,20 @@ let _currentSchedule = null;
 
 // BUG-27: returns { ok, error } so API route can detect rejection.
 // BUG-28: persists accepted schedule to settings.json for restart survival.
-function startScheduler(cronExpression) {
+function startScheduler(cronExpression, options = {}) {
+    const persist = options.persist !== false;
     if (_cronJob) { _cronJob.stop(); _cronJob = null; }
     if (!cronExpression || cronExpression === 'off') {
         _currentSchedule = 'off';
         // Persist disabled state
-        try {
-            ensureDir(path.dirname(SETTINGS_PATH));
-            const s = readSettings();
-            s.backupSchedule = 'off';
-            fs.writeFileSync(SETTINGS_PATH, JSON.stringify(s, null, 2), 'utf8');
-        } catch {}
+        if (persist) {
+            try {
+                ensureDir(path.dirname(SETTINGS_PATH));
+                const s = readSettings();
+                s.backupSchedule = 'off';
+                fs.writeFileSync(SETTINGS_PATH, JSON.stringify(s, null, 2), 'utf8');
+            } catch {}
+        }
         console.log('[Backup] Scheduler disabled.');
         return { ok: true, schedule: 'off' };
     }
@@ -286,12 +289,14 @@ function startScheduler(cronExpression) {
         });
     });
     // Persist accepted schedule
-    try {
-        ensureDir(path.dirname(SETTINGS_PATH));
-        const s = readSettings();
-        s.backupSchedule = cronExpression;
-        fs.writeFileSync(SETTINGS_PATH, JSON.stringify(s, null, 2), 'utf8');
-    } catch {}
+    if (persist) {
+        try {
+            ensureDir(path.dirname(SETTINGS_PATH));
+            const s = readSettings();
+            s.backupSchedule = cronExpression;
+            fs.writeFileSync(SETTINGS_PATH, JSON.stringify(s, null, 2), 'utf8');
+        } catch {}
+    }
     console.log('[Backup] Scheduler started with expression:', cronExpression);
     return { ok: true, schedule: cronExpression };
 }
@@ -299,7 +304,7 @@ function startScheduler(cronExpression) {
 const DEFAULT_SCHEDULE = process.env.BACKUP_SCHEDULE || '0 2 * * *';
 // BUG-28: read persisted schedule from settings.json before falling back to .env
 const _persistedSchedule = (() => { try { return readSettings().backupSchedule; } catch { return null; } })();
-startScheduler(_persistedSchedule || DEFAULT_SCHEDULE);
+startScheduler(_persistedSchedule || DEFAULT_SCHEDULE, { persist: false });
 
 // ════════════════════════════════════════════════════════════════════════════
 // FULL SITE BACKUP
@@ -532,16 +537,19 @@ let _siteBackupJob = null;
 let _siteBackupSchedule = null;
 
 // BUG-27: returns { ok, error }. BUG-28: persists accepted schedule to settings.json.
-function startSiteBackupScheduler(cronExpression) {
+function startSiteBackupScheduler(cronExpression, options = {}) {
+    const persist = options.persist !== false;
     if (_siteBackupJob) { _siteBackupJob.stop(); _siteBackupJob = null; }
     if (!cronExpression || cronExpression === 'off') {
         _siteBackupSchedule = 'off';
-        try {
-            ensureDir(path.dirname(SETTINGS_PATH));
-            const s = readSettings();
-            s.siteBackupSchedule = 'off';
-            fs.writeFileSync(SETTINGS_PATH, JSON.stringify(s, null, 2), 'utf8');
-        } catch {}
+        if (persist) {
+            try {
+                ensureDir(path.dirname(SETTINGS_PATH));
+                const s = readSettings();
+                s.siteBackupSchedule = 'off';
+                fs.writeFileSync(SETTINGS_PATH, JSON.stringify(s, null, 2), 'utf8');
+            } catch {}
+        }
         return { ok: true, schedule: 'off' };
     }
     if (!cron.validate(cronExpression)) {
@@ -552,12 +560,14 @@ function startSiteBackupScheduler(cronExpression) {
         console.log('[SiteBackup] Running scheduled full site backup...');
         runFullSiteBackup('Scheduled (Weekly)');
     });
-    try {
-        ensureDir(path.dirname(SETTINGS_PATH));
-        const s = readSettings();
-        s.siteBackupSchedule = cronExpression;
-        fs.writeFileSync(SETTINGS_PATH, JSON.stringify(s, null, 2), 'utf8');
-    } catch {}
+    if (persist) {
+        try {
+            ensureDir(path.dirname(SETTINGS_PATH));
+            const s = readSettings();
+            s.siteBackupSchedule = cronExpression;
+            fs.writeFileSync(SETTINGS_PATH, JSON.stringify(s, null, 2), 'utf8');
+        } catch {}
+    }
     console.log('[SiteBackup] Weekly scheduler started:', cronExpression);
     return { ok: true, schedule: cronExpression };
 }
@@ -565,7 +575,7 @@ function startSiteBackupScheduler(cronExpression) {
 const DEFAULT_SITE_SCHEDULE = process.env.SITE_BACKUP_SCHEDULE || '0 3 * * 0';
 // BUG-28: read persisted site schedule from settings.json before falling back to .env
 const _persistedSiteSchedule = (() => { try { return readSettings().siteBackupSchedule; } catch { return null; } })();
-startSiteBackupScheduler(_persistedSiteSchedule || DEFAULT_SITE_SCHEDULE);
+startSiteBackupScheduler(_persistedSiteSchedule || DEFAULT_SITE_SCHEDULE, { persist: false });
 
 function isBackupScheduleEnabled(schedule) {
     return !!schedule && schedule !== 'off';

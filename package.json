@@ -1,7 +1,7 @@
 {
   "name": "patient-rx-system",
-  "version": "3.3.1",
-  "description": "Patient RX Delivery Management System",
+  "version": "4.0.0-next.1",
+  "description": "Patient RX Delivery Management System - NEXT database lifecycle preview",
   "main": "app.js",
   "scripts": {
     "start": "node app.js",
@@ -37,9 +37,16 @@
     "test:backoffice-patient-delete": "node scripts/test-backoffice-patient-delete.js",
     "test:service-window": "node scripts/test-configurable-service-window.js",
     "drive:auth": "node scripts/setup-google-drive-oauth.js",
-    "db:migrate": "sequelize-cli db:migrate",
-    "db:seed": "sequelize-cli db:seed:all",
-    "build:exe": "npx --yes @yao-pkg/pkg app.js --target node22-win-x64 --output dist/server.exe --compress GZip && node scripts/post-build.js",
+    "db:create": "node scripts/db-lifecycle.js create",
+    "db:status": "node scripts/db-lifecycle.js status",
+    "db:migrate": "node scripts/db-lifecycle.js migrate",
+    "db:verify": "node scripts/db-lifecycle.js verify",
+    "db:inspect:v331": "node scripts/db-lifecycle.js inspect-v331",
+    "db:adopt:v331": "node scripts/db-lifecycle.js adopt-v331",
+    "db:seed:reference": "node scripts/db-lifecycle.js seed-reference",
+    "db:bootstrap-admin": "node scripts/db-lifecycle.js bootstrap-admin",
+    "db:provision": "node scripts/db-lifecycle.js provision",
+    "build:exe": "npx --yes @yao-pkg/pkg app.js --target node22-win-x64 --output dist/server.exe --compress GZip && npx --yes @yao-pkg/pkg scripts/db-lifecycle.js --target node22-win-x64 --output dist/rx-db.exe --compress GZip && node scripts/post-build.js",
     "db:test": "node scripts/test-db-connection.js"
   },
   "nodemonConfig": {
@@ -71,6 +78,9 @@
     ],
     "scripts": [
       "models/**/*.js",
+      "db/**/*.js",
+      "migrations/**/*.js",
+      "scripts/db-lifecycle.js",
       "controllers/**/*.js",
       "routes/**/*.js",
       "middleware/**/*.js",
