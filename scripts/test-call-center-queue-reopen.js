@@ -262,7 +262,11 @@ async function main() {
         assert.strictEqual(adminReviewRes.body.total, 1, 'Agent-held queue locks should not hide eligible patients from admin review.');
         assert.strictEqual(adminReviewRes.body.locksAcquired, false, 'Admin review should not acquire Call Center queue locks.');
 
-        await createAudit(callCenterUser, patient, 'Called', 20);
+        // This assertion is specifically about a call made today. Using a
+        // minutes-ago offset makes the fixture become yesterday when CI starts
+        // shortly after midnight, which is correct application behavior but a
+        // false regression failure.
+        await createAudit(callCenterUser, patient, 'Called', 0);
         const calledOnlyRes = makeRes();
         await callCenterController.listPatients({
             query: { q: patient.lastName, page: 1, pageSize: 10 },
