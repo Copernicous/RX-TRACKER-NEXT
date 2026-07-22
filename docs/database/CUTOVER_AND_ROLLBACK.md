@@ -21,7 +21,7 @@ application/database rollback package.
 
 ### Guarded Windows orchestrator (recommended)
 
-Release `4.0.0-next.3` packages one script that owns the mechanical production
+Release `4.0.0-next.4` packages one script that owns the mechanical production
 workflow. Keep these folders side by side:
 
 ```text

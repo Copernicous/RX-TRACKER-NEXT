@@ -7,6 +7,19 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+## [4.0.0-next.4] - 2026-07-21
+
+### Fixed
+
+- Corrected the Windows deployment orchestrator's NSSM application-path parser for NSSM builds that emit valid output followed by blank or null control records. Rehearsal now validates the real first application value instead of joining the extra records into an illegal Windows path.
+
+### Testing
+
+- Added a cross-platform PowerShell self-test reproducing the production-observed NSSM output shape and run it in database lifecycle CI.
+- Confirmed the failed `4.0.0-next.3` rehearsal stopped before the backup, isolated-database restore, migration, or service-switch stages.
+
+**Database impact:** None. This hotfix changes deployment-script path parsing only.
+
 ## [4.0.0-next.3] - 2026-07-21
 
 ### Added

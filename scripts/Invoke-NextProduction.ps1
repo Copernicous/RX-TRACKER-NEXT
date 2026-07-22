@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [ValidateSet('Help', 'Status', 'Preflight', 'Rehearsal', 'StartRehearsal', 'StopRehearsal', 'Cutover', 'Rollback')]
+    [ValidateSet('Help', 'SelfTest', 'Status', 'Preflight', 'Rehearsal', 'StartRehearsal', 'StopRehearsal', 'Cutover', 'Rollback')]
     [string]$Action = 'Help',
 
     [string]$Root = 'C:\RX-Tracker',
@@ -396,13 +396,33 @@ function Find-Nssm {
     return $found.FullName
 }
 
+function Select-FirstNativeValue([object[]]$OutputLines) {
+    foreach ($line in @($OutputLines)) {
+        $clean = ([string]$line).Replace([string][char]0, '').Trim().Trim('"').Trim()
+        if ($clean) { return $clean }
+    }
+    return $null
+}
+
 function Get-ServiceApplication {
     $nssm = Find-Nssm
-    $application = (& $nssm get $ServiceName Application 2>$null | Out-String).Trim().Trim('"')
-    if ($LASTEXITCODE -ne 0 -or -not $application) {
+    $outputLines = @(& $nssm get $ServiceName Application 2>$null)
+    $nssmExitCode = $LASTEXITCODE
+    $application = Select-FirstNativeValue $outputLines
+    if ($nssmExitCode -ne 0 -or -not $application) {
         Fail "Could not read the configured NSSM application for $ServiceName."
     }
     return $application
+}
+
+function Invoke-SelfTest {
+    $expected = 'C:\RX-Tracker\RX-APP\server.exe'
+    $sample = @($expected, '', ([string][char]0), '')
+    $actual = Select-FirstNativeValue $sample
+    if ($actual -ne $expected) {
+        Fail "NSSM output parser self-test failed. Expected $expected; got $actual."
+    }
+    Write-Ok 'NSSM multiline/control-record parser self-test passed.'
 }
 
 function Set-ServiceApplication([string]$AppPath) {
@@ -704,6 +724,11 @@ Use -PgBin when PostgreSQL tools are in a nonstandard location. Use
 
 if ($Action -eq 'Help') {
     Show-Help
+    exit 0
+}
+
+if ($Action -eq 'SelfTest') {
+    Invoke-SelfTest
     exit 0
 }
 

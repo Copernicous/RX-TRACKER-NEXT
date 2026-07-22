@@ -73,6 +73,7 @@ jobs:
           npm audit --audit-level=high
           npm run check:public-js
           pwsh -NoProfile -File scripts/Invoke-NextProduction.ps1 -Action Help
+          pwsh -NoProfile -File scripts/Invoke-NextProduction.ps1 -Action SelfTest
 
       - name: Provision and verify a fresh database
         run: |
