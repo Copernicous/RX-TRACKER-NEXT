@@ -1,6 +1,6 @@
 # RX Tracker NEXT database operations
 
-This runbook applies to RX Tracker NEXT `4.0.0-next.2`. The central rule is
+This runbook applies to RX Tracker NEXT `4.0.0-next.6`. The central rule is
 simple: the web server validates the database, while `rx-db` changes it.
 
 ## Command forms
@@ -17,10 +17,43 @@ use `rx-db.exe <command>`. Both execute the same static migration manifest.
 | Seed reference data | `npm run db:seed:reference` | `.\rx-db.exe seed-reference` |
 | First administrator | `npm run db:bootstrap-admin -- --username <name> --master` | `.\rx-db.exe bootstrap-admin --username <name> --master` |
 
-All commands read the same `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASS`, and
-`DB_NAME` values as the server. They print the target identity but never print
-the database password, administrator password, SIP credentials, relay secrets,
-or encryption keys.
+By default, commands read the same `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASS`,
+and `DB_NAME` values as the server. Production should use a restricted runtime
+identity in `.env`. Project Control obtains the separate maintenance identity
+interactively for backup, migration, verification, and restore work. It keeps
+that password only in the updater process and does not write it into `.env`.
+Commands print the target identity but never print the database password,
+administrator password, SIP credentials, relay secrets, or encryption keys.
+
+## Restricted production runtime role
+
+The long-running web service needs business-data read/write permissions but
+does not need to own tables, create schema objects, or edit the migration
+ledger. A maintenance identity such as `postgres` configures the runtime role:
+
+```powershell
+$env:RX_RUNTIME_DB_PASSWORD = '<new-long-random-runtime-password>'
+.\rx-db.exe configure-runtime-role `
+  --role rx_tracker_runtime `
+  --confirm-database <exact-database-name>
+.\rx-db.exe inspect-runtime-role --role rx_tracker_runtime
+Remove-Item Env:RX_RUNTIME_DB_PASSWORD
+```
+
+Change only `DB_USER` and `DB_PASS` in the server `.env` after the inspection
+passes, then start the service. Verify the actual runtime login independently:
+
+```powershell
+$env:RX_RUNTIME_DB_PASSWORD = '<runtime-password>'
+.\rx-db.exe verify-runtime-role --role rx_tracker_runtime
+Remove-Item Env:RX_RUNTIME_DB_PASSWORD
+```
+
+The configurator grants existing and future application table/sequence access,
+removes schema-creation rights, and makes `SequelizeMeta` read-only. It refuses
+to repurpose a role that has memberships or owns database objects. Run this
+first against a disposable restored database and never place the maintenance
+password in `.env`.
 
 ## Fresh database
 
@@ -82,7 +115,7 @@ table, backfill data, patch roles, seed settings, or create an administrator.
 - Back up before every migration and record the backup hash and timestamp.
 - Never run NEXT and 3.3.1 concurrently against the same database.
 - Use a database role with DDL rights for lifecycle commands. The long-running
-  web service should use a less-privileged role when operationally possible.
+  web service should use the restricted runtime role described above.
 - Never run `adopt-v331`, restore, or sanitize against production.
 - Adoption, restore, and sanitization require the exact database name as an
   explicit confirmation.

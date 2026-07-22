@@ -107,6 +107,44 @@ function Assert-RequiredEnvironment([hashtable]$Config) {
     }
 }
 
+function ConvertTo-PlainText([Security.SecureString]$SecureValue) {
+    $pointer = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($SecureValue)
+    try { return [Runtime.InteropServices.Marshal]::PtrToStringBSTR($pointer) }
+    finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($pointer) }
+}
+
+function Get-MaintenanceDatabaseConfig([hashtable]$RuntimeConfig) {
+    $maintenance = @{}
+    foreach ($key in $RuntimeConfig.Keys) { $maintenance[$key] = $RuntimeConfig[$key] }
+
+    $user = [string]$env:RX_DB_MAINTENANCE_USER
+    $password = [string]$env:RX_DB_MAINTENANCE_PASS
+    if (($user -and -not $password) -or ($password -and -not $user)) {
+        Fail 'Set both RX_DB_MAINTENANCE_USER and RX_DB_MAINTENANCE_PASS, or neither.'
+    }
+
+    if (-not $user) {
+        if ([string]$RuntimeConfig['DB_USER'] -eq 'postgres') {
+            $user = [string]$RuntimeConfig['DB_USER']
+            $password = [string]$RuntimeConfig['DB_PASS']
+        } else {
+            $enteredUser = Read-Host 'Database maintenance user [postgres]'
+            $user = if ([string]::IsNullOrWhiteSpace($enteredUser)) { 'postgres' } else { $enteredUser.Trim() }
+            $securePassword = Read-Host "Password for PostgreSQL maintenance user $user" -AsSecureString
+            $password = ConvertTo-PlainText $securePassword
+        }
+    }
+
+    if ([string]::IsNullOrWhiteSpace($user) -or [string]::IsNullOrWhiteSpace($password)) {
+        Fail 'Database maintenance credentials are required for backup, migrations, and recovery.'
+    }
+
+    $maintenance['DB_USER'] = $user
+    $maintenance['DB_PASS'] = $password
+    Write-Ok "Database maintenance identity ready: user=$user database=$($maintenance['DB_NAME'])."
+    return $maintenance
+}
+
 function Get-AppVersion([string]$RootPath = $script:AppPath) {
     $package = Join-Path $RootPath 'package.json'
     if (-not (Test-Path -LiteralPath $package -PathType Leaf)) { Fail "package.json not found: $package" }
@@ -581,7 +619,8 @@ function Invoke-Update {
     Assert-Administrator
     Acquire-UpdateLock
     $serviceStopped = $false; $migrationAttempted = $false; $filesInstalled = $false
-    $previousVersion = $null; $config = $null; $backup = $null; $appBackupFolder = $null; $manifestPath = $null
+    $previousVersion = $null; $config = $null; $maintenanceConfig = $null
+    $backup = $null; $appBackupFolder = $null; $manifestPath = $null
     try {
         Assert-ServiceTargetsApp | Out-Null
         $envPath = Join-Path $script:AppPath '.env'
@@ -594,15 +633,18 @@ function Invoke-Update {
         }
         $script:ResolvedPgBin = Find-PgBin
         Write-Ok "PostgreSQL tools: $script:ResolvedPgBin"
+        $maintenanceConfig = Get-MaintenanceDatabaseConfig $config
+        Get-BusinessFingerprint (Join-Path $script:AppPath 'rx-db.exe') $maintenanceConfig | Out-Null
+        Write-Ok 'Database maintenance login verified before downtime.'
 
         Write-Step "Installing RX Tracker v$($release.Version) over v$previousVersion"
         Stop-ManagedService; $serviceStopped = $true
-        $backup = New-DatabaseBackup $config "before-v$($release.Version)"
+        $backup = New-DatabaseBackup $maintenanceConfig "before-v$($release.Version)"
         $appBackupFolder = Join-Path $script:ReleaseBackupsPath ("$(Get-Date -Format 'yyyyMMdd-HHmmss')-v$previousVersion-before-v$($release.Version)")
         New-Item -ItemType Directory -Path $appBackupFolder -Force | Out-Null
         $manifestPath = Backup-ApplicationFiles $release.Entries $appBackupFolder
         $targetDbExe = Join-Path $release.Staging 'rx-db.exe'
-        $beforeFingerprint = Get-BusinessFingerprint $targetDbExe $config
+        $beforeFingerprint = Get-BusinessFingerprint $targetDbExe $maintenanceConfig
         [IO.File]::WriteAllText((Join-Path $appBackupFolder 'business-before.json'),
             ($beforeFingerprint | ConvertTo-Json -Depth 12), (New-Object Text.UTF8Encoding($false)))
         Save-State @{
@@ -613,11 +655,11 @@ function Invoke-Update {
         }
 
         $migrationAttempted = $true
-        Invoke-RxDb $targetDbExe $config @('migrate')
-        Invoke-RxDb $targetDbExe $config @('verify')
-        Invoke-RxDb $targetDbExe $config @('seed-reference')
-        Invoke-RxDb $targetDbExe $config @('verify')
-        $afterFingerprint = Get-BusinessFingerprint $targetDbExe $config
+        Invoke-RxDb $targetDbExe $maintenanceConfig @('migrate')
+        Invoke-RxDb $targetDbExe $maintenanceConfig @('verify')
+        Invoke-RxDb $targetDbExe $maintenanceConfig @('seed-reference')
+        Invoke-RxDb $targetDbExe $maintenanceConfig @('verify')
+        $afterFingerprint = Get-BusinessFingerprint $targetDbExe $maintenanceConfig
         [IO.File]::WriteAllText((Join-Path $appBackupFolder 'business-after.json'),
             ($afterFingerprint | ConvertTo-Json -Depth 12), (New-Object Text.UTF8Encoding($false)))
         Assert-BusinessDataUnchanged $beforeFingerprint $afterFingerprint
@@ -639,7 +681,7 @@ function Invoke-Update {
             try {
                 $running = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
                 if ($running -and $running.Status -ne 'Stopped') { Stop-Service -Name $ServiceName -Force; $running.WaitForStatus('Stopped', [TimeSpan]::FromSeconds(30)) }
-                if ($migrationAttempted -and $backup) { Restore-DatabaseBackup $config $backup.Path $backup.Hash }
+                if ($migrationAttempted -and $backup) { Restore-DatabaseBackup $maintenanceConfig $backup.Path $backup.Hash }
                 if ($manifestPath) { Restore-ApplicationFiles $appBackupFolder $manifestPath }
                 Start-ManagedService
                 if ($previousVersion) { Wait-ForHealth $previousVersion | Out-Null }
@@ -667,19 +709,22 @@ function Invoke-Rollback {
         $state = Load-State
         if (-not $state -or [string]$state.status -ne 'complete') { Fail 'No completed release update is available for rollback.' }
         $config = Read-DotEnv (Join-Path $script:AppPath '.env'); Assert-RequiredEnvironment $config
+        $maintenanceConfig = Get-MaintenanceDatabaseConfig $config
         $currentVersion = Get-AppVersion
         if ($currentVersion -ne [string]$state.targetVersion) { Fail 'Installed version does not match the recorded update target.' }
         $script:ResolvedPgBin = Find-PgBin
+        Get-BusinessFingerprint (Join-Path $script:AppPath 'rx-db.exe') $maintenanceConfig | Out-Null
+        Write-Ok 'Database maintenance login verified before downtime.'
         Write-Host 'WARNING: rollback restores the pre-update database. Newer records will leave the active database.' -ForegroundColor Red
         Stop-ManagedService
-        $safetyBackup = New-DatabaseBackup $config "before-rollback-v$currentVersion"
+        $safetyBackup = New-DatabaseBackup $maintenanceConfig "before-rollback-v$currentVersion"
         $previousManifest = @(Get-Content -LiteralPath ([string]$state.filesManifest) -Raw | ConvertFrom-Json)
         $entries = @($previousManifest | ForEach-Object { [string]$_.Path })
         $currentFilesBackup = Join-Path $script:ReleaseBackupsPath ("$(Get-Date -Format 'yyyyMMdd-HHmmss')-rollback-safety-v$currentVersion")
         New-Item -ItemType Directory -Path $currentFilesBackup -Force | Out-Null
         $currentManifest = Backup-ApplicationFiles $entries $currentFilesBackup
 
-        Restore-DatabaseBackup $config ([string]$state.databaseBackup) ([string]$state.databaseBackupHash)
+        Restore-DatabaseBackup $maintenanceConfig ([string]$state.databaseBackup) ([string]$state.databaseBackupHash)
         Restore-ApplicationFiles ([string]$state.applicationBackup) ([string]$state.filesManifest)
         Start-ManagedService
         Wait-ForHealth ([string]$state.previousVersion) | Out-Null
@@ -712,6 +757,23 @@ function Invoke-SelfTest {
     }
     $expected = 'C:\RX-Tracker\RX-APP-NEXT\server.exe'
     if ((Select-FirstNativeValue @($expected, '', ([string][char]0))) -ne $expected) { Fail 'NSSM parser self-test failed.' }
+    $oldMaintenanceUser = $env:RX_DB_MAINTENANCE_USER
+    $oldMaintenancePass = $env:RX_DB_MAINTENANCE_PASS
+    try {
+        $env:RX_DB_MAINTENANCE_USER = 'maintenance_test'
+        $env:RX_DB_MAINTENANCE_PASS = 'maintenance-test-password'
+        $runtime = @{ DB_HOST = '127.0.0.1'; DB_USER = 'runtime_test'; DB_PASS = 'runtime-test-password'; DB_NAME = 'runtime_test_db' }
+        $maintenance = Get-MaintenanceDatabaseConfig $runtime
+        if ($maintenance['DB_USER'] -ne 'maintenance_test' -or $maintenance['DB_PASS'] -ne 'maintenance-test-password') {
+            Fail 'Maintenance credential separation self-test failed.'
+        }
+        if ($runtime['DB_USER'] -ne 'runtime_test' -or $runtime['DB_PASS'] -ne 'runtime-test-password') {
+            Fail 'Runtime configuration was modified by maintenance credential selection.'
+        }
+    } finally {
+        $env:RX_DB_MAINTENANCE_USER = $oldMaintenanceUser
+        $env:RX_DB_MAINTENANCE_PASS = $oldMaintenancePass
+    }
     Write-Ok 'Compiled release updater self-test passed.'
 }
 
@@ -729,6 +791,10 @@ verified PostgreSQL backup, records a business-data fingerprint, applies
 audited migrations, preserves .env, installs the release, starts the service,
 and requires a healthy response. Any failure before reopening traffic attempts
 to restore both the prior application and the stopped-system database backup.
+
+When DB_USER is a restricted runtime identity, Project Control requests a
+separate PostgreSQL maintenance login before downtime. The maintenance password
+is held only in the Project Control process and is not written to .env or disk.
 
 Rollback is destructive to records created after the update. It first preserves
 the current application and database in a separate safety backup.

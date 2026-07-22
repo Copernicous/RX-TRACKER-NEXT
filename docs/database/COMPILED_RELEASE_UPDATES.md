@@ -31,7 +31,10 @@ this bootstrap when installing `4.0.0-next.6` from either version:
 3. Select **15 - Install official release ZIP**.
 4. Press Enter at the ZIP prompt to download the latest release automatically,
    or paste the full path to an already-downloaded official ZIP.
-5. Confirm the update and wait for the final green health result.
+5. When `.env` uses a restricted database role, enter the database maintenance
+   username and password when prompted. The password remains only in the
+   running Project Control process and is not saved to `.env` or disk.
+6. Confirm the update and wait for the final green health result.
 
 Project Control performs these guarded steps internally:
 
@@ -52,6 +55,13 @@ Project Control performs these guarded steps internally:
 If a step fails during downtime, Project Control attempts to restore both the
 pre-update database backup and the previous application files before restarting
 the former version.
+
+The first conversion from `DB_USER=postgres` to a restricted runtime account is
+a separate, one-time guarded database operation. It must be rehearsed and
+verified before changing production `.env`. Once that conversion is complete,
+normal future updates remain the usual Project Control flow: option **8**, then
+option **15**, supply the maintenance login when prompted, and wait for the
+green health result.
 
 ## Rollback
 

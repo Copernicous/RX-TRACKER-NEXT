@@ -17,6 +17,11 @@ const {
 const { restoreDump } = require('../db/dump-restore');
 const { createSourceConnectionFromEnv, compareDatabases } = require('../db/database-comparator');
 const { createBusinessFingerprint } = require('../db/business-fingerprint');
+const {
+  configureRuntimeRole,
+  inspectRuntimeRole,
+  verifyRuntimeConnection
+} = require('../db/runtime-role');
 
 async function main(argv = process.argv.slice(2)) {
   const command = String(argv[0] || 'help').toLowerCase();
@@ -86,6 +91,42 @@ async function main(argv = process.argv.slice(2)) {
         printTarget();
         const fingerprint = await createBusinessFingerprint(db);
         console.log(`RX_BUSINESS_FINGERPRINT=${JSON.stringify(fingerprint)}`);
+        break;
+      }
+
+      case 'configure-runtime-role': {
+        printTarget();
+        const passwordEnv = String(options.passwordEnv || 'RX_RUNTIME_DB_PASSWORD');
+        const password = process.env[passwordEnv];
+        if (!password) throw new Error(`Set ${passwordEnv} before running configure-runtime-role.`);
+        const report = await configureRuntimeRole(db, {
+          role: options.role,
+          password,
+          confirmDatabase: options.confirmDatabase
+        });
+        delete process.env[passwordEnv];
+        printRuntimeRole(report);
+        if (!report.ok) exitCode = 2;
+        break;
+      }
+
+      case 'inspect-runtime-role': {
+        printTarget();
+        const report = await inspectRuntimeRole(db, options.role);
+        printRuntimeRole(report);
+        if (!report.ok) exitCode = 2;
+        break;
+      }
+
+      case 'verify-runtime-role': {
+        printTarget();
+        const passwordEnv = String(options.passwordEnv || 'RX_RUNTIME_DB_PASSWORD');
+        const password = process.env[passwordEnv];
+        if (!password) throw new Error(`Set ${passwordEnv} before running verify-runtime-role.`);
+        const report = await verifyRuntimeConnection(db, { role: options.role, password });
+        delete process.env[passwordEnv];
+        console.log(`[DB] Runtime connection verification: ${report.ok ? 'PASS' : 'FAIL'}.`);
+        console.log(`[DB] Runtime role=${report.role} database=${report.database}.`);
         break;
       }
 
@@ -297,6 +338,9 @@ RX Tracker NEXT database lifecycle
   rx-db adopt-v331 --confirm-database <exact DB_NAME>
   rx-db seed-reference
   rx-db business-fingerprint
+  rx-db configure-runtime-role --role <name> --confirm-database <exact DB_NAME>
+  rx-db inspect-runtime-role --role <name>
+  rx-db verify-runtime-role --role <name>
   rx-db bootstrap-admin --username <name> [--email <address>] [--master]
   rx-db provision
   rx-db restore-copy --dump <path> --confirm-database <exact DB_NAME>
@@ -310,6 +354,14 @@ bootstrap-admin reads the password from RX_BOOTSTRAP_ADMIN_PASSWORD by default.
 Use --password-env <VARIABLE_NAME> to select a different environment variable.
 No command prints database, administrator, SIP, relay, or encryption secrets.
 `);
+}
+
+function printRuntimeRole(report) {
+  console.log(`[DB] Runtime role inspection: ${report.ok ? 'PASS' : 'FAIL'}.`);
+  console.log(`[DB] Runtime role=${report.role} database=${report.database}.`);
+  if (Number.isInteger(report.tableCount)) console.log(`[DB] Runtime tables covered: ${report.tableCount}.`);
+  if (Number.isInteger(report.sequenceCount)) console.log(`[DB] Runtime sequences covered: ${report.sequenceCount}.`);
+  (report.errors || []).forEach((error) => console.log(`  ERROR ${error}`));
 }
 
 function printComparison(comparison) {

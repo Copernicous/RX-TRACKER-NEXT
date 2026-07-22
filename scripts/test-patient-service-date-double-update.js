@@ -65,7 +65,12 @@ async function main() {
     let patient = null;
     try {
         await db.sequelize.authenticate();
-        await db.sequelize.sync();
+        // Restricted application roles deliberately cannot create or alter schema
+        // objects. CI and deployment rehearsals provision the schema with the
+        // maintenance identity before running application-level regressions.
+        if (process.env.RX_TEST_SCHEMA_READY !== 'true') {
+            await db.sequelize.sync();
+        }
 
         const oldServiceDate = dateFromToday(-130);
         const newServiceDate = dateFromToday(0);

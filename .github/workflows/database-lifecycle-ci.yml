@@ -122,22 +122,15 @@ jobs:
           npm run test:backoffice-patient-delete
           npm run test:service-window
 
-      - name: Prove web startup works with a read-only database role
+      - name: Prove web runtime works with a restricted read-write database role
         shell: bash
         run: |
-          psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d rx_next_ci_base_test -v ON_ERROR_STOP=1 <<'SQL'
-          CREATE ROLE rxnext_runtime_ci LOGIN PASSWORD 'runtime-ci-password';
-          GRANT CONNECT ON DATABASE rx_next_ci_base_test TO rxnext_runtime_ci;
-          GRANT USAGE ON SCHEMA public TO rxnext_runtime_ci;
-          GRANT SELECT ON ALL TABLES IN SCHEMA public TO rxnext_runtime_ci;
-          SQL
+          export RX_RUNTIME_DB_PASSWORD='runtime-ci-password-2026'
+          npm run db:runtime-role:configure -- --role rxnext_runtime_ci --confirm-database rx_next_ci_base_test
+          npm run db:runtime-role:inspect -- --role rxnext_runtime_ci
+          npm run db:runtime-role:verify -- --role rxnext_runtime_ci
 
-          if PGPASSWORD=runtime-ci-password psql -h "$DB_HOST" -p "$DB_PORT" -U rxnext_runtime_ci -d rx_next_ci_base_test -c 'UPDATE "SystemSettings" SET "value" = "value";' 2>/dev/null; then
-            echo "Read-only runtime role unexpectedly accepted a write."
-            exit 1
-          fi
-
-          DB_NAME=rx_next_ci_base_test DB_USER=rxnext_runtime_ci DB_PASS=runtime-ci-password PORT=3211 node app.js > /tmp/rx-next-server.log 2>&1 &
+          DB_NAME=rx_next_ci_base_test DB_USER=rxnext_runtime_ci DB_PASS="$RX_RUNTIME_DB_PASSWORD" PORT=3211 node app.js > /tmp/rx-next-server.log 2>&1 &
           server_pid=$!
           trap 'kill "$server_pid" 2>/dev/null || true' EXIT
           for attempt in $(seq 1 30); do
