@@ -21,6 +21,11 @@ jobs:
           node-version: "22"
           cache: npm
 
+      - name: Use .NET SDK for RX Softphone
+        uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: rx-softphone-desktop/global.json
+
       - name: Install and validate locked dependencies
         run: |
           npm ci
@@ -30,6 +35,15 @@ jobs:
       - name: Build Windows release package
         run: npm run build:exe
 
+      - name: Build RX Softphone workstation package
+        shell: pwsh
+        run: |
+          .\rx-softphone-desktop\build-release.ps1
+          if ($LASTEXITCODE -ne 0) { throw 'RX Softphone release build failed.' }
+          $softphone = Get-ChildItem -LiteralPath rx-softphone-desktop\release -Filter 'RxSoftphone-*-win-x64.zip' -File
+          if ($softphone.Count -ne 1) { throw "Expected exactly one RX Softphone ZIP; found $($softphone.Count)." }
+          Copy-Item -LiteralPath $softphone[0].FullName -Destination (Join-Path 'dist' $softphone[0].Name) -Force
+
       - name: Verify executables and create checksums
         shell: pwsh
         run: |
@@ -37,7 +51,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'server.exe version check failed.' }
           .\dist\rx-db.exe help
           if ($LASTEXITCODE -ne 0) { throw 'rx-db.exe help check failed.' }
-          $files = Get-ChildItem dist\server.exe, dist\rx-db.exe, dist\server-update-*.zip
+          $files = Get-ChildItem dist\server.exe, dist\rx-db.exe, dist\server-update-*.zip, dist\RxSoftphone-*-win-x64.zip
           $lines = $files | ForEach-Object {
             $hash = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
             "$hash *$($_.Name)"
@@ -74,4 +88,5 @@ jobs:
           fail_on_unmatched_files: true
           files: |
             dist/server-update-*.zip
+            dist/RxSoftphone-*-win-x64.zip
             dist/SHA256SUMS.txt

@@ -12,6 +12,26 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 - Added a sanitized, version-controlled project handoff and authoritative root agent instructions so future sessions can recover the production layout, release/rollback process, repository boundaries, decisions, and current operating status without relying on chat history or storing secrets.
 - Recorded a deferred, approval-gated cleanup checkpoint for the legacy production database/application and the former local 3.3.x development environment.
 
+## [4.0.0-next.7] - 2026-07-22
+
+### Added
+
+- Added a restricted PostgreSQL runtime-role lifecycle. RX Tracker can perform normal business reads and writes without owning application tables, altering schemas, administering roles, or modifying the migration ledger.
+- Added Project Control 2.1 maintenance-identity prompts for backup, migration, verification, and rollback when the application `.env` uses the restricted runtime role. Maintenance credentials remain in process memory and are never written to `.env`.
+- Added the preserved RX Softphone 0.4.2 Windows package to the official NEXT release workflow as a separate, checksummed GitHub release asset.
+
+### Changed
+
+- Enabled database lifecycle CI automatically on staging and develop as well as main.
+- Included the restricted-role evidence and complete remote softphone deployment guide in compiled server packages.
+
+### Testing
+
+- Restored the current NEXT production dump into an isolated database, verified all 34 migration checksums and the configured seven-action workflow, then ran the authenticated application and full regression suite through a restricted role.
+- Verified patient and RX create/update operations, dashboard, Call Center, reports, exports, runtime-role denial boundaries, and Project Control maintenance-identity separation.
+
+**Database impact:** No schema migration and no business-data rewrite. Installing the code release alone does not create or activate a runtime role. The one-time production security cutover is a separate administrator-controlled operation that creates a PostgreSQL login, grants only the documented runtime privileges, and changes only `DB_USER`/`DB_PASS` in the preserved production `.env` after verification.
+
 ## [4.0.0-next.6] - 2026-07-22
 
 ### Fixed

@@ -30,7 +30,7 @@ try {
     }
 
     if ($source -eq $target) {
-        Write-Host 'Project Control 2.0 is already located in the target application folder.' -ForegroundColor Green
+        Write-Host 'Project Control 2.1 is already located in the target application folder.' -ForegroundColor Green
         exit 0
     }
 
@@ -51,7 +51,7 @@ try {
         Copy-Item -LiteralPath (Join-Path $source $file) -Destination $destination -Force
     }
 
-    Write-Host '[OK] Project Control 2.0 installed.' -ForegroundColor Green
+    Write-Host '[OK] Project Control 2.1 installed.' -ForegroundColor Green
     Write-Host "Target : $target"
     Write-Host "Backup : $backup"
     Write-Host 'No service, application executable, database, or .env value was changed.' -ForegroundColor Cyan

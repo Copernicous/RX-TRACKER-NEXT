@@ -16,6 +16,10 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 - Production HTTP port: `3000`
 - NEXT database name at the completed cutover: `patient_rx_next_cutover_copy`
 - Project Control version: `2.0.0`
+- Release candidate on `develop`: `v4.0.0-next.7`, including Project Control
+  `2.1.0`, restricted database runtime-role support, and the official RX
+  Softphone 0.4.2 workstation asset. Production remains on `v4.0.0-next.6`
+  until the signed/tagged release is published and option 15 completes.
 - Legacy fallback application remains under `C:\RX-Tracker\RX-APP`.
 - Current operating posture: production is healthy and the team is waiting for
   customer feedback. No confirmed production incident is open.
@@ -156,8 +160,10 @@ C:\RX-Tracker\deployment-state
 ## Decisions that must remain true
 
 - NEXT is isolated from the frozen RX Tracker 3.3.x repository.
-- RX Softphone is a separate deliverable and is not modified by NEXT server
-  maintenance unless explicitly requested.
+- RX Softphone remains a separate workstation deliverable. Its version 0.4.2
+  source is preserved under `rx-softphone-desktop` in NEXT, and every approved
+  NEXT release that needs workstation distribution publishes its ZIP as a
+  separate checksummed asset; it is never embedded in the server ZIP.
 - The Windows production server deploys official compiled packages; it does
   not require Git, Node.js, npm, or a source checkout.
 - The one-time 3.3.x-to-NEXT cutover is complete. Do not repeat the cutover
@@ -190,8 +196,8 @@ C:\RX-Tracker\deployment-state
 4. Commit and push `main`.
 5. Wait for the full PostgreSQL lifecycle CI to pass.
 6. Create and push a new annotated `v<version>` tag.
-7. Wait for the Windows release workflow to publish the server ZIP and
-   `SHA256SUMS.txt`.
+7. Wait for the Windows release workflow to publish the server ZIP, RX
+   Softphone workstation ZIP, and `SHA256SUMS.txt`.
 8. Verify the published assets and executable versions before giving the
    production operator deployment instructions.
 

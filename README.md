@@ -10,7 +10,7 @@ frozen 3.3.1 repository, its production database, or the RX Softphone source.
 
 ## Current status
 
-Version: `4.0.0-next.6` preview
+Version: `4.0.0-next.7` preview
 
 | Area | NEXT behavior |
 |---|---|
@@ -19,7 +19,7 @@ Version: `4.0.0-next.6` preview
 | Fresh database | Explicit `rx-db provision`, followed by one-time administrator bootstrap |
 | 3.3.1 database | Restore to an isolated copy, adopt the verified legacy schema, migrate, and compare |
 | Test data | Explicit sanitizer removes identities, credentials, tokens, pairings, document pointers, and free text |
-| RX Softphone | Unchanged; this repository does not build or modify it |
+| RX Softphone | Version 0.4.2 source is preserved here and the matching workstation ZIP is published as a separate, checksummed release asset |
 
 The frozen application remains the production fallback until repeated
 production-shaped dump rehearsals and user acceptance are complete.
@@ -34,8 +34,8 @@ production-shaped dump rehearsals and user acceptance are complete.
 - [3.3.1 startup mutation inventory](docs/database/STARTUP_MUTATION_INVENTORY.md)
 
 Every push and pull request runs the fresh-provision, checksum-drift,
-sanitization, v3.3.1 dump-rehearsal, application-regression, and read-only
-runtime-role checks in GitHub Actions.
+sanitization, v3.3.1 dump-rehearsal, application-regression, and restricted
+read/write runtime-role checks in GitHub Actions.
 
 For source development, install Node.js and PostgreSQL, create a local `.env`
 from `.env.example`, then run:
@@ -52,7 +52,7 @@ database lifecycle commands separately; never make the web service account a
 database owner merely to make startup succeed.
 
 The packaged `scripts\Invoke-NextProduction.ps1` orchestrator is only for the
-one-time 3.3.1-to-NEXT conversion. After cutover, use Project Control 2.0 for
+one-time 3.3.1-to-NEXT conversion. After cutover, use Project Control 2.1 for
 routine compiled updates. It verifies the official release, backs up the live
 database, checks business-data fingerprints, preserves `.env`, applies audited
 migrations, starts the service, and automatically attempts paired recovery when

@@ -1,11 +1,11 @@
-# Compiled production updates with Project Control 2.0
+# Compiled production updates with Project Control 2.1
 
 The side-by-side 3.3.1-to-NEXT cutover is a one-time conversion. Routine NEXT
 updates do not create another database copy and do not repeat the cutover
 orchestrator. Administrators use `PROJECT-CONTROL.bat` from the active
 `C:\RX-Tracker\RX-APP-NEXT` folder.
 
-## One-time Project Control 2.0 bootstrap
+## Historical Project Control 2.0 bootstrap
 
 Version `4.0.0-next.4` contains the old source-checkout updater. Version
 `4.0.0-next.5` contains a Windows PowerShell release-discovery defect. Perform

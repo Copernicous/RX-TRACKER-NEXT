@@ -1,16 +1,18 @@
-RX Tracker NEXT 4.0.0-next.6
+RX Tracker NEXT 4.0.0-next.7
 ============================
 
-Database Lifecycle Preview
+Database Security and Lifecycle Release
 
-RX Tracker NEXT begins with the tested RX Tracker 3.3.1 web interface and
-feature set. RX Softphone is unchanged. NEXT replaces database creation,
+RX Tracker NEXT began with the tested RX Tracker 3.3.1 web interface and
+feature set. NEXT replaces database creation,
 sequelize.sync(), startup ALTER TABLE statements, startup backfills, reference
 seeding, and default-administrator creation with explicit rx-db commands.
+RX Softphone 0.4.2 source is preserved in NEXT and its Windows ZIP is published
+as a separate checksummed workstation asset.
 
-This package is for isolated development, sanitized-data testing, and database
-rehearsals. Do not replace the frozen production 3.3.1 application until every
-gate in docs/database/CUTOVER_AND_ROLLBACK.md passes.
+This server package is an approved routine update for an existing NEXT
+installation. Project Control must preserve the installed production .env and
+verify the official release checksums before replacing application files.
 
 Package contents
 ----------------
@@ -25,8 +27,10 @@ Package contents
 - PROJECT-CONTROL.bat / scripts/Invoke-ReleaseUpdate.ps1: routine official-ZIP
   updates with database backup, business-data fingerprints, .env preservation,
   health validation, and automatic paired recovery
-- INSTALL-PROJECT-CONTROL.bat: one-time Project Control 2.0 bootstrap for an
-  existing 4.0.0-next.4 installation, or controller repair for 4.0.0-next.5
+- INSTALL-PROJECT-CONTROL.bat: Project Control bootstrap or repair helper
+
+The separate RxSoftphone-0.4.2-win-x64.zip is installed only on managed calling
+workstations. It is not embedded in this server ZIP.
 
 First verification
 ------------------
@@ -37,20 +41,15 @@ First verification
 4. Require READY, 34 applied migrations, 0 pending migrations, and a verified
    checksum ledger.
 5. Run: server.exe --v
-6. Require version 4.0.0-next.6.
+6. Require version 4.0.0-next.7.
 
 Windows production workflow
 ---------------------------
 
-Keep 3.3.1 in C:\RX-Tracker\RX-APP and extract NEXT to
-C:\RX-Tracker\RX-APP-NEXT. Then run the packaged orchestrator from an
-Administrator PowerShell terminal. Start with `-Action Preflight`; it does not
-change a database or service. Follow docs/database/CUTOVER_AND_ROLLBACK.md for
-the exact guarded commands.
-
-After the one-time NEXT cutover, use PROJECT-CONTROL.bat option 15 for routine
-updates. See docs/database/COMPILED_RELEASE_UPDATES.md. Do not repeat the
-cutover orchestrator for ordinary NEXT releases.
+Open C:\RX-Tracker\RX-APP-NEXT\PROJECT-CONTROL.bat as Administrator. Use option
+8 to check the release and option 15 to download, verify, back up, and install
+it. See docs/database/COMPILED_RELEASE_UPDATES.md. Do not repeat the one-time
+3.3.1-to-NEXT cutover orchestrator for routine NEXT releases.
 
 Fresh databases and imported 3.3.1 copies have different procedures. Follow
 docs/database/NEXT_DATABASE_OPERATIONS.md exactly. Never adopt, restore, or
@@ -59,6 +58,6 @@ sanitize the live production database.
 Rollback
 --------
 
-Keep the exact 3.3.1 package and a verified pre-cutover database backup. The
-supported rollback restores both; an application-only rollback is not the
-approved recovery procedure.
+Use Project Control option 16 for an emergency paired application/database
+rollback. Keep the frozen 3.3.1 fallback and verified historical backup until
+the separately approved retirement checkpoint.
