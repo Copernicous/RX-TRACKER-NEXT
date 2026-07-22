@@ -150,7 +150,7 @@ function Get-LatestRelease {
     $headers = @{ 'User-Agent' = 'RX-Tracker-Project-Control' }
     $uri = "https://api.github.com/repos/$($script:Repository)/releases?per_page=20"
     $releases = @(Invoke-RestMethod -Uri $uri -Headers $headers -TimeoutSec 45)
-    foreach ($release in ($releases | Where-Object { -not $_.draft } | Sort-Object published_at -Descending)) {
+    foreach ($release in ($releases | Where-Object { $_.draft -ne $true } | Sort-Object published_at -Descending)) {
         $zip = @($release.assets | Where-Object { $_.name -match '^server-update-.+\.zip$' } | Select-Object -First 1)
         $checksums = @($release.assets | Where-Object { $_.name -eq 'SHA256SUMS.txt' } | Select-Object -First 1)
         if ($zip.Count -and $checksums.Count) {

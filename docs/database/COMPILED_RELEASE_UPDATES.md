@@ -7,10 +7,11 @@ orchestrator. Administrators use `PROJECT-CONTROL.bat` from the active
 
 ## One-time Project Control 2.0 bootstrap
 
-Version `4.0.0-next.4` contains the old source-checkout updater. Perform this
-bootstrap once when installing `4.0.0-next.5`:
+Version `4.0.0-next.4` contains the old source-checkout updater. Version
+`4.0.0-next.5` contains a Windows PowerShell release-discovery defect. Perform
+this bootstrap when installing `4.0.0-next.6` from either version:
 
-1. Download `server-update-4.0.0-next.5.zip` and `SHA256SUMS.txt` from the
+1. Download `server-update-4.0.0-next.6.zip` and `SHA256SUMS.txt` from the
    official GitHub release.
 2. Verify the ZIP SHA-256 against `SHA256SUMS.txt` before extracting it.
 3. Extract the ZIP into a temporary folder outside `RX-APP-NEXT`.

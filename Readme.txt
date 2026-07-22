@@ -1,4 +1,4 @@
-RX Tracker NEXT 4.0.0-next.5
+RX Tracker NEXT 4.0.0-next.6
 ============================
 
 Database Lifecycle Preview
@@ -26,7 +26,7 @@ Package contents
   updates with database backup, business-data fingerprints, .env preservation,
   health validation, and automatic paired recovery
 - INSTALL-PROJECT-CONTROL.bat: one-time Project Control 2.0 bootstrap for an
-  existing 4.0.0-next.4 compiled installation
+  existing 4.0.0-next.4 installation, or controller repair for 4.0.0-next.5
 
 First verification
 ------------------
@@ -37,7 +37,7 @@ First verification
 4. Require READY, 34 applied migrations, 0 pending migrations, and a verified
    checksum ledger.
 5. Run: server.exe --v
-6. Require version 4.0.0-next.5.
+6. Require version 4.0.0-next.6.
 
 Windows production workflow
 ---------------------------

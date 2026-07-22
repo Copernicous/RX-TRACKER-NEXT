@@ -7,6 +7,18 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+## [4.0.0-next.6] - 2026-07-22
+
+### Fixed
+
+- Corrected the Windows PowerShell GitHub-release filter used by Project Control option 8 and by automatic downloads in option 15. Draft releases are now excluded without accidentally excluding every published release.
+
+### Testing
+
+- Reproduced the failure against the live GitHub Releases API and verified that Project Control now resolves `v4.0.0-next.5` with both required release assets.
+
+**Database impact:** None. This patch changes release discovery only and does not alter the application service, database, `.env`, or RX Softphone.
+
 ## [4.0.0-next.5] - 2026-07-22
 
 ### Added
