@@ -26,6 +26,7 @@ production-shaped dump rehearsals and user acceptance are complete.
 
 ## Start here
 
+- [Current project handoff](docs/PROJECT_HANDOFF.md)
 - [Database operations](docs/database/NEXT_DATABASE_OPERATIONS.md)
 - [Sanitized dump rehearsal](docs/database/SANITIZED_DUMP_REHEARSAL.md)
 - [Cutover and rollback](docs/database/CUTOVER_AND_ROLLBACK.md)
