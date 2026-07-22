@@ -1,4 +1,4 @@
-RX Tracker NEXT 4.0.0-next.7
+RX Tracker NEXT 4.0.0-next.8
 ============================
 
 Database Security and Lifecycle Release
@@ -41,7 +41,7 @@ First verification
 4. Require READY, 34 applied migrations, 0 pending migrations, and a verified
    checksum ledger.
 5. Run: server.exe --v
-6. Require version 4.0.0-next.7.
+6. Require version 4.0.0-next.8.
 
 Windows production workflow
 ---------------------------

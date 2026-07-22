@@ -12,6 +12,19 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 - Added a sanitized, version-controlled project handoff and authoritative root agent instructions so future sessions can recover the production layout, release/rollback process, repository boundaries, decisions, and current operating status without relying on chat history or storing secrets.
 - Recorded a deferred, approval-gated cleanup checkpoint for the legacy production database/application and the former local 3.3.x development environment.
 
+## [4.0.0-next.8] - 2026-07-22
+
+### Fixed
+
+- Updated the RX Softphone release builder to restore the explicit `win-x64` runtime before self-contained publishing. This makes clean GitHub Windows runners download the required .NET, Windows Desktop, and ASP.NET runtime packs instead of relying on a developer workstation cache.
+
+### Release safety
+
+- Supersedes the failed `v4.0.0-next.7` tag build. That tag published no release assets and must never be reused or deployed.
+- Carries forward the restricted PostgreSQL runtime-role, Project Control 2.1, current production-dump rehearsal, and separate checksummed RX Softphone 0.4.2 asset described under `4.0.0-next.7`.
+
+**Database impact:** No additional database change. The database impact remains the separately controlled runtime-role conversion documented for `4.0.0-next.7`; installing this code release alone performs no schema or business-data rewrite.
+
 ## [4.0.0-next.7] - 2026-07-22
 
 ### Added

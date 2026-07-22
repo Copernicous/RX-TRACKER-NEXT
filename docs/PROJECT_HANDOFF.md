@@ -16,10 +16,14 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 - Production HTTP port: `3000`
 - NEXT database name at the completed cutover: `patient_rx_next_cutover_copy`
 - Project Control version: `2.0.0`
-- Release candidate on `develop`: `v4.0.0-next.7`, including Project Control
+- Prepared release candidate: `v4.0.0-next.8`, including Project Control
   `2.1.0`, restricted database runtime-role support, and the official RX
   Softphone 0.4.2 workstation asset. Production remains on `v4.0.0-next.6`
   until the signed/tagged release is published and option 15 completes.
+- Tag `v4.0.0-next.7` is a failed, non-deployable release attempt. Its server
+  build passed, but the first clean-runner RX Softphone restore lacked an
+  explicit Windows runtime identifier, so no GitHub release assets were
+  published. Never reuse or deploy that tag.
 - Legacy fallback application remains under `C:\RX-Tracker\RX-APP`.
 - Current operating posture: production is healthy and the team is waiting for
   customer feedback. No confirmed production incident is open.

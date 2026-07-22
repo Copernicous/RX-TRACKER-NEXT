@@ -29,7 +29,7 @@ if (Test-Path -LiteralPath $publishRoot) {
 }
 New-Item -ItemType Directory -Path $publishRoot -Force | Out-Null
 
-& $dotnet restore $project
+& $dotnet restore $project --runtime win-x64
 if ($LASTEXITCODE -ne 0) { throw 'dotnet restore failed.' }
 & $dotnet publish $project -c Release -r win-x64 --self-contained true -o $publishRoot --no-restore
 if ($LASTEXITCODE -ne 0) { throw 'dotnet publish failed.' }
