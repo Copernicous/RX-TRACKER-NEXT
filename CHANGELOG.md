@@ -7,6 +7,26 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+## [4.0.0-next.3] - 2026-07-21
+
+### Added
+
+- Added a single guarded Windows production orchestrator for release checksum verification, `.env` preservation, PostgreSQL client discovery, online rehearsal backup, isolated restore/adoption/migration/verification, optional port-3100 acceptance testing, final cutover, status inspection, and early rollback.
+- Added exact typed confirmations and safe-copy database-name guards for every action that can replace the isolated NEXT database or switch the Windows service.
+- Added non-secret deployment state and SHA-256 sidecars for both rehearsal and final production backups.
+
+### Changed
+
+- Updated the cutover and production checklist to deploy NEXT beside the unchanged 3.3.1 application rather than overwrite it.
+- Packaged `scripts/Invoke-NextProduction.ps1` in every Windows server release and syntax-check it in CI.
+
+### Safety
+
+- Preflight changes no database or service. Rehearsal leaves production online and operates only on a separately named database. Cutover re-runs the lifecycle from a stopped-system backup and attempts to restore the service to 3.3.1 if promotion fails.
+- No RX Tracker 3.3.1 source, production database, or RX Softphone source was changed by this release.
+
+**Database impact:** None until an administrator deliberately runs `Rehearsal` or `Cutover` with the exact displayed confirmation. Both actions preserve the source database and rebuild only the guarded NEXT copy.
+
 ## [4.0.0-next.2] - 2026-07-21
 
 ### Added

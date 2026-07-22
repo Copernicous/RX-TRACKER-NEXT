@@ -1,4 +1,4 @@
-RX Tracker NEXT 4.0.0-next.2
+RX Tracker NEXT 4.0.0-next.3
 ============================
 
 Database Lifecycle Preview
@@ -20,6 +20,8 @@ Package contents
   comparison lifecycle tool
 - docs/database/: operations, rehearsal, sanitization, cutover, and rollback
   runbooks
+- scripts/Invoke-NextProduction.ps1: guarded Windows preflight, rehearsal,
+  local test, cutover, and rollback orchestrator
 
 First verification
 ------------------
@@ -30,7 +32,16 @@ First verification
 4. Require READY, 34 applied migrations, 0 pending migrations, and a verified
    checksum ledger.
 5. Run: server.exe --v
-6. Require version 4.0.0-next.2.
+6. Require version 4.0.0-next.3.
+
+Windows production workflow
+---------------------------
+
+Keep 3.3.1 in C:\RX-Tracker\RX-APP and extract NEXT to
+C:\RX-Tracker\RX-APP-NEXT. Then run the packaged orchestrator from an
+Administrator PowerShell terminal. Start with `-Action Preflight`; it does not
+change a database or service. Follow docs/database/CUTOVER_AND_ROLLBACK.md for
+the exact guarded commands.
 
 Fresh databases and imported 3.3.1 copies have different procedures. Follow
 docs/database/NEXT_DATABASE_OPERATIONS.md exactly. Never adopt, restore, or

@@ -10,7 +10,7 @@ frozen 3.3.1 repository, its production database, or the RX Softphone source.
 
 ## Current status
 
-Version: `4.0.0-next.2` preview
+Version: `4.0.0-next.3` preview
 
 | Area | NEXT behavior |
 |---|---|
@@ -48,3 +48,10 @@ npm start
 The server intentionally refuses to start if migrations are missing. Run
 database lifecycle commands separately; never make the web service account a
 database owner merely to make startup succeed.
+
+On the Windows production server, use the packaged
+`scripts\Invoke-NextProduction.ps1` orchestrator. Its `Rehearsal` action runs
+the complete backup/restore/adopt/migrate/verify sequence against an isolated
+copy while 3.3.1 remains online. Its `Cutover` action repeats the process from a
+final stopped-system backup and switches the existing Windows service only
+after the copied database is ready.

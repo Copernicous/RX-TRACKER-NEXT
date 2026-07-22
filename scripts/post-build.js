@@ -51,6 +51,7 @@ const filesToCopy = [
     path.join('docs', 'database', 'REHEARSAL_RECORD_2026-07-21.md'),
     path.join('docs', 'database', 'PRODUCTION_DUMP_REHEARSAL_2026-07-21.md'),
     path.join('scripts', 'install-production-microsip-chrome-policy.ps1'),
+    path.join('scripts', 'Invoke-NextProduction.ps1'),
     'install-service.ps1',
     'uninstall-service.ps1',
 ];
