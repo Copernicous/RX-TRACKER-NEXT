@@ -1,4 +1,4 @@
-RX Tracker NEXT 4.0.0-next.4
+RX Tracker NEXT 4.0.0-next.5
 ============================
 
 Database Lifecycle Preview
@@ -22,6 +22,11 @@ Package contents
   runbooks
 - scripts/Invoke-NextProduction.ps1: guarded Windows preflight, rehearsal,
   local test, cutover, and rollback orchestrator
+- PROJECT-CONTROL.bat / scripts/Invoke-ReleaseUpdate.ps1: routine official-ZIP
+  updates with database backup, business-data fingerprints, .env preservation,
+  health validation, and automatic paired recovery
+- INSTALL-PROJECT-CONTROL.bat: one-time Project Control 2.0 bootstrap for an
+  existing 4.0.0-next.4 compiled installation
 
 First verification
 ------------------
@@ -32,7 +37,7 @@ First verification
 4. Require READY, 34 applied migrations, 0 pending migrations, and a verified
    checksum ledger.
 5. Run: server.exe --v
-6. Require version 4.0.0-next.4.
+6. Require version 4.0.0-next.5.
 
 Windows production workflow
 ---------------------------
@@ -42,6 +47,10 @@ C:\RX-Tracker\RX-APP-NEXT. Then run the packaged orchestrator from an
 Administrator PowerShell terminal. Start with `-Action Preflight`; it does not
 change a database or service. Follow docs/database/CUTOVER_AND_ROLLBACK.md for
 the exact guarded commands.
+
+After the one-time NEXT cutover, use PROJECT-CONTROL.bat option 15 for routine
+updates. See docs/database/COMPILED_RELEASE_UPDATES.md. Do not repeat the
+cutover orchestrator for ordinary NEXT releases.
 
 Fresh databases and imported 3.3.1 copies have different procedures. Follow
 docs/database/NEXT_DATABASE_OPERATIONS.md exactly. Never adopt, restore, or

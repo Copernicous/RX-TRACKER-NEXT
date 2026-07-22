@@ -7,6 +7,27 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+## [4.0.0-next.5] - 2026-07-22
+
+### Added
+
+- Added Project Control 2.0 for compiled Windows deployments. Routine updates now accept or automatically download the official release ZIP, verify GitHub checksums and executable versions, create a stopped-system PostgreSQL backup, preserve `.env`, apply audited migrations, restart the NSSM service, and require an exact healthy release response.
+- Added pre/post-update business-data fingerprints covering patient, RX, workflow tracking, user, call, document, transportation, clinic, pharmacy, and configured RX Action data. Updates abort and automatically attempt paired application/database recovery if existing counts or RX Actions change unexpectedly.
+- Added an emergency release rollback that first preserves the current forward state, then restores the previous application and pre-update database only after the administrator types `ROLLBACK`.
+- Added `INSTALL-PROJECT-CONTROL.bat` as a one-time bootstrap from the old compiled controller and documented the simple ongoing update procedure.
+
+### Fixed
+
+- Restricted default workflow-action seeding to genuinely empty databases. Existing customized RX Actions are now preserved exactly, preventing routine lifecycle commands from adding active defaults and incorrectly classifying every RX record as pending.
+- Replaced compiled Project Control operations that incorrectly required Git, Node.js, npm, and a source checkout. Standalone compiled migrations are disabled; the guarded release updater owns migration and verification.
+
+### Testing
+
+- Added reference-seeding regression coverage and a cross-platform Project Control updater self-test for semantic versions, NSSM output parsing, and business-fingerprint drift rejection.
+- Added the compiled updater and reference-data regression to PostgreSQL lifecycle CI and packaged every bootstrap/update helper in the official Windows release ZIP.
+
+**Database impact:** No new migration. Routine update validation requires configured WorkflowActions and existing business row counts to remain unchanged. Missing system settings or role permission keys may still be initialized by the explicit reference lifecycle command, but customized workflow actions are never inserted, renamed, enabled, or disabled.
+
 ## [4.0.0-next.4] - 2026-07-21
 
 ### Fixed

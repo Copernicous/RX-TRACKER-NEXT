@@ -32,7 +32,10 @@ if (!fs.existsSync(distDir)) {
 const filesToCopy = [
     '.env.example',
     'PROJECT-CONTROL.bat',
+    'INSTALL-PROJECT-CONTROL.bat',
     path.join('scripts', 'project-control.ps1'),
+    path.join('scripts', 'Invoke-ReleaseUpdate.ps1'),
+    path.join('scripts', 'Install-ProjectControl.ps1'),
     'project-control.json',
     'package.json',
     'README.md',
@@ -48,6 +51,7 @@ const filesToCopy = [
     path.join('docs', 'database', 'NEXT_DATABASE_OPERATIONS.md'),
     path.join('docs', 'database', 'SANITIZED_DUMP_REHEARSAL.md'),
     path.join('docs', 'database', 'CUTOVER_AND_ROLLBACK.md'),
+    path.join('docs', 'database', 'COMPILED_RELEASE_UPDATES.md'),
     path.join('docs', 'database', 'REHEARSAL_RECORD_2026-07-21.md'),
     path.join('docs', 'database', 'PRODUCTION_DUMP_REHEARSAL_2026-07-21.md'),
     path.join('scripts', 'install-production-microsip-chrome-policy.ps1'),

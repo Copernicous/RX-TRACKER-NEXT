@@ -10,7 +10,7 @@ frozen 3.3.1 repository, its production database, or the RX Softphone source.
 
 ## Current status
 
-Version: `4.0.0-next.4` preview
+Version: `4.0.0-next.5` preview
 
 | Area | NEXT behavior |
 |---|---|
@@ -29,6 +29,7 @@ production-shaped dump rehearsals and user acceptance are complete.
 - [Database operations](docs/database/NEXT_DATABASE_OPERATIONS.md)
 - [Sanitized dump rehearsal](docs/database/SANITIZED_DUMP_REHEARSAL.md)
 - [Cutover and rollback](docs/database/CUTOVER_AND_ROLLBACK.md)
+- [Routine compiled updates](docs/database/COMPILED_RELEASE_UPDATES.md)
 - [3.3.1 startup mutation inventory](docs/database/STARTUP_MUTATION_INVENTORY.md)
 
 Every push and pull request runs the fresh-provision, checksum-drift,
@@ -49,9 +50,9 @@ The server intentionally refuses to start if migrations are missing. Run
 database lifecycle commands separately; never make the web service account a
 database owner merely to make startup succeed.
 
-On the Windows production server, use the packaged
-`scripts\Invoke-NextProduction.ps1` orchestrator. Its `Rehearsal` action runs
-the complete backup/restore/adopt/migrate/verify sequence against an isolated
-copy while 3.3.1 remains online. Its `Cutover` action repeats the process from a
-final stopped-system backup and switches the existing Windows service only
-after the copied database is ready.
+The packaged `scripts\Invoke-NextProduction.ps1` orchestrator is only for the
+one-time 3.3.1-to-NEXT conversion. After cutover, use Project Control 2.0 for
+routine compiled updates. It verifies the official release, backs up the live
+database, checks business-data fingerprints, preserves `.env`, applies audited
+migrations, starts the service, and automatically attempts paired recovery when
+an update fails during downtime.

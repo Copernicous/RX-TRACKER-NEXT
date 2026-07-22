@@ -18,6 +18,7 @@ async function seedReferenceData(db, logger = console) {
     rolesCreated: 0,
     rolesPatched: 0,
     workflowActionsCreated: 0,
+    workflowActionsPreserved: 0,
     settingsCreated: 0,
     settingsEncrypted: 0
   };
@@ -56,14 +57,9 @@ async function seedReferenceData(db, logger = console) {
       }
     }
 
-    for (const [name, description, sequenceNumber] of WORKFLOW_ACTIONS) {
-      const [, created] = await db.WorkflowAction.findOrCreate({
-        where: { name },
-        defaults: { name, description, sequenceNumber, isActive: true },
-        transaction
-      });
-      if (created) result.workflowActionsCreated += 1;
-    }
+    const workflowResult = await seedWorkflowActions(db, transaction);
+    result.workflowActionsCreated = workflowResult.created;
+    result.workflowActionsPreserved = workflowResult.preserved;
 
     await transaction.commit();
     const settings = await settingsService.initializeDefaults(db);
@@ -73,6 +69,7 @@ async function seedReferenceData(db, logger = console) {
     logger.log(
       `[DB] Reference data ready: ${result.rolesCreated} role(s) created, ` +
       `${result.rolesPatched} role(s) patched, ${result.workflowActionsCreated} workflow action(s) created, ` +
+      `${result.workflowActionsPreserved} existing workflow action(s) preserved, ` +
       `${result.settingsCreated} setting(s) created, ${result.settingsEncrypted} sensitive setting(s) encrypted.`
     );
     return result;
@@ -80,6 +77,27 @@ async function seedReferenceData(db, logger = console) {
     if (!transaction.finished) await transaction.rollback();
     throw error;
   }
+}
+
+async function seedWorkflowActions(db, transaction) {
+  const existingCount = await db.WorkflowAction.count({ transaction });
+  if (existingCount > 0) {
+    // Workflow actions are customer-configured process data. A restored or
+    // upgraded database must retain that exact configuration. The defaults
+    // below are only a first-run bootstrap for a genuinely empty database.
+    return { created: 0, preserved: existingCount };
+  }
+
+  let created = 0;
+  for (const [name, description, sequenceNumber] of WORKFLOW_ACTIONS) {
+    const [, wasCreated] = await db.WorkflowAction.findOrCreate({
+      where: { name },
+      defaults: { name, description, sequenceNumber, isActive: true },
+      transaction
+    });
+    if (wasCreated) created += 1;
+  }
+  return { created, preserved: 0 };
 }
 
 function mergeMissing(existing, defaults) {
@@ -106,5 +124,6 @@ function clone(value) {
 module.exports = {
   WORKFLOW_ACTIONS,
   mergeMissing,
+  seedWorkflowActions,
   seedReferenceData
 };

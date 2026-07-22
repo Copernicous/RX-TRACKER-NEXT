@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "projectControlVersion": "1.2.0",
+  "projectControlVersion": "2.0.0",
   "project": "RX-TRACKER",
   "displayName": "RX Tracker",
   "serviceName": "Patient RX System",
@@ -13,5 +13,6 @@
   "healthPath": "/api/healthz",
   "releaseBranch": "main",
   "releaseTagPattern": "v*",
+  "releaseRepository": "Copernicous/RX-TRACKER-NEXT",
   "logDirectory": "logs"
 }

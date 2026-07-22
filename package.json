@@ -1,6 +1,6 @@
 {
   "name": "patient-rx-system",
-  "version": "4.0.0-next.4",
+  "version": "4.0.0-next.5",
   "description": "Patient RX Delivery Management System - NEXT database lifecycle preview",
   "main": "app.js",
   "scripts": {
@@ -38,6 +38,7 @@
     "test:service-window": "node scripts/test-configurable-service-window.js",
     "test:db-sanitizer": "node scripts/test-data-sanitizer.js",
     "test:migration-checksums": "node scripts/test-migration-checksums.js",
+    "test:reference-data": "node scripts/test-reference-data.js",
     "drive:auth": "node scripts/setup-google-drive-oauth.js",
     "db:create": "node scripts/db-lifecycle.js create",
     "db:status": "node scripts/db-lifecycle.js status",
@@ -46,6 +47,7 @@
     "db:inspect:v331": "node scripts/db-lifecycle.js inspect-v331",
     "db:adopt:v331": "node scripts/db-lifecycle.js adopt-v331",
     "db:seed:reference": "node scripts/db-lifecycle.js seed-reference",
+    "db:business-fingerprint": "node scripts/db-lifecycle.js business-fingerprint",
     "db:bootstrap-admin": "node scripts/db-lifecycle.js bootstrap-admin",
     "db:provision": "node scripts/db-lifecycle.js provision",
     "db:restore:copy": "node scripts/db-lifecycle.js restore-copy",

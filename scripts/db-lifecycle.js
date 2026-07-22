@@ -16,6 +16,7 @@ const {
 } = require('../db/data-sanitizer');
 const { restoreDump } = require('../db/dump-restore');
 const { createSourceConnectionFromEnv, compareDatabases } = require('../db/database-comparator');
+const { createBusinessFingerprint } = require('../db/business-fingerprint');
 
 async function main(argv = process.argv.slice(2)) {
   const command = String(argv[0] || 'help').toLowerCase();
@@ -78,6 +79,13 @@ async function main(argv = process.argv.slice(2)) {
         printTarget();
         await assertDatabaseReady(db);
         await seedReferenceData(db);
+        break;
+      }
+
+      case 'business-fingerprint': {
+        printTarget();
+        const fingerprint = await createBusinessFingerprint(db);
+        console.log(`RX_BUSINESS_FINGERPRINT=${JSON.stringify(fingerprint)}`);
         break;
       }
 
@@ -288,6 +296,7 @@ RX Tracker NEXT database lifecycle
   rx-db inspect-v331
   rx-db adopt-v331 --confirm-database <exact DB_NAME>
   rx-db seed-reference
+  rx-db business-fingerprint
   rx-db bootstrap-admin --username <name> [--email <address>] [--master]
   rx-db provision
   rx-db restore-copy --dump <path> --confirm-database <exact DB_NAME>

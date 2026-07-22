@@ -1,0 +1,71 @@
+# Compiled production updates with Project Control 2.0
+
+The side-by-side 3.3.1-to-NEXT cutover is a one-time conversion. Routine NEXT
+updates do not create another database copy and do not repeat the cutover
+orchestrator. Administrators use `PROJECT-CONTROL.bat` from the active
+`C:\RX-Tracker\RX-APP-NEXT` folder.
+
+## One-time Project Control 2.0 bootstrap
+
+Version `4.0.0-next.4` contains the old source-checkout updater. Perform this
+bootstrap once when installing `4.0.0-next.5`:
+
+1. Download `server-update-4.0.0-next.5.zip` and `SHA256SUMS.txt` from the
+   official GitHub release.
+2. Verify the ZIP SHA-256 against `SHA256SUMS.txt` before extracting it.
+3. Extract the ZIP into a temporary folder outside `RX-APP-NEXT`.
+4. Run `INSTALL-PROJECT-CONTROL.bat` from that temporary folder. The default
+   target is `C:\RX-Tracker\RX-APP-NEXT`; a different target can be supplied as
+   the first argument.
+5. The bootstrap copies only the BAT, its configuration, and its two
+   PowerShell helpers. It backs up the previous controls and does not touch the
+   service, executables, database, or `.env`.
+6. Open `C:\RX-Tracker\RX-APP-NEXT\PROJECT-CONTROL.bat` as Administrator and
+   confirm the header shows `Project Control 2.0.0`.
+
+## Normal update
+
+1. Open `PROJECT-CONTROL.bat` as Administrator.
+2. Select **8** to check the latest official GitHub release.
+3. Select **15 - Install official release ZIP**.
+4. Press Enter at the ZIP prompt to download the latest release automatically,
+   or paste the full path to an already-downloaded official ZIP.
+5. Confirm the update and wait for the final green health result.
+
+Project Control performs these guarded steps internally:
+
+1. downloads or opens the release ZIP;
+2. rejects unsafe/archive-traversal entries and secret/data files;
+3. verifies the ZIP, `server.exe`, and `rx-db.exe` against official GitHub
+   checksums and verifies the embedded version;
+4. verifies the Windows service points to the active application folder;
+5. stops the service and creates a validated PostgreSQL custom-format backup;
+6. records patient, RX, workflow, user, call, and reference-data fingerprints;
+7. applies audited migrations and explicit reference initialization;
+8. refuses the release if existing business counts or the configured RX Actions
+   change unexpectedly;
+9. installs only approved package files while preserving `.env` byte-for-byte;
+10. starts the service and requires the exact release version plus a healthy
+    database response.
+
+If a step fails during downtime, Project Control attempts to restore both the
+pre-update database backup and the previous application files before restarting
+the former version.
+
+## Rollback
+
+Menu option **16** is an emergency release rollback. It restores the pre-update
+application and database; records created after the update will no longer be in
+the active database. Before doing that, Project Control creates a separate
+forward-recovery backup of the current application and database. Type
+`ROLLBACK` only during controlled downtime and after notifying users.
+
+## Files and state
+
+- Downloaded packages: `C:\RX-Tracker\updates`
+- Database backups: `C:\RX-Tracker\backups`
+- Previous application files: `C:\RX-Tracker\release-backups`
+- Update state: `C:\RX-Tracker\deployment-state\release-update.json`
+
+Never place `.env` in an update ZIP and never run old and new server executables
+against the same database simultaneously.
