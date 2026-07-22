@@ -19,6 +19,12 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 - Legacy fallback application remains under `C:\RX-Tracker\RX-APP`.
 - Current operating posture: production is healthy and the team is waiting for
   customer feedback. No confirmed production incident is open.
+- On 2026-07-22, a controlled production data repair removed six inactive,
+  unreferenced default WorkflowActions that had been added during the original
+  NEXT cutover. Production now retains exactly the seven configured 3.3.1
+  workflow actions (IDs 1-7); all 7,142 RX workflow tracking rows were
+  preserved. The verified post-repair business fingerprint is
+  `bbf46041a6e5f9a6972d764e3a85394e5f737ac655cc51eaef84fd9d3ca6fa03`.
 
 The production `.env` is authoritative and must remain in place during every
 update. Never derive or reconstruct its secret values from Git or this file.
@@ -159,6 +165,10 @@ C:\RX-Tracker\deployment-state
 - Web startup performs validation only; it must not create or alter schemas.
 - Existing workflow actions are customer configuration. Defaults are created
   only when the WorkflowActions table is genuinely empty.
+- Do not restore or recreate the removed cutover defaults (`RX Received`,
+  `Pharmacy Contacted`, `Transportation Assigned`, `Delivery Scheduled`,
+  `RX Delivered`, and `Driver Receipt Obtained`). They were inactive, had zero
+  tracking references, and were not part of the configured 3.3.1 workflow.
 - Production release packages and checksum files are permanently archived in
   `C:\Shared\Versions`.
 
