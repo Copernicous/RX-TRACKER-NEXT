@@ -68,6 +68,47 @@ checksums. Older preview packages may be moved to an Archive subfolder.
   accepted NEXT, production backups have been verified, and a deliberate
   retirement decision has been recorded here.
 
+### Deferred cleanup checkpoint
+
+Status: **Deferred until customer acceptance and the agreed recovery window
+have both ended.** Do not perform this cleanup merely because NEXT is healthy
+today.
+
+When the checkpoint is approved, handle the server and local workstation as
+separate controlled tasks:
+
+Production server cleanup:
+
+1. Confirm `PatientRXSystem` points to `C:\RX-Tracker\RX-APP-NEXT\server.exe`.
+2. Confirm NEXT is using `patient_rx_next_cutover_copy` and no process is using
+   the legacy database.
+3. Create and validate a final legacy database backup and checksum in protected
+   storage.
+4. Confirm the legacy application and any legacy automatic startup are
+   disabled.
+5. After the approved retention period, remove the old PostgreSQL database and
+   obsolete rehearsal databases. Do not remove the active NEXT database.
+6. Retain the final legacy application package and database backup according to
+   the organization's recovery and data-retention policy.
+
+Local development cleanup:
+
+1. Confirm all current work is committed and pushed to RX-TRACKER-NEXT.
+2. Stop and disable the former 3.3.x local runtime at
+   `192.168.15.87:3000`.
+3. Verify that no local service, scheduled task, tunnel, or shortcut still
+   starts the legacy runtime.
+4. Preserve one clearly labeled, read-only legacy source archive if still
+   required for historical reference.
+5. Remove obsolete local databases, dumps, build artifacts, and working copies
+   only after verifying they are not the production recovery copy and contain
+   no uniquely required information.
+
+Before executing either cleanup, update this handoff with the approval date,
+retention deadline, exact targets, final backup/checksum locations, and the
+person authorizing removal. Never place credentials, patient data, or dump
+contents in this document.
+
 ## Routine production update
 
 1. Open `C:\RX-Tracker\RX-APP-NEXT\PROJECT-CONTROL.bat` as Administrator.

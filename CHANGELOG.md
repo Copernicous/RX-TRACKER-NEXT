@@ -10,6 +10,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 ### Documentation
 
 - Added a sanitized, version-controlled project handoff and authoritative root agent instructions so future sessions can recover the production layout, release/rollback process, repository boundaries, decisions, and current operating status without relying on chat history or storing secrets.
+- Recorded a deferred, approval-gated cleanup checkpoint for the legacy production database/application and the former local 3.3.x development environment.
 
 ## [4.0.0-next.6] - 2026-07-22
 
