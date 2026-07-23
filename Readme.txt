@@ -1,4 +1,4 @@
-RX Tracker NEXT 4.0.0-next.10
+RX Tracker NEXT 4.0.0-next.11
 ============================
 
 Database Security and Lifecycle Release
@@ -7,7 +7,7 @@ RX Tracker NEXT began with the tested RX Tracker 3.3.1 web interface and
 feature set. NEXT replaces database creation,
 sequelize.sync(), startup ALTER TABLE statements, startup backfills, reference
 seeding, and default-administrator creation with explicit rx-db commands.
-RX Softphone 0.4.4 source is preserved in NEXT and its Windows ZIP is published
+RX Softphone 0.5.0 source is preserved in NEXT and its Windows ZIP is published
 as a separate checksummed workstation asset.
 
 This server package is an approved routine update for an existing NEXT
@@ -29,7 +29,7 @@ Package contents
   health validation, and automatic paired recovery
 - INSTALL-PROJECT-CONTROL.bat: Project Control bootstrap or repair helper
 
-The separate RxSoftphone-0.4.4-win-x64.zip is installed only on managed calling
+The separate RxSoftphone-0.5.0-win-x64.zip is installed only on managed calling
 workstations. It is not embedded in this server ZIP.
 
 First verification
@@ -41,7 +41,7 @@ First verification
 4. Require READY, 35 applied migrations, 0 pending migrations, and a verified
    checksum ledger.
 5. Run: server.exe --v
-6. Require version 4.0.0-next.10.
+6. Require version 4.0.0-next.11.
 
 Windows production workflow
 ---------------------------

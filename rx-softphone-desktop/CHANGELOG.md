@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.5.0 - 2026-07-23
+
+- Replaced the persistent CMD window with a native Windows notification-area application.
+- Added colored tray state, SIP registration, relay, active-call state and duration, and last-call number/outcome/duration.
+- Added Open, Hang Up, managed Disable/Enable, administrator-locked Unpair, and graceful Exit tray controls.
+- Added a single-instance guard so a second launch opens the existing control panel without competing for port 5188.
+- Made packaged control-panel assets load from the executable directory, including when launched by a Windows Startup shortcut.
+- Kept SIP, RTP/audio, Auth ID, relay pairing, DPAPI token storage, and RX Tracker call telemetry behavior unchanged.
+
 ## 0.4.4 - 2026-07-23
 
 - Fixed outbound calls with a separate SIP Authentication ID ending immediately after the PBX returned `200 OK`.

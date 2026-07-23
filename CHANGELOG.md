@@ -12,6 +12,25 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 - Added a sanitized, version-controlled project handoff and authoritative root agent instructions so future sessions can recover the production layout, release/rollback process, repository boundaries, decisions, and current operating status without relying on chat history or storing secrets.
 - Recorded a deferred, approval-gated cleanup checkpoint for the legacy production database/application and the former local 3.3.x development environment.
 
+## [4.0.0-next.11] - 2026-07-23
+
+### Added
+
+- Converted RX Softphone 0.5.0 into a native Windows tray application with no persistent CMD window.
+- Added live tray status for SIP registration, relay connectivity, dialing/ringing/connected state, connected-call duration, and the last call number, outcome, and duration.
+- Added tray actions to open the local control panel, hang up an active call, disable or re-enable the managed phone, and exit cleanly.
+- Added a single-instance guard: launching RX Softphone again opens the existing control panel instead of starting a second listener on port 5188.
+- Anchored packaged web assets to the executable directory so the local control panel works from Startup shortcuts and launchers with a different working directory.
+
+### Security and safety
+
+- Managed workstation unpair remains visible but disabled in the tray with an Administrator-required label. The existing server-side restriction remains authoritative.
+- Disable keeps the relay pairing but unregisters SIP and rejects queued call commands until the user re-enables the phone.
+- Exit asks for confirmation during an active call, then performs the existing graceful SIP and relay shutdown.
+- Raised the minimum managed workstation client to RX Softphone 0.5.0 so Administrators can identify computers still using the console-based client.
+
+**Database impact:** None. This release does not add or change a migration, table, column, index, constraint, or stored record.
+
 ## [4.0.0-next.10] - 2026-07-23
 
 ### Fixed

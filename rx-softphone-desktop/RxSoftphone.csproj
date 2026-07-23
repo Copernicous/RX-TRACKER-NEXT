@@ -2,11 +2,13 @@
   <PropertyGroup>
     <TargetFramework>net10.0-windows10.0.17763.0</TargetFramework>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <OutputType>WinExe</OutputType>
+    <UseWindowsForms>true</UseWindowsForms>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>RxSoftphone</AssemblyName>
     <RootNamespace>RxSoftphone</RootNamespace>
-    <Version>0.4.4</Version>
+    <Version>0.5.0</Version>
   </PropertyGroup>
 
   <ItemGroup>

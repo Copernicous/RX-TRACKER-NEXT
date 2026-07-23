@@ -16,15 +16,15 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 - Production HTTP port: `3000`
 - NEXT database name at the completed cutover: `patient_rx_next_cutover_copy`
 - Project Control version: `2.0.0`
-- Active staging fix branch: `fix/softphone-authid-call-media`, preparing
-  `v4.0.0-next.10` with RX Softphone 0.4.4. Version 0.4.3 registered a distinct
-  Grandstream UCM Authentication ID correctly but built outbound calls with a
-  descriptor that could end the dialog immediately after `200 OK`. Version
-  0.4.4 restores the proven outbound descriptor shape while retaining the
-  separate digest username. A controlled staging call remained connected for
-  approximately 52 seconds and ended normally. This candidate is not a
-  production deployment. Production remains on `v4.0.0-next.6` until the
-  staged validation and normal promotion/release workflow complete.
+- Active staging feature branch: `feature/softphone-tray`, preparing
+  `v4.0.0-next.11` with RX Softphone 0.5.0. It replaces the persistent CMD
+  window with a single-instance Windows tray application. The tray shows SIP
+  registration, relay state, live call state/duration, and last-call details;
+  it provides Open, Hang Up, managed Disable/Enable, administrator-locked
+  Unpair, and graceful Exit. It carries forward the authenticated-call
+  stability fix validated in 0.4.4. This candidate is not a production
+  deployment. Production remains on `v4.0.0-next.6` until staged validation
+  and the normal promotion/release workflow complete.
 - Tag `v4.0.0-next.7` is a failed, non-deployable release attempt. Its server
   build passed, but the first clean-runner RX Softphone restore lacked an
   explicit Windows runtime identifier, so no GitHub release assets were
@@ -169,7 +169,7 @@ C:\RX-Tracker\deployment-state
 ## Decisions that must remain true
 
 - NEXT is isolated from the frozen RX Tracker 3.3.x repository.
-- RX Softphone remains a separate workstation deliverable. Its version 0.4.4
+- RX Softphone remains a separate workstation deliverable. Its version 0.5.0
   source is preserved under `rx-softphone-desktop` in NEXT, and every approved
   NEXT release that needs workstation distribution publishes its ZIP as a
   separate checksummed asset; it is never embedded in the server ZIP.

@@ -1,11 +1,10 @@
-using System.Diagnostics;
 using System.Net;
 using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using RxSoftphone;
 
-var executableVersion = Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "0.4.4";
+var executableVersion = Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "0.5.0";
 var versionOnly = args.Any(x =>
     string.Equals(x, "--version", StringComparison.OrdinalIgnoreCase) ||
     string.Equals(x, "--v", StringComparison.OrdinalIgnoreCase) ||
@@ -16,10 +15,11 @@ if (versionOnly)
     return;
 }
 
-var noBrowser = args.Any(x => string.Equals(x, "--no-browser", StringComparison.OrdinalIgnoreCase));
+var openOnStart = args.Any(x => string.Equals(x, "--open", StringComparison.OrdinalIgnoreCase));
 var testRingtone = args.Any(x => string.Equals(x, "--test-ringtone", StringComparison.OrdinalIgnoreCase));
 var hostArgs = args.Where(x =>
     !string.Equals(x, "--no-browser", StringComparison.OrdinalIgnoreCase) &&
+    !string.Equals(x, "--open", StringComparison.OrdinalIgnoreCase) &&
     !string.Equals(x, "--test-ringtone", StringComparison.OrdinalIgnoreCase)).ToArray();
 
 if (testRingtone)
@@ -32,8 +32,26 @@ if (testRingtone)
     return;
 }
 
-var builder = WebApplication.CreateBuilder(hostArgs);
+var executableRoot = AppContext.BaseDirectory;
+var contentRoot = Directory.Exists(Path.Combine(executableRoot, "wwwroot"))
+    ? executableRoot
+    : Directory.GetCurrentDirectory();
+var builder = WebApplication.CreateBuilder(new WebApplicationOptions
+{
+    Args = hostArgs,
+    ContentRootPath = contentRoot
+});
 var webUrl = builder.Configuration["Softphone:WebUrl"] ?? "http://127.0.0.1:5188";
+using var singleInstance = new Mutex(
+    initiallyOwned: true,
+    name: @"Local\RXSoftphone.Workstation",
+    createdNew: out var isFirstInstance);
+if (!isFirstInstance)
+{
+    TrayApplication.OpenUrl(webUrl);
+    return;
+}
+
 var clientVersion = executableVersion;
 var managedMode = builder.Configuration.GetValue("Softphone:ManagedMode", true);
 var allowManualDialing = builder.Configuration.GetValue("Softphone:AllowManualDialing", true);
@@ -164,22 +182,24 @@ app.MapDelete("/api/relay/pairing", (SoftphoneRelayService relay, SoftphoneClien
 app.MapFallbackToFile("index.html");
 
 var phoneService = app.Services.GetRequiredService<SipPhoneService>();
-app.Lifetime.ApplicationStopping.Register(() => phoneService.DisposeAsync().AsTask().GetAwaiter().GetResult());
-
-if (!noBrowser)
+var relayService = app.Services.GetRequiredService<SoftphoneRelayService>();
+var trayApplication = new TrayApplication(
+    webUrl,
+    clientVersion,
+    phoneService,
+    relayService,
+    clientOptions,
+    app.Lifetime);
+app.Lifetime.ApplicationStarted.Register(() =>
 {
-    app.Lifetime.ApplicationStarted.Register(() =>
-    {
-        try
-        {
-            Process.Start(new ProcessStartInfo(webUrl) { UseShellExecute = true });
-        }
-        catch
-        {
-            // The URL is also shown in the console if no default browser is available.
-        }
-    });
-}
+    trayApplication.Start();
+    if (openOnStart) trayApplication.OpenControlPanel();
+});
+app.Lifetime.ApplicationStopping.Register(() =>
+{
+    trayApplication.Dispose();
+    phoneService.DisposeAsync().AsTask().GetAwaiter().GetResult();
+});
 
 await app.RunAsync();
 
