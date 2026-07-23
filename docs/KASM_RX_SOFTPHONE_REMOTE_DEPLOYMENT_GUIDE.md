@@ -1,6 +1,6 @@
 # Kasm + RX Softphone Remote Deployment Guide
 
-**Applies to:** RX Tracker NEXT 4.0.0-next.12, RX Softphone 0.6.0, Windows 10/11 x64, Kasm at `https://portal.rbandrc.com`, and an Asterisk/Grandstream UCM PBX
+**Applies to:** RX Tracker NEXT 4.0.0-next.13, RX Softphone 0.6.0, Windows 10/11 x64, Kasm at `https://portal.rbandrc.com`, and an Asterisk/Grandstream UCM PBX
 
 **Current relay:** `https://rx-relay.rbandrc.com`
 **Last verified:** July 22, 2026

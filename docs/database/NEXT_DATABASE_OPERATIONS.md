@@ -1,6 +1,6 @@
 # RX Tracker NEXT database operations
 
-This runbook applies to RX Tracker NEXT `4.0.0-next.12`. The central rule is
+This runbook applies to RX Tracker NEXT `4.0.0-next.13`. The central rule is
 simple: the web server validates the database, while `rx-db` changes it.
 
 ## Command forms

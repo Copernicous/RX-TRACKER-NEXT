@@ -12,6 +12,22 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 - Added a sanitized, version-controlled project handoff and authoritative root agent instructions so future sessions can recover the production layout, release/rollback process, repository boundaries, decisions, and current operating status without relying on chat history or storing secrets.
 - Recorded a deferred, approval-gated cleanup checkpoint for the legacy production database/application and the former local 3.3.x development environment.
 
+## [4.0.0-next.13] - 2026-07-23
+
+### Fixed
+
+- Made the Administrator **Phone Devices** inventory use a hidden FortiGate-rewritten API anchor, preventing the SSL-VPN web proxy from leaving requests pointed at an unreachable internal server URL.
+- Added build-version query strings to the Phone Devices JavaScript and supporting assets so a FortiGate session cannot continue serving the previous cached page controller after an update.
+- Added explicit diagnostics when FortiGate does not load the page controller within 5 seconds or does not return the device inventory request within 15 seconds; the page no longer remains indefinitely on **Loading devices**.
+
+### Testing
+
+- Added a Phone Devices inventory visit to the isolated Administrator browser smoke test.
+- Added regression checks for the FortiGate API anchor, versioned page controller, boot detector, and bounded request timeout.
+- Passed the full staging smoke suite and the PostgreSQL lifecycle CI workflow.
+
+**Database impact:** None. This release does not add or change a migration, table, column, index, constraint, or stored record.
+
 ## [4.0.0-next.12] - 2026-07-23
 
 ### Added

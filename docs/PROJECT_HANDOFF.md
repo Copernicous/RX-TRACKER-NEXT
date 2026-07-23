@@ -16,7 +16,7 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 - Production HTTP port: `3000`
 - NEXT database name at the completed cutover: `patient_rx_next_cutover_copy`
 - Project Control version: `2.0.0`
-- Active staging candidate: `v4.0.0-next.12` with RX Softphone 0.6.0. It adds an application-owned
+- Active development candidate: `v4.0.0-next.13` with RX Softphone 0.6.0. It adds an application-owned
   WebView2 control window, hides the window to the existing tray on close,
   focuses the same window on a second launch, and adds a per-user
   **Start with Windows** tray option. It does not install a Windows service,
@@ -24,7 +24,10 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
   in the employee's interactive Windows session. The tray continues to show
   SIP registration, relay state, live call state/duration, and last-call
   details and provides Hang Up, managed Disable/Enable,
-  administrator-locked Unpair, and graceful Exit. This candidate is not a production
+  administrator-locked Unpair, and graceful Exit. It also makes the Administrator
+  Phone Devices inventory use FortiGate's rewritten API URL, versions the page
+  scripts to avoid SSL-VPN session caching, and reports script/API timeouts
+  instead of remaining indefinitely on **Loading devices**. This candidate is not a production
   deployment. Production remains on `v4.0.0-next.6` until staged validation
   and the normal promotion/release workflow complete.
 - Tag `v4.0.0-next.7` is a failed, non-deployable release attempt. Its server
