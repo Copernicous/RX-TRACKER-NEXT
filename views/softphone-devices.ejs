@@ -98,11 +98,22 @@
 </div>
 
 <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index:1100" id="deviceToasts"></div>
+<!-- FortiGate rewrites anchor hrefs to the active SSL-VPN proxy session. -->
+<a id="xa-softphone-devices-api" href="/api/admin/softphone-devices" style="display:none" aria-hidden="true"></a>
 
-<script src="/assets/bootstrap.bundle.min.js"></script>
-<script src="/js/base.js"></script>
-<script src="/js/app.js"></script>
-<script src="/js/help.js"></script>
-<script src="/js/softphone-devices.js"></script>
+<script src="/assets/bootstrap.bundle.min.js?v=<%= encodeURIComponent(String(locals.appBuild || 'dev')) %>"></script>
+<script src="/js/base.js?v=<%= encodeURIComponent(String(locals.appBuild || 'dev')) %>"></script>
+<script src="/js/app.js?v=<%= encodeURIComponent(String(locals.appBuild || 'dev')) %>"></script>
+<script src="/js/help.js?v=<%= encodeURIComponent(String(locals.appBuild || 'dev')) %>"></script>
+<script src="/js/softphone-devices.js?v=<%= encodeURIComponent(String(locals.appBuild || 'dev')) %>"></script>
+<script nonce="<%= cspNonce %>">
+    setTimeout(function() {
+        if (window.__RX_SOFTPHONE_DEVICES_BOOTED) return;
+        var rows = document.getElementById('deviceRows');
+        if (rows) {
+            rows.innerHTML = '<tr><td colspan="7" class="text-center text-danger py-5"><i class="fas fa-exclamation-triangle me-2"></i>FortiGate did not load the Phone Devices script. Hard-refresh this page or start a new SSL-VPN portal session.</td></tr>';
+        }
+    }, 5000);
+</script>
 </body>
 </html>

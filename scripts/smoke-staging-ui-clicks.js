@@ -491,6 +491,15 @@ async function runAdminDashboardAndReports(fixtures) {
     assert.strictEqual(fixtures.callCenterUser.phoneAccountSetupAllowed, true, 'Administrator did not grant setup to the selected user.');
     pass('Administrator granted one-time Phone Account Setup to one user');
 
+    await page.goto(route('/softphone-devices'), { waitUntil: 'domcontentloaded' });
+    await waitForNonPlaceholder(page, '#deviceStatPaired', 'Administrator Phone Devices inventory loaded');
+    assert.strictEqual(
+        (await page.locator('#deviceRows').innerText()).includes('Loading devices'),
+        false,
+        'Phone Devices must not remain in its initial loading state.'
+    );
+    pass('Administrator Phone Devices FortiGate-safe inventory request');
+
     assertNoBrowserErrors('admin dashboard/report flow');
     await context.close();
 }

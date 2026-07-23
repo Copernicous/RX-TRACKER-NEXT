@@ -146,6 +146,8 @@ try {
 
     const setupView = fs.readFileSync(path.join(__dirname, '..', 'views', 'phone-account-setup.ejs'), 'utf8');
     const setupScript = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'phone-account-setup.js'), 'utf8');
+    const devicesView = fs.readFileSync(path.join(__dirname, '..', 'views', 'softphone-devices.ejs'), 'utf8');
+    const devicesScript = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'softphone-devices.js'), 'utf8');
     const apiRoutes = fs.readFileSync(path.join(__dirname, '..', 'routes', 'apiRoutes.js'), 'utf8');
     const sidebarView = fs.readFileSync(path.join(__dirname, '..', 'views', 'partials', 'sidebar.ejs'), 'utf8');
     assert(setupView.includes('This is a one-time setup'), 'Phone Account Setup must explain the one-time workflow.');
@@ -160,6 +162,11 @@ try {
     assert(apiRoutes.includes("/admin/softphone-devices"), 'Administrator managed-device inventory API is missing.');
     assert(apiRoutes.includes("/admin/softphone-devices/:userId"), 'Administrator workstation revocation API is missing.');
     assert(sidebarView.includes('Phone Devices'), 'Administrator Phone Devices navigation is missing.');
+    assert(devicesView.includes('id="xa-softphone-devices-api"'), 'Phone Devices must expose a FortiGate-rewritten API anchor.');
+    assert(devicesView.includes('/js/softphone-devices.js?v='), 'Phone Devices script must be versioned to bypass FortiGate session caching.');
+    assert(devicesScript.includes('window.rxElementHref(anchor)'), 'Phone Devices must read the FortiGate-rewritten API URL.');
+    assert(devicesScript.includes('REQUEST_TIMEOUT_MS = 15000'), 'Phone Devices must not remain indefinitely in its loading state.');
+    assert(devicesScript.includes('__RX_SOFTPHONE_DEVICES_BOOTED'), 'Phone Devices must report a script-loading failure.');
 
     const webRoutes = fs.readFileSync(path.join(__dirname, '..', 'routes', 'webRoutes.js'), 'utf8');
     assert(webRoutes.includes('http://127.0.0.1:5188'), 'Call Center CSP must allow the local softphone origin.');
