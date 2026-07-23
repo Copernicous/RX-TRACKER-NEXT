@@ -7,6 +7,10 @@ if exist "%RXSOFT_ROOT%RxSoftphone.exe" (
   exit /b %errorlevel%
 )
 
+if exist "%RXSOFT_ROOT%release\0.4.4\RxSoftphone.exe" (
+  "%RXSOFT_ROOT%release\0.4.4\RxSoftphone.exe"
+  exit /b %errorlevel%
+)
 if exist "%RXSOFT_ROOT%release\0.4.3\RxSoftphone.exe" (
   "%RXSOFT_ROOT%release\0.4.3\RxSoftphone.exe"
   exit /b %errorlevel%

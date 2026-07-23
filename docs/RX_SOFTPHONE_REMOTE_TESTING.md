@@ -9,7 +9,7 @@ Use this runbook to prepare a physical Windows test computer, pair it with RX Tr
 The Windows computer needs:
 
 - Windows 10 or 11 x64, a working microphone and speaker/headset, and a persistent Windows user profile.
-- The approved `RxSoftphone-0.4.3-win-x64.zip` package.
+- The approved `RxSoftphone-0.4.4-win-x64.zip` package.
 - Network access to the RX Tracker HTTPS/LAN address used for pairing.
 - Direct network access from Windows to the configured Asterisk/provider SIP address and its RTP media range. The web relay does not carry SIP or audio.
 - Power settings that do not suspend the computer during the calling shift.
@@ -53,7 +53,7 @@ Remote Windows steps:
 4. Refresh Call Center and confirm **RX Softphone ready via relay**.
 5. Place one call, verify ringback and two-way audio, then hang up. Confirm the Call Center report contains dialing, ringing, answered/end times, ring/conversation duration, SIP result, patient, agent, extension, and number.
 
-Version 0.4.3 is managed by default. The local PBX fields and Register/Unregister controls are locked, and the Windows user cannot remove the pairing. An Administrator changes the assignment through the user's authorized **Phone Account Setup** and can inspect or revoke the workstation from **Administration > Phone Devices**. Revocation is blocked during an active call and invalidates the device token immediately afterward.
+Version 0.4.4 is managed by default. The local PBX fields and Register/Unregister controls are locked, and the Windows user cannot remove the pairing. An Administrator changes the assignment through the user's authorized **Phone Account Setup** and can inspect or revoke the workstation from **Administration > Phone Devices**. Revocation is blocked during an active call and invalidates the device token immediately afterward.
 
 One running Windows softphone is paired to one RX user at a time. A second RX user on the same computer must pair that softphone again.
 

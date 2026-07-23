@@ -12,6 +12,24 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 - Added a sanitized, version-controlled project handoff and authoritative root agent instructions so future sessions can recover the production layout, release/rollback process, repository boundaries, decisions, and current operating status without relying on chat history or storing secrets.
 - Recorded a deferred, approval-gated cleanup checkpoint for the legacy production database/application and the former local 3.3.x development environment.
 
+## [4.0.0-next.10] - 2026-07-23
+
+### Fixed
+
+- Raised the minimum managed workstation client to RX Softphone 0.4.4, which preserves the separate Grandstream UCM Authentication ID while restoring the proven outbound SIP descriptor format.
+- Prevented authenticated outbound calls from ending immediately after the PBX returned `200 OK`; ringing, connected audio, normal hangup, and call telemetry now remain active for the real call duration.
+
+### Diagnostics
+
+- RX Softphone records a safe event when an in-dialog `BYE` arrives from the remote SIP endpoint, without logging credentials or SIP authorization headers.
+
+### Validation
+
+- Reproduced the 0.4.3 failure against the local Grandstream UCM: answer followed by hangup in approximately 9 ms.
+- Verified the 0.4.4 candidate against the same PBX, extension, and authorized destination: the call remained connected for approximately 52 seconds and ended normally through the local hangup control.
+
+**Database impact:** None. This release does not add or change a migration, table, column, index, constraint, or stored record.
+
 ## [4.0.0-next.9] - 2026-07-22
 
 ### Added

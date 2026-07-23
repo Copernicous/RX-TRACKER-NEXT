@@ -398,18 +398,31 @@ public sealed partial class SipPhoneService : IAsyncDisposable
                 return;
             }
 
-            var fromUri = $"sip:{_username}@{_server}";
+            if (!SIPURI.TryParse(destinationUri, out var destinationSipUri))
+            {
+                throw new PhoneOperationException("The destination is not a valid SIP URI.");
+            }
+
+            // Keep the descriptor aligned with SIPUserAgent.Call(string, ...), which is
+            // the call path used before separate authentication IDs were introduced.
+            // AuthUsername is the only intentional difference.
+            var fromUri = new SIPURI(
+                _username,
+                destinationSipUri.Host,
+                null,
+                destinationSipUri.Scheme,
+                destinationSipUri.Protocol).ToParameterlessString();
             var callDescriptor = new SIPCallDescriptor(
                 _username,
                 _password,
-                destinationUri,
+                destinationSipUri.ToString(),
                 fromUri,
-                destinationUri,
+                destinationSipUri.CanonicalAddress,
                 null,
                 null,
                 _authId,
                 SIPCallDirection.Out,
-                null,
+                SDP.SDP_MIME_CONTENTTYPE,
                 null,
                 null);
             var ok = await userAgent.Call(callDescriptor, media);
@@ -479,6 +492,13 @@ public sealed partial class SipPhoneService : IAsyncDisposable
 
     private Task OnSipRequestReceived(SIPEndPoint local, SIPEndPoint remote, SIPRequest request)
     {
+        if (request.Method == SIPMethodsEnum.BYE &&
+            request.Header.From?.FromTag is not null &&
+            request.Header.To?.ToTag is not null)
+        {
+            AddEvent("warning", $"Received BYE from the remote SIP endpoint {remote}.");
+        }
+
         if (request.Method == SIPMethodsEnum.OPTIONS)
         {
             var ok = SIPResponse.GetResponse(request, SIPResponseStatusCodesEnum.Ok, null);

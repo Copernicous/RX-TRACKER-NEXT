@@ -8,7 +8,7 @@ const { updateAttemptForUser, publicAttempt } = require('./callAttemptController
 const ONLINE_WINDOW_MS = 12 * 1000;
 const PAIRING_WINDOW_MS = 10 * 60 * 1000;
 const COMMAND_WINDOW_MS = 25 * 1000;
-const MINIMUM_MANAGED_CLIENT_VERSION = '0.4.3';
+const MINIMUM_MANAGED_CLIENT_VERSION = '0.4.4';
 const ACTIVE_CALL_STATES = new Set(['dialing', 'trying', 'ringing', 'answering', 'connected', 'incoming']);
 
 function secret() {

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.4 - 2026-07-23
+
+- Fixed outbound calls with a separate SIP Authentication ID ending immediately after the PBX returned `200 OK`.
+- Restored the SIPSorcery outbound descriptor fields used by the proven pre-Auth-ID call path while retaining the distinct digest authentication username.
+- Added a credential-safe diagnostic event for an in-dialog `BYE` received from the remote SIP endpoint.
+- Verified ringing, answer, two-way connected call state, and a normal local hangup during a 52-second Grandstream UCM test call.
+
 ## 0.4.3 - 2026-07-22
 
 - Added an optional SIP Authentication ID for PBX accounts whose digest login differs from the visible extension.
