@@ -151,6 +151,8 @@ try {
     assert(setupView.includes('This is a one-time setup'), 'Phone Account Setup must explain the one-time workflow.');
     assert(setupScript.includes('/api/phone-account/setup'), 'Self-service phone-account setup API integration is missing.');
     assert(setupScript.includes('phoneSetupPasswordConfirm'), 'Self-service setup must confirm the SIP password before saving.');
+    assert(setupView.includes('phoneSetupAuthId'), 'Phone Account Setup must expose the optional PBX Authentication ID.');
+    assert(setupScript.includes("authId: field('phoneSetupAuthId').value.trim()"), 'Phone Account Setup must send the optional Authentication ID.');
     assert(sidebarView.includes('locals.phoneAccountSetupAllowed === true'), 'Phone Account Setup navigation must require per-user authorization.');
     assert(!sidebarView.includes("sv('phone_account_setup')"), 'Phone Account Setup must not depend on a role-wide permission.');
     assert(apiRoutes.includes("/users/:id/phone-account/setup-access"), 'Administrator setup re-enable endpoint is missing.');
@@ -174,7 +176,10 @@ try {
     assert(softphoneRelay.includes('MaximumFailureDelay = TimeSpan.FromSeconds(5)'), 'Relay failures must use bounded network backoff.');
     assert(softphoneRelay.includes('InvalidatePairingAsync'), 'Revoked device tokens must clear the local pairing and registration.');
     assert(softphoneSip.includes('Automatic registration stopped'), 'Permanent SIP failures must stop the credential retry cycle.');
+    assert(softphoneSip.includes('var authId = string.IsNullOrWhiteSpace(request.AuthId)'), 'RX Softphone must fall back to the extension when Auth ID is blank.');
+    assert(softphoneSip.includes('SIPCallDescriptor(') && softphoneSip.includes('_authId'), 'Authenticated outbound calls must use the separate Auth ID.');
     assert(softphonePage.includes('Managed by RX Tracker'), 'Managed client UI must identify the Administrator-owned account.');
+    assert(softphonePage.includes('Authentication ID'), 'Standalone RX Softphone must expose optional Authentication ID setup.');
     assert(softphoneUi.includes('elements.registrationActions.hidden = managed'), 'Managed client UI must hide local registration controls.');
     assert.strictEqual(softphoneConfig.Softphone.ManagedMode, true, 'Distributed softphone configuration must remain managed.');
     assert(!softphoneConfig.Softphone.AllowedOrigins.includes('https://portal.rbandrc.com'), 'Kasm portal must use the relay instead of direct loopback access.');

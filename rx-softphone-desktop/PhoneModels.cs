@@ -7,6 +7,7 @@ public sealed record RegisterRequest(
     string Server,
     int Port,
     string Username,
+    string? AuthId,
     string Password,
     string? DisplayName,
     int? LocalSipPort);

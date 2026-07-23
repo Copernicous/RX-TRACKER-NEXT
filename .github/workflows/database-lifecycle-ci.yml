@@ -11,6 +11,25 @@ permissions:
   contents: read
 
 jobs:
+  softphone-build:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+
+      - name: Use .NET SDK for RX Softphone
+        uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: rx-softphone-desktop/global.json
+
+      - name: Compile RX Softphone
+        shell: pwsh
+        run: |
+          dotnet restore .\rx-softphone-desktop\RxSoftphone.csproj -r win-x64
+          dotnet build .\rx-softphone-desktop\RxSoftphone.csproj -c Release -r win-x64 --no-restore
+          if ($LASTEXITCODE -ne 0) { throw 'RX Softphone compilation failed.' }
+
   database-lifecycle:
     runs-on: ubuntu-latest
     timeout-minutes: 25

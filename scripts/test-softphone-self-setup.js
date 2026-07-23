@@ -59,6 +59,8 @@ async function main() {
         const queryInterface = db.sequelize.getQueryInterface();
         const userColumns = await queryInterface.describeTable('Users');
         assert(userColumns.phoneAccountSetupAllowed, 'Migrated schema is missing Users.phoneAccountSetupAllowed.');
+        const accountColumns = await queryInterface.describeTable('UserSoftphoneAccounts');
+        assert(accountColumns.authId, 'Migrated schema is missing UserSoftphoneAccounts.authId.');
         const role = await db.Role.create({
             name: 'Phone Setup Test ' + runId,
             description: 'Isolated regression role',
@@ -101,6 +103,7 @@ async function main() {
             server: '192.0.2.50',
             port: 5060,
             username: '1006',
+            authId: 'ucm-auth-1006',
             displayName: '1006',
             password: 'first-test-password',
             localSipPort: 0
@@ -108,6 +111,7 @@ async function main() {
         assert.strictEqual(firstSave.statusCode, 200, JSON.stringify(firstSave.body));
         let account = await db.UserSoftphoneAccount.findOne({ where: { userId: user.id } });
         assert(account && account.isEnabled === true, 'Self-service setup must enable the saved account.');
+        assert.strictEqual(account.authId, 'ucm-auth-1006', 'A distinct SIP Auth ID must be saved independently from the extension.');
         assert.strictEqual(decryptPassword(user.id, account.encryptedPassword), 'first-test-password');
         await user.reload();
         assert.strictEqual(user.phoneAccountSetupAllowed, false, 'Successful setup must remove this user\'s setup access.');
@@ -135,6 +139,7 @@ async function main() {
             server: '192.0.2.52',
             port: 5060,
             username: '1007',
+            authId: '',
             displayName: '1007',
             password: 'second-test-password',
             localSipPort: 0
@@ -143,6 +148,7 @@ async function main() {
         account = await db.UserSoftphoneAccount.findOne({ where: { userId: user.id } });
         assert.strictEqual(account.isEnabled, true, 'Completing reopened setup must enable registration again.');
         assert.strictEqual(account.username, '1007');
+        assert.strictEqual(account.authId, null, 'A blank SIP Auth ID must preserve extension-as-auth fallback behavior.');
         assert.strictEqual(decryptPassword(user.id, account.encryptedPassword), 'second-test-password');
         await user.reload();
         assert.strictEqual(user.phoneAccountSetupAllowed, false, 'Reconfiguration must close per-user setup access again.');

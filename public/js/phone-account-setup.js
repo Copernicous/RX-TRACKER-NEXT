@@ -35,6 +35,7 @@
             field('phoneSetupServer').value = data.server || '192.168.15.200';
             field('phoneSetupPort').value = data.port || 5060;
             field('phoneSetupUsername').value = data.username || '';
+            field('phoneSetupAuthId').value = data.authId || '';
             field('phoneSetupDisplayName').value = data.displayName || data.username || '';
             field('phoneSetupLocalPort').value = data.localSipPort === undefined ? 0 : data.localSipPort;
             setMessage(data.reconfiguration
@@ -62,6 +63,7 @@
             server: field('phoneSetupServer').value.trim(),
             port: Number(field('phoneSetupPort').value),
             username: field('phoneSetupUsername').value.trim(),
+            authId: field('phoneSetupAuthId').value.trim(),
             displayName: field('phoneSetupDisplayName').value.trim(),
             password: password,
             localSipPort: Number(field('phoneSetupLocalPort').value || 0)

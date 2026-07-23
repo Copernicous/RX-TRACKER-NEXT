@@ -5,7 +5,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using RxSoftphone;
 
-var executableVersion = Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "0.4.2";
+var executableVersion = Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "0.4.3";
 var versionOnly = args.Any(x =>
     string.Equals(x, "--version", StringComparison.OrdinalIgnoreCase) ||
     string.Equals(x, "--v", StringComparison.OrdinalIgnoreCase) ||

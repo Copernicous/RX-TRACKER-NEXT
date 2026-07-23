@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light">
-  <title>RX Native Softphone v0.4.2</title>
+  <title>RX Native Softphone v0.4.3</title>
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
@@ -16,7 +16,7 @@
         <p class="subtitle">Direct Asterisk registration and audio over SIP/RTP—no WebSocket.</p>
       </div>
       <div class="status-stack" aria-live="polite">
-        <span id="versionBadge" class="version-badge">v0.4.2</span>
+        <span id="versionBadge" class="version-badge">v0.4.3</span>
         <span id="registrationBadge" class="status-badge offline"><span class="status-dot"></span>Offline</span>
         <span id="callBadge" class="call-badge">Idle</span>
       </div>
@@ -58,6 +58,10 @@
               <input id="displayName" name="displayName" placeholder="Assigned display name">
             </label>
           </div>
+          <label id="authIdField">Authentication ID <small>(optional)</small>
+            <input id="authId" name="authId" placeholder="Uses extension when blank" autocomplete="off">
+            <small>Use the PBX Auth ID / MicroSIP Login only when it differs from the extension.</small>
+          </label>
           <label id="passwordField">Password
             <div class="password-wrap">
               <input id="password" name="password" type="password" autocomplete="current-password" required>

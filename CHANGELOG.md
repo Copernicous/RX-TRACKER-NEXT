@@ -12,6 +12,26 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 - Added a sanitized, version-controlled project handoff and authoritative root agent instructions so future sessions can recover the production layout, release/rollback process, repository boundaries, decisions, and current operating status without relying on chat history or storing secrets.
 - Recorded a deferred, approval-gated cleanup checkpoint for the legacy production database/application and the former local 3.3.x development environment.
 
+## [4.0.0-next.9] - 2026-07-22
+
+### Added
+
+- Added an optional SIP Authentication ID to per-user RX Softphone accounts. Administrators can supply a Grandstream UCM AuthID / MicroSIP Login that differs from the visible extension; blank values preserve the existing extension-as-login behavior.
+- Added the nullable `UserSoftphoneAccounts.authId` column through audited migration `20260722160000-add-auth-id-to-user-softphone-accounts.js`.
+- Added Windows CI compilation for the first-party RX Softphone on staging, develop, main, and pull requests.
+
+### Changed
+
+- RX Tracker sends the effective Authentication ID through both direct loopback registration and the outbound Cloudflare relay without adding it to call analytics or status snapshots.
+- Raised the minimum managed RX Softphone version to 0.4.3 for assignments that use a distinct Authentication ID.
+
+### Release safety
+
+- Existing phone accounts require no data conversion. A null or blank Authentication ID uses the extension for SIP digest authentication exactly as before.
+- The migration is additive and an older NEXT binary ignores the extra nullable column during an application rollback.
+
+**Database impact:** One nullable `VARCHAR(128)` column is added to `UserSoftphoneAccounts`. No patient, RX, call, password, pairing, or workflow data is rewritten.
+
 ## [4.0.0-next.8] - 2026-07-22
 
 ### Fixed

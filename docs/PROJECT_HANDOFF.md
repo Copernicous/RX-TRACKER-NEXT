@@ -16,10 +16,12 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 - Production HTTP port: `3000`
 - NEXT database name at the completed cutover: `patient_rx_next_cutover_copy`
 - Project Control version: `2.0.0`
-- Prepared release candidate: `v4.0.0-next.8`, including Project Control
-  `2.1.0`, restricted database runtime-role support, and the official RX
-  Softphone 0.4.2 workstation asset. Production remains on `v4.0.0-next.6`
-  until the signed/tagged release is published and option 15 completes.
+- Active staging feature branch: `feature/softphone-auth-id`, preparing
+  `v4.0.0-next.9` with RX Softphone 0.4.3. It adds an optional Grandstream UCM
+  AuthID / MicroSIP Login while keeping the visible extension unchanged and
+  preserving extension-as-auth behavior for blank values. This candidate is
+  not a production deployment. Production remains on `v4.0.0-next.6` until
+  the staged validation and normal promotion/release workflow complete.
 - Tag `v4.0.0-next.7` is a failed, non-deployable release attempt. Its server
   build passed, but the first clean-runner RX Softphone restore lacked an
   explicit Windows runtime identifier, so no GitHub release assets were
@@ -164,7 +166,7 @@ C:\RX-Tracker\deployment-state
 ## Decisions that must remain true
 
 - NEXT is isolated from the frozen RX Tracker 3.3.x repository.
-- RX Softphone remains a separate workstation deliverable. Its version 0.4.2
+- RX Softphone remains a separate workstation deliverable. Its version 0.4.3
   source is preserved under `rx-softphone-desktop` in NEXT, and every approved
   NEXT release that needs workstation distribution publishes its ZIP as a
   separate checksummed asset; it is never embedded in the server ZIP.

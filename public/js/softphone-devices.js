@@ -48,7 +48,7 @@
     function searchable(user) {
         var account = user.account || {};
         var device = user.device || {};
-        return [userLabel(user), user.username, user.email, user.roleName, account.server, account.username, account.displayName, device.deviceName, device.clientVersion]
+        return [userLabel(user), user.username, user.email, user.roleName, account.server, account.username, account.authId, account.displayName, device.deviceName, device.clientVersion]
             .join(' ').toLowerCase();
     }
 
@@ -73,8 +73,11 @@
         body.innerHTML = filtered.map(function(user) {
             var account = user.account || { configured: false };
             var device = user.device || { paired: false };
+            var authIdDetail = account.authId && account.authId !== account.username
+                ? ' · Auth ID ' + esc(account.authId)
+                : '';
             var accountHtml = account.configured
-                ? '<div class="fw-semibold">Ext. ' + esc(account.username) + '</div><div class="device-meta">' + esc(account.server) + ':' + esc(account.port) + (account.isEnabled ? '' : ' · disabled') + '</div>'
+                ? '<div class="fw-semibold">Ext. ' + esc(account.username) + '</div><div class="device-meta">' + esc(account.server) + ':' + esc(account.port) + authIdDetail + (account.isEnabled ? '' : ' · disabled') + '</div>'
                 : '<span class="text-muted">Not configured</span>';
             var deviceHtml = device.paired
                 ? '<div class="fw-semibold">' + esc(device.deviceName || 'Windows RX Softphone') + '</div><div class="device-meta">Paired ' + esc(formatDate(device.pairedAt)) + '</div>'

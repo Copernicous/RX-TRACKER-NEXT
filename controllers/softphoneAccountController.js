@@ -25,11 +25,24 @@ function parsePort(value, allowZero) {
     return Number.isInteger(parsed) && parsed >= minimum && parsed <= 65535 ? parsed : null;
 }
 
+function optionalAuthId(value) {
+    const raw = String(value === undefined || value === null ? '' : value).trim();
+    if (!raw) return null;
+    const authId = cleanText(raw, 128);
+    if (!authId) {
+        const error = new Error('SIP Auth ID must be 128 characters or fewer and contain no control characters.');
+        error.status = 400;
+        throw error;
+    }
+    return authId;
+}
+
 function validatedAccountInput(body, options) {
     body = body || {};
     options = options || {};
     const server = cleanText(body.server, 253);
     const username = cleanText(body.username, 128);
+    const authId = optionalAuthId(body.authId);
     const displayName = body.displayName ? cleanText(body.displayName, 128) : username;
     const port = parsePort(body.port, false);
     const localSipPort = parsePort(body.localSipPort === '' || body.localSipPort === undefined ? 0 : body.localSipPort, true);
@@ -70,7 +83,7 @@ function validatedAccountInput(body, options) {
         error.status = 400;
         throw error;
     }
-    return { server, username, displayName, port, localSipPort, password };
+    return { server, username, authId, displayName, port, localSipPort, password };
 }
 
 function accountResponse(account, canManage) {
@@ -82,6 +95,7 @@ function accountResponse(account, canManage) {
         server: account.server,
         port: account.port,
         username: account.username,
+        authId: account.authId || '',
         displayName: account.displayName || account.username,
         localSipPort: account.localSipPort || 0,
         passwordConfigured: !!account.encryptedPassword,
@@ -97,6 +111,7 @@ function managedAccountResponse(account) {
         server: account.server,
         port: account.port,
         username: account.username,
+        authId: account.authId || '',
         displayName: account.displayName || account.username,
         localSipPort: account.localSipPort || 0,
         passwordConfigured: !!account.encryptedPassword,
@@ -152,6 +167,7 @@ exports.getOwnSetup = async (req, res) => {
             server: account ? account.server : '192.168.15.200',
             port: account ? account.port : 5060,
             username: account ? account.username : '',
+            authId: account ? (account.authId || '') : '',
             displayName: account ? (account.displayName || account.username) : '',
             localSipPort: account ? (account.localSipPort || 0) : 0
         });
@@ -199,6 +215,7 @@ exports.saveOwnSetup = async (req, res) => {
                 server: input.server,
                 port: input.port,
                 username: input.username,
+                authId: input.authId,
                 displayName: input.displayName,
                 localSipPort: input.localSipPort,
                 encryptedPassword: encryptPassword(req.user.id, input.password),
@@ -291,7 +308,7 @@ exports.getManagedAccounts = async (req, res) => {
                 order: [['firstName', 'ASC'], ['lastName', 'ASC'], ['username', 'ASC']]
             }),
             db.UserSoftphoneAccount.findAll({
-                attributes: ['userId', 'server', 'port', 'username', 'displayName', 'localSipPort', 'encryptedPassword', 'isEnabled', 'updatedAt']
+                attributes: ['userId', 'server', 'port', 'username', 'authId', 'displayName', 'localSipPort', 'encryptedPassword', 'isEnabled', 'updatedAt']
             })
         ]);
         const byUserId = new Map(accounts.map(account => [Number(account.userId), account]));
@@ -337,6 +354,12 @@ exports.saveManagedAccount = async (req, res) => {
 
     const server = cleanText(body.server, 253);
     const username = cleanText(body.username, 128);
+    let authId;
+    try {
+        authId = optionalAuthId(body.authId);
+    } catch (err) {
+        return res.status(err.status || 400).json({ error: err.message });
+    }
     const displayName = body.displayName ? cleanText(body.displayName, 128) : username;
     const port = parsePort(body.port, false);
     const localSipPort = parsePort(body.localSipPort === '' || body.localSipPort === undefined ? 0 : body.localSipPort, true);
@@ -377,6 +400,7 @@ exports.saveManagedAccount = async (req, res) => {
                 server,
                 port,
                 username,
+                authId,
                 displayName,
                 localSipPort,
                 isEnabled
@@ -440,6 +464,12 @@ exports.saveOwnAccount = async (req, res) => {
 
     const server = cleanText(body.server, 253);
     const username = cleanText(body.username, 128);
+    let authId;
+    try {
+        authId = optionalAuthId(body.authId);
+    } catch (err) {
+        return res.status(err.status || 400).json({ error: err.message });
+    }
     const displayName = body.displayName ? cleanText(body.displayName, 128) : username;
     const port = parsePort(body.port, false);
     const localSipPort = parsePort(body.localSipPort === '' || body.localSipPort === undefined ? 0 : body.localSipPort, true);
@@ -476,6 +506,7 @@ exports.saveOwnAccount = async (req, res) => {
                 server,
                 port,
                 username,
+                authId,
                 displayName,
                 localSipPort,
                 isEnabled: true
@@ -519,6 +550,7 @@ exports.getOwnRegistration = async (req, res) => {
             server: account.server,
             port: account.port,
             username: account.username,
+            authId: account.authId || account.username,
             displayName: account.displayName || account.username,
             localSipPort: account.localSipPort || 0,
             password

@@ -5,11 +5,13 @@ const elements = {
   port: $('#port'),
   localSipPort: $('#localSipPort'),
   username: $('#username'),
+  authId: $('#authId'),
   displayName: $('#displayName'),
   password: $('#password'),
   togglePassword: $('#togglePassword'),
   register: $('#registerButton'),
   unregister: $('#unregisterButton'),
+  authIdField: $('#authIdField'),
   passwordField: $('#passwordField'),
   registrationActions: $('#registrationActions'),
   managedNotice: $('#managedNotice'),
@@ -51,7 +53,7 @@ let hiddenThroughSequence = 0;
 let toastTimer = null;
 let polling = false;
 let relayPolling = false;
-let clientStatus = { managedMode: true, allowManualDialing: true, version: '0.4.2' };
+let clientStatus = { managedMode: true, allowManualDialing: true, version: '0.4.3' };
 
 async function api(path, options = {}) {
   const response = await fetch(path, {
@@ -84,10 +86,11 @@ function isCallBusy(call) {
 function renderClient(status) {
   clientStatus = status || clientStatus;
   const managed = clientStatus.managedMode === true;
-  const version = clientStatus.version || '0.4.2';
+  const version = clientStatus.version || '0.4.3';
   elements.versionBadge.textContent = `v${version}`;
   document.title = `RX Native Softphone v${version}`;
   elements.managedNotice.hidden = !managed;
+  elements.authIdField.hidden = managed;
   elements.passwordField.hidden = managed;
   elements.registrationActions.hidden = managed;
   elements.relayDisconnect.hidden = managed;
@@ -136,6 +139,7 @@ function render(snapshot) {
   elements.port.disabled = elements.server.disabled;
   elements.localSipPort.disabled = elements.server.disabled;
   elements.username.disabled = elements.server.disabled;
+  elements.authId.disabled = elements.server.disabled;
   elements.displayName.disabled = elements.server.disabled;
 
   elements.hint.textContent = !registered
@@ -255,6 +259,7 @@ elements.form.addEventListener('submit', async event => {
         server: elements.server.value,
         port: Number(elements.port.value),
         username: elements.username.value,
+        authId: elements.authId.value,
         password: elements.password.value,
         displayName: elements.displayName.value,
         localSipPort: Number(elements.localSipPort.value || 0)

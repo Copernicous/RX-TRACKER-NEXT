@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.3 - 2026-07-22
+
+- Added an optional SIP Authentication ID for PBX accounts whose digest login differs from the visible extension.
+- Kept the extension in the SIP address-of-record, Contact, From identity, and RX Tracker status while using Authentication ID only for REGISTER and authenticated outbound INVITE challenges.
+- Preserved backward compatibility by using the extension as Authentication ID whenever the new field is blank.
+- Kept SIP signaling on UDP and RTP/audio behavior unchanged.
+
 ## 0.4.2 - 2026-07-21
 
 - Enabled managed mode by default: RX Tracker supplies the assigned PBX account, while local PBX fields, Register/Unregister, and Remove pairing are locked in both the interface and loopback API.

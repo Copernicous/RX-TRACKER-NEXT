@@ -634,6 +634,7 @@
                 server: registration.server,
                 port: registration.port,
                 username: registration.username,
+                authId: registration.authId || registration.username,
                 password: registration.password,
                 displayName: registration.displayName || registration.username,
                 localSipPort: registration.localSipPort || 0

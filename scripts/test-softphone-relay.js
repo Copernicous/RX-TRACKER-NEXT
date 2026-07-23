@@ -40,6 +40,7 @@ async function main() {
             server: '192.0.2.10',
             port: 5060,
             username: `9${user.id}`,
+            authId: `relay-auth-${user.id}`,
             displayName: 'Relay Smoke',
             localSipPort: 0,
             encryptedPassword: encryptPassword(user.id, crypto.randomBytes(24).toString('base64url')),
@@ -52,7 +53,7 @@ async function main() {
         assert.match(codeResponse.body.pairingCode, /^\d{8}$/);
 
         const baseUrl = `http://127.0.0.1:${process.env.PORT || 3100}`;
-        const client = { version: '0.4.2', managedMode: true, allowManualDialing: true };
+        const client = { version: '0.4.3', managedMode: true, allowManualDialing: true };
         const pairResponse = await fetch(`${baseUrl}/api/softphone-relay/device/pair`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -62,7 +63,7 @@ async function main() {
         assert.strictEqual(pairResponse.status, 200);
         assert.ok(pair.deviceToken && pair.deviceToken.length >= 32);
         assert.strictEqual(pair.policy.mode, 'managed');
-        assert.strictEqual(pair.policy.minimumClientVersion, '0.4.2');
+        assert.strictEqual(pair.policy.minimumClientVersion, '0.4.3');
         assert.strictEqual(pair.policy.allowLocalAccountChanges, false);
 
         const device = await db.SoftphoneRelayDevice.findOne({ where: { userId: user.id } });
@@ -89,6 +90,7 @@ async function main() {
         assert.strictEqual(poll.command.id, command.id);
         assert.strictEqual(poll.command.type, 'hangup');
         assert.strictEqual(poll.registration.username, `9${user.id}`);
+        assert.strictEqual(poll.registration.authId, `relay-auth-${user.id}`);
         assert.strictEqual(poll.policy.accountAssigned, true);
         assert.strictEqual(poll.policy.allowLocalUnpair, false);
         assert.ok(poll.registration.password);
@@ -118,7 +120,7 @@ async function main() {
         assert.strictEqual(command.status, 'completed');
 
         await device.reload();
-        assert.strictEqual(device.snapshot.clientVersion, '0.4.2');
+        assert.strictEqual(device.snapshot.clientVersion, '0.4.3');
         assert.strictEqual(device.snapshot.managedMode, true);
 
         const adminListResponse = mockResponse();
@@ -126,7 +128,8 @@ async function main() {
         assert.strictEqual(adminListResponse.statusCode, 200);
         const adminEntry = adminListResponse.body.users.find(entry => Number(entry.id) === Number(user.id));
         assert.ok(adminEntry, 'Managed device must appear in the Administrator phone-device inventory.');
-        assert.strictEqual(adminEntry.device.clientVersion, '0.4.2');
+        assert.strictEqual(adminEntry.account.authId, `relay-auth-${user.id}`);
+        assert.strictEqual(adminEntry.device.clientVersion, '0.4.3');
         assert.strictEqual(adminEntry.device.updateRequired, false);
         assert.strictEqual(adminEntry.device.accountSynchronized, true);
 

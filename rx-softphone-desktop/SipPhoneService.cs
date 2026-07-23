@@ -48,6 +48,7 @@ public sealed partial class SipPhoneService : IAsyncDisposable
     private string _server = string.Empty;
     private int _port = 5060;
     private string _username = string.Empty;
+    private string _authId = string.Empty;
     private string _password = string.Empty;
     private string? _displayName;
     private int _localSipPort;
@@ -90,6 +91,9 @@ public sealed partial class SipPhoneService : IAsyncDisposable
         var server = ValidateServer(request.Server);
         var port = ValidatePort(request.Port, nameof(request.Port));
         var username = ValidateRequired(request.Username, "SIP username", 128);
+        var authId = string.IsNullOrWhiteSpace(request.AuthId)
+            ? username
+            : ValidateRequired(request.AuthId, "SIP Auth ID", 128);
         var password = ValidateRequired(request.Password, "SIP password", 256);
         var localPort = request.LocalSipPort is null or 0
             ? 0
@@ -104,6 +108,7 @@ public sealed partial class SipPhoneService : IAsyncDisposable
             _server = server;
             _port = port;
             _username = username;
+            _authId = authId;
             _password = password;
             _displayName = string.IsNullOrWhiteSpace(request.DisplayName) ? username : request.DisplayName.Trim();
             _registrationPermanentlyFailed = false;
@@ -122,13 +127,23 @@ public sealed partial class SipPhoneService : IAsyncDisposable
                 WireUserAgent(_userAgent);
 
                 var registrar = $"sip:{server}:{port};transport=udp";
+                var accountAor = SIPURI.ParseSIPURI($"sip:{username}@{server}");
+                var contactUri = new SIPURI(accountAor.Scheme, IPAddress.Any, _localSipPort)
+                {
+                    User = username
+                };
                 _registrationAgent = new SIPRegistrationUserAgent(
                     _transport,
-                    username,
+                    null,
+                    accountAor,
+                    authId,
                     password,
+                    null,
                     registrar,
+                    contactUri,
                     RegistrationExpirySeconds,
-                    sendUsernameInContactHeader: true);
+                    null);
+                _registrationAgent.UserDisplayName = _displayName;
 
                 _registrationAgent.RegistrationSuccessful += (_, _) =>
                 {
@@ -383,7 +398,21 @@ public sealed partial class SipPhoneService : IAsyncDisposable
                 return;
             }
 
-            var ok = await userAgent.Call(destinationUri, _username, _password, media);
+            var fromUri = $"sip:{_username}@{_server}";
+            var callDescriptor = new SIPCallDescriptor(
+                _username,
+                _password,
+                destinationUri,
+                fromUri,
+                destinationUri,
+                null,
+                null,
+                _authId,
+                SIPCallDirection.Out,
+                null,
+                null,
+                null);
+            var ok = await userAgent.Call(callDescriptor, media);
             if (!ok && _call is not "ended")
             {
                 AddEvent("error", "The PBX did not establish the call.");
@@ -548,6 +577,7 @@ public sealed partial class SipPhoneService : IAsyncDisposable
 
         if (clearAccount)
         {
+            _authId = string.Empty;
             _password = string.Empty;
         }
     }

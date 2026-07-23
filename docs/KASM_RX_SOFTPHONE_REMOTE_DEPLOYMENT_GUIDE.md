@@ -1,9 +1,9 @@
 # Kasm + RX Softphone Remote Deployment Guide
 
-**Applies to:** RX Tracker 3.3.1, RX Softphone 0.4.2, Windows 10/11 x64, Kasm at `https://portal.rbandrc.com`, and a public Asterisk PBX
+**Applies to:** RX Tracker NEXT 4.0.0-next.9, RX Softphone 0.4.3, Windows 10/11 x64, Kasm at `https://portal.rbandrc.com`, and an Asterisk/Grandstream UCM PBX
 
 **Current relay:** `https://rx-relay.rbandrc.com`
-**Last verified:** July 21, 2026
+**Last verified:** July 22, 2026
 
 This is the administrator runbook for preparing a remote Windows calling computer, configuring its RX Tracker user, pairing RX Softphone through the outbound relay, validating a call, and safely diagnosing Asterisk or Fail2ban problems.
 
@@ -129,7 +129,7 @@ The physical Windows computer needs:
 
 - Windows 10 or 11 x64 with a persistent Windows user profile.
 - A working headset or microphone and speakers.
-- The approved `RxSoftphone-0.4.2-win-x64.zip` package.
+- The approved `RxSoftphone-0.4.3-win-x64.zip` package.
 - Outbound TCP `443` to `rx-relay.rbandrc.com`.
 - Direct SIP/RTP reachability to the public PBX.
 - Power settings that do not sleep during the calling shift.
@@ -180,12 +180,15 @@ For the current public-PBX test:
 | SIP server / PBX | `73.1.206.88` |
 | SIP port | `5060` |
 | Extension / username | `1006` |
+| Authentication ID | Leave blank unless the PBX AuthID / MicroSIP Login differs from the extension |
 | Display name | `1006` or the approved label |
 | SIP password | Enter the current secret; do not record it here |
 | Confirm SIP password | Enter the same secret |
 | Local SIP port | `0` for automatic selection |
 
 The user's setup link closes after a successful save. An Administrator must explicitly allow setup again before the server-side assignment can be changed.
+
+For a Grandstream UCM account where the extension is `3051` but the UCM **AuthID** is a different value, enter `3051` under **Extension / username** and enter the UCM AuthID under **Authentication ID**. The SIP/IAX password remains the separate secret in the password fields. Do not put the AuthID in the extension field.
 
 ## 5. Pair RX Softphone with the same RX Tracker user
 
@@ -353,9 +356,9 @@ Do not distribute SIP traces; they contain sensitive addressing and account meta
 | Repeated immediate bans | Wrong password or aggressive retries | Stop retries, correct credentials, then unban the verified public IP once |
 | Pairing disappeared after Windows restart | Different Windows profile or local pairing data removed | Start under the original persistent user; otherwise pair again |
 
-## 9. Managed workstation behavior in 0.4.2
+## 9. Managed workstation behavior in 0.4.3
 
-Version 0.4.2 is managed by RX Tracker by default:
+Version 0.4.3 is managed by RX Tracker by default:
 
 - RX Tracker supplies the assigned PBX server, port, extension, display name, local port, and transient SIP password.
 - PBX/account fields are read-only, and local Register, Unregister, and Remove pairing operations are rejected by the loopback API as well as hidden in the page.
@@ -375,7 +378,7 @@ The distributed `appsettings.json` must keep `Softphone:ManagedMode` set to `tru
 5. Confirm **RELAY ONLINE** and **Registered**. Pair again only if the saved pairing was not retained.
 6. Complete one answered and one pre-answer-cancelled call test before removing the previous folder.
 
-Do not deploy below 0.4.2 to managed Call Center workstations: 0.4.1 retains call telemetry but exposes local account controls, and earlier builds also lack the pre-answer cancellation correction.
+Do not deploy below 0.4.3 when an account uses a distinct Authentication ID. Version 0.4.2 remains compatible only with accounts whose Authentication ID is blank or equal to the extension; 0.4.1 also exposes local account controls.
 
 ## 10. Administrator acceptance checklist
 
@@ -390,7 +393,7 @@ Do not deploy below 0.4.2 to managed Call Center workstations: 0.4.1 retains cal
 
 ### Workstation
 
-- [ ] Entire 0.4.2 ZIP is extracted to an administrator-controlled permanent folder.
+- [ ] Entire 0.4.3 ZIP is extracted to an administrator-controlled permanent folder.
 - [ ] RX Softphone starts under the employee's persistent Windows user.
 - [ ] Startup shortcut is tested after a Windows restart.
 - [ ] Local page opens at `127.0.0.1:5188`.
@@ -406,7 +409,7 @@ Do not deploy below 0.4.2 to managed Call Center workstations: 0.4.1 retains cal
 - [ ] Remote site's public IP is not banned by Fail2ban.
 - [ ] Fail2ban remains enabled.
 - [ ] SIP password is not present in notes, screenshots, or this checklist.
-- [ ] Administrator can see version 0.4.2, managed status, and synchronized account in **Phone Devices**.
+- [ ] Administrator can see version 0.4.3, managed status, and synchronized account in **Phone Devices**.
 
 ### Acceptance record
 
