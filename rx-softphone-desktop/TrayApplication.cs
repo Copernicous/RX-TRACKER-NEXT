@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Runtime.InteropServices;
@@ -14,6 +13,7 @@ public sealed class TrayApplication : IDisposable
     private readonly SoftphoneRelayService _relay;
     private readonly SoftphoneClientOptions _options;
     private readonly IHostApplicationLifetime _lifetime;
+    private readonly EventWaitHandle _showWindowSignal;
     private readonly object _stateLock = new();
     private Thread? _thread;
     private TrayContext? _context;
@@ -25,7 +25,8 @@ public sealed class TrayApplication : IDisposable
         SipPhoneService phone,
         SoftphoneRelayService relay,
         SoftphoneClientOptions options,
-        IHostApplicationLifetime lifetime)
+        IHostApplicationLifetime lifetime,
+        EventWaitHandle showWindowSignal)
     {
         _webUrl = webUrl;
         _version = version;
@@ -33,6 +34,7 @@ public sealed class TrayApplication : IDisposable
         _relay = relay;
         _options = options;
         _lifetime = lifetime;
+        _showWindowSignal = showWindowSignal;
     }
 
     public void Start()
@@ -52,7 +54,7 @@ public sealed class TrayApplication : IDisposable
         }
     }
 
-    public void OpenControlPanel() => OpenUrl(_webUrl);
+    public void OpenControlPanel() => _showWindowSignal.Set();
 
     private void RunTray()
     {
@@ -65,7 +67,8 @@ public sealed class TrayApplication : IDisposable
             _phone,
             _relay,
             _options,
-            _lifetime);
+            _lifetime,
+            _showWindowSignal);
         lock (_stateLock)
         {
             if (_disposed)
@@ -99,18 +102,6 @@ public sealed class TrayApplication : IDisposable
         }
     }
 
-    public static void OpenUrl(string url)
-    {
-        try
-        {
-            Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
-        }
-        catch
-        {
-            // The tray remains available if Windows has no default browser.
-        }
-    }
-
     private sealed class TrayContext : System.Windows.Forms.ApplicationContext
     {
         private static readonly HashSet<string> ActiveCallStates = new(StringComparer.OrdinalIgnoreCase)
@@ -123,6 +114,8 @@ public sealed class TrayApplication : IDisposable
         private readonly SoftphoneRelayService _relay;
         private readonly SoftphoneClientOptions _options;
         private readonly IHostApplicationLifetime _lifetime;
+        private readonly EventWaitHandle _showWindowSignal;
+        private readonly WindowsStartupManager _startup = new();
         private readonly TrayIconSet _icons = new();
         private readonly System.Windows.Forms.Control _dispatcher = new();
         private readonly System.Windows.Forms.NotifyIcon _notifyIcon;
@@ -133,7 +126,9 @@ public sealed class TrayApplication : IDisposable
         private readonly System.Windows.Forms.ToolStripMenuItem _hangupItem;
         private readonly System.Windows.Forms.ToolStripMenuItem _enableItem;
         private readonly System.Windows.Forms.ToolStripMenuItem _unpairItem;
+        private readonly System.Windows.Forms.ToolStripMenuItem _startWithWindowsItem;
         private readonly System.Windows.Forms.Timer _timer;
+        private SoftphoneWindow? _window;
         private bool _exitRequested;
 
         public TrayContext(
@@ -142,13 +137,15 @@ public sealed class TrayApplication : IDisposable
             SipPhoneService phone,
             SoftphoneRelayService relay,
             SoftphoneClientOptions options,
-            IHostApplicationLifetime lifetime)
+            IHostApplicationLifetime lifetime,
+            EventWaitHandle showWindowSignal)
         {
             _webUrl = webUrl;
             _phone = phone;
             _relay = relay;
             _options = options;
             _lifetime = lifetime;
+            _showWindowSignal = showWindowSignal;
 
             _dispatcher.CreateControl();
             _ = _dispatcher.Handle;
@@ -165,7 +162,7 @@ public sealed class TrayApplication : IDisposable
             menu.Items.Add(new System.Windows.Forms.ToolStripSeparator());
 
             var openItem = new System.Windows.Forms.ToolStripMenuItem("Open RX Softphone");
-            openItem.Click += (_, _) => OpenUrl(_webUrl);
+            openItem.Click += (_, _) => ShowWindow();
             menu.Items.Add(openItem);
 
             _hangupItem = new System.Windows.Forms.ToolStripMenuItem("Hang up") { Enabled = false };
@@ -181,6 +178,16 @@ public sealed class TrayApplication : IDisposable
             menu.Items.Add(_unpairItem);
 
             menu.Items.Add(new System.Windows.Forms.ToolStripSeparator());
+            _startWithWindowsItem = new System.Windows.Forms.ToolStripMenuItem("Start with Windows")
+            {
+                CheckOnClick = false,
+                Enabled = _startup.CanConfigure,
+                ToolTipText = "Starts RX Softphone after this Windows user signs in."
+            };
+            _startWithWindowsItem.Click += (_, _) => ToggleStartWithWindows();
+            menu.Items.Add(_startWithWindowsItem);
+
+            menu.Items.Add(new System.Windows.Forms.ToolStripSeparator());
             var exitItem = new System.Windows.Forms.ToolStripMenuItem("Exit RX Softphone");
             exitItem.Click += (_, _) => ExitFromTray();
             menu.Items.Add(exitItem);
@@ -192,7 +199,7 @@ public sealed class TrayApplication : IDisposable
                 Text = "RX Softphone — starting",
                 Visible = true
             };
-            _notifyIcon.DoubleClick += (_, _) => OpenUrl(_webUrl);
+            _notifyIcon.DoubleClick += (_, _) => ShowWindow();
 
             _timer = new System.Windows.Forms.Timer { Interval = 750 };
             _timer.Tick += (_, _) => RefreshStatus();
@@ -229,6 +236,8 @@ public sealed class TrayApplication : IDisposable
         {
             _timer.Stop();
             _notifyIcon.Visible = false;
+            _window?.CloseForExit();
+            _window?.Dispose();
             _notifyIcon.Dispose();
             _timer.Dispose();
             _dispatcher.Dispose();
@@ -240,6 +249,11 @@ public sealed class TrayApplication : IDisposable
         {
             try
             {
+                while (_showWindowSignal.WaitOne(0))
+                {
+                    ShowWindow();
+                }
+
                 var now = DateTimeOffset.UtcNow;
                 var phone = _phone.GetSnapshot();
                 var relay = _relay.GetStatus();
@@ -263,6 +277,7 @@ public sealed class TrayApplication : IDisposable
                     ? "Unpair workstation (Administrator required)"
                     : "Unpair workstation";
                 _unpairItem.Enabled = !_options.ManagedMode && relay.Configured && !callActive;
+                _startWithWindowsItem.Checked = _startup.IsEnabled;
 
                 _notifyIcon.Icon = callActive
                     ? _icons.InCall
@@ -281,6 +296,35 @@ public sealed class TrayApplication : IDisposable
             {
                 _notifyIcon.Icon = _icons.Offline;
                 SetToolTip("RX Softphone — status unavailable");
+            }
+        }
+
+        private void ShowWindow()
+        {
+            if (_window is null || _window.IsDisposed)
+            {
+                _window = new SoftphoneWindow(_webUrl, _options.Version, _icons.Ready);
+            }
+            _window.ShowAndActivate();
+        }
+
+        private void ToggleStartWithWindows()
+        {
+            try
+            {
+                if (_startup.IsEnabled)
+                {
+                    _startup.Disable();
+                }
+                else
+                {
+                    _startup.Enable();
+                }
+                _startWithWindowsItem.Checked = _startup.IsEnabled;
+            }
+            catch (Exception exception)
+            {
+                ShowError("Could not change the Windows startup setting.", exception);
             }
         }
 

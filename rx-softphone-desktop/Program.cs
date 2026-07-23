@@ -4,7 +4,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using RxSoftphone;
 
-var executableVersion = Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "0.5.0";
+var executableVersion = Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "0.6.0";
 var versionOnly = args.Any(x =>
     string.Equals(x, "--version", StringComparison.OrdinalIgnoreCase) ||
     string.Equals(x, "--v", StringComparison.OrdinalIgnoreCase) ||
@@ -20,6 +20,7 @@ var testRingtone = args.Any(x => string.Equals(x, "--test-ringtone", StringCompa
 var hostArgs = args.Where(x =>
     !string.Equals(x, "--no-browser", StringComparison.OrdinalIgnoreCase) &&
     !string.Equals(x, "--open", StringComparison.OrdinalIgnoreCase) &&
+    !string.Equals(x, "--startup", StringComparison.OrdinalIgnoreCase) &&
     !string.Equals(x, "--test-ringtone", StringComparison.OrdinalIgnoreCase)).ToArray();
 
 if (testRingtone)
@@ -46,9 +47,13 @@ using var singleInstance = new Mutex(
     initiallyOwned: true,
     name: @"Local\RXSoftphone.Workstation",
     createdNew: out var isFirstInstance);
+using var showWindowSignal = new EventWaitHandle(
+    initialState: false,
+    mode: EventResetMode.AutoReset,
+    name: @"Local\RXSoftphone.ShowWindow");
 if (!isFirstInstance)
 {
-    TrayApplication.OpenUrl(webUrl);
+    showWindowSignal.Set();
     return;
 }
 
@@ -189,7 +194,8 @@ var trayApplication = new TrayApplication(
     phoneService,
     relayService,
     clientOptions,
-    app.Lifetime);
+    app.Lifetime,
+    showWindowSignal);
 app.Lifetime.ApplicationStarted.Register(() =>
 {
     trayApplication.Start();

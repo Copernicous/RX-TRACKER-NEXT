@@ -12,6 +12,30 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 - Added a sanitized, version-controlled project handoff and authoritative root agent instructions so future sessions can recover the production layout, release/rollback process, repository boundaries, decisions, and current operating status without relying on chat history or storing secrets.
 - Recorded a deferred, approval-gated cleanup checkpoint for the legacy production database/application and the former local 3.3.x development environment.
 
+## [4.0.0-next.12] - 2026-07-23
+
+### Added
+
+- Added an RX Softphone 0.6.0 application-owned Windows control window using the Microsoft Edge WebView2 Runtime; opening the phone no longer creates an external browser tab.
+- Added tray and second-launch activation of the same single application window. Closing its **X** hides the window back to the tray without unregistering SIP or stopping relay polling.
+- Added a checkable **Start with Windows** tray action that starts RX Softphone after the current Windows user signs in.
+- Added an in-window recovery message when the WebView2 Runtime is missing or cannot start.
+- Compacted the desktop layout, hides redundant managed-account inputs, and collapses completed pairing fields so the phone controls and lower status panels fit without routine vertical scrolling.
+- Versioned embedded UI asset URLs so an in-place upgrade refreshes cached WebView2 CSS and JavaScript without removing the workstation profile or pairing.
+
+### Security and safety
+
+- Automatic startup uses the current user's Windows Run entry rather than a Windows service. This preserves the interactive microphone, speaker, tray, and DPAPI pairing context and does not grant service privileges.
+- Embedded navigation is restricted to the loopback RX Softphone origin; new-window requests, developer tools, password saving, autofill, and the default browser context menu are disabled.
+- The WebView2 profile is stored under the current user's local application-data directory instead of the administrator-controlled program folder.
+- Existing SIP/RTP, managed account restrictions, relay authentication, call telemetry, and administrator-only workstation revocation remain unchanged.
+
+### Testing
+
+- Updated the disposable browser-smoke harness to run the explicit audited migration command before starting its isolated server, preserving NEXT's validation-only web startup rule.
+
+**Database impact:** None. This release does not add or change a migration, table, column, index, constraint, or stored record.
+
 ## [4.0.0-next.11] - 2026-07-23
 
 ### Added

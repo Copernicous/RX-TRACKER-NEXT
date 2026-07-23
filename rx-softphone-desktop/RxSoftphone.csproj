@@ -8,10 +8,11 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>RxSoftphone</AssemblyName>
     <RootNamespace>RxSoftphone</RootNamespace>
-    <Version>0.5.0</Version>
+    <Version>0.6.0</Version>
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4078.44" />
     <PackageReference Include="SIPSorcery" Version="10.0.12" />
     <PackageReference Include="SIPSorceryMedia.Windows" Version="10.0.12" />
   </ItemGroup>
@@ -20,4 +21,10 @@
     <Content Remove="publish\**;publish-*\**;release\**" />
     <None Remove="publish\**;publish-*\**;release\**" />
   </ItemGroup>
+
+  <Target Name="RemoveUnusedWebView2WpfReference" BeforeTargets="ResolveAssemblyReferences">
+    <ItemGroup>
+      <Reference Remove="@(Reference)" Condition="'%(Reference.Filename)' == 'Microsoft.Web.WebView2.Wpf'" />
+    </ItemGroup>
+  </Target>
 </Project>

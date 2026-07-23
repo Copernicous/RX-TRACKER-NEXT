@@ -7,6 +7,10 @@ if exist "%RXSOFT_ROOT%RxSoftphone.exe" (
   exit /b 0
 )
 
+if exist "%RXSOFT_ROOT%release\0.6.0\RxSoftphone.exe" (
+  start "" "%RXSOFT_ROOT%release\0.6.0\RxSoftphone.exe"
+  exit /b 0
+)
 if exist "%RXSOFT_ROOT%release\0.5.0\RxSoftphone.exe" (
   start "" "%RXSOFT_ROOT%release\0.5.0\RxSoftphone.exe"
   exit /b 0

@@ -53,7 +53,7 @@ async function main() {
         assert.match(codeResponse.body.pairingCode, /^\d{8}$/);
 
         const baseUrl = `http://127.0.0.1:${process.env.PORT || 3100}`;
-        const client = { version: '0.5.0', managedMode: true, allowManualDialing: true };
+        const client = { version: '0.6.0', managedMode: true, allowManualDialing: true };
         const pairResponse = await fetch(`${baseUrl}/api/softphone-relay/device/pair`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -63,7 +63,7 @@ async function main() {
         assert.strictEqual(pairResponse.status, 200);
         assert.ok(pair.deviceToken && pair.deviceToken.length >= 32);
         assert.strictEqual(pair.policy.mode, 'managed');
-        assert.strictEqual(pair.policy.minimumClientVersion, '0.5.0');
+        assert.strictEqual(pair.policy.minimumClientVersion, '0.6.0');
         assert.strictEqual(pair.policy.allowLocalAccountChanges, false);
 
         const device = await db.SoftphoneRelayDevice.findOne({ where: { userId: user.id } });
@@ -120,7 +120,7 @@ async function main() {
         assert.strictEqual(command.status, 'completed');
 
         await device.reload();
-        assert.strictEqual(device.snapshot.clientVersion, '0.5.0');
+        assert.strictEqual(device.snapshot.clientVersion, '0.6.0');
         assert.strictEqual(device.snapshot.managedMode, true);
 
         const adminListResponse = mockResponse();
@@ -129,7 +129,7 @@ async function main() {
         const adminEntry = adminListResponse.body.users.find(entry => Number(entry.id) === Number(user.id));
         assert.ok(adminEntry, 'Managed device must appear in the Administrator phone-device inventory.');
         assert.strictEqual(adminEntry.account.authId, `relay-auth-${user.id}`);
-        assert.strictEqual(adminEntry.device.clientVersion, '0.5.0');
+        assert.strictEqual(adminEntry.device.clientVersion, '0.6.0');
         assert.strictEqual(adminEntry.device.updateRequired, false);
         assert.strictEqual(adminEntry.device.accountSynchronized, true);
 

@@ -9,20 +9,22 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 ## Current state
 
 - Repository: `Copernicous/RX-TRACKER-NEXT`
-- Branch: `main`
+- Branch: `staging`
 - Current production release: `v4.0.0-next.6`
 - Production application folder: `C:\RX-Tracker\RX-APP-NEXT`
 - Windows service ID: `PatientRXSystem`
 - Production HTTP port: `3000`
 - NEXT database name at the completed cutover: `patient_rx_next_cutover_copy`
 - Project Control version: `2.0.0`
-- Active staging feature branch: `feature/softphone-tray`, preparing
-  `v4.0.0-next.11` with RX Softphone 0.5.0. It replaces the persistent CMD
-  window with a single-instance Windows tray application. The tray shows SIP
-  registration, relay state, live call state/duration, and last-call details;
-  it provides Open, Hang Up, managed Disable/Enable, administrator-locked
-  Unpair, and graceful Exit. It carries forward the authenticated-call
-  stability fix validated in 0.4.4. This candidate is not a production
+- Active staging candidate: `v4.0.0-next.12` with RX Softphone 0.6.0. It adds an application-owned
+  WebView2 control window, hides the window to the existing tray on close,
+  focuses the same window on a second launch, and adds a per-user
+  **Start with Windows** tray option. It does not install a Windows service,
+  because the phone, tray, audio devices, and DPAPI-protected pairing must run
+  in the employee's interactive Windows session. The tray continues to show
+  SIP registration, relay state, live call state/duration, and last-call
+  details and provides Hang Up, managed Disable/Enable,
+  administrator-locked Unpair, and graceful Exit. This candidate is not a production
   deployment. Production remains on `v4.0.0-next.6` until staged validation
   and the normal promotion/release workflow complete.
 - Tag `v4.0.0-next.7` is a failed, non-deployable release attempt. Its server
@@ -169,7 +171,7 @@ C:\RX-Tracker\deployment-state
 ## Decisions that must remain true
 
 - NEXT is isolated from the frozen RX Tracker 3.3.x repository.
-- RX Softphone remains a separate workstation deliverable. Its version 0.5.0
+- RX Softphone remains a separate workstation deliverable. Its version 0.6.0
   source is preserved under `rx-softphone-desktop` in NEXT, and every approved
   NEXT release that needs workstation distribution publishes its ZIP as a
   separate checksummed asset; it is never embedded in the server ZIP.

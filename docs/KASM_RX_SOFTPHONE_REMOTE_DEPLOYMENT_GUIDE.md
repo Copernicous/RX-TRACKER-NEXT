@@ -1,6 +1,6 @@
 # Kasm + RX Softphone Remote Deployment Guide
 
-**Applies to:** RX Tracker NEXT 4.0.0-next.11, RX Softphone 0.5.0, Windows 10/11 x64, Kasm at `https://portal.rbandrc.com`, and an Asterisk/Grandstream UCM PBX
+**Applies to:** RX Tracker NEXT 4.0.0-next.12, RX Softphone 0.6.0, Windows 10/11 x64, Kasm at `https://portal.rbandrc.com`, and an Asterisk/Grandstream UCM PBX
 
 **Current relay:** `https://rx-relay.rbandrc.com`
 **Last verified:** July 22, 2026
@@ -129,7 +129,8 @@ The physical Windows computer needs:
 
 - Windows 10 or 11 x64 with a persistent Windows user profile.
 - A working headset or microphone and speakers.
-- The approved `RxSoftphone-0.5.0-win-x64.zip` package.
+- The approved `RxSoftphone-0.6.0-win-x64.zip` package.
+- The Evergreen Microsoft Edge WebView2 Runtime for the native control window.
 - Outbound TCP `443` to `rx-relay.rbandrc.com`.
 - Direct SIP/RTP reachability to the public PBX.
 - Power settings that do not sleep during the calling shift.
@@ -154,12 +155,14 @@ Get-NetTCPConnection -LocalPort 5188 -State Listen -ErrorAction SilentlyContinue
 
 ### Start automatically after Windows sign-in
 
-1. Press `Win+R`.
-2. Enter `shell:startup` and press Enter.
-3. Place a shortcut to `C:\Program Files\RX Softphone\Start-Softphone.cmd` in the Startup folder.
-4. Restart Windows once and confirm `http://127.0.0.1:5188` opens.
+1. Right-click the RX Softphone tray icon.
+2. Check **Start with Windows**.
+3. Restart Windows once and sign into the same persistent Windows user.
+4. Confirm the tray icon appears and double-click it to open the RX Softphone window.
 
 Sleep/wake and application restarts normally retain pairing because it is protected in the persistent Windows user profile. Re-pair only if the RX user changes, an administrator replaces the pairing, the Windows profile is rebuilt, or the saved pairing is removed.
+
+Do not install RX Softphone as a Windows service. Services run in the non-interactive Session 0 and are the wrong host for the user's tray, microphone, speakers, and DPAPI-protected pairing. **Start with Windows** provides persistent launch in the correct user session.
 
 ## 4. Configure the user's server-managed phone account
 
@@ -356,13 +359,14 @@ Do not distribute SIP traces; they contain sensitive addressing and account meta
 | Repeated immediate bans | Wrong password or aggressive retries | Stop retries, correct credentials, then unban the verified public IP once |
 | Pairing disappeared after Windows restart | Different Windows profile or local pairing data removed | Start under the original persistent user; otherwise pair again |
 
-## 9. Managed workstation and tray behavior in 0.5.0
+## 9. Managed workstation, native window, and tray behavior in 0.6.0
 
-Version 0.5.0 is managed by RX Tracker by default and runs in the Windows notification area:
+Version 0.6.0 is managed by RX Tracker by default and runs in the Windows notification area:
 
 - RX Tracker supplies the assigned PBX server, port, extension, display name, local port, and transient SIP password.
 - The colored tray icon and menu show registration, relay state, current call state/duration, and the last call number/outcome/duration without keeping the browser open.
-- The tray provides Open, Hang Up, managed Disable/Enable, and Exit. Managed Unpair is visible but disabled and directs the user to an Administrator.
+- Double-clicking the tray icon opens RX Softphone's own Windows control panel. Closing its **X** hides it without stopping SIP or the relay.
+- The tray provides Open, Hang Up, managed Disable/Enable, **Start with Windows**, and Exit. Managed Unpair is visible but disabled and directs the user to an Administrator.
 - PBX/account fields are read-only, and local Register, Unregister, and Remove pairing operations are rejected by the loopback API as well as hidden in the page.
 - Manual dialing remains available so the local phone can be tested without changing its account.
 - An Administrator uses the user's one-time **Phone Account Setup** authorization to correct an account and **Administration > Phone Devices** to inspect versions, registration, synchronization, last heartbeat, and pairing.
@@ -380,7 +384,7 @@ The distributed `appsettings.json` must keep `Softphone:ManagedMode` set to `tru
 5. Confirm **RELAY ONLINE** and **Registered**. Pair again only if the saved pairing was not retained.
 6. Complete one answered and one pre-answer-cancelled call test before removing the previous folder.
 
-Do not deploy below 0.5.0 for the current managed workstation experience. Version 0.4.4 has stable calling but requires a persistent CMD process instead of the status-aware tray. Version 0.4.3 can register with a distinct Authentication ID but may end its authenticated outbound call immediately after answer.
+Do not deploy below 0.6.0 for the current native-window and automatic-startup experience. Version 0.5.0 introduced the managed status-aware tray but opened its control panel externally; version 0.4.4 requires a persistent CMD process. Version 0.4.3 can register with a distinct Authentication ID but may end its authenticated outbound call immediately after answer.
 
 ## 10. Administrator acceptance checklist
 
@@ -395,11 +399,12 @@ Do not deploy below 0.5.0 for the current managed workstation experience. Versio
 
 ### Workstation
 
-- [ ] Entire 0.5.0 ZIP is extracted to an administrator-controlled permanent folder.
+- [ ] Entire 0.6.0 ZIP is extracted to an administrator-controlled permanent folder.
 - [ ] RX Softphone starts under the employee's persistent Windows user.
 - [ ] No CMD window remains open; the RX Softphone tray icon remains visible.
+- [ ] The application-owned control window opens from the tray and its **X** hides it without stopping the process.
 - [ ] Tray status shows registration, relay, no active call, and the most recent test call.
-- [ ] Startup shortcut is tested after a Windows restart.
+- [ ] **Start with Windows** is checked and tested after a Windows restart.
 - [ ] Local page opens at `127.0.0.1:5188`.
 - [ ] Relay field is exactly `https://rx-relay.rbandrc.com`.
 - [ ] Status shows **RELAY ONLINE** and **Registered**.
@@ -413,7 +418,7 @@ Do not deploy below 0.5.0 for the current managed workstation experience. Versio
 - [ ] Remote site's public IP is not banned by Fail2ban.
 - [ ] Fail2ban remains enabled.
 - [ ] SIP password is not present in notes, screenshots, or this checklist.
-- [ ] Administrator can see version 0.5.0, managed status, and synchronized account in **Phone Devices**.
+- [ ] Administrator can see version 0.6.0, managed status, and synchronized account in **Phone Devices**.
 
 ### Acceptance record
 

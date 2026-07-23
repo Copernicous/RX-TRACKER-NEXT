@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.6.0 - 2026-07-23
+
+- Added an application-owned Windows control window powered by the Evergreen Microsoft Edge WebView2 Runtime; the softphone no longer opens its control panel in an external browser.
+- Double-clicking the tray icon, selecting **Open RX Softphone**, passing `--open`, or launching a second instance focuses the same window.
+- Closing the window hides it to the tray while SIP registration, relay polling, and calls continue.
+- Added a checkable **Start with Windows** tray action for the current signed-in user.
+- Kept automatic startup in the interactive user session instead of a Windows service so the tray, microphone, speakers, and DPAPI-protected pairing remain available.
+- Restricted embedded navigation to the local softphone origin and disabled developer tools, password saving, autofill, new windows, and the default context menu.
+- Added a friendly WebView2 Runtime recovery screen without changing SIP, RTP/audio, pairing, managed-account, or call-telemetry behavior.
+- Compacted the desktop layout, hides redundant managed-account inputs, and collapses completed pairing fields so the full operational view fits typical workstation displays.
+- Added versioned local CSS and JavaScript URLs so persistent WebView2 profiles receive the upgraded interface immediately.
+
 ## 0.5.0 - 2026-07-23
 
 - Replaced the persistent CMD window with a native Windows notification-area application.

@@ -1,6 +1,6 @@
 # RX Tracker Softphone
 
-The first-party Windows softphone customized for RX Tracker. It registers directly to the PBX with SIP over UDP and uses native Windows microphone/speaker audio over RTP. The interface is served locally at `http://127.0.0.1:5188`; it is not a WebRTC client and does not use WSS.
+The first-party Windows softphone customized for RX Tracker. It registers directly to the PBX with SIP over UDP and uses native Windows microphone/speaker audio over RTP. The interface is served locally at `http://127.0.0.1:5188` and displayed in RX Softphone's own Windows window through the Microsoft Edge WebView2 Runtime. It is not a WebRTC client and does not use WSS.
 
 RX Tracker can control this process through its loopback-only integration API. The softphone still registers directly to Asterisk and does not change the proxy or Asterisk configuration.
 
@@ -32,11 +32,15 @@ From this folder, use the installed .NET 10 SDK or the optional untracked portab
 dotnet run -c Release
 ```
 
-The program starts in the Windows notification area without opening a CMD window or browser. Double-click the tray icon or select **Open RX Softphone** to open the control panel. Append `-- --open` during development when the control panel should open automatically.
+The program starts in the Windows notification area without opening a CMD window or external browser. Double-click the tray icon or select **Open RX Softphone** to open the application-owned control window. Append `-- --open` during development when that window should open automatically.
 
-After publishing, double-click `Start-Softphone.cmd` or start `release\0.5.0\RxSoftphone.exe`. The published release contains its own .NET runtime. RX Softphone remains available from the tray after the browser is closed. Use **Exit RX Softphone** in the tray to unregister and stop it cleanly.
+After publishing, double-click `Start-Softphone.cmd` or start `release\0.6.0\RxSoftphone.exe`. The published release contains its own .NET runtime. Closing the window's **X** hides it back to the tray while SIP registration, relay polling, and calls continue. Use **Exit RX Softphone** in the tray to unregister and stop it cleanly.
 
-The tray icon is green while registered and idle, blue during an active call, and red while offline or disabled. Its menu shows registration, relay, live call duration, and the last call number/outcome/duration. It also provides Open, Hang Up, Disable/Enable, Unpair, and Exit. Managed installations keep Unpair disabled because only an RX Tracker Administrator can revoke a workstation.
+The tray icon is green while registered and idle, blue during an active call, and red while offline or disabled. Its menu shows registration, relay, live call duration, and the last call number/outcome/duration. It also provides Open, Hang Up, Disable/Enable, Unpair, **Start with Windows**, and Exit. Managed installations keep Unpair disabled because only an RX Tracker Administrator can revoke a workstation.
+
+**Start with Windows** creates a startup entry for the current Windows user and launches RX Softphone after that user signs in. It deliberately does not install a Windows service: a service runs outside the interactive desktop and can lose access to the user's tray, microphone, speakers, and DPAPI-protected pairing.
+
+The application window requires the Evergreen Microsoft Edge WebView2 Runtime. Windows 10/11 computers with current Microsoft Edge commonly already have it. If it is missing, RX Softphone displays a recovery screen with the official runtime information link; install the runtime and select **Retry**. The SIP engine and tray remain separate from the embedded window.
 
 To verify the default Windows speaker without registering to SIP, run `RxSoftphone.exe --test-ringtone`. The diagnostic plays the same local tone used for outbound ringback and incoming calls for three seconds, then exits.
 
@@ -59,7 +63,7 @@ The API rejects non-loopback clients and browser origins outside `Softphone:Allo
 
 In RX Tracker, a master user selects **MicroSIP**, **RX Softphone**, or **Automatic** under Backoffice settings. RX Softphone must be running and show **Registered**. In Automatic mode, RX Tracker falls back to MicroSIP when the local client is unavailable. A supported browser may request one-time permission to connect to a service on the local computer.
 
-Version 0.5.0 defaults to managed mode. RX Tracker owns the PBX assignment and local Register, Unregister, account editing, and Remove pairing operations are rejected by the loopback API, not merely hidden in the page or tray. Administrators manage the assignment through the per-user Phone Account Setup workflow and inspect or revoke workstations from **Administration > Phone Devices**. Manual dialing remains enabled by default. Standalone development testing requires an administrator-controlled copy with `Softphone:ManagedMode` explicitly set to `false`; do not distribute that configuration to Call Center workstations.
+Version 0.6.0 defaults to managed mode. RX Tracker owns the PBX assignment and local Register, Unregister, account editing, and Remove pairing operations are rejected by the loopback API, not merely hidden in the page or tray. Administrators manage the assignment through the per-user Phone Account Setup workflow and inspect or revoke workstations from **Administration > Phone Devices**. Manual dialing remains enabled by default. Standalone development testing requires an administrator-controlled copy with `Softphone:ManagedMode` explicitly set to `false`; do not distribute that configuration to Call Center workstations.
 
 ## Outbound relay for Kasm
 
@@ -89,6 +93,6 @@ The browser sends only an authenticated server command. The Windows app continue
 
 The script requires .NET SDK `10.0.302` or a compatible later patch, publishes a self-contained `win-x64` build, and creates `release\RxSoftphone-<version>-win-x64.zip`. Generated releases, local pairing state, and SDK files are intentionally excluded from Git. Attach the ZIP to the matching RX Tracker GitHub release or copy it to the approved internal software share.
 
-Version: `0.5.0` (native Windows tray status/controls, single-instance startup, managed workstation controls, separate SIP Authentication ID, stable authenticated outbound calls, bounded relay recovery, and Administrator revocation).
+Version: `0.6.0` (application-owned Windows control window, tray status/controls, per-user automatic startup, single-instance activation, managed workstation controls, separate SIP Authentication ID, stable authenticated outbound calls, bounded relay recovery, and Administrator revocation).
 
 See [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) before redistribution or commercial deployment.

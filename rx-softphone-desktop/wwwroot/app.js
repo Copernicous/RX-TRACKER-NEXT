@@ -53,7 +53,7 @@ let hiddenThroughSequence = 0;
 let toastTimer = null;
 let polling = false;
 let relayPolling = false;
-let clientStatus = { managedMode: true, allowManualDialing: true, version: '0.5.0' };
+let clientStatus = { managedMode: true, allowManualDialing: true, version: '0.6.0' };
 
 async function api(path, options = {}) {
   const response = await fetch(path, {
@@ -86,7 +86,8 @@ function isCallBusy(call) {
 function renderClient(status) {
   clientStatus = status || clientStatus;
   const managed = clientStatus.managedMode === true;
-  const version = clientStatus.version || '0.5.0';
+  const version = clientStatus.version || '0.6.0';
+  document.body.classList.toggle('managed-client', managed);
   elements.versionBadge.textContent = `v${version}`;
   document.title = `RX Native Softphone v${version}`;
   elements.managedNotice.hidden = !managed;
@@ -218,6 +219,7 @@ function renderRelay(status) {
   elements.relayBadge.textContent = connected ? 'Relay online' : configured ? 'Connecting' : 'Not paired';
   elements.relayDisconnect.disabled = !configured;
   elements.relayDisconnect.hidden = managed;
+  elements.relayForm.hidden = configured;
   elements.relayTrackerUrl.disabled = configured;
   elements.relayPairingCode.disabled = configured;
   elements.relayPair.hidden = configured;

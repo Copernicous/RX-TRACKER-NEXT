@@ -934,8 +934,8 @@
                                         <div class="accordion-body small text-muted">
                                             <ol class="mb-0 ps-3">
                                                 <li class="mb-2">Open <strong>Administration &rarr; Users</strong> and select <strong>Allow setup</strong> for the RX Tracker user. That user then completes the one-time <strong>Phone Account Setup</strong>; after saving, the menu closes and the SIP settings become read-only.</li>
-                                                <li class="mb-2">Copy the approved <code>RxSoftphone-0.5.0-win-x64.zip</code> release to the Windows computer and extract it into an administrator-controlled permanent folder. The first-party source is maintained with RX Tracker under <code>rx-softphone-desktop</code>; generated ZIP files are distributed through the approved release or software share.</li>
-                                                <li>Run <code>RxSoftphone.exe</code> or <code>Start-Softphone.cmd</code> and, on that same physical Windows computer, open <code>http://127.0.0.1:5188</code>. Keep RX Softphone running while the user makes calls.</li>
+                                                <li class="mb-2">Copy the approved <code>RxSoftphone-0.6.0-win-x64.zip</code> release to the Windows computer and extract it into an administrator-controlled permanent folder. The first-party source is maintained with RX Tracker under <code>rx-softphone-desktop</code>; generated ZIP files are distributed through the approved release or software share.</li>
+                                                <li>Run <code>RxSoftphone.exe</code> or <code>Start-Softphone.cmd</code>. Double-click its tray icon to open the RX Softphone Windows control panel. Closing the panel hides it to the tray; use <strong>Exit RX Softphone</strong> to stop it.</li>
                                             </ol>
                                         </div>
                                     </div>
@@ -948,7 +948,7 @@
                                                 <li class="mb-2">Sign in to RX Tracker as the user who will make calls, open <strong>Call Center</strong>, and select <strong>Pair Windows phone</strong>.</li>
                                                 <li class="mb-2">RX Tracker displays a single-use 8-digit code that expires after 10 minutes.</li>
                                                 <li class="mb-2">In the RX Softphone page on the Windows computer, enter an RX Tracker address reachable through one of the approved connection methods below, enter the pairing code, and select <strong>Pair</strong>.</li>
-                                                <li>Confirm that the RX Softphone 0.5.0 tray icon is visible and its menu shows <strong>Registered</strong> and <strong>Relay: Online</strong>. The account remains managed, local account controls remain locked, and tray Unpair requires an Administrator. Hard-refresh Call Center with <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd>; the status should change to <strong>RX Softphone ready via relay</strong>. Administrators inspect versions or revoke an idle workstation under <strong>Administration &rarr; Phone Devices</strong>.</li>
+                                                <li>Confirm that the RX Softphone 0.6.0 tray icon is visible and its menu shows <strong>Registered</strong> and <strong>Relay: Online</strong>. Check <strong>Start with Windows</strong> for the assigned Windows user. The account remains managed, local account controls remain locked, and tray Unpair requires an Administrator. Hard-refresh Call Center with <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd>; the status should change to <strong>RX Softphone ready via relay</strong>. Administrators inspect versions or revoke an idle workstation under <strong>Administration &rarr; Phone Devices</strong>.</li>
                                             </ol>
                                         </div>
                                     </div>
@@ -999,7 +999,7 @@
                                     <div id="spTest" class="accordion-collapse collapse" data-bs-parent="#accSoftphone">
                                         <div class="accordion-body small text-muted">
                                             <ol class="mb-2 ps-3">
-                                                <li class="mb-2">Install the package on each physical Windows computer and create a startup shortcut by opening <code>shell:startup</code>. Pair each computer while signed into its assigned RX user.</li>
+                                                <li class="mb-2">Install the package on each physical Windows computer and check <strong>Start with Windows</strong> in its tray menu. Pair each computer while signed into its assigned RX user. Do not install it as a service; audio and the tray must run in that user's interactive session.</li>
                                                 <li class="mb-2">For a shared-extension test, use two computers and two RX users. Both softphones must show Registered simultaneously before starting two overlapping outbound calls.</li>
                                                 <li class="mb-2">Ask the PBX administrator to confirm two contacts with <code>pjsip show endpoint 1006</code> and <code>pjsip show contacts</code>. The AoR must permit at least two contacts and the provider/trunk must permit two outbound channels.</li>
                                                 <li>Server `.env`, backup, and migration preparation stays on the RX Tracker server; do not copy server secrets to a workstation.</li>
