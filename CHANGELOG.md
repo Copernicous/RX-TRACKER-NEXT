@@ -12,6 +12,31 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 - Added a sanitized, version-controlled project handoff and authoritative root agent instructions so future sessions can recover the production layout, release/rollback process, repository boundaries, decisions, and current operating status without relying on chat history or storing secrets.
 - Recorded a deferred, approval-gated cleanup checkpoint for the legacy production database/application and the former local 3.3.x development environment.
 
+## [4.0.0-next.18] - 2026-07-24
+
+### Added
+
+- Added an Administrator-only **Live RX Phones** presence board for RX Softphone workstations.
+- Added at-a-glance totals for registered, idle, dialing, ringing, connected, and unavailable/attention states.
+- Added per-user line cards showing the assigned extension, shared-extension count, Windows device, relay heartbeat, registration state, active peer, and live dialing/ringing/conversation duration.
+- Added search and status filtering for operational use.
+- Added safe call-state fields to the existing Administrator phone-device inventory response so the board can use the RX Softphone relay without querying the PBX.
+
+### Security and privacy
+
+- Kept the board strictly view-only and Administrator-only.
+- The board cannot listen to audio, record calls, dial, hang up, or issue other phone commands.
+- Limited the board to configured or paired RX Softphone users; MicroSIP and unrelated PBX extensions are not included.
+
+### Testing
+
+- Added managed-relay coverage for connected-call metadata and the existing active-call revocation guard.
+- Added static regressions for role protection, status-only behavior, five-second relay refresh, one-second active timers, versioned assets, and FortiGate-rewritten API routing.
+- Added isolated browser coverage for loading the Administrator board and its filters.
+- Passed the complete isolated staging browser smoke, existing Call Center phone-client regression, relay regression, public JavaScript validation, and staging configuration guard.
+
+**Database impact:** None. This release reuses the existing user phone account, paired workstation, and relay snapshot data. It does not add or change a migration, table, column, index, or constraint.
+
 ## [4.0.0-next.17] - 2026-07-23
 
 ### Added

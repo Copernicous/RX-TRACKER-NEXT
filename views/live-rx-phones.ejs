@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <script>!function(){var t=localStorage.getItem("rxTheme");if(t)document.documentElement.setAttribute("data-theme",t)}();</script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live RX Phones - Patient RX System</title>
+    <link href="/assets/bootstrap.min.css" rel="stylesheet">
+    <link href="/assets/inter.css" rel="stylesheet">
+    <link rel="stylesheet" href="/assets/fontawesome.all.min.css">
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        .phone-board-note {
+            border:1px solid rgba(14,165,233,.28);
+            background:rgba(14,165,233,.07);
+            border-radius:14px;
+        }
+        .phone-stat {
+            border:1px solid var(--border,#e2e8f0);
+            border-radius:14px;
+            padding:.85rem 1rem;
+            background:var(--surface,#fff);
+            min-height:78px;
+        }
+        .phone-stat strong {
+            display:block;
+            font-size:1.45rem;
+            line-height:1.1;
+        }
+        .phone-stat span {
+            color:var(--text-muted,#64748b);
+            font-size:.7rem;
+            font-weight:750;
+            text-transform:uppercase;
+            letter-spacing:.05em;
+        }
+        .live-phone-grid {
+            display:grid;
+            grid-template-columns:repeat(auto-fill,minmax(300px,1fr));
+            gap:1rem;
+        }
+        .live-phone-card {
+            --phone-state:#64748b;
+            position:relative;
+            overflow:hidden;
+            border:1px solid var(--border,#e2e8f0);
+            border-left:5px solid var(--phone-state);
+            border-radius:16px;
+            background:var(--surface,#fff);
+            padding:1rem;
+            box-shadow:0 8px 24px rgba(15,23,42,.04);
+        }
+        .live-phone-card.state-idle { --phone-state:#16a34a; }
+        .live-phone-card.state-dialing,
+        .live-phone-card.state-ringing { --phone-state:#f59e0b; }
+        .live-phone-card.state-connected { --phone-state:#dc2626; }
+        .live-phone-card.state-issue { --phone-state:#9333ea; }
+        .live-phone-card.state-offline { --phone-state:#64748b; opacity:.82; }
+        .phone-state-dot {
+            width:12px;
+            height:12px;
+            flex:0 0 12px;
+            border-radius:50%;
+            background:var(--phone-state);
+            box-shadow:0 0 0 4px color-mix(in srgb,var(--phone-state) 15%,transparent);
+        }
+        .phone-state-pill {
+            display:inline-flex;
+            align-items:center;
+            gap:.35rem;
+            border-radius:999px;
+            padding:.28rem .6rem;
+            color:var(--phone-state);
+            background:color-mix(in srgb,var(--phone-state) 11%,transparent);
+            border:1px solid color-mix(in srgb,var(--phone-state) 28%,transparent);
+            font-size:.7rem;
+            font-weight:800;
+            white-space:nowrap;
+        }
+        .phone-extension {
+            font-size:1.45rem;
+            line-height:1.1;
+            font-weight:800;
+            letter-spacing:.02em;
+        }
+        .phone-duration {
+            font-variant-numeric:tabular-nums;
+            font-size:1.25rem;
+            font-weight:800;
+            color:var(--phone-state);
+        }
+        .phone-meta {
+            color:var(--text-muted,#64748b);
+            font-size:.74rem;
+            line-height:1.45;
+        }
+        .phone-shared {
+            display:inline-flex;
+            align-items:center;
+            border-radius:999px;
+            padding:.15rem .45rem;
+            color:#0369a1;
+            background:rgba(14,165,233,.1);
+            border:1px solid rgba(14,165,233,.24);
+            font-size:.65rem;
+            font-weight:750;
+        }
+        [data-theme="dark"] .phone-shared { color:#7dd3fc; }
+        .phone-empty {
+            border:1px dashed var(--border,#cbd5e1);
+            border-radius:16px;
+            color:var(--text-muted,#64748b);
+            padding:3.5rem 1rem;
+            text-align:center;
+        }
+        @media (max-width:575.98px) {
+            .live-phone-grid { grid-template-columns:1fr; }
+        }
+    </style>
+</head>
+<body>
+<div class="wrapper">
+    <%- include('partials/sidebar') %>
+    <div id="content">
+        <nav class="navbar navbar-expand-lg px-4 mb-4">
+            <button type="button" id="sidebarCollapse" class="btn btn-primary btn-sm"><i class="fas fa-bars"></i></button>
+            <span class="ms-3 fw-bold fs-5"><i class="fas fa-phone-volume me-2 text-success"></i>Live RX Phones</span>
+            <div class="ms-auto d-flex align-items-center gap-3">
+                <button id="themeToggle" class="btn btn-outline-secondary btn-sm"><i class="fas fa-moon"></i></button>
+                <span id="userGreeting" class="text-muted small"></span>
+                <button id="logoutBtn" class="btn btn-danger btn-sm"><i class="fas fa-sign-out-alt me-1"></i>Logout</button>
+            </div>
+        </nav>
+
+        <div class="container-fluid px-4 pb-4">
+            <div class="phone-board-note p-3 mb-4 d-flex gap-3 align-items-start">
+                <i class="fas fa-eye text-info mt-1"></i>
+                <div class="flex-grow-1">
+                    <div class="fw-bold">RX Softphone presence board</div>
+                    <div class="text-muted small">View-only operational status for paired RX Softphones. This page does not listen to audio, record calls, control calls, or query the PBX.</div>
+                </div>
+                <a href="/softphone-devices" class="btn btn-outline-primary btn-sm text-nowrap"><i class="fas fa-cog me-1"></i>Manage devices</a>
+            </div>
+
+            <div class="row g-3 mb-4">
+                <div class="col-6 col-lg-2"><div class="phone-stat"><strong id="phoneStatRegistered">&mdash;</strong><span>Registered</span></div></div>
+                <div class="col-6 col-lg-2"><div class="phone-stat"><strong id="phoneStatIdle">&mdash;</strong><span>Idle</span></div></div>
+                <div class="col-6 col-lg-2"><div class="phone-stat"><strong id="phoneStatDialing">&mdash;</strong><span>Dialing</span></div></div>
+                <div class="col-6 col-lg-2"><div class="phone-stat"><strong id="phoneStatRinging">&mdash;</strong><span>Ringing</span></div></div>
+                <div class="col-6 col-lg-2"><div class="phone-stat"><strong id="phoneStatConnected">&mdash;</strong><span>In Call</span></div></div>
+                <div class="col-6 col-lg-2"><div class="phone-stat"><strong id="phoneStatUnavailable">&mdash;</strong><span>Offline / Issue</span></div></div>
+            </div>
+
+            <div class="glass-card p-4">
+                <div class="d-flex justify-content-between align-items-center gap-3 flex-wrap mb-3">
+                    <div>
+                        <h5 class="mb-1">User phone lines</h5>
+                        <p class="text-muted small mb-0">Relay status refreshes every five seconds; active timers update every second.</p>
+                    </div>
+                    <div class="d-flex gap-2 align-items-center flex-wrap">
+                        <select id="livePhoneStatusFilter" class="form-select form-select-sm" style="width:160px">
+                            <option value="">All statuses</option>
+                            <option value="idle">Idle</option>
+                            <option value="dialing">Dialing</option>
+                            <option value="ringing">Ringing</option>
+                            <option value="connected">In Call</option>
+                            <option value="offline">Offline</option>
+                            <option value="issue">Issues</option>
+                        </select>
+                        <div class="input-group input-group-sm" style="width:min(300px,72vw)">
+                            <span class="input-group-text"><i class="fas fa-search"></i></span>
+                            <input id="livePhoneSearch" class="form-control" placeholder="User, extension, or computer">
+                        </div>
+                        <button id="livePhoneRefresh" class="btn btn-outline-primary btn-sm"><i class="fas fa-sync-alt me-1"></i>Refresh</button>
+                    </div>
+                </div>
+
+                <div id="livePhoneBoard" class="live-phone-grid">
+                    <div class="phone-empty"><i class="fas fa-spinner fa-spin me-2"></i>Loading RX Softphone lines...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- FortiGate rewrites anchor hrefs to the active SSL-VPN proxy session. -->
+<a id="xa-live-rx-phones-api" href="/api/admin/softphone-devices" style="display:none" aria-hidden="true"></a>
+
+<script src="/assets/bootstrap.bundle.min.js?v=<%= encodeURIComponent(String(locals.appBuild || 'dev')) %>"></script>
+<script src="/js/base.js?v=<%= encodeURIComponent(String(locals.appBuild || 'dev')) %>"></script>
+<script src="/js/app.js?v=<%= encodeURIComponent(String(locals.appBuild || 'dev')) %>"></script>
+<script src="/js/help.js?v=<%= encodeURIComponent(String(locals.appBuild || 'dev')) %>"></script>
+<script src="/js/live-rx-phones.js?v=<%= encodeURIComponent(String(locals.appBuild || 'dev')) %>"></script>
+<script nonce="<%= cspNonce %>">
+    setTimeout(function() {
+        if (window.__RX_LIVE_PHONES_BOOTED) return;
+        var board = document.getElementById('livePhoneBoard');
+        if (board) {
+            board.innerHTML = '<div class="phone-empty text-danger"><i class="fas fa-exclamation-triangle me-2"></i>FortiGate did not load the Live RX Phones script. Hard-refresh this page or start a new SSL-VPN portal session.</div>';
+        }
+    }, 5000);
+</script>
+</body>
+</html>
