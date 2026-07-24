@@ -9,7 +9,8 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 ## Current state
 
 - Repository: `Copernicous/RX-TRACKER-NEXT`
-- Branch: `develop` (the validated `v4.0.0-next.16` candidate is promoted from staging for final integration testing)
+- Branch: `main` (the validated `v4.0.0-next.16` candidate is merged for
+  production release; production installation is still pending)
 - Current production release: `v4.0.0-next.6`
 - Production application folder: `C:\RX-Tracker\RX-APP-NEXT`
 - Windows service ID: `PatientRXSystem`
@@ -35,9 +36,10 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
   call metadata from the synthetic dialing state. It also excludes patients marked
   **Non-Company Patient** from new Call Center work, blocks direct claims/saves/call
   attempts for them, and gives the Patients list an amber warning treatment plus
-  Company/Non-Company filtering while preserving historical call reporting. This candidate is not a production
-  deployment. Production remains on `v4.0.0-next.6` until staged validation
-  and the normal promotion/release workflow complete.
+  Company/Non-Company filtering while preserving historical call reporting.
+  This candidate is not yet installed in production. Production remains on
+  `v4.0.0-next.6` until the official release assets are published, verified,
+  and installed through Project Control.
 - Tag `v4.0.0-next.7` is a failed, non-deployable release attempt. Its server
   build passed, but the first clean-runner RX Softphone restore lacked an
   explicit Windows runtime identifier, so no GitHub release assets were
@@ -215,6 +217,10 @@ C:\RX-Tracker\deployment-state
 - On 2026-07-23, staging commits `ba9f9a0` and `8175567` were promoted to
   `develop` by merge commit `2d6d0bc`; the development continuity update is
   commit `18d85b4`.
+- The validated development history was merged into `main` by production
+  promotion commit `d7bf34a`. The release must still pass `main` CI and the
+  tag-triggered asset verification before it is offered to the production
+  operator.
 - GitHub development CI run `30061313262` passed, including the clean Windows
   RX Softphone build and PostgreSQL lifecycle/regression suite.
 - The compiled `v4.0.0-next.16` server package, release self-tests, public
