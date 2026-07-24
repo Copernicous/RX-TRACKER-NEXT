@@ -167,6 +167,9 @@ try {
     assert(devicesScript.includes('window.rxElementHref(anchor)'), 'Phone Devices must read the FortiGate-rewritten API URL.');
     assert(devicesScript.includes('REQUEST_TIMEOUT_MS = 15000'), 'Phone Devices must not remain indefinitely in its loading state.');
     assert(devicesScript.includes('__RX_SOFTPHONE_DEVICES_BOOTED'), 'Phone Devices must report a script-loading failure.');
+    assert(devicesScript.includes('var rowsHtml = filtered.map(function(user)'), 'Phone Devices must build table rows before assigning innerHTML for FortiGate compatibility.');
+    assert(devicesScript.includes('body.innerHTML = rowsHtml;'), 'Phone Devices must assign the completed row markup in a FortiGate-safe statement.');
+    assert(!devicesScript.includes('body.innerHTML = filtered.map(function(user)'), 'Phone Devices must not use the compound innerHTML expression FortiGate rewrites with invalid JavaScript.');
 
     const webRoutes = fs.readFileSync(path.join(__dirname, '..', 'routes', 'webRoutes.js'), 'utf8');
     assert(webRoutes.includes('http://127.0.0.1:5188'), 'Call Center CSP must allow the local softphone origin.');

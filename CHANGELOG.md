@@ -12,6 +12,22 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 - Added a sanitized, version-controlled project handoff and authoritative root agent instructions so future sessions can recover the production layout, release/rollback process, repository boundaries, decisions, and current operating status without relying on chat history or storing secrets.
 - Recorded a deferred, approval-gated cleanup checkpoint for the legacy production database/application and the former local 3.3.x development environment.
 
+## [4.0.0-next.14] - 2026-07-23
+
+### Fixed
+
+- Changed the Administrator **Phone Devices** row renderer to build its table markup before assigning `innerHTML`. This avoids a FortiGate SSL-VPN rewrite defect that inserted an unmatched function call around the previous compound `map(...).join(...)` expression.
+- Restored the proxied Phone Devices controller, inventory request, populated counters, and device table while preserving the direct-browser behavior from `4.0.0-next.13`.
+
+### Testing
+
+- Reproduced the invalid proxy-transformed JavaScript through an authenticated FortiGate agentless session and identified the exact rewritten statement.
+- Verified the corrected proxied script parses successfully, `/api/admin/softphone-devices` returns HTTP 200, and the paired/managed counters populate.
+- Repeated the authenticated FortiGate smoke pass across Dashboard, Patients, RX Records, Reports, Phone Devices, System Settings, and Call Center; every page returned HTTP 200 with no page exception or server error.
+- Added a regression assertion that rejects the compound `innerHTML = filtered.map(...)` form.
+
+**Database impact:** None. This release does not add or change a migration, table, column, index, constraint, or stored record.
+
 ## [4.0.0-next.13] - 2026-07-23
 
 ### Fixed

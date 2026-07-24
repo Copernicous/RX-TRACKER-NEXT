@@ -95,7 +95,7 @@
             return;
         }
 
-        body.innerHTML = filtered.map(function(user) {
+        var rowsHtml = filtered.map(function(user) {
             var account = user.account || { configured: false };
             var device = user.device || { paired: false };
             var authIdDetail = account.authId && account.authId !== account.username
@@ -135,6 +135,7 @@
                 '<td class="text-end">' + action + '</td>' +
                 '</tr>';
         }).join('');
+        body.innerHTML = rowsHtml;
     }
 
     function showToast(message, kind) {
