@@ -12,6 +12,22 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 - Added a sanitized, version-controlled project handoff and authoritative root agent instructions so future sessions can recover the production layout, release/rollback process, repository boundaries, decisions, and current operating status without relying on chat history or storing secrets.
 - Recorded a deferred, approval-gated cleanup checkpoint for the legacy production database/application and the former local 3.3.x development environment.
 
+## [4.0.0-next.15] - 2026-07-23
+
+### Fixed
+
+- Prevented a newly queued relay call from inheriting the previous call's ringing, answered, ended, outcome, or SIP-response metadata.
+- Added call-correlation guards so a delayed snapshot for an older call cannot update or replace the currently active call attempt in Call Center.
+
+### Testing
+
+- Reproduced the defect with an answered relay call: the new attempt received the correct dial time but the prior call's terminal timestamps.
+- Added regression assertions for correlation filtering and clean synthetic dialing snapshots.
+- Passed the Call Center phone-client, call-attempt lifecycle, shared-state, and managed-relay regressions.
+- Passed the complete staging smoke suite, including the isolated Administrator/Call Center browser workflow.
+
+**Database impact:** None. This release does not add or change a migration, table, column, index, or constraint. It prevents incorrect values from being written to new call-attempt records.
+
 ## [4.0.0-next.14] - 2026-07-23
 
 ### Fixed

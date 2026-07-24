@@ -111,6 +111,9 @@ try {
     assert(callCenterScript.includes('function probeRelayPhone'), 'Kasm fallback must probe the paired outbound softphone relay.');
     assert(callCenterScript.includes("rxPhone.transport === 'relay'"), 'Call Center must route dial and hangup through the relay only when selected.');
     assert(callCenterScript.includes('api.relayCalls'), 'Relay call command endpoint is missing from Call Center.');
+    assert(callCenterScript.includes('function snapshotMatchesActiveCall'), 'Call Center must correlate relay snapshots before updating an active attempt.');
+    assert(callCenterScript.includes('if (!snapshotMatchesActiveCall(active, snapshot)) return;'), 'A previous relay call snapshot must not update or replace the active call.');
+    assert(/dialSnapshot = Object\.assign\(\{\}, snapshot, \{[\s\S]*?ringingAt: null,[\s\S]*?connectedAt: null,[\s\S]*?endedAt: null,[\s\S]*?outcome: null,[\s\S]*?sipResponseCode: null,[\s\S]*?sipReason: null/.test(callCenterScript), 'A new relay dialing snapshot must clear terminal metadata inherited from the previous call.');
     assert(!callCenterScript.includes("toast('Phone registration window is unavailable."), 'Call failures must not open the retired phone-registration modal.');
     assert(!callCenterScript.includes('rxCallCenterSoftphoneProfileV1'), 'Softphone account metadata must not be stored in browser localStorage.');
 
