@@ -9,14 +9,14 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 ## Current state
 
 - Repository: `Copernicous/RX-TRACKER-NEXT`
-- Branch: `develop` (candidate promoted from and synchronized with `staging`)
+- Branch: `develop` (the validated `v4.0.0-next.16` candidate is promoted from staging for final integration testing)
 - Current production release: `v4.0.0-next.6`
 - Production application folder: `C:\RX-Tracker\RX-APP-NEXT`
 - Windows service ID: `PatientRXSystem`
 - Production HTTP port: `3000`
 - NEXT database name at the completed cutover: `patient_rx_next_cutover_copy`
 - Project Control version: `2.0.0`
-- Active development candidate: `v4.0.0-next.15` with RX Softphone 0.6.0. It adds an application-owned
+- Active development candidate: `v4.0.0-next.16` with RX Softphone 0.6.0. It adds an application-owned
   WebView2 control window, hides the window to the existing tray on close,
   focuses the same window on a second launch, and adds a per-user
   **Start with Windows** tray option. It does not install a Windows service,
@@ -32,7 +32,10 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
   testing exposed an invalid rewrite of the prior compound expression. It also
   prevents a newly queued relay call from inheriting an older call's terminal
   timestamps by correlating every active browser snapshot and clearing previous
-  call metadata from the synthetic dialing state. This candidate is not a production
+  call metadata from the synthetic dialing state. It also excludes patients marked
+  **Non-Company Patient** from new Call Center work, blocks direct claims/saves/call
+  attempts for them, and gives the Patients list an amber warning treatment plus
+  Company/Non-Company filtering while preserving historical call reporting. This candidate is not a production
   deployment. Production remains on `v4.0.0-next.6` until staged validation
   and the normal promotion/release workflow complete.
 - Tag `v4.0.0-next.7` is a failed, non-deployable release attempt. Its server
@@ -206,6 +209,29 @@ C:\RX-Tracker\deployment-state
   protection against workflow-action reseeding.
 - `v4.0.0-next.6`: corrected Windows PowerShell GitHub release discovery for
   Project Control options 8 and 15. Database impact: none.
+
+## Latest candidate validation
+
+- On 2026-07-23, staging commits `ba9f9a0` and `8175567` were promoted to
+  `develop` by merge commit `2d6d0bc`; the development continuity update is
+  commit `18d85b4`.
+- GitHub development CI run `30061313262` passed, including the clean Windows
+  RX Softphone build and PostgreSQL lifecycle/regression suite.
+- The compiled `v4.0.0-next.16` server package, release self-tests, public
+  JavaScript validation, reference-data regression, and high-severity npm
+  audit gate all passed. The remaining npm findings are two moderate
+  transitive `uuid` findings under Sequelize; no forced dependency downgrade
+  was applied.
+- An authenticated live test through the user-opened
+  `portal.rbandrc.com` Cloudflare/Kasm session verified the Patients advanced
+  Company/Non-Company filter, amber Non-Company warning treatment, both
+  checkbox transitions and persistence, and Call Center exclusion after the
+  flag was restored. The RX Softphone relay remained online, the Call Center
+  continued to show the eligible company patient, and the tested application
+  requests completed successfully.
+- The Non-Company change uses the existing patient column and requires no
+  database migration. The simulated patient used for the transition test was
+  restored to Non-Company before the test ended.
 
 ## Release procedure for maintainers
 

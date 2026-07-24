@@ -146,6 +146,9 @@ exports.startAttempt = async (req, res) => {
             include: [{ model: db.Clinic, attributes: ['name'], required: false }]
         });
         if (!patient) return res.status(404).json({ error: 'Patient not found.' });
+        if (patient.isNonCompanyPatient === true) {
+            return res.status(409).json({ error: 'Non-company patients are not eligible for Call Center calls.' });
+        }
 
         const patientNumber = normalizeDialNumber(patient.phone);
         const requestedNumber = normalizeDialNumber(req.body && req.body.dialedNumber);

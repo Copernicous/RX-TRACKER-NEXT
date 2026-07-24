@@ -148,6 +148,7 @@ function matchesPatientQuery(patient, query) {
     const serviceTo = cleanString(query.serviceTo);
     const eligibility = cleanString(query.eligibility);
     const missingInfo = cleanString(query.missingInfo);
+    const patientType = cleanString(query.patientType);
 
     if (id && idString(patient.id) !== id) return false;
     if (firstName && !cleanLower(patient.firstName).includes(firstName)) return false;
@@ -162,6 +163,8 @@ function matchesPatientQuery(patient, query) {
     if (pharmacyTransportId && idString(patient.pharmacyTransportCompanyId) !== pharmacyTransportId) return false;
     if (serviceFrom && patient.serviceDate && String(patient.serviceDate) < serviceFrom) return false;
     if (serviceTo && patient.serviceDate && String(patient.serviceDate) > serviceTo) return false;
+    if (patientType === 'company' && patient.isNonCompanyPatient === true) return false;
+    if (patientType === 'non_company' && patient.isNonCompanyPatient !== true) return false;
 
     if (missingInfo) {
         const missingClinic = !patientHasAnyField(patient, ['clinicId']);
@@ -671,7 +674,7 @@ async function lockedUpdatePatient(req, res) {
                 'firstName', 'lastName', 'dob', 'address', 'phone',
                 'serviceDate', 'notes', 'isActive', 'patientCode',
                 'patientTransportCompanyId', 'pharmacyTransportCompanyId',
-                'clinicId', 'pharmacyId', 'isDeleted'
+                'clinicId', 'pharmacyId', 'isDeleted', 'isNonCompanyPatient'
             ];
             allowedFields.forEach(field => {
                 if (payload.hasOwnProperty(field)) {
