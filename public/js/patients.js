@@ -461,7 +461,7 @@ var allPatients = [];
         document.getElementById('searchBtn').addEventListener('click', applyPatientSearch);
         document.getElementById('clearBtn').addEventListener('click', () => {
             ['srchFirstName','srchLastName','srchDob','srchPhone','srchStatus','srchClinic',
-             'srchPatientCode','srchPatientTransport','srchPharmacyTransport','srchPharmacy','srchServiceFrom','srchServiceTo','srchEligibility','srchMissingInfo'
+             'srchPatientCode','srchPatientTransport','srchPharmacyTransport','srchPharmacy','srchServiceFrom','srchServiceTo','srchEligibility','srchMissingInfo','srchPatientType'
             ].forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
             var clearStatusEl = document.getElementById('srchStatus');
             if (clearStatusEl) clearStatusEl.value = 'true';
@@ -753,6 +753,7 @@ var allPatients = [];
         setPatientParam(params, 'serviceTo', document.getElementById('srchServiceTo')?.value || '');
         setPatientParam(params, 'eligibility', document.getElementById('srchEligibility')?.value || '');
         setPatientParam(params, 'missingInfo', document.getElementById('srchMissingInfo')?.value || '');
+        setPatientParam(params, 'patientType', document.getElementById('srchPatientType')?.value || '');
         setPatientParam(params, 'id', patientHighlightId || '');
 
         if (document.getElementById('srchShowDeleted')?.checked) params.set('includeDeleted', 'true');
@@ -1007,6 +1008,7 @@ var allPatients = [];
         var st2  = document.getElementById('srchServiceTo')?.value || '';
         var elig = document.getElementById('srchEligibility')?.value || '';
         var missingInfo = document.getElementById('srchMissingInfo')?.value || '';
+        var patientType = document.getElementById('srchPatientType')?.value || '';
         var todayMs = new Date().setHours(0,0,0,0);
 
         if (fn && !(p.firstName||'').toLowerCase().includes(fn)) return false;
@@ -1021,6 +1023,8 @@ var allPatients = [];
         if (skipField !== 'pharmacy' && pharm && patientFieldValue(p, 'pharmacyId') !== pharm) return false;
         if (sf && p.serviceDate && p.serviceDate < sf) return false;
         if (st2 && p.serviceDate && p.serviceDate > st2) return false;
+        if (patientType === 'company' && p.isNonCompanyPatient === true) return false;
+        if (patientType === 'non_company' && p.isNonCompanyPatient !== true) return false;
 
         if (missingInfo) {
             var missingClinic = !patientHasAnyField(p, ['clinicId']);
@@ -1100,6 +1104,7 @@ var allPatients = [];
         const st2  = document.getElementById('srchServiceTo')?.value || '';
         const elig = (document.getElementById('srchEligibility')?.value || '');
         const missingInfo = (document.getElementById('srchMissingInfo')?.value || '');
+        const patientType = (document.getElementById('srchPatientType')?.value || '');
 
         const _todayMs = new Date().setHours(0,0,0,0);
 
@@ -1135,6 +1140,8 @@ var allPatients = [];
             }
             if (sf && p.serviceDate && p.serviceDate < sf) return false;
             if (st2 && p.serviceDate && p.serviceDate > st2) return false;
+            if (patientType === 'company' && p.isNonCompanyPatient === true) return false;
+            if (patientType === 'non_company' && p.isNonCompanyPatient !== true) return false;
             if (missingInfo) {
                 var missingClinic = !hasPatientField(p, ['clinicId']);
                 var missingPharmacy = !hasPatientField(p, ['pharmacyId']);
@@ -1254,6 +1261,12 @@ var allPatients = [];
         page.forEach(function(p) {
             var tr = document.createElement('tr');
             tr.setAttribute('data-patient-id', p.id);
+            if (p.isNonCompanyPatient === true) {
+                tr.classList.add('patient-non-company-row');
+                tr.setAttribute('data-patient-type', 'non-company');
+            } else {
+                tr.setAttribute('data-patient-type', 'company');
+            }
 
             // Col: Patient Code
             var tdCode = document.createElement('td');
@@ -1269,6 +1282,15 @@ var allPatients = [];
             var strong = document.createElement('strong');
             strong.textContent = (p.firstName || '') + ' ' + (p.lastName || '');
             tdName.appendChild(strong);
+            if (p.isNonCompanyPatient === true) {
+                tdName.appendChild(document.createElement('br'));
+                var nonCompanyBadge = document.createElement('span');
+                nonCompanyBadge.className = 'patient-non-company-badge';
+                nonCompanyBadge.title = 'Excluded from the Call Center queue';
+                nonCompanyBadge.innerHTML = '<i class="fas fa-user-slash" aria-hidden="true"></i>';
+                nonCompanyBadge.appendChild(document.createTextNode('Non-Company · No Call Center'));
+                tdName.appendChild(nonCompanyBadge);
+            }
             tr.appendChild(tdName);
 
             // Col: Clinic
@@ -2713,7 +2735,7 @@ var allPatients = [];
     }
 
     function updateFilterBadge() {
-        const advancedIds = ['srchPatientCode','srchPatientTransport','srchPharmacyTransport','srchPharmacy','srchServiceFrom','srchServiceTo','srchEligibility','srchMissingInfo'];
+        const advancedIds = ['srchPatientCode','srchPatientTransport','srchPharmacyTransport','srchPharmacy','srchServiceFrom','srchServiceTo','srchEligibility','srchMissingInfo','srchPatientType'];
         const basicIds    = ['srchFirstName','srchLastName','srchDob','srchPhone'];
         const statusEl    = document.getElementById('srchStatus');
         const clinicEl    = document.getElementById('srchClinic');
@@ -2755,7 +2777,7 @@ var allPatients = [];
             srchPatientCode: 'Patient ID', srchPatientTransport: 'Patient Transport',
             srchPharmacyTransport: 'Pharmacy Transport', srchPharmacy: 'Pharmacy', srchServiceFrom: 'From',
             srchServiceTo: 'To', srchEligibility: serviceWindowDays + '-Day Eligibility',
-            srchMissingInfo: 'Missing Info'
+            srchMissingInfo: 'Missing Info', srchPatientType: 'Patient Type'
         };
         var _chipIds = [...basicIds, ...advancedIds, 'srchStatus','srchClinic']
             .filter(id => { const el = document.getElementById(id); return el && el.value; });

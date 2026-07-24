@@ -9,14 +9,14 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 ## Current state
 
 - Repository: `Copernicous/RX-TRACKER-NEXT`
-- Branch: `develop` (candidate promoted from and synchronized with `staging`)
+- Branch: `staging` (the `v4.0.0-next.16` candidate is awaiting user validation before promotion)
 - Current production release: `v4.0.0-next.6`
 - Production application folder: `C:\RX-Tracker\RX-APP-NEXT`
 - Windows service ID: `PatientRXSystem`
 - Production HTTP port: `3000`
 - NEXT database name at the completed cutover: `patient_rx_next_cutover_copy`
 - Project Control version: `2.0.0`
-- Active development candidate: `v4.0.0-next.15` with RX Softphone 0.6.0. It adds an application-owned
+- Active development candidate: `v4.0.0-next.16` with RX Softphone 0.6.0. It adds an application-owned
   WebView2 control window, hides the window to the existing tray on close,
   focuses the same window on a second launch, and adds a per-user
   **Start with Windows** tray option. It does not install a Windows service,
@@ -32,7 +32,10 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
   testing exposed an invalid rewrite of the prior compound expression. It also
   prevents a newly queued relay call from inheriting an older call's terminal
   timestamps by correlating every active browser snapshot and clearing previous
-  call metadata from the synthetic dialing state. This candidate is not a production
+  call metadata from the synthetic dialing state. It also excludes patients marked
+  **Non-Company Patient** from new Call Center work, blocks direct claims/saves/call
+  attempts for them, and gives the Patients list an amber warning treatment plus
+  Company/Non-Company filtering while preserving historical call reporting. This candidate is not a production
   deployment. Production remains on `v4.0.0-next.6` until staged validation
   and the normal promotion/release workflow complete.
 - Tag `v4.0.0-next.7` is a failed, non-deployable release attempt. Its server

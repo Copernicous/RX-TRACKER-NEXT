@@ -7,6 +7,8 @@ const { Op } = require('sequelize');
 const db = require('../models');
 const adminController = require('../controllers/adminController');
 const callCenterController = require('../controllers/callCenterController');
+const callAttemptController = require('../controllers/callAttemptController');
+const patientController = require('../controllers/patientController');
 const { getCallCenterInactiveClaimSeconds } = require('../utils/globalSettings');
 
 const RUN_ID = `cc-reopen-${Date.now()}`;
@@ -139,6 +141,110 @@ async function main() {
             isNonCompanyPatient: false
         });
         created.patients.push(patient);
+
+        const nonCompanyPatient = await db.Patient.create({
+            firstName: 'External',
+            lastName: `NonCompany-${RUN_ID}`,
+            dob: '1985-01-01',
+            address: '200 Outside Network Way',
+            phone: '555-0199',
+            serviceDate: oldServiceDate,
+            clinicId: clinic.id,
+            notes: 'Non-company Call Center exclusion regression',
+            isActive: true,
+            isDeleted: false,
+            patientCode: `NC-${RUN_ID}`.slice(0, 60),
+            isNonCompanyPatient: true
+        });
+        created.patients.push(nonCompanyPatient);
+
+        const nonCompanyMetricsRes = makeRes();
+        await callCenterController.getQueueMetrics({
+            query: {},
+            user: { id: callCenterUser.id, role: 'Call Center' },
+            authToken: `${RUN_ID}-metrics-excluded`
+        }, nonCompanyMetricsRes);
+        assert.strictEqual(nonCompanyMetricsRes.statusCode, 200, 'Call Center metric exclusion query failed.');
+        const excludedEligibleTotal = nonCompanyMetricsRes.body.eligibleTotal;
+        const excludedAvailableTotal = nonCompanyMetricsRes.body.availableEligibleTotal;
+        await nonCompanyPatient.update({ isNonCompanyPatient: false });
+        const companyMetricsRes = makeRes();
+        await callCenterController.getQueueMetrics({
+            query: {},
+            user: { id: callCenterUser.id, role: 'Call Center' },
+            authToken: `${RUN_ID}-metrics-included`
+        }, companyMetricsRes);
+        assert.strictEqual(companyMetricsRes.body.eligibleTotal, excludedEligibleTotal + 1, 'Non-company patients must be excluded from the Call Center eligible metric.');
+        assert.strictEqual(companyMetricsRes.body.availableEligibleTotal, excludedAvailableTotal + 1, 'Non-company patients must be excluded from the available queue metric.');
+        await nonCompanyPatient.update({ isNonCompanyPatient: true });
+
+        const nonCompanyQueueRes = makeRes();
+        await callCenterController.listPatients({
+            query: { q: nonCompanyPatient.lastName, page: 1, pageSize: 10 },
+            user: { id: callCenterUser.id, role: 'Call Center' }
+        }, nonCompanyQueueRes);
+        assert.strictEqual(nonCompanyQueueRes.statusCode, 200, 'Non-company queue exclusion query failed.');
+        assert.strictEqual(nonCompanyQueueRes.body.total, 0, 'Non-company patients must not appear in the Call Center queue.');
+
+        const nonCompanyClaimRes = makeRes();
+        await callCenterController.claimPatient({
+            params: { id: String(nonCompanyPatient.id) },
+            user: { id: callCenterUser.id, role: 'Call Center' }
+        }, nonCompanyClaimRes);
+        assert.strictEqual(nonCompanyClaimRes.statusCode, 409, 'Non-company patients must not be claimable.');
+        assert.match(nonCompanyClaimRes.body.error, /Non-company patients are not eligible/i);
+        assert.strictEqual(await db.CallCenterLock.count({ where: { patientId: nonCompanyPatient.id } }), 0, 'Rejected non-company claims must not create a lock.');
+
+        const nonCompanySaveRes = makeRes();
+        await callCenterController.savePatientAction({
+            params: { id: String(nonCompanyPatient.id) },
+            body: { called: true, phoneClient: 'manual' },
+            user: { id: callCenterUser.id, role: 'Call Center' },
+            headers: {},
+            connection: {},
+            ip: '127.0.0.1'
+        }, nonCompanySaveRes);
+        assert.strictEqual(nonCompanySaveRes.statusCode, 409, 'Non-company patients must reject manual Call Center saves.');
+        assert.match(nonCompanySaveRes.body.error, /Non-company patients are not eligible/i);
+        assert.strictEqual(await db.CallCenterLock.count({ where: { patientId: nonCompanyPatient.id } }), 0, 'Rejected non-company saves must roll back their lock.');
+
+        const nonCompanyAttemptRes = makeRes();
+        await callAttemptController.startAttempt({
+            body: { patientId: nonCompanyPatient.id, dialedNumber: nonCompanyPatient.phone },
+            user: { id: callCenterUser.id, firstName: callCenterUser.firstName, lastName: callCenterUser.lastName },
+            headers: {},
+            connection: {},
+            ip: '127.0.0.1'
+        }, nonCompanyAttemptRes);
+        assert.strictEqual(nonCompanyAttemptRes.statusCode, 409, 'RX Softphone attempts must reject non-company patients.');
+        assert.match(nonCompanyAttemptRes.body.error, /Non-company patients are not eligible/i);
+
+        const nonCompanyPatientsFilterRes = makeRes();
+        await patientController.getAll({
+            query: {
+                paginated: 'true',
+                page: '1',
+                pageSize: '10',
+                id: String(nonCompanyPatient.id),
+                patientType: 'non_company'
+            }
+        }, nonCompanyPatientsFilterRes);
+        assert.strictEqual(nonCompanyPatientsFilterRes.statusCode, 200, 'Non-company Patients filter failed.');
+        assert.strictEqual(nonCompanyPatientsFilterRes.body.total, 1, 'Non-company Patients filter must include the flagged patient.');
+        assert.strictEqual(nonCompanyPatientsFilterRes.body.rows[0].isNonCompanyPatient, true, 'Patients API must expose the non-company marker.');
+
+        const companyPatientsFilterRes = makeRes();
+        await patientController.getAll({
+            query: {
+                paginated: 'true',
+                page: '1',
+                pageSize: '10',
+                id: String(nonCompanyPatient.id),
+                patientType: 'company'
+            }
+        }, companyPatientsFilterRes);
+        assert.strictEqual(companyPatientsFilterRes.statusCode, 200, 'Company Patients filter failed.');
+        assert.strictEqual(companyPatientsFilterRes.body.total, 0, 'Company Patients filter must exclude the flagged patient.');
 
         await db.CallCenterLock.create({
             patientId: patient.id,
@@ -348,7 +454,7 @@ async function main() {
         assert((listRes.body.rows || []).some((row) => row.id === patient.id), 'Restored patient should return to the Call Center queue.');
         assert.strictEqual(listRes.body.total, 1, 'Queue search should return exactly the restored patient.');
 
-        console.log('PASS Call Center queue reopen after Backoffice service-date-history delete');
+        console.log('PASS Call Center queue reopen and non-company exclusion regressions');
         console.log(JSON.stringify(deleteRes.body.results.callCenterQueueRepair));
     } finally {
         await cleanup(created);

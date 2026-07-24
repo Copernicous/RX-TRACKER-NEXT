@@ -116,7 +116,8 @@ async function createUser(role, label) {
     return user;
 }
 
-async function createPatient(clinic, patientTransport, label, serviceDate) {
+async function createPatient(clinic, patientTransport, label, serviceDate, options) {
+    options = options || {};
     const patient = await db.Patient.create({
         firstName: 'Smoke',
         lastName: `${label}${runId.slice(-5)}`,
@@ -130,7 +131,7 @@ async function createPatient(clinic, patientTransport, label, serviceDate) {
         isActive: true,
         isDeleted: false,
         patientCode: `STG-CC-${label.toUpperCase()}-${runId}`.slice(0, 60),
-        isNonCompanyPatient: false
+        isNonCompanyPatient: options.isNonCompanyPatient === true
     });
     created.patients.push(patient);
     return patient;
@@ -183,6 +184,13 @@ async function seedFixtures() {
     const queuePatient = await createPatient(clinic, patientTransport, 'Queue', dateFromToday(-130));
     const metricPatient = await createPatient(clinic, patientTransport, 'Metric', dateFromToday(-125));
     const secondMetricPatient = await createPatient(clinic, patientTransport, 'MetricTwo', dateFromToday(-124));
+    const nonCompanyPatient = await createPatient(
+        clinic,
+        patientTransport,
+        'NonCompany',
+        dateFromToday(-123),
+        { isNonCompanyPatient: true }
+    );
 
     await createCallCenterAudit(callCenterUser, metricPatient, 'Called', 25);
     await createCallCenterAudit(callCenterUser, metricPatient, 'Called', 20);
@@ -240,6 +248,7 @@ async function seedFixtures() {
         queuePatient,
         metricPatient,
         secondMetricPatient,
+        nonCompanyPatient,
         queueSearch: queuePatient.lastName,
         metricSearch: metricPatient.patientCode
     };
@@ -469,6 +478,41 @@ async function runAdminDashboardAndReports(fixtures) {
     await page.locator('#ccAttemptReportBody .cc-open-activity').first().click();
     await expectVisible(page, '#ccActivityReportPane.active.show', 'Patient Activity report return link');
 
+    await page.goto(route('/patients'), { waitUntil: 'domcontentloaded' });
+    await page.locator('#advancedToggleBtn').click();
+    await page.locator('#srchPatientType').waitFor({ state: 'visible', timeout: 15000 });
+    const nonCompanyFilterResponse = page.waitForResponse(response =>
+        response.url().includes('/api/patients?')
+        && response.url().includes('patientType=non_company')
+        && response.status() === 200,
+        { timeout: 15000 }
+    );
+    await page.selectOption('#srchPatientType', 'non_company');
+    await nonCompanyFilterResponse;
+    const nonCompanyRow = page.locator('tr[data-patient-id="' + fixtures.nonCompanyPatient.id + '"]');
+    await nonCompanyRow.waitFor({ state: 'visible', timeout: 15000 });
+    assert.strictEqual(await nonCompanyRow.getAttribute('data-patient-type'), 'non-company', 'Non-company row marker is missing.');
+    await expectVisible(page, 'tr[data-patient-id="' + fixtures.nonCompanyPatient.id + '"] .patient-non-company-badge', 'Patients non-company warning badge');
+    assert(
+        (await nonCompanyRow.innerText()).includes('No Call Center'),
+        'Non-company row must explain that it is excluded from Call Center.'
+    );
+    const companyFilterResponse = page.waitForResponse(response =>
+        response.url().includes('/api/patients?')
+        && response.url().includes('patientType=company')
+        && response.status() === 200,
+        { timeout: 15000 }
+    );
+    await page.selectOption('#srchPatientType', 'company');
+    await companyFilterResponse;
+    assert.strictEqual(await page.locator('tr[data-patient-id="' + fixtures.nonCompanyPatient.id + '"]').count(), 0, 'Company filter must hide non-company rows.');
+    pass('Patients Company / Non-Company filtering');
+
+    const excludedQueueResponse = await context.request.get(route('/api/call-center/patients?q=' + encodeURIComponent(fixtures.nonCompanyPatient.lastName)));
+    assert.strictEqual(excludedQueueResponse.status(), 200, 'Non-company Call Center exclusion query failed.');
+    assert.strictEqual((await excludedQueueResponse.json()).total, 0, 'Non-company patient appeared in the Call Center queue.');
+    pass('Non-company patient excluded from Call Center queue');
+
     await page.goto(route('/users'), { waitUntil: 'domcontentloaded' });
     await page.waitForLoadState('networkidle').catch(() => {});
     await page.locator('#addNewBtn').click();
@@ -575,6 +619,21 @@ async function runCallCenterWorkspace(fixtures) {
     res = await context.request.get(route('/api/version'));
     assert.strictEqual(res.status(), 403, 'Call Center should get 403 on version API.');
     pass('Call Center API blocks dashboard and version');
+
+    const rejectedNonCompanyClaim = await page.evaluate(async (patientId) => {
+        const response = await fetchWithAuth('/api/call-center/patients/' + patientId + '/claim', {
+            method: 'POST',
+            body: '{}',
+            silent: true
+        });
+        return {
+            status: response.status,
+            body: await response.json().catch(() => ({}))
+        };
+    }, fixtures.nonCompanyPatient.id);
+    assert.strictEqual(rejectedNonCompanyClaim.status, 409, 'Non-company Call Center claim must be rejected.');
+    assert.match(rejectedNonCompanyClaim.body.error || '', /Non-company patients are not eligible/i);
+    pass('Call Center rejects non-company patient claim');
 
     await page.goto(route('/dashboard'), { waitUntil: 'domcontentloaded' });
     await page.waitForURL('**/call-center', { timeout: 15000 });

@@ -12,6 +12,24 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 - Added a sanitized, version-controlled project handoff and authoritative root agent instructions so future sessions can recover the production layout, release/rollback process, repository boundaries, decisions, and current operating status without relying on chat history or storing secrets.
 - Recorded a deferred, approval-gated cleanup checkpoint for the legacy production database/application and the former local 3.3.x development environment.
 
+## [4.0.0-next.16] - 2026-07-23
+
+### Changed
+
+- Excluded patients marked **Non-Company Patient** from the Call Center roster, eligible/available queue totals, patient claims, manual Call Center saves, and RX Softphone call-attempt creation.
+- Added a **Patient Type** filter to Patients with **Company Patients** and **Non-Company Patients** choices.
+- Added an amber patient-row treatment and a **Non-Company · No Call Center** badge so excluded patients are immediately recognizable without opening their record.
+- Kept historical Call Center activity and call-attempt reports intact when a patient is later marked non-company.
+
+### Testing
+
+- Added controller regressions for queue/metric exclusion and server-side rejection of claims, manual saves, and RX Softphone attempts.
+- Added Patients API regressions for company and non-company filters.
+- Added browser coverage for the amber warning badge, patient-type filtering, queue exclusion, and authenticated claim rejection.
+- Passed the complete staging smoke suite, including existing Call Center dialing, repeat-call history, timers, reports, exports, and phone-account workflows.
+
+**Database impact:** None. This release uses the existing `Patients.isNonCompanyPatient` column and does not add or change a migration, table, column, index, or constraint.
+
 ## [4.0.0-next.15] - 2026-07-23
 
 ### Fixed
