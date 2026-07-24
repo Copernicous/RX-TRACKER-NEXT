@@ -210,6 +210,29 @@ C:\RX-Tracker\deployment-state
 - `v4.0.0-next.6`: corrected Windows PowerShell GitHub release discovery for
   Project Control options 8 and 15. Database impact: none.
 
+## Latest candidate validation
+
+- On 2026-07-23, staging commits `ba9f9a0` and `8175567` were promoted to
+  `develop` by merge commit `2d6d0bc`; the development continuity update is
+  commit `18d85b4`.
+- GitHub development CI run `30061313262` passed, including the clean Windows
+  RX Softphone build and PostgreSQL lifecycle/regression suite.
+- The compiled `v4.0.0-next.16` server package, release self-tests, public
+  JavaScript validation, reference-data regression, and high-severity npm
+  audit gate all passed. The remaining npm findings are two moderate
+  transitive `uuid` findings under Sequelize; no forced dependency downgrade
+  was applied.
+- An authenticated live test through the user-opened
+  `portal.rbandrc.com` Cloudflare/Kasm session verified the Patients advanced
+  Company/Non-Company filter, amber Non-Company warning treatment, both
+  checkbox transitions and persistence, and Call Center exclusion after the
+  flag was restored. The RX Softphone relay remained online, the Call Center
+  continued to show the eligible company patient, and the tested application
+  requests completed successfully.
+- The Non-Company change uses the existing patient column and requires no
+  database migration. The simulated patient used for the transition test was
+  restored to Non-Company before the test ended.
+
 ## Release procedure for maintainers
 
 1. Work only in the NEXT repository and inspect the existing worktree first.
