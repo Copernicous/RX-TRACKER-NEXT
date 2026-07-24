@@ -9,15 +9,15 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 ## Current state
 
 - Repository: `Copernicous/RX-TRACKER-NEXT`
-- Branch: `staging` (the unreleased `4.0.0-next.17` candidate is under test;
-  official `v4.0.0-next.16` remains the latest published release)
+- Branch: `main` (official `v4.0.0-next.17` release published and verified;
+  production installation is still pending)
 - Current production release: `v4.0.0-next.6`
 - Production application folder: `C:\RX-Tracker\RX-APP-NEXT`
 - Windows service ID: `PatientRXSystem`
 - Production HTTP port: `3000`
 - NEXT database name at the completed cutover: `patient_rx_next_cutover_copy`
 - Project Control version: `2.0.0`
-- Latest official release: `v4.0.0-next.16` with RX Softphone 0.6.0. It adds an application-owned
+- Latest official release: `v4.0.0-next.17` with RX Softphone 0.6.0. It retains the application-owned
   WebView2 control window, hides the window to the existing tray on close,
   focuses the same window on a second launch, and adds a per-user
   **Start with Windows** tray option. It does not install a Windows service,
@@ -37,9 +37,12 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
   **Non-Company Patient** from new Call Center work, blocks direct claims/saves/call
   attempts for them, and gives the Patients list an amber warning treatment plus
   Company/Non-Company filtering while preserving historical call reporting.
-  This candidate is not yet installed in production. Production remains on
-  `v4.0.0-next.6` until the official release assets are published, verified,
-  and installed through Project Control.
+  Version `next.17` also adds RX Records warehouse-return filtering and a
+  readable return badge, plus a transactional **Calls Only** cleanup that
+  removes automatic call attempts and legacy call audit events without
+  removing patients or RX records. This release is not yet installed in
+  production. Production remains on `v4.0.0-next.6` until it is installed
+  through Project Control.
 - Tag `v4.0.0-next.7` is a failed, non-deployable release attempt. Its server
   build passed, but the first clean-runner RX Softphone restore lacked an
   explicit Windows runtime identifier, so no GitHub release assets were
@@ -47,12 +50,18 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 - Legacy fallback application remains under `C:\RX-Tracker\RX-APP`.
 - Current operating posture: production is healthy and the team is waiting for
   customer feedback. No confirmed production incident is open.
-- The `4.0.0-next.17` staging candidate adds an RX Records warehouse-return
+- Release `4.0.0-next.17` adds an RX Records warehouse-return
   filter/readable badge and makes Backoffice **Calls Only** cleanup include both
   automatic `CallCenterCallAttempts` rows and legacy `Called` audit events.
   The cleanup is transactional and preserves patients, RX records, notes,
   service dates, users, phone accounts, and pairings. Targeted database and
   browser regressions plus the complete staging smoke suite passed.
+- Official `v4.0.0-next.17` assets were published on 2026-07-23 and verified
+  against `SHA256SUMS.txt`:
+  - `server-update-4.0.0-next.17.zip`:
+    `b792727ce3073af73d7749f042e2d7745d139b9df057f423d5ac52df1ebb25e8`
+  - `RxSoftphone-0.6.0-win-x64.zip`:
+    `dcf6ed505495236400b43fbca6d09cac22687babaf03db5ce0da00fa54059d41`
 - On 2026-07-22, a controlled production data repair removed six inactive,
   unreferenced default WorkflowActions that had been added during the original
   NEXT cutover. Production now retains exactly the seven configured 3.3.1
