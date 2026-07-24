@@ -7,6 +7,7 @@ const root = path.join(__dirname, '..');
 
 const tasks = [
     ['public JavaScript encoding and syntax check', 'check-public-js.js'],
+    ['portable new-server installer regression', 'test-new-server-installer.js'],
     ['staging config check', 'check-staging-config.js'],
     ['patient import guard smoke', 'smoke-staging-import-guard.js'],
     ['security alerts smoke', 'smoke-staging-security-alerts.js'],

@@ -52,6 +52,18 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
   check, relay regression, Call Center phone-client regression, public
   JavaScript validation, and staging configuration guard passed. It has no
   database migration and does not require an RX Softphone update.
+- Staging candidate `4.0.0-next.19` adds a compiled
+  `RX-Tracker-NEXT-New-Server-<version>.zip`. The package contains no reusable
+  `.env`; `INSTALL-NEW-SERVER.bat` creates a fresh database, explicit first
+  administrator, restricted runtime role, destination-specific `.env`, NSSM
+  service, and non-secret receipt, then requires an exact-version health
+  check. Existing databases, non-empty app folders, and existing
+  `PatientRXSystem` services fail closed. This installer is for fresh servers;
+  established NEXT servers continue with Project Control option 8 then 15. A
+  disposable PostgreSQL test passed all migrations, exact-version health, and
+  the first master-administrator login before removing its test database and
+  roles. The accompanying retirement runbook keeps old 3.3.x deletion separate
+  and approval-gated.
 - Tag `v4.0.0-next.7` is a failed, non-deployable release attempt. Its server
   build passed, but the first clean-runner RX Softphone restore lacked an
   explicit Windows runtime identifier, so no GitHub release assets were
