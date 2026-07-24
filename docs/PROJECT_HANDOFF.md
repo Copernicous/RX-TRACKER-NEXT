@@ -9,8 +9,8 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 ## Current state
 
 - Repository: `Copernicous/RX-TRACKER-NEXT`
-- Branch: `main` (official `v4.0.0-next.16` release published and verified;
-  production installation is still pending)
+- Branch: `staging` (the unreleased `4.0.0-next.17` candidate is under test;
+  official `v4.0.0-next.16` remains the latest published release)
 - Current production release: `v4.0.0-next.6`
 - Production application folder: `C:\RX-Tracker\RX-APP-NEXT`
 - Windows service ID: `PatientRXSystem`
@@ -47,6 +47,12 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 - Legacy fallback application remains under `C:\RX-Tracker\RX-APP`.
 - Current operating posture: production is healthy and the team is waiting for
   customer feedback. No confirmed production incident is open.
+- The `4.0.0-next.17` staging candidate adds an RX Records warehouse-return
+  filter/readable badge and makes Backoffice **Calls Only** cleanup include both
+  automatic `CallCenterCallAttempts` rows and legacy `Called` audit events.
+  The cleanup is transactional and preserves patients, RX records, notes,
+  service dates, users, phone accounts, and pairings. Targeted database and
+  browser regressions plus the complete staging smoke suite passed.
 - On 2026-07-22, a controlled production data repair removed six inactive,
   unreferenced default WorkflowActions that had been added during the original
   NEXT cutover. Production now retains exactly the seven configured 3.3.1

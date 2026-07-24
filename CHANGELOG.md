@@ -12,6 +12,26 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 - Added a sanitized, version-controlled project handoff and authoritative root agent instructions so future sessions can recover the production layout, release/rollback process, repository boundaries, decisions, and current operating status without relying on chat history or storing secrets.
 - Recorded a deferred, approval-gated cleanup checkpoint for the legacy production database/application and the former local 3.3.x development environment.
 
+## [4.0.0-next.17] - 2026-07-23
+
+### Added
+
+- Added an RX Records **Warehouse Status** filter with **Returned to Warehouse** and **Not Returned** choices.
+- Added warehouse status, return date, and return note columns to the filtered RX Records CSV export.
+- Added automatic call-attempt counts and recent-attempt preview rows to Backoffice **Call Center Cleanup**.
+
+### Changed
+
+- Replaced the warehouse icon-only marker in RX Records with a visible **Returned to Warehouse** badge.
+- Changed **Calls Only** cleanup to remove both automatic `CallCenterCallAttempts` analytics rows and legacy `Called` audit events in the same transaction. Empty date, user, and patient filters select all call history; patients, RX records, notes, service dates, users, phone accounts, and pairings remain untouched.
+
+### Testing
+
+- Added database-backed regressions for paginated and non-paginated warehouse filtering.
+- Added a cleanup regression proving that **Calls Only** removes both call storage layers while preserving the associated patient RX records.
+
+**Database impact:** None. This release uses the existing RX warehouse fields and Call Center tables and does not add or change a migration, table, column, index, or constraint.
+
 ## [4.0.0-next.16] - 2026-07-23
 
 ### Changed

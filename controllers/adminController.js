@@ -650,6 +650,7 @@ function ccWantsTarget(input, target) {
 
 async function ccCleanupCounts(input) {
     const counts = {
+        callAttempts: 0,
         callEvents: 0,
         callCenterNotes: 0,
         noteAuditEvents: 0,
@@ -660,6 +661,16 @@ async function ccCleanupCounts(input) {
 
     let rep = {};
     if (ccWantsTarget(input, 'calls')) {
+        counts.callAttempts = await ccCount(
+            `SELECT COUNT(*)::int AS count FROM "CallCenterCallAttempts" WHERE ${ccWhere(input, {
+                prefix: 'callAttempt',
+                dateCol: `"dialedAt"`,
+                userCol: `"userId"`,
+                patientCol: `"patientId"`
+            }, rep)}`,
+            rep
+        );
+        rep = {};
         counts.callEvents = await ccCount(
             `SELECT COUNT(*)::int AS count FROM "AuditLogs" WHERE ${ccWhere(input, {
                 prefix: 'call',
@@ -736,7 +747,7 @@ async function ccCleanupCounts(input) {
         );
     }
 
-    counts.total = counts.callEvents + counts.callCenterNotes + counts.noteAuditEvents +
+    counts.total = counts.callAttempts + counts.callEvents + counts.callCenterNotes + counts.noteAuditEvents +
         counts.serviceDateAuditEvents + counts.serviceDateHistoryEvents + counts.locks;
     return counts;
 }
@@ -763,6 +774,24 @@ exports.getCallCenterCleanupPreview = async (req, res) => {
                     lockScope: true
                 }, rep)}
                 ORDER BY l."createdAt" DESC
+                LIMIT 20
+            `, { type: QueryTypes.SELECT, replacements: rep });
+        } else if (input.target === 'calls') {
+            const rep = {};
+            preview = await db.sequelize.query(`
+                SELECT a.id, a."dialedAt" AS "createdAt",
+                       COALESCE(NULLIF(a.outcome, ''), NULLIF(a.state, ''), 'Call Attempt') AS action,
+                       a."patientId", a."patientName",
+                       a."agentName" AS "userName", u.username
+                FROM "CallCenterCallAttempts" a
+                LEFT JOIN "Users" u ON u.id = a."userId"
+                WHERE ${ccWhere(input, {
+                    prefix: 'previewAttempt',
+                    dateCol: `a."dialedAt"`,
+                    userCol: `a."userId"`,
+                    patientCol: `a."patientId"`
+                }, rep)}
+                ORDER BY a."dialedAt" DESC
                 LIMIT 20
             `, { type: QueryTypes.SELECT, replacements: rep });
         } else {
@@ -816,6 +845,17 @@ exports.purgeCallCenterCleanup = async (req, res) => {
         let rep = {};
 
         if (ccWantsTarget(input, 'calls')) {
+            results.callAttempts = await ccDeleteReturning(
+                `DELETE FROM "CallCenterCallAttempts" WHERE ${ccWhere(input, {
+                    prefix: 'callAttemptDel',
+                    dateCol: `"dialedAt"`,
+                    userCol: `"userId"`,
+                    patientCol: `"patientId"`
+                }, rep)} RETURNING id`,
+                rep,
+                t
+            );
+            rep = {};
             results.callEvents = await ccDeleteReturning(
                 `DELETE FROM "AuditLogs" WHERE ${ccWhere(input, {
                     prefix: 'callDel',

@@ -478,6 +478,61 @@ async function runAdminDashboardAndReports(fixtures) {
     await page.locator('#ccAttemptReportBody .cc-open-activity').first().click();
     await expectVisible(page, '#ccActivityReportPane.active.show', 'Patient Activity report return link');
 
+    const returnedRx = await db.RXRecord.create({
+        patientId: fixtures.metricPatient.id,
+        serviceDate: dateFromToday(-30),
+        isDeleted: false,
+        returnedToWarehouse: true,
+        warehouseReturnDate: new Date(),
+        warehouseReturnNote: 'Staging browser warehouse filter smoke'
+    });
+    const notReturnedRx = await db.RXRecord.create({
+        patientId: fixtures.secondMetricPatient.id,
+        serviceDate: dateFromToday(-30),
+        isDeleted: false,
+        returnedToWarehouse: false
+    });
+
+    await page.goto(route('/rx-records'), { waitUntil: 'domcontentloaded' });
+    await page.locator('button[onclick="toggleRxPanel()"]').click();
+    await expectVisible(page, '#rxFilterWarehouseStatus', 'RX Records Warehouse Status filter');
+    let warehouseResponse = page.waitForResponse(response =>
+        response.url().includes('/api/rx-records?')
+        && response.url().includes('warehouseStatus=returned')
+        && response.status() === 200,
+        { timeout: 15000 }
+    );
+    await page.selectOption('#rxFilterWarehouseStatus', 'returned');
+    await warehouseResponse;
+    await page.waitForFunction((rxId) => {
+        const body = document.querySelector('#rxBody');
+        return body && body.textContent.indexOf('#' + rxId) !== -1;
+    }, returnedRx.id, { timeout: 15000 });
+    const returnedBody = await page.locator('#rxBody').innerText();
+    assert(returnedBody.includes('#' + returnedRx.id), 'Returned filter did not include the returned RX.');
+    assert(!returnedBody.includes('#' + notReturnedRx.id), 'Returned filter included a non-returned RX.');
+    assert(returnedBody.includes('Returned to Warehouse'), 'Returned RX must show a readable warehouse badge.');
+    await expectDownload(page, '#exportRxListCsvBtn', 'Filtered RX warehouse CSV export');
+
+    warehouseResponse = page.waitForResponse(response =>
+        response.url().includes('/api/rx-records?')
+        && response.url().includes('warehouseStatus=not-returned')
+        && response.status() === 200,
+        { timeout: 15000 }
+    );
+    await page.selectOption('#rxFilterWarehouseStatus', 'not-returned');
+    await warehouseResponse;
+    await page.waitForFunction((rxId) => {
+        const body = document.querySelector('#rxBody');
+        return body && body.textContent.indexOf('#' + rxId) !== -1;
+    }, notReturnedRx.id, { timeout: 15000 });
+    const notReturnedBody = await page.locator('#rxBody').innerText();
+    assert(notReturnedBody.includes('#' + notReturnedRx.id), 'Not Returned filter did not include the active RX.');
+    assert(!notReturnedBody.includes('#' + returnedRx.id), 'Not Returned filter included a returned RX.');
+    pass('RX Records warehouse filter and readable status badge');
+
+    await db.RXRecord.destroy({ where: { id: { [Op.in]: [returnedRx.id, notReturnedRx.id] } } });
+
     await page.goto(route('/patients'), { waitUntil: 'domcontentloaded' });
     await page.locator('#advancedToggleBtn').click();
     await page.locator('#srchPatientType').waitFor({ state: 'visible', timeout: 15000 });
@@ -893,6 +948,16 @@ async function cleanup() {
         if (db.CallCenterCallAttempt) await db.CallCenterCallAttempt.destroy({ where: { patientId: { [Op.in]: patientIds } } }).catch(() => {});
         if (db.CallCenterLock) await db.CallCenterLock.destroy({ where: { patientId: { [Op.in]: patientIds } } }).catch(() => {});
         if (db.PatientLock) await db.PatientLock.destroy({ where: { patientId: { [Op.in]: patientIds } } }).catch(() => {});
+        if (db.RXRecord) {
+            const smokeRx = await db.RXRecord.findAll({ where: { patientId: { [Op.in]: patientIds } }, attributes: ['id'] }).catch(() => []);
+            const smokeRxIds = smokeRx.map(row => row.id);
+            if (smokeRxIds.length) {
+                if (db.RXWorkflowTracking) await db.RXWorkflowTracking.destroy({ where: { rxRecordId: { [Op.in]: smokeRxIds } } }).catch(() => {});
+                if (db.RXHistory) await db.RXHistory.destroy({ where: { rxRecordId: { [Op.in]: smokeRxIds } } }).catch(() => {});
+                if (db.Medication) await db.Medication.destroy({ where: { rxRecordId: { [Op.in]: smokeRxIds } } }).catch(() => {});
+                await db.RXRecord.destroy({ where: { id: { [Op.in]: smokeRxIds } } }).catch(() => {});
+            }
+        }
         await db.PatientNote.destroy({ where: { patientId: { [Op.in]: patientIds } } }).catch(() => {});
         if (db.PatientServiceDateHistory) await db.PatientServiceDateHistory.destroy({ where: { patientId: { [Op.in]: patientIds } } }).catch(() => {});
         if (db.PatientServiceDateCycle) await db.PatientServiceDateCycle.destroy({ where: { patientId: { [Op.in]: patientIds } } }).catch(() => {});

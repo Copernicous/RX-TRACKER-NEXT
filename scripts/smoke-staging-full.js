@@ -12,6 +12,7 @@ const tasks = [
     ['security alerts smoke', 'smoke-staging-security-alerts.js'],
     ['security hardening smoke', 'smoke-staging-security-hardening.js'],
     ['Call Center API restriction smoke', 'smoke-staging-call-center-security.js'],
+    ['RX warehouse filter and Call Center cleanup regression', 'test-rx-warehouse-filter-cleanup.js'],
     ['staging browser click smoke', 'run-isolated-staging-ui-smoke.js']
 ];
 

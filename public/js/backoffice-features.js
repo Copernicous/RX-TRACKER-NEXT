@@ -2391,6 +2391,7 @@ function renderCcCleanupPreview(data) {
     var countsEl = document.getElementById('ccCleanCounts');
     if (countsEl) {
         countsEl.innerHTML =
+            '<div class="stat-pill"><div class="num" style="color:#22c55e">' + (c.callAttempts || 0).toLocaleString() + '</div><div class="lbl">Automatic Attempts</div></div>' +
             '<div class="stat-pill"><div class="num" style="color:#38bdf8">' + (c.callEvents || 0).toLocaleString() + '</div><div class="lbl">Call Events</div></div>' +
             '<div class="stat-pill"><div class="num" style="color:#eab308">' + (c.callCenterNotes || 0).toLocaleString() + '</div><div class="lbl">Call Center Notes</div></div>' +
             '<div class="stat-pill"><div class="num" style="color:#a78bfa">' + ((c.noteAuditEvents || 0) + (c.serviceDateAuditEvents || 0)).toLocaleString() + '</div><div class="lbl">Audit Events</div></div>' +

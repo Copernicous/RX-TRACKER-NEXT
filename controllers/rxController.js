@@ -135,6 +135,7 @@ function buildRxWhere(query) {
     const patientId = cleanString(query.patientId);
     const patientTransportId = cleanString(query.patientTransportId);
     const pharmacyTransportId = cleanString(query.pharmacyTransportId);
+    const warehouseStatus = cleanString(query.warehouseStatus);
     const from = maxDateOnly([query.dateFrom, query.serviceFrom]);
     const to = minDateOnly([query.dateTo, query.serviceTo]);
 
@@ -143,6 +144,12 @@ function buildRxWhere(query) {
     if (/^\d+$/.test(patientId)) where.patientId = parseInt(patientId, 10);
     if (/^\d+$/.test(patientTransportId)) where.patientTransportCompanyId = parseInt(patientTransportId, 10);
     if (/^\d+$/.test(pharmacyTransportId)) where.pharmacyTransportCompanyId = parseInt(pharmacyTransportId, 10);
+    if (warehouseStatus === 'returned') where.returnedToWarehouse = true;
+    if (warehouseStatus === 'not-returned') {
+        where[Op.and] = (where[Op.and] || []).concat({
+            [Op.or]: [{ returnedToWarehouse: false }, { returnedToWarehouse: null }]
+        });
+    }
     if (from || to) {
         where.serviceDate = {};
         if (from) where.serviceDate[Op.gte] = from;
@@ -161,6 +168,7 @@ function addRxPageFilters(query, replacements, totalSteps) {
     const pharmacyId = cleanString(query.pharmacyId);
     const patientTransportId = cleanString(query.patientTransportId);
     const pharmacyTransportId = cleanString(query.pharmacyTransportId);
+    const warehouseStatus = cleanString(query.warehouseStatus);
     const workflowStatus = cleanString(query.workflowStatus);
     const workflowStage = cleanString(query.workflowStage);
     const from = maxDateOnly([query.dateFrom, query.serviceFrom]);
@@ -191,6 +199,11 @@ function addRxPageFilters(query, replacements, totalSteps) {
     if (/^\d+$/.test(pharmacyTransportId)) {
         replacements.pharmacyTransportId = parseInt(pharmacyTransportId, 10);
         whereSql.push('r."pharmacyTransportCompanyId" = :pharmacyTransportId');
+    }
+    if (warehouseStatus === 'returned') {
+        whereSql.push('r."returnedToWarehouse" = TRUE');
+    } else if (warehouseStatus === 'not-returned') {
+        whereSql.push('(r."returnedToWarehouse" = FALSE OR r."returnedToWarehouse" IS NULL)');
     }
     if (from) {
         replacements.serviceFrom = from;

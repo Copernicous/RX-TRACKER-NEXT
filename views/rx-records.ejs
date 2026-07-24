@@ -156,6 +156,14 @@
                                 <option value="">All Pharmacy Transports</option>
                             </select>
                         </div>
+                        <div class="col-md-2">
+                            <label class="form-label small fw-bold"><i class="fas fa-warehouse me-1"></i>Warehouse Status</label>
+                            <select class="form-select form-select-sm" id="rxFilterWarehouseStatus">
+                                <option value="">All Warehouse Statuses</option>
+                                <option value="returned">Returned to Warehouse</option>
+                                <option value="not-returned">Not Returned</option>
+                            </select>
+                        </div>
                         <div class="col-md-3 d-flex align-items-end">
                             <div class="form-check form-switch mt-1">
                                 <input class="form-check-input" type="checkbox" id="rxShowDeleted">
@@ -942,7 +950,11 @@
                 stageHeaders.push(a.name);
                 stageHeaders.push(a.name + ' (Days Lag)');
             });
-            var headers = ['RX #', 'Patient ID', 'Patient Name', 'Pharmacy', 'Service Date', 'Completed Steps'].concat(stageHeaders);
+            var headers = [
+                'RX #', 'Patient ID', 'Patient Name', 'Pharmacy', 'Service Date',
+                'Warehouse Status', 'Warehouse Return Date', 'Warehouse Return Note',
+                'Completed Steps'
+            ].concat(stageHeaders);
 
             function _csvDaysBetween(d1, d2) {
                 var t1 = new Date(d1); t1.setHours(0,0,0,0);
@@ -959,6 +971,9 @@
                     rx.Patient ? (rx.Patient.firstName + ' ' + rx.Patient.lastName).trim() : '',
                     rx.Pharmacy ? rx.Pharmacy.name : '',
                     rx.serviceDate ? new Date(rx.serviceDate).toLocaleDateString() : '',
+                    rx.returnedToWarehouse ? 'Returned to Warehouse' : 'Not Returned',
+                    rx.warehouseReturnDate ? new Date(rx.warehouseReturnDate).toLocaleString() : '',
+                    rx.warehouseReturnNote || '',
                     (rx.RXWorkflowTrackings || []).length + ' / ' + allWorkflowActions.length
                 ];
                 var svcDate = rx.serviceDate ? new Date(rx.serviceDate) : null;
@@ -1045,7 +1060,7 @@
         // Filter bar listeners
         var _filterIds = ['rxFilterPatient','rxFilterId','rxFilterPharmacy','rxFilterPatientCode',
                           'rxFilterDateFrom','rxFilterDateTo','rxFilterSvcFrom','rxFilterSvcTo',
-                          'rxFilterPatientTransport','rxFilterPharmacyTransport',
+                          'rxFilterPatientTransport','rxFilterPharmacyTransport','rxFilterWarehouseStatus',
                           'rxFilterWorkflowStatus','rxFilterWorkflowStage'];
         for (var _fi = 0; _fi < _filterIds.length; _fi++) {
             (function(fid) {
@@ -1182,6 +1197,7 @@
         setRxParam(params, 'serviceTo', document.getElementById('rxFilterSvcTo')?.value || '');
         setRxParam(params, 'patientTransportId', document.getElementById('rxFilterPatientTransport')?.value || '');
         setRxParam(params, 'pharmacyTransportId', document.getElementById('rxFilterPharmacyTransport')?.value || '');
+        setRxParam(params, 'warehouseStatus', document.getElementById('rxFilterWarehouseStatus')?.value || '');
         setRxParam(params, 'workflowStatus', document.getElementById('rxFilterWorkflowStatus')?.value || '');
         setRxParam(params, 'workflowStage', document.getElementById('rxFilterWorkflowStage')?.value || '');
         setRxParam(params, 'patientId', window._rxPrefilterPatientId || '');
@@ -1288,6 +1304,8 @@
         var phtSel = document.getElementById('rxFilterPharmacyTransport');
         var ptVal = ptSel ? ptSel.value : '';
         var phtVal = phtSel ? phtSel.value : '';
+        var whSel = document.getElementById('rxFilterWarehouseStatus');
+        var whVal = whSel ? whSel.value : '';
         var _wfEl = document.getElementById('rxFilterWorkflowStatus');
         var wf    = _wfEl ? _wfEl.value : '';
         var _wfsEl = document.getElementById('rxFilterWorkflowStage');
@@ -1317,6 +1335,8 @@
             if (sto   && r.serviceDate && r.serviceDate > sto)   return false;
             if (ptVal && String(r.patientTransportCompanyId || '') !== String(ptVal)) return false;
             if (phtVal && String(r.pharmacyTransportCompanyId || '') !== String(phtVal)) return false;
+            if (whVal === 'returned' && !r.returnedToWarehouse) return false;
+            if (whVal === 'not-returned' && r.returnedToWarehouse) return false;
             if (wf === 'pending' && (wfKey === 'completed')) return false;
             if (wf === 'pending' && wfKey === 'expired') return false;
             if (wf && wf !== 'pending' && wfKey !== wf) return false;
@@ -1415,7 +1435,15 @@
                 strong.textContent = '#' + rx.id;
                 tdId.appendChild(strong);
                 if (isDeleted) { var hidBadge = document.createElement('span'); hidBadge.className = 'badge bg-secondary ms-1'; hidBadge.textContent = 'Hidden'; tdId.appendChild(hidBadge); }
-                if (rx.returnedToWarehouse) { var whB = document.createElement('span'); whB.className = 'badge bg-warning text-dark ms-1'; whB.title = 'Returned to Warehouse'; whB.innerHTML = '<i class="fas fa-warehouse"></i>'; tdId.appendChild(whB); }
+                if (rx.returnedToWarehouse) {
+                    var whB = document.createElement('span');
+                    whB.className = 'badge bg-warning text-dark ms-1';
+                    whB.title = rx.warehouseReturnDate
+                        ? 'Returned ' + new Date(rx.warehouseReturnDate).toLocaleString()
+                        : 'Returned to Warehouse';
+                    whB.innerHTML = '<i class="fas fa-warehouse me-1"></i>Returned to Warehouse';
+                    tdId.appendChild(whB);
+                }
                 tr.appendChild(tdId);
 
                 /* ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ Patient cell ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ */
