@@ -9,7 +9,7 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 ## Current state
 
 - Repository: `Copernicous/RX-TRACKER-NEXT`
-- Branch: `staging` (the `v4.0.0-next.16` candidate is awaiting user validation before promotion)
+- Branch: `develop` (the validated `v4.0.0-next.16` candidate is promoted from staging for final integration testing)
 - Current production release: `v4.0.0-next.6`
 - Production application folder: `C:\RX-Tracker\RX-APP-NEXT`
 - Windows service ID: `PatientRXSystem`
