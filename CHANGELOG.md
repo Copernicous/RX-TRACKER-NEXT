@@ -12,6 +12,27 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 - Added a sanitized, version-controlled project handoff and authoritative root agent instructions so future sessions can recover the production layout, release/rollback process, repository boundaries, decisions, and current operating status without relying on chat history or storing secrets.
 - Recorded a deferred, approval-gated cleanup checkpoint for the legacy production database/application and the former local 3.3.x development environment.
 
+## [4.0.0-next.19] - 2026-07-24
+
+### Added
+
+- Added a portable, compiled new-server ZIP with a double-click Windows installer. It verifies the package, refuses existing databases/services, provisions an audited fresh database, creates the first administrator, configures a restricted runtime role, generates and protects the destination `.env`, installs the Windows service, and requires an exact-version health response.
+- Added a staged legacy 3.3.x retirement runbook that preserves a verified rollback set and keeps database deletion separate, named, and approval-gated.
+
+### Security
+
+- Kept PostgreSQL maintenance credentials out of the generated `.env`; the installed service receives a unique restricted runtime identity instead.
+- Kept reusable `.env` files and all deployment secrets out of the portable ZIP. JWT, SIP encryption, relay, runtime database, and administration-PIN values are generated independently on the destination server.
+- Requires a first-administrator password of at least 12 characters and does not provide a public default password.
+- Restricts the installed `.env` to Local System and local Administrators.
+
+### Testing
+
+- Added a portable-installer regression covering secret generation, existing-database/service refusal, inherited-environment isolation, restricted runtime-role verification, `.env` ACL protection, exact-version health gating, documentation, and release packaging.
+- Added a disposable PostgreSQL end-to-end installer test covering all 35 migrations, generated runtime configuration, exact-version health, first master-administrator login, and cleanup of test-only database roles.
+
+**Database impact:** None for existing NEXT installations. The portable installer creates a separately named fresh database only after confirming it does not exist; normal NEXT updates do not run this installer.
+
 ## [4.0.0-next.18] - 2026-07-24
 
 ### Added
