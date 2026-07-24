@@ -13,6 +13,7 @@ const tasks = [
     ['security hardening smoke', 'smoke-staging-security-hardening.js'],
     ['Call Center API restriction smoke', 'smoke-staging-call-center-security.js'],
     ['RX warehouse filter and Call Center cleanup regression', 'test-rx-warehouse-filter-cleanup.js'],
+    ['managed RX Softphone relay regression', 'test-softphone-relay.js'],
     ['staging browser click smoke', 'run-isolated-staging-ui-smoke.js']
 ];
 

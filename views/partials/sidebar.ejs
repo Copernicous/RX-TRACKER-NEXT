@@ -27,7 +27,7 @@
   const hideVersionSidebar = false;
   const refActive   = ['pharmacies','patient-transport','pharmacy-transport','clinics','workflow-actions','medication-catalog'].includes(ap);
   const rptActive   = ['reports','audit-log'].includes(ap);
-  const adminActive = ['roles','users','softphone-devices','system-settings','backups','import','active-users','phone-account-setup'].includes(ap);
+  const adminActive = ['roles','users','live-rx-phones','softphone-devices','system-settings','backups','import','active-users','phone-account-setup'].includes(ap);
 
   const refVisible   = sv('pharmacies') || sv('patient_transport') || sv('pharmacy_transport') || sv('clinics') || sv('workflow_actions') || sv('medication_catalog');
   const rptVisible   = sv('reports') || sv('audit_log');
@@ -169,6 +169,9 @@
                 </li>
                 <% } %>
                 <% if (isAdmin) { %>
+                <li class="<%= ap === 'live-rx-phones' ? 'active' : '' %>">
+                    <a href="/live-rx-phones"><i class="fas fa-phone-volume me-2"></i>Live RX Phones</a>
+                </li>
                 <li class="<%= ap === 'softphone-devices' ? 'active' : '' %>">
                     <a href="/softphone-devices"><i class="fas fa-headset me-2"></i>Phone Devices</a>
                 </li>
