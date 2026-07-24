@@ -154,7 +154,8 @@ function baseEligibleWhere() {
         [Op.and]: [
             { isActive: true },
             { serviceDate: { [Op.ne]: null } },
-            { [Op.or]: [{ isDeleted: false }, { isDeleted: null }] }
+            { [Op.or]: [{ isDeleted: false }, { isDeleted: null }] },
+            { [Op.or]: [{ isNonCompanyPatient: false }, { isNonCompanyPatient: null }] }
         ]
     };
 }
@@ -162,7 +163,25 @@ function baseEligibleWhere() {
 function isEligiblePatient(patient) {
     if (!patient || patient.isActive !== true) return false;
     if (patient.isDeleted === true) return false;
+    if (patient.isNonCompanyPatient === true) return false;
     return isCallCenterCandidate(patient.serviceDate);
+}
+
+async function loadCallCenterPatient(patientId, options) {
+    options = options || {};
+    const query = {};
+    if (options.transaction) {
+        query.transaction = options.transaction;
+        query.lock = options.transaction.LOCK.UPDATE;
+    }
+    return db.Patient.findByPk(patientId, query);
+}
+
+function callCenterIneligibilityMessage(patient) {
+    if (patient && patient.isNonCompanyPatient === true) {
+        return 'Non-company patients are not eligible for Call Center calls.';
+    }
+    return 'Patient is not currently Call Center eligible.';
 }
 
 function patientMatchesSearch(patient, q) {
@@ -541,6 +560,11 @@ exports.claimPatient = async (req, res) => {
     const patientId = parseInt(req.params.id, 10);
     if (!Number.isFinite(patientId)) return res.status(400).json({ error: 'Invalid patient id.' });
     try {
+        const patient = await loadCallCenterPatient(patientId);
+        if (!patient) return res.status(404).json({ error: 'Patient not found.' });
+        if (!isEligiblePatient(patient)) {
+            return res.status(409).json({ error: callCenterIneligibilityMessage(patient) });
+        }
         const claim = await acquireCallCenterLock(patientId, req);
         if (!claim.ok) return res.status(claim.status || 409).json({ error: claim.error, lock: claim.lock || null });
         res.json({ ok: true, expiresAt: claim.lock.expiresAt });
@@ -674,7 +698,7 @@ exports.listPatients = async (req, res) => {
         const sortConfig = parseSort(req.query || {});
         const q = String((req.query && req.query.q) || '').trim();
         const rows = await db.Patient.findAll({
-            attributes: ['id', 'firstName', 'lastName', 'clinicId', 'patientTransportCompanyId', 'phone', 'serviceDate', 'notes', 'isActive', 'isDeleted'],
+            attributes: ['id', 'firstName', 'lastName', 'clinicId', 'patientTransportCompanyId', 'phone', 'serviceDate', 'notes', 'isActive', 'isDeleted', 'isNonCompanyPatient'],
             include: [
                 { model: db.Clinic, attributes: ['id', 'name'], required: false },
                 { model: db.PatientTransportCompany, attributes: ['id', 'companyName'], required: false }
@@ -849,14 +873,14 @@ exports.savePatientAction = async (req, res) => {
                 throw err;
             }
 
-            const patient = await db.Patient.findByPk(id, { transaction });
+            const patient = await loadCallCenterPatient(id, { transaction });
             if (!patient) {
                 const err = new Error('Patient not found.');
                 err.status = 404;
                 throw err;
             }
             if (!isEligiblePatient(patient)) {
-                const err = new Error('Patient is not currently Call Center eligible.');
+                const err = new Error(callCenterIneligibilityMessage(patient));
                 err.status = 409;
                 throw err;
             }
@@ -948,7 +972,7 @@ exports.savePatientAction = async (req, res) => {
 
 async function eligibleTotal() {
     const patients = await db.Patient.findAll({
-        attributes: ['serviceDate', 'isActive', 'isDeleted'],
+        attributes: ['serviceDate', 'isActive', 'isDeleted', 'isNonCompanyPatient'],
         where: baseEligibleWhere()
     });
     return patients.filter(isEligiblePatient).length;
@@ -956,7 +980,7 @@ async function eligibleTotal() {
 
 async function availableEligibleTotal(userId) {
     const patients = await db.Patient.findAll({
-        attributes: ['id', 'serviceDate', 'isActive', 'isDeleted'],
+        attributes: ['id', 'serviceDate', 'isActive', 'isDeleted', 'isNonCompanyPatient'],
         where: baseEligibleWhere()
     });
     const eligiblePatients = patients.filter(isEligiblePatient);
