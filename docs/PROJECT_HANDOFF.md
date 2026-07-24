@@ -52,7 +52,7 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
   check, relay regression, Call Center phone-client regression, public
   JavaScript validation, and staging configuration guard passed. It has no
   database migration and does not require an RX Softphone update.
-- Staging candidate `4.0.0-next.19` adds a compiled
+- Staging candidate `4.0.0-next.20` adds a compiled
   `RX-Tracker-NEXT-New-Server-<version>.zip`. The package contains no reusable
   `.env`; `INSTALL-NEW-SERVER.bat` creates a fresh database, explicit first
   administrator, restricted runtime role, destination-specific `.env`, NSSM

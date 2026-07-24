@@ -12,6 +12,20 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 - Added a sanitized, version-controlled project handoff and authoritative root agent instructions so future sessions can recover the production layout, release/rollback process, repository boundaries, decisions, and current operating status without relying on chat history or storing secrets.
 - Recorded a deferred, approval-gated cleanup checkpoint for the legacy production database/application and the former local 3.3.x development environment.
 
+## [4.0.0-next.20] - 2026-07-24
+
+### Fixed
+
+- Corrected the portable new-server installer so an NSSM `SERVICE_START_PENDING` transition is treated as an accepted Windows start request and proceeds to the existing 60-second exact-version health gate.
+- Preserved hard failure behavior when Windows reports neither `StartPending` nor `Running`, including the NSSM diagnostic output in the failure message.
+
+### Testing
+
+- Extended the portable-installer regression to require explicit pending-start handling before the application health check.
+- Confirmed the reported `4.0.0-next.19` installation completed successfully despite the false installer error: the service reached `Running`, `/api/healthz` returned version `4.0.0-next.19` with database `ok`, and the service error log was empty.
+
+**Database impact:** None. This changes only new-server Windows service start handling and does not add or modify any migration, table, column, index, constraint, or production data.
+
 ## [4.0.0-next.19] - 2026-07-24
 
 ### Added

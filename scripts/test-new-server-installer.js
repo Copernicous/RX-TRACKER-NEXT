@@ -29,6 +29,8 @@ assert(installer.includes('Protect-EnvironmentFile $EnvPath'), 'Installer must r
 assert(installer.includes("if ($NoService)"), 'Installer must distinguish disposable no-service validation from a secured service installation.');
 assert(installer.includes('Clear-ProcessDatabaseEnvironment'), 'Installer must verify the generated .env without inherited database overrides.');
 assert(installer.includes('Wait-ForHealth $version'), 'Installer must require a healthy exact-version response.');
+assert(installer.includes("@('StartPending', 'Running')"), 'Installer must tolerate the Windows service start-pending transition before its health gate.');
+assert(installer.includes('waiting for application health'), 'Installer must continue to the health gate after Windows accepts a pending service start.');
 assert(installer.includes('new-server-installation.json'), 'Installer must write a non-secret installation receipt.');
 assert(installer.includes('Administrator password must be at least 12 characters.'), 'Installer must enforce the database bootstrap password policy.');
 assert(!installer.includes("return 'admin123'"), 'Installer must not inject a public default administrator password.');

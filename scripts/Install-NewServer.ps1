@@ -417,8 +417,23 @@ function Install-NssmService {
     )) {
         Invoke-Checked $NssmExe @('set', $ServiceName, $setting[0], $setting[1]) "Service setting $($setting[0])"
     }
-    Invoke-Checked $NssmExe @('start', $ServiceName) 'Windows service start'
-    Write-Ok "Windows service $ServiceName installed and started."
+    $startOutput = @(& $NssmExe start $ServiceName 2>&1)
+    $startExitCode = $LASTEXITCODE
+    if ($startExitCode -ne 0) {
+        $service = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
+        $acceptedStates = @('StartPending', 'Running')
+        if ($service -and $acceptedStates -contains [string]$service.Status) {
+            Write-Ok "Windows accepted the $ServiceName start request (state=$($service.Status)); waiting for application health."
+        } else {
+            $details = ($startOutput | ForEach-Object { [string]$_ } | Where-Object { $_ } | Out-String).Trim()
+            if ($details) {
+                Fail "Windows service start failed with exit code $startExitCode. $details"
+            }
+            Fail "Windows service start failed with exit code $startExitCode."
+        }
+    } else {
+        Write-Ok "Windows service $ServiceName installed and started."
+    }
 }
 
 function Wait-ForHealth([string]$ExpectedVersion) {
