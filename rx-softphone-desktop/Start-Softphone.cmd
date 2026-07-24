@@ -3,26 +3,38 @@ setlocal
 set "RXSOFT_ROOT=%~dp0"
 
 if exist "%RXSOFT_ROOT%RxSoftphone.exe" (
-  "%RXSOFT_ROOT%RxSoftphone.exe"
-  exit /b %errorlevel%
+  start "" "%RXSOFT_ROOT%RxSoftphone.exe"
+  exit /b 0
 )
 
-if exist "%RXSOFT_ROOT%release\0.4.2\RxSoftphone.exe" (
-  "%RXSOFT_ROOT%release\0.4.2\RxSoftphone.exe"
-  exit /b %errorlevel%
+if exist "%RXSOFT_ROOT%release\0.6.0\RxSoftphone.exe" (
+  start "" "%RXSOFT_ROOT%release\0.6.0\RxSoftphone.exe"
+  exit /b 0
+)
+if exist "%RXSOFT_ROOT%release\0.5.0\RxSoftphone.exe" (
+  start "" "%RXSOFT_ROOT%release\0.5.0\RxSoftphone.exe"
+  exit /b 0
+)
+if exist "%RXSOFT_ROOT%release\0.4.4\RxSoftphone.exe" (
+  start "" "%RXSOFT_ROOT%release\0.4.4\RxSoftphone.exe"
+  exit /b 0
+)
+if exist "%RXSOFT_ROOT%release\0.4.3\RxSoftphone.exe" (
+  start "" "%RXSOFT_ROOT%release\0.4.3\RxSoftphone.exe"
+  exit /b 0
 )
 if exist "%RXSOFT_ROOT%release\0.4.1\RxSoftphone.exe" (
-  "%RXSOFT_ROOT%release\0.4.1\RxSoftphone.exe"
-  exit /b %errorlevel%
+  start "" "%RXSOFT_ROOT%release\0.4.1\RxSoftphone.exe"
+  exit /b 0
 )
 if exist "%RXSOFT_ROOT%release\0.4.0\RxSoftphone.exe" (
-  "%RXSOFT_ROOT%release\0.4.0\RxSoftphone.exe"
-  exit /b %errorlevel%
+  start "" "%RXSOFT_ROOT%release\0.4.0\RxSoftphone.exe"
+  exit /b 0
 )
 
 if exist "%RXSOFT_ROOT%publish\RxSoftphone.exe" (
-  "%RXSOFT_ROOT%publish\RxSoftphone.exe"
-  exit /b %errorlevel%
+  start "" "%RXSOFT_ROOT%publish\RxSoftphone.exe"
+  exit /b 0
 )
 
 if exist "%RXSOFT_ROOT%.dotnet\dotnet.exe" (

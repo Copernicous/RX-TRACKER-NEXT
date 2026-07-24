@@ -634,6 +634,7 @@
                 server: registration.server,
                 port: registration.port,
                 username: registration.username,
+                authId: registration.authId || registration.username,
                 password: registration.password,
                 displayName: registration.displayName || registration.username,
                 localSipPort: registration.localSipPort || 0
@@ -778,6 +779,18 @@
         };
     }
 
+    function snapshotMatchesActiveCall(active, snapshot) {
+        var activeCorrelationId = active && active.correlationId
+            ? String(active.correlationId)
+            : '';
+        var snapshotCallId = snapshot && snapshot.callId
+            ? String(snapshot.callId)
+            : '';
+        return !activeCorrelationId || (
+            !!snapshotCallId && activeCorrelationId === snapshotCallId
+        );
+    }
+
     async function updateAttemptRecord(active, snapshot) {
         if (!active || !active.attemptId) return null;
         var response = await fetchWithAuth(api.callAttempts + '/' + encodeURIComponent(active.attemptId), {
@@ -802,6 +815,10 @@
     function syncActiveAttempt(snapshot) {
         var active = rxPhone.activeCall;
         if (!active || !active.attemptId) return;
+        // A relay can briefly report the previously completed call while a
+        // newly queued dial command is being accepted. Never copy that stale
+        // call's terminal timestamps or outcome into the new attempt.
+        if (!snapshotMatchesActiveCall(active, snapshot)) return;
         var payload = snapshotAttemptPayload(snapshot);
         if (['dialing', 'trying', 'ringing', 'connected', 'ended', 'failed'].indexOf(payload.state) === -1) return;
         var signature = JSON.stringify(payload);
@@ -848,8 +865,9 @@
     }
 
     function handleRxSnapshot(snapshot) {
-        rxPhone.snapshot = snapshot || null;
         var active = rxPhone.activeCall;
+        if (active && !snapshotMatchesActiveCall(active, snapshot)) return;
+        rxPhone.snapshot = snapshot || null;
         var callState = snapshot && snapshot.call ? snapshot.call : 'idle';
         if (active) {
             active.lastState = callState;
@@ -1089,7 +1107,13 @@
                     call: 'dialing',
                     callId: attempt.correlationId,
                     peer: dialNumber,
-                    dialedAt: attempt.dialedAt
+                    dialedAt: attempt.dialedAt,
+                    ringingAt: null,
+                    connectedAt: null,
+                    endedAt: null,
+                    outcome: null,
+                    sipResponseCode: null,
+                    sipReason: null
                 });
             } else {
                 dialSnapshot = await rxFetch('/api/calls', {

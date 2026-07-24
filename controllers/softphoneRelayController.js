@@ -8,7 +8,7 @@ const { updateAttemptForUser, publicAttempt } = require('./callAttemptController
 const ONLINE_WINDOW_MS = 12 * 1000;
 const PAIRING_WINDOW_MS = 10 * 60 * 1000;
 const COMMAND_WINDOW_MS = 25 * 1000;
-const MINIMUM_MANAGED_CLIENT_VERSION = '0.4.2';
+const MINIMUM_MANAGED_CLIENT_VERSION = '0.6.0';
 const ACTIVE_CALL_STATES = new Set(['dialing', 'trying', 'ringing', 'answering', 'connected', 'incoming']);
 
 function secret() {
@@ -360,6 +360,7 @@ exports.pollDevice = async (req, res) => {
                 server: account.server,
                 port: account.port,
                 username: account.username,
+                authId: account.authId || account.username,
                 displayName: account.displayName || account.username,
                 localSipPort: account.localSipPort || 0,
                 password: decryptPassword(device.userId, account.encryptedPassword)
@@ -429,7 +430,7 @@ exports.getAdminDevices = async (req, res) => {
                 order: [['firstName', 'ASC'], ['lastName', 'ASC'], ['username', 'ASC']]
             }),
             db.UserSoftphoneAccount.findAll({
-                attributes: ['userId', 'server', 'port', 'username', 'displayName', 'localSipPort', 'isEnabled', 'updatedAt']
+                attributes: ['userId', 'server', 'port', 'username', 'authId', 'displayName', 'localSipPort', 'isEnabled', 'updatedAt']
             }),
             db.SoftphoneRelayDevice.findAll()
         ]);
@@ -458,6 +459,7 @@ exports.getAdminDevices = async (req, res) => {
                         server: account.server,
                         port: account.port,
                         username: account.username,
+                        authId: account.authId || '',
                         displayName: account.displayName || account.username,
                         localSipPort: account.localSipPort || 0,
                         updatedAt: account.updatedAt

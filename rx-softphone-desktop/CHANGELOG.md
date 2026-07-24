@@ -1,5 +1,40 @@
 # Changelog
 
+## 0.6.0 - 2026-07-23
+
+- Added an application-owned Windows control window powered by the Evergreen Microsoft Edge WebView2 Runtime; the softphone no longer opens its control panel in an external browser.
+- Double-clicking the tray icon, selecting **Open RX Softphone**, passing `--open`, or launching a second instance focuses the same window.
+- Closing the window hides it to the tray while SIP registration, relay polling, and calls continue.
+- Added a checkable **Start with Windows** tray action for the current signed-in user.
+- Kept automatic startup in the interactive user session instead of a Windows service so the tray, microphone, speakers, and DPAPI-protected pairing remain available.
+- Restricted embedded navigation to the local softphone origin and disabled developer tools, password saving, autofill, new windows, and the default context menu.
+- Added a friendly WebView2 Runtime recovery screen without changing SIP, RTP/audio, pairing, managed-account, or call-telemetry behavior.
+- Compacted the desktop layout, hides redundant managed-account inputs, and collapses completed pairing fields so the full operational view fits typical workstation displays.
+- Added versioned local CSS and JavaScript URLs so persistent WebView2 profiles receive the upgraded interface immediately.
+
+## 0.5.0 - 2026-07-23
+
+- Replaced the persistent CMD window with a native Windows notification-area application.
+- Added colored tray state, SIP registration, relay, active-call state and duration, and last-call number/outcome/duration.
+- Added Open, Hang Up, managed Disable/Enable, administrator-locked Unpair, and graceful Exit tray controls.
+- Added a single-instance guard so a second launch opens the existing control panel without competing for port 5188.
+- Made packaged control-panel assets load from the executable directory, including when launched by a Windows Startup shortcut.
+- Kept SIP, RTP/audio, Auth ID, relay pairing, DPAPI token storage, and RX Tracker call telemetry behavior unchanged.
+
+## 0.4.4 - 2026-07-23
+
+- Fixed outbound calls with a separate SIP Authentication ID ending immediately after the PBX returned `200 OK`.
+- Restored the SIPSorcery outbound descriptor fields used by the proven pre-Auth-ID call path while retaining the distinct digest authentication username.
+- Added a credential-safe diagnostic event for an in-dialog `BYE` received from the remote SIP endpoint.
+- Verified ringing, answer, two-way connected call state, and a normal local hangup during a 52-second Grandstream UCM test call.
+
+## 0.4.3 - 2026-07-22
+
+- Added an optional SIP Authentication ID for PBX accounts whose digest login differs from the visible extension.
+- Kept the extension in the SIP address-of-record, Contact, From identity, and RX Tracker status while using Authentication ID only for REGISTER and authenticated outbound INVITE challenges.
+- Preserved backward compatibility by using the extension as Authentication ID whenever the new field is blank.
+- Kept SIP signaling on UDP and RTP/audio behavior unchanged.
+
 ## 0.4.2 - 2026-07-21
 
 - Enabled managed mode by default: RX Tracker supplies the assigned PBX account, while local PBX fields, Register/Unregister, and Remove pairing are locked in both the interface and loopback API.

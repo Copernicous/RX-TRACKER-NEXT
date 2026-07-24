@@ -33,6 +33,10 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.STRING(128),
       allowNull: false
     },
+    authId: {
+      type: DataTypes.STRING(128),
+      allowNull: true
+    },
     displayName: {
       type: DataTypes.STRING(128),
       allowNull: true

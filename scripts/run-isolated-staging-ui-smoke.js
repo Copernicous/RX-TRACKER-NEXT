@@ -98,6 +98,27 @@ function runSmoke(env) {
     });
 }
 
+function migrateIsolatedDatabase(env, databaseName) {
+    return new Promise((resolve, reject) => {
+        const child = spawn(process.execPath, [
+            path.join(__dirname, 'db-lifecycle.js'),
+            'migrate',
+            '--confirm-database',
+            databaseName
+        ], {
+            cwd: root,
+            env,
+            stdio: 'inherit',
+            windowsHide: true
+        });
+        child.once('error', reject);
+        child.once('exit', code => {
+            if (code === 0) resolve();
+            else reject(new Error('Isolated staging database migration failed with exit code ' + code));
+        });
+    });
+}
+
 async function stopServer(child) {
     if (!child || child.exitCode !== null) return;
     child.kill('SIGTERM');
@@ -135,8 +156,6 @@ async function main() {
         SITE_BACKUP_SCHEDULE: 'off',
         LOG_FILE: 'false',
         ALLOW_DEFAULT_SEED: 'false',
-        STAGING_ALLOW_DB_BOOTSTRAP: 'true',
-        STAGING_AUTO_MIGRATE: 'true',
         RX_ENV_PROFILE: 'qa',
         RX_EXPECTED_PORT: String(port),
         RX_EXPECTED_DB_NAME: databaseName,
@@ -149,6 +168,8 @@ async function main() {
     console.log('Starting isolated staging browser smoke.');
     console.log('Application: ' + baseUrl);
     console.log('Database   : ' + databaseName + ' (separate from shared staging)');
+
+    await migrateIsolatedDatabase(isolatedEnv, databaseName);
 
     const server = spawn(process.execPath, [path.join(root, 'app.js')], {
         cwd: root,

@@ -10,7 +10,7 @@ frozen 3.3.1 repository, its production database, or the RX Softphone source.
 
 ## Current status
 
-Version: `4.0.0-next.8` preview
+Version: `4.0.0-next.15` preview
 
 | Area | NEXT behavior |
 |---|---|
@@ -19,7 +19,7 @@ Version: `4.0.0-next.8` preview
 | Fresh database | Explicit `rx-db provision`, followed by one-time administrator bootstrap |
 | 3.3.1 database | Restore to an isolated copy, adopt the verified legacy schema, migrate, and compare |
 | Test data | Explicit sanitizer removes identities, credentials, tokens, pairings, document pointers, and free text |
-| RX Softphone | Version 0.4.2 source is preserved here and the matching workstation ZIP is published as a separate, checksummed release asset |
+| RX Softphone | Version 0.6.0 runs as a tray application with its own Windows control window and per-user automatic startup, supports optional PBX Authentication ID, and is published as a separate, checksummed workstation ZIP |
 
 The frozen application remains the production fallback until repeated
 production-shaped dump rehearsals and user acceptance are complete.

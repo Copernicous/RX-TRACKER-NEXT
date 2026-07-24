@@ -38,5 +38,6 @@ module.exports = Object.freeze({
   '20260721110000-add-phone-account-setup-allowed-to-users.js': 'fbf7e59fe687c3da86430ab466402eea2f310c2005890bf2f31a350d53c0a72e',
   '20260721190000-create-softphone-relay.js': 'e1db4a641d7456424ad90e11aa01b217b01fe364e3d11510acbde760d01ab39a',
   '20260721230000-complete-v331-startup-schema.js': '9385bc83c27bbf2ee9c8345623c1ef538c5dc22c956a59b5a461e29ba92503ce',
-  '20260721234500-repair-users-username-unique-index.js': '3bec5395a51f1643e06218a1277ccd91b9d7d9f3231b7e508aa73f3c86922c59'
+  '20260721234500-repair-users-username-unique-index.js': '3bec5395a51f1643e06218a1277ccd91b9d7d9f3231b7e508aa73f3c86922c59',
+  '20260722160000-add-auth-id-to-user-softphone-accounts.js': 'ff9e4c4ec0a6bbdf39332587a61de161286643485d1272a84b0dc0ec87240c84'
 });

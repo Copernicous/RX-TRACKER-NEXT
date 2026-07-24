@@ -1,9 +1,12 @@
 (function() {
     'use strict';
 
+    window.__RX_SOFTPHONE_DEVICES_BOOTED = true;
+
     var users = [];
     var loading = false;
     var refreshTimer = null;
+    var REQUEST_TIMEOUT_MS = 15000;
 
     function esc(value) {
         return String(value === undefined || value === null ? '' : value)
@@ -18,16 +21,38 @@
         return window.rxUrl ? window.rxUrl(path) : path;
     }
 
+    function adminDevicesEndpoint() {
+        var anchor = document.getElementById('xa-softphone-devices-api');
+        var rewritten = window.rxElementHref && anchor
+            ? window.rxElementHref(anchor)
+            : '';
+        return rewritten || endpoint('/api/admin/softphone-devices');
+    }
+
     async function request(path, options) {
-        var response = await fetch(endpoint(path), Object.assign({ credentials: 'include' }, options || {}));
-        var data = await response.json().catch(function() { return {}; });
-        if (response.status === 401) {
-            if (window.rxNav) window.rxNav('/login');
-            else window.location.href = endpoint('/login');
-            throw new Error('Authentication required.');
+        var controller = typeof AbortController === 'function' ? new AbortController() : null;
+        var timer = controller
+            ? setTimeout(function() { controller.abort(); }, REQUEST_TIMEOUT_MS)
+            : null;
+        try {
+            var requestOptions = Object.assign({ credentials: 'include' }, options || {});
+            if (controller) requestOptions.signal = controller.signal;
+            var response = await fetch(endpoint(path), requestOptions);
+            var data = await response.json().catch(function() { return {}; });
+            if (response.status === 401) {
+                if (window.rxNav) window.rxNav('/login');
+                throw new Error('Authentication required.');
+            }
+            if (!response.ok) throw new Error(data.error || data.message || ('Request failed (' + response.status + ').'));
+            return data;
+        } catch (error) {
+            if (error && error.name === 'AbortError') {
+                throw new Error('FortiGate did not return the Phone Devices request within 15 seconds. Refresh the SSL-VPN session and try again.');
+            }
+            throw error;
+        } finally {
+            if (timer) clearTimeout(timer);
         }
-        if (!response.ok) throw new Error(data.error || data.message || ('Request failed (' + response.status + ').'));
-        return data;
     }
 
     function pill(text, kind, icon) {
@@ -48,7 +73,7 @@
     function searchable(user) {
         var account = user.account || {};
         var device = user.device || {};
-        return [userLabel(user), user.username, user.email, user.roleName, account.server, account.username, account.displayName, device.deviceName, device.clientVersion]
+        return [userLabel(user), user.username, user.email, user.roleName, account.server, account.username, account.authId, account.displayName, device.deviceName, device.clientVersion]
             .join(' ').toLowerCase();
     }
 
@@ -70,11 +95,14 @@
             return;
         }
 
-        body.innerHTML = filtered.map(function(user) {
+        var rowsHtml = filtered.map(function(user) {
             var account = user.account || { configured: false };
             var device = user.device || { paired: false };
+            var authIdDetail = account.authId && account.authId !== account.username
+                ? ' · Auth ID ' + esc(account.authId)
+                : '';
             var accountHtml = account.configured
-                ? '<div class="fw-semibold">Ext. ' + esc(account.username) + '</div><div class="device-meta">' + esc(account.server) + ':' + esc(account.port) + (account.isEnabled ? '' : ' · disabled') + '</div>'
+                ? '<div class="fw-semibold">Ext. ' + esc(account.username) + '</div><div class="device-meta">' + esc(account.server) + ':' + esc(account.port) + authIdDetail + (account.isEnabled ? '' : ' · disabled') + '</div>'
                 : '<span class="text-muted">Not configured</span>';
             var deviceHtml = device.paired
                 ? '<div class="fw-semibold">' + esc(device.deviceName || 'Windows RX Softphone') + '</div><div class="device-meta">Paired ' + esc(formatDate(device.pairedAt)) + '</div>'
@@ -107,6 +135,7 @@
                 '<td class="text-end">' + action + '</td>' +
                 '</tr>';
         }).join('');
+        body.innerHTML = rowsHtml;
     }
 
     function showToast(message, kind) {
@@ -127,7 +156,7 @@
         var refresh = document.getElementById('deviceRefresh');
         if (!silent) refresh.disabled = true;
         try {
-            var data = await request('/api/admin/softphone-devices');
+            var data = await request(adminDevicesEndpoint());
             users = Array.isArray(data.users) ? data.users : [];
             renderStats();
             renderRows();
@@ -147,7 +176,7 @@
         if (!window.confirm('Revoke ' + deviceName + ' from ' + userLabelValue + '?\n\nThe workstation will unregister and must pair again before receiving calls.')) return;
         button.disabled = true;
         try {
-            var data = await request('/api/admin/softphone-devices/' + encodeURIComponent(userId), { method: 'DELETE' });
+            var data = await request(adminDevicesEndpoint() + '/' + encodeURIComponent(userId), { method: 'DELETE' });
             showToast(data.message || 'RX Softphone pairing revoked.', 'success');
             await loadDevices(true);
         } catch (error) {

@@ -1,6 +1,6 @@
 # RX Tracker NEXT project handoff
 
-Last updated: 2026-07-22
+Last updated: 2026-07-23
 
 This file is the sanitized continuity record for a future administrator or
 Codex session. It intentionally contains no credentials, `.env` values,
@@ -9,17 +9,32 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 ## Current state
 
 - Repository: `Copernicous/RX-TRACKER-NEXT`
-- Branch: `main`
+- Branch: `develop` (candidate promoted from and synchronized with `staging`)
 - Current production release: `v4.0.0-next.6`
 - Production application folder: `C:\RX-Tracker\RX-APP-NEXT`
 - Windows service ID: `PatientRXSystem`
 - Production HTTP port: `3000`
 - NEXT database name at the completed cutover: `patient_rx_next_cutover_copy`
 - Project Control version: `2.0.0`
-- Prepared release candidate: `v4.0.0-next.8`, including Project Control
-  `2.1.0`, restricted database runtime-role support, and the official RX
-  Softphone 0.4.2 workstation asset. Production remains on `v4.0.0-next.6`
-  until the signed/tagged release is published and option 15 completes.
+- Active development candidate: `v4.0.0-next.15` with RX Softphone 0.6.0. It adds an application-owned
+  WebView2 control window, hides the window to the existing tray on close,
+  focuses the same window on a second launch, and adds a per-user
+  **Start with Windows** tray option. It does not install a Windows service,
+  because the phone, tray, audio devices, and DPAPI-protected pairing must run
+  in the employee's interactive Windows session. The tray continues to show
+  SIP registration, relay state, live call state/duration, and last-call
+  details and provides Hang Up, managed Disable/Enable,
+  administrator-locked Unpair, and graceful Exit. It also makes the Administrator
+  Phone Devices inventory use FortiGate's rewritten API URL, versions the page
+  scripts to avoid SSL-VPN session caching, reports script/API timeouts
+  instead of remaining indefinitely on **Loading devices**, and renders device
+  rows through a FortiGate-safe two-step assignment after authenticated proxy
+  testing exposed an invalid rewrite of the prior compound expression. It also
+  prevents a newly queued relay call from inheriting an older call's terminal
+  timestamps by correlating every active browser snapshot and clearing previous
+  call metadata from the synthetic dialing state. This candidate is not a production
+  deployment. Production remains on `v4.0.0-next.6` until staged validation
+  and the normal promotion/release workflow complete.
 - Tag `v4.0.0-next.7` is a failed, non-deployable release attempt. Its server
   build passed, but the first clean-runner RX Softphone restore lacked an
   explicit Windows runtime identifier, so no GitHub release assets were
@@ -164,7 +179,7 @@ C:\RX-Tracker\deployment-state
 ## Decisions that must remain true
 
 - NEXT is isolated from the frozen RX Tracker 3.3.x repository.
-- RX Softphone remains a separate workstation deliverable. Its version 0.4.2
+- RX Softphone remains a separate workstation deliverable. Its version 0.6.0
   source is preserved under `rx-softphone-desktop` in NEXT, and every approved
   NEXT release that needs workstation distribution publishes its ZIP as a
   separate checksummed asset; it is never embedded in the server ZIP.

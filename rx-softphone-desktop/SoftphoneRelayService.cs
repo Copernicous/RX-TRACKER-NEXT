@@ -23,6 +23,7 @@ public sealed class SoftphoneRelayService : BackgroundService
     private string? _pendingAccountUpdatedAt;
     private RelayCommand? _pendingCommand;
     private ManagedDevicePolicy? _policy;
+    private bool _phoneEnabled = true;
     private bool _connected;
     private DateTimeOffset? _lastConnectedAt;
     private string? _error;
@@ -57,6 +58,39 @@ public sealed class SoftphoneRelayService : BackgroundService
                 _clientOptions.ManagedMode,
                 _clientOptions.AllowManualDialing,
                 _policy);
+        }
+    }
+
+    public bool PhoneEnabled
+    {
+        get
+        {
+            lock (_stateLock) return _phoneEnabled;
+        }
+    }
+
+    public async Task SetPhoneEnabledAsync(bool enabled)
+    {
+        var snapshot = _phone.GetSnapshot();
+        if (IsCallBusy(snapshot.Call))
+        {
+            throw new PhoneOperationException("Hang up the active call before changing the phone state.");
+        }
+
+        lock (_stateLock)
+        {
+            if (_phoneEnabled == enabled) return;
+            _phoneEnabled = enabled;
+            _accountUpdatedAt = null;
+            _pendingRegistration = null;
+            _pendingAccountUpdatedAt = null;
+            _pendingCommand = null;
+            _error = null;
+        }
+
+        if (!enabled && snapshot.Registration != "offline")
+        {
+            await _phone.UnregisterAsync();
         }
     }
 
@@ -202,6 +236,24 @@ public sealed class SoftphoneRelayService : BackgroundService
             _policy = poll.Policy;
         }
 
+        if (!PhoneEnabled)
+        {
+            lock (_stateLock)
+            {
+                _pendingRegistration = null;
+                _pendingAccountUpdatedAt = null;
+                if (poll.Command is not null &&
+                    !_completed.Any(item => item.CommandId == poll.Command.Id))
+                {
+                    _completed.Add(new RelayCommandResult(
+                        poll.Command.Id,
+                        false,
+                        "RX Softphone is disabled from the Windows tray."));
+                }
+            }
+            return;
+        }
+
         if (poll.Registration is not null)
         {
             lock (_stateLock)
@@ -246,6 +298,8 @@ public sealed class SoftphoneRelayService : BackgroundService
 
     private async Task ApplyPendingRegistrationAsync()
     {
+        if (!PhoneEnabled) return;
+
         RegisterRequest? registration;
         string? accountUpdatedAt;
         lock (_stateLock)

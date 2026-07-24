@@ -111,6 +111,9 @@ try {
     assert(callCenterScript.includes('function probeRelayPhone'), 'Kasm fallback must probe the paired outbound softphone relay.');
     assert(callCenterScript.includes("rxPhone.transport === 'relay'"), 'Call Center must route dial and hangup through the relay only when selected.');
     assert(callCenterScript.includes('api.relayCalls'), 'Relay call command endpoint is missing from Call Center.');
+    assert(callCenterScript.includes('function snapshotMatchesActiveCall'), 'Call Center must correlate relay snapshots before updating an active attempt.');
+    assert(callCenterScript.includes('if (!snapshotMatchesActiveCall(active, snapshot)) return;'), 'A previous relay call snapshot must not update or replace the active call.');
+    assert(/dialSnapshot = Object\.assign\(\{\}, snapshot, \{[\s\S]*?ringingAt: null,[\s\S]*?connectedAt: null,[\s\S]*?endedAt: null,[\s\S]*?outcome: null,[\s\S]*?sipResponseCode: null,[\s\S]*?sipReason: null/.test(callCenterScript), 'A new relay dialing snapshot must clear terminal metadata inherited from the previous call.');
     assert(!callCenterScript.includes("toast('Phone registration window is unavailable."), 'Call failures must not open the retired phone-registration modal.');
     assert(!callCenterScript.includes('rxCallCenterSoftphoneProfileV1'), 'Softphone account metadata must not be stored in browser localStorage.');
 
@@ -146,11 +149,15 @@ try {
 
     const setupView = fs.readFileSync(path.join(__dirname, '..', 'views', 'phone-account-setup.ejs'), 'utf8');
     const setupScript = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'phone-account-setup.js'), 'utf8');
+    const devicesView = fs.readFileSync(path.join(__dirname, '..', 'views', 'softphone-devices.ejs'), 'utf8');
+    const devicesScript = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'softphone-devices.js'), 'utf8');
     const apiRoutes = fs.readFileSync(path.join(__dirname, '..', 'routes', 'apiRoutes.js'), 'utf8');
     const sidebarView = fs.readFileSync(path.join(__dirname, '..', 'views', 'partials', 'sidebar.ejs'), 'utf8');
     assert(setupView.includes('This is a one-time setup'), 'Phone Account Setup must explain the one-time workflow.');
     assert(setupScript.includes('/api/phone-account/setup'), 'Self-service phone-account setup API integration is missing.');
     assert(setupScript.includes('phoneSetupPasswordConfirm'), 'Self-service setup must confirm the SIP password before saving.');
+    assert(setupView.includes('phoneSetupAuthId'), 'Phone Account Setup must expose the optional PBX Authentication ID.');
+    assert(setupScript.includes("authId: field('phoneSetupAuthId').value.trim()"), 'Phone Account Setup must send the optional Authentication ID.');
     assert(sidebarView.includes('locals.phoneAccountSetupAllowed === true'), 'Phone Account Setup navigation must require per-user authorization.');
     assert(!sidebarView.includes("sv('phone_account_setup')"), 'Phone Account Setup must not depend on a role-wide permission.');
     assert(apiRoutes.includes("/users/:id/phone-account/setup-access"), 'Administrator setup re-enable endpoint is missing.');
@@ -158,6 +165,14 @@ try {
     assert(apiRoutes.includes("/admin/softphone-devices"), 'Administrator managed-device inventory API is missing.');
     assert(apiRoutes.includes("/admin/softphone-devices/:userId"), 'Administrator workstation revocation API is missing.');
     assert(sidebarView.includes('Phone Devices'), 'Administrator Phone Devices navigation is missing.');
+    assert(devicesView.includes('id="xa-softphone-devices-api"'), 'Phone Devices must expose a FortiGate-rewritten API anchor.');
+    assert(devicesView.includes('/js/softphone-devices.js?v='), 'Phone Devices script must be versioned to bypass FortiGate session caching.');
+    assert(devicesScript.includes('window.rxElementHref(anchor)'), 'Phone Devices must read the FortiGate-rewritten API URL.');
+    assert(devicesScript.includes('REQUEST_TIMEOUT_MS = 15000'), 'Phone Devices must not remain indefinitely in its loading state.');
+    assert(devicesScript.includes('__RX_SOFTPHONE_DEVICES_BOOTED'), 'Phone Devices must report a script-loading failure.');
+    assert(devicesScript.includes('var rowsHtml = filtered.map(function(user)'), 'Phone Devices must build table rows before assigning innerHTML for FortiGate compatibility.');
+    assert(devicesScript.includes('body.innerHTML = rowsHtml;'), 'Phone Devices must assign the completed row markup in a FortiGate-safe statement.');
+    assert(!devicesScript.includes('body.innerHTML = filtered.map(function(user)'), 'Phone Devices must not use the compound innerHTML expression FortiGate rewrites with invalid JavaScript.');
 
     const webRoutes = fs.readFileSync(path.join(__dirname, '..', 'routes', 'webRoutes.js'), 'utf8');
     assert(webRoutes.includes('http://127.0.0.1:5188'), 'Call Center CSP must allow the local softphone origin.');
@@ -174,7 +189,10 @@ try {
     assert(softphoneRelay.includes('MaximumFailureDelay = TimeSpan.FromSeconds(5)'), 'Relay failures must use bounded network backoff.');
     assert(softphoneRelay.includes('InvalidatePairingAsync'), 'Revoked device tokens must clear the local pairing and registration.');
     assert(softphoneSip.includes('Automatic registration stopped'), 'Permanent SIP failures must stop the credential retry cycle.');
+    assert(softphoneSip.includes('var authId = string.IsNullOrWhiteSpace(request.AuthId)'), 'RX Softphone must fall back to the extension when Auth ID is blank.');
+    assert(softphoneSip.includes('SIPCallDescriptor(') && softphoneSip.includes('_authId'), 'Authenticated outbound calls must use the separate Auth ID.');
     assert(softphonePage.includes('Managed by RX Tracker'), 'Managed client UI must identify the Administrator-owned account.');
+    assert(softphonePage.includes('Authentication ID'), 'Standalone RX Softphone must expose optional Authentication ID setup.');
     assert(softphoneUi.includes('elements.registrationActions.hidden = managed'), 'Managed client UI must hide local registration controls.');
     assert.strictEqual(softphoneConfig.Softphone.ManagedMode, true, 'Distributed softphone configuration must remain managed.');
     assert(!softphoneConfig.Softphone.AllowedOrigins.includes('https://portal.rbandrc.com'), 'Kasm portal must use the relay instead of direct loopback access.');

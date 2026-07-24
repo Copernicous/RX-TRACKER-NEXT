@@ -12,6 +12,135 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 - Added a sanitized, version-controlled project handoff and authoritative root agent instructions so future sessions can recover the production layout, release/rollback process, repository boundaries, decisions, and current operating status without relying on chat history or storing secrets.
 - Recorded a deferred, approval-gated cleanup checkpoint for the legacy production database/application and the former local 3.3.x development environment.
 
+## [4.0.0-next.15] - 2026-07-23
+
+### Fixed
+
+- Prevented a newly queued relay call from inheriting the previous call's ringing, answered, ended, outcome, or SIP-response metadata.
+- Added call-correlation guards so a delayed snapshot for an older call cannot update or replace the currently active call attempt in Call Center.
+
+### Testing
+
+- Reproduced the defect with an answered relay call: the new attempt received the correct dial time but the prior call's terminal timestamps.
+- Added regression assertions for correlation filtering and clean synthetic dialing snapshots.
+- Passed the Call Center phone-client, call-attempt lifecycle, shared-state, and managed-relay regressions.
+- Passed the complete staging smoke suite, including the isolated Administrator/Call Center browser workflow.
+
+**Database impact:** None. This release does not add or change a migration, table, column, index, or constraint. It prevents incorrect values from being written to new call-attempt records.
+
+## [4.0.0-next.14] - 2026-07-23
+
+### Fixed
+
+- Changed the Administrator **Phone Devices** row renderer to build its table markup before assigning `innerHTML`. This avoids a FortiGate SSL-VPN rewrite defect that inserted an unmatched function call around the previous compound `map(...).join(...)` expression.
+- Restored the proxied Phone Devices controller, inventory request, populated counters, and device table while preserving the direct-browser behavior from `4.0.0-next.13`.
+
+### Testing
+
+- Reproduced the invalid proxy-transformed JavaScript through an authenticated FortiGate agentless session and identified the exact rewritten statement.
+- Verified the corrected proxied script parses successfully, `/api/admin/softphone-devices` returns HTTP 200, and the paired/managed counters populate.
+- Repeated the authenticated FortiGate smoke pass across Dashboard, Patients, RX Records, Reports, Phone Devices, System Settings, and Call Center; every page returned HTTP 200 with no page exception or server error.
+- Added a regression assertion that rejects the compound `innerHTML = filtered.map(...)` form.
+
+**Database impact:** None. This release does not add or change a migration, table, column, index, constraint, or stored record.
+
+## [4.0.0-next.13] - 2026-07-23
+
+### Fixed
+
+- Made the Administrator **Phone Devices** inventory use a hidden FortiGate-rewritten API anchor, preventing the SSL-VPN web proxy from leaving requests pointed at an unreachable internal server URL.
+- Added build-version query strings to the Phone Devices JavaScript and supporting assets so a FortiGate session cannot continue serving the previous cached page controller after an update.
+- Added explicit diagnostics when FortiGate does not load the page controller within 5 seconds or does not return the device inventory request within 15 seconds; the page no longer remains indefinitely on **Loading devices**.
+
+### Testing
+
+- Added a Phone Devices inventory visit to the isolated Administrator browser smoke test.
+- Added regression checks for the FortiGate API anchor, versioned page controller, boot detector, and bounded request timeout.
+- Passed the full staging smoke suite and the PostgreSQL lifecycle CI workflow.
+
+**Database impact:** None. This release does not add or change a migration, table, column, index, constraint, or stored record.
+
+## [4.0.0-next.12] - 2026-07-23
+
+### Added
+
+- Added an RX Softphone 0.6.0 application-owned Windows control window using the Microsoft Edge WebView2 Runtime; opening the phone no longer creates an external browser tab.
+- Added tray and second-launch activation of the same single application window. Closing its **X** hides the window back to the tray without unregistering SIP or stopping relay polling.
+- Added a checkable **Start with Windows** tray action that starts RX Softphone after the current Windows user signs in.
+- Added an in-window recovery message when the WebView2 Runtime is missing or cannot start.
+- Compacted the desktop layout, hides redundant managed-account inputs, and collapses completed pairing fields so the phone controls and lower status panels fit without routine vertical scrolling.
+- Versioned embedded UI asset URLs so an in-place upgrade refreshes cached WebView2 CSS and JavaScript without removing the workstation profile or pairing.
+
+### Security and safety
+
+- Automatic startup uses the current user's Windows Run entry rather than a Windows service. This preserves the interactive microphone, speaker, tray, and DPAPI pairing context and does not grant service privileges.
+- Embedded navigation is restricted to the loopback RX Softphone origin; new-window requests, developer tools, password saving, autofill, and the default browser context menu are disabled.
+- The WebView2 profile is stored under the current user's local application-data directory instead of the administrator-controlled program folder.
+- Existing SIP/RTP, managed account restrictions, relay authentication, call telemetry, and administrator-only workstation revocation remain unchanged.
+
+### Testing
+
+- Updated the disposable browser-smoke harness to run the explicit audited migration command before starting its isolated server, preserving NEXT's validation-only web startup rule.
+
+**Database impact:** None. This release does not add or change a migration, table, column, index, constraint, or stored record.
+
+## [4.0.0-next.11] - 2026-07-23
+
+### Added
+
+- Converted RX Softphone 0.5.0 into a native Windows tray application with no persistent CMD window.
+- Added live tray status for SIP registration, relay connectivity, dialing/ringing/connected state, connected-call duration, and the last call number, outcome, and duration.
+- Added tray actions to open the local control panel, hang up an active call, disable or re-enable the managed phone, and exit cleanly.
+- Added a single-instance guard: launching RX Softphone again opens the existing control panel instead of starting a second listener on port 5188.
+- Anchored packaged web assets to the executable directory so the local control panel works from Startup shortcuts and launchers with a different working directory.
+
+### Security and safety
+
+- Managed workstation unpair remains visible but disabled in the tray with an Administrator-required label. The existing server-side restriction remains authoritative.
+- Disable keeps the relay pairing but unregisters SIP and rejects queued call commands until the user re-enables the phone.
+- Exit asks for confirmation during an active call, then performs the existing graceful SIP and relay shutdown.
+- Raised the minimum managed workstation client to RX Softphone 0.5.0 so Administrators can identify computers still using the console-based client.
+
+**Database impact:** None. This release does not add or change a migration, table, column, index, constraint, or stored record.
+
+## [4.0.0-next.10] - 2026-07-23
+
+### Fixed
+
+- Raised the minimum managed workstation client to RX Softphone 0.4.4, which preserves the separate Grandstream UCM Authentication ID while restoring the proven outbound SIP descriptor format.
+- Prevented authenticated outbound calls from ending immediately after the PBX returned `200 OK`; ringing, connected audio, normal hangup, and call telemetry now remain active for the real call duration.
+
+### Diagnostics
+
+- RX Softphone records a safe event when an in-dialog `BYE` arrives from the remote SIP endpoint, without logging credentials or SIP authorization headers.
+
+### Validation
+
+- Reproduced the 0.4.3 failure against the local Grandstream UCM: answer followed by hangup in approximately 9 ms.
+- Verified the 0.4.4 candidate against the same PBX, extension, and authorized destination: the call remained connected for approximately 52 seconds and ended normally through the local hangup control.
+
+**Database impact:** None. This release does not add or change a migration, table, column, index, constraint, or stored record.
+
+## [4.0.0-next.9] - 2026-07-22
+
+### Added
+
+- Added an optional SIP Authentication ID to per-user RX Softphone accounts. Administrators can supply a Grandstream UCM AuthID / MicroSIP Login that differs from the visible extension; blank values preserve the existing extension-as-login behavior.
+- Added the nullable `UserSoftphoneAccounts.authId` column through audited migration `20260722160000-add-auth-id-to-user-softphone-accounts.js`.
+- Added Windows CI compilation for the first-party RX Softphone on staging, develop, main, and pull requests.
+
+### Changed
+
+- RX Tracker sends the effective Authentication ID through both direct loopback registration and the outbound Cloudflare relay without adding it to call analytics or status snapshots.
+- Raised the minimum managed RX Softphone version to 0.4.3 for assignments that use a distinct Authentication ID.
+
+### Release safety
+
+- Existing phone accounts require no data conversion. A null or blank Authentication ID uses the extension for SIP digest authentication exactly as before.
+- The migration is additive and an older NEXT binary ignores the extra nullable column during an application rollback.
+
+**Database impact:** One nullable `VARCHAR(128)` column is added to `UserSoftphoneAccounts`. No patient, RX, call, password, pairing, or workflow data is rewritten.
+
 ## [4.0.0-next.8] - 2026-07-22
 
 ### Fixed
