@@ -9,15 +9,15 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 ## Current state
 
 - Repository: `Copernicous/RX-TRACKER-NEXT`
-- Branch: `main` (the validated `v4.0.0-next.16` candidate is merged for
-  production release; production installation is still pending)
+- Branch: `main` (official `v4.0.0-next.16` release published and verified;
+  production installation is still pending)
 - Current production release: `v4.0.0-next.6`
 - Production application folder: `C:\RX-Tracker\RX-APP-NEXT`
 - Windows service ID: `PatientRXSystem`
 - Production HTTP port: `3000`
 - NEXT database name at the completed cutover: `patient_rx_next_cutover_copy`
 - Project Control version: `2.0.0`
-- Active development candidate: `v4.0.0-next.16` with RX Softphone 0.6.0. It adds an application-owned
+- Latest official release: `v4.0.0-next.16` with RX Softphone 0.6.0. It adds an application-owned
   WebView2 control window, hides the window to the existing tray on close,
   focuses the same window on a second launch, and adds a per-user
   **Start with Windows** tray option. It does not install a Windows service,
@@ -211,6 +211,12 @@ C:\RX-Tracker\deployment-state
   protection against workflow-action reseeding.
 - `v4.0.0-next.6`: corrected Windows PowerShell GitHub release discovery for
   Project Control options 8 and 15. Database impact: none.
+- `v4.0.0-next.15`: isolated relay call-attempt snapshots by correlation so a
+  new call cannot inherit terminal timestamps from a previous call. Database
+  impact: none.
+- `v4.0.0-next.16`: excludes Non-Company patients from new Call Center work,
+  adds patient-type filtering and visual warnings, and fixes persistence when
+  the Non-Company checkbox is cleared or restored. Database impact: none.
 
 ## Latest candidate validation
 
@@ -238,6 +244,16 @@ C:\RX-Tracker\deployment-state
 - The Non-Company change uses the existing patient column and requires no
   database migration. The simulated patient used for the transition test was
   restored to Non-Company before the test ended.
+- Main lifecycle CI run `30062451301` passed for release commit `3e944b9`,
+  including the PostgreSQL lifecycle and clean Windows RX Softphone jobs.
+- Release workflow run `30062544346` published the official
+  `v4.0.0-next.16` prerelease. The downloaded assets, manifest, embedded
+  executables, and reported versions were independently verified. Official
+  package hashes:
+  - `server-update-4.0.0-next.16.zip`:
+    `3F8F6B53B46CD12B1CE9DC1E32F2892329892789257320D6025AFE697F48AE3D`
+  - `RxSoftphone-0.6.0-win-x64.zip`:
+    `37EAC4FF425B983F2C494C74F2250A52A25129BC925EF0E0C52209109B54608F`
 
 ## Release procedure for maintainers
 
