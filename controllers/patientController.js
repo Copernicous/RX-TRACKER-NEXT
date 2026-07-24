@@ -674,7 +674,7 @@ async function lockedUpdatePatient(req, res) {
                 'firstName', 'lastName', 'dob', 'address', 'phone',
                 'serviceDate', 'notes', 'isActive', 'patientCode',
                 'patientTransportCompanyId', 'pharmacyTransportCompanyId',
-                'clinicId', 'pharmacyId', 'isDeleted'
+                'clinicId', 'pharmacyId', 'isDeleted', 'isNonCompanyPatient'
             ];
             allowedFields.forEach(field => {
                 if (payload.hasOwnProperty(field)) {

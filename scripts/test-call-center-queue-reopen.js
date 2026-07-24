@@ -246,6 +246,26 @@ async function main() {
         assert.strictEqual(companyPatientsFilterRes.statusCode, 200, 'Company Patients filter failed.');
         assert.strictEqual(companyPatientsFilterRes.body.total, 0, 'Company Patients filter must exclude the flagged patient.');
 
+        const clearNonCompanyRes = makeRes();
+        await patientController.update({
+            params: { id: String(nonCompanyPatient.id) },
+            body: { isNonCompanyPatient: false },
+            user: { id: adminUser.id, role: 'Administrator' }
+        }, clearNonCompanyRes);
+        assert.strictEqual(clearNonCompanyRes.statusCode, 200, 'Clearing the non-company flag failed.');
+        await nonCompanyPatient.reload();
+        assert.strictEqual(nonCompanyPatient.isNonCompanyPatient, false, 'Clearing the non-company checkbox must persist false.');
+
+        const restoreNonCompanyRes = makeRes();
+        await patientController.update({
+            params: { id: String(nonCompanyPatient.id) },
+            body: { isNonCompanyPatient: true },
+            user: { id: adminUser.id, role: 'Administrator' }
+        }, restoreNonCompanyRes);
+        assert.strictEqual(restoreNonCompanyRes.statusCode, 200, 'Restoring the non-company flag failed.');
+        await nonCompanyPatient.reload();
+        assert.strictEqual(nonCompanyPatient.isNonCompanyPatient, true, 'Restoring the non-company checkbox must persist true.');
+
         await db.CallCenterLock.create({
             patientId: patient.id,
             userId: adminUser.id,

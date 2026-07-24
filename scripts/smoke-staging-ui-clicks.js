@@ -508,6 +508,63 @@ async function runAdminDashboardAndReports(fixtures) {
     assert.strictEqual(await page.locator('tr[data-patient-id="' + fixtures.nonCompanyPatient.id + '"]').count(), 0, 'Company filter must hide non-company rows.');
     pass('Patients Company / Non-Company filtering');
 
+    const reopenNonCompanyResponse = page.waitForResponse(response =>
+        response.url().includes('/api/patients?')
+        && response.url().includes('patientType=non_company')
+        && response.status() === 200,
+        { timeout: 15000 }
+    );
+    await page.selectOption('#srchPatientType', 'non_company');
+    await reopenNonCompanyResponse;
+    await nonCompanyRow.waitFor({ state: 'visible', timeout: 15000 });
+    await nonCompanyRow.locator('button.btn-outline-primary').click();
+    await page.locator('#patientModal').waitFor({ state: 'visible', timeout: 10000 });
+    assert.strictEqual(await page.locator('#pIsNonCompanyPatient').isChecked(), true, 'Edit form must load the current non-company flag.');
+    const clearNonCompanyResponse = page.waitForResponse(response =>
+        response.url().includes('/api/patients/' + fixtures.nonCompanyPatient.id)
+        && response.request().method() === 'PUT'
+        && response.status() === 200,
+        { timeout: 15000 }
+    );
+    await page.locator('#pIsNonCompanyPatient').uncheck();
+    await page.locator('#savePatientBtn').click();
+    await clearNonCompanyResponse;
+    await page.locator('#patientModal').waitFor({ state: 'hidden', timeout: 10000 });
+    let persistedPatientResponse = await context.request.get(route('/api/patients/' + fixtures.nonCompanyPatient.id));
+    assert.strictEqual(persistedPatientResponse.status(), 200, 'Updated patient should reload after clearing non-company.');
+    let persistedPatient = await persistedPatientResponse.json();
+    assert.strictEqual(persistedPatient.isNonCompanyPatient, false, 'Clearing Non-Company Patient must persist false.');
+
+    const showCompanyPatientResponse = page.waitForResponse(response =>
+        response.url().includes('/api/patients?')
+        && response.url().includes('patientType=company')
+        && response.status() === 200,
+        { timeout: 15000 }
+    );
+    await page.selectOption('#srchPatientType', 'company');
+    await showCompanyPatientResponse;
+    await nonCompanyRow.waitFor({ state: 'visible', timeout: 15000 });
+    assert.strictEqual(await nonCompanyRow.getAttribute('data-patient-type'), 'company', 'Cleared patient must render as a company patient.');
+    assert.strictEqual(await nonCompanyRow.locator('.patient-non-company-badge').count(), 0, 'Cleared patient must not retain the non-company badge.');
+
+    await nonCompanyRow.locator('button.btn-outline-primary').click();
+    await page.locator('#patientModal').waitFor({ state: 'visible', timeout: 10000 });
+    assert.strictEqual(await page.locator('#pIsNonCompanyPatient').isChecked(), false, 'Edit form must reload the cleared non-company flag.');
+    const restoreNonCompanyResponse = page.waitForResponse(response =>
+        response.url().includes('/api/patients/' + fixtures.nonCompanyPatient.id)
+        && response.request().method() === 'PUT'
+        && response.status() === 200,
+        { timeout: 15000 }
+    );
+    await page.locator('#pIsNonCompanyPatient').check();
+    await page.locator('#savePatientBtn').click();
+    await restoreNonCompanyResponse;
+    await page.locator('#patientModal').waitFor({ state: 'hidden', timeout: 10000 });
+    persistedPatientResponse = await context.request.get(route('/api/patients/' + fixtures.nonCompanyPatient.id));
+    persistedPatient = await persistedPatientResponse.json();
+    assert.strictEqual(persistedPatient.isNonCompanyPatient, true, 'Restoring Non-Company Patient must persist true.');
+    pass('Patients Non-Company checkbox persists both unchecked and checked states');
+
     const excludedQueueResponse = await context.request.get(route('/api/call-center/patients?q=' + encodeURIComponent(fixtures.nonCompanyPatient.lastName)));
     assert.strictEqual(excludedQueueResponse.status(), 200, 'Non-company Call Center exclusion query failed.');
     assert.strictEqual((await excludedQueueResponse.json()).total, 0, 'Non-company patient appeared in the Call Center queue.');
