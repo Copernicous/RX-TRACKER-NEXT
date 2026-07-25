@@ -1,0 +1,32 @@
+name: Weekly dependency security audit
+
+on:
+  schedule:
+    - cron: "00 13 * * 2"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  npm-security:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Block high or critical dependency findings
+        run: npm audit --audit-level=high
+
+      - name: Verify dependency policy
+        run: npm run test:dependency-policy

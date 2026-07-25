@@ -47,7 +47,7 @@
                 <i class="fas fa-shield-alt text-info mt-1"></i>
                 <div>
                     <div class="fw-bold">Managed workstation control</div>
-                    <div class="text-muted small">RX Softphone 0.6.0 runs in the Windows tray with its own control window and per-user automatic startup, locks SIP account changes on the Windows PC, supports a separate PBX Authentication ID, and shows live registration/call status. Configure the user's account through the individually authorized Phone Account Setup workflow; use this page to monitor or revoke the paired workstation.</div>
+                    <div class="text-muted small">RX Softphone 0.6.0 runs in the Windows tray with its own control window and per-user automatic startup, locks SIP account changes on the Windows PC, supports a separate PBX Authentication ID, and shows live registration/call status. Revoke disconnects only the paired workstation. Retire line disables the user's SIP assignment and removes it from Live RX Phones while preserving call history.</div>
                 </div>
             </div>
 
@@ -63,7 +63,7 @@
                 <div class="d-flex justify-content-between align-items-center gap-3 flex-wrap mb-3">
                     <div>
                         <h5 class="mb-1">Assigned users and paired Windows phones</h5>
-                        <p class="text-muted small mb-0">Live status refreshes automatically. Revocation is blocked while the device reports an active call.</p>
+                        <p class="text-muted small mb-0">Live status refreshes automatically. Device revocation and line retirement are blocked while the phone reports an active call.</p>
                     </div>
                     <div class="d-flex gap-2 align-items-center flex-wrap">
                         <div class="input-group input-group-sm" style="width:min(320px,75vw)">
