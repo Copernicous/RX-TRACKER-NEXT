@@ -166,6 +166,7 @@ try {
     assert(!apiRoutes.includes("/admin/softphone-accounts"), 'Retired Backoffice phone-account assignment API must not remain exposed.');
     assert(apiRoutes.includes("/admin/softphone-devices"), 'Administrator managed-device inventory API is missing.');
     assert(apiRoutes.includes("/admin/softphone-devices/:userId"), 'Administrator workstation revocation API is missing.');
+    assert(apiRoutes.includes("/admin/softphone-devices/:userId/account"), 'Administrator phone-line retirement API is missing.');
     assert(sidebarView.includes('Phone Devices'), 'Administrator Phone Devices navigation is missing.');
     assert(sidebarView.includes('Live RX Phones'), 'Administrator Live RX Phones navigation is missing.');
     assert(devicesView.includes('id="xa-softphone-devices-api"'), 'Phone Devices must expose a FortiGate-rewritten API anchor.');
@@ -176,6 +177,8 @@ try {
     assert(devicesScript.includes('var rowsHtml = filtered.map(function(user)'), 'Phone Devices must build table rows before assigning innerHTML for FortiGate compatibility.');
     assert(devicesScript.includes('body.innerHTML = rowsHtml;'), 'Phone Devices must assign the completed row markup in a FortiGate-safe statement.');
     assert(!devicesScript.includes('body.innerHTML = filtered.map(function(user)'), 'Phone Devices must not use the compound innerHTML expression FortiGate rewrites with invalid JavaScript.');
+    assert(devicesScript.includes('data-retire-user='), 'Phone Devices must expose a separate phone-line retirement action.');
+    assert(devicesScript.includes('Historical calls and audit records are preserved.'), 'Phone-line retirement must explain its history-preservation behavior.');
     assert(livePhonesView.includes('id="xa-live-rx-phones-api"'), 'Live RX Phones must expose a FortiGate-rewritten API anchor.');
     assert(livePhonesView.includes('/js/live-rx-phones.js?v='), 'Live RX Phones script must be versioned to bypass FortiGate session caching.');
     assert(livePhonesView.includes('does not listen to audio'), 'Live RX Phones must clearly identify its status-only scope.');
@@ -187,6 +190,7 @@ try {
     assert(livePhonesScript.includes('setInterval(updateDurations, 1000)'), 'Live RX Phones must update active call durations every second.');
     assert(livePhonesScript.includes('var cardsHtml = filtered.map(function(user)'), 'Live RX Phones must build cards before assigning markup for FortiGate compatibility.');
     assert(livePhonesScript.includes('board.innerHTML = cardsHtml;'), 'Live RX Phones must use a FortiGate-safe two-step board assignment.');
+    assert(livePhonesScript.includes('user.account.isEnabled !== false'), 'Live RX Phones must hide disabled or retired SIP assignments.');
     assert(!livePhonesScript.includes('fetch(endpoint(path), { method:'), 'Live RX Phones must remain view-only.');
 
     const webRoutes = fs.readFileSync(path.join(__dirname, '..', 'routes', 'webRoutes.js'), 'utf8');
