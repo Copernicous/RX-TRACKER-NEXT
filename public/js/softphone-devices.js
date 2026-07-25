@@ -102,7 +102,7 @@
                 ? ' · Auth ID ' + esc(account.authId)
                 : '';
             var accountHtml = account.configured
-                ? '<div class="fw-semibold">Ext. ' + esc(account.username) + '</div><div class="device-meta">' + esc(account.server) + ':' + esc(account.port) + authIdDetail + (account.isEnabled ? '' : ' · disabled') + '</div>'
+                ? '<div class="fw-semibold">Ext. ' + esc(account.username) + '</div><div class="device-meta">' + esc(account.server) + ':' + esc(account.port) + authIdDetail + (account.isEnabled ? '' : ' · retired') + '</div>'
                 : '<span class="text-muted">Not configured</span>';
             var deviceHtml = device.paired
                 ? '<div class="fw-semibold">' + esc(device.deviceName || 'Windows RX Softphone') + '</div><div class="device-meta">Paired ' + esc(formatDate(device.pairedAt)) + '</div>'

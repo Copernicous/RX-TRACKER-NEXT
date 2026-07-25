@@ -179,6 +179,7 @@ try {
     assert(!devicesScript.includes('body.innerHTML = filtered.map(function(user)'), 'Phone Devices must not use the compound innerHTML expression FortiGate rewrites with invalid JavaScript.');
     assert(devicesScript.includes('data-retire-user='), 'Phone Devices must expose a separate phone-line retirement action.');
     assert(devicesScript.includes('Historical calls and audit records are preserved.'), 'Phone-line retirement must explain its history-preservation behavior.');
+    assert(devicesScript.includes("' · retired'"), 'Disabled phone assignments must be labeled as retired in the device inventory.');
     assert(livePhonesView.includes('id="xa-live-rx-phones-api"'), 'Live RX Phones must expose a FortiGate-rewritten API anchor.');
     assert(livePhonesView.includes('/js/live-rx-phones.js?v='), 'Live RX Phones script must be versioned to bypass FortiGate session caching.');
     assert(livePhonesView.includes('does not listen to audio'), 'Live RX Phones must clearly identify its status-only scope.');
