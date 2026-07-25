@@ -7,10 +7,40 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+## [4.0.0-next.22] - 2026-07-24
+
+### Added
+
+- Added an Administrator-only **Retire line** action under Phone Devices. It disables the selected user's SIP assignment, revokes any paired RX Softphone workstation, removes that assignment from Live RX Phones, and preserves call-attempt history.
+- Added an `RX Softphone Line Retired` audit event containing the affected user/extension and whether a workstation pairing was also revoked.
+
+### Changed
+
+- Kept **Revoke device** as a separate action that disconnects only the Windows workstation without retiring the assigned SIP line.
+- Disabled or retired SIP assignments no longer appear as active presence lines on the Live RX Phones board.
+- Blocks line retirement while the paired phone reports an active call. A retired line can later be reconfigured through the existing individually authorized Phone Account Setup flow.
+
+### Security
+
+- Added weekly Dependabot npm and GitHub Actions update checks that open pull requests against `staging`.
+- Added pull-request dependency review that blocks newly introduced high or critical findings.
+- Added scheduled and on-change CodeQL scanning for RX Tracker JavaScript and RX Softphone C#.
+- Added an independent weekly high-severity npm audit and a static regression protecting the repository security automation.
+
 ### Documentation
 
 - Added a sanitized, version-controlled project handoff and authoritative root agent instructions so future sessions can recover the production layout, release/rollback process, repository boundaries, decisions, and current operating status without relying on chat history or storing secrets.
 - Recorded a deferred, approval-gated cleanup checkpoint for the legacy production database/application and the former local 3.3.x development environment.
+- Added a plain-language dependency-security guide explaining GitHub alerts, pull-request review, required repository settings, and the staging-first promotion procedure.
+
+### Testing
+
+- Extended the managed relay regression to verify account retirement, repeated-retirement rejection, pairing independence, and preserved account records.
+- Added the managed relay integration regression to the mandatory PostgreSQL CI suite with an isolated application process and database.
+- Extended the phone-client/FortiGate static regression to require the retirement API, administrator action, history-preservation warning, and Live RX Phones filtering.
+- Passed public JavaScript parsing, phone-client integration, dependency policy, security-automation policy, and the high-severity npm audit gate.
+
+**Database impact:** None. This release uses the existing `UserSoftphoneAccounts.isEnabled` and relay-device fields. It adds no migration, table, column, index, or constraint and does not delete call attempts, audit history, patients, RX records, or phone-account rows.
 
 ## [4.0.0-next.21] - 2026-07-24
 

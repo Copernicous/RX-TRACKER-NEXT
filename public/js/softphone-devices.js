@@ -102,7 +102,7 @@
                 ? ' · Auth ID ' + esc(account.authId)
                 : '';
             var accountHtml = account.configured
-                ? '<div class="fw-semibold">Ext. ' + esc(account.username) + '</div><div class="device-meta">' + esc(account.server) + ':' + esc(account.port) + authIdDetail + (account.isEnabled ? '' : ' · disabled') + '</div>'
+                ? '<div class="fw-semibold">Ext. ' + esc(account.username) + '</div><div class="device-meta">' + esc(account.server) + ':' + esc(account.port) + authIdDetail + (account.isEnabled ? '' : ' · retired') + '</div>'
                 : '<span class="text-muted">Not configured</span>';
             var deviceHtml = device.paired
                 ? '<div class="fw-semibold">' + esc(device.deviceName || 'Windows RX Softphone') + '</div><div class="device-meta">Paired ' + esc(formatDate(device.pairedAt)) + '</div>'
@@ -122,8 +122,16 @@
             if (device.paired && account.configured) {
                 registrationHtml += '<div class="device-meta">' + (device.accountSynchronized ? 'Account synchronized' : 'Waiting for account sync') + '</div>';
             }
-            var action = device.paired
-                ? '<button class="btn btn-outline-danger btn-sm" data-revoke-user="' + Number(user.id) + '" data-revoke-label="' + esc(userLabel(user)) + '" data-revoke-device="' + esc(device.deviceName || 'Windows RX Softphone') + '"' + (device.online && ['dialing','trying','ringing','answering','connected','incoming'].includes(device.callState) ? ' disabled title="End the active call before revoking"' : '') + '><i class="fas fa-unlink me-1"></i>Revoke</button>'
+            var activeCall = device.online && ['dialing','trying','ringing','answering','connected','incoming'].includes(device.callState);
+            var actions = [];
+            if (device.paired) {
+                actions.push('<button class="btn btn-outline-danger btn-sm" data-revoke-user="' + Number(user.id) + '" data-revoke-label="' + esc(userLabel(user)) + '" data-revoke-device="' + esc(device.deviceName || 'Windows RX Softphone') + '"' + (activeCall ? ' disabled title="End the active call before revoking"' : '') + '><i class="fas fa-unlink me-1"></i>Revoke device</button>');
+            }
+            if (account.configured && account.isEnabled !== false) {
+                actions.push('<button class="btn btn-danger btn-sm" data-retire-user="' + Number(user.id) + '" data-retire-label="' + esc(userLabel(user)) + '" data-retire-extension="' + esc(account.username || '') + '"' + (activeCall ? ' disabled title="End the active call before retiring this line"' : '') + '><i class="fas fa-phone-slash me-1"></i>Retire line</button>');
+            }
+            var action = actions.length
+                ? '<div class="d-flex justify-content-end gap-1 flex-wrap">' + actions.join('') + '</div>'
                 : '<span class="text-muted small">—</span>';
             return '<tr>' +
                 '<td><div class="fw-semibold">' + esc(userLabel(user)) + '</div><div class="device-meta">@' + esc(user.username) + ' · ' + esc(user.roleName || 'No role') + (user.isActive ? '' : ' · disabled') + '</div></td>' +
@@ -185,12 +193,34 @@
         }
     }
 
+    async function retireLine(button) {
+        var userId = Number(button.dataset.retireUser);
+        var userLabelValue = button.dataset.retireLabel || ('User #' + userId);
+        var extension = button.dataset.retireExtension || 'this extension';
+        if (!window.confirm(
+            'Retire extension ' + extension + ' for ' + userLabelValue + '?\n\n'
+            + 'This disables the SIP assignment, revokes any paired workstation, and removes the line from Live RX Phones. '
+            + 'Historical calls and audit records are preserved.'
+        )) return;
+        button.disabled = true;
+        try {
+            var data = await request(adminDevicesEndpoint() + '/' + encodeURIComponent(userId) + '/account', { method: 'DELETE' });
+            showToast(data.message || 'RX Softphone line retired.', 'success');
+            await loadDevices(true);
+        } catch (error) {
+            showToast(error.message, 'danger');
+            button.disabled = false;
+        }
+    }
+
     document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('deviceSearch').addEventListener('input', renderRows);
         document.getElementById('deviceRefresh').addEventListener('click', function() { loadDevices(false); });
         document.getElementById('deviceRows').addEventListener('click', function(event) {
             var button = event.target.closest('[data-revoke-user]');
             if (button && !button.disabled) revoke(button);
+            var retireButton = event.target.closest('[data-retire-user]');
+            if (retireButton && !retireButton.disabled) retireLine(retireButton);
         });
         loadDevices(false);
         refreshTimer = setInterval(function() { loadDevices(true); }, 10000);

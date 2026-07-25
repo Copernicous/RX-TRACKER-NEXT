@@ -278,6 +278,7 @@ const generateCRUDRoutes = (path, controller, moduleName) => {
 router.delete('/pharmacies/purge', rbac.requireRole(['Administrator']), requireStagingDestructiveConfirmation, auditLogger('Pharmacies'), pharmacyController.purge);
 router.post('/users/:id/phone-account/setup-access', rbac.requireRole(['Administrator']), softphoneAccountController.enableSetupAccess);
 router.get('/admin/softphone-devices', rbac.requireRole(['Administrator']), softphoneRelayController.getAdminDevices);
+router.delete('/admin/softphone-devices/:userId/account', rbac.requireRole(['Administrator']), softphoneRelayController.retireAdminPhoneLine);
 router.delete('/admin/softphone-devices/:userId', rbac.requireRole(['Administrator']), softphoneRelayController.revokeAdminDevice);
 
 generateCRUDRoutes('/pharmacies', pharmacyController, 'Pharmacies');
