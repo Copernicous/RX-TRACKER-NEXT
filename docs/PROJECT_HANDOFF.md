@@ -78,6 +78,14 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
   existing report permission and automatic call-attempt history, adds no
   migration or writes, and does not change the proxy, application origins,
   ports, or RX Softphone.
+- Staging candidate `4.0.0-next.24` moves Patients filtering, facets, sorting,
+  counts, and pagination into PostgreSQL before related records are loaded;
+  stores current dashboard totals in the existing `DailySnapshots` table;
+  materializes missing historical trend rows with set-based PostgreSQL work;
+  and aggregates the RX workflow pipeline in SQL. The annual stress dataset
+  improved from about 3.4 seconds to 50-90 ms for a 10-patient page, while
+  persisted all-time charts return in about 25-100 ms. Its one additive
+  migration creates five Patients indexes and rewrites no business data.
 - Tag `v4.0.0-next.7` is a failed, non-deployable release attempt. Its server
   build passed, but the first clean-runner RX Softphone restore lacked an
   explicit Windows runtime identifier, so no GitHub release assets were

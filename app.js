@@ -159,11 +159,17 @@ const { assertDatabaseReady } = require('./db/schema-verifier');
 // Start backup scheduler on boot
 require('./services/backupService');
 
-// Daily metrics snapshot scheduler -- captures at 00:05 every night
+// Persist current dashboard analytics every five minutes. The daily row is
+// updated in place, so dashboard readers use one bounded snapshot query while
+// historical rows remain available for trends.
 const cron = require('node-cron');
-const { captureSnapshot } = require('./services/snapshotService');
-cron.schedule('5 0 * * *', async () => {
-    console.log('[Cron] Running daily metrics snapshot...');
+const {
+    captureSnapshot,
+    refreshCurrentSnapshotInBackground,
+    warmDashboardHistoryInBackground
+} = require('./services/snapshotService');
+cron.schedule('*/5 * * * *', async () => {
+    console.log('[Cron] Refreshing dashboard analytics snapshot...');
     try { await captureSnapshot(); }
     catch (e) { console.error('[Cron] Snapshot failed:', e.message); }
 }, { timezone: process.env.TZ || 'America/New_York' });
@@ -785,6 +791,11 @@ const startServer = async () => {
 
     app.listen(PORT, () => {
         console.log(`Server is running on port ${PORT}.`);
+        // Warm the current analytics row without delaying server availability.
+        setImmediate(refreshCurrentSnapshotInBackground);
+        // Fill missing completed-day analytics with set-based PostgreSQL
+        // aggregates. This never delays startup or the health endpoint.
+        setImmediate(warmDashboardHistoryInBackground);
     });
 };
 

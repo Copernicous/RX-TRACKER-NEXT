@@ -7,6 +7,37 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+## [4.0.0-next.24] - 2026-07-25
+
+### Added
+
+- Added persisted current-day dashboard analytics refreshed every five minutes, with one shared refresh promise so concurrent cards cannot launch duplicate aggregate work.
+- Added set-based PostgreSQL history materialization for missing dashboard days. Startup warms completed-day history in the background and the all-time chart reads bounded `DailySnapshots` rows.
+- Added an audited patient-list index migration covering status/service-date queues, service-date ranges, patient codes, company status, and creation-date ordering.
+- Added database regressions proving patient relationship loading is limited to the requested page and persisted dashboard calculations preserve established totals.
+
+### Changed
+
+- Moved Patients list filtering, sorting, counting, facets, needs-action totals, and pagination into PostgreSQL. The server now loads Clinic, Pharmacy, transport, notes, RX, and workflow relations only for the selected page; explicit exports remain complete.
+- Changed dashboard cards and eligibility totals to read the current persisted analytics row while retaining a bounded live overdue-patient preview.
+- Changed the RX Workflow Pipeline from loading every RX record and tracking object into Node.js to one grouped PostgreSQL query.
+- Added the performance regressions to the full staging smoke suite and PostgreSQL lifecycle CI.
+
+### Performance
+
+- On the 5,000-patient, 12,000-RX, 51,420-workflow, 50,000-call staging dataset, the first 10-patient page improved from approximately 3.4 seconds to 50-90 ms.
+- Persisted all-time dashboard charts return in approximately 25-100 ms instead of rebuilding a year of history in Node.js. A controlled missing 30-day history rebuild completed in 531 ms.
+- Dashboard eligibility and pipeline endpoints measured approximately 11-41 ms and 24-56 ms respectively during local staging validation.
+
+### Testing
+
+- Passed patient database-pagination and persisted-dashboard regressions against the populated annual staging dataset.
+- Passed migration checksum enforcement, 36-migration staging verification, public JavaScript validation, dependency/security automation policy, and the complete staging smoke suite.
+- Passed the isolated browser workflow covering dashboard, Call Center, reports/exports, Phone Devices, Live RX Phones, role boundaries, phone-account setup, relay, and non-company patient behavior.
+- `npm audit --audit-level=high` passes with no high or critical findings. The two known moderate Sequelize/UUID advisories remain documented because npm's forced recommendation is an unsafe Sequelize downgrade.
+
+**Database impact:** One additive, audited migration creates five indexes on existing `Patients` columns. It does not change columns, constraints, patients, RX records, calls, phone accounts, proxy routes, origins, ports, or RX Softphone. `DailySnapshots` receives derived analytics rows only and can be rebuilt from existing operational data.
+
 ## [4.0.0-next.23] - 2026-07-25
 
 ### Added

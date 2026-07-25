@@ -42,7 +42,8 @@ module.exports = [
   entry('20260721190000-create-softphone-relay.js', require('../migrations/20260721190000-create-softphone-relay.js')),
   entry('20260721230000-complete-v331-startup-schema.js', require('../migrations/20260721230000-complete-v331-startup-schema.js')),
   entry('20260721234500-repair-users-username-unique-index.js', require('../migrations/20260721234500-repair-users-username-unique-index.js')),
-  entry('20260722160000-add-auth-id-to-user-softphone-accounts.js', require('../migrations/20260722160000-add-auth-id-to-user-softphone-accounts.js'))
+  entry('20260722160000-add-auth-id-to-user-softphone-accounts.js', require('../migrations/20260722160000-add-auth-id-to-user-softphone-accounts.js')),
+  entry('20260725110000-add-patient-list-query-indexes.js', require('../migrations/20260725110000-add-patient-list-query-indexes.js'))
 ];
 
 function entry(name, migration) {
