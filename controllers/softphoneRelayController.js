@@ -551,6 +551,107 @@ exports.revokeAdminDevice = async (req, res) => {
     }
 };
 
+exports.retireAdminPhoneLine = async (req, res) => {
+    const targetUserId = Number.parseInt(req.params.userId, 10);
+    if (!Number.isInteger(targetUserId) || targetUserId < 1) {
+        return res.status(400).json({ error: 'A valid user is required.' });
+    }
+
+    try {
+        let extension = null;
+        let workstationRevoked = false;
+        await db.sequelize.transaction(async transaction => {
+            const account = await db.UserSoftphoneAccount.findOne({
+                where: { userId: targetUserId },
+                transaction,
+                lock: transaction.LOCK.UPDATE
+            });
+            const device = await db.SoftphoneRelayDevice.findOne({
+                where: { userId: targetUserId },
+                transaction,
+                lock: transaction.LOCK.UPDATE
+            });
+            const paired = !!(device && device.tokenHash && device.isEnabled !== false);
+            const accountEnabled = !!(account && account.isEnabled !== false);
+
+            if (!accountEnabled && !paired) {
+                const error = new Error('This user does not have an active RX Softphone line to retire.');
+                error.status = 404;
+                throw error;
+            }
+            if (paired && isOnline(device) && ACTIVE_CALL_STATES.has(String(device.callState || '').toLowerCase())) {
+                const error = new Error('The RX Softphone has an active call. End the call before retiring this line.');
+                error.status = 409;
+                throw error;
+            }
+
+            extension = account && account.username || null;
+            const previousValue = {
+                account: account ? {
+                    configured: true,
+                    isEnabled: account.isEnabled !== false,
+                    server: account.server,
+                    port: account.port,
+                    username: account.username,
+                    authId: account.authId || '',
+                    displayName: account.displayName || account.username,
+                    localSipPort: account.localSipPort || 0,
+                    updatedAt: account.updatedAt
+                } : { configured: false, isEnabled: false },
+                device: publicDevice(device)
+            };
+
+            if (accountEnabled) {
+                await account.update({ isEnabled: false }, { transaction });
+            }
+            if (paired) {
+                workstationRevoked = true;
+                await db.SoftphoneRelayCommand.update({
+                    status: 'expired',
+                    completedAt: new Date(),
+                    errorMessage: 'Phone line retired by an Administrator.'
+                }, {
+                    where: {
+                        deviceId: device.id,
+                        status: { [db.Sequelize.Op.in]: ['queued', 'delivered'] }
+                    },
+                    transaction
+                });
+                await device.update({
+                    deviceKey: null,
+                    tokenHash: null,
+                    pairingCodeHash: null,
+                    pairingExpiresAt: null,
+                    isEnabled: false,
+                    registrationState: 'offline',
+                    callState: 'idle',
+                    callId: null,
+                    peer: null,
+                    snapshot: null
+                }, { transaction });
+            }
+
+            await auditRelayEvent(req, 'RX Softphone Line Retired', targetUserId, previousValue, {
+                accountEnabled: false,
+                pairingRevoked: workstationRevoked,
+                extension,
+                callHistoryPreserved: true
+            }, transaction);
+        });
+
+        const lineLabel = extension ? `Extension ${extension}` : 'The RX Softphone line';
+        res.json({
+            message: `${lineLabel} was retired for this user. Its Live RX Phones presence was removed and call history was preserved.`,
+            retired: true,
+            pairingRevoked: workstationRevoked
+        });
+    } catch (err) {
+        const status = err.status || 500;
+        if (status >= 500) console.error('[Softphone Relay] retire phone line error:', err.message);
+        res.status(status).json({ error: status >= 500 ? 'Could not retire the RX Softphone line.' : err.message });
+    }
+};
+
 exports.queueDial = async (req, res) => {
     try {
         const attemptId = Number.parseInt(req.body && req.body.attemptId, 10);

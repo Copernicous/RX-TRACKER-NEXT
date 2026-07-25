@@ -6,7 +6,14 @@ const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const { prepareStagingEnv } = require('./lib/staging-env');
 
-prepareStagingEnv();
+if (process.env.RELAY_TEST_DB_NAME) {
+    process.env.DB_NAME = process.env.RELAY_TEST_DB_NAME;
+    process.env.NODE_ENV = process.env.RELAY_TEST_NODE_ENV || process.env.NODE_ENV || 'development';
+    process.env.PORT = process.env.RELAY_TEST_PORT || process.env.PORT || '3212';
+    process.env.APP_ORIGINS = process.env.APP_ORIGINS || `http://127.0.0.1:${process.env.PORT}`;
+} else {
+    prepareStagingEnv();
+}
 const db = require('../models');
 const relayController = require('../controllers/softphoneRelayController');
 const { encryptPassword } = require('../services/softphoneAccountService');
@@ -195,6 +202,28 @@ async function main() {
         assert.strictEqual(device.isEnabled, false);
         assert.strictEqual(device.tokenHash, null);
 
+        const retireResponse = mockResponse();
+        await relayController.retireAdminPhoneLine({
+            params: { userId: String(user.id) },
+            user: { id: user.id },
+            headers: {},
+            ip: '127.0.0.1'
+        }, retireResponse);
+        assert.strictEqual(retireResponse.statusCode, 200);
+        assert.strictEqual(retireResponse.body.retired, true);
+        assert.strictEqual(retireResponse.body.pairingRevoked, false, 'An already-revoked device must not block line retirement.');
+        const retiredAccount = await db.UserSoftphoneAccount.findOne({ where: { userId: user.id } });
+        assert.strictEqual(retiredAccount.isEnabled, false, 'Retiring a line must disable its SIP assignment without deleting it.');
+
+        const repeatRetireResponse = mockResponse();
+        await relayController.retireAdminPhoneLine({
+            params: { userId: String(user.id) },
+            user: { id: user.id },
+            headers: {},
+            ip: '127.0.0.1'
+        }, repeatRetireResponse);
+        assert.strictEqual(repeatRetireResponse.statusCode, 404, 'An already-retired line must not report another destructive change.');
+
         const revokedPollResponse = await fetch(`${baseUrl}/api/softphone-relay/device/poll`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${pair.deviceToken}` },
@@ -202,7 +231,7 @@ async function main() {
         });
         assert.strictEqual(revokedPollResponse.status, 401, 'A revoked workstation token must stop working immediately.');
 
-        console.log('PASS managed Windows softphone relay pairing, stable registration handoff, device inventory, revocation, and command acknowledgement.');
+        console.log('PASS managed Windows softphone relay pairing, stable registration handoff, device inventory, revocation, line retirement, and command acknowledgement.');
     } finally {
         if (user) {
             await db.SoftphoneRelayCommand.destroy({ where: { userId: user.id } });

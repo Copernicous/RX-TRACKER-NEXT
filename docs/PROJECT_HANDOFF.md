@@ -9,15 +9,16 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 ## Current state
 
 - Repository: `Copernicous/RX-TRACKER-NEXT`
-- Branch: `main` (official `v4.0.0-next.17` release published and verified;
-  production installation is still pending)
-- Current production release: `v4.0.0-next.6`
+- Branch: feature work based on `main`; official `v4.0.0-next.21` is published
+  and verified.
+- Current production release must be confirmed from Project Control or
+  `server.exe --v`; do not infer it from this repository.
 - Production application folder: `C:\RX-Tracker\RX-APP-NEXT`
 - Windows service ID: `PatientRXSystem`
 - Production HTTP port: `3000`
 - NEXT database name at the completed cutover: `patient_rx_next_cutover_copy`
 - Project Control version: `2.0.0`
-- Latest official release: `v4.0.0-next.17` with RX Softphone 0.6.0. It retains the application-owned
+- Latest official release: `v4.0.0-next.21` with RX Softphone 0.6.0. It retains the application-owned
   WebView2 control window, hides the window to the existing tray on close,
   focuses the same window on a second launch, and adds a per-user
   **Start with Windows** tray option. It does not install a Windows service,
@@ -64,6 +65,13 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
   the first master-administrator login before removing its test database and
   roles. The accompanying retirement runbook keeps old 3.3.x deletion separate
   and approval-gated.
+- Candidate `4.0.0-next.22` adds an audited Administrator-only **Retire line**
+  action under Phone Devices. It disables the selected user's SIP assignment,
+  revokes any paired workstation, removes the disabled assignment from Live RX
+  Phones, and preserves call-attempt history. **Revoke device** remains a
+  separate pairing-only action. It also adds staging-first Dependabot updates,
+  dependency review, CodeQL, and a weekly high-severity npm audit with a
+  plain-language administrator guide. Database impact: none.
 - Tag `v4.0.0-next.7` is a failed, non-deployable release attempt. Its server
   build passed, but the first clean-runner RX Softphone restore lacked an
   explicit Windows runtime identifier, so no GitHub release assets were

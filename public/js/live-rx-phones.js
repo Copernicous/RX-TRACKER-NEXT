@@ -64,7 +64,10 @@
 
     function lines() {
         return users.filter(function(user) {
-            return !!(user && ((user.account && user.account.configured) || (user.device && user.device.paired)));
+            return !!(user && (
+                (user.account && user.account.configured && user.account.isEnabled !== false)
+                || (user.device && user.device.paired)
+            ));
         });
     }
 
