@@ -1,7 +1,12 @@
 const db = require('../models');
-const { Op, fn, col, literal } = require('sequelize');
+const { Op, fn, col, literal, QueryTypes } = require('sequelize');
 const { getServiceWindowDays, getCallCenterLeadDays } = require('../utils/globalSettings');
 const { evaluateServiceWindow, getCallCenterCutoffIso } = require('../utils/serviceWindowEligibility');
+const {
+    getFreshCurrentSnapshot,
+    localSnapshotDate,
+    materializeSnapshotHistory
+} = require('../services/snapshotService');
 
 // ── Helper: build a date-range WHERE clause from ?from= / ?to= params ─────────
 function buildDateRange(req) {
@@ -36,6 +41,9 @@ function localDateOnlyStart(value) {
 exports.getStats = async (req, res) => {
     try {
         const dateRange = buildDateRange(req);
+        const currentSnapshot = dateRange
+            ? null
+            : await getFreshCurrentSnapshot({ maxAgeMs: 5 * 60 * 1000 });
 
         // M3 FIX: Use Op.or [false, null] to match getAll — include legacy rows where isDeleted IS NULL
         const notDeleted = { [Op.or]: [{ isDeleted: false }, { isDeleted: null }] };
@@ -44,24 +52,32 @@ exports.getStats = async (req, res) => {
         const patientWhere = { ...notDeleted };
         if (dateRange) patientWhere.createdAt = dateRange;
 
-        const activePatients   = await db.Patient.count({ where: { ...patientWhere, isActive: true  } });
-        const inactivePatients = await db.Patient.count({ where: { ...patientWhere, isActive: false } });
+        const activePatients = currentSnapshot
+            ? Number(currentSnapshot.activePatients || 0)
+            : await db.Patient.count({ where: { ...patientWhere, isActive: true } });
+        const inactivePatients = currentSnapshot
+            ? Number(currentSnapshot.inactivePatients || 0)
+            : await db.Patient.count({ where: { ...patientWhere, isActive: false } });
 
         // RX counts — filtered by serviceDate if a date range is active (UX-01: exclude deleted)
         const rxWhere = { isDeleted: false };
         if (dateRange) rxWhere.serviceDate = dateRange;
 
-        const activeRxCount = await db.RXRecord.count({ where: rxWhere });
+        const activeRxCount = currentSnapshot
+            ? Number(currentSnapshot.totalRX || 0)
+            : await db.RXRecord.count({ where: rxWhere });
 
         // Pending deliveries: RX records that have NOT completed ALL workflow steps
         // PERF-01: Use a single aggregate query instead of N+1 per-record loop
         const totalWorkflowSteps = await db.WorkflowAction.count({ where: { isActive: true } });
 
-        let pendingDeliveriesCount = 0;
-        if (totalWorkflowSteps === 0) {
+        let pendingDeliveriesCount = currentSnapshot
+            ? Number(currentSnapshot.pendingRX || 0)
+            : 0;
+        if (!currentSnapshot && totalWorkflowSteps === 0) {
             // No steps defined — all RX records are "pending"
             pendingDeliveriesCount = await db.RXRecord.count({ where: rxWhere });
-        } else {
+        } else if (!currentSnapshot) {
             // Fetch tracking counts grouped by rxRecordId in one query
             const trackingCounts = await db.RXWorkflowTracking.findAll({
                 attributes: ['rxRecordId', [fn('COUNT', col('id')), 'stepsDone']],
@@ -93,23 +109,36 @@ exports.getStats = async (req, res) => {
             include: [{ model: db.User, attributes: ['firstName', 'lastName'] }]
         });
 
-        // Active patients with NO RX records
-        const patientIdsWithRx = await db.RXRecord.findAll({
-            attributes: ['patientId'],
-            where: { isDeleted: false },
-            group: ['patientId'],
-            raw: true
-        });
-        const idsWithRx = patientIdsWithRx.map(r => r.patientId);
-        const patientsWithNoRx = await db.Patient.count({
-            where: {
-                isActive: true,
-                ...notDeleted,
-                id: { [Op.notIn]: idsWithRx.length ? idsWithRx : [0] }
-            }
-        });
+        let patientsWithNoRx;
+        if (currentSnapshot) {
+            patientsWithNoRx = Number(currentSnapshot.patientsWithNoRx || 0);
+        } else {
+            // Active patients with NO RX records
+            const patientIdsWithRx = await db.RXRecord.findAll({
+                attributes: ['patientId'],
+                where: { isDeleted: false },
+                group: ['patientId'],
+                raw: true
+            });
+            const idsWithRx = patientIdsWithRx.map(r => r.patientId);
+            patientsWithNoRx = await db.Patient.count({
+                where: {
+                    isActive: true,
+                    ...notDeleted,
+                    id: { [Op.notIn]: idsWithRx.length ? idsWithRx : [0] }
+                }
+            });
+        }
 
-        res.json({ activePatients, inactivePatients, pendingDeliveriesCount, activeRxCount, patientsWithNoRx, recentActivity });
+        res.json({
+            activePatients,
+            inactivePatients,
+            pendingDeliveriesCount,
+            activeRxCount,
+            patientsWithNoRx,
+            recentActivity,
+            analyticsAsOf: currentSnapshot ? currentSnapshot.updatedAt : null
+        });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
@@ -205,8 +234,243 @@ exports.getTotalRx = async (req, res) => {
     } catch (error) { res.status(500).json({ error: error.message }); }
 };
 
+function dashboardDateKeys(startDate, endDate) {
+    const keys = [];
+    const cursor = new Date(`${startDate}T12:00:00`);
+    const last = new Date(`${endDate}T12:00:00`);
+    if (isNaN(cursor.getTime()) || isNaN(last.getTime()) || cursor > last) return keys;
+    while (cursor <= last) {
+        keys.push(localDateString(cursor));
+        cursor.setDate(cursor.getDate() + 1);
+    }
+    return keys;
+}
+
+async function resolveDashboardTrendRange(query) {
+    query = query || {};
+    const today = new Date();
+    today.setHours(12, 0, 0, 0);
+    let rangeEnd = query.chartTo ? new Date(`${query.chartTo}T12:00:00`) : new Date(today);
+    let rangeStart;
+    if (query.chartFrom) {
+        rangeStart = new Date(`${query.chartFrom}T12:00:00`);
+    } else if (query.chartRange === 'all') {
+        const [earliest] = await db.sequelize.query(`
+            SELECT MIN(candidate)::date AS earliest
+            FROM (
+                SELECT MIN("serviceDate")::date AS candidate
+                FROM "Patients"
+                WHERE "serviceDate" IS NOT NULL
+                  AND COALESCE("isDeleted", false) = false
+                UNION ALL
+                SELECT MIN("newServiceDate")::date
+                FROM "PatientServiceDateHistories"
+                WHERE "newServiceDate" IS NOT NULL
+                UNION ALL
+                SELECT MIN("serviceDate")::date
+                FROM "PatientServiceDateCycles"
+                WHERE "serviceDate" IS NOT NULL
+                UNION ALL
+                SELECT MIN("createdAt")::date
+                FROM "RXRecords"
+                WHERE COALESCE("isDeleted", false) = false
+                UNION ALL
+                SELECT MIN("createdAt")::date
+                FROM "Patients"
+                WHERE COALESCE("isDeleted", false) = false
+                UNION ALL
+                SELECT MIN("completionDate")::date
+                FROM "RXWorkflowTrackings"
+                WHERE "completionDate" IS NOT NULL
+            ) AS candidates
+        `, { type: QueryTypes.SELECT });
+        rangeStart = earliest && earliest.earliest
+            ? new Date(`${String(earliest.earliest).slice(0, 10)}T12:00:00`)
+            : new Date(today);
+    } else {
+        rangeStart = new Date(today);
+        rangeStart.setDate(rangeStart.getDate() - 29);
+    }
+    if (isNaN(rangeStart.getTime())) rangeStart = new Date(today);
+    if (isNaN(rangeEnd.getTime())) rangeEnd = new Date(today);
+    return {
+        startDate: localDateString(rangeStart),
+        endDate: localDateString(rangeEnd)
+    };
+}
+
+function snapshotNumber(snapshot, field) {
+    return Number(snapshot && snapshot[field] || 0);
+}
+
+async function serviceDateEntriesForRange(startDate, endDate) {
+    const rows = await db.sequelize.query(`
+        SELECT "serviceDate"::date::text AS date, COUNT(*)::integer AS count
+        FROM "PatientServiceDateCycles"
+        WHERE "serviceDate" BETWEEN :startDate AND :endDate
+        GROUP BY "serviceDate"::date
+    `, {
+        type: QueryTypes.SELECT,
+        replacements: { startDate, endDate }
+    });
+    return new Map(rows.map(row => [String(row.date).slice(0, 10), Number(row.count)]));
+}
+
+async function loadPersistedDashboardChart(query) {
+    const range = await resolveDashboardTrendRange(query);
+    const keys = dashboardDateKeys(range.startDate, range.endDate);
+    if (!keys.length) return { response: null, missingDates: new Set(), range };
+
+    const today = localSnapshotDate();
+    if (range.startDate <= today && range.endDate >= today) {
+        await getFreshCurrentSnapshot({ maxAgeMs: 5 * 60 * 1000 });
+    }
+    const snapshots = await db.DailySnapshot.findAll({
+        where: { snapshotDate: { [Op.between]: [range.startDate, range.endDate] } },
+        order: [['snapshotDate', 'ASC']],
+        raw: true
+    });
+    const byDate = new Map(snapshots.map(snapshot => [String(snapshot.snapshotDate), snapshot]));
+    const missingDates = new Set(keys.filter(key => !byDate.has(key)));
+    if (missingDates.size) return { response: null, missingDates, range };
+
+    const current = await getFreshCurrentSnapshot({ maxAgeMs: 5 * 60 * 1000 });
+    const serviceEntries = await serviceDateEntriesForRange(range.startDate, range.endDate);
+    const dailyTrends = {
+        labels: keys,
+        activePatients: [],
+        inactivePatients: [],
+        newPatientsToday: [],
+        rxRecords: [],
+        newRXToday: [],
+        pendingDeliveries: [],
+        completedRX: [],
+        patientsWithNoRx: [],
+        eligibleNow: [],
+        expiringIn7: [],
+        inWindow: [],
+        noServiceDate: [],
+        loginEventsToday: [],
+        uniqueLoginUsersToday: [],
+        userActivityEventsToday: [],
+        uniqueActivityUsersToday: [],
+        auditEventsToday: [],
+        workflowStepsToday: [],
+        workflowStepsCompletedDaily: [],
+        completedWorkflowSteps: [],
+        totalWorkflowSteps: [],
+        workflowCompletionRate: [],
+        serviceDateEntries: [],
+        serviceDateChanges: []
+    };
+    keys.forEach(key => {
+        const snapshot = byDate.get(key);
+        dailyTrends.activePatients.push(snapshotNumber(snapshot, 'activePatients'));
+        dailyTrends.inactivePatients.push(snapshotNumber(snapshot, 'inactivePatients'));
+        dailyTrends.newPatientsToday.push(snapshotNumber(snapshot, 'newPatientsToday'));
+        dailyTrends.rxRecords.push(snapshotNumber(snapshot, 'totalRX'));
+        dailyTrends.newRXToday.push(snapshotNumber(snapshot, 'newRXToday'));
+        dailyTrends.pendingDeliveries.push(snapshotNumber(snapshot, 'pendingRX'));
+        dailyTrends.completedRX.push(snapshotNumber(snapshot, 'completedRX'));
+        dailyTrends.patientsWithNoRx.push(snapshotNumber(snapshot, 'patientsWithNoRx'));
+        dailyTrends.eligibleNow.push(snapshotNumber(snapshot, 'eligibleNow'));
+        dailyTrends.expiringIn7.push(snapshotNumber(snapshot, 'expiringIn7'));
+        dailyTrends.inWindow.push(snapshotNumber(snapshot, 'inWindow'));
+        dailyTrends.noServiceDate.push(snapshotNumber(snapshot, 'noServiceDate'));
+        dailyTrends.loginEventsToday.push(snapshotNumber(snapshot, 'loginEventsToday'));
+        dailyTrends.uniqueLoginUsersToday.push(snapshotNumber(snapshot, 'uniqueLoginUsersToday'));
+        dailyTrends.userActivityEventsToday.push(snapshotNumber(snapshot, 'userActivityEventsToday'));
+        dailyTrends.uniqueActivityUsersToday.push(snapshotNumber(snapshot, 'uniqueActivityUsersToday'));
+        dailyTrends.auditEventsToday.push(snapshotNumber(snapshot, 'auditEventsToday'));
+        dailyTrends.workflowStepsToday.push(snapshotNumber(snapshot, 'workflowStepsToday'));
+        dailyTrends.workflowStepsCompletedDaily.push(snapshotNumber(snapshot, 'workflowStepsToday'));
+        dailyTrends.completedWorkflowSteps.push(snapshotNumber(snapshot, 'completedWorkflowSteps'));
+        dailyTrends.totalWorkflowSteps.push(snapshotNumber(snapshot, 'totalWorkflowSteps'));
+        dailyTrends.workflowCompletionRate.push(snapshotNumber(snapshot, 'workflowCompletionRate'));
+        const entries = Number(serviceEntries.get(key) || 0);
+        dailyTrends.serviceDateEntries.push(entries);
+        dailyTrends.serviceDateChanges.push(entries);
+    });
+    const cardTotals = {
+        labels: ['Active', 'Inactive', 'Total RX', 'Pending', 'No RX'],
+        data: [
+            snapshotNumber(current, 'activePatients'),
+            snapshotNumber(current, 'inactivePatients'),
+            snapshotNumber(current, 'totalRX'),
+            snapshotNumber(current, 'pendingRX'),
+            snapshotNumber(current, 'patientsWithNoRx')
+        ]
+    };
+    return {
+        response: {
+            cardTotals,
+            rxStatus: {
+                labels: ['Completed', 'Pending'],
+                data: [
+                    snapshotNumber(current, 'completedRX'),
+                    snapshotNumber(current, 'pendingRX')
+                ]
+            },
+            dailyTrends,
+            trendReady: true,
+            trendWarning: '',
+            analyticsSource: 'daily_snapshots',
+            analyticsAsOf: current.updatedAt
+        },
+        missingDates,
+        range
+    };
+}
+
+async function persistDashboardTrendRows(dateKeys, dailyTrends, missingDates) {
+    if (!missingDates || !missingDates.size) return 0;
+    const value = (name, index) => Number((dailyTrends[name] || [])[index] || 0);
+    const rows = dateKeys
+        .map((snapshotDate, index) => ({ snapshotDate, index }))
+        .filter(item => missingDates.has(item.snapshotDate))
+        .map(({ snapshotDate, index }) => ({
+            snapshotDate,
+            totalPatients: value('activePatients', index) + value('inactivePatients', index),
+            activePatients: value('activePatients', index),
+            inactivePatients: value('inactivePatients', index),
+            newPatientsToday: value('newPatientsToday', index),
+            totalRX: value('rxRecords', index),
+            newRXToday: value('newRXToday', index),
+            pendingRX: value('pendingDeliveries', index),
+            completedRX: value('completedRX', index),
+            patientsWithNoRx: value('patientsWithNoRx', index),
+            eligibleNow: value('eligibleNow', index),
+            expiringIn7: value('expiringIn7', index),
+            inWindow: value('inWindow', index),
+            noServiceDate: value('noServiceDate', index),
+            loginEventsToday: value('loginEventsToday', index),
+            uniqueLoginUsersToday: value('uniqueLoginUsersToday', index),
+            userActivityEventsToday: value('userActivityEventsToday', index),
+            uniqueActivityUsersToday: value('uniqueActivityUsersToday', index),
+            auditEventsToday: value('auditEventsToday', index),
+            workflowStepsToday: value('workflowStepsToday', index),
+            completedWorkflowSteps: value('completedWorkflowSteps', index),
+            totalWorkflowSteps: value('totalWorkflowSteps', index),
+            workflowCompletionRate: value('workflowCompletionRate', index)
+        }));
+    if (!rows.length) return 0;
+    await db.DailySnapshot.bulkCreate(rows, { ignoreDuplicates: true });
+    console.log(`[Snapshot] Materialized ${rows.length} missing dashboard trend day(s).`);
+    return rows.length;
+}
+
 exports.getChartData = async (req, res) => {
     try {
+        const persisted = await loadPersistedDashboardChart(req.query);
+        if (persisted.response) return res.json(persisted.response);
+        await materializeSnapshotHistory(persisted.range.startDate, persisted.range.endDate);
+        const materialized = await loadPersistedDashboardChart(req.query);
+        if (!materialized.response) {
+            throw new Error('Dashboard analytics history could not be materialized.');
+        }
+        materialized.response.analyticsSource = 'daily_snapshots_materialized';
+        return res.json(materialized.response);
+
         const chartFrom = req.query.chartFrom || '';
         const chartTo   = req.query.chartTo || '';
         const chartRange = req.query.chartRange || '';
@@ -519,46 +783,14 @@ exports.getChartData = async (req, res) => {
         }
         dailyTrends.serviceDateChanges = dailyTrends.serviceDateEntries;
 
-        res.json({ cardTotals, rxStatus: { labels: ['Completed', 'Pending'], data: [completed2, pending] }, dailyTrends, trendReady, trendWarning });
-    } catch (error) { res.status(500).json({ error: error.message }); }
-};
-
-exports.getRxPipeline = async (req, res) => {
-    try {
-        const steps = await db.WorkflowAction.findAll({
-            where: { isActive: true },
-            order: [['sequenceNumber', 'ASC'], ['id', 'ASC']]
-        });
-        const totalSteps = steps.length;
-
-        const allRx = await db.RXRecord.findAll({
-            include: [{ model: db.RXWorkflowTracking }],
-            where: { isDeleted: false }
-        });
-
-        let notStarted = 0, inProgress = 0, completedCount = 0;
-        const stepCounts = steps.map(s => ({ id: s.id, name: s.name, count: 0 }));
-
-        for (const rx of allRx) {
-            const done = (rx.RXWorkflowTrackings || []).length;
-            if (totalSteps === 0 || done >= totalSteps) {
-                completedCount++;
-            } else if (done === 0) {
-                notStarted++;
-            } else {
-                inProgress++;
-                const currentStepIndex = done;
-                if (stepCounts[currentStepIndex]) stepCounts[currentStepIndex].count++;
-            }
-        }
-
+        await persistDashboardTrendRows(dateKeys, dailyTrends, persisted.missingDates);
         res.json({
-            total: allRx.length,
-            notStarted,
-            inProgress,
-            completed: completedCount,
-            totalSteps,
-            stepBreakdown: stepCounts
+            cardTotals,
+            rxStatus: { labels: ['Completed', 'Pending'], data: [completed2, pending] },
+            dailyTrends,
+            trendReady,
+            trendWarning,
+            analyticsSource: 'materialized_on_first_request'
         });
     } catch (error) { res.status(500).json({ error: error.message }); }
 };
@@ -567,18 +799,29 @@ exports.getRxPipeline = async (req, res) => {
 // Returns 90-day eligibility breakdown for active patients.
 // SOURCE OF TRUTH: patient.serviceDate (canonical 90-day clock).
 // This matches the frontend liveFilter() logic in patients.js.
-exports.getEligibilityStats = async (req, res) => {
+async function getEligibilityStatsLegacy(req, res) {
     try {
         const notDeleted = { [Op.or]: [{ isDeleted: false }, { isDeleted: null }] };
 
-        // Get all active non-deleted patients
+        const today = new Date(); today.setHours(0, 0, 0, 0);
+        const currentSnapshot = await getFreshCurrentSnapshot({ maxAgeMs: 5 * 60 * 1000 });
+        const eligibilityCutoff = new Date(`${localSnapshotDate(today)}T12:00:00`);
+        eligibilityCutoff.setDate(eligibilityCutoff.getDate() - getServiceWindowDays());
+        const eligibilityCutoffIso = localDateString(eligibilityCutoff);
+
+        // Totals come from the persisted current-day analytics row. Only the
+        // bounded overdue preview is read live for the dashboard popup.
         const patients = await db.Patient.findAll({
-            where: { isActive: true, ...notDeleted },
+            where: {
+                isActive: true,
+                ...notDeleted,
+                serviceDate: { [Op.lte]: eligibilityCutoffIso }
+            },
             attributes: ['id', 'firstName', 'lastName', 'patientCode', 'serviceDate'],
+            order: [['serviceDate', 'ASC'], ['id', 'ASC']],
+            limit: 20,
             raw: true
         });
-
-        const today = new Date(); today.setHours(0, 0, 0, 0);
 
         let eligibleNow    = 0;   // patient.serviceDate window fully expired (daysLeft < 0)
         let expiringIn7    = 0;   // window expires in 0–7 days
@@ -635,6 +878,113 @@ exports.getEligibilityStats = async (req, res) => {
             callCenterCutoffDate: getCallCenterCutoffIso(today)
         });
     } catch (error) { res.status(500).json({ error: error.message }); }
+}
+
+exports.getEligibilityStats = async (req, res) => {
+    try {
+        const notDeleted = { [Op.or]: [{ isDeleted: false }, { isDeleted: null }] };
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const currentSnapshot = await getFreshCurrentSnapshot({ maxAgeMs: 5 * 60 * 1000 });
+        const eligibilityCutoff = new Date(`${localSnapshotDate(today)}T12:00:00`);
+        eligibilityCutoff.setDate(eligibilityCutoff.getDate() - getServiceWindowDays());
+        const eligibilityCutoffIso = localDateString(eligibilityCutoff);
+        const patients = await db.Patient.findAll({
+            where: {
+                isActive: true,
+                ...notDeleted,
+                serviceDate: { [Op.lte]: eligibilityCutoffIso }
+            },
+            attributes: ['id', 'firstName', 'lastName', 'patientCode', 'serviceDate'],
+            order: [['serviceDate', 'ASC'], ['id', 'ASC']],
+            limit: 20,
+            raw: true
+        });
+        const eligibleList = patients.map(patient => {
+            const eligibility = evaluateServiceWindow(patient.serviceDate, today);
+            return {
+                id: patient.id,
+                patientCode: patient.patientCode,
+                name: (patient.firstName || '') + ' ' + (patient.lastName || ''),
+                lastService: patient.serviceDate,
+                eligibleSince: eligibility.eligibleSince,
+                daysPastDue: Math.abs(eligibility.daysLeft)
+            };
+        });
+
+        res.json({
+            eligibleNow: Number(currentSnapshot.eligibleNow || 0),
+            expiringIn7: Number(currentSnapshot.expiringIn7 || 0),
+            inWindow: Number(currentSnapshot.inWindow || 0),
+            noServiceDate: Number(currentSnapshot.noServiceDate || 0),
+            total: Number(currentSnapshot.activePatients || 0),
+            eligibleList,
+            serviceWindowDays: getServiceWindowDays(),
+            callCenterLeadDays: getCallCenterLeadDays(),
+            callCenterCutoffDate: getCallCenterCutoffIso(today),
+            analyticsAsOf: currentSnapshot.updatedAt
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+}
+
+exports.getRxPipeline = async (req, res) => {
+    try {
+        const steps = await db.WorkflowAction.findAll({
+            where: { isActive: true },
+            order: [['sequenceNumber', 'ASC'], ['id', 'ASC']],
+            attributes: ['id', 'name'],
+            raw: true
+        });
+        const totalSteps = steps.length;
+        const grouped = await db.sequelize.query(`
+            WITH tracking_counts AS (
+                SELECT "rxRecordId", COUNT(*)::integer AS done
+                FROM "RXWorkflowTrackings"
+                GROUP BY "rxRecordId"
+            )
+            SELECT COALESCE(tracking_counts.done, 0)::integer AS done,
+                   COUNT(*)::integer AS count
+            FROM "RXRecords" AS rx
+            LEFT JOIN tracking_counts ON tracking_counts."rxRecordId" = rx.id
+            WHERE COALESCE(rx."isDeleted", false) = false
+            GROUP BY COALESCE(tracking_counts.done, 0)
+            ORDER BY done
+        `, { type: QueryTypes.SELECT });
+        const countByDone = new Map(grouped.map(row => [Number(row.done), Number(row.count)]));
+        const total = grouped.reduce((sum, row) => sum + Number(row.count), 0);
+        let notStarted = 0;
+        let inProgress = 0;
+        let completed = 0;
+        if (totalSteps === 0) {
+            completed = total;
+        } else {
+            for (const row of grouped) {
+                const done = Number(row.done);
+                const count = Number(row.count);
+                if (done === 0) notStarted += count;
+                else if (done >= totalSteps) completed += count;
+                else inProgress += count;
+            }
+        }
+        const stepBreakdown = steps.map((step, index) => ({
+            id: step.id,
+            name: step.name,
+            count: index > 0 ? Number(countByDone.get(index) || 0) : 0
+        }));
+
+        res.json({
+            total,
+            notStarted,
+            inProgress,
+            completed,
+            totalSteps,
+            stepBreakdown
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
 };
 
 // GET /api/dashboard/eligibility-drilldown/:filter

@@ -367,6 +367,7 @@ router.get('/reports/rx-receipts', rbac.requirePermission('reports', 'read'), re
 router.get('/reports/rx-actions', rbac.requirePermission('reports', 'read'), reportController.getRXActionReport);
 router.get('/reports/call-center', rbac.requirePermission('reports', 'read'), reportController.getCallCenterReport);
 router.get('/reports/call-center-attempts', rbac.requirePermission('reports', 'read'), reportController.getCallCenterAttemptReport);
+router.get('/reports/call-center-supervisor', rbac.requirePermission('reports', 'read'), reportController.getCallCenterSupervisorSummary);
 
 // Audit Log — controlled by its own audit_log permission
 router.get('/audit-logs',              rbac.requirePermission('audit_log', 'read'),  auditLogController.getAll);

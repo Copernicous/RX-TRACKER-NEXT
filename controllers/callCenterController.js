@@ -24,7 +24,8 @@ const {
     getEligibilityCutoffIso,
     evaluateServiceWindow,
     isCallCenterCandidate,
-    getCallCenterThresholdDays
+    getCallCenterThresholdDays,
+    getCallCenterCutoffIso
 } = require('../utils/serviceWindowEligibility');
 
 const MODULE_NAME = 'Call Center';
@@ -184,24 +185,6 @@ function callCenterIneligibilityMessage(patient) {
     return 'Patient is not currently Call Center eligible.';
 }
 
-function patientMatchesSearch(patient, q) {
-    if (!q) return true;
-    const clinic = patient && patient.Clinic ? patient.Clinic : null;
-    const patientTransport = patient && patient.PatientTransportCompany ? patient.PatientTransportCompany : null;
-    const haystack = [
-        patient.firstName || '',
-        patient.lastName || '',
-        `${patient.firstName || ''} ${patient.lastName || ''}`.trim(),
-        patient.phone || '',
-        clinic && clinic.name ? clinic.name : '',
-        patientTransport && patientTransport.companyName ? patientTransport.companyName : ''
-    ].join(' ').toLowerCase();
-    const normalizedPhone = String(patient.phone || '').replace(/\D/g, '');
-    const needle = String(q || '').trim().toLowerCase();
-    const phoneNeedle = needle.replace(/\D/g, '');
-    return haystack.includes(needle) || (!!phoneNeedle && normalizedPhone.includes(phoneNeedle));
-}
-
 function parsePaging(query) {
     const size = parseInt(query.pageSize || query.limit || 10, 10);
     const pageSize = [5, 10, 25, 50].includes(size) ? size : 10;
@@ -216,47 +199,234 @@ function parseSort(query) {
     return { sort, dir };
 }
 
-function compareValues(left, right) {
-    const a = left === null || left === undefined ? '' : String(left).toLowerCase();
-    const b = right === null || right === undefined ? '' : String(right).toLowerCase();
-    if (a < b) return -1;
-    if (a > b) return 1;
-    return 0;
+function escapeLikePattern(value) {
+    return String(value || '')
+        .toLowerCase()
+        .replace(/!/g, '!!')
+        .replace(/%/g, '!%')
+        .replace(/_/g, '!_');
 }
 
-function sortPatients(rows, sortConfig, callHistory) {
-    if (!sortConfig || !sortConfig.sort) return rows;
-    const dir = sortConfig.dir || 1;
-    const sorted = rows.slice();
-    sorted.sort((left, right) => {
-        const l = left && typeof left.toJSON === 'function' ? left.toJSON() : left;
-        const r = right && typeof right.toJSON === 'function' ? right.toJSON() : right;
-        if (sortConfig.sort === 'callCount') {
-            const lc = (callHistory[String(l.id)] || {}).count || 0;
-            const rc = (callHistory[String(r.id)] || {}).count || 0;
-            return (lc - rc) * dir;
-        }
-        if (sortConfig.sort === 'lastCall') {
-            const lc = (callHistory[String(l.id)] || {}).lastCalledAt || '';
-            const rc = (callHistory[String(r.id)] || {}).lastCalledAt || '';
-            return compareValues(lc, rc) * dir;
-        }
-        if (sortConfig.sort === 'status') {
-            return compareValues(isEligiblePatient(l) ? 'eligible' : 'completed', isEligiblePatient(r) ? 'eligible' : 'completed') * dir;
-        }
-        if (sortConfig.sort === 'clinicName') {
-            const lc = l.Clinic && l.Clinic.name ? l.Clinic.name : '';
-            const rc = r.Clinic && r.Clinic.name ? r.Clinic.name : '';
-            return compareValues(lc, rc) * dir;
-        }
-        if (sortConfig.sort === 'patientTransportName') {
-            const lt = l.PatientTransportCompany && l.PatientTransportCompany.companyName ? l.PatientTransportCompany.companyName : '';
-            const rt = r.PatientTransportCompany && r.PatientTransportCompany.companyName ? r.PatientTransportCompany.companyName : '';
-            return compareValues(lt, rt) * dir;
-        }
-        return compareValues(l[sortConfig.sort], r[sortConfig.sort]) * dir;
+function callCenterSearchSql(q, replacements) {
+    const clean = String(q || '').trim();
+    if (!clean) return '';
+
+    replacements.searchText = `%${escapeLikePattern(clean)}%`;
+    const parts = [
+        `LOWER(COALESCE(p."firstName", '')) LIKE :searchText ESCAPE '!'`,
+        `LOWER(COALESCE(p."lastName", '')) LIKE :searchText ESCAPE '!'`,
+        `LOWER(CONCAT_WS(' ', p."firstName", p."lastName")) LIKE :searchText ESCAPE '!'`,
+        `LOWER(COALESCE(p."phone", '')) LIKE :searchText ESCAPE '!'`,
+        `LOWER(COALESCE(c."name", '')) LIKE :searchText ESCAPE '!'`,
+        `LOWER(COALESCE(pt."companyName", '')) LIKE :searchText ESCAPE '!'`
+    ];
+    const phoneDigits = clean.replace(/\D/g, '');
+    if (phoneDigits) {
+        replacements.searchPhone = `%${phoneDigits}%`;
+        parts.push(`REGEXP_REPLACE(COALESCE(p."phone", ''), '[^0-9]', '', 'g') LIKE :searchPhone`);
+    }
+    return ` AND (${parts.join(' OR ')})`;
+}
+
+function callHistoryJoinSql(sortConfig) {
+    if (!sortConfig || !['callCount', 'lastCall'].includes(sortConfig.sort)) return '';
+    return `
+        LEFT JOIN (
+            SELECT "recordId" AS "patientId",
+                   COUNT(*)::integer AS "callCount",
+                   MAX("createdAt") AS "lastCall"
+            FROM "AuditLogs"
+            WHERE "module" = 'Call Center'
+              AND "action" = 'Called'
+              AND "recordId" IS NOT NULL
+            GROUP BY "recordId"
+        ) call_history ON call_history."patientId" = p.id
+    `;
+}
+
+function callCenterStatusSql() {
+    return `CASE
+        WHEN p."isActive" = TRUE
+         AND p."isDeleted" IS DISTINCT FROM TRUE
+         AND p."isNonCompanyPatient" IS DISTINCT FROM TRUE
+         AND p."serviceDate" IS NOT NULL
+         AND p."serviceDate" <= :callCenterCutoff
+        THEN 'eligible'
+        ELSE 'completed'
+    END`;
+}
+
+function callCenterOrderSql(sortConfig, options) {
+    options = options || {};
+    const activity = options.activity === true;
+    const fallback = activity
+        ? `activity."lastActivityAt" DESC, p.id ASC`
+        : `p."serviceDate" ASC, LOWER(COALESCE(p."lastName", '')) ASC, LOWER(COALESCE(p."firstName", '')) ASC, p.id ASC`;
+    if (!sortConfig || !sortConfig.sort) return fallback;
+
+    const direction = sortConfig.dir === -1 ? 'DESC' : 'ASC';
+    const nulls = direction === 'ASC' ? 'NULLS FIRST' : 'NULLS LAST';
+    const expressions = {
+        firstName: `LOWER(COALESCE(p."firstName", ''))`,
+        lastName: `LOWER(COALESCE(p."lastName", ''))`,
+        clinicName: `LOWER(COALESCE(c."name", ''))`,
+        patientTransportName: `LOWER(COALESCE(pt."companyName", ''))`,
+        phone: `LOWER(COALESCE(p."phone", ''))`,
+        notes: `LOWER(COALESCE(p."notes", ''))`,
+        serviceDate: `p."serviceDate"`,
+        status: callCenterStatusSql(),
+        callCount: `COALESCE(call_history."callCount", 0)`,
+        lastCall: `call_history."lastCall"`
+    };
+    const expression = expressions[sortConfig.sort];
+    if (!expression) return fallback;
+    const needsNullOrder = ['serviceDate', 'lastCall'].includes(sortConfig.sort);
+    return `${expression} ${direction}${needsNullOrder ? ` ${nulls}` : ''}, ${fallback}`;
+}
+
+function callCenterPatientJoinsSql() {
+    return `
+        LEFT JOIN "Clinics" c ON c.id = p."clinicId"
+        LEFT JOIN "PatientTransportCompanies" pt ON pt.id = p."patientTransportCompanyId"
+    `;
+}
+
+async function loadCallCenterRowsByIds(ids) {
+    if (!ids.length) return [];
+    const order = new Map(ids.map((id, index) => [Number(id), index]));
+    const rows = await db.Patient.findAll({
+        attributes: ['id', 'firstName', 'lastName', 'clinicId', 'patientTransportCompanyId', 'phone', 'serviceDate', 'notes', 'isActive', 'isDeleted', 'isNonCompanyPatient'],
+        include: [
+            { model: db.Clinic, attributes: ['id', 'name'], required: false },
+            { model: db.PatientTransportCompany, attributes: ['id', 'companyName'], required: false }
+        ],
+        where: { id: { [Op.in]: ids } }
     });
-    return sorted;
+    rows.sort((left, right) => order.get(Number(left.id)) - order.get(Number(right.id)));
+    return rows;
+}
+
+async function getQueuePatientPage(paging, sortConfig, q) {
+    const replacements = {
+        callCenterCutoff: getCallCenterCutoffIso(new Date())
+    };
+    const joins = callCenterPatientJoinsSql();
+    const search = callCenterSearchSql(q, replacements);
+    const where = `
+        p."isActive" = TRUE
+        AND p."serviceDate" IS NOT NULL
+        AND p."isDeleted" IS DISTINCT FROM TRUE
+        AND p."isNonCompanyPatient" IS DISTINCT FROM TRUE
+        AND p."serviceDate" <= :callCenterCutoff
+        ${search}
+    `;
+    const countRows = await db.sequelize.query(
+        `SELECT COUNT(*)::integer AS total
+         FROM "Patients" p
+         ${joins}
+         WHERE ${where}`,
+        { type: db.Sequelize.QueryTypes.SELECT, replacements }
+    );
+    const total = Number(countRows[0] && countRows[0].total) || 0;
+    const totalPages = Math.max(Math.ceil(total / paging.pageSize), 1);
+    const page = Math.min(paging.page, totalPages);
+    replacements.limit = paging.pageSize;
+    replacements.offset = (page - 1) * paging.pageSize;
+    const historyJoin = callHistoryJoinSql(sortConfig);
+    const idRows = await db.sequelize.query(
+        `SELECT p.id
+         FROM "Patients" p
+         ${joins}
+         ${historyJoin}
+         WHERE ${where}
+         ORDER BY ${callCenterOrderSql(sortConfig)}
+         LIMIT :limit OFFSET :offset`,
+        { type: db.Sequelize.QueryTypes.SELECT, replacements }
+    );
+    return {
+        total,
+        totalPages,
+        page,
+        rows: await loadCallCenterRowsByIds(idRows.map((row) => row.id))
+    };
+}
+
+function activityAuditWhereSql(replacements) {
+    return `
+        "module" = :activityModule
+        AND "action" = :activityAction
+        AND "recordId" IS NOT NULL
+        AND "userId" = :activityUserId
+        AND "createdAt" BETWEEN :activityFrom AND :activityTo
+    `;
+}
+
+async function getActivityPatientPage(req, view, paging, sortConfig, q, range, action) {
+    const replacements = {
+        activityModule: MODULE_NAME,
+        activityAction: action,
+        activityUserId: req.user && req.user.id ? req.user.id : null,
+        activityFrom: range.from,
+        activityTo: range.to,
+        callCenterCutoff: getCallCenterCutoffIso(new Date())
+    };
+    const auditWhere = activityAuditWhereSql(replacements);
+    const activityRows = await db.sequelize.query(
+        `SELECT COUNT(*)::integer AS "logCount",
+                COUNT(DISTINCT "recordId")::integer AS "patientCount"
+         FROM "AuditLogs"
+         WHERE ${auditWhere}`,
+        { type: db.Sequelize.QueryTypes.SELECT, replacements }
+    );
+    const activityCounts = activityRows[0] || {};
+    const activityTotal = view === 'patients-called'
+        ? Number(activityCounts.patientCount) || 0
+        : Number(activityCounts.logCount) || 0;
+    const cte = `
+        WITH activity AS (
+            SELECT "recordId" AS "patientId",
+                   MAX("createdAt") AS "lastActivityAt"
+            FROM "AuditLogs"
+            WHERE ${auditWhere}
+            GROUP BY "recordId"
+        )
+    `;
+    const joins = callCenterPatientJoinsSql();
+    const search = callCenterSearchSql(q, replacements);
+    const countRows = await db.sequelize.query(
+        `${cte}
+         SELECT COUNT(*)::integer AS total
+         FROM activity
+         JOIN "Patients" p ON p.id = activity."patientId"
+         ${joins}
+         WHERE TRUE ${search}`,
+        { type: db.Sequelize.QueryTypes.SELECT, replacements }
+    );
+    const total = Number(countRows[0] && countRows[0].total) || 0;
+    const totalPages = Math.max(Math.ceil(total / paging.pageSize), 1);
+    const page = Math.min(paging.page, totalPages);
+    replacements.limit = paging.pageSize;
+    replacements.offset = (page - 1) * paging.pageSize;
+    const historyJoin = callHistoryJoinSql(sortConfig);
+    const idRows = await db.sequelize.query(
+        `${cte}
+         SELECT p.id
+         FROM activity
+         JOIN "Patients" p ON p.id = activity."patientId"
+         ${joins}
+         ${historyJoin}
+         WHERE TRUE ${search}
+         ORDER BY ${callCenterOrderSql(sortConfig, { activity: true })}
+         LIMIT :limit OFFSET :offset`,
+        { type: db.Sequelize.QueryTypes.SELECT, replacements }
+    );
+    return {
+        activityTotal,
+        total,
+        totalPages,
+        page,
+        rows: await loadCallCenterRowsByIds(idRows.map((row) => row.id))
+    };
 }
 
 function normalizeNumericId(value) {
@@ -697,38 +867,17 @@ exports.listPatients = async (req, res) => {
         const paging = parsePaging(req.query || {});
         const sortConfig = parseSort(req.query || {});
         const q = String((req.query && req.query.q) || '').trim();
-        const rows = await db.Patient.findAll({
-            attributes: ['id', 'firstName', 'lastName', 'clinicId', 'patientTransportCompanyId', 'phone', 'serviceDate', 'notes', 'isActive', 'isDeleted', 'isNonCompanyPatient'],
-            include: [
-                { model: db.Clinic, attributes: ['id', 'name'], required: false },
-                { model: db.PatientTransportCompany, attributes: ['id', 'companyName'], required: false }
-            ],
-            where: baseEligibleWhere(),
-            order: [['serviceDate', 'ASC'], ['lastName', 'ASC'], ['firstName', 'ASC'], ['id', 'ASC']]
-        });
-
-        let filtered = rows.filter((row) =>
-            isEligiblePatient(row) &&
-            patientMatchesSearch(row, q)
-        );
-        const sortHistory = ['callCount', 'lastCall'].includes(sortConfig.sort)
-            ? await getCallHistoryForPatients(filtered.map((row) => row.id))
-            : {};
-        filtered = sortPatients(filtered, sortConfig, sortHistory);
-        const total = filtered.length;
-        const totalPages = Math.max(Math.ceil(total / paging.pageSize), 1);
-        const page = Math.min(paging.page, totalPages);
-        const start = (page - 1) * paging.pageSize;
-        const pageRows = filtered.slice(start, start + paging.pageSize);
+        const result = await getQueuePatientPage(paging, sortConfig, q);
+        const pageRows = result.rows;
         const ids = pageRows.map((row) => row.id);
         const callHistory = await getCallHistoryForPatients(ids);
         const noteHistory = await getRecentNotesForPatients(ids);
 
         res.json({
-            page,
+            page: result.page,
             pageSize: paging.pageSize,
-            total,
-            totalPages,
+            total: result.total,
+            totalPages: result.totalPages,
             view: 'queue',
             serviceWindowDays: getServiceWindowDays(),
             callCenterLeadDays: getCallCenterLeadDays(),
@@ -751,36 +900,16 @@ async function listActivityPatients(req, res, view) {
     const q = String((req.query && req.query.q) || '').trim();
     const range = currentSessionTodayRange(req);
     const action = view === 'service-dates-today' ? SERVICE_DATE_ACTION : CALL_ACTION;
-
-    const logs = await db.AuditLog.findAll({
-        where: {
-            module: MODULE_NAME,
-            action,
-            recordId: { [Op.ne]: null },
-            userId: req.user && req.user.id ? req.user.id : null,
-            createdAt: { [Op.between]: [range.from, range.to] }
-        },
-        order: [['createdAt', 'DESC']],
-        attributes: ['id', 'recordId', 'createdAt', 'userId', 'action']
-    });
-
-    const ids = [];
-    const seen = new Set();
-    logs.forEach((log) => {
-        const id = parseInt(log.recordId, 10);
-        if (!Number.isFinite(id) || seen.has(id)) return;
-        seen.add(id);
-        ids.push(id);
-    });
-    const activityTotal = view === 'patients-called' ? ids.length : logs.length;
+    const result = await getActivityPatientPage(req, view, paging, sortConfig, q, range, action);
+    const activityTotal = result.activityTotal;
     const activityLabel = view === 'service-dates-today' ? 'dates' : (view === 'patients-called' ? 'patients' : 'calls');
 
-    if (!ids.length) {
+    if (!result.rows.length) {
         return res.json({
-            page: 1,
+            page: result.page,
             pageSize: paging.pageSize,
-            total: 0,
-            totalPages: 1,
+            total: result.total,
+            totalPages: result.totalPages,
             view,
             serviceWindowDays: getServiceWindowDays(),
             callCenterLeadDays: getCallCenterLeadDays(),
@@ -792,37 +921,16 @@ async function listActivityPatients(req, res, view) {
         });
     }
 
-    const patients = await db.Patient.findAll({
-        attributes: ['id', 'firstName', 'lastName', 'clinicId', 'patientTransportCompanyId', 'phone', 'serviceDate', 'notes', 'isActive', 'isDeleted'],
-        include: [
-            { model: db.Clinic, attributes: ['id', 'name'], required: false },
-            { model: db.PatientTransportCompany, attributes: ['id', 'companyName'], required: false }
-        ],
-        where: { id: { [Op.in]: ids } }
-    });
-    const byId = new Map();
-    patients.forEach((patient) => byId.set(patient.id, patient));
-
-    const ordered = ids.map((id) => byId.get(id)).filter(Boolean);
-    let filtered = ordered.filter((row) => patientMatchesSearch(row, q));
-    const allCallHistory = ['callCount', 'lastCall'].includes(sortConfig.sort)
-        ? await getCallHistoryForPatients(filtered.map((row) => row.id))
-        : {};
-    filtered = sortPatients(filtered, sortConfig, allCallHistory);
-    const total = filtered.length;
-    const totalPages = Math.max(Math.ceil(total / paging.pageSize), 1);
-    const page = Math.min(paging.page, totalPages);
-    const start = (page - 1) * paging.pageSize;
-    const pageRows = filtered.slice(start, start + paging.pageSize);
+    const pageRows = result.rows;
     const pageIds = pageRows.map((row) => row.id);
     const callHistory = await getCallHistoryForPatients(pageIds);
     const noteHistory = await getRecentNotesForPatients(pageIds);
 
     res.json({
-        page,
+        page: result.page,
         pageSize: paging.pageSize,
-        total,
-        totalPages,
+        total: result.total,
+        totalPages: result.totalPages,
         view,
         serviceWindowDays: getServiceWindowDays(),
         callCenterLeadDays: getCallCenterLeadDays(),
