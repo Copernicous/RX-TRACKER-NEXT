@@ -151,6 +151,8 @@ try {
     const setupScript = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'phone-account-setup.js'), 'utf8');
     const devicesView = fs.readFileSync(path.join(__dirname, '..', 'views', 'softphone-devices.ejs'), 'utf8');
     const devicesScript = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'softphone-devices.js'), 'utf8');
+    const livePhonesView = fs.readFileSync(path.join(__dirname, '..', 'views', 'live-rx-phones.ejs'), 'utf8');
+    const livePhonesScript = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'live-rx-phones.js'), 'utf8');
     const apiRoutes = fs.readFileSync(path.join(__dirname, '..', 'routes', 'apiRoutes.js'), 'utf8');
     const sidebarView = fs.readFileSync(path.join(__dirname, '..', 'views', 'partials', 'sidebar.ejs'), 'utf8');
     assert(setupView.includes('This is a one-time setup'), 'Phone Account Setup must explain the one-time workflow.');
@@ -165,6 +167,7 @@ try {
     assert(apiRoutes.includes("/admin/softphone-devices"), 'Administrator managed-device inventory API is missing.');
     assert(apiRoutes.includes("/admin/softphone-devices/:userId"), 'Administrator workstation revocation API is missing.');
     assert(sidebarView.includes('Phone Devices'), 'Administrator Phone Devices navigation is missing.');
+    assert(sidebarView.includes('Live RX Phones'), 'Administrator Live RX Phones navigation is missing.');
     assert(devicesView.includes('id="xa-softphone-devices-api"'), 'Phone Devices must expose a FortiGate-rewritten API anchor.');
     assert(devicesView.includes('/js/softphone-devices.js?v='), 'Phone Devices script must be versioned to bypass FortiGate session caching.');
     assert(devicesScript.includes('window.rxElementHref(anchor)'), 'Phone Devices must read the FortiGate-rewritten API URL.');
@@ -173,10 +176,23 @@ try {
     assert(devicesScript.includes('var rowsHtml = filtered.map(function(user)'), 'Phone Devices must build table rows before assigning innerHTML for FortiGate compatibility.');
     assert(devicesScript.includes('body.innerHTML = rowsHtml;'), 'Phone Devices must assign the completed row markup in a FortiGate-safe statement.');
     assert(!devicesScript.includes('body.innerHTML = filtered.map(function(user)'), 'Phone Devices must not use the compound innerHTML expression FortiGate rewrites with invalid JavaScript.');
+    assert(livePhonesView.includes('id="xa-live-rx-phones-api"'), 'Live RX Phones must expose a FortiGate-rewritten API anchor.');
+    assert(livePhonesView.includes('/js/live-rx-phones.js?v='), 'Live RX Phones script must be versioned to bypass FortiGate session caching.');
+    assert(livePhonesView.includes('does not listen to audio'), 'Live RX Phones must clearly identify its status-only scope.');
+    assert(livePhonesView.includes('id="livePhoneStatusFilter"'), 'Live RX Phones status filter is missing.');
+    assert(livePhonesScript.includes('window.rxElementHref(anchor)'), 'Live RX Phones must read the FortiGate-rewritten API URL.');
+    assert(livePhonesScript.includes('REQUEST_TIMEOUT_MS = 15000'), 'Live RX Phones must use a bounded FortiGate request timeout.');
+    assert(livePhonesScript.includes('__RX_LIVE_PHONES_BOOTED'), 'Live RX Phones must report a script-loading failure.');
+    assert(livePhonesScript.includes("setInterval(function() { loadPhones(true); }, 5000)"), 'Live RX Phones must refresh operational state every five seconds.');
+    assert(livePhonesScript.includes('setInterval(updateDurations, 1000)'), 'Live RX Phones must update active call durations every second.');
+    assert(livePhonesScript.includes('var cardsHtml = filtered.map(function(user)'), 'Live RX Phones must build cards before assigning markup for FortiGate compatibility.');
+    assert(livePhonesScript.includes('board.innerHTML = cardsHtml;'), 'Live RX Phones must use a FortiGate-safe two-step board assignment.');
+    assert(!livePhonesScript.includes('fetch(endpoint(path), { method:'), 'Live RX Phones must remain view-only.');
 
     const webRoutes = fs.readFileSync(path.join(__dirname, '..', 'routes', 'webRoutes.js'), 'utf8');
     assert(webRoutes.includes('http://127.0.0.1:5188'), 'Call Center CSP must allow the local softphone origin.');
     assert(webRoutes.includes("'/softphone-devices'"), 'Administrator Phone Devices page route is missing.');
+    assert(/router\.get\('\/live-rx-phones', requireWebLogin, requireAdministratorWeb/.test(webRoutes), 'Live RX Phones page must require an Administrator.');
 
     const softphoneProgram = fs.readFileSync(path.join(__dirname, '..', 'rx-softphone-desktop', 'Program.cs'), 'utf8');
     const softphoneRelay = fs.readFileSync(path.join(__dirname, '..', 'rx-softphone-desktop', 'SoftphoneRelayService.cs'), 'utf8');

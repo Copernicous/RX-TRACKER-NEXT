@@ -12,6 +12,86 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 - Added a sanitized, version-controlled project handoff and authoritative root agent instructions so future sessions can recover the production layout, release/rollback process, repository boundaries, decisions, and current operating status without relying on chat history or storing secrets.
 - Recorded a deferred, approval-gated cleanup checkpoint for the legacy production database/application and the former local 3.3.x development environment.
 
+## [4.0.0-next.21] - 2026-07-24
+
+### Security
+
+- Removed the obsolete `sequelize-cli` development dependency and its newly vulnerable formatting/globbing dependency chain.
+- Constrained the Google API client to patched `gaxios` 7.3.0, eliminating the high-severity dependency findings that blocked the `4.0.0-next.20` staging CI run.
+- Retained the existing high-severity CI audit gate. The remaining Sequelize/UUID advisory is moderate, does not affect the application’s UUID usage path, and requires an unsafe Sequelize downgrade according to npm.
+
+### Changed
+
+- Routed staging and Windows setup migration execution through the audited NEXT database lifecycle engine instead of the removed Sequelize CLI.
+
+### Testing
+
+- Confirmed `npm audit --audit-level=high` passes with no high or critical findings.
+- Confirmed the Google API module loads with the patched compatible `gaxios` override.
+- Added a CI dependency-policy regression preventing the obsolete Sequelize CLI from returning and keeping setup migrations on the audited NEXT lifecycle engine.
+
+**Database impact:** None. Migration execution uses the same 35 immutable audited migration files and checksum ledger; no migration, table, column, index, constraint, or production data changes are introduced.
+
+## [4.0.0-next.20] - 2026-07-24
+
+### Fixed
+
+- Corrected the portable new-server installer so an NSSM `SERVICE_START_PENDING` transition is treated as an accepted Windows start request and proceeds to the existing 60-second exact-version health gate.
+- Preserved hard failure behavior when Windows reports neither `StartPending` nor `Running`, including the NSSM diagnostic output in the failure message.
+
+### Testing
+
+- Extended the portable-installer regression to require explicit pending-start handling before the application health check.
+- Confirmed the reported `4.0.0-next.19` installation completed successfully despite the false installer error: the service reached `Running`, `/api/healthz` returned version `4.0.0-next.19` with database `ok`, and the service error log was empty.
+
+**Database impact:** None. This changes only new-server Windows service start handling and does not add or modify any migration, table, column, index, constraint, or production data.
+
+## [4.0.0-next.19] - 2026-07-24
+
+### Added
+
+- Added a portable, compiled new-server ZIP with a double-click Windows installer. It verifies the package, refuses existing databases/services, provisions an audited fresh database, creates the first administrator, configures a restricted runtime role, generates and protects the destination `.env`, installs the Windows service, and requires an exact-version health response.
+- Added a staged legacy 3.3.x retirement runbook that preserves a verified rollback set and keeps database deletion separate, named, and approval-gated.
+
+### Security
+
+- Kept PostgreSQL maintenance credentials out of the generated `.env`; the installed service receives a unique restricted runtime identity instead.
+- Kept reusable `.env` files and all deployment secrets out of the portable ZIP. JWT, SIP encryption, relay, runtime database, and administration-PIN values are generated independently on the destination server.
+- Requires a first-administrator password of at least 12 characters and does not provide a public default password.
+- Restricts the installed `.env` to Local System and local Administrators.
+
+### Testing
+
+- Added a portable-installer regression covering secret generation, existing-database/service refusal, inherited-environment isolation, restricted runtime-role verification, `.env` ACL protection, exact-version health gating, documentation, and release packaging.
+- Added a disposable PostgreSQL end-to-end installer test covering all 35 migrations, generated runtime configuration, exact-version health, first master-administrator login, and cleanup of test-only database roles.
+
+**Database impact:** None for existing NEXT installations. The portable installer creates a separately named fresh database only after confirming it does not exist; normal NEXT updates do not run this installer.
+
+## [4.0.0-next.18] - 2026-07-24
+
+### Added
+
+- Added an Administrator-only **Live RX Phones** presence board for RX Softphone workstations.
+- Added at-a-glance totals for registered, idle, dialing, ringing, connected, and unavailable/attention states.
+- Added per-user line cards showing the assigned extension, shared-extension count, Windows device, relay heartbeat, registration state, active peer, and live dialing/ringing/conversation duration.
+- Added search and status filtering for operational use.
+- Added safe call-state fields to the existing Administrator phone-device inventory response so the board can use the RX Softphone relay without querying the PBX.
+
+### Security and privacy
+
+- Kept the board strictly view-only and Administrator-only.
+- The board cannot listen to audio, record calls, dial, hang up, or issue other phone commands.
+- Limited the board to configured or paired RX Softphone users; MicroSIP and unrelated PBX extensions are not included.
+
+### Testing
+
+- Added managed-relay coverage for connected-call metadata and the existing active-call revocation guard.
+- Added static regressions for role protection, status-only behavior, five-second relay refresh, one-second active timers, versioned assets, and FortiGate-rewritten API routing.
+- Added isolated browser coverage for loading the Administrator board and its filters.
+- Passed the complete isolated staging browser smoke, existing Call Center phone-client regression, relay regression, public JavaScript validation, and staging configuration guard.
+
+**Database impact:** None. This release reuses the existing user phone account, paired workstation, and relay snapshot data. It does not add or change a migration, table, column, index, or constraint.
+
 ## [4.0.0-next.17] - 2026-07-23
 
 ### Added

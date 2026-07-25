@@ -1,6 +1,6 @@
 # RX Tracker NEXT project handoff
 
-Last updated: 2026-07-23
+Last updated: 2026-07-24
 
 This file is the sanitized continuity record for a future administrator or
 Codex session. It intentionally contains no credentials, `.env` values,
@@ -43,6 +43,27 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
   removing patients or RX records. This release is not yet installed in
   production. Production remains on `v4.0.0-next.6` until it is installed
   through Project Control.
+- Staging candidate `4.0.0-next.18` adds an Administrator-only, view-only
+  **Live RX Phones** presence board for configured or paired RX Softphone
+  workstations. It shows registration, relay heartbeat, idle/dialing/ringing/
+  connected state, active peer, live duration, shared-extension count, device,
+  and last reported call. It does not listen to audio, record, control calls,
+  or query the PBX. The complete isolated staging browser smoke, role-boundary
+  check, relay regression, Call Center phone-client regression, public
+  JavaScript validation, and staging configuration guard passed. It has no
+  database migration and does not require an RX Softphone update.
+- Staging candidate `4.0.0-next.21` adds a compiled
+  `RX-Tracker-NEXT-New-Server-<version>.zip`. The package contains no reusable
+  `.env`; `INSTALL-NEW-SERVER.bat` creates a fresh database, explicit first
+  administrator, restricted runtime role, destination-specific `.env`, NSSM
+  service, and non-secret receipt, then requires an exact-version health
+  check. Existing databases, non-empty app folders, and existing
+  `PatientRXSystem` services fail closed. This installer is for fresh servers;
+  established NEXT servers continue with Project Control option 8 then 15. A
+  disposable PostgreSQL test passed all migrations, exact-version health, and
+  the first master-administrator login before removing its test database and
+  roles. The accompanying retirement runbook keeps old 3.3.x deletion separate
+  and approval-gated.
 - Tag `v4.0.0-next.7` is a failed, non-deployable release attempt. Its server
   build passed, but the first clean-runner RX Softphone restore lacked an
   explicit Windows runtime identifier, so no GitHub release assets were

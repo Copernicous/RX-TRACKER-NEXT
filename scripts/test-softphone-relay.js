@@ -123,6 +123,33 @@ async function main() {
         assert.strictEqual(device.snapshot.clientVersion, '0.6.0');
         assert.strictEqual(device.snapshot.managedMode, true);
 
+        const dialedAt = new Date(Date.now() - 12000).toISOString();
+        const ringingAt = new Date(Date.now() - 9000).toISOString();
+        const connectedAt = new Date(Date.now() - 5000).toISOString();
+        const connectedSnapshot = {
+            ...synchronizedSnapshot,
+            registration: 'registered',
+            call: 'connected',
+            peer: '3055550100',
+            callId: `live-board-${suffix}`,
+            dialedAt,
+            ringingAt,
+            connectedAt,
+            endedAt: null,
+            outcome: 'answered'
+        };
+        const connectedPollResponse = await fetch(`${baseUrl}/api/softphone-relay/device/poll`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${pair.deviceToken}` },
+            body: JSON.stringify({
+                snapshot: connectedSnapshot,
+                accountUpdatedAt: poll.accountUpdatedAt,
+                completedCommands: [],
+                client
+            })
+        });
+        assert.strictEqual(connectedPollResponse.status, 200);
+
         const adminListResponse = mockResponse();
         await relayController.getAdminDevices({ user: { id: user.id }, headers: {} }, adminListResponse);
         assert.strictEqual(adminListResponse.statusCode, 200);
@@ -132,6 +159,29 @@ async function main() {
         assert.strictEqual(adminEntry.device.clientVersion, '0.6.0');
         assert.strictEqual(adminEntry.device.updateRequired, false);
         assert.strictEqual(adminEntry.device.accountSynchronized, true);
+        assert.strictEqual(adminEntry.device.registrationState, 'registered');
+        assert.strictEqual(adminEntry.device.callState, 'connected');
+        assert.strictEqual(adminEntry.device.peer, '3055550100');
+        assert.strictEqual(adminEntry.device.dialedAt, dialedAt);
+        assert.strictEqual(adminEntry.device.ringingAt, ringingAt);
+        assert.strictEqual(adminEntry.device.connectedAt, connectedAt);
+        assert.strictEqual(adminEntry.device.outcome, 'answered');
+
+        const endedPollResponse = await fetch(`${baseUrl}/api/softphone-relay/device/poll`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${pair.deviceToken}` },
+            body: JSON.stringify({
+                snapshot: {
+                    ...connectedSnapshot,
+                    call: 'idle',
+                    endedAt: new Date().toISOString()
+                },
+                accountUpdatedAt: poll.accountUpdatedAt,
+                completedCommands: [],
+                client
+            })
+        });
+        assert.strictEqual(endedPollResponse.status, 200);
 
         const revokeResponse = mockResponse();
         await relayController.revokeAdminDevice({

@@ -4,6 +4,15 @@ Use this document when installing Patient RX on a new Windows server or recoveri
 
 Keep this file with the release package. Do not store real production passwords in this file.
 
+> **RX Tracker NEXT:** For a brand-new NEXT server, use
+> `INSTALL-NEW-SERVER.bat` and
+> `docs\NEW_SERVER_PORTABLE_INSTALLER.md`. The portable installer provisions
+> audited migrations, creates the first administrator explicitly, generates
+> the real `.env`, creates a restricted database runtime role, installs the
+> service, and requires a healthy response. The manual default-seed procedure
+> below is retained only for recovery of older pre-NEXT packages and must not
+> be used to initialize NEXT.
+
 ## 1. Install Required Software
 
 Install PostgreSQL 14 or newer on the new server.

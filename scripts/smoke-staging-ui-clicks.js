@@ -656,6 +656,16 @@ async function runAdminDashboardAndReports(fixtures) {
     );
     pass('Administrator Phone Devices FortiGate-safe inventory request');
 
+    await page.goto(route('/live-rx-phones'), { waitUntil: 'domcontentloaded' });
+    await waitForNonPlaceholder(page, '#phoneStatRegistered', 'Administrator Live RX Phones board loaded');
+    assert.strictEqual(
+        (await page.locator('#livePhoneBoard').innerText()).includes('Loading RX Softphone lines'),
+        false,
+        'Live RX Phones must not remain in its initial loading state.'
+    );
+    assert.strictEqual(await page.locator('#livePhoneStatusFilter').isVisible(), true, 'Live RX Phones status filter must be visible.');
+    pass('Administrator Live RX Phones presence board');
+
     assertNoBrowserErrors('admin dashboard/report flow');
     await context.close();
 }
@@ -746,6 +756,10 @@ async function runCallCenterWorkspace(fixtures) {
     assert.strictEqual(rejectedNonCompanyClaim.status, 409, 'Non-company Call Center claim must be rejected.');
     assert.match(rejectedNonCompanyClaim.body.error || '', /Non-company patients are not eligible/i);
     pass('Call Center rejects non-company patient claim');
+
+    await page.goto(route('/live-rx-phones'), { waitUntil: 'domcontentloaded' });
+    await page.waitForURL('**/call-center', { timeout: 15000 });
+    pass('Call Center cannot open Administrator Live RX Phones');
 
     await page.goto(route('/dashboard'), { waitUntil: 'domcontentloaded' });
     await page.waitForURL('**/call-center', { timeout: 15000 });

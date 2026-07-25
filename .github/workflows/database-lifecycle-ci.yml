@@ -95,6 +95,7 @@ jobs:
           pwsh -NoProfile -File scripts/Invoke-NextProduction.ps1 -Action SelfTest
           pwsh -NoProfile -File scripts/Invoke-ReleaseUpdate.ps1 -Action Help
           pwsh -NoProfile -File scripts/Invoke-ReleaseUpdate.ps1 -Action SelfTest
+          npm run test:dependency-policy
           npm run test:reference-data
 
       - name: Provision and verify a fresh database
