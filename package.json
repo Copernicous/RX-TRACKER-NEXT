@@ -1,6 +1,6 @@
 {
   "name": "patient-rx-system",
-  "version": "4.0.0-next.24",
+  "version": "4.0.0-next.25",
   "description": "Patient RX Delivery Management System - NEXT database lifecycle preview",
   "main": "app.js",
   "scripts": {
@@ -32,6 +32,7 @@
     "test:softphone-relay": "node scripts/test-softphone-relay.js",
     "test:softphone-self-setup": "node scripts/test-softphone-self-setup.js",
     "test:call-center-call-attempts": "node scripts/test-call-center-call-attempts.js",
+    "test:call-center-pagination": "node scripts/test-call-center-server-pagination.js",
     "test:patient-pagination": "node scripts/test-patient-server-pagination.js",
     "test:dashboard-analytics": "node scripts/test-dashboard-persisted-analytics.js",
     "test:patient-double-update": "node scripts/test-patient-service-date-double-update.js",

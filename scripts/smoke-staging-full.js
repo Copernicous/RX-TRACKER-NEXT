@@ -8,6 +8,7 @@ const root = path.join(__dirname, '..');
 const staging = prepareStagingEnv();
 process.env.PATIENT_PAGINATION_TEST_DB_NAME = staging.dbName;
 process.env.DASHBOARD_ANALYTICS_TEST_DB_NAME = staging.dbName;
+process.env.CALL_CENTER_PAGINATION_TEST_DB_NAME = staging.dbName;
 
 const tasks = [
     ['public JavaScript encoding and syntax check', 'check-public-js.js'],
@@ -17,6 +18,7 @@ const tasks = [
     ['security alerts smoke', 'smoke-staging-security-alerts.js'],
     ['security hardening smoke', 'smoke-staging-security-hardening.js'],
     ['Call Center API restriction smoke', 'smoke-staging-call-center-security.js'],
+    ['Call Center database-side pagination regression', 'test-call-center-server-pagination.js'],
     ['patient database-side pagination regression', 'test-patient-server-pagination.js'],
     ['persisted dashboard analytics regression', 'test-dashboard-persisted-analytics.js'],
     ['RX warehouse filter and Call Center cleanup regression', 'test-rx-warehouse-filter-cleanup.js'],

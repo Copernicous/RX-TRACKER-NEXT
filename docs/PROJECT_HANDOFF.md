@@ -86,6 +86,14 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
   improved from about 3.4 seconds to 50-90 ms for a 10-patient page, while
   persisted all-time charts return in about 25-100 ms. Its one additive
   migration creates five Patients indexes and rewrites no business data.
+- Staging candidate `4.0.0-next.25` applies the same bounded database access
+  pattern to Call Center. PostgreSQL now performs queue count, filtering,
+  sorting, and ID pagination before the server loads page details and history.
+  Call-attempt report totals use grouped SQL aggregates instead of loading all
+  matching attempts. On the annual stress dataset, warm 10-row queue requests
+  improved from about 1.0-1.2 seconds to 11-14 ms, and the 50,000-attempt
+  summary improved from about 92-96 ms to 51-53 ms. One additive migration
+  creates eight growth-query indexes and rewrites no business data.
 - Tag `v4.0.0-next.7` is a failed, non-deployable release attempt. Its server
   build passed, but the first clean-runner RX Softphone restore lacked an
   explicit Windows runtime identifier, so no GitHub release assets were

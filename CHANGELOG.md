@@ -7,6 +7,34 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+## [4.0.0-next.25] - 2026-07-25
+
+### Added
+
+- Added an audited growth-query migration with composite indexes for Call Center audit history, RX workflow history, patient notes, user activity, and chronological error-log access.
+- Added a database regression proving Call Center queue count, filtering, sorting, pagination, page-scoped relationship loading, normalized phone search, call-history ordering, and called-today activity behavior.
+
+### Changed
+
+- Moved Call Center queue counting, filtering, sorting, and ID pagination into PostgreSQL. Patient, clinic, transport, note, call, and service-date details are now loaded only for the requested page.
+- Replaced broad called-today and login-activity materialization with bounded SQL common-table expressions and page-scoped history queries.
+- Changed Call Center attempt analytics to calculate outcome totals, ring time, and conversation time with grouped SQL aggregates instead of loading every matching attempt into Node.js.
+- Added the Call Center pagination regression to the complete staging smoke suite and PostgreSQL lifecycle CI.
+
+### Performance
+
+- On the annual stress dataset, warm 10-patient Call Center pages improved from approximately 1.0-1.2 seconds to 11-14 ms; relationship and call-history sorts measured approximately 12-23 ms.
+- The 50,000-attempt report summary improved from approximately 92-96 ms warm to 51-53 ms warm while keeping server memory bounded to aggregate rows.
+- Reviewed the other growing operational tables. Daily snapshots, relay commands, and service-date history/cycle queries were already bounded or adequately indexed and were intentionally left unchanged.
+
+### Testing
+
+- Passed the complete staging smoke suite, isolated browser workflow, Call Center lifecycle/report regression, queue-reopen regression, and non-company patient regression.
+- Verified all 37 migrations are applied with zero pending and valid checksums on staging and an isolated smoke database.
+- Verified the optimized attempt metrics produce exactly the same totals and outcome counts as the prior implementation on 50,000 attempts.
+
+**Database impact:** One additive, audited migration creates eight indexes on existing columns. It changes no columns, constraints, patients, RX records, call attempts, phone accounts, proxy routes, origins, ports, or RX Softphone behavior and rewrites no business data.
+
 ## [4.0.0-next.24] - 2026-07-25
 
 ### Added

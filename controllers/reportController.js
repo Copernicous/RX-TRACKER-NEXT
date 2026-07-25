@@ -410,12 +410,6 @@ function callAttemptOrder(sort, dir) {
     return [[field, dir === 'asc' ? 'ASC' : 'DESC'], ['id', 'DESC']];
 }
 
-function average(values) {
-    const usable = values.map(Number).filter(Number.isFinite);
-    if (!usable.length) return 0;
-    return Math.round(usable.reduce((sum, value) => sum + value, 0) / usable.length);
-}
-
 const CALL_ATTEMPT_TERMINAL_OUTCOMES = [
     'answered',
     'no_answer',
@@ -550,7 +544,15 @@ async function getPaginatedCallAttemptReport(query) {
     });
     const metricRows = await db.CallCenterCallAttempt.findAll({
         where: filters.where,
-        attributes: ['outcome', 'ringDurationSeconds', 'conversationDurationSeconds'],
+        attributes: [
+            'outcome',
+            [db.sequelize.literal('COUNT(*)'), 'attemptCount'],
+            [db.sequelize.literal('COUNT("ringDurationSeconds")'), 'ringCount'],
+            [db.sequelize.literal('COALESCE(SUM("ringDurationSeconds"), 0)'), 'ringTotal'],
+            [db.sequelize.literal('COUNT("conversationDurationSeconds")'), 'conversationCount'],
+            [db.sequelize.literal('COALESCE(SUM("conversationDurationSeconds"), 0)'), 'conversationTotal']
+        ],
+        group: ['outcome'],
         raw: true
     });
     const outcomeCounts = {
@@ -563,14 +565,20 @@ async function getPaginatedCallAttemptReport(query) {
         failed: 0,
         in_progress: 0
     };
+    let ringCount = 0;
+    let ringTotal = 0;
+    let conversationCount = 0;
+    let totalConversationSeconds = 0;
     metricRows.forEach(row => {
         const key = row.outcome && Object.hasOwn(outcomeCounts, row.outcome) ? row.outcome : 'in_progress';
-        outcomeCounts[key] += 1;
+        outcomeCounts[key] += Number(row.attemptCount) || 0;
+        ringCount += Number(row.ringCount) || 0;
+        ringTotal += Number(row.ringTotal) || 0;
+        conversationCount += Number(row.conversationCount) || 0;
+        totalConversationSeconds += Number(row.conversationTotal) || 0;
     });
     const answered = outcomeCounts.answered;
     const completed = Math.max(0, total - outcomeCounts.in_progress);
-    const talkDurations = metricRows.map(row => row.conversationDurationSeconds).filter(value => value !== null);
-    const ringDurations = metricRows.map(row => row.ringDurationSeconds).filter(value => value !== null);
     const users = await db.CallCenterCallAttempt.findAll({
         where: { userId: { [Op.ne]: null } },
         attributes: ['userId', 'agentName'],
@@ -596,9 +604,9 @@ async function getPaginatedCallAttemptReport(query) {
             unanswered: Math.max(0, total - answered - outcomeCounts.in_progress),
             inProgress: outcomeCounts.in_progress,
             answerRate: completed ? Math.round((answered / completed) * 100) : 0,
-            averageRingSeconds: average(ringDurations),
-            averageConversationSeconds: average(talkDurations),
-            totalConversationSeconds: talkDurations.reduce((sum, value) => sum + Number(value || 0), 0),
+            averageRingSeconds: ringCount ? Math.round(ringTotal / ringCount) : 0,
+            averageConversationSeconds: conversationCount ? Math.round(totalConversationSeconds / conversationCount) : 0,
+            totalConversationSeconds,
             outcomes: outcomeCounts
         }
     };

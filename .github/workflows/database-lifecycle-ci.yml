@@ -137,6 +137,7 @@ jobs:
           npm run test:call-center-shared-state
           SOFTPHONE_SETUP_TEST_DB_NAME=rx_next_ci_regression_test npm run test:softphone-self-setup
           CALL_ATTEMPT_TEST_DB_NAME=rx_next_ci_regression_test npm run test:call-center-call-attempts
+          CALL_CENTER_PAGINATION_TEST_DB_NAME=rx_next_ci_regression_test npm run test:call-center-pagination
           PATIENT_PAGINATION_TEST_DB_NAME=rx_next_ci_regression_test npm run test:patient-pagination
           DASHBOARD_ANALYTICS_TEST_DB_NAME=rx_next_ci_regression_test npm run test:dashboard-analytics
           npm run test:patient-double-update
