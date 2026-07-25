@@ -12,6 +12,26 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 - Added a sanitized, version-controlled project handoff and authoritative root agent instructions so future sessions can recover the production layout, release/rollback process, repository boundaries, decisions, and current operating status without relying on chat history or storing secrets.
 - Recorded a deferred, approval-gated cleanup checkpoint for the legacy production database/application and the former local 3.3.x development environment.
 
+## [4.0.0-next.21] - 2026-07-24
+
+### Security
+
+- Removed the obsolete `sequelize-cli` development dependency and its newly vulnerable formatting/globbing dependency chain.
+- Constrained the Google API client to patched `gaxios` 7.3.0, eliminating the high-severity dependency findings that blocked the `4.0.0-next.20` staging CI run.
+- Retained the existing high-severity CI audit gate. The remaining Sequelize/UUID advisory is moderate, does not affect the application’s UUID usage path, and requires an unsafe Sequelize downgrade according to npm.
+
+### Changed
+
+- Routed staging and Windows setup migration execution through the audited NEXT database lifecycle engine instead of the removed Sequelize CLI.
+
+### Testing
+
+- Confirmed `npm audit --audit-level=high` passes with no high or critical findings.
+- Confirmed the Google API module loads with the patched compatible `gaxios` override.
+- Added a CI dependency-policy regression preventing the obsolete Sequelize CLI from returning and keeping setup migrations on the audited NEXT lifecycle engine.
+
+**Database impact:** None. Migration execution uses the same 35 immutable audited migration files and checksum ledger; no migration, table, column, index, constraint, or production data changes are introduced.
+
 ## [4.0.0-next.20] - 2026-07-24
 
 ### Fixed

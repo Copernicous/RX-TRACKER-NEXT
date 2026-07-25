@@ -7,10 +7,10 @@ const { prepareStagingEnv, printSummary } = require('./lib/staging-env');
 try {
     const config = prepareStagingEnv();
     printSummary(config);
-    console.log('Applying pending Sequelize migrations to the verified staging database.');
+    console.log('Applying pending audited NEXT migrations to the verified staging database.');
 
-    const cli = path.resolve(__dirname, '..', 'node_modules', 'sequelize-cli', 'lib', 'sequelize');
-    const result = spawnSync(process.execPath, [cli, 'db:migrate', '--env', 'production'], {
+    const lifecycle = path.resolve(__dirname, 'db-lifecycle.js');
+    const result = spawnSync(process.execPath, [lifecycle, 'migrate'], {
         cwd: path.resolve(__dirname, '..'),
         env: process.env,
         encoding: 'utf8',
@@ -20,7 +20,7 @@ try {
     if (result.stdout) process.stdout.write(result.stdout);
     if (result.stderr) process.stderr.write(result.stderr);
     if (result.error) throw result.error;
-    if (result.status !== 0) throw new Error('sequelize-cli exited with code ' + result.status + '.');
+    if (result.status !== 0) throw new Error('NEXT database lifecycle exited with code ' + result.status + '.');
 
     console.log('Staging migrations completed successfully.');
 } catch (err) {

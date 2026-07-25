@@ -294,8 +294,7 @@ function findOnPath(command) {
 
 function runDatabaseSetup(pkg, tools, env, settings) {
   if (pkg.scripts && pkg.scripts['db:migrate']) {
-    const npx = findOnPath(process.platform === 'win32' ? 'npx.cmd' : 'npx');
-    run(npx, ['sequelize-cli', 'db:migrate'], { env });
+    run(process.execPath, [path.join(ROOT_DIR, 'scripts', 'db-lifecycle.js'), 'migrate'], { env });
     console.log('  Migrations completed.');
     return;
   }

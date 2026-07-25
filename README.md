@@ -10,7 +10,7 @@ frozen 3.3.1 repository, its production database, or the RX Softphone source.
 
 ## Current status
 
-Version: `4.0.0-next.20` staging candidate
+Version: `4.0.0-next.21` staging candidate
 
 | Area | NEXT behavior |
 |---|---|
