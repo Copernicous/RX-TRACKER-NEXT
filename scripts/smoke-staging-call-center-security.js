@@ -20,6 +20,7 @@ const sensitiveEndpoints = [
     '/api/patients',
     '/api/rx-records',
     '/api/reports/call-center?paginated=true',
+    '/api/reports/call-center-supervisor',
     '/api/audit-logs',
     '/api/user-activity-logs',
     '/api/active-sessions',

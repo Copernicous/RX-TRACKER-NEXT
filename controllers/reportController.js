@@ -416,6 +416,122 @@ function average(values) {
     return Math.round(usable.reduce((sum, value) => sum + value, 0) / usable.length);
 }
 
+const CALL_ATTEMPT_TERMINAL_OUTCOMES = [
+    'answered',
+    'no_answer',
+    'busy',
+    'rejected',
+    'unavailable',
+    'cancelled',
+    'failed'
+];
+
+function callAttemptSummaryMetricAttributes() {
+    const terminal = CALL_ATTEMPT_TERMINAL_OUTCOMES.map(value => `'${value}'`).join(', ');
+    return [
+        [db.sequelize.literal('COUNT(*)'), 'attempts'],
+        [db.sequelize.literal(`COUNT(*) FILTER (WHERE "outcome" IN (${terminal}))`), 'completed'],
+        [db.sequelize.literal(`COUNT(*) FILTER (WHERE "outcome" = 'answered')`), 'answered'],
+        [db.sequelize.literal(`COUNT(*) FILTER (WHERE "outcome" = 'no_answer')`), 'noAnswer'],
+        [db.sequelize.literal(`COALESCE(SUM(CASE WHEN "outcome" = 'answered' THEN "conversationDurationSeconds" ELSE 0 END), 0)`), 'totalTalkSeconds'],
+        [db.sequelize.literal(`COALESCE(ROUND(AVG(CASE WHEN "outcome" = 'answered' THEN "conversationDurationSeconds" END)), 0)`), 'averageTalkSeconds']
+    ];
+}
+
+function normalizeCallAttemptSummaryRow(row, labelFallback) {
+    const attempts = Number(row && row.attempts) || 0;
+    const completed = Number(row && row.completed) || 0;
+    const answered = Number(row && row.answered) || 0;
+    const noAnswer = Number(row && row.noAnswer) || 0;
+    const totalTalkSeconds = Number(row && row.totalTalkSeconds) || 0;
+    const averageTalkSeconds = Number(row && row.averageTalkSeconds) || 0;
+    const rate = value => completed ? Math.round((value / completed) * 1000) / 10 : 0;
+    return {
+        key: row && row.key !== undefined && row.key !== null ? String(row.key) : '',
+        label: cleanString(row && row.label) || labelFallback,
+        attempts,
+        completed,
+        answered,
+        noAnswer,
+        otherOutcomes: Math.max(0, completed - answered - noAnswer),
+        inProgress: Math.max(0, attempts - completed),
+        answerRate: rate(answered),
+        noAnswerRate: rate(noAnswer),
+        totalTalkSeconds,
+        averageTalkSeconds
+    };
+}
+
+async function getCallCenterSupervisorSummary(query) {
+    const filters = callAttemptWhere(query);
+    const metrics = callAttemptSummaryMetricAttributes();
+    const timeZone = cleanString(process.env.TZ) || 'America/New_York';
+    const localDateExpression = db.sequelize.literal(
+        `TO_CHAR("dialedAt" AT TIME ZONE ${db.sequelize.escape(timeZone)}, 'YYYY-MM-DD')`
+    );
+    const agentLabelExpression = db.sequelize.literal(
+        `COALESCE(NULLIF(BTRIM("agentName"), ''), 'Unknown agent')`
+    );
+    const clinicLabelExpression = db.sequelize.literal(
+        `COALESCE(NULLIF(BTRIM("clinicName"), ''), 'Unassigned')`
+    );
+
+    const [totalRow, agentRows, clinicRows, dateRows] = await Promise.all([
+        db.CallCenterCallAttempt.findOne({
+            where: filters.where,
+            attributes: metrics,
+            raw: true
+        }),
+        db.CallCenterCallAttempt.findAll({
+            where: filters.where,
+            attributes: [
+                [db.sequelize.cast(db.sequelize.col('userId'), 'varchar'), 'key'],
+                [agentLabelExpression, 'label'],
+                ...metrics
+            ],
+            group: ['userId', 'agentName'],
+            raw: true
+        }),
+        db.CallCenterCallAttempt.findAll({
+            where: filters.where,
+            attributes: [
+                [clinicLabelExpression, 'key'],
+                [clinicLabelExpression, 'label'],
+                ...metrics
+            ],
+            group: ['clinicName'],
+            raw: true
+        }),
+        db.CallCenterCallAttempt.findAll({
+            where: filters.where,
+            attributes: [
+                [localDateExpression, 'key'],
+                [localDateExpression, 'label'],
+                ...metrics
+            ],
+            group: [localDateExpression],
+            raw: true
+        })
+    ]);
+
+    const byVolumeThenName = (a, b) => b.attempts - a.attempts || a.label.localeCompare(b.label);
+    const totals = normalizeCallAttemptSummaryRow(totalRow || {}, 'All calls');
+    const byAgent = agentRows.map(row => normalizeCallAttemptSummaryRow(row, 'Unknown agent')).sort(byVolumeThenName);
+    const byClinic = clinicRows.map(row => normalizeCallAttemptSummaryRow(row, 'Unassigned')).sort(byVolumeThenName);
+    const byDate = dateRows
+        .map(row => normalizeCallAttemptSummaryRow(row, 'Unknown date'))
+        .sort((a, b) => b.key.localeCompare(a.key));
+
+    return {
+        range: { from: filters.range.fromIso, to: filters.range.toIso },
+        timeZone,
+        totals,
+        byAgent,
+        byClinic,
+        byDate
+    };
+}
+
 async function getPaginatedCallAttemptReport(query) {
     const pageSize = parsePositiveInt(query.pageSize, 20, 1, 500);
     const requestedPage = parsePositiveInt(query.page, 1, 1, 1000000);
@@ -758,6 +874,15 @@ exports.getCallCenterAttemptReport = async (req, res) => {
         res.json(await getPaginatedCallAttemptReport(req.query || {}));
     } catch (err) {
         console.error('[Reports] Call Center attempt report error:', err);
+        res.status(500).json({ error: err.message });
+    }
+};
+
+exports.getCallCenterSupervisorSummary = async (req, res) => {
+    try {
+        res.json(await getCallCenterSupervisorSummary(req.query || {}));
+    } catch (err) {
+        console.error('[Reports] Call Center supervisor summary error:', err);
         res.status(500).json({ error: err.message });
     }
 };

@@ -52,6 +52,16 @@
             padding: 8px 10px;
             min-width: 110px;
         }
+        .cc-supervisor-table th,
+        .cc-supervisor-table td {
+            white-space: nowrap;
+            font-size: .82rem;
+        }
+        .cc-supervisor-table th:first-child,
+        .cc-supervisor-table td:first-child {
+            white-space: normal;
+            min-width: 150px;
+        }
     </style>
 </head>
 <body>
@@ -461,6 +471,11 @@
                                     <i class="fas fa-phone-volume me-1"></i>Call Attempts <span class="badge bg-secondary ms-1" id="ccAttemptsTabCount">0</span>
                                 </button>
                             </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="ccSupervisorViewTab" data-bs-toggle="pill" data-bs-target="#ccSupervisorReportPane" type="button" role="tab" aria-controls="ccSupervisorReportPane" aria-selected="false">
+                                    <i class="fas fa-chart-line me-1"></i>Supervisor Summary
+                                </button>
+                            </li>
                         </ul>
 
                         <div class="tab-content" id="ccReportViewContent">
@@ -524,6 +539,70 @@
                                 </tbody>
                             </table>
                         </div>
+                        </div>
+
+                        <div class="tab-pane fade" id="ccSupervisorReportPane" role="tabpanel" aria-labelledby="ccSupervisorViewTab" tabindex="0">
+                            <div class="d-flex flex-wrap align-items-start justify-content-between gap-2 mb-2">
+                                <div>
+                                    <h5 class="mb-1"><i class="fas fa-chart-line me-2 text-primary"></i>Supervisor Call Summary</h5>
+                                    <div class="small text-muted">Read-only RX Softphone outcomes and talk time. Uses the activity dates, user, patient, phone, clinic, outcome, and extension filters above.</div>
+                                </div>
+                                <div class="d-flex gap-2">
+                                    <button class="btn btn-outline-success btn-sm" id="exportCcSupervisorCsv"><i class="fas fa-file-csv me-1"></i>CSV</button>
+                                    <button class="btn btn-outline-secondary btn-sm" id="printCcSupervisorBtn"><i class="fas fa-print"></i></button>
+                                </div>
+                            </div>
+
+                            <div class="d-flex flex-wrap gap-2 my-3" id="ccSupervisorMetrics">
+                                <div class="cc-report-metric"><div class="small text-muted fw-bold">Calls</div><div class="fs-5 fw-bold" id="ccsMCalls">--</div></div>
+                                <div class="cc-report-metric"><div class="small text-muted fw-bold">Answered</div><div class="fs-5 fw-bold text-success" id="ccsMAnswered">--</div></div>
+                                <div class="cc-report-metric"><div class="small text-muted fw-bold">No Answer</div><div class="fs-5 fw-bold" id="ccsMNoAnswer">--</div></div>
+                                <div class="cc-report-metric"><div class="small text-muted fw-bold">Answer Rate</div><div class="fs-5 fw-bold" id="ccsMAnswerRate">--</div></div>
+                                <div class="cc-report-metric"><div class="small text-muted fw-bold">No-Answer Rate</div><div class="fs-5 fw-bold" id="ccsMNoAnswerRate">--</div></div>
+                                <div class="cc-report-metric"><div class="small text-muted fw-bold">Total Talk</div><div class="fs-5 fw-bold" id="ccsMTotalTalk">--</div></div>
+                                <div class="cc-report-metric"><div class="small text-muted fw-bold">Avg Talk</div><div class="fs-5 fw-bold" id="ccsMAvgTalk">--</div></div>
+                            </div>
+
+                            <div id="ccSupervisorPrintable">
+                                <div class="row g-3">
+                                    <div class="col-xl-6">
+                                        <div class="border rounded p-3 h-100">
+                                            <h6 class="mb-2"><i class="fas fa-headset me-1 text-primary"></i>Calls by Agent</h6>
+                                            <div class="table-responsive">
+                                                <table class="table table-sm table-hover align-middle cc-supervisor-table mb-0" id="ccSupervisorAgentTable">
+                                                    <thead><tr><th>Agent</th><th class="text-end">Calls</th><th class="text-end">Answered</th><th class="text-end">No Answer</th><th class="text-end">Answer Rate</th><th class="text-end">Talk</th></tr></thead>
+                                                    <tbody id="ccSupervisorAgentBody"><tr><td colspan="6" class="text-center text-muted py-3">Loading...</td></tr></tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-xl-6">
+                                        <div class="border rounded p-3 h-100">
+                                            <h6 class="mb-2"><i class="fas fa-clinic-medical me-1 text-primary"></i>Calls by Clinic</h6>
+                                            <div class="table-responsive">
+                                                <table class="table table-sm table-hover align-middle cc-supervisor-table mb-0" id="ccSupervisorClinicTable">
+                                                    <thead><tr><th>Clinic</th><th class="text-end">Calls</th><th class="text-end">Answered</th><th class="text-end">No Answer</th><th class="text-end">Answer Rate</th><th class="text-end">Talk</th></tr></thead>
+                                                    <tbody id="ccSupervisorClinicBody"><tr><td colspan="6" class="text-center text-muted py-3">Loading...</td></tr></tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-12">
+                                        <div class="border rounded p-3">
+                                            <h6 class="mb-2"><i class="fas fa-calendar-day me-1 text-primary"></i>Calls by Date</h6>
+                                            <div class="table-responsive">
+                                                <table class="table table-sm table-hover align-middle cc-supervisor-table mb-0" id="ccSupervisorDateTable">
+                                                    <thead><tr><th>Date</th><th class="text-end">Calls</th><th class="text-end">Answered</th><th class="text-end">No Answer</th><th class="text-end">Other</th><th class="text-end">Answer Rate</th><th class="text-end">No-Answer Rate</th><th class="text-end">Total Talk</th><th class="text-end">Avg Talk</th></tr></thead>
+                                                    <tbody id="ccSupervisorDateBody"><tr><td colspan="9" class="text-center text-muted py-3">Loading...</td></tr></tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="small text-muted mt-3" id="ccSupervisorDefinition">
+                                    Answer and no-answer rates use completed attempts as the denominator. Busy, rejected, unavailable, cancelled, and failed calls remain separate “Other” outcomes.
+                                </div>
+                            </div>
                         </div>
 
                         <div class="tab-pane fade" id="ccAttemptsReportPane" role="tabpanel" aria-labelledby="ccAttemptsViewTab" tabindex="0">

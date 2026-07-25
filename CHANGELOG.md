@@ -7,6 +7,27 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+## [4.0.0-next.23] - 2026-07-25
+
+### Added
+
+- Added a read-only **Supervisor Summary** under Reports -> Call Center Report with calls, answered and no-answer totals, completed-call rates, total talk time, and average talk time.
+- Added database-side supervisor breakdowns by agent, clinic, and local calendar date using the existing Call Center filters.
+- Added CSV export and print support for the new supervisor summary.
+
+### Security
+
+- Reused the existing `reports: read` permission boundary for both the page and the new summary endpoint. The feature does not expose SIP credentials, relay tokens, phone-account secrets, or audio.
+- Kept all aggregation in bounded, parameterized Sequelize queries over the existing call-attempt history.
+
+### Testing
+
+- Extended the call-attempt database regression with answered, no-answer, and busy outcomes plus agent, clinic, date, rate, and talk-time assertions.
+- Extended the isolated staging browser smoke to open the Supervisor Summary, verify its calculations and group rows, and export its CSV.
+- Passed the existing Call Center, Reports, Phone Devices, Live RX Phones, role-boundary, and full staging browser workflows without changing shared staging data.
+
+**Database impact:** None. This release adds no migration, table, column, index, constraint, seed, or data rewrite. It reads existing `CallCenterCallAttempts` records and does not change proxy routes, application origins, ports, softphone behavior, patients, RX records, or call history.
+
 ## [4.0.0-next.22] - 2026-07-24
 
 ### Added

@@ -59,6 +59,7 @@ module.exports = {
     'GET /api/reports/patients':    { category:'reports', desc:'Full patient report — names, DOB, status, clinic, RX counts.',          perm:'reports: read', admin:false },
     'GET /api/reports/rx-receipts': { category:'reports', desc:'RX receipt report — patient, pharmacy, RX number, status.',            perm:'reports: read', admin:false },
     'GET /api/reports/rx-actions':  { category:'reports', desc:'Workflow action report — patient, step, completion status and date.',   perm:'reports: read', admin:false },
+    'GET /api/reports/call-center-supervisor': { category:'reports', desc:'Read-only Call Center outcome and talk-time summary by agent, clinic, and date.', perm:'reports: read', admin:false },
 
     // ── Email Reports ─────────────────────────────────────────────────────
     'POST /api/email-report':       { category:'email', desc:'Send a report email. Body: { reportType, to, subject?, dateFrom?, dateTo? }. Types: summary, patients, rx-receipts, rx-actions', perm:'reports: read', admin:false, body:'{ "reportType": "summary", "to": "admin@example.com" }' },

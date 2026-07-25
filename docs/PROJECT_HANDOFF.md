@@ -1,6 +1,6 @@
 # RX Tracker NEXT project handoff
 
-Last updated: 2026-07-24
+Last updated: 2026-07-25
 
 This file is the sanitized continuity record for a future administrator or
 Codex session. It intentionally contains no credentials, `.env` values,
@@ -9,7 +9,7 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 ## Current state
 
 - Repository: `Copernicous/RX-TRACKER-NEXT`
-- Branch: feature work based on `main`; official `v4.0.0-next.21` is published
+- Branch: staging candidate based on `main`; official `v4.0.0-next.22` is published
   and verified.
 - Current production release must be confirmed from Project Control or
   `server.exe --v`; do not infer it from this repository.
@@ -18,7 +18,7 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 - Production HTTP port: `3000`
 - NEXT database name at the completed cutover: `patient_rx_next_cutover_copy`
 - Project Control version: `2.0.0`
-- Latest official release: `v4.0.0-next.21` with RX Softphone 0.6.0. It retains the application-owned
+- Latest official release: `v4.0.0-next.22` with RX Softphone 0.6.0. It retains the application-owned
   WebView2 control window, hides the window to the existing tray on close,
   focuses the same window on a second launch, and adds a per-user
   **Start with Windows** tray option. It does not install a Windows service,
@@ -72,6 +72,12 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
   separate pairing-only action. It also adds staging-first Dependabot updates,
   dependency review, CodeQL, and a weekly high-severity npm audit with a
   plain-language administrator guide. Database impact: none.
+- Staging candidate `4.0.0-next.23` adds a read-only Call Center
+  **Supervisor Summary** with answered/no-answer rates, total and average talk
+  time, and calls grouped by agent, clinic, and local date. It uses the
+  existing report permission and automatic call-attempt history, adds no
+  migration or writes, and does not change the proxy, application origins,
+  ports, or RX Softphone.
 - Tag `v4.0.0-next.7` is a failed, non-deployable release attempt. Its server
   build passed, but the first clean-runner RX Softphone restore lacked an
   explicit Windows runtime identifier, so no GitHub release assets were
