@@ -6,7 +6,14 @@ const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const { prepareStagingEnv } = require('./lib/staging-env');
 
-prepareStagingEnv();
+if (process.env.RELAY_TEST_DB_NAME) {
+    process.env.DB_NAME = process.env.RELAY_TEST_DB_NAME;
+    process.env.NODE_ENV = 'test';
+    process.env.PORT = process.env.RELAY_TEST_PORT || process.env.PORT || '3212';
+    process.env.APP_ORIGINS = process.env.APP_ORIGINS || `http://127.0.0.1:${process.env.PORT}`;
+} else {
+    prepareStagingEnv();
+}
 const db = require('../models');
 const relayController = require('../controllers/softphoneRelayController');
 const { encryptPassword } = require('../services/softphoneAccountService');

@@ -36,6 +36,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 ### Testing
 
 - Extended the managed relay regression to verify account retirement, repeated-retirement rejection, pairing independence, and preserved account records.
+- Added the managed relay integration regression to the mandatory PostgreSQL CI suite with an isolated application process and database.
 - Extended the phone-client/FortiGate static regression to require the retirement API, administrator action, history-preservation warning, and Live RX Phones filtering.
 - Passed public JavaScript parsing, phone-client integration, dependency policy, security-automation policy, and the high-severity npm audit gate.
 
