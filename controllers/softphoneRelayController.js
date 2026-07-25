@@ -122,6 +122,22 @@ function publicDevice(device) {
         lastSeenAt: device && device.lastSeenAt || null,
         registrationState: online ? (device.registrationState || 'offline') : 'offline',
         callState: online ? (device.callState || 'idle') : 'idle',
+        peer: cleanText(snapshot.peer || (device && device.peer), 128) || null,
+        incoming: snapshot.incoming === true,
+        muted: snapshot.muted === true,
+        callId: cleanText(snapshot.callId || (device && device.callId), 64) || null,
+        dialedAt: snapshot.dialedAt || null,
+        ringingAt: snapshot.ringingAt || null,
+        connectedAt: snapshot.connectedAt || null,
+        endedAt: snapshot.endedAt || null,
+        outcome: cleanText(snapshot.outcome, 32) || null,
+        sipResponseCode: snapshot.sipResponseCode !== null
+            && snapshot.sipResponseCode !== undefined
+            && snapshot.sipResponseCode !== ''
+            && Number.isInteger(Number(snapshot.sipResponseCode))
+            ? Number(snapshot.sipResponseCode)
+            : null,
+        sipReason: cleanText(snapshot.sipReason, 255) || null,
         clientVersion,
         managedMode: snapshot.managedMode === true,
         allowManualDialing: snapshot.allowManualDialing !== false,

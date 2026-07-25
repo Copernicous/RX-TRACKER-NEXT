@@ -7,12 +7,14 @@ const root = path.join(__dirname, '..');
 
 const tasks = [
     ['public JavaScript encoding and syntax check', 'check-public-js.js'],
+    ['portable new-server installer regression', 'test-new-server-installer.js'],
     ['staging config check', 'check-staging-config.js'],
     ['patient import guard smoke', 'smoke-staging-import-guard.js'],
     ['security alerts smoke', 'smoke-staging-security-alerts.js'],
     ['security hardening smoke', 'smoke-staging-security-hardening.js'],
     ['Call Center API restriction smoke', 'smoke-staging-call-center-security.js'],
     ['RX warehouse filter and Call Center cleanup regression', 'test-rx-warehouse-filter-cleanup.js'],
+    ['managed RX Softphone relay regression', 'test-softphone-relay.js'],
     ['staging browser click smoke', 'run-isolated-staging-ui-smoke.js']
 ];
 

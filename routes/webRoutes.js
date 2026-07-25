@@ -119,6 +119,10 @@ router.get('/softphone-devices', requireWebLogin, requireAdministratorWeb, (req,
     res.render('softphone-devices', { title: 'RX Softphone Devices', activePage: 'softphone-devices' });
 });
 
+router.get('/live-rx-phones', requireWebLogin, requireAdministratorWeb, (req, res) => {
+    res.render('live-rx-phones', { title: 'Live RX Phones', activePage: 'live-rx-phones' });
+});
+
 router.get('/workflow-actions', requireWebLogin, (req, res) => {
     res.render('crud', { title: 'Workflow Actions', module: 'workflow-actions', apiEndpoint: '/api/workflow-actions', activePage: 'workflow-actions' });
 });

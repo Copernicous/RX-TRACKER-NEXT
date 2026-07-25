@@ -33,9 +33,11 @@ const filesToCopy = [
     '.env.example',
     'PROJECT-CONTROL.bat',
     'INSTALL-PROJECT-CONTROL.bat',
+    'INSTALL-NEW-SERVER.bat',
     path.join('scripts', 'project-control.ps1'),
     path.join('scripts', 'Invoke-ReleaseUpdate.ps1'),
     path.join('scripts', 'Install-ProjectControl.ps1'),
+    path.join('scripts', 'Install-NewServer.ps1'),
     'project-control.json',
     'package.json',
     'README.md',
@@ -56,6 +58,7 @@ const filesToCopy = [
     path.join('docs', 'database', 'REHEARSAL_RECORD_2026-07-21.md'),
     path.join('docs', 'database', 'PRODUCTION_DUMP_REHEARSAL_2026-07-21.md'),
     path.join('docs', 'database', 'RESTRICTED_RUNTIME_ROLE_EXPERIMENT.md'),
+    path.join('docs', 'NEW_SERVER_PORTABLE_INSTALLER.md'),
     path.join('scripts', 'install-production-microsip-chrome-policy.ps1'),
     path.join('scripts', 'Invoke-NextProduction.ps1'),
     'install-service.ps1',
@@ -157,6 +160,9 @@ if (updateFiles.length > 0) {
     execFileSync('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', command], {
         stdio: 'inherit'
     });
+    const portableZip = path.join(distDir, 'RX-Tracker-NEXT-New-Server-' + packageInfo.version + '.zip');
+    fs.copyFileSync(updateZip, portableZip);
+    console.log('Created portable fresh-server installer: ' + portableZip);
     console.log('✓ server-update-' + packageInfo.version + '.zip  →  dist/server-update-' + packageInfo.version + '.zip');
 }
 console.log('Deploy dist\\server-update-' + packageInfo.version + '.zip or approved dist files only; keep production .env unchanged.');
