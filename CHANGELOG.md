@@ -7,6 +7,22 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+## [4.0.0-next.29] - 2026-07-26
+
+### Changed
+
+- Replaced packed workflow-history cells in the Patient/RX Summary Excel and RX Report CSV/Excel with three explicitly labeled columns for every configured workflow definition: **Status**, **Date**, and **Completed By**.
+- Keeps every configured workflow header in the export even when no RX has completed that step. Applicable uncompleted steps show `Pending`; their date and user remain blank because no completion event exists.
+- Continues to keep patients with multiple RX records on separate rows and leaves patient-only workflow cells blank when no RX exists.
+
+### Testing
+
+- Added database regression coverage for structured workflow action IDs, names, and completion dates in Patient/RX summary rows.
+- Extended isolated Chromium testing to download the real Summary Excel file and verify that all configured workflow definitions—including definitions without completion data—produce their Status, Date, and Completed By headers.
+- Passed public JavaScript validation, Reports EJS rendering, PostgreSQL report/filter parity, and the complete isolated staging browser smoke suite.
+
+**Database impact:** No schema migration and no business-data rewrite. The report changes are read-only and do not change proxy routes, origins, ports, authentication, PBX behavior, or RX Softphone.
+
 ## [4.0.0-next.28] - 2026-07-26
 
 ### Added

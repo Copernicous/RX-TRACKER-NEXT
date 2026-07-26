@@ -905,6 +905,7 @@ async function getPatientRxDetailRows(query, patientIdsOverride) {
             current_stage."currentStageCompletedBy",
             next_stage."nextPendingStage",
             COALESCE(wf."workflowStageHistory", '') AS "workflowStageHistory",
+            COALESCE(wf."workflowStageDetails", '[]'::jsonb) AS "workflowStageDetails",
             COALESCE(patient_notes."patientNoteHistory", '') AS "patientNoteHistory",
             COALESCE(service_history."serviceDateHistory", '') AS "serviceDateHistory"
         FROM filtered_patients fp
@@ -948,7 +949,21 @@ async function getPatientRxDetailRows(query, patientIdsOverride) {
                         )
                     ),
                     E'\\n' ORDER BY wa."sequenceNumber", wt."completionDate", wt.id
-                ) AS "workflowStageHistory"
+                ) AS "workflowStageHistory",
+                JSONB_AGG(
+                    JSONB_BUILD_OBJECT(
+                        'workflowActionId', wt."workflowActionId",
+                        'sequenceNumber', wa."sequenceNumber",
+                        'stage', COALESCE(wa.name, CONCAT('Stage ', wt."workflowActionId")),
+                        'completionDate', wt."completionDate",
+                        'completedBy', COALESCE(
+                            NULLIF(BTRIM(CONCAT_WS(' ', u."firstName", u."lastName")), ''),
+                            u.username,
+                            'System'
+                        )
+                    )
+                    ORDER BY wa."sequenceNumber", wt."completionDate", wt.id
+                ) AS "workflowStageDetails"
             FROM "RXWorkflowTrackings" wt
             LEFT JOIN "WorkflowActions" wa ON wa.id = wt."workflowActionId"
             LEFT JOIN "Users" u ON u.id = wt."userId"
@@ -1065,7 +1080,8 @@ const PATIENT_RX_ONLY_FIELDS = [
     'currentStageDate',
     'currentStageCompletedBy',
     'nextPendingStage',
-    'workflowStageHistory'
+    'workflowStageHistory',
+    'workflowStageDetails'
 ];
 
 function patientOnlyExportBase(row) {

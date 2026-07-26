@@ -347,6 +347,21 @@ async function expectDownload(page, selector, name) {
     pass(name, suggested);
 }
 
+async function downloadText(page, selector, name) {
+    const locator = page.locator(selector).first();
+    await locator.waitFor({ state: 'visible', timeout: 10000 });
+    const [download] = await Promise.all([
+        page.waitForEvent('download', { timeout: 15000 }),
+        locator.click()
+    ]);
+    const downloadPath = await download.path();
+    const contents = fs.readFileSync(downloadPath, 'utf8');
+    const suggested = download.suggestedFilename();
+    await download.delete().catch(() => {});
+    pass(name, suggested);
+    return contents;
+}
+
 function textOfMetric(totals, key, suffix) {
     const value = totals && totals[key] !== undefined && totals[key] !== null ? totals[key] : 0;
     return String(value) + (suffix || '');
@@ -469,6 +484,18 @@ async function runAdminDashboardAndReports(fixtures) {
     pass('Patient report advanced filters and assignment columns');
     await expectDownload(page, '#exportPatientCsv', 'Filtered Patient report CSV export');
     await expectDownload(page, '#exportPatientRxDetailCsv', 'Normalized Patient + RX complete-history CSV export');
+    const summaryExcel = await downloadText(page, '#exportPatientRxDetailXls', 'Patient + RX workflow-column Excel export');
+    const configuredWorkflowActions = await db.WorkflowAction.findAll({
+        where: { isActive: true },
+        order: [['sequenceNumber', 'ASC'], ['id', 'ASC']]
+    });
+    configuredWorkflowActions.forEach(action => {
+        const prefix = 'Workflow ' + (action.sequenceNumber || action.id) + ' - ' + action.name;
+        assert(summaryExcel.includes(prefix + ' Status'), 'Summary Excel is missing configured workflow status column: ' + action.name);
+        assert(summaryExcel.includes(prefix + ' Date'), 'Summary Excel is missing configured workflow date column: ' + action.name);
+        assert(summaryExcel.includes(prefix + ' Completed By'), 'Summary Excel is missing configured workflow actor column: ' + action.name);
+    });
+    pass('Summary Excel retains headers for every configured workflow step', configuredWorkflowActions.length + ' steps');
 
     await page.locator('a[href="#callCenterReport"]').click();
     await expectVisible(page, '#callCenterReport.active, #callCenterReport.show', 'Call Center Report tab visible');

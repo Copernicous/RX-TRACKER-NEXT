@@ -392,6 +392,17 @@ async function main() {
     assert.strictEqual(noRxRow.rxId, null);
     const completeExport = fullRows.find(row => row.firstName === 'COMPLETE');
     assert(completeExport.workflowStageHistory.includes(refs.actions[0].name));
+    assert(Array.isArray(completeExport.workflowStageDetails), 'Summary transfer rows must expose structured workflow columns.');
+    assert.strictEqual(
+        completeExport.workflowStageDetails.length,
+        refs.actions.length,
+        'Summary transfer rows must expose every completed workflow step separately.'
+    );
+    assert(completeExport.workflowStageDetails.every(stage =>
+        stage.workflowActionId
+        && stage.stage
+        && stage.completionDate
+    ), 'Structured workflow steps must preserve action identity, stage name, and completion date.');
     assert.strictEqual(completeExport.currentStage, refs.actions[refs.actions.length - 1].name);
 
     const completeHistory = await patientRxCompleteRows({});

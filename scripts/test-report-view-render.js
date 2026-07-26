@@ -49,5 +49,9 @@ ejs.renderFile(reportView, {
     assert(html.includes('Returned to Warehouse'), 'RX report must expose warehouse-return filtering.');
     assert(html.includes('Current Stage'), 'RX report must expose the current workflow stage.');
     assert(html.includes('Stage Date'), 'RX report must expose workflow stage dates.');
+    assert(
+        html.includes('separate Status, Date, and Completed By columns for every configured workflow step'),
+        'Reports must explain that configured workflow headers remain present without completion data.'
+    );
     console.log(`PASS: Reports EJS rendered with ${requiredIds.length} upgraded filter controls.`);
 });

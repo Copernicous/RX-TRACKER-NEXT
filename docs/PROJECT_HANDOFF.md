@@ -128,6 +128,17 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
   the rejected all-at-once JSON design required about 1.0 GB. It has no
   migration, data rewrite, proxy/origin/port change, or RX Softphone change.
   It is not official until promoted through develop/main and published.
+- Staging candidate `4.0.0-next.29` keeps every configured workflow definition
+  visible in Patient/RX Summary Excel and RX Report CSV/Excel. Each definition
+  has separate Status, Date, and Completed By columns; an uncompleted step is
+  `Pending` with a blank date/user, and a workflow header remains present even
+  when production has no completions for that step. Packed process-history
+  cells were removed from these summary files. The versioned Complete History
+  CSV remains the lossless vertical ledger from `next.28`. PostgreSQL report
+  parity, public JavaScript, EJS rendering, and isolated Chromium downloads of
+  the real Summary Excel passed. There is no migration, business-data rewrite,
+  proxy/origin/port change, or RX Softphone change. It is not official until
+  promoted through develop/main and published.
 - Official `v4.0.0-next.26` assets were published on 2026-07-26 and
   independently verified against `SHA256SUMS.txt`:
   - `server-update-4.0.0-next.26.zip`:

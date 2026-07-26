@@ -1091,6 +1091,36 @@
         return isNaN(parsed.getTime()) ? String(value) : parsed.toISOString();
     }
 
+    function orderedWorkflowActions() {
+        return (allWorkflowActions || []).slice().sort(function(a, b) {
+            return Number(a.sequenceNumber || 0) - Number(b.sequenceNumber || 0)
+                || Number(a.id || 0) - Number(b.id || 0);
+        });
+    }
+
+    function workflowStepHeaders() {
+        return orderedWorkflowActions().flatMap(function(action) {
+            const prefix = 'Workflow ' + (action.sequenceNumber || action.id) + ' - ' + (action.name || ('Stage ' + action.id));
+            return [prefix + ' Status', prefix + ' Date', prefix + ' Completed By'];
+        });
+    }
+
+    function workflowStepValues(hasRx, completedRows) {
+        const completedByAction = new Map();
+        (Array.isArray(completedRows) ? completedRows : []).forEach(function(stage) {
+            const actionId = Number(stage.workflowActionId || stage.actionId || stage.id);
+            if (!Number.isFinite(actionId) || completedByAction.has(actionId)) return;
+            completedByAction.set(actionId, stage);
+        });
+        return orderedWorkflowActions().flatMap(function(action) {
+            if (!hasRx) return ['', '', ''];
+            const completed = completedByAction.get(Number(action.id));
+            return completed
+                ? ['Completed', exportDateTime(completed.completionDate), completed.completedBy || 'System']
+                : ['Pending', '', ''];
+        });
+    }
+
     function patientRxDetailHeaders() {
         return [
             'Patient Database ID','Patient ID','First Name','Last Name','DOB','Phone','Address','Patient Service Date',
@@ -1105,7 +1135,9 @@
             'RX Pharmacy Transport Database ID','RX Pharmacy Transport','RX Pharmacy Transport Phone',
             'Returned to Warehouse','Warehouse Return Date','Warehouse Return Note','RX Created At','RX Updated At','Medications',
             'Completed Workflow Steps','Total Workflow Steps','Current Stage','Current Stage Date','Current Stage Completed By',
-            'Next Pending Stage','Workflow Status','Workflow Stage History','Patient Note History','Patient Service Date History'
+            'Next Pending Stage','Workflow Status',
+            ...workflowStepHeaders(),
+            'Patient Note History','Patient Service Date History'
         ];
     }
 
@@ -1138,7 +1170,8 @@
                 exportDateTime(row.rxCreatedAt), exportDateTime(row.rxUpdatedAt), row.medications || '',
                 hasRx ? completed : '', hasRx ? total : '', row.currentStage || '',
                 exportDateTime(row.currentStageDate), row.currentStageCompletedBy || '',
-                row.nextPendingStage || '', workflowStatus, row.workflowStageHistory || '',
+                row.nextPendingStage || '', workflowStatus,
+                ...workflowStepValues(hasRx, row.workflowStageDetails),
                 row.patientNoteHistory || '', row.serviceDateHistory || ''
             ];
         });
@@ -1162,7 +1195,8 @@
         return [
             'RX #','Patient','Patient ID','Patient Type','Clinic','Pharmacy','Arrival Date','Service Date',
             'Patient Transport','Pharmacy Transport','Warehouse Status','Warehouse Return Date','Warehouse Return Note',
-            'Completed Steps','Current Stage','Current Stage Date','Current Stage Completed By','Process Stage History',
+            'Completed Steps','Current Stage','Current Stage Date','Current Stage Completed By',
+            ...workflowStepHeaders(),
             'Next Pending Step','Workflow Status','Progress %'
         ];
     }
@@ -1173,11 +1207,6 @@
             const pct = allWorkflowActions.length ? Math.round(steps.length / allWorkflowActions.length * 100) : 0;
             const nextStep = allWorkflowActions.find(w => !steps.includes(w.id));
             const currentStage = r.currentStage || {};
-            const stageHistory = (r.stageHistory || []).map(function(stage) {
-                return (stage.sequenceNumber || '?') + '. ' + (stage.stage || 'Stage') +
-                    ' | ' + exportDateTime(stage.completionDate) +
-                    ' | ' + (stage.completedBy || 'System');
-            }).join('\n');
             return [
                 'RX-' + r.id,
                 r.Patient ? `${r.Patient.firstName || ''} ${r.Patient.lastName || ''}`.trim() : '',
@@ -1196,7 +1225,7 @@
                 currentStage.stage || '',
                 exportDateTime(currentStage.completionDate),
                 currentStage.completedBy || '',
-                stageHistory,
+                ...workflowStepValues(true, r.stageHistory),
                 nextStep ? nextStep.name : '',
                 rxWorkflowLabelForExport(r),
                 pct + '%'
