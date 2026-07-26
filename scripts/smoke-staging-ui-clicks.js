@@ -794,7 +794,14 @@ async function runCallCenterWorkspace(fixtures) {
     const { context, page } = await newContext();
     await login(page, fixtures.callCenterUser.username, '/call-center');
 
+    const phoneSetupLoaded = page.waitForResponse(response =>
+        response.request().method() === 'GET'
+        && response.url().includes('/api/phone-account/setup')
+        && response.status() === 200,
+        { timeout: 15000 }
+    );
     await page.goto(route('/phone-account-setup'), { waitUntil: 'domcontentloaded' });
+    await phoneSetupLoaded;
     await expectVisible(page, '#phoneAccountSetupForm', 'Per-user Phone Account Setup page');
     await page.fill('#phoneSetupServer', '192.168.15.200');
     await page.fill('#phoneSetupPort', '5060');
