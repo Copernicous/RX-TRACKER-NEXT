@@ -147,6 +147,17 @@ function publicDevice(device) {
     };
 }
 
+function publicCrmCall(attempt) {
+    if (!attempt) return null;
+    const plain = typeof attempt.get === 'function' ? attempt.get({ plain: true }) : attempt;
+    return {
+        patientCode: cleanText(plain.patientCode, 60) || null,
+        patientName: cleanText(plain.patientName, 255) || null,
+        clinicName: cleanText(plain.clinicName, 255) || null,
+        dialedNumber: cleanText(plain.dialedNumber, 64) || null
+    };
+}
+
 function attemptPayload(snapshot) {
     let state = snapshot.call;
     if (state === 'answering' || state === 'incoming') state = 'trying';
@@ -450,14 +461,31 @@ exports.getAdminDevices = async (req, res) => {
             }),
             db.SoftphoneRelayDevice.findAll()
         ]);
+        const correlationIds = Array.from(new Set(devices
+            .map(device => cleanText(
+                device && device.snapshot && device.snapshot.callId || device && device.callId,
+                64
+            ))
+            .filter(Boolean)));
+        const attempts = correlationIds.length
+            ? await db.CallCenterCallAttempt.findAll({
+                where: {
+                    correlationId: { [db.Sequelize.Op.in]: correlationIds },
+                    phoneClient: 'rx_softphone'
+                },
+                attributes: ['correlationId', 'patientCode', 'patientName', 'clinicName', 'dialedNumber']
+            })
+            : [];
         const accountByUser = new Map(accounts.map(account => [Number(account.userId), account]));
         const deviceByUser = new Map(devices.map(device => [Number(device.userId), device]));
+        const attemptByCorrelation = new Map(attempts.map(attempt => [String(attempt.correlationId), attempt]));
         res.set('Cache-Control', 'no-store, private');
         res.json({
             minimumClientVersion: MINIMUM_MANAGED_CLIENT_VERSION,
             users: users.map(user => {
                 const account = accountByUser.get(Number(user.id));
                 const device = publicDevice(deviceByUser.get(Number(user.id)));
+                device.crmCall = publicCrmCall(attemptByCorrelation.get(String(device.callId || '')));
                 device.accountSynchronized = !!(account && account.isEnabled !== false
                     && device.accountUpdatedAt
                     && device.accountUpdatedAt === account.updatedAt.toISOString());

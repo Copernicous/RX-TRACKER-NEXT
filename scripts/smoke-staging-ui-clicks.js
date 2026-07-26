@@ -216,7 +216,7 @@ async function seedFixtures() {
     const ringingAt = new Date(dialedAt.getTime() + 3000);
     const answeredAt = new Date(ringingAt.getTime() + 7000);
     const endedAt = new Date(answeredAt.getTime() + 83000);
-    await db.CallCenterCallAttempt.create({
+    const crmAttempt = await db.CallCenterCallAttempt.create({
         patientId: metricPatient.id,
         userId: callCenterUser.id,
         correlationId: 'ui-smoke-attempt-' + runId,
@@ -238,6 +238,47 @@ async function seedFixtures() {
         endedAt,
         ringDurationSeconds: 7,
         conversationDurationSeconds: 83
+    });
+    const smokePhoneAccount = await db.UserSoftphoneAccount.create({
+        userId: callCenterUser.id,
+        server: '192.0.2.20',
+        port: 5060,
+        username: sipTestExtension,
+        authId: 'smoke-auth-' + runId,
+        displayName: 'Smoke Live Phone',
+        localSipPort: 0,
+        encryptedPassword: 'smoke-test-value-never-decrypted',
+        isEnabled: true
+    });
+    const liveSeenAt = new Date();
+    await db.SoftphoneRelayDevice.create({
+        userId: callCenterUser.id,
+        deviceName: 'Smoke Live RX Phone',
+        tokenHash: ('smoke-live-phone-' + runId).padEnd(64, '0').slice(0, 64),
+        pairedAt: liveSeenAt,
+        lastSeenAt: liveSeenAt,
+        isEnabled: true,
+        registrationState: 'registered',
+        callState: 'connected',
+        callId: crmAttempt.correlationId,
+        peer: crmAttempt.dialedNumber,
+        snapshot: {
+            registration: 'registered',
+            call: 'connected',
+            peer: crmAttempt.dialedNumber,
+            incoming: false,
+            muted: false,
+            callId: crmAttempt.correlationId,
+            dialedAt: crmAttempt.dialedAt,
+            ringingAt: crmAttempt.ringingAt,
+            connectedAt: crmAttempt.answeredAt,
+            endedAt: null,
+            outcome: 'answered',
+            clientVersion: '0.6.0',
+            managedMode: true,
+            allowManualDialing: true,
+            accountUpdatedAt: smokePhoneAccount.updatedAt.toISOString()
+        }
     });
 
     return {
@@ -885,6 +926,10 @@ async function runAdminDashboardAndReports(fixtures) {
     );
     pass('Administrator Phone Devices FortiGate-safe inventory request');
 
+    await db.SoftphoneRelayDevice.update(
+        { lastSeenAt: new Date() },
+        { where: { userId: fixtures.callCenterUser.id } }
+    );
     await page.goto(route('/live-rx-phones'), { waitUntil: 'domcontentloaded' });
     await waitForNonPlaceholder(page, '#phoneStatRegistered', 'Administrator Live RX Phones board loaded');
     assert.strictEqual(
@@ -893,6 +938,19 @@ async function runAdminDashboardAndReports(fixtures) {
         'Live RX Phones must not remain in its initial loading state.'
     );
     assert.strictEqual(await page.locator('#livePhoneStatusFilter').isVisible(), true, 'Live RX Phones status filter must be visible.');
+    const livePhoneText = await page.locator('#livePhoneBoard').innerText();
+    assert.strictEqual(
+        await page.locator('#livePhoneBoard .phone-crm-label').first().textContent(),
+        'RX Tracker call',
+        'Live RX Phones did not label the CRM-originated active call.'
+    );
+    assert(livePhoneText.includes(fixtures.metricPatient.firstName + ' ' + fixtures.metricPatient.lastName), 'Live RX Phones did not show the called patient name.');
+    assert(livePhoneText.includes(fixtures.metricPatient.patientCode), 'Live RX Phones did not show the patient ID.');
+    assert(livePhoneText.includes(fixtures.clinic.name), 'Live RX Phones did not show the patient clinic.');
+    await page.fill('#livePhoneSearch', fixtures.metricPatient.patientCode);
+    assert.strictEqual(await page.locator('#livePhoneBoard .live-phone-card').count(), 1, 'Live RX Phones patient search did not retain the correlated phone card.');
+    await page.fill('#livePhoneSearch', '');
+    pass('Administrator Live RX Phones CRM patient context');
     pass('Administrator Live RX Phones presence board');
 
     assertNoBrowserErrors('admin dashboard/report flow');
@@ -1215,6 +1273,7 @@ async function cleanup() {
         await db.Patient.destroy({ where: { id: { [Op.in]: patientIds } } }).catch(() => {});
     }
     if (userIds.length) {
+        if (db.SoftphoneRelayDevice) await db.SoftphoneRelayDevice.destroy({ where: { userId: { [Op.in]: userIds } } }).catch(() => {});
         if (db.UserSoftphoneAccount) await db.UserSoftphoneAccount.destroy({ where: { userId: { [Op.in]: userIds } } }).catch(() => {});
         await db.AuditLog.destroy({ where: { userId: { [Op.in]: userIds } } }).catch(() => {});
         if (db.UserActivityLog) await db.UserActivityLog.destroy({ where: { userId: { [Op.in]: userIds } } }).catch(() => {});
