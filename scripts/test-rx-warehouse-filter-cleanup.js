@@ -180,7 +180,7 @@ async function run() {
       pageSize: '10'
     }
   });
-  assert.strictEqual(result.status, 200, result.payload?.error || 'Next pending stage 1 request failed');
+  assert.strictEqual(result.status, 200, result.payload?.error || 'Next required action 1 request failed');
   assert.deepStrictEqual(result.payload.rows.map(row => row.id), [unstartedRx.id]);
 
   result = await runHandler(rxController.getAll, {
@@ -192,7 +192,7 @@ async function run() {
       pageSize: '10'
     }
   });
-  assert.strictEqual(result.status, 200, result.payload?.error || 'Next pending stage 2 request failed');
+  assert.strictEqual(result.status, 200, result.payload?.error || 'Next required action 2 request failed');
   assert.deepStrictEqual(result.payload.rows.map(row => row.id), [returnedRx.id]);
 
   result = await runHandler(rxController.getAll, {
@@ -204,7 +204,7 @@ async function run() {
       pageSize: '10'
     }
   });
-  assert.strictEqual(result.status, 200, result.payload?.error || 'Current completed stage 1 request failed');
+  assert.strictEqual(result.status, 200, result.payload?.error || 'Current stage 1 request failed');
   assert.deepStrictEqual(result.payload.rows.map(row => row.id), [returnedRx.id]);
 
   result = await runHandler(rxController.getAll, {
@@ -216,9 +216,9 @@ async function run() {
       pageSize: '10'
     }
   });
-  assert.strictEqual(result.status, 200, result.payload?.error || 'Current completed stage 2 request failed');
+  assert.strictEqual(result.status, 200, result.payload?.error || 'Current stage 2 request failed');
   assert.deepStrictEqual(result.payload.rows.map(row => row.id), [activeRx.id]);
-  console.log('PASS: RX Records next-pending and current-completed stage filters remain distinct');
+  console.log('PASS: RX Records Current Stage and Next Action Required filters remain distinct');
 
   calledAudit = await db.AuditLog.create({
     date: new Date(),

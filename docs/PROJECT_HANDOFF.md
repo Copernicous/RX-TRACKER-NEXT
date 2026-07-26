@@ -9,8 +9,8 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 ## Current state
 
 - Repository: `Copernicous/RX-TRACKER-NEXT`
-- Branch: official `v4.0.0-next.29` release on `main` at commit
-  `000f13c05f51a62442526ad66b63bfc81c9dc088`.
+- Branch: official `v4.0.0-next.30` release on `main` at commit
+  `f7e90ca5b4ce6a78fc54e7e19d54182b1739484d`.
 - Current production release must be confirmed from Project Control or
   `server.exe --v`; do not infer it from this repository.
 - Production application folder: `C:\RX-Tracker\RX-APP-NEXT`
@@ -18,12 +18,11 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 - Production HTTP port: `3000`
 - NEXT database name at the completed cutover: `patient_rx_next_cutover_copy`
 - Project Control version: `2.2.0`
-- Latest official release: `v4.0.0-next.29`, with expanded operational reports,
-  normalized complete-history transfer data, and explicit Status/Date/Completed
-  By columns for every configured workflow in summary exports. The staging
-  candidate `next.30` separates RX Records **Next Pending Stage** from
-  **Current Completed Stage** so operational queue totals and Excel current-stage
-  totals cannot be confused. RX Softphone remains 0.6.0. It retains the application-owned
+- Latest official release: `v4.0.0-next.30`, with distinct RX Records
+  next-pending and current-completed stage filters. The staging candidate
+  `next.31` makes **Current Stage** the primary workflow filter, moves
+  **Next Action Required** under Advanced filters, and adds both meanings to
+  the RX Records quick CSV. RX Softphone remains 0.6.0. It retains the application-owned
   WebView2 control window, hides the window to the existing tray on close,
   focuses the same window on a second launch, and adds a per-user
   **Start with Windows** tray option. It does not install a Windows service,
