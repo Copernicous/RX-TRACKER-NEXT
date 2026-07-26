@@ -34,7 +34,7 @@
         setupReportExports();
 
         const reportPerms = typeof getPagePerms === 'function' ? getPagePerms() : { canExport: true, canPrint: true };
-        ['exportPatientCsv','exportPatientXls','exportRxCsv','exportRxXls','exportCcCsv','exportCcXls','exportCcAttemptsCsv','exportCcAttemptsXls','exportCcSupervisorCsv'].forEach(id => {
+        ['exportPatientCsv','exportPatientXls','exportPatientRxDetailCsv','exportPatientRxDetailXls','exportRxCsv','exportRxXls','exportCcCsv','exportCcXls','exportCcAttemptsCsv','exportCcAttemptsXls','exportCcSupervisorCsv'].forEach(id => {
             const el = document.getElementById(id);
             if (el && typeof setRoleActionDisabled === 'function') setRoleActionDisabled(el, !reportPerms.canExport, 'Export disabled for this role.');
         });
@@ -98,7 +98,8 @@
             populateLookupSelect(id, reportLookups.patientTransport, 'companyName', 'All Patient Transports'));
         ['prfPharmacyTransportId', 'rrfPharmacyTransportId'].forEach(id =>
             populateLookupSelect(id, reportLookups.pharmacyTransport, 'companyName', 'All Pharmacy Transports'));
-        populateLookupSelect('rrfWorkflowStage', allWorkflowActions, 'name', 'All Stages', 'sequenceNumber');
+        populateLookupSelect('rrfWorkflowStage', allWorkflowActions, 'name', 'All Pending Stages', 'sequenceNumber');
+        populateLookupSelect('rrfCompletedStage', allWorkflowActions, 'name', 'Any Completed Stage', 'id');
     }
 
     function setReportParam(params, name, value) {
@@ -170,6 +171,9 @@
         setReportParam(params, 'patientType', document.getElementById('rrfPatientType')?.value || '');
         setReportParam(params, 'workflowStatus', document.getElementById('rrfProgress')?.value || '');
         setReportParam(params, 'workflowStage', document.getElementById('rrfWorkflowStage')?.value || '');
+        setReportParam(params, 'completedStageId', document.getElementById('rrfCompletedStage')?.value || '');
+        setReportParam(params, 'stageFrom', document.getElementById('rrfStageFrom')?.value || '');
+        setReportParam(params, 'stageTo', document.getElementById('rrfStageTo')?.value || '');
         setReportParam(params, 'dateFrom', document.getElementById('rxDateFrom')?.value || '');
         setReportParam(params, 'dateTo', document.getElementById('rxDateTo')?.value || '');
         setReportParam(params, 'arrivalFrom', document.getElementById('rrfArrivalFrom')?.value || '');
@@ -187,6 +191,18 @@
 
     async function fetchRxReportRows(options) {
         const data = await fetchReportJson('/api/reports/rx-actions?' + buildRxReportParams(options || {}).toString());
+        return data && Array.isArray(data.rows) ? data.rows : [];
+    }
+
+    async function fetchPatientRxDetailRows() {
+        const params = buildPatientReportParams({ exportAll: true });
+        params.delete('paginated');
+        params.delete('exportAll');
+        params.delete('page');
+        params.delete('pageSize');
+        params.delete('sort');
+        params.delete('dir');
+        const data = await fetchReportJson('/api/reports/patient-rx-detail?' + params.toString());
         return data && Array.isArray(data.rows) ? data.rows : [];
     }
 
@@ -519,13 +535,13 @@
         const countEl = document.getElementById('rxReportCount');
         const navEl = document.getElementById('rrPagNav');
         if (!tbody) return;
-        tbody.innerHTML = '<tr><td colspan="12" class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin me-2"></i>Loading...</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="15" class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin me-2"></i>Loading...</td></tr>';
 
         return fetchReportJson('/api/reports/rx-actions?' + buildRxReportParams().toString()).then(function(result) {
         var data = result && Array.isArray(result.rows) ? result.rows : [];
         allRxReport = data;
         if (!data.length) {
-            tbody.innerHTML = '<tr><td colspan="12" class="text-center text-muted py-4">No records found</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="15" class="text-center text-muted py-4">No records found</td></tr>';
             if (countEl) countEl.textContent = '0 records';
             if (navEl) navEl.innerHTML = '';
             return;
@@ -549,6 +565,20 @@
             const ptName  = r.Patient ? r.Patient.firstName + ' ' + r.Patient.lastName : '-';
             const ptCode  = r.Patient ? r.Patient.patientCode : '-';
             const phName  = r.Pharmacy ? r.Pharmacy.name : '-';
+            const stageHistory = Array.isArray(r.stageHistory) ? r.stageHistory : [];
+            const currentStage = r.currentStage || null;
+            const stageHistoryHtml = stageHistory.length
+                ? '<details><summary class="text-primary" style="cursor:pointer">' + stageHistory.length + ' stage' + (stageHistory.length === 1 ? '' : 's') + '</summary>' +
+                    '<div class="small mt-1 text-nowrap">' +
+                    stageHistory.map(function(stage) {
+                        return '<div class="mb-1"><span class="fw-bold">' +
+                            escHtml((stage.sequenceNumber || '?') + '. ' + (stage.stage || 'Stage')) +
+                            '</span><br><span class="text-muted">' +
+                            escHtml(formatCcDateTime(stage.completionDate)) + ' · ' + escHtml(stage.completedBy || 'System') +
+                            '</span></div>';
+                    }).join('') +
+                    '</div></details>'
+                : '<span class="text-muted">-</span>';
             var workflowBadge = '';
             if (pct >= 100 && wfTotal > 0) {
                 workflowBadge = '<span class="badge bg-success">Completed</span>';
@@ -576,6 +606,9 @@
                 '<td>' + escHtml((r.PatientTransportCompany && r.PatientTransportCompany.companyName) || '-') + '</td>' +
                 '<td>' + escHtml((r.PharmacyTransportCompany && r.PharmacyTransportCompany.companyName) || '-') + '</td>' +
                 '<td>' + (r.returnedToWarehouse ? '<span class="badge bg-dark">Returned</span>' : '<span class="badge bg-light text-dark">Not Returned</span>') + '</td>' +
+                '<td>' + (currentStage ? '<span class="badge bg-info text-dark">' + escHtml(currentStage.stage || '-') + '</span>' : '<span class="text-muted">Not started</span>') + '</td>' +
+                '<td class="text-nowrap">' + (currentStage ? escHtml(formatCcDateTime(currentStage.completionDate)) : '-') + '</td>' +
+                '<td>' + stageHistoryHtml + '</td>' +
                 '<td>' + (nextStep ? '<span class="badge bg-warning text-dark">' + escHtml(nextStep.name) + '</span>' : '<span class="badge bg-success">All done</span>') + '</td>' +
                 '<td>' + workflowBadge + '</td>' +
             '</tr>';
@@ -587,7 +620,7 @@
             renderRxActionReport();
         });
         }).catch(function(err) {
-            tbody.innerHTML = '<tr><td colspan="12" class="text-center text-danger py-4">Could not load RX action report.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="15" class="text-center text-danger py-4">Could not load RX action report.</td></tr>';
             if (countEl) countEl.textContent = '';
             if (navEl) navEl.innerHTML = '';
             console.error('RX action report load error:', err);
@@ -606,8 +639,8 @@
 
     function clearRxFilters() {
         ['rrfRxId','rrfFirstName','rrfLastName','rrfPatientCode','rxDateFrom','rxDateTo','rrfArrivalFrom','rrfArrivalTo',
-         'rrfPharmacyId','rrfClinicId','rrfPatientType','rrfWorkflowStage','rrfPatientTransportId',
-         'rrfPharmacyTransportId','rrfWarehouseStatus']
+         'rrfPharmacyId','rrfClinicId','rrfPatientType','rrfWorkflowStage','rrfCompletedStage','rrfStageFrom','rrfStageTo',
+         'rrfPatientTransportId','rrfPharmacyTransportId','rrfWarehouseStatus']
             .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
         document.getElementById('rrfProgress').value = '';
         rrPage = 1;
@@ -1038,6 +1071,59 @@
         });
     }
 
+    function exportDateTime(value) {
+        if (!value) return '';
+        const parsed = new Date(value);
+        return isNaN(parsed.getTime()) ? String(value) : parsed.toISOString();
+    }
+
+    function patientRxDetailHeaders() {
+        return [
+            'Patient Database ID','Patient ID','First Name','Last Name','DOB','Phone','Address','Patient Service Date',
+            'Patient Status','Patient Type','Patient Profile Notes','Patient Created At','Patient Updated At',
+            'Clinic','Clinic Address','Clinic Phone','Default Pharmacy','Default Pharmacy Address','Default Pharmacy Phone',
+            'Default Patient Transport','Default Patient Transport Phone','Default Pharmacy Transport','Default Pharmacy Transport Phone',
+            'Patient RX Row','Patient RX Count','RX #','RX Arrival Date','RX Service Date','RX Pharmacy','RX Pharmacy Address',
+            'RX Pharmacy Phone','RX Patient Transport','RX Patient Transport Phone','RX Pharmacy Transport','RX Pharmacy Transport Phone',
+            'Returned to Warehouse','Warehouse Return Date','Warehouse Return Note','RX Created At','RX Updated At','Medications',
+            'Completed Workflow Steps','Total Workflow Steps','Current Stage','Current Stage Date','Current Stage Completed By',
+            'Next Pending Stage','Workflow Status','Workflow Stage History','Patient Note History','Patient Service Date History'
+        ];
+    }
+
+    function patientRxDetailExportRows(data) {
+        return (data || []).map(function(row) {
+            const hasRx = row.rxId !== null && row.rxId !== undefined;
+            const completed = Number(row.completedSteps || 0);
+            const total = Number(row.totalWorkflowSteps || 0);
+            const workflowStatus = !hasRx ? '' : (total > 0 && completed >= total
+                ? 'Completed'
+                : (completed > 0 ? 'In Progress' : 'Not Started'));
+            return [
+                row.patientDatabaseId || '', row.patientCode || '', row.firstName || '', row.lastName || '', row.dob || '',
+                row.phone || '', row.address || '', row.patientServiceDate || '',
+                row.patientIsActive ? 'Active' : 'Inactive',
+                row.isNonCompanyPatient ? 'Non-Company' : 'Company',
+                row.patientNotes || '', exportDateTime(row.patientCreatedAt), exportDateTime(row.patientUpdatedAt),
+                row.clinicName || '', row.clinicAddress || '', row.clinicPhone || '',
+                row.defaultPharmacyName || '', row.defaultPharmacyAddress || '', row.defaultPharmacyPhone || '',
+                row.defaultPatientTransport || '', row.defaultPatientTransportPhone || '',
+                row.defaultPharmacyTransport || '', row.defaultPharmacyTransportPhone || '',
+                hasRx ? row.patientRxRow || '' : '', row.patientRxCount || 0, hasRx ? 'RX-' + row.rxId : '',
+                row.rxArrivalDate || '', row.rxServiceDate || '', row.rxPharmacyName || '', row.rxPharmacyAddress || '',
+                row.rxPharmacyPhone || '', row.rxPatientTransport || '', row.rxPatientTransportPhone || '',
+                row.rxPharmacyTransport || '', row.rxPharmacyTransportPhone || '',
+                hasRx ? (row.returnedToWarehouse ? 'Yes' : 'No') : '',
+                exportDateTime(row.warehouseReturnDate), row.warehouseReturnNote || '',
+                exportDateTime(row.rxCreatedAt), exportDateTime(row.rxUpdatedAt), row.medications || '',
+                hasRx ? completed : '', hasRx ? total : '', row.currentStage || '',
+                exportDateTime(row.currentStageDate), row.currentStageCompletedBy || '',
+                row.nextPendingStage || '', workflowStatus, row.workflowStageHistory || '',
+                row.patientNoteHistory || '', row.serviceDateHistory || ''
+            ];
+        });
+    }
+
     function rxWorkflowLabelForExport(r) {
         const steps = r.completedSteps || [];
         const total = allWorkflowActions.length;
@@ -1056,7 +1142,8 @@
         return [
             'RX #','Patient','Patient ID','Patient Type','Clinic','Pharmacy','Arrival Date','Service Date',
             'Patient Transport','Pharmacy Transport','Warehouse Status','Warehouse Return Date','Warehouse Return Note',
-            'Completed Steps','Next Pending Step','Workflow Status','Progress %'
+            'Completed Steps','Current Stage','Current Stage Date','Current Stage Completed By','Process Stage History',
+            'Next Pending Step','Workflow Status','Progress %'
         ];
     }
 
@@ -1065,6 +1152,12 @@
             const steps = r.completedSteps || [];
             const pct = allWorkflowActions.length ? Math.round(steps.length / allWorkflowActions.length * 100) : 0;
             const nextStep = allWorkflowActions.find(w => !steps.includes(w.id));
+            const currentStage = r.currentStage || {};
+            const stageHistory = (r.stageHistory || []).map(function(stage) {
+                return (stage.sequenceNumber || '?') + '. ' + (stage.stage || 'Stage') +
+                    ' | ' + exportDateTime(stage.completionDate) +
+                    ' | ' + (stage.completedBy || 'System');
+            }).join('\n');
             return [
                 'RX-' + r.id,
                 r.Patient ? `${r.Patient.firstName || ''} ${r.Patient.lastName || ''}`.trim() : '',
@@ -1080,6 +1173,10 @@
                 r.warehouseReturnDate || '',
                 r.warehouseReturnNote || '',
                 steps.length,
+                currentStage.stage || '',
+                exportDateTime(currentStage.completionDate),
+                currentStage.completedBy || '',
+                stageHistory,
                 nextStep ? nextStep.name : '',
                 rxWorkflowLabelForExport(r),
                 pct + '%'
@@ -1093,6 +1190,18 @@
             if (!data.length) { showToast('No data to export', 'warning'); return; }
             downloadCsv('patient_report.csv', patientReportHeaders(), patientReportExportRows(data));
             showToast('Patient report exported!', 'success');
+        });
+
+        const patientRxCsv = document.getElementById('exportPatientRxDetailCsv');
+        if (patientRxCsv) patientRxCsv.addEventListener('click', async () => {
+            const data = await fetchPatientRxDetailRows();
+            if (!data.length) { showToast('No Patient + RX data to export', 'warning'); return; }
+            downloadCsv(
+                'patient_rx_full_export_' + new Date().toISOString().slice(0,10) + '.csv',
+                patientRxDetailHeaders(),
+                patientRxDetailExportRows(data)
+            );
+            showToast('Full Patient + RX transfer export created.', 'success');
         });
 
         document.getElementById('exportRxCsv').addEventListener('click', async () => {
@@ -1193,6 +1302,17 @@
                 patientReportExportRows(data)
             );
             showToast('Patient report exported as Excel!', 'success');
+        });
+        var patientRxXls = document.getElementById('exportPatientRxDetailXls');
+        if (patientRxXls) patientRxXls.addEventListener('click', async function() {
+            var data = await fetchPatientRxDetailRows();
+            if (!data.length) { showToast('No Patient + RX data to export', 'warning'); return; }
+            downloadXls(
+                'patient_rx_full_export_' + new Date().toISOString().slice(0,10) + '.xls',
+                patientRxDetailHeaders(),
+                patientRxDetailExportRows(data)
+            );
+            showToast('Full Patient + RX transfer export created as Excel.', 'success');
         });
         var patPdf   = document.getElementById('exportPatientPdf');
         if (patPdf)   patPdf.addEventListener('click',   function() { printReport('Patient Report', 'patientReportTable'); });

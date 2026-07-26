@@ -239,6 +239,23 @@
                         </div>
 
                         <!-- ── Pagination bar TOP ── -->
+                        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 border rounded p-2 mt-3 mb-2">
+                            <div>
+                                <div class="fw-bold small"><i class="fas fa-table me-1 text-primary"></i>Full Patient + RX Transfer Export</div>
+                                <div class="small text-muted">
+                                    Uses the Patient filters above. Each RX is a separate row; patient details repeat consistently. Patients without RX receive one row with blank RX fields.
+                                </div>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-outline-success btn-sm" id="exportPatientRxDetailCsv">
+                                    <i class="fas fa-file-csv me-1"></i>Full CSV
+                                </button>
+                                <button class="btn btn-outline-primary btn-sm" id="exportPatientRxDetailXls">
+                                    <i class="fas fa-file-excel me-1"></i>Full Excel
+                                </button>
+                            </div>
+                        </div>
+
                         <div class="pag-bar" id="prPagBar">
                             <div class="pag-left">
                                 <label class="small text-muted mb-0">Show</label>
@@ -366,8 +383,12 @@
                                     </select>
                                 </div>
                                 <div class="col-md-2">
-                                    <label class="form-label small fw-bold mb-1">Workflow Stage</label>
-                                    <select class="form-select form-select-sm" id="rrfWorkflowStage"><option value="">All Stages</option></select>
+                                    <label class="form-label small fw-bold mb-1">Next Pending Stage</label>
+                                    <select class="form-select form-select-sm" id="rrfWorkflowStage"><option value="">All Pending Stages</option></select>
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small fw-bold mb-1">Completed Stage</label>
+                                    <select class="form-select form-select-sm" id="rrfCompletedStage"><option value="">Any Completed Stage</option></select>
                                 </div>
                             </div>
                             <div class="row g-2 align-items-end mt-1">
@@ -405,6 +426,19 @@
                                         <option value="not-returned">Not Returned</option>
                                     </select>
                                 </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small fw-bold mb-1">Stage Activity From</label>
+                                    <input type="date" class="form-control form-control-sm" id="rrfStageFrom">
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small fw-bold mb-1">Stage Activity To</label>
+                                    <input type="date" class="form-control form-control-sm" id="rrfStageTo">
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="small text-muted pb-1">
+                                        <i class="fas fa-info-circle me-1"></i>Stage Activity dates filter when a workflow stage was completed, independently from Service and Arrival dates.
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
@@ -440,12 +474,15 @@
                                         <th style="cursor:pointer" onclick="sortRxReport('PatientTransportCompany.companyName')">Patient Transport <i class="fas fa-sort text-muted" style="opacity:.3" id="rrIcon_PatientTransportCompany.companyName"></i></th>
                                         <th style="cursor:pointer" onclick="sortRxReport('PharmacyTransportCompany.companyName')">Pharmacy Transport <i class="fas fa-sort text-muted" style="opacity:.3" id="rrIcon_PharmacyTransportCompany.companyName"></i></th>
                                         <th style="cursor:pointer" onclick="sortRxReport('returnedToWarehouse')">Warehouse <i class="fas fa-sort text-muted" style="opacity:.3" id="rrIcon_returnedToWarehouse"></i></th>
+                                        <th>Current Stage</th>
+                                        <th style="cursor:pointer" onclick="sortRxReport('stageDate')">Stage Date <i class="fas fa-sort text-muted" style="opacity:.3" id="rrIcon_stageDate"></i></th>
+                                        <th>Stage History</th>
                                         <th>Next Pending</th>
                                         <th style="cursor:pointer" onclick="sortRxReport('workflowStatus')">Workflow <i class="fas fa-sort text-muted" style="opacity:.3" id="rrIcon_workflowStatus"></i></th>
                                     </tr>
                                 </thead>
                                 <tbody id="rxActionBody">
-                                    <tr><td colspan="12" class="text-center text-muted py-4">Loading...</td></tr>
+                                    <tr><td colspan="15" class="text-center text-muted py-4">Loading...</td></tr>
                                 </tbody>
                             </table>
                         </div>

@@ -107,6 +107,14 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
   verifies migrations, configures the restricted runtime role, fingerprints
   business data, and optionally activates the copy with automatic `.env` and
   service recovery. It does not modify the source dump or current database.
+- Staging candidate `4.0.0-next.27` adds exact completed-stage and
+  stage-activity date filtering, visible current-stage/date/user details, and
+  expandable ordered workflow history to RX Reports. It also adds a filtered
+  Full Patient + RX Transfer Export with one vertical row per RX, repeated
+  patient columns for multiple RX records, and one blank-RX row for patients
+  without RX. The complete staging smoke and isolated browser workflow pass.
+  It has no migration, data rewrite, proxy/origin/port change, or RX Softphone
+  change. It is not official until promoted through develop/main and published.
 - Official `v4.0.0-next.26` assets were published on 2026-07-26 and
   independently verified against `SHA256SUMS.txt`:
   - `server-update-4.0.0-next.26.zip`:

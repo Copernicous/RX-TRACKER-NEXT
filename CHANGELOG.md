@@ -7,6 +7,33 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+## [4.0.0-next.27] - 2026-07-26
+
+### Added
+
+- Added completed workflow stage and stage-activity date filters to the RX Action Report, while renaming the existing position filter to **Next Pending Stage** so the two meanings remain distinct.
+- Added Current Stage, Stage Date, completion user, and an expandable ordered Process Stage History to each RX report row.
+- Added a filtered **Full Patient + RX Transfer Export** in CSV and Excel. It produces one vertical row per RX, repeats the patient columns consistently for patients with multiple RX records, and retains patients without RX as one row with blank RX fields.
+- Expanded filtered RX exports with current-stage details and the complete ordered stage/date/user history.
+- Added database and isolated-browser regressions for exact completed-stage/date matching, stage history rendering, and the vertical Patient + RX transfer export.
+
+### Changed
+
+- Kept RX report count, filtering, sorting, and pagination in PostgreSQL; workflow user/history relationships are loaded only for the selected page.
+- Built the full transfer export as an explicit PostgreSQL query so normal Patient and RX pages remain bounded and paginated.
+
+### Security
+
+- Enforced the Reports **Export** permission on the full Patient + RX endpoint server-side; disabling the button alone is not treated as authorization.
+
+### Testing
+
+- Passed the complete staging smoke suite and isolated Chromium workflow.
+- Passed PostgreSQL filter parity for current stage, completed-stage date ranges, vertical multi-RX rows, and patients without RX.
+- Passed public JavaScript syntax/encoding, reports EJS rendering, existing Call Center, softphone, permissions, packaging, and database lifecycle regressions.
+
+**Database impact:** No schema migration and no business-data rewrite. The new reports are read-only. No proxy, origin, port, authentication, RX Softphone, or PBX behavior changes.
+
 ## [4.0.0-next.26] - 2026-07-26
 
 ### Added

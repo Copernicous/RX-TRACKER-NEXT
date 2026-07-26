@@ -75,6 +75,15 @@ async function rxRows(filters) {
     return result.payload.rows;
 }
 
+async function patientRxDetailRows(filters) {
+    const result = await runHandler(reportController.getPatientRxDetailReport, {
+        lastName: marker,
+        ...filters
+    });
+    assert.strictEqual(result.status, 200, result.payload.error || 'Patient + RX detail report failed');
+    return result.payload.rows;
+}
+
 async function cleanup() {
     if (created.trackingIds.length) {
         await db.RXWorkflowTracking.destroy({ where: { id: created.trackingIds } }).catch(() => {});
@@ -210,18 +219,18 @@ async function createFixtures() {
         ...actions.map(action => ({
             rxRecordId: rxRows[0].id,
             workflowActionId: action.id,
-            completionDate: new Date()
+            completionDate: new Date('2026-04-10T14:30:00Z')
         })),
         {
             rxRecordId: rxRows[1].id,
             workflowActionId: actions[0].id,
-            completionDate: new Date()
+            completionDate: new Date('2026-05-15T15:45:00Z')
         }
     ];
     const createdTrackings = await db.RXWorkflowTracking.bulkCreate(trackingRows, { returning: true });
     created.trackingIds.push(...createdTrackings.map(row => row.id));
 
-    return { clinicA, clinicB, pharmacyA, pharmacyB, patientTransport, pharmacyTransport };
+    return { clinicA, clinicB, pharmacyA, pharmacyB, patientTransport, pharmacyTransport, actions };
 }
 
 async function main() {
@@ -244,11 +253,33 @@ async function main() {
     assert.strictEqual((await rxRows({ workflowStatus: 'expired' })).length, 1);
     assert.strictEqual((await rxRows({ workflowStatus: 'not-started' })).length, 1);
     assert.strictEqual((await rxRows({ workflowStage: '2' })).length, 1);
+    assert.strictEqual((await rxRows({ completedStageId: refs.actions[0].id })).length, 2);
+    assert.strictEqual((await rxRows({ stageFrom: '2026-05-01', stageTo: '2026-05-31' })).length, 1);
+    assert.strictEqual((await rxRows({
+        completedStageId: refs.actions[1].id,
+        stageFrom: '2026-05-01',
+        stageTo: '2026-05-31'
+    })).length, 0);
     assert.strictEqual((await rxRows({ arrivalFrom: '2026-02-01', arrivalTo: '2026-02-28' })).length, 1);
     assert.strictEqual((await rxRows({ patientTransportId: refs.patientTransport.id })).length, 3);
     assert.strictEqual((await rxRows({ pharmacyTransportId: refs.pharmacyTransport.id })).length, 3);
 
-    console.log('PASS: Patient and RX report filters match operational filter dimensions.');
+    const stagedRows = await rxRows({ pharmacyId: refs.pharmacyA.id });
+    assert.strictEqual(stagedRows[0].stageHistory.length, refs.actions.length);
+    assert.strictEqual(stagedRows[0].currentStage.stage, refs.actions[refs.actions.length - 1].name);
+    assert.strictEqual(stagedRows[0].currentStage.completedBy, 'System');
+
+    const fullRows = await patientRxDetailRows({});
+    assert.strictEqual(fullRows.length, 4, 'Full transfer export must create one row per RX plus one blank-RX patient row.');
+    assert.strictEqual(fullRows.filter(row => row.firstName === 'EXPIRED').length, 2, 'A patient with two RX records must repeat on two vertical rows.');
+    const noRxRow = fullRows.find(row => row.firstName === 'MISSING');
+    assert(noRxRow, 'Full transfer export must retain patients without RX records.');
+    assert.strictEqual(noRxRow.rxId, null);
+    const completeExport = fullRows.find(row => row.firstName === 'COMPLETE');
+    assert(completeExport.workflowStageHistory.includes(refs.actions[0].name));
+    assert.strictEqual(completeExport.currentStage, refs.actions[refs.actions.length - 1].name);
+
+    console.log('PASS: Patient/RX filters, stage dates, stage history, and vertical full-detail export match operational dimensions.');
 }
 
 main()

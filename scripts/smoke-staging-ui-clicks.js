@@ -468,6 +468,7 @@ async function runAdminDashboardAndReports(fixtures) {
     assert(patientReportText.includes(fixtures.patientTransport.companyName), 'Patient report did not show the selected patient transport.');
     pass('Patient report advanced filters and assignment columns');
     await expectDownload(page, '#exportPatientCsv', 'Filtered Patient report CSV export');
+    await expectDownload(page, '#exportPatientRxDetailCsv', 'Vertical Patient + RX full-detail CSV export');
 
     await page.locator('a[href="#callCenterReport"]').click();
     await expectVisible(page, '#callCenterReport.active, #callCenterReport.show', 'Call Center Report tab visible');
@@ -537,6 +538,18 @@ async function runAdminDashboardAndReports(fixtures) {
         isDeleted: false,
         returnedToWarehouse: false
     });
+    const firstWorkflowAction = await db.WorkflowAction.findOne({
+        where: { isActive: true },
+        order: [['sequenceNumber', 'ASC'], ['id', 'ASC']]
+    });
+    assert(firstWorkflowAction, 'RX report browser smoke requires an active workflow action.');
+    const reportStageDate = new Date();
+    const reportTracking = await db.RXWorkflowTracking.create({
+        rxRecordId: returnedRx.id,
+        workflowActionId: firstWorkflowAction.id,
+        completionDate: reportStageDate,
+        userId: fixtures.adminUser.id
+    });
 
     await page.goto(route('/reports'), { waitUntil: 'domcontentloaded' });
     await page.waitForLoadState('networkidle').catch(() => {});
@@ -546,10 +559,15 @@ async function runAdminDashboardAndReports(fixtures) {
     await page.selectOption('#rrfClinicId', String(fixtures.clinic.id));
     await page.selectOption('#rrfPatientType', 'company');
     await page.selectOption('#rrfWarehouseStatus', 'returned');
+    await page.selectOption('#rrfCompletedStage', String(firstWorkflowAction.id));
+    await page.fill('#rrfStageFrom', reportStageDate.toISOString().slice(0, 10));
+    await page.fill('#rrfStageTo', reportStageDate.toISOString().slice(0, 10));
     const rxReportResponse = page.waitForResponse(response =>
         response.url().includes('/api/reports/rx-actions?')
         && response.url().includes('warehouseStatus=returned')
         && response.url().includes('clinicId=' + fixtures.clinic.id)
+        && response.url().includes('completedStageId=' + firstWorkflowAction.id)
+        && response.url().includes('stageFrom=')
         && response.status() === 200,
         { timeout: 15000 }
     );
@@ -562,7 +580,9 @@ async function runAdminDashboardAndReports(fixtures) {
     const rxReportText = await page.locator('#rxActionBody').innerText();
     assert(rxReportText.includes('Returned'), 'RX action report did not show the warehouse status.');
     assert(rxReportText.includes(fixtures.clinic.name), 'RX action report did not show the selected clinic.');
-    pass('RX action report advanced filters and operational columns');
+    assert(rxReportText.includes(firstWorkflowAction.name), 'RX action report did not show the completed process stage.');
+    assert(rxReportText.includes(fixtures.adminUser.firstName), 'RX action report did not show who completed the stage.');
+    pass('RX action report stage/date filters and process history');
     await expectDownload(page, '#exportRxCsv', 'Filtered RX action report CSV export');
 
     await page.goto(route('/rx-records'), { waitUntil: 'domcontentloaded' });
@@ -603,6 +623,7 @@ async function runAdminDashboardAndReports(fixtures) {
     assert(!notReturnedBody.includes('#' + returnedRx.id), 'Not Returned filter included a returned RX.');
     pass('RX Records warehouse filter and readable status badge');
 
+    await db.RXWorkflowTracking.destroy({ where: { id: reportTracking.id } });
     await db.RXRecord.destroy({ where: { id: { [Op.in]: [returnedRx.id, notReturnedRx.id] } } });
 
     await page.goto(route('/patients'), { waitUntil: 'domcontentloaded' });

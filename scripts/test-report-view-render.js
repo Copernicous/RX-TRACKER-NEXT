@@ -13,7 +13,12 @@ const requiredIds = [
     'prfPharmacyId',
     'prfPatientTransportId',
     'prfPharmacyTransportId',
+    'exportPatientRxDetailCsv',
+    'exportPatientRxDetailXls',
     'rrfWorkflowStage',
+    'rrfCompletedStage',
+    'rrfStageFrom',
+    'rrfStageTo',
     'rrfWarehouseStatus',
     'rrfArrivalFrom',
     'rrfArrivalTo',
@@ -39,6 +44,9 @@ ejs.renderFile(reportView, {
         assert(html.includes(`id="${id}"`), `Rendered report is missing #${id}.`);
     });
     assert(html.includes('Default Pharmacy'), 'Patient report must expose the default-pharmacy dimension.');
+    assert(html.includes('Full Patient + RX Transfer Export'), 'Reports must expose the vertical Patient + RX transfer export.');
     assert(html.includes('Returned to Warehouse'), 'RX report must expose warehouse-return filtering.');
+    assert(html.includes('Current Stage'), 'RX report must expose the current workflow stage.');
+    assert(html.includes('Stage Date'), 'RX report must expose workflow stage dates.');
     console.log(`PASS: Reports EJS rendered with ${requiredIds.length} upgraded filter controls.`);
 });

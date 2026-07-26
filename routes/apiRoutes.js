@@ -363,6 +363,7 @@ router.get('/dashboard/eligibility-drilldown/:filter', rbac.requirePermission('d
 
 // Reports
 router.get('/reports/patients', rbac.requirePermission('reports', 'read'), reportController.getPatientReport);
+router.get('/reports/patient-rx-detail', rbac.requirePermission('reports', 'export'), reportController.getPatientRxDetailReport);
 router.get('/reports/rx-receipts', rbac.requirePermission('reports', 'read'), reportController.getRXReceiptReport);
 router.get('/reports/rx-actions', rbac.requirePermission('reports', 'read'), reportController.getRXActionReport);
 router.get('/reports/call-center', rbac.requirePermission('reports', 'read'), reportController.getCallCenterReport);

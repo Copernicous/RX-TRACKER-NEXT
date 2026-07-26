@@ -40,14 +40,39 @@ function rxReportInclude() {
         db.Pharmacy,
         db.PatientTransportCompany,
         db.PharmacyTransportCompany,
-        { model: db.RXWorkflowTracking, include: [db.WorkflowAction] }
+        {
+            model: db.RXWorkflowTracking,
+            include: [
+                db.WorkflowAction,
+                { model: db.User, attributes: ['id', 'username', 'firstName', 'lastName'] }
+            ]
+        }
     ];
 }
 
 function enrichRxReportRows(rows) {
     return rows.map(row => {
         const plain = row.toJSON ? row.toJSON() : row;
-        plain.completedSteps = (plain.RXWorkflowTrackings || []).map(t => t.workflowActionId);
+        const stageHistory = (plain.RXWorkflowTrackings || [])
+            .map(tracking => ({
+                trackingId: tracking.id,
+                actionId: tracking.workflowActionId,
+                stage: tracking.WorkflowAction ? tracking.WorkflowAction.name : `Stage ${tracking.workflowActionId}`,
+                sequenceNumber: tracking.WorkflowAction ? tracking.WorkflowAction.sequenceNumber : null,
+                completionDate: tracking.completionDate || null,
+                completedBy: getUserLabel(tracking.User)
+            }))
+            .sort((a, b) => {
+                const sequenceA = Number.isFinite(Number(a.sequenceNumber)) ? Number(a.sequenceNumber) : Number.MAX_SAFE_INTEGER;
+                const sequenceB = Number.isFinite(Number(b.sequenceNumber)) ? Number(b.sequenceNumber) : Number.MAX_SAFE_INTEGER;
+                if (sequenceA !== sequenceB) return sequenceA - sequenceB;
+                const dateA = a.completionDate ? new Date(a.completionDate).getTime() : 0;
+                const dateB = b.completionDate ? new Date(b.completionDate).getTime() : 0;
+                return dateA - dateB || Number(a.trackingId || 0) - Number(b.trackingId || 0);
+            });
+        plain.completedSteps = [...new Set(stageHistory.map(stage => stage.actionId).filter(Boolean))];
+        plain.stageHistory = stageHistory;
+        plain.currentStage = stageHistory.length ? stageHistory[stageHistory.length - 1] : null;
         return plain;
     });
 }
@@ -803,6 +828,200 @@ function patientReportSortSql(sort) {
     return allowed[sort] || allowed.id;
 }
 
+async function getPatientRxDetailRows(query) {
+    const totalSteps = await db.WorkflowAction.count({ where: { isActive: true } });
+    const replacements = {};
+    const where = patientReportFilters(query, replacements, totalSteps);
+    const fromSql = patientReportFromSql();
+    const rows = await db.sequelize.query(
+        `
+        WITH filtered_patients AS (
+            SELECT p.id
+            ${fromSql}
+            WHERE ${where.join(' AND ')}
+        )
+        SELECT
+            p.id AS "patientDatabaseId",
+            p."patientCode",
+            p."firstName",
+            p."lastName",
+            p.dob,
+            p.phone,
+            p.address,
+            p."serviceDate" AS "patientServiceDate",
+            p."isActive" AS "patientIsActive",
+            p."isNonCompanyPatient",
+            p.notes AS "patientNotes",
+            p."createdAt" AS "patientCreatedAt",
+            p."updatedAt" AS "patientUpdatedAt",
+            c.name AS "clinicName",
+            c.address AS "clinicAddress",
+            c.phone AS "clinicPhone",
+            ph.name AS "defaultPharmacyName",
+            ph.address AS "defaultPharmacyAddress",
+            ph.phone AS "defaultPharmacyPhone",
+            pt."companyName" AS "defaultPatientTransport",
+            pt.phone AS "defaultPatientTransportPhone",
+            pht."companyName" AS "defaultPharmacyTransport",
+            pht.phone AS "defaultPharmacyTransportPhone",
+            COUNT(r.id) OVER (PARTITION BY p.id)::integer AS "patientRxCount",
+            CASE WHEN r.id IS NULL THEN NULL
+                 ELSE ROW_NUMBER() OVER (PARTITION BY p.id ORDER BY r.id)::integer
+            END AS "patientRxRow",
+            r.id AS "rxId",
+            r."arrivalDate" AS "rxArrivalDate",
+            r."serviceDate" AS "rxServiceDate",
+            rx_ph.name AS "rxPharmacyName",
+            rx_ph.address AS "rxPharmacyAddress",
+            rx_ph.phone AS "rxPharmacyPhone",
+            rx_pt."companyName" AS "rxPatientTransport",
+            rx_pt.phone AS "rxPatientTransportPhone",
+            rx_pht."companyName" AS "rxPharmacyTransport",
+            rx_pht.phone AS "rxPharmacyTransportPhone",
+            r."returnedToWarehouse",
+            r."warehouseReturnDate",
+            r."warehouseReturnNote",
+            r."createdAt" AS "rxCreatedAt",
+            r."updatedAt" AS "rxUpdatedAt",
+            COALESCE(med.medications, '') AS medications,
+            COALESCE(wf."completedSteps", 0)::integer AS "completedSteps",
+            :totalSteps::integer AS "totalWorkflowSteps",
+            current_stage."currentStage",
+            current_stage."currentStageDate",
+            current_stage."currentStageCompletedBy",
+            next_stage."nextPendingStage",
+            COALESCE(wf."workflowStageHistory", '') AS "workflowStageHistory",
+            COALESCE(patient_notes."patientNoteHistory", '') AS "patientNoteHistory",
+            COALESCE(service_history."serviceDateHistory", '') AS "serviceDateHistory"
+        FROM filtered_patients fp
+        JOIN "Patients" p ON p.id = fp.id
+        LEFT JOIN "Clinics" c ON c.id = p."clinicId"
+        LEFT JOIN "Pharmacies" ph ON ph.id = p."pharmacyId"
+        LEFT JOIN "PatientTransportCompanies" pt ON pt.id = p."patientTransportCompanyId"
+        LEFT JOIN "PharmacyTransportCompanies" pht ON pht.id = p."pharmacyTransportCompanyId"
+        LEFT JOIN "RXRecords" r
+          ON r."patientId" = p.id
+         AND COALESCE(r."isDeleted", FALSE) = FALSE
+        LEFT JOIN "Pharmacies" rx_ph ON rx_ph.id = r."pharmacyId"
+        LEFT JOIN "PatientTransportCompanies" rx_pt ON rx_pt.id = r."patientTransportCompanyId"
+        LEFT JOIN "PharmacyTransportCompanies" rx_pht ON rx_pht.id = r."pharmacyTransportCompanyId"
+        LEFT JOIN LATERAL (
+            SELECT STRING_AGG(
+                CONCAT(
+                    COALESCE(m.name, ''),
+                    CASE WHEN m.quantity IS NOT NULL THEN CONCAT(' (Qty ', m.quantity, ')') ELSE '' END,
+                    CASE WHEN NULLIF(BTRIM(COALESCE(m.notes, '')), '') IS NOT NULL
+                         THEN CONCAT(' - ', REGEXP_REPLACE(m.notes, E'[\\r\\n]+', ' ', 'g'))
+                         ELSE '' END
+                ),
+                E'\\n' ORDER BY m.id
+            ) AS medications
+            FROM "Medications" m
+            WHERE m."rxRecordId" = r.id
+        ) med ON TRUE
+        LEFT JOIN LATERAL (
+            SELECT
+                COUNT(*)::integer AS "completedSteps",
+                STRING_AGG(
+                    CONCAT(
+                        COALESCE(wa."sequenceNumber"::text, '?'), '. ',
+                        COALESCE(wa.name, CONCAT('Stage ', wt."workflowActionId")),
+                        ' | ', TO_CHAR(wt."completionDate", 'YYYY-MM-DD HH24:MI:SS'),
+                        ' | ', COALESCE(
+                            NULLIF(BTRIM(CONCAT_WS(' ', u."firstName", u."lastName")), ''),
+                            u.username,
+                            'System'
+                        )
+                    ),
+                    E'\\n' ORDER BY wa."sequenceNumber", wt."completionDate", wt.id
+                ) AS "workflowStageHistory"
+            FROM "RXWorkflowTrackings" wt
+            LEFT JOIN "WorkflowActions" wa ON wa.id = wt."workflowActionId"
+            LEFT JOIN "Users" u ON u.id = wt."userId"
+            WHERE wt."rxRecordId" = r.id
+        ) wf ON TRUE
+        LEFT JOIN LATERAL (
+            SELECT
+                wa.name AS "currentStage",
+                wt."completionDate" AS "currentStageDate",
+                COALESCE(
+                    NULLIF(BTRIM(CONCAT_WS(' ', u."firstName", u."lastName")), ''),
+                    u.username,
+                    'System'
+                ) AS "currentStageCompletedBy"
+            FROM "RXWorkflowTrackings" wt
+            LEFT JOIN "WorkflowActions" wa ON wa.id = wt."workflowActionId"
+            LEFT JOIN "Users" u ON u.id = wt."userId"
+            WHERE wt."rxRecordId" = r.id
+            ORDER BY wa."sequenceNumber" DESC NULLS LAST, wt."completionDate" DESC, wt.id DESC
+            LIMIT 1
+        ) current_stage ON TRUE
+        LEFT JOIN LATERAL (
+            SELECT wa.name AS "nextPendingStage"
+            FROM "WorkflowActions" wa
+            WHERE r.id IS NOT NULL
+              AND wa."isActive" = TRUE
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM "RXWorkflowTrackings" wt
+                  WHERE wt."rxRecordId" = r.id
+                    AND wt."workflowActionId" = wa.id
+              )
+            ORDER BY wa."sequenceNumber", wa.id
+            LIMIT 1
+        ) next_stage ON TRUE
+        LEFT JOIN LATERAL (
+            SELECT STRING_AGG(
+                CONCAT(
+                    TO_CHAR(pn."createdAt", 'YYYY-MM-DD HH24:MI:SS'),
+                    ' | ', COALESCE(pn.source, 'Patient'),
+                    ' | ', COALESCE(
+                        NULLIF(BTRIM(CONCAT_WS(' ', note_user."firstName", note_user."lastName")), ''),
+                        note_user.username,
+                        'System'
+                    ),
+                    ' | ', REGEXP_REPLACE(COALESCE(pn.note, ''), E'[\\r\\n]+', ' ', 'g')
+                ),
+                E'\\n' ORDER BY pn."createdAt", pn.id
+            ) AS "patientNoteHistory"
+            FROM "PatientNotes" pn
+            LEFT JOIN "Users" note_user ON note_user.id = pn."userId"
+            WHERE pn."patientId" = p.id
+        ) patient_notes ON TRUE
+        LEFT JOIN LATERAL (
+            SELECT STRING_AGG(
+                CONCAT(
+                    TO_CHAR(psh."createdAt", 'YYYY-MM-DD HH24:MI:SS'),
+                    ' | ', COALESCE(psh."previousServiceDate"::text, 'blank'),
+                    ' -> ', COALESCE(psh."newServiceDate"::text, 'blank'),
+                    ' | ', COALESCE(psh."changeSource", 'Patient Update'),
+                    ' | ', COALESCE(
+                        NULLIF(BTRIM(CONCAT_WS(' ', date_user."firstName", date_user."lastName")), ''),
+                        date_user.username,
+                        'System'
+                    ),
+                    CASE WHEN NULLIF(BTRIM(COALESCE(psh.reason, '')), '') IS NOT NULL
+                         THEN CONCAT(' | ', REGEXP_REPLACE(psh.reason, E'[\\r\\n]+', ' ', 'g'))
+                         ELSE '' END
+                ),
+                E'\\n' ORDER BY psh."createdAt", psh.id
+            ) AS "serviceDateHistory"
+            FROM "PatientServiceDateHistories" psh
+            LEFT JOIN "Users" date_user ON date_user.id = psh."changedByUserId"
+            WHERE psh."patientId" = p.id
+        ) service_history ON TRUE
+        ORDER BY
+            LOWER(COALESCE(p."patientCode", '')),
+            LOWER(COALESCE(p."lastName", '')),
+            LOWER(COALESCE(p."firstName", '')),
+            p.id,
+            r.id
+        `,
+        { type: QueryTypes.SELECT, replacements }
+    );
+    return rows;
+}
+
 async function getPaginatedPatientReport(query) {
     const pageSize = parsePositiveInt(query.pageSize, 10, 1, 500);
     const requestedPage = parsePositiveInt(query.page, 1, 1, 1000000);
@@ -843,6 +1062,9 @@ function rxReportFilters(query, replacements, totalSteps) {
     const pharmacy = cleanString(query.pharmacy).toLowerCase();
     const workflowStatus = cleanString(query.workflowStatus || query.progress);
     const workflowStage = cleanString(query.workflowStage);
+    const completedStageId = exactPositiveId(query.completedStageId);
+    const stageFrom = isDateOnly(query.stageFrom) ? query.stageFrom : '';
+    const stageTo = isDateOnly(query.stageTo) ? query.stageTo : '';
     const patientType = cleanString(query.patientType);
     const warehouseStatus = cleanString(query.warehouseStatus);
     const dateFrom = isDateOnly(query.serviceFrom || query.dateFrom) ? (query.serviceFrom || query.dateFrom) : '';
@@ -946,6 +1168,28 @@ function rxReportFilters(query, replacements, totalSteps) {
     } else if (workflowStage) {
         where.push('FALSE');
     }
+    if (completedStageId === false) {
+        where.push('FALSE');
+    } else if (completedStageId !== null || stageFrom || stageTo) {
+        const stageActivityWhere = ['stage_activity."rxRecordId" = r.id'];
+        if (completedStageId !== null) {
+            replacements.completedStageId = completedStageId;
+            stageActivityWhere.push('stage_activity."workflowActionId" = :completedStageId');
+        }
+        if (stageFrom) {
+            replacements.stageFrom = stageFrom;
+            stageActivityWhere.push('stage_activity."completionDate" >= CAST(:stageFrom AS DATE)');
+        }
+        if (stageTo) {
+            replacements.stageTo = stageTo;
+            stageActivityWhere.push('stage_activity."completionDate" < (CAST(:stageTo AS DATE) + INTERVAL \'1 day\')');
+        }
+        where.push(`EXISTS (
+            SELECT 1
+            FROM "RXWorkflowTrackings" stage_activity
+            WHERE ${stageActivityWhere.join(' AND ')}
+        )`);
+    }
     return where;
 }
 
@@ -958,9 +1202,16 @@ function rxReportFromSql() {
         LEFT JOIN "PatientTransportCompanies" pt ON pt.id = r."patientTransportCompanyId"
         LEFT JOIN "PharmacyTransportCompanies" pht ON pht.id = r."pharmacyTransportCompanyId"
         LEFT JOIN (
-            SELECT "rxRecordId", COUNT(*)::integer AS completed_steps
-            FROM "RXWorkflowTrackings"
-            GROUP BY "rxRecordId"
+            SELECT
+                wt."rxRecordId",
+                COUNT(*)::integer AS completed_steps,
+                (ARRAY_AGG(
+                    wt."completionDate"
+                    ORDER BY wa."sequenceNumber" DESC NULLS LAST, wt."completionDate" DESC, wt.id DESC
+                ))[1] AS current_stage_at
+            FROM "RXWorkflowTrackings" wt
+            LEFT JOIN "WorkflowActions" wa ON wa.id = wt."workflowActionId"
+            GROUP BY wt."rxRecordId"
         ) wc ON wc."rxRecordId" = r.id
     `;
 }
@@ -977,7 +1228,8 @@ function rxReportSortSql(sort) {
         arrivalDate: 'r."arrivalDate"',
         serviceDate: 'r."serviceDate"',
         returnedToWarehouse: 'r."returnedToWarehouse"',
-        workflowStatus: 'COALESCE(wc.completed_steps, 0)'
+        workflowStatus: 'COALESCE(wc.completed_steps, 0)',
+        stageDate: 'wc.current_stage_at'
     };
     return allowed[sort] || allowed.id;
 }
@@ -1025,6 +1277,15 @@ exports.getPatientReport = async (req, res) => {
         });
         res.json(patients);
     } catch (err) { res.status(500).json({ error: err.message }); }
+};
+
+exports.getPatientRxDetailReport = async (req, res) => {
+    try {
+        res.json({ rows: await getPatientRxDetailRows(req.query || {}) });
+    } catch (err) {
+        console.error('[Reports] Patient + RX detail export error:', err);
+        res.status(500).json({ error: err.message });
+    }
 };
 
 exports.getRXReceiptReport = async (req, res) => {
