@@ -1,6 +1,6 @@
 # RX Tracker NEXT project handoff
 
-Last updated: 2026-07-25
+Last updated: 2026-07-26
 
 This file is the sanitized continuity record for a future administrator or
 Codex session. It intentionally contains no credentials, `.env` values,
@@ -9,8 +9,8 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 ## Current state
 
 - Repository: `Copernicous/RX-TRACKER-NEXT`
-- Branch: official `v4.0.0-next.25` release on `main` at commit
-  `91220088849c9834787ee1add58756721a1d014a`.
+- Branch: official `v4.0.0-next.26` release on `main` at commit
+  `2651c17ec0b043db2104503983a70316b77fa2e2`.
 - Current production release must be confirmed from Project Control or
   `server.exe --v`; do not infer it from this repository.
 - Production application folder: `C:\RX-Tracker\RX-APP-NEXT`
@@ -18,9 +18,8 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 - Production HTTP port: `3000`
 - NEXT database name at the completed cutover: `patient_rx_next_cutover_copy`
 - Project Control version: `2.2.0`
-- Latest official release: `v4.0.0-next.25`; candidate `v4.0.0-next.26` is
-  staged for publication with expanded operational reports and guided
-  test-copy recovery. RX Softphone remains 0.6.0. It retains the application-owned
+- Latest official release: `v4.0.0-next.26`, with expanded operational reports
+  and guided test-copy recovery. RX Softphone remains 0.6.0. It retains the application-owned
   WebView2 control window, hides the window to the existing tray on close,
   focuses the same window on a second launch, and adds a per-user
   **Start with Windows** tray option. It does not install a Windows service,
@@ -98,7 +97,7 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
   improved from about 1.0-1.2 seconds to 11-14 ms, and the 50,000-attempt
   summary improved from about 92-96 ms to 51-53 ms. One additive migration
   creates eight growth-query indexes and rewrites no business data.
-- Candidate `4.0.0-next.26` expands Patient and RX reports with exact clinic,
+- Release `4.0.0-next.26` expands Patient and RX reports with exact clinic,
   pharmacy, patient/pharmacy transport, patient type, assignment completeness,
   service/arrival dates, eligibility, RX presence, workflow state/stage, and
   warehouse-return filters. Filtering, sorting, and pagination remain
@@ -108,16 +107,16 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
   verifies migrations, configures the restricted runtime role, fingerprints
   business data, and optionally activates the copy with automatic `.env` and
   service recovery. It does not modify the source dump or current database.
-- Official `v4.0.0-next.25` assets were published on 2026-07-25 and
+- Official `v4.0.0-next.26` assets were published on 2026-07-26 and
   independently verified against `SHA256SUMS.txt`:
-  - `server-update-4.0.0-next.25.zip`:
-    `2902000c57bf4747ee37727f17d11f1869cd98dc463cd2393b017706feb68007`
+  - `server-update-4.0.0-next.26.zip`:
+    `de0c2449d93d03b1f7d7c5c66ee0c02843109bf7b8acc9992420bca7bdd0c362`
   - packaged `server.exe`:
-    `f43ac29070bda8caa50d097206ea77ca98d04bd64c8ca3d9eae37325b08b8635`
+    `ad7de2821c35893e6df099e1b43a2c6ffead96432c92f5660aa456cce27dd5fe`
   - packaged `rx-db.exe`:
-    `37ea7d5d7bdeb078c9c1daf18598b6af26e456b33c62d4e69360866dc96fa116`
+    `2c02b562afe11c7da6c106e23619a4bd1ab88c0bfe0ffd94eee397127083794c`
   - `RxSoftphone-0.6.0-win-x64.zip`:
-    `caaccf4562aa019481702ecc064219d51549e3ce09bf633e85074c82091941b0`
+    `7bae17f10d1ea9811dd48058d81f66c9110c1c431b0f4bc391d79b467ad78342`
 - Tag `v4.0.0-next.7` is a failed, non-deployable release attempt. Its server
   build passed, but the first clean-runner RX Softphone restore lacked an
   explicit Windows runtime identifier, so no GitHub release assets were
