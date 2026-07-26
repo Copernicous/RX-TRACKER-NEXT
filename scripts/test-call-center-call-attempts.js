@@ -16,6 +16,7 @@ if (!/(ui_smoke|test)/i.test(process.env.DB_NAME)) {
 
 const db = require('../models');
 const controller = require('../controllers/callAttemptController');
+const reportController = require('../controllers/reportController');
 const { getCallCenterInactiveClaimSeconds } = require('../utils/globalSettings');
 const { refreshOwnedCallCenterClaim } = require('../services/callCenterClaimService');
 
@@ -194,13 +195,61 @@ async function main() {
         assert.strictEqual(noAnswerEnd.body.attempt.calledRecorded, false, 'No-answer attempt must not record Called.');
         assert.strictEqual(await db.AuditLog.count({ where: { module: 'Call Center', action: 'Called', recordId: patient.id } }), 1);
 
+        const historicalAttempt = await db.CallCenterCallAttempt.create({
+            patientId: null,
+            userId: null,
+            correlationId: 'summary-history-' + runId,
+            phoneClient: 'rx_softphone',
+            direction: 'outbound',
+            state: 'failed',
+            outcome: 'busy',
+            patientCode: 'HIST-' + runId,
+            patientName: 'Historical Patient',
+            clinicName: 'Historical Clinic ' + runId,
+            agentName: 'Historical Agent ' + runId,
+            extension: 'historic-ext',
+            dialedNumber: '5550101234',
+            sipResponseCode: 486,
+            sipReason: 'Busy Here',
+            dialedAt: new Date(Date.now() - 24 * 60 * 60 * 1000),
+            endedAt: new Date(Date.now() - 24 * 60 * 60 * 1000 + 5000)
+        });
+        created.attemptIds.push(historicalAttempt.id);
+
+        const supervisorRes = response();
+        await reportController.getCallCenterSupervisorSummary({
+            query: { phone: '5550101234' }
+        }, supervisorRes);
+        assert.strictEqual(supervisorRes.statusCode, 200, JSON.stringify(supervisorRes.body));
+        assert.strictEqual(supervisorRes.body.totals.attempts, 3, 'Supervisor summary attempt total mismatch.');
+        assert.strictEqual(supervisorRes.body.totals.completed, 3, 'Supervisor summary completed total mismatch.');
+        assert.strictEqual(supervisorRes.body.totals.answered, 1, 'Supervisor summary answered total mismatch.');
+        assert.strictEqual(supervisorRes.body.totals.noAnswer, 1, 'Supervisor summary no-answer total mismatch.');
+        assert.strictEqual(supervisorRes.body.totals.otherOutcomes, 1, 'Supervisor summary other-outcome total mismatch.');
+        assert.strictEqual(supervisorRes.body.totals.answerRate, 33.3, 'Supervisor summary answer rate mismatch.');
+        assert.strictEqual(supervisorRes.body.totals.noAnswerRate, 33.3, 'Supervisor summary no-answer rate mismatch.');
+        assert.strictEqual(supervisorRes.body.totals.totalTalkSeconds, 15, 'Supervisor summary total talk mismatch.');
+        assert.strictEqual(supervisorRes.body.totals.averageTalkSeconds, 15, 'Supervisor summary average talk mismatch.');
+        assert.strictEqual(supervisorRes.body.byAgent.length, 2, 'Supervisor summary should group two agent snapshots.');
+        assert.strictEqual(supervisorRes.body.byClinic.length, 2, 'Supervisor summary should group two clinic snapshots.');
+        assert.strictEqual(supervisorRes.body.byDate.length, 2, 'Supervisor summary should group calls by local date.');
+
+        const clinicSupervisorRes = response();
+        await reportController.getCallCenterSupervisorSummary({
+            query: { phone: '5550101234', clinic: clinic.name }
+        }, clinicSupervisorRes);
+        assert.strictEqual(clinicSupervisorRes.body.totals.attempts, 2, 'Supervisor clinic filter mismatch.');
+        assert.strictEqual(clinicSupervisorRes.body.totals.answerRate, 50, 'Supervisor filtered answer rate mismatch.');
+        assert.strictEqual(clinicSupervisorRes.body.totals.noAnswerRate, 50, 'Supervisor filtered no-answer rate mismatch.');
+        assert.strictEqual(clinicSupervisorRes.body.byClinic.length, 1, 'Supervisor clinic filter should return one group.');
+
         await patient.destroy();
         created.patientIds = created.patientIds.filter(id => id !== patient.id);
         const retained = await db.CallCenterCallAttempt.findByPk(first.id);
         assert.strictEqual(retained.patientId, null, 'Permanent patient deletion should detach, not delete, call analytics.');
         assert.strictEqual(retained.patientCode, patient.patientCode, 'Detached analytics should retain the historical patient reference until privacy anonymization.');
 
-        console.log('PASS automatic Call Center call-attempt lifecycle, Called recording, and history retention.');
+        console.log('PASS automatic Call Center call-attempt lifecycle, supervisor summaries, Called recording, and history retention.');
     } finally {
         await cleanup();
         await db.sequelize.close().catch(() => {});

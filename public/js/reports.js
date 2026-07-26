@@ -2,6 +2,7 @@
     var allRxReport = [];
     var allCcReport = [];
     var allCcAttempts = [];
+    var allCcSupervisor = null;
     var allWorkflowActions = [];
     var prSortCol = 'id', prSortDir = 'desc';
     var rrSortCol = 'id', rrSortDir = 'desc';
@@ -27,11 +28,11 @@
         setupReportExports();
 
         const reportPerms = typeof getPagePerms === 'function' ? getPagePerms() : { canExport: true, canPrint: true };
-        ['exportPatientCsv','exportPatientXls','exportRxCsv','exportRxXls','exportCcCsv','exportCcXls','exportCcAttemptsCsv','exportCcAttemptsXls'].forEach(id => {
+        ['exportPatientCsv','exportPatientXls','exportRxCsv','exportRxXls','exportCcCsv','exportCcXls','exportCcAttemptsCsv','exportCcAttemptsXls','exportCcSupervisorCsv'].forEach(id => {
             const el = document.getElementById(id);
             if (el && typeof setRoleActionDisabled === 'function') setRoleActionDisabled(el, !reportPerms.canExport, 'Export disabled for this role.');
         });
-        ['exportPatientPdf','exportRxPdf','printPatientBtn','printRxBtn','printCcBtn','printCcAttemptsBtn'].forEach(id => {
+        ['exportPatientPdf','exportRxPdf','printPatientBtn','printRxBtn','printCcBtn','printCcAttemptsBtn','printCcSupervisorBtn'].forEach(id => {
             const el = document.getElementById(id);
             if (el && typeof setRoleActionDisabled === 'function') setRoleActionDisabled(el, !reportPerms.canPrint, 'Print disabled for this role.');
         });
@@ -201,6 +202,10 @@
     async function fetchCallAttemptReportRows(options) {
         const data = await fetchReportJson('/api/reports/call-center-attempts?' + buildCallAttemptReportParams(options || {}).toString());
         return data && Array.isArray(data.rows) ? data.rows : [];
+    }
+
+    async function fetchCallCenterSupervisorSummary() {
+        return fetchReportJson('/api/reports/call-center-supervisor?' + buildCallAttemptReportParams().toString());
     }
 
     // ─── Autocomplete Engine ─────────────────────────────────────────────────────
@@ -713,10 +718,6 @@
         });
     }
 
-    function renderCallCenterReports() {
-        return Promise.all([renderCallCenterReport(), renderCallAttemptReport()]);
-    }
-
     function formatCcDuration(value) {
         if (value === null || value === undefined || value === '') return '-';
         var seconds = Math.max(0, Number(value) || 0);
@@ -821,6 +822,86 @@
             if (navEl) navEl.innerHTML = '';
             console.error('Call attempt report load error:', err);
         });
+    }
+
+    function setCallCenterSupervisorTotals(totals) {
+        totals = totals || {};
+        var set = function(id, value) {
+            var el = document.getElementById(id);
+            if (el) el.textContent = value;
+        };
+        set('ccsMCalls', totals.attempts || 0);
+        set('ccsMAnswered', totals.answered || 0);
+        set('ccsMNoAnswer', totals.noAnswer || 0);
+        set('ccsMAnswerRate', (totals.answerRate || 0) + '%');
+        set('ccsMNoAnswerRate', (totals.noAnswerRate || 0) + '%');
+        set('ccsMTotalTalk', formatCcDuration(totals.totalTalkSeconds || 0));
+        set('ccsMAvgTalk', formatCcDuration(totals.averageTalkSeconds || 0));
+    }
+
+    function supervisorSummaryRowsHtml(rows, firstColumn, detailed) {
+        if (!rows || !rows.length) {
+            return '<tr><td colspan="' + (detailed ? '9' : '6') + '" class="text-center text-muted py-3">No completed call data found</td></tr>';
+        }
+        var html = '';
+        rows.forEach(function(row) {
+            var label = row.label || row.key || '-';
+            if (firstColumn === 'Date' && /^\d{4}-\d{2}-\d{2}$/.test(label)) {
+                label = new Date(label + 'T12:00:00').toLocaleDateString();
+            }
+            if (detailed) {
+                html += '<tr>' +
+                    '<td class="fw-semibold">' + escHtml(label) + '</td>' +
+                    '<td class="text-end">' + Number(row.attempts || 0) + '</td>' +
+                    '<td class="text-end text-success">' + Number(row.answered || 0) + '</td>' +
+                    '<td class="text-end">' + Number(row.noAnswer || 0) + '</td>' +
+                    '<td class="text-end">' + Number(row.otherOutcomes || 0) + '</td>' +
+                    '<td class="text-end">' + Number(row.answerRate || 0) + '%</td>' +
+                    '<td class="text-end">' + Number(row.noAnswerRate || 0) + '%</td>' +
+                    '<td class="text-end">' + escHtml(formatCcDuration(row.totalTalkSeconds || 0)) + '</td>' +
+                    '<td class="text-end">' + escHtml(formatCcDuration(row.averageTalkSeconds || 0)) + '</td>' +
+                '</tr>';
+            } else {
+                html += '<tr>' +
+                    '<td class="fw-semibold">' + escHtml(label) + '</td>' +
+                    '<td class="text-end">' + Number(row.attempts || 0) + '</td>' +
+                    '<td class="text-end text-success">' + Number(row.answered || 0) + '</td>' +
+                    '<td class="text-end">' + Number(row.noAnswer || 0) + '</td>' +
+                    '<td class="text-end">' + Number(row.answerRate || 0) + '%</td>' +
+                    '<td class="text-end">' + escHtml(formatCcDuration(row.totalTalkSeconds || 0)) + '</td>' +
+                '</tr>';
+            }
+        });
+        return html;
+    }
+
+    function renderCallCenterSupervisorSummary() {
+        validateDateRange('ccrDateFrom', 'ccrDateTo', 'Call Center supervisor date range');
+        var agentBody = document.getElementById('ccSupervisorAgentBody');
+        var clinicBody = document.getElementById('ccSupervisorClinicBody');
+        var dateBody = document.getElementById('ccSupervisorDateBody');
+        if (!agentBody || !clinicBody || !dateBody) return Promise.resolve();
+        agentBody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-3"><i class="fas fa-spinner fa-spin me-2"></i>Loading...</td></tr>';
+        clinicBody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-3"><i class="fas fa-spinner fa-spin me-2"></i>Loading...</td></tr>';
+        dateBody.innerHTML = '<tr><td colspan="9" class="text-center text-muted py-3"><i class="fas fa-spinner fa-spin me-2"></i>Loading...</td></tr>';
+
+        return fetchCallCenterSupervisorSummary().then(function(result) {
+            allCcSupervisor = result || null;
+            setCallCenterSupervisorTotals(result && result.totals);
+            agentBody.innerHTML = supervisorSummaryRowsHtml(result && result.byAgent, 'Agent', false);
+            clinicBody.innerHTML = supervisorSummaryRowsHtml(result && result.byClinic, 'Clinic', false);
+            dateBody.innerHTML = supervisorSummaryRowsHtml(result && result.byDate, 'Date', true);
+        }).catch(function(err) {
+            allCcSupervisor = null;
+            agentBody.innerHTML = '<tr><td colspan="6" class="text-center text-danger py-3">Could not load agent summary.</td></tr>';
+            clinicBody.innerHTML = '<tr><td colspan="6" class="text-center text-danger py-3">Could not load clinic summary.</td></tr>';
+            dateBody.innerHTML = '<tr><td colspan="9" class="text-center text-danger py-3">Could not load daily summary.</td></tr>';
+            console.error('Call Center supervisor summary load error:', err);
+        });
+    }
+
+    function renderCallCenterReports() {
+        return Promise.all([renderCallCenterReport(), renderCallAttemptReport(), renderCallCenterSupervisorSummary()]);
     }
 
     function showCallCenterReportView(triggerId) {
@@ -983,6 +1064,19 @@
             downloadCsv('call_attempts_' + new Date().toISOString().slice(0,10) + '.csv', callAttemptHeaders(), callAttemptExportRows(data));
             showToast('Call attempts exported!', 'success');
         });
+
+        const supervisorCsv = document.getElementById('exportCcSupervisorCsv');
+        if (supervisorCsv) supervisorCsv.addEventListener('click', async () => {
+            const summary = allCcSupervisor || await fetchCallCenterSupervisorSummary();
+            const rows = callCenterSupervisorExportRows(summary);
+            if (!rows.length) { showToast('No supervisor call summary to export', 'warning'); return; }
+            downloadCsv(
+                'call_center_supervisor_' + new Date().toISOString().slice(0,10) + '.csv',
+                ['Group Type','Group','Calls','Completed','Answered','No Answer','Other Outcomes','In Progress','Answer Rate','No-Answer Rate','Total Talk','Total Talk Seconds','Average Talk','Average Talk Seconds'],
+                rows
+            );
+            showToast('Supervisor call summary exported!', 'success');
+        });
     }
 
     function downloadCsv(filename, headers, rows) {
@@ -1098,5 +1192,37 @@
         });
         var attemptsPrint = document.getElementById('printCcAttemptsBtn');
         if (attemptsPrint) attemptsPrint.addEventListener('click', function() { printReport('Automatic Call Attempts', 'ccAttemptReportTable'); });
+        var supervisorPrint = document.getElementById('printCcSupervisorBtn');
+        if (supervisorPrint) supervisorPrint.addEventListener('click', function() { printReport('Call Center Supervisor Summary', 'ccSupervisorPrintable'); });
     });
+
+    function callCenterSupervisorExportRows(summary) {
+        summary = summary || {};
+        var rows = [];
+        [
+            ['Agent', summary.byAgent || []],
+            ['Clinic', summary.byClinic || []],
+            ['Date', summary.byDate || []]
+        ].forEach(function(group) {
+            group[1].forEach(function(row) {
+                rows.push([
+                    group[0],
+                    row.label || row.key || '',
+                    row.attempts || 0,
+                    row.completed || 0,
+                    row.answered || 0,
+                    row.noAnswer || 0,
+                    row.otherOutcomes || 0,
+                    row.inProgress || 0,
+                    (row.answerRate || 0) + '%',
+                    (row.noAnswerRate || 0) + '%',
+                    formatCcDuration(row.totalTalkSeconds || 0),
+                    row.totalTalkSeconds || 0,
+                    formatCcDuration(row.averageTalkSeconds || 0),
+                    row.averageTalkSeconds || 0
+                ]);
+            });
+        });
+        return rows;
+    }
 

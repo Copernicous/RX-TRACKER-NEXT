@@ -475,6 +475,24 @@ async function runAdminDashboardAndReports(fixtures) {
     pass('Call Center Call Attempts filters and calculators');
     await expectDownload(page, '#exportCcAttemptsCsv', 'Call attempt CSV export');
     await expectDownload(page, '#exportCcAttemptsXls', 'Call attempt Excel export');
+
+    await page.locator('#ccSupervisorViewTab').click();
+    await expectVisible(page, '#ccSupervisorReportPane.active.show', 'Supervisor summary report view visible');
+    await page.waitForFunction((agentName) => {
+        const body = document.querySelector('#ccSupervisorAgentBody');
+        return body && body.textContent.indexOf(agentName) !== -1;
+    }, fixtures.callCenterUser.firstName + ' ' + fixtures.callCenterUser.lastName, { timeout: 15000 });
+    assert.strictEqual((await page.locator('#ccsMCalls').innerText()).trim(), '1', 'Supervisor call total mismatch.');
+    assert.strictEqual((await page.locator('#ccsMAnswered').innerText()).trim(), '1', 'Supervisor answered total mismatch.');
+    assert.strictEqual((await page.locator('#ccsMNoAnswer').innerText()).trim(), '0', 'Supervisor no-answer total mismatch.');
+    assert.strictEqual((await page.locator('#ccsMAnswerRate').innerText()).trim(), '100%', 'Supervisor answer rate mismatch.');
+    assert.strictEqual((await page.locator('#ccsMTotalTalk').innerText()).trim(), '1:23', 'Supervisor total talk mismatch.');
+    assert((await page.locator('#ccSupervisorClinicBody').innerText()).includes(fixtures.clinic.name), 'Supervisor clinic group was not rendered.');
+    assert((await page.locator('#ccSupervisorDateBody').innerText()).includes('1:23'), 'Supervisor daily talk duration was not rendered.');
+    pass('Call Center Supervisor Summary filters, groups, and calculations');
+    await expectDownload(page, '#exportCcSupervisorCsv', 'Call Center Supervisor Summary CSV export');
+
+    await page.locator('#ccAttemptsViewTab').click();
     await page.locator('#ccAttemptReportBody .cc-open-activity').first().click();
     await expectVisible(page, '#ccActivityReportPane.active.show', 'Patient Activity report return link');
 

@@ -7,6 +7,86 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+## [4.0.0-next.25] - 2026-07-25
+
+### Added
+
+- Added an audited growth-query migration with composite indexes for Call Center audit history, RX workflow history, patient notes, user activity, and chronological error-log access.
+- Added a database regression proving Call Center queue count, filtering, sorting, pagination, page-scoped relationship loading, normalized phone search, call-history ordering, and called-today activity behavior.
+
+### Changed
+
+- Moved Call Center queue counting, filtering, sorting, and ID pagination into PostgreSQL. Patient, clinic, transport, note, call, and service-date details are now loaded only for the requested page.
+- Replaced broad called-today and login-activity materialization with bounded SQL common-table expressions and page-scoped history queries.
+- Changed Call Center attempt analytics to calculate outcome totals, ring time, and conversation time with grouped SQL aggregates instead of loading every matching attempt into Node.js.
+- Added the Call Center pagination regression to the complete staging smoke suite and PostgreSQL lifecycle CI.
+
+### Performance
+
+- On the annual stress dataset, warm 10-patient Call Center pages improved from approximately 1.0-1.2 seconds to 11-14 ms; relationship and call-history sorts measured approximately 12-23 ms.
+- The 50,000-attempt report summary improved from approximately 92-96 ms warm to 51-53 ms warm while keeping server memory bounded to aggregate rows.
+- Reviewed the other growing operational tables. Daily snapshots, relay commands, and service-date history/cycle queries were already bounded or adequately indexed and were intentionally left unchanged.
+
+### Testing
+
+- Passed the complete staging smoke suite, isolated browser workflow, Call Center lifecycle/report regression, queue-reopen regression, and non-company patient regression.
+- Verified all 37 migrations are applied with zero pending and valid checksums on staging and an isolated smoke database.
+- Verified the optimized attempt metrics produce exactly the same totals and outcome counts as the prior implementation on 50,000 attempts.
+
+**Database impact:** One additive, audited migration creates eight indexes on existing columns. It changes no columns, constraints, patients, RX records, call attempts, phone accounts, proxy routes, origins, ports, or RX Softphone behavior and rewrites no business data.
+
+## [4.0.0-next.24] - 2026-07-25
+
+### Added
+
+- Added persisted current-day dashboard analytics refreshed every five minutes, with one shared refresh promise so concurrent cards cannot launch duplicate aggregate work.
+- Added set-based PostgreSQL history materialization for missing dashboard days. Startup warms completed-day history in the background and the all-time chart reads bounded `DailySnapshots` rows.
+- Added an audited patient-list index migration covering status/service-date queues, service-date ranges, patient codes, company status, and creation-date ordering.
+- Added database regressions proving patient relationship loading is limited to the requested page and persisted dashboard calculations preserve established totals.
+
+### Changed
+
+- Moved Patients list filtering, sorting, counting, facets, needs-action totals, and pagination into PostgreSQL. The server now loads Clinic, Pharmacy, transport, notes, RX, and workflow relations only for the selected page; explicit exports remain complete.
+- Changed dashboard cards and eligibility totals to read the current persisted analytics row while retaining a bounded live overdue-patient preview.
+- Changed the RX Workflow Pipeline from loading every RX record and tracking object into Node.js to one grouped PostgreSQL query.
+- Added the performance regressions to the full staging smoke suite and PostgreSQL lifecycle CI.
+
+### Performance
+
+- On the 5,000-patient, 12,000-RX, 51,420-workflow, 50,000-call staging dataset, the first 10-patient page improved from approximately 3.4 seconds to 50-90 ms.
+- Persisted all-time dashboard charts return in approximately 25-100 ms instead of rebuilding a year of history in Node.js. A controlled missing 30-day history rebuild completed in 531 ms.
+- Dashboard eligibility and pipeline endpoints measured approximately 11-41 ms and 24-56 ms respectively during local staging validation.
+
+### Testing
+
+- Passed patient database-pagination and persisted-dashboard regressions against the populated annual staging dataset.
+- Passed migration checksum enforcement, 36-migration staging verification, public JavaScript validation, dependency/security automation policy, and the complete staging smoke suite.
+- Passed the isolated browser workflow covering dashboard, Call Center, reports/exports, Phone Devices, Live RX Phones, role boundaries, phone-account setup, relay, and non-company patient behavior.
+- `npm audit --audit-level=high` passes with no high or critical findings. The two known moderate Sequelize/UUID advisories remain documented because npm's forced recommendation is an unsafe Sequelize downgrade.
+
+**Database impact:** One additive, audited migration creates five indexes on existing `Patients` columns. It does not change columns, constraints, patients, RX records, calls, phone accounts, proxy routes, origins, ports, or RX Softphone. `DailySnapshots` receives derived analytics rows only and can be rebuilt from existing operational data.
+
+## [4.0.0-next.23] - 2026-07-25
+
+### Added
+
+- Added a read-only **Supervisor Summary** under Reports -> Call Center Report with calls, answered and no-answer totals, completed-call rates, total talk time, and average talk time.
+- Added database-side supervisor breakdowns by agent, clinic, and local calendar date using the existing Call Center filters.
+- Added CSV export and print support for the new supervisor summary.
+
+### Security
+
+- Reused the existing `reports: read` permission boundary for both the page and the new summary endpoint. The feature does not expose SIP credentials, relay tokens, phone-account secrets, or audio.
+- Kept all aggregation in bounded, parameterized Sequelize queries over the existing call-attempt history.
+
+### Testing
+
+- Extended the call-attempt database regression with answered, no-answer, and busy outcomes plus agent, clinic, date, rate, and talk-time assertions.
+- Extended the isolated staging browser smoke to open the Supervisor Summary, verify its calculations and group rows, and export its CSV.
+- Passed the existing Call Center, Reports, Phone Devices, Live RX Phones, role-boundary, and full staging browser workflows without changing shared staging data.
+
+**Database impact:** None. This release adds no migration, table, column, index, constraint, seed, or data rewrite. It reads existing `CallCenterCallAttempts` records and does not change proxy routes, application origins, ports, softphone behavior, patients, RX records, or call history.
+
 ## [4.0.0-next.22] - 2026-07-24
 
 ### Added

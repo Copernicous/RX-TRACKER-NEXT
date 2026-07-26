@@ -92,7 +92,7 @@ try {
     const patientControllerSource = fs.readFileSync(path.join(__dirname, '..', 'controllers/patientController.js'), 'utf8');
     const patientBrowserSource = fs.readFileSync(path.join(__dirname, '..', 'public/js/patients.js'), 'utf8');
     assert(
-        patientControllerSource.includes('if (patient.isActive !== true) return false;'),
+        /const eligibility = cleanString\(query\.eligibility\);[\s\S]*?if \(eligibility\) \{[\s\S]*?clauses\.push\(\{ isActive: true \}\);/.test(patientControllerSource),
         'Server-side Patient eligibility filtering must use the active-patient population.'
     );
     assert(
