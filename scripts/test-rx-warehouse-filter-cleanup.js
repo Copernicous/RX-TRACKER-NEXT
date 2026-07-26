@@ -19,6 +19,8 @@ const startedAt = new Date();
 let patient;
 let returnedRx;
 let activeRx;
+let unstartedRx;
+let stageTrackings = [];
 let calledAudit;
 let callAttempt;
 
@@ -56,7 +58,12 @@ async function cleanup() {
       createdAt: { [Op.gte]: startedAt }
     }
   }).catch(() => {});
-  const rxIds = [returnedRx?.id, activeRx?.id].filter(Boolean);
+  if (stageTrackings.length) {
+    await db.RXWorkflowTracking.destroy({
+      where: { id: stageTrackings.map(row => row.id) }
+    }).catch(() => {});
+  }
+  const rxIds = [returnedRx?.id, activeRx?.id, unstartedRx?.id].filter(Boolean);
   if (rxIds.length) {
     await db.RXRecord.destroy({ where: { id: rxIds } }).catch(() => {});
   }
@@ -132,6 +139,86 @@ async function run() {
   assert.strictEqual(result.status, 200, result.payload?.error || 'Non-paginated returned filter request failed');
   assert.deepStrictEqual(result.payload.map(row => row.id), [returnedRx.id]);
   console.log('PASS: RX Records warehouse status filters');
+
+  const workflowActions = await db.WorkflowAction.findAll({
+    where: { isActive: true },
+    order: [['sequenceNumber', 'ASC'], ['id', 'ASC']],
+    limit: 2
+  });
+  assert.strictEqual(workflowActions.length, 2, 'Stage filter regression requires at least two active workflow actions');
+
+  unstartedRx = await db.RXRecord.create({
+    patientId: patient.id,
+    serviceDate: '2026-01-01',
+    isDeleted: false,
+    returnedToWarehouse: false
+  });
+  stageTrackings = await db.RXWorkflowTracking.bulkCreate([
+    {
+      rxRecordId: returnedRx.id,
+      workflowActionId: workflowActions[0].id,
+      completionDate: new Date()
+    },
+    {
+      rxRecordId: activeRx.id,
+      workflowActionId: workflowActions[0].id,
+      completionDate: new Date()
+    },
+    {
+      rxRecordId: activeRx.id,
+      workflowActionId: workflowActions[1].id,
+      completionDate: new Date()
+    }
+  ], { returning: true });
+
+  result = await runHandler(rxController.getAll, {
+    query: {
+      paginated: 'true',
+      patientId: String(patient.id),
+      workflowStage: '1',
+      page: '1',
+      pageSize: '10'
+    }
+  });
+  assert.strictEqual(result.status, 200, result.payload?.error || 'Next pending stage 1 request failed');
+  assert.deepStrictEqual(result.payload.rows.map(row => row.id), [unstartedRx.id]);
+
+  result = await runHandler(rxController.getAll, {
+    query: {
+      paginated: 'true',
+      patientId: String(patient.id),
+      workflowStage: '2',
+      page: '1',
+      pageSize: '10'
+    }
+  });
+  assert.strictEqual(result.status, 200, result.payload?.error || 'Next pending stage 2 request failed');
+  assert.deepStrictEqual(result.payload.rows.map(row => row.id), [returnedRx.id]);
+
+  result = await runHandler(rxController.getAll, {
+    query: {
+      paginated: 'true',
+      patientId: String(patient.id),
+      currentWorkflowStage: String(workflowActions[0].sequenceNumber),
+      page: '1',
+      pageSize: '10'
+    }
+  });
+  assert.strictEqual(result.status, 200, result.payload?.error || 'Current completed stage 1 request failed');
+  assert.deepStrictEqual(result.payload.rows.map(row => row.id), [returnedRx.id]);
+
+  result = await runHandler(rxController.getAll, {
+    query: {
+      paginated: 'true',
+      patientId: String(patient.id),
+      currentWorkflowStage: String(workflowActions[1].sequenceNumber),
+      page: '1',
+      pageSize: '10'
+    }
+  });
+  assert.strictEqual(result.status, 200, result.payload?.error || 'Current completed stage 2 request failed');
+  assert.deepStrictEqual(result.payload.rows.map(row => row.id), [activeRx.id]);
+  console.log('PASS: RX Records next-pending and current-completed stage filters remain distinct');
 
   calledAudit = await db.AuditLog.create({
     date: new Date(),

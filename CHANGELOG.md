@@ -7,6 +7,22 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+## [4.0.0-next.30] - 2026-07-26
+
+### Changed
+
+- Renamed the RX Records **Workflow Stage** filter to **Next Pending Stage** and labels each option as `Awaiting Stage ...`, making its queue-oriented meaning explicit.
+- Added a separate **Current Completed Stage** filter to RX Records. It matches the last completed workflow stage shown in Patient/RX Excel exports instead of applying the historical one-stage offset.
+- Computes the current-stage filter from the highest completed workflow sequence for each RX while preserving the existing database-side pagination, sorting, and export behavior.
+
+### Testing
+
+- Added database regression fixtures for not-started, one-stage, and two-stage RX records.
+- Verified that **Next Pending Stage 2** selects records currently at Stage 1, while **Current Completed Stage 1** selects the same records directly.
+- Passed the complete staging smoke suite, including database lifecycle, security, pagination, reports, softphone relay, and browser click checks.
+
+**Database impact:** No schema migration and no business-data rewrite. This is a filter clarification and read-only query change. It does not change workflow completion, proxy routes, origins, ports, authentication, PBX behavior, or RX Softphone.
+
 ## [4.0.0-next.29] - 2026-07-26
 
 ### Changed

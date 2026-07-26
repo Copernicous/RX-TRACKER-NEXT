@@ -171,6 +171,7 @@ function addRxPageFilters(query, replacements, totalSteps) {
     const warehouseStatus = cleanString(query.warehouseStatus);
     const workflowStatus = cleanString(query.workflowStatus);
     const workflowStage = cleanString(query.workflowStage);
+    const currentWorkflowStage = cleanString(query.currentWorkflowStage);
     const from = maxDateOnly([query.dateFrom, query.serviceFrom]);
     const to = minDateOnly([query.dateTo, query.serviceTo]);
     const completedExpr = 'COALESCE(wc.completed_steps, 0)';
@@ -245,6 +246,10 @@ function addRxPageFilters(query, replacements, totalSteps) {
         replacements.workflowStageDone = parseInt(workflowStage, 10) - 1;
         whereSql.push(`${completedExpr} = :workflowStageDone`);
     }
+    if (/^\d+$/.test(currentWorkflowStage)) {
+        replacements.currentWorkflowStage = parseInt(currentWorkflowStage, 10);
+        whereSql.push('wc.current_stage_sequence = :currentWorkflowStage');
+    }
 
     return whereSql;
 }
@@ -255,9 +260,13 @@ function rxPageFromSql() {
         LEFT JOIN "Patients" p ON p.id = r."patientId"
         LEFT JOIN "Pharmacies" ph ON ph.id = r."pharmacyId"
         LEFT JOIN (
-            SELECT "rxRecordId", COUNT(*)::integer AS completed_steps
-            FROM "RXWorkflowTrackings"
-            GROUP BY "rxRecordId"
+            SELECT
+                wt."rxRecordId",
+                COUNT(*)::integer AS completed_steps,
+                MAX(wa."sequenceNumber")::integer AS current_stage_sequence
+            FROM "RXWorkflowTrackings" wt
+            LEFT JOIN "WorkflowActions" wa ON wa.id = wt."workflowActionId"
+            GROUP BY wt."rxRecordId"
         ) wc ON wc."rxRecordId" = r.id
     `;
 }

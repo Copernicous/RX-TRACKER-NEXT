@@ -650,6 +650,62 @@ async function runAdminDashboardAndReports(fixtures) {
     assert(!notReturnedBody.includes('#' + returnedRx.id), 'Not Returned filter included a returned RX.');
     pass('RX Records warehouse filter and readable status badge');
 
+    await expectVisible(page, '#rxFilterWorkflowStage', 'RX Records Next Pending Stage filter');
+    await expectVisible(page, '#rxFilterCurrentWorkflowStage', 'RX Records Current Completed Stage filter');
+    await expectVisible(
+        page,
+        'label.form-label:has-text("Next Pending Stage")',
+        'RX Records explicit Next Pending Stage label'
+    );
+    await expectVisible(
+        page,
+        'label.form-label:has-text("Current Completed Stage")',
+        'RX Records explicit Current Completed Stage label'
+    );
+
+    const firstStageSequence = Number(firstWorkflowAction.sequenceNumber);
+    const nextStageSequence = firstStageSequence + 1;
+    await page.locator(`#rxFilterWorkflowStage option[value="${nextStageSequence}"]`)
+        .waitFor({ state: 'attached', timeout: 15000 });
+    await page.locator(`#rxFilterCurrentWorkflowStage option[value="${firstStageSequence}"]`)
+        .waitFor({ state: 'attached', timeout: 15000 });
+
+    let stageResponse = page.waitForResponse(response =>
+        response.url().includes('/api/rx-records?')
+        && response.url().includes(`workflowStage=${nextStageSequence}`)
+        && response.status() === 200,
+        { timeout: 15000 }
+    );
+    await page.selectOption('#rxFilterWarehouseStatus', '');
+    await page.selectOption('#rxFilterWorkflowStage', String(nextStageSequence));
+    await stageResponse;
+    await page.waitForFunction((rxId) => {
+        const body = document.querySelector('#rxBody');
+        return body && body.textContent.indexOf('#' + rxId) !== -1;
+    }, returnedRx.id, { timeout: 15000 });
+    let stageBody = await page.locator('#rxBody').innerText();
+    assert(stageBody.includes('#' + returnedRx.id), 'Awaiting Stage 2 must include the RX currently completed through Stage 1.');
+    assert(!stageBody.includes('#' + notReturnedRx.id), 'Awaiting Stage 2 must exclude a not-started RX.');
+
+    stageResponse = page.waitForResponse(response =>
+        response.url().includes('/api/rx-records?')
+        && response.url().includes(`currentWorkflowStage=${firstStageSequence}`)
+        && !response.url().includes(`workflowStage=${nextStageSequence}`)
+        && response.status() === 200,
+        { timeout: 15000 }
+    );
+    await page.selectOption('#rxFilterWorkflowStage', '');
+    await page.selectOption('#rxFilterCurrentWorkflowStage', String(firstStageSequence));
+    await stageResponse;
+    await page.waitForFunction((rxId) => {
+        const body = document.querySelector('#rxBody');
+        return body && body.textContent.indexOf('#' + rxId) !== -1;
+    }, returnedRx.id, { timeout: 15000 });
+    stageBody = await page.locator('#rxBody').innerText();
+    assert(stageBody.includes('#' + returnedRx.id), 'Current Completed Stage 1 must match the Excel current-stage record.');
+    assert(!stageBody.includes('#' + notReturnedRx.id), 'Current Completed Stage 1 must exclude a not-started RX.');
+    pass('RX Records separates next-pending stage from Excel-aligned current completed stage');
+
     await db.RXWorkflowTracking.destroy({ where: { id: reportTracking.id } });
     await db.RXRecord.destroy({ where: { id: { [Op.in]: [returnedRx.id, notReturnedRx.id] } } });
 

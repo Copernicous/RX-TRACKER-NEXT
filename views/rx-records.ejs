@@ -85,7 +85,7 @@
                 </div>
                 <!-- Basic row -->
                 <div class="row g-2 align-items-end">
-                    <div class="col-md-3">
+                    <div class="col-md-2">
                         <label class="form-label small fw-bold"><i class="fas fa-user me-1"></i>Patient Name</label>
                         <input type="text" class="form-control form-control-sm" id="rxFilterPatient" placeholder="First or last name...">
                     </div>
@@ -111,12 +111,18 @@
                         </select>
                     </div>
                     <div class="col-md-2">
-                        <label class="form-label small fw-bold"><i class="fas fa-list-ol me-1"></i>Workflow Stage</label>
+                        <label class="form-label small fw-bold"><i class="fas fa-forward me-1"></i>Next Pending Stage</label>
                         <select class="form-select form-select-sm" id="rxFilterWorkflowStage">
-                            <option value="">All Stages</option>
+                            <option value="">All Pending Stages</option>
                         </select>
                     </div>
-                    <div class="col-md-2 d-flex gap-1 align-items-end">
+                    <div class="col-md-2">
+                        <label class="form-label small fw-bold"><i class="fas fa-check-circle me-1"></i>Current Completed Stage</label>
+                        <select class="form-select form-select-sm" id="rxFilterCurrentWorkflowStage">
+                            <option value="">All Completed Stages</option>
+                        </select>
+                    </div>
+                    <div class="col-md-1 d-flex gap-1 align-items-end">
                         <button class="btn btn-primary btn-sm btn-search" id="rxFilterBtn" title="Search"><i class="fas fa-search"></i></button>
                         <button class="btn btn-outline-secondary btn-sm" id="rxClearBtn"><i class="fas fa-times"></i></button>
                     </div>
@@ -915,15 +921,28 @@
         var wfStageSel = document.getElementById('rxFilterWorkflowStage');
         if (wfStageSel) {
             var wfStageCurrent = wfStageSel.value || window._rxPrefilterWorkflowStage || '';
-            wfStageSel.innerHTML = '<option value="">All Stages</option>';
+            wfStageSel.innerHTML = '<option value="">All Pending Stages</option>';
             for (var ws = 0; ws < allWorkflowActions.length; ws++) {
                 var action = allWorkflowActions[ws];
                 var wfOpt = document.createElement('option');
                 wfOpt.value = String(ws + 1);
-                wfOpt.textContent = 'Stage ' + (ws + 1) + (action && action.name ? ' - ' + action.name : '');
+                wfOpt.textContent = 'Awaiting Stage ' + (ws + 1) + (action && action.name ? ' - ' + action.name : '');
                 wfStageSel.appendChild(wfOpt);
             }
             if (wfStageCurrent) wfStageSel.value = wfStageCurrent;
+        }
+        var currentWfStageSel = document.getElementById('rxFilterCurrentWorkflowStage');
+        if (currentWfStageSel) {
+            var currentWfStageValue = currentWfStageSel.value || '';
+            currentWfStageSel.innerHTML = '<option value="">All Completed Stages</option>';
+            for (var cs = 0; cs < allWorkflowActions.length; cs++) {
+                var currentAction = allWorkflowActions[cs];
+                var currentOpt = document.createElement('option');
+                currentOpt.value = String(currentAction && currentAction.sequenceNumber ? currentAction.sequenceNumber : cs + 1);
+                currentOpt.textContent = 'Stage ' + (cs + 1) + (currentAction && currentAction.name ? ' - ' + currentAction.name : '');
+                currentWfStageSel.appendChild(currentOpt);
+            }
+            if (currentWfStageValue) currentWfStageSel.value = currentWfStageValue;
         }
     }
 
@@ -1061,7 +1080,7 @@
         var _filterIds = ['rxFilterPatient','rxFilterId','rxFilterPharmacy','rxFilterPatientCode',
                           'rxFilterDateFrom','rxFilterDateTo','rxFilterSvcFrom','rxFilterSvcTo',
                           'rxFilterPatientTransport','rxFilterPharmacyTransport','rxFilterWarehouseStatus',
-                          'rxFilterWorkflowStatus','rxFilterWorkflowStage'];
+                          'rxFilterWorkflowStatus','rxFilterWorkflowStage','rxFilterCurrentWorkflowStage'];
         for (var _fi = 0; _fi < _filterIds.length; _fi++) {
             (function(fid) {
                 var el = document.getElementById(fid);
@@ -1200,6 +1219,7 @@
         setRxParam(params, 'warehouseStatus', document.getElementById('rxFilterWarehouseStatus')?.value || '');
         setRxParam(params, 'workflowStatus', document.getElementById('rxFilterWorkflowStatus')?.value || '');
         setRxParam(params, 'workflowStage', document.getElementById('rxFilterWorkflowStage')?.value || '');
+        setRxParam(params, 'currentWorkflowStage', document.getElementById('rxFilterCurrentWorkflowStage')?.value || '');
         setRxParam(params, 'patientId', window._rxPrefilterPatientId || '');
 
         var sdEl = document.getElementById('rxShowDeleted');
@@ -1269,6 +1289,23 @@
         return String(completedSteps + 1);
     }
 
+    function getRxCurrentWorkflowStageKey(rx) {
+        var trackings = rx && rx.RXWorkflowTrackings ? rx.RXWorkflowTrackings : [];
+        var currentSequence = 0;
+        for (var ti = 0; ti < trackings.length; ti++) {
+            for (var ai = 0; ai < allWorkflowActions.length; ai++) {
+                if (Number(allWorkflowActions[ai].id) === Number(trackings[ti].workflowActionId)) {
+                    currentSequence = Math.max(
+                        currentSequence,
+                        Number(allWorkflowActions[ai].sequenceNumber) || (ai + 1)
+                    );
+                    break;
+                }
+            }
+        }
+        return currentSequence > 0 ? String(currentSequence) : '';
+    }
+
     function getRxWorkflowSortValue(rx) {
         var completedSteps = rx && rx.RXWorkflowTrackings ? rx.RXWorkflowTrackings.length : 0;
         var totalSteps = allWorkflowActions.length || 0;
@@ -1310,11 +1347,14 @@
         var wf    = _wfEl ? _wfEl.value : '';
         var _wfsEl = document.getElementById('rxFilterWorkflowStage');
         var wfStage = _wfsEl ? _wfsEl.value : '';
+        var _currentWfsEl = document.getElementById('rxFilterCurrentWorkflowStage');
+        var currentWfStage = _currentWfsEl ? _currentWfsEl.value : '';
         var preId = window._rxPrefilterPatientId;
 
         filteredRx = allRx.filter(function(r) {
             var wfKey = getRxWorkflowStatusKey(r);
             var wfStageKey = getRxWorkflowStageKey(r);
+            var currentWfStageKey = getRxCurrentWorkflowStageKey(r);
             if (pat) {
                 var fullName = r.Patient ? (r.Patient.firstName + ' ' + r.Patient.lastName).toLowerCase() : '';
                 var code     = r.Patient ? (r.Patient.patientCode || '').toLowerCase() : '';
@@ -1341,6 +1381,7 @@
             if (wf === 'pending' && wfKey === 'expired') return false;
             if (wf && wf !== 'pending' && wfKey !== wf) return false;
             if (wfStage && wfStageKey !== wfStage) return false;
+            if (currentWfStage && currentWfStageKey !== currentWfStage) return false;
             return true;
         });
         renderRxSorted();
