@@ -191,6 +191,9 @@ try {
     assert(livePhonesScript.includes('setInterval(updateDurations, 1000)'), 'Live RX Phones must update active call durations every second.');
     assert(livePhonesScript.includes('var cardsHtml = filtered.map(function(user)'), 'Live RX Phones must build cards before assigning markup for FortiGate compatibility.');
     assert(livePhonesScript.includes('board.innerHTML = cardsHtml;'), 'Live RX Phones must use a FortiGate-safe two-step board assignment.');
+    assert(livePhonesScript.includes('function crmCallHtml(device)'), 'Live RX Phones must render CRM patient context for RX Tracker-originated calls.');
+    assert(livePhonesScript.includes('device.crmCall && device.crmCall.patientName'), 'Live RX Phones search must include the CRM patient name.');
+    assert(livePhonesView.includes('User, patient, extension, or computer'), 'Live RX Phones search guidance must include patients.');
     assert(livePhonesScript.includes('user.account.isEnabled !== false'), 'Live RX Phones must hide disabled or retired SIP assignments.');
     assert(!livePhonesScript.includes('fetch(endpoint(path), { method:'), 'Live RX Phones must remain view-only.');
 

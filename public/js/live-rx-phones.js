@@ -97,7 +97,11 @@
         return [
             userLabel(user), user.username, user.roleName,
             account.username, account.displayName,
-            device.deviceName, device.clientVersion
+            device.deviceName, device.clientVersion,
+            device.crmCall && device.crmCall.patientName,
+            device.crmCall && device.crmCall.patientCode,
+            device.crmCall && device.crmCall.clinicName,
+            device.crmCall && device.crmCall.dialedNumber
         ].join(' ').toLowerCase();
     }
 
@@ -152,6 +156,21 @@
         var detail = device.peer ? ' · ' + esc(device.peer) : '';
         return '<div class="phone-meta mt-2"><i class="fas fa-history me-1"></i>Last: '
             + esc(outcome) + detail + '<br>' + esc(formatDate(device.endedAt || device.dialedAt)) + '</div>';
+    }
+
+    function crmCallHtml(device) {
+        var call = device && device.crmCall;
+        if (!call || !call.patientName) return '';
+        var active = ACTIVE_STATES.includes(normalizedCallState(device));
+        var identity = call.patientCode ? 'Patient ID: ' + esc(call.patientCode) : 'CRM patient';
+        var clinic = call.clinicName ? ' &middot; ' + esc(call.clinicName) : '';
+        var number = call.dialedNumber ? '<div class="phone-meta"><i class="fas fa-phone-alt me-1"></i>' + esc(call.dialedNumber) + '</div>' : '';
+        return '<div class="phone-crm-context mt-2">' +
+            '<div class="phone-crm-label"><i class="fas fa-address-card me-1"></i>' + (active ? 'RX Tracker call' : 'Last RX Tracker call') + '</div>' +
+            '<div class="fw-semibold">' + esc(call.patientName) + '</div>' +
+            '<div class="phone-meta">' + identity + clinic + '</div>' +
+            number +
+            '</div>';
     }
 
     function sharedExtensionCounts(source) {
@@ -224,6 +243,7 @@
                 '</div>' +
                 '<div class="mt-3"><span class="phone-meta">Extension</span><div><span class="phone-extension">' + esc(extension) + '</span>' + shared + '</div></div>' +
                 activePeer +
+                crmCallHtml(device) +
                 durationHtml(device, state) +
                 lastCallHtml(device, state) +
                 '<hr class="my-3">' +

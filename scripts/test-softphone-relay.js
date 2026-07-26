@@ -32,6 +32,8 @@ function mockResponse() {
 async function main() {
     const suffix = crypto.randomBytes(6).toString('hex');
     let user;
+    let patient;
+    let attempt;
     try {
         await db.sequelize.authenticate();
         user = await db.User.create({
@@ -157,6 +159,39 @@ async function main() {
         });
         assert.strictEqual(connectedPollResponse.status, 200);
 
+        const manualListResponse = mockResponse();
+        await relayController.getAdminDevices({ user: { id: user.id }, headers: {} }, manualListResponse);
+        const manualEntry = manualListResponse.body.users.find(entry => Number(entry.id) === Number(user.id));
+        assert.strictEqual(manualEntry.device.crmCall, null, 'A call without an RX Tracker attempt must not expose CRM patient context.');
+
+        patient = await db.Patient.create({
+            firstName: 'Relay',
+            lastName: 'Patient',
+            phone: '3055550100',
+            patientCode: `PAT-RELAY-${suffix}`,
+            isActive: true,
+            isDeleted: false,
+            isNonCompanyPatient: false
+        });
+        attempt = await db.CallCenterCallAttempt.create({
+            patientId: patient.id,
+            userId: user.id,
+            correlationId: connectedSnapshot.callId,
+            phoneClient: 'rx_softphone',
+            direction: 'outbound',
+            state: 'connected',
+            outcome: 'answered',
+            patientCode: patient.patientCode,
+            patientName: `${patient.firstName} ${patient.lastName}`,
+            clinicName: 'Relay Test Clinic',
+            agentName: `${user.firstName} ${user.lastName}`,
+            extension: `9${user.id}`,
+            dialedNumber: connectedSnapshot.peer,
+            dialedAt,
+            ringingAt,
+            answeredAt: connectedAt
+        });
+
         const adminListResponse = mockResponse();
         await relayController.getAdminDevices({ user: { id: user.id }, headers: {} }, adminListResponse);
         assert.strictEqual(adminListResponse.statusCode, 200);
@@ -173,6 +208,12 @@ async function main() {
         assert.strictEqual(adminEntry.device.ringingAt, ringingAt);
         assert.strictEqual(adminEntry.device.connectedAt, connectedAt);
         assert.strictEqual(adminEntry.device.outcome, 'answered');
+        assert.deepStrictEqual(adminEntry.device.crmCall, {
+            patientCode: patient.patientCode,
+            patientName: 'Relay Patient',
+            clinicName: 'Relay Test Clinic',
+            dialedNumber: '3055550100'
+        }, 'Administrator phone presence must include bounded CRM context for an RX Tracker-originated call.');
 
         const endedPollResponse = await fetch(`${baseUrl}/api/softphone-relay/device/poll`, {
             method: 'POST',
@@ -237,6 +278,8 @@ async function main() {
             await db.SoftphoneRelayCommand.destroy({ where: { userId: user.id } });
             await db.SoftphoneRelayDevice.destroy({ where: { userId: user.id } });
             await db.UserSoftphoneAccount.destroy({ where: { userId: user.id } });
+            if (attempt) await db.CallCenterCallAttempt.destroy({ where: { id: attempt.id } });
+            if (patient) await db.Patient.destroy({ where: { id: patient.id }, force: true });
             await db.User.destroy({ where: { id: user.id }, force: true });
         }
         await db.sequelize.close();
