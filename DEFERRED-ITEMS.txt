@@ -139,6 +139,37 @@ Files to create:
   - .env.test
 
 ===============================================================================
+DEFERRED-05 - Backoffice release visibility and controlled update handoff
+===============================================================================
+
+Priority: Medium
+Status: Proposed for a staging-first implementation after v4.0.0-next.25.
+
+Goal:
+- Let an Administrator see the installed version, newest official GitHub
+  release, release notes, CI/checksum status, and whether an update is
+  available from Backoffice.
+- Keep Project Control as the privileged update engine for database backup,
+  migration, .env preservation, Windows service stop/start, health validation,
+  and rollback.
+
+Safety boundary:
+- Do not give the web-server process PostgreSQL maintenance credentials or
+  Windows service-control privileges.
+- Do not let an HTTP request replace the running executable directly.
+- A future Backoffice action may download/verify an official package and create
+  an audited pending-update request, but an Administrator must complete the
+  privileged operation through Project Control (or a separately designed,
+  least-privilege local updater service).
+
+Required staging tests:
+- GitHub unavailable, rate limited, malformed response, missing assets, and
+  checksum mismatch all fail closed without changing the installation.
+- FortiGate/Cloudflare access cannot bypass Administrator/master permissions.
+- Current users and calls continue normally while checking for updates.
+- Rollback instructions and the currently installed version remain visible.
+
+===============================================================================
 Recommended review schedule
 ===============================================================================
 

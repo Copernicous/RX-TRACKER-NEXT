@@ -9,9 +9,8 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 ## Current state
 
 - Repository: `Copernicous/RX-TRACKER-NEXT`
-- Branch: `4.0.0-next.25` production release candidate validated through
-  `develop`; official status requires the immutable tag plus independently
-  verified GitHub release assets.
+- Branch: official `v4.0.0-next.25` release on `main` at commit
+  `91220088849c9834787ee1add58756721a1d014a`.
 - Current production release must be confirmed from Project Control or
   `server.exe --v`; do not infer it from this repository.
 - Production application folder: `C:\RX-Tracker\RX-APP-NEXT`
@@ -19,7 +18,7 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 - Production HTTP port: `3000`
 - NEXT database name at the completed cutover: `patient_rx_next_cutover_copy`
 - Project Control version: `2.0.0`
-- Latest official release: `v4.0.0-next.22` with RX Softphone 0.6.0. It retains the application-owned
+- Latest official release: `v4.0.0-next.25` with RX Softphone 0.6.0. It retains the application-owned
   WebView2 control window, hides the window to the existing tray on close,
   focuses the same window on a second launch, and adds a per-user
   **Start with Windows** tray option. It does not install a Windows service,
@@ -42,9 +41,11 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
   Version `next.17` also adds RX Records warehouse-return filtering and a
   readable return badge, plus a transactional **Calls Only** cleanup that
   removes automatic call attempts and legacy call audit events without
-  removing patients or RX records. This release is not yet installed in
-  production. Production remains on `v4.0.0-next.6` until it is installed
-  through Project Control.
+  removing patients or RX records. Versions `next.23` through `next.25` add
+  the Supervisor Summary and bounded SQL-backed Patients, Dashboard, Call
+  Center queue, and call-attempt report queries described below. The version
+  installed on the production server must still be confirmed through Project
+  Control or `server.exe --v`; publication alone does not install it.
 - Staging candidate `4.0.0-next.18` adds an Administrator-only, view-only
   **Live RX Phones** presence board for configured or paired RX Softphone
   workstations. It shows registration, relay heartbeat, idle/dialing/ringing/
@@ -73,13 +74,13 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
   separate pairing-only action. It also adds staging-first Dependabot updates,
   dependency review, CodeQL, and a weekly high-severity npm audit with a
   plain-language administrator guide. Database impact: none.
-- Staging candidate `4.0.0-next.23` adds a read-only Call Center
+- Release `4.0.0-next.23` adds a read-only Call Center
   **Supervisor Summary** with answered/no-answer rates, total and average talk
   time, and calls grouped by agent, clinic, and local date. It uses the
   existing report permission and automatic call-attempt history, adds no
   migration or writes, and does not change the proxy, application origins,
   ports, or RX Softphone.
-- Staging candidate `4.0.0-next.24` moves Patients filtering, facets, sorting,
+- Release `4.0.0-next.24` moves Patients filtering, facets, sorting,
   counts, and pagination into PostgreSQL before related records are loaded;
   stores current dashboard totals in the existing `DailySnapshots` table;
   materializes missing historical trend rows with set-based PostgreSQL work;
@@ -87,7 +88,7 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
   improved from about 3.4 seconds to 50-90 ms for a 10-patient page, while
   persisted all-time charts return in about 25-100 ms. Its one additive
   migration creates five Patients indexes and rewrites no business data.
-- Staging candidate `4.0.0-next.25` applies the same bounded database access
+- Release `4.0.0-next.25` applies the same bounded database access
   pattern to Call Center. PostgreSQL now performs queue count, filtering,
   sorting, and ID pagination before the server loads page details and history.
   Call-attempt report totals use grouped SQL aggregates instead of loading all
@@ -95,6 +96,16 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
   improved from about 1.0-1.2 seconds to 11-14 ms, and the 50,000-attempt
   summary improved from about 92-96 ms to 51-53 ms. One additive migration
   creates eight growth-query indexes and rewrites no business data.
+- Official `v4.0.0-next.25` assets were published on 2026-07-25 and
+  independently verified against `SHA256SUMS.txt`:
+  - `server-update-4.0.0-next.25.zip`:
+    `2902000c57bf4747ee37727f17d11f1869cd98dc463cd2393b017706feb68007`
+  - packaged `server.exe`:
+    `f43ac29070bda8caa50d097206ea77ca98d04bd64c8ca3d9eae37325b08b8635`
+  - packaged `rx-db.exe`:
+    `37ea7d5d7bdeb078c9c1daf18598b6af26e456b33c62d4e69360866dc96fa116`
+  - `RxSoftphone-0.6.0-win-x64.zip`:
+    `caaccf4562aa019481702ecc064219d51549e3ce09bf633e85074c82091941b0`
 - Tag `v4.0.0-next.7` is a failed, non-deployable release attempt. Its server
   build passed, but the first clean-runner RX Softphone restore lacked an
   explicit Windows runtime identifier, so no GitHub release assets were
