@@ -7,6 +7,21 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+## [4.0.0-next.31] - 2026-07-26
+
+### Changed
+
+- Made **Current Stage** the primary RX Records workflow filter because it directly represents the last completed business stage and matches report/Excel totals.
+- Renamed **Next Pending Stage** to **Next Action Required**, moved it into Advanced filters, and changed its choices to plain `Needs: <action>` wording without offset stage numbers.
+- Added explicit **Current Stage** and **Next Action Required** columns to the RX Records quick CSV export.
+
+### Testing
+
+- Extended browser checks to verify filter placement, plain-language choices, distinct query behavior, and the two adjacent CSV columns.
+- Retained database regression coverage for not-started, one-stage, and two-stage RX records.
+
+**Database impact:** No migration and no data rewrite. This is a presentation/export clarification over the existing workflow tracking data.
+
 ## [4.0.0-next.30] - 2026-07-26
 
 ### Changed

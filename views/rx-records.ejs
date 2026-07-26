@@ -85,7 +85,7 @@
                 </div>
                 <!-- Basic row -->
                 <div class="row g-2 align-items-end">
-                    <div class="col-md-2">
+                    <div class="col-md-3">
                         <label class="form-label small fw-bold"><i class="fas fa-user me-1"></i>Patient Name</label>
                         <input type="text" class="form-control form-control-sm" id="rxFilterPatient" placeholder="First or last name...">
                     </div>
@@ -110,16 +110,10 @@
                             <option value="completed">Completed</option>
                         </select>
                     </div>
-                    <div class="col-md-2">
-                        <label class="form-label small fw-bold"><i class="fas fa-forward me-1"></i>Next Pending Stage</label>
-                        <select class="form-select form-select-sm" id="rxFilterWorkflowStage">
-                            <option value="">All Pending Stages</option>
-                        </select>
-                    </div>
-                    <div class="col-md-2">
-                        <label class="form-label small fw-bold"><i class="fas fa-check-circle me-1"></i>Current Completed Stage</label>
+                    <div class="col-md-3">
+                        <label class="form-label small fw-bold"><i class="fas fa-check-circle me-1"></i>Current Stage</label>
                         <select class="form-select form-select-sm" id="rxFilterCurrentWorkflowStage">
-                            <option value="">All Completed Stages</option>
+                            <option value="">All Current Stages</option>
                         </select>
                     </div>
                     <div class="col-md-1 d-flex gap-1 align-items-end">
@@ -170,7 +164,13 @@
                                 <option value="not-returned">Not Returned</option>
                             </select>
                         </div>
-                        <div class="col-md-3 d-flex align-items-end">
+                        <div class="col-md-2">
+                            <label class="form-label small fw-bold"><i class="fas fa-forward me-1"></i>Next Action Required</label>
+                            <select class="form-select form-select-sm" id="rxFilterWorkflowStage">
+                                <option value="">All Next Actions</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2 d-flex align-items-end">
                             <div class="form-check form-switch mt-1">
                                 <input class="form-check-input" type="checkbox" id="rxShowDeleted">
                                 <label class="form-check-label small" for="rxShowDeleted">Show Hidden Records</label>
@@ -921,12 +921,12 @@
         var wfStageSel = document.getElementById('rxFilterWorkflowStage');
         if (wfStageSel) {
             var wfStageCurrent = wfStageSel.value || window._rxPrefilterWorkflowStage || '';
-            wfStageSel.innerHTML = '<option value="">All Pending Stages</option>';
+            wfStageSel.innerHTML = '<option value="">All Next Actions</option>';
             for (var ws = 0; ws < allWorkflowActions.length; ws++) {
                 var action = allWorkflowActions[ws];
                 var wfOpt = document.createElement('option');
                 wfOpt.value = String(ws + 1);
-                wfOpt.textContent = 'Awaiting Stage ' + (ws + 1) + (action && action.name ? ' - ' + action.name : '');
+                wfOpt.textContent = 'Needs: ' + (action && action.name ? action.name : 'Workflow action ' + (ws + 1));
                 wfStageSel.appendChild(wfOpt);
             }
             if (wfStageCurrent) wfStageSel.value = wfStageCurrent;
@@ -934,12 +934,14 @@
         var currentWfStageSel = document.getElementById('rxFilterCurrentWorkflowStage');
         if (currentWfStageSel) {
             var currentWfStageValue = currentWfStageSel.value || '';
-            currentWfStageSel.innerHTML = '<option value="">All Completed Stages</option>';
+            currentWfStageSel.innerHTML = '<option value="">All Current Stages</option>';
             for (var cs = 0; cs < allWorkflowActions.length; cs++) {
                 var currentAction = allWorkflowActions[cs];
                 var currentOpt = document.createElement('option');
                 currentOpt.value = String(currentAction && currentAction.sequenceNumber ? currentAction.sequenceNumber : cs + 1);
-                currentOpt.textContent = 'Stage ' + (cs + 1) + (currentAction && currentAction.name ? ' - ' + currentAction.name : '');
+                currentOpt.textContent = currentAction && currentAction.name
+                    ? currentAction.name
+                    : 'Workflow action ' + (cs + 1);
                 currentWfStageSel.appendChild(currentOpt);
             }
             if (currentWfStageValue) currentWfStageSel.value = currentWfStageValue;
@@ -972,7 +974,7 @@
             var headers = [
                 'RX #', 'Patient ID', 'Patient Name', 'Pharmacy', 'Service Date',
                 'Warehouse Status', 'Warehouse Return Date', 'Warehouse Return Note',
-                'Completed Steps'
+                'Completed Steps', 'Current Stage', 'Next Action Required'
             ].concat(stageHeaders);
 
             function _csvDaysBetween(d1, d2) {
@@ -984,6 +986,21 @@
             var rows = rowsForExport.map(function(rx) {
                 var trkMap = {};
                 (rx.RXWorkflowTrackings || []).forEach(function(t) { trkMap[t.workflowActionId] = t; });
+                var currentAction = null;
+                var nextAction = null;
+                allWorkflowActions.forEach(function(action, actionIndex) {
+                    if (trkMap[action.id]) {
+                        if (
+                            !currentAction
+                            || Number(action.sequenceNumber || actionIndex + 1)
+                                > Number(currentAction.sequenceNumber || 0)
+                        ) {
+                            currentAction = action;
+                        }
+                    } else if (!nextAction) {
+                        nextAction = action;
+                    }
+                });
                 var row = [
                     rx.id,
                     rx.Patient ? (rx.Patient.patientCode || rx.patientId) : rx.patientId,
@@ -993,7 +1010,9 @@
                     rx.returnedToWarehouse ? 'Returned to Warehouse' : 'Not Returned',
                     rx.warehouseReturnDate ? new Date(rx.warehouseReturnDate).toLocaleString() : '',
                     rx.warehouseReturnNote || '',
-                    (rx.RXWorkflowTrackings || []).length + ' / ' + allWorkflowActions.length
+                    (rx.RXWorkflowTrackings || []).length + ' / ' + allWorkflowActions.length,
+                    currentAction ? currentAction.name : 'Not Started',
+                    nextAction ? nextAction.name : (allWorkflowActions.length ? 'Workflow Completed' : '')
                 ];
                 var svcDate = rx.serviceDate ? new Date(rx.serviceDate) : null;
                 allWorkflowActions.forEach(function(a, idx) {

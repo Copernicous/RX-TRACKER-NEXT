@@ -565,11 +565,17 @@ async function runAdminDashboardAndReports(fixtures) {
         isDeleted: false,
         returnedToWarehouse: false
     });
-    const firstWorkflowAction = await db.WorkflowAction.findOne({
+    const workflowActionsForRxSmoke = await db.WorkflowAction.findAll({
         where: { isActive: true },
-        order: [['sequenceNumber', 'ASC'], ['id', 'ASC']]
+        order: [['sequenceNumber', 'ASC'], ['id', 'ASC']],
+        limit: 2
     });
-    assert(firstWorkflowAction, 'RX report browser smoke requires an active workflow action.');
+    assert(
+        workflowActionsForRxSmoke.length >= 2,
+        'RX report browser smoke requires at least two active workflow actions.'
+    );
+    const firstWorkflowAction = workflowActionsForRxSmoke[0];
+    const secondWorkflowAction = workflowActionsForRxSmoke[1];
     const reportStageDate = new Date();
     const reportTracking = await db.RXWorkflowTracking.create({
         rxRecordId: returnedRx.id,
@@ -631,7 +637,15 @@ async function runAdminDashboardAndReports(fixtures) {
     assert(returnedBody.includes('#' + returnedRx.id), 'Returned filter did not include the returned RX.');
     assert(!returnedBody.includes('#' + notReturnedRx.id), 'Returned filter included a non-returned RX.');
     assert(returnedBody.includes('Returned to Warehouse'), 'Returned RX must show a readable warehouse badge.');
-    await expectDownload(page, '#exportRxListCsvBtn', 'Filtered RX warehouse CSV export');
+    const quickRxCsv = await downloadText(page, '#exportRxListCsvBtn', 'Filtered RX warehouse CSV export');
+    assert(
+        quickRxCsv.includes('"Completed Steps","Current Stage","Next Action Required"'),
+        'RX Records CSV must place the explicit Current Stage and Next Action Required columns together.'
+    );
+    assert(
+        quickRxCsv.includes(`"${firstWorkflowAction.name}","${secondWorkflowAction.name}"`),
+        'RX Records CSV must export the current completed stage beside the next required action.'
+    );
 
     warehouseResponse = page.waitForResponse(response =>
         response.url().includes('/api/rx-records?')
@@ -650,17 +664,27 @@ async function runAdminDashboardAndReports(fixtures) {
     assert(!notReturnedBody.includes('#' + returnedRx.id), 'Not Returned filter included a returned RX.');
     pass('RX Records warehouse filter and readable status badge');
 
-    await expectVisible(page, '#rxFilterWorkflowStage', 'RX Records Next Pending Stage filter');
-    await expectVisible(page, '#rxFilterCurrentWorkflowStage', 'RX Records Current Completed Stage filter');
+    await expectVisible(page, '#rxFilterCurrentWorkflowStage', 'RX Records Current Stage filter');
+    await expectVisible(page, '#rxFilterWorkflowStage', 'RX Records Next Action Required filter');
     await expectVisible(
         page,
-        'label.form-label:has-text("Next Pending Stage")',
-        'RX Records explicit Next Pending Stage label'
+        'label.form-label:has-text("Current Stage")',
+        'RX Records primary Current Stage label'
     );
     await expectVisible(
         page,
-        'label.form-label:has-text("Current Completed Stage")',
-        'RX Records explicit Current Completed Stage label'
+        'label.form-label:has-text("Next Action Required")',
+        'RX Records advanced Next Action Required label'
+    );
+    assert.strictEqual(
+        await page.locator('#rxFilterCurrentWorkflowStage').evaluate(element => Boolean(element.closest('#rxAdvPanel'))),
+        false,
+        'Current Stage must remain in the primary filter row.'
+    );
+    assert.strictEqual(
+        await page.locator('#rxFilterWorkflowStage').evaluate(element => Boolean(element.closest('#rxAdvPanel'))),
+        true,
+        'Next Action Required must be in Advanced filters.'
     );
 
     const firstStageSequence = Number(firstWorkflowAction.sequenceNumber);
@@ -669,6 +693,16 @@ async function runAdminDashboardAndReports(fixtures) {
         .waitFor({ state: 'attached', timeout: 15000 });
     await page.locator(`#rxFilterCurrentWorkflowStage option[value="${firstStageSequence}"]`)
         .waitFor({ state: 'attached', timeout: 15000 });
+    assert.strictEqual(
+        (await page.locator(`#rxFilterCurrentWorkflowStage option[value="${firstStageSequence}"]`).innerText()).trim(),
+        firstWorkflowAction.name,
+        'Current Stage options must use the business action name without offset numbering.'
+    );
+    assert.strictEqual(
+        (await page.locator(`#rxFilterWorkflowStage option[value="${nextStageSequence}"]`).innerText()).trim(),
+        'Needs: ' + secondWorkflowAction.name,
+        'Next Action Required options must explain the required action without stage numbering.'
+    );
 
     let stageResponse = page.waitForResponse(response =>
         response.url().includes('/api/rx-records?')
@@ -684,8 +718,8 @@ async function runAdminDashboardAndReports(fixtures) {
         return body && body.textContent.indexOf('#' + rxId) !== -1;
     }, returnedRx.id, { timeout: 15000 });
     let stageBody = await page.locator('#rxBody').innerText();
-    assert(stageBody.includes('#' + returnedRx.id), 'Awaiting Stage 2 must include the RX currently completed through Stage 1.');
-    assert(!stageBody.includes('#' + notReturnedRx.id), 'Awaiting Stage 2 must exclude a not-started RX.');
+    assert(stageBody.includes('#' + returnedRx.id), 'Needs second action must include the RX currently completed through the first action.');
+    assert(!stageBody.includes('#' + notReturnedRx.id), 'Needs second action must exclude a not-started RX.');
 
     stageResponse = page.waitForResponse(response =>
         response.url().includes('/api/rx-records?')
@@ -702,9 +736,9 @@ async function runAdminDashboardAndReports(fixtures) {
         return body && body.textContent.indexOf('#' + rxId) !== -1;
     }, returnedRx.id, { timeout: 15000 });
     stageBody = await page.locator('#rxBody').innerText();
-    assert(stageBody.includes('#' + returnedRx.id), 'Current Completed Stage 1 must match the Excel current-stage record.');
-    assert(!stageBody.includes('#' + notReturnedRx.id), 'Current Completed Stage 1 must exclude a not-started RX.');
-    pass('RX Records separates next-pending stage from Excel-aligned current completed stage');
+    assert(stageBody.includes('#' + returnedRx.id), 'Current Stage must match the Excel current-stage record.');
+    assert(!stageBody.includes('#' + notReturnedRx.id), 'Current Stage must exclude a not-started RX.');
+    pass('RX Records prioritizes Current Stage and keeps Next Action Required advanced');
 
     await db.RXWorkflowTracking.destroy({ where: { id: reportTracking.id } });
     await db.RXRecord.destroy({ where: { id: { [Op.in]: [returnedRx.id, notReturnedRx.id] } } });
