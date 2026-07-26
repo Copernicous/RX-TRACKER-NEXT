@@ -1,6 +1,11 @@
 const db = require('../models');
 const Op = db.Sequelize.Op;
 const QueryTypes = db.Sequelize.QueryTypes;
+const { getServiceWindowDays } = require('../utils/globalSettings');
+const {
+    getEligibilityCutoffIso,
+    getCallCenterCutoffIso
+} = require('../utils/serviceWindowEligibility');
 
 const CALL_CENTER_MODULE = 'Call Center';
 const CC_CALL_ACTION = 'Called';
@@ -26,13 +31,15 @@ function normalizeDir(value) {
 }
 
 function patientReportInclude() {
-    return [db.PatientTransportCompany, db.PharmacyTransportCompany, db.Clinic];
+    return [db.PatientTransportCompany, db.PharmacyTransportCompany, db.Clinic, db.Pharmacy];
 }
 
 function rxReportInclude() {
     return [
-        db.Patient,
+        { model: db.Patient, include: [db.Clinic] },
         db.Pharmacy,
+        db.PatientTransportCompany,
+        db.PharmacyTransportCompany,
         { model: db.RXWorkflowTracking, include: [db.WorkflowAction] }
     ];
 }
@@ -612,17 +619,35 @@ async function getPaginatedCallAttemptReport(query) {
     };
 }
 
-function patientReportFilters(query, replacements) {
+function exactPositiveId(rawValue) {
+    const value = cleanString(rawValue);
+    if (!value) return null;
+    return /^\d+$/.test(value) && Number(value) > 0 ? Number(value) : false;
+}
+
+function patientReportFilters(query, replacements, totalSteps) {
     const where = ['(p."isDeleted" = FALSE OR p."isDeleted" IS NULL)'];
     const status = cleanString(query.status);
     const patientCode = cleanString(query.patientCode).toLowerCase();
     const firstName = cleanString(query.firstName).toLowerCase();
     const lastName = cleanString(query.lastName).toLowerCase();
     const phone = cleanString(query.phone).toLowerCase();
+    const dob = isDateOnly(query.dob) ? query.dob : '';
     const transport = cleanString(query.transport).toLowerCase();
     const clinic = cleanString(query.clinic).toLowerCase();
-    const dateFrom = isDateOnly(query.dateFrom) ? query.dateFrom : '';
-    const dateTo = isDateOnly(query.dateTo) ? query.dateTo : '';
+    const dateFrom = isDateOnly(query.serviceFrom || query.dateFrom) ? (query.serviceFrom || query.dateFrom) : '';
+    const dateTo = isDateOnly(query.serviceTo || query.dateTo) ? (query.serviceTo || query.dateTo) : '';
+    const patientType = cleanString(query.patientType);
+    const missingInfo = cleanString(query.missingInfo);
+    const eligibility = cleanString(query.eligibility);
+    const rxStatus = cleanString(query.rxStatus);
+    const exactIds = [
+        ['clinicId', query.clinicId, 'p."clinicId"'],
+        ['pharmacyId', query.pharmacyId, 'p."pharmacyId"'],
+        ['patientTransportId', query.patientTransportId, 'p."patientTransportCompanyId"'],
+        ['pharmacyTransportId', query.pharmacyTransportId, 'p."pharmacyTransportCompanyId"']
+    ];
+    replacements.totalSteps = totalSteps;
 
     if (status === 'true' || status === 'false') {
         replacements.status = status === 'true';
@@ -644,6 +669,20 @@ function patientReportFilters(query, replacements) {
         replacements.phone = `%${phone}%`;
         where.push('LOWER(COALESCE(p."phone", \'\')) LIKE :phone');
     }
+    if (dob) {
+        replacements.dob = dob;
+        where.push('p."dob" = :dob');
+    }
+    exactIds.forEach(([key, rawValue, sql]) => {
+        const value = exactPositiveId(rawValue);
+        if (value === null) return;
+        if (value === false) {
+            where.push('FALSE');
+            return;
+        }
+        replacements[key] = value;
+        where.push(`${sql} = :${key}`);
+    });
     if (transport) {
         replacements.transport = `%${transport}%`;
         where.push(`(
@@ -663,6 +702,74 @@ function patientReportFilters(query, replacements) {
         replacements.dateTo = dateTo;
         where.push('p."serviceDate" <= :dateTo');
     }
+    if (patientType === 'company') {
+        where.push('(p."isNonCompanyPatient" = FALSE OR p."isNonCompanyPatient" IS NULL)');
+    } else if (patientType === 'non_company') {
+        where.push('p."isNonCompanyPatient" = TRUE');
+    } else if (patientType) {
+        where.push('FALSE');
+    }
+
+    const missingByKey = {
+        clinic: 'p."clinicId" IS NULL',
+        pharmacy: 'p."pharmacyId" IS NULL',
+        patientTransport: 'p."patientTransportCompanyId" IS NULL',
+        pharmacyTransport: 'p."pharmacyTransportCompanyId" IS NULL'
+    };
+    if (missingByKey[missingInfo]) {
+        where.push(missingByKey[missingInfo]);
+    } else if (missingInfo === 'any') {
+        where.push(`(${Object.values(missingByKey).join(' OR ')})`);
+    } else if (missingInfo === 'all') {
+        where.push(`(${Object.values(missingByKey).join(' AND ')})`);
+    } else if (missingInfo) {
+        where.push('FALSE');
+    }
+
+    if (eligibility) {
+        replacements.eligibilityCutoff = getEligibilityCutoffIso(new Date());
+        replacements.callCenterCutoff = getCallCenterCutoffIso(new Date());
+        where.push('p."isActive" = TRUE');
+        if (eligibility === 'needsAction') {
+            where.push('p."serviceDate" < :eligibilityCutoff');
+            where.push(`:totalSteps > 0 AND EXISTS (
+                SELECT 1
+                FROM "RXRecords" rx_action
+                WHERE rx_action."patientId" = p.id
+                  AND COALESCE(rx_action."isDeleted", FALSE) = FALSE
+                  AND (
+                      SELECT COUNT(*)
+                      FROM "RXWorkflowTrackings" tracking_action
+                      WHERE tracking_action."rxRecordId" = rx_action.id
+                  ) < :totalSteps
+            )`);
+        } else if (eligibility === 'none') {
+            where.push('p."serviceDate" IS NULL');
+        } else if (eligibility === 'eligible') {
+            where.push('p."serviceDate" <= :eligibilityCutoff');
+        } else if (eligibility === 'expiring') {
+            where.push('p."serviceDate" > :eligibilityCutoff');
+            where.push('p."serviceDate" <= :callCenterCutoff');
+        } else if (eligibility === 'window') {
+            where.push('p."serviceDate" > :callCenterCutoff');
+        } else {
+            where.push('FALSE');
+        }
+    }
+
+    const activeRxExists = `EXISTS (
+        SELECT 1
+        FROM "RXRecords" rx_presence
+        WHERE rx_presence."patientId" = p.id
+          AND COALESCE(rx_presence."isDeleted", FALSE) = FALSE
+    )`;
+    if (rxStatus === 'has_rx') {
+        where.push(activeRxExists);
+    } else if (rxStatus === 'no_rx') {
+        where.push(`NOT ${activeRxExists}`);
+    } else if (rxStatus) {
+        where.push('FALSE');
+    }
     return where;
 }
 
@@ -672,6 +779,7 @@ function patientReportFromSql() {
         LEFT JOIN "PatientTransportCompanies" pt ON pt.id = p."patientTransportCompanyId"
         LEFT JOIN "PharmacyTransportCompanies" pht ON pht.id = p."pharmacyTransportCompanyId"
         LEFT JOIN "Clinics" c ON c.id = p."clinicId"
+        LEFT JOIN "Pharmacies" ph ON ph.id = p."pharmacyId"
     `;
 }
 
@@ -685,7 +793,9 @@ function patientReportSortSql(sort) {
         address: 'LOWER(COALESCE(p."address", \'\'))',
         serviceDate: 'p."serviceDate"',
         isActive: 'p."isActive"',
+        isNonCompanyPatient: 'p."isNonCompanyPatient"',
         'Clinic.name': 'LOWER(COALESCE(c."name", \'\'))',
+        'Pharmacy.name': 'LOWER(COALESCE(ph."name", \'\'))',
         'PatientTransportCompany.companyName': 'LOWER(COALESCE(pt."companyName", \'\'))',
         'PharmacyTransportCompany.companyName': 'LOWER(COALESCE(pht."companyName", \'\'))',
         id: 'p.id'
@@ -698,8 +808,9 @@ async function getPaginatedPatientReport(query) {
     const requestedPage = parsePositiveInt(query.page, 1, 1, 1000000);
     const sort = cleanString(query.sort) || 'id';
     const dir = normalizeDir(query.dir);
+    const totalSteps = await db.WorkflowAction.count({ where: { isActive: true } });
     const replacements = {};
-    const where = patientReportFilters(query, replacements);
+    const where = patientReportFilters(query, replacements, totalSteps);
     const fromSql = patientReportFromSql();
     const whereClause = `WHERE ${where.join(' AND ')}`;
     const countRows = await db.sequelize.query(
@@ -730,10 +841,25 @@ function rxReportFilters(query, replacements, totalSteps) {
     const lastName = cleanString(query.lastName).toLowerCase();
     const patientCode = cleanString(query.patientCode).toLowerCase();
     const pharmacy = cleanString(query.pharmacy).toLowerCase();
-    const progress = cleanString(query.progress);
-    const dateFrom = isDateOnly(query.dateFrom) ? query.dateFrom : '';
-    const dateTo = isDateOnly(query.dateTo) ? query.dateTo : '';
+    const workflowStatus = cleanString(query.workflowStatus || query.progress);
+    const workflowStage = cleanString(query.workflowStage);
+    const patientType = cleanString(query.patientType);
+    const warehouseStatus = cleanString(query.warehouseStatus);
+    const dateFrom = isDateOnly(query.serviceFrom || query.dateFrom) ? (query.serviceFrom || query.dateFrom) : '';
+    const dateTo = isDateOnly(query.serviceTo || query.dateTo) ? (query.serviceTo || query.dateTo) : '';
+    const arrivalFrom = isDateOnly(query.arrivalFrom) ? query.arrivalFrom : '';
+    const arrivalTo = isDateOnly(query.arrivalTo) ? query.arrivalTo : '';
     const completedExpr = 'COALESCE(wc.completed_steps, 0)';
+    const expiredExpr = `(r."serviceDate" IS NOT NULL
+        AND (r."serviceDate"::date + INTERVAL '${getServiceWindowDays()} days')::date < CURRENT_DATE
+        AND ${completedExpr} < :totalSteps)`;
+    const completedExprSql = `(:totalSteps > 0 AND ${completedExpr} >= :totalSteps)`;
+    const exactIds = [
+        ['pharmacyId', query.pharmacyId, 'r."pharmacyId"'],
+        ['clinicId', query.clinicId, 'p."clinicId"'],
+        ['patientTransportId', query.patientTransportId, 'r."patientTransportCompanyId"'],
+        ['pharmacyTransportId', query.pharmacyTransportId, 'r."pharmacyTransportCompanyId"']
+    ];
     replacements.totalSteps = totalSteps;
 
     if (rxId) {
@@ -756,6 +882,16 @@ function rxReportFilters(query, replacements, totalSteps) {
         replacements.pharmacy = `%${pharmacy}%`;
         where.push('LOWER(COALESCE(ph."name", \'\')) LIKE :pharmacy');
     }
+    exactIds.forEach(([key, rawValue, sql]) => {
+        const value = exactPositiveId(rawValue);
+        if (value === null) return;
+        if (value === false) {
+            where.push('FALSE');
+            return;
+        }
+        replacements[key] = value;
+        where.push(`${sql} = :${key}`);
+    });
     if (dateFrom) {
         replacements.dateFrom = dateFrom;
         where.push('r."serviceDate" >= :dateFrom');
@@ -764,11 +900,51 @@ function rxReportFilters(query, replacements, totalSteps) {
         replacements.dateTo = dateTo;
         where.push('r."serviceDate" <= :dateTo');
     }
-    if (progress === 'complete') {
-        where.push(':totalSteps > 0');
-        where.push(`${completedExpr} >= :totalSteps`);
-    } else if (progress === 'pending') {
-        where.push(`${completedExpr} < :totalSteps`);
+    if (arrivalFrom) {
+        replacements.arrivalFrom = arrivalFrom;
+        where.push('r."arrivalDate" >= :arrivalFrom');
+    }
+    if (arrivalTo) {
+        replacements.arrivalTo = arrivalTo;
+        where.push('r."arrivalDate" <= :arrivalTo');
+    }
+    if (patientType === 'company') {
+        where.push('(p."isNonCompanyPatient" = FALSE OR p."isNonCompanyPatient" IS NULL)');
+    } else if (patientType === 'non_company') {
+        where.push('p."isNonCompanyPatient" = TRUE');
+    } else if (patientType) {
+        where.push('FALSE');
+    }
+    if (warehouseStatus === 'returned') {
+        where.push('r."returnedToWarehouse" = TRUE');
+    } else if (warehouseStatus === 'not-returned') {
+        where.push('(r."returnedToWarehouse" = FALSE OR r."returnedToWarehouse" IS NULL)');
+    } else if (warehouseStatus) {
+        where.push('FALSE');
+    }
+
+    if (workflowStatus === 'complete' || workflowStatus === 'completed') {
+        where.push(completedExprSql);
+    } else if (workflowStatus === 'pending') {
+        where.push(`NOT ${completedExprSql}`);
+        where.push(`NOT ${expiredExpr}`);
+    } else if (workflowStatus === 'expired') {
+        where.push(expiredExpr);
+    } else if (workflowStatus === 'in-progress') {
+        where.push(`${completedExpr} > 0`);
+        where.push(`NOT ${completedExprSql}`);
+        where.push(`NOT ${expiredExpr}`);
+    } else if (workflowStatus === 'not-started') {
+        where.push(`${completedExpr} = 0`);
+        where.push(`NOT ${expiredExpr}`);
+    } else if (workflowStatus) {
+        where.push('FALSE');
+    }
+    if (/^\d+$/.test(workflowStage)) {
+        replacements.workflowStageDone = Math.max(0, parseInt(workflowStage, 10) - 1);
+        where.push(`${completedExpr} = :workflowStageDone`);
+    } else if (workflowStage) {
+        where.push('FALSE');
     }
     return where;
 }
@@ -778,6 +954,9 @@ function rxReportFromSql() {
         FROM "RXRecords" r
         LEFT JOIN "Patients" p ON p.id = r."patientId"
         LEFT JOIN "Pharmacies" ph ON ph.id = r."pharmacyId"
+        LEFT JOIN "Clinics" c ON c.id = p."clinicId"
+        LEFT JOIN "PatientTransportCompanies" pt ON pt.id = r."patientTransportCompanyId"
+        LEFT JOIN "PharmacyTransportCompanies" pht ON pht.id = r."pharmacyTransportCompanyId"
         LEFT JOIN (
             SELECT "rxRecordId", COUNT(*)::integer AS completed_steps
             FROM "RXWorkflowTrackings"
@@ -792,7 +971,13 @@ function rxReportSortSql(sort) {
         'Patient.firstName': 'LOWER(COALESCE(p."firstName", \'\'))',
         'Patient.patientCode': 'LOWER(COALESCE(p."patientCode", \'\'))',
         'Pharmacy.name': 'LOWER(COALESCE(ph."name", \'\'))',
-        serviceDate: 'r."serviceDate"'
+        'Clinic.name': 'LOWER(COALESCE(c."name", \'\'))',
+        'PatientTransportCompany.companyName': 'LOWER(COALESCE(pt."companyName", \'\'))',
+        'PharmacyTransportCompany.companyName': 'LOWER(COALESCE(pht."companyName", \'\'))',
+        arrivalDate: 'r."arrivalDate"',
+        serviceDate: 'r."serviceDate"',
+        returnedToWarehouse: 'r."returnedToWarehouse"',
+        workflowStatus: 'COALESCE(wc.completed_steps, 0)'
     };
     return allowed[sort] || allowed.id;
 }

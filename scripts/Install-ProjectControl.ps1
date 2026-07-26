@@ -21,7 +21,8 @@ try {
         'PROJECT-CONTROL.bat',
         'project-control.json',
         'scripts\project-control.ps1',
-        'scripts\Invoke-ReleaseUpdate.ps1'
+        'scripts\Invoke-ReleaseUpdate.ps1',
+        'scripts\Invoke-TestCopyRestore.ps1'
     )
     foreach ($file in $files) {
         if (-not (Test-Path -LiteralPath (Join-Path $source $file) -PathType Leaf)) {
@@ -30,7 +31,7 @@ try {
     }
 
     if ($source -eq $target) {
-        Write-Host 'Project Control 2.1 is already located in the target application folder.' -ForegroundColor Green
+        Write-Host 'Project Control 2.2 is already located in the target application folder.' -ForegroundColor Green
         exit 0
     }
 
@@ -51,7 +52,7 @@ try {
         Copy-Item -LiteralPath (Join-Path $source $file) -Destination $destination -Force
     }
 
-    Write-Host '[OK] Project Control 2.1 installed.' -ForegroundColor Green
+    Write-Host '[OK] Project Control 2.2 installed.' -ForegroundColor Green
     Write-Host "Target : $target"
     Write-Host "Backup : $backup"
     Write-Host 'No service, application executable, database, or .env value was changed.' -ForegroundColor Cyan

@@ -17,8 +17,10 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 - Windows service ID: `PatientRXSystem`
 - Production HTTP port: `3000`
 - NEXT database name at the completed cutover: `patient_rx_next_cutover_copy`
-- Project Control version: `2.0.0`
-- Latest official release: `v4.0.0-next.25` with RX Softphone 0.6.0. It retains the application-owned
+- Project Control version: `2.2.0`
+- Latest official release: `v4.0.0-next.25`; candidate `v4.0.0-next.26` is
+  staged for publication with expanded operational reports and guided
+  test-copy recovery. RX Softphone remains 0.6.0. It retains the application-owned
   WebView2 control window, hides the window to the existing tray on close,
   focuses the same window on a second launch, and adds a per-user
   **Start with Windows** tray option. It does not install a Windows service,
@@ -96,6 +98,16 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
   improved from about 1.0-1.2 seconds to 11-14 ms, and the 50,000-attempt
   summary improved from about 92-96 ms to 51-53 ms. One additive migration
   creates eight growth-query indexes and rewrites no business data.
+- Candidate `4.0.0-next.26` expands Patient and RX reports with exact clinic,
+  pharmacy, patient/pharmacy transport, patient type, assignment completeness,
+  service/arrival dates, eligibility, RX presence, workflow state/stage, and
+  warehouse-return filters. Filtering, sorting, and pagination remain
+  database-side and CSV/Excel exports preserve the selected filter set.
+  Project Control 2.2 adds option **25**, which validates a production dump,
+  restores it only into a visibly named isolated test database, applies and
+  verifies migrations, configures the restricted runtime role, fingerprints
+  business data, and optionally activates the copy with automatic `.env` and
+  service recovery. It does not modify the source dump or current database.
 - Official `v4.0.0-next.25` assets were published on 2026-07-25 and
   independently verified against `SHA256SUMS.txt`:
   - `server-update-4.0.0-next.25.zip`:

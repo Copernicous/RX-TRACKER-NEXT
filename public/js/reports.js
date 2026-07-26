@@ -4,6 +4,12 @@
     var allCcAttempts = [];
     var allCcSupervisor = null;
     var allWorkflowActions = [];
+    var reportLookups = {
+        pharmacies: [],
+        clinics: [],
+        patientTransport: [],
+        pharmacyTransport: []
+    };
     var prSortCol = 'id', prSortDir = 'desc';
     var rrSortCol = 'id', rrSortDir = 'desc';
     var ccrSortCol = 'lastActionAt', ccrSortDir = 'desc';
@@ -41,15 +47,58 @@
     // ─── Load Data ───────────────────────────────────────────────────────────────
     async function loadReportData() {
         try {
-            const wf = await fetchWithAuth('/api/lookup/workflow-actions');
-            const wfRes = wf && wf.ok ? await wf.json() : [];
-            allWorkflowActions = Array.isArray(wfRes)  ? wfRes  : [];
+            await loadReportLookups();
             setDefaultCallCenterDates();
             buildAutocompletes();
             await Promise.all([renderPatientReport(), renderRxActionReport(), renderCallCenterReports()]);
         } catch(e) {
             console.error('Report load error:', e);
         }
+    }
+
+    async function loadLookup(module) {
+        const response = await fetchWithAuth('/api/lookup/' + module);
+        if (!response || !response.ok) return [];
+        const data = await response.json();
+        return Array.isArray(data) ? data : [];
+    }
+
+    function populateLookupSelect(id, rows, labelField, placeholder, valueField) {
+        const select = document.getElementById(id);
+        if (!select) return;
+        const current = select.value || '';
+        valueField = valueField || 'id';
+        let html = '<option value="">' + escHtml(placeholder) + '</option>';
+        (rows || []).forEach(function(row) {
+            html += '<option value="' + escHtml(row[valueField]) + '">' + escHtml(row[labelField] || ('#' + row.id)) + '</option>';
+        });
+        select.innerHTML = html;
+        select.value = current;
+    }
+
+    async function loadReportLookups() {
+        const results = await Promise.all([
+            loadLookup('workflow-actions'),
+            loadLookup('pharmacies'),
+            loadLookup('clinics'),
+            loadLookup('patient-transport'),
+            loadLookup('pharmacy-transport')
+        ]);
+        allWorkflowActions = results[0];
+        reportLookups.pharmacies = results[1];
+        reportLookups.clinics = results[2];
+        reportLookups.patientTransport = results[3];
+        reportLookups.pharmacyTransport = results[4];
+
+        ['prfPharmacyId', 'rrfPharmacyId'].forEach(id =>
+            populateLookupSelect(id, reportLookups.pharmacies, 'name', 'All Pharmacies'));
+        ['prfClinicId', 'rrfClinicId'].forEach(id =>
+            populateLookupSelect(id, reportLookups.clinics, 'name', 'All Clinics'));
+        ['prfPatientTransportId', 'rrfPatientTransportId'].forEach(id =>
+            populateLookupSelect(id, reportLookups.patientTransport, 'companyName', 'All Patient Transports'));
+        ['prfPharmacyTransportId', 'rrfPharmacyTransportId'].forEach(id =>
+            populateLookupSelect(id, reportLookups.pharmacyTransport, 'companyName', 'All Pharmacy Transports'));
+        populateLookupSelect('rrfWorkflowStage', allWorkflowActions, 'name', 'All Stages', 'sequenceNumber');
     }
 
     function setReportParam(params, name, value) {
@@ -86,8 +135,15 @@
         setReportParam(params, 'firstName', getVal('prfFirstName'));
         setReportParam(params, 'lastName', getVal('prfLastName'));
         setReportParam(params, 'phone', getVal('prfPhone'));
-        setReportParam(params, 'transport', getVal('prfTransport'));
-        setReportParam(params, 'clinic', getVal('prfClinic'));
+        setReportParam(params, 'dob', document.getElementById('prfDob')?.value || '');
+        setReportParam(params, 'patientType', document.getElementById('prfPatientType')?.value || '');
+        setReportParam(params, 'eligibility', document.getElementById('prfEligibility')?.value || '');
+        setReportParam(params, 'missingInfo', document.getElementById('prfMissingInfo')?.value || '');
+        setReportParam(params, 'rxStatus', document.getElementById('prfRxStatus')?.value || '');
+        setReportParam(params, 'clinicId', document.getElementById('prfClinicId')?.value || '');
+        setReportParam(params, 'pharmacyId', document.getElementById('prfPharmacyId')?.value || '');
+        setReportParam(params, 'patientTransportId', document.getElementById('prfPatientTransportId')?.value || '');
+        setReportParam(params, 'pharmacyTransportId', document.getElementById('prfPharmacyTransportId')?.value || '');
         return params;
     }
 
@@ -109,10 +165,18 @@
         setReportParam(params, 'firstName', getVal('rrfFirstName'));
         setReportParam(params, 'lastName', getVal('rrfLastName'));
         setReportParam(params, 'patientCode', getVal('rrfPatientCode'));
-        setReportParam(params, 'pharmacy', getVal('rrfPharmacy'));
-        setReportParam(params, 'progress', document.getElementById('rrfProgress')?.value || '');
+        setReportParam(params, 'pharmacyId', document.getElementById('rrfPharmacyId')?.value || '');
+        setReportParam(params, 'clinicId', document.getElementById('rrfClinicId')?.value || '');
+        setReportParam(params, 'patientType', document.getElementById('rrfPatientType')?.value || '');
+        setReportParam(params, 'workflowStatus', document.getElementById('rrfProgress')?.value || '');
+        setReportParam(params, 'workflowStage', document.getElementById('rrfWorkflowStage')?.value || '');
         setReportParam(params, 'dateFrom', document.getElementById('rxDateFrom')?.value || '');
         setReportParam(params, 'dateTo', document.getElementById('rxDateTo')?.value || '');
+        setReportParam(params, 'arrivalFrom', document.getElementById('rrfArrivalFrom')?.value || '');
+        setReportParam(params, 'arrivalTo', document.getElementById('rrfArrivalTo')?.value || '');
+        setReportParam(params, 'patientTransportId', document.getElementById('rrfPatientTransportId')?.value || '');
+        setReportParam(params, 'pharmacyTransportId', document.getElementById('rrfPharmacyTransportId')?.value || '');
+        setReportParam(params, 'warehouseStatus', document.getElementById('rrfWarehouseStatus')?.value || '');
         return params;
     }
 
@@ -215,87 +279,11 @@
             .map(v => String(v).trim())
         )].sort((a,b) => a.localeCompare(b));
 
-        function includesValue(value, query) {
-            return !query || String(value || '').toLowerCase().includes(query);
-        }
-
-        function patientTransportNames(p) {
-            return [
-                p.PatientTransportCompany && p.PatientTransportCompany.companyName,
-                p.PharmacyTransportCompany && p.PharmacyTransportCompany.companyName
-            ];
-        }
-
-        function patientMatchesAutocompleteContext(p, skipId) {
-            const filter     = document.getElementById('patientStatusFilter').value;
-            const dFrom      = document.getElementById('patientDateFrom').value;
-            const dTo        = document.getElementById('patientDateTo').value;
-            const qCode      = getVal('prfPatientCode');
-            const qFirst     = getVal('prfFirstName');
-            const qLast      = getVal('prfLastName');
-            const qPhone     = getVal('prfPhone');
-            const qTransport = getVal('prfTransport');
-            const qClinic    = getVal('prfClinic');
-
-            if (filter !== '' && String(p.isActive) !== filter) return false;
-            if (qCode && !includesValue(p.patientCode, qCode)) return false;
-            if (skipId !== 'prfFirstName' && qFirst && !includesValue(p.firstName, qFirst)) return false;
-            if (skipId !== 'prfLastName' && qLast && !includesValue(p.lastName, qLast)) return false;
-            if (qPhone && !includesValue(p.phone, qPhone)) return false;
-            if (skipId !== 'prfClinic' && qClinic && !includesValue(p.Clinic && p.Clinic.name, qClinic)) return false;
-            if (skipId !== 'prfTransport' && qTransport) {
-                const names = patientTransportNames(p).map(v => String(v || '').toLowerCase());
-                if (!names.some(name => name.includes(qTransport))) return false;
-            }
-            const svc = p.serviceDate || '';
-            if (dFrom && svc && svc < dFrom) return false;
-            if (dTo && svc && svc > dTo) return false;
-            return true;
-        }
-
-        function rxMatchesProgress(r, progress) {
-            if (!progress) return true;
-            const steps = r.completedSteps || [];
-            const total = allWorkflowActions.length;
-            if (progress === 'complete') return steps.length >= total && total > 0;
-            if (progress === 'pending') return steps.length < total;
-            return true;
-        }
-
-        function rxMatchesAutocompleteContext(r, skipId) {
-            const qRxId  = getVal('rrfRxId');
-            const qFirst = getVal('rrfFirstName');
-            const qLast  = getVal('rrfLastName');
-            const qCode  = getVal('rrfPatientCode');
-            const qPharm = getVal('rrfPharmacy');
-            const qProg  = document.getElementById('rrfProgress').value;
-            const dFrom  = document.getElementById('rxDateFrom').value;
-            const dTo    = document.getElementById('rxDateTo').value;
-        if (dateRangeIsReversed(dFrom, dTo)) {
-            showToast('RX report date range cannot have From after To.', 'warning');
-            document.getElementById('rxDateTo').value = dFrom;
-        }
-            const patient = r.Patient || {};
-
-            if (qRxId && !String(r.id).includes(qRxId)) return false;
-            if (skipId !== 'rrfFirstName' && qFirst && !includesValue(patient.firstName, qFirst)) return false;
-            if (skipId !== 'rrfLastName' && qLast && !includesValue(patient.lastName, qLast)) return false;
-            if (qCode && !includesValue(patient.patientCode, qCode)) return false;
-            if (skipId !== 'rrfPharmacy' && qPharm && !includesValue(r.Pharmacy && r.Pharmacy.name, qPharm)) return false;
-            const svc = r.serviceDate || '';
-            if (dFrom && svc && svc < dFrom) return false;
-            if (dTo && svc && svc > dTo) return false;
-            return rxMatchesProgress(r, qProg);
-        }
-
         const defs = [
-            { id: 'prfFirstName', options: () => uniq(allPatientReport.filter(p => patientMatchesAutocompleteContext(p, 'prfFirstName')).map(p => p.firstName)), render: renderPatientReport },
-            { id: 'prfLastName',  options: () => uniq(allPatientReport.filter(p => patientMatchesAutocompleteContext(p, 'prfLastName')).map(p => p.lastName)), render: renderPatientReport },
-            { id: 'prfClinic',    options: () => uniq(allPatientReport.filter(p => patientMatchesAutocompleteContext(p, 'prfClinic')).map(p => p.Clinic && p.Clinic.name)), render: renderPatientReport },
-            { id: 'prfTransport', options: () => uniq(allPatientReport.filter(p => patientMatchesAutocompleteContext(p, 'prfTransport')).flatMap(patientTransportNames)), render: renderPatientReport },
-            { id: 'rrfFirstName', options: () => uniq(allRxReport.filter(r => rxMatchesAutocompleteContext(r, 'rrfFirstName')).map(r => r.Patient && r.Patient.firstName)), render: renderRxActionReport },
-            { id: 'rrfLastName',  options: () => uniq(allRxReport.filter(r => rxMatchesAutocompleteContext(r, 'rrfLastName')).map(r => r.Patient && r.Patient.lastName)), render: renderRxActionReport },
-            { id: 'rrfPharmacy',  options: () => uniq(allRxReport.filter(r => rxMatchesAutocompleteContext(r, 'rrfPharmacy')).map(r => r.Pharmacy && r.Pharmacy.name)), render: renderRxActionReport }
+            { id: 'prfFirstName', options: () => uniq(allPatientReport.map(p => p.firstName)), render: renderPatientReport },
+            { id: 'prfLastName',  options: () => uniq(allPatientReport.map(p => p.lastName)), render: renderPatientReport },
+            { id: 'rrfFirstName', options: () => uniq(allRxReport.map(r => r.Patient && r.Patient.firstName)), render: renderRxActionReport },
+            { id: 'rrfLastName',  options: () => uniq(allRxReport.map(r => r.Patient && r.Patient.lastName)), render: renderRxActionReport }
         ];
 
         defs.forEach(({ id, options, render }) => {
@@ -436,13 +424,13 @@
         const countEl = document.getElementById('patientReportCount');
         const navEl   = document.getElementById('prPagNav');
         if (!tbody) return;
-        tbody.innerHTML = '<tr><td colspan="11" class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin me-2"></i>Loading...</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="13" class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin me-2"></i>Loading...</td></tr>';
 
         return fetchReportJson('/api/reports/patients?' + buildPatientReportParams().toString()).then(function(result) {
         var data = result && Array.isArray(result.rows) ? result.rows : [];
         allPatientReport = data;
         if (!data.length) {
-            tbody.innerHTML = '<tr><td colspan="11" class="text-center text-muted py-4">No records found</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="13" class="text-center text-muted py-4">No records found</td></tr>';
             if (countEl) countEl.textContent = '0 records';
             if (navEl) navEl.innerHTML = '';
             return;
@@ -459,20 +447,25 @@
             const statusBadge = p.isActive
                 ? '<span class="badge bg-success">Active</span>'
                 : '<span class="badge bg-secondary">Inactive</span>';
+            const patientTypeBadge = p.isNonCompanyPatient
+                ? '<span class="badge bg-warning text-dark">Non-Company</span>'
+                : '<span class="badge bg-info text-dark">Company</span>';
             const dob = p.dob ? new Date(p.dob+'T12:00:00').toLocaleDateString() : '-';
             const svc = p.serviceDate ? new Date(p.serviceDate+'T12:00:00').toLocaleDateString() : '-';
             patientRowsHtml += '<tr>' +
-                '<td><span class="badge bg-primary">' + (p.patientCode || '') + '</span></td>' +
-                '<td>' + (p.firstName || '') + '</td>' +
-                '<td>' + (p.lastName || '') + '</td>' +
+                '<td><span class="badge bg-primary">' + escHtml(p.patientCode || '') + '</span></td>' +
+                '<td>' + escHtml(p.firstName || '') + '</td>' +
+                '<td>' + escHtml(p.lastName || '') + '</td>' +
                 '<td>' + dob + '</td>' +
-                '<td>' + (p.phone || '-') + '</td>' +
-                '<td>' + (p.address || '-') + '</td>' +
+                '<td>' + escHtml(p.phone || '-') + '</td>' +
+                '<td>' + escHtml(p.address || '-') + '</td>' +
                 '<td>' + svc + '</td>' +
                 '<td>' + statusBadge + '</td>' +
-                '<td>' + ((p.Clinic && p.Clinic.name) || '-') + '</td>' +
-                '<td>' + ((p.PatientTransportCompany && p.PatientTransportCompany.companyName) || '-') + '</td>' +
-                '<td>' + ((p.PharmacyTransportCompany && p.PharmacyTransportCompany.companyName) || '-') + '</td>' +
+                '<td>' + patientTypeBadge + '</td>' +
+                '<td>' + escHtml((p.Clinic && p.Clinic.name) || '-') + '</td>' +
+                '<td>' + escHtml((p.Pharmacy && p.Pharmacy.name) || '-') + '</td>' +
+                '<td>' + escHtml((p.PatientTransportCompany && p.PatientTransportCompany.companyName) || '-') + '</td>' +
+                '<td>' + escHtml((p.PharmacyTransportCompany && p.PharmacyTransportCompany.companyName) || '-') + '</td>' +
             '</tr>';
         });
         tbody.innerHTML = patientRowsHtml;
@@ -482,7 +475,7 @@
             renderPatientReport();
         });
         }).catch(function(err) {
-            tbody.innerHTML = '<tr><td colspan="11" class="text-center text-danger py-4">Could not load patient report.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="13" class="text-center text-danger py-4">Could not load patient report.</td></tr>';
             if (countEl) countEl.textContent = '';
             if (navEl) navEl.innerHTML = '';
             console.error('Patient report load error:', err);
@@ -504,7 +497,9 @@
     }
 
     function clearPatientFilters() {
-        ['prfPatientCode','prfFirstName','prfLastName','prfPhone','prfTransport','prfClinic','patientDateFrom','patientDateTo']
+        ['prfPatientCode','prfFirstName','prfLastName','prfPhone','prfDob','patientDateFrom','patientDateTo',
+         'prfPatientType','prfEligibility','prfMissingInfo','prfRxStatus','prfClinicId','prfPharmacyId',
+         'prfPatientTransportId','prfPharmacyTransportId']
             .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
         document.getElementById('patientStatusFilter').value = '';
         prPage = 1;
@@ -524,13 +519,13 @@
         const countEl = document.getElementById('rxReportCount');
         const navEl = document.getElementById('rrPagNav');
         if (!tbody) return;
-        tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin me-2"></i>Loading...</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="12" class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin me-2"></i>Loading...</td></tr>';
 
         return fetchReportJson('/api/reports/rx-actions?' + buildRxReportParams().toString()).then(function(result) {
         var data = result && Array.isArray(result.rows) ? result.rows : [];
         allRxReport = data;
         if (!data.length) {
-            tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">No records found</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="12" class="text-center text-muted py-4">No records found</td></tr>';
             if (countEl) countEl.textContent = '0 records';
             if (navEl) navEl.innerHTML = '';
             return;
@@ -550,30 +545,39 @@
             const pct     = wfTotal ? Math.round((done / wfTotal) * 100) : 0;
             const nextStep= allWorkflowActions.find(w => !steps.includes(w.id));
             const svc     = r.serviceDate ? new Date(r.serviceDate+'T12:00:00').toLocaleDateString() : '-';
+            const arrival = r.arrivalDate ? new Date(r.arrivalDate+'T12:00:00').toLocaleDateString() : '-';
             const ptName  = r.Patient ? r.Patient.firstName + ' ' + r.Patient.lastName : '-';
             const ptCode  = r.Patient ? r.Patient.patientCode : '-';
             const phName  = r.Pharmacy ? r.Pharmacy.name : '-';
-            const progBadge = pct >= 100
-                ? '<span class="badge bg-success">Complete</span>'
-                : '<span class="badge bg-warning text-dark">' + pct + '%</span>';
-            var doneStepsHtml = '';
-            if (done > 0) {
-                steps.forEach(function(id) {
-                    const action = allWorkflowActions.find(w => w.id === id);
-                    if (action) doneStepsHtml += '<span class="badge bg-success me-1">' + action.name + '</span>';
-                });
+            var workflowBadge = '';
+            if (pct >= 100 && wfTotal > 0) {
+                workflowBadge = '<span class="badge bg-success">Completed</span>';
             } else {
-                doneStepsHtml = '-';
+                var expired = false;
+                if (r.serviceDate) {
+                    var expiry = new Date(r.serviceDate + 'T12:00:00');
+                    expiry.setDate(expiry.getDate() + (Number(window.SERVICE_WINDOW_DAYS) || 90));
+                    var today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    expired = expiry < today;
+                }
+                if (expired) workflowBadge = '<span class="badge bg-danger">Expired · ' + pct + '%</span>';
+                else if (done > 0) workflowBadge = '<span class="badge bg-warning text-dark">In Progress · ' + pct + '%</span>';
+                else workflowBadge = '<span class="badge bg-secondary">Not Started</span>';
             }
             rxRowsHtml += '<tr>' +
                 '<td><span class="badge bg-primary">RX-' + r.id + '</span></td>' +
-                '<td>' + ptName + '</td>' +
-                '<td><span class="badge bg-info text-dark">' + ptCode + '</span></td>' +
-                '<td>' + phName + '</td>' +
+                '<td>' + escHtml(ptName) + '</td>' +
+                '<td><span class="badge bg-info text-dark">' + escHtml(ptCode) + '</span></td>' +
+                '<td>' + escHtml(phName) + '</td>' +
+                '<td>' + escHtml((r.Patient && r.Patient.Clinic && r.Patient.Clinic.name) || '-') + '</td>' +
+                '<td>' + arrival + '</td>' +
                 '<td>' + svc + '</td>' +
-                '<td>' + doneStepsHtml + '</td>' +
-                '<td>' + (nextStep ? '<span class="badge bg-warning text-dark">' + nextStep.name + '</span>' : '<span class="badge bg-success">All done</span>') + '</td>' +
-                '<td>' + progBadge + '</td>' +
+                '<td>' + escHtml((r.PatientTransportCompany && r.PatientTransportCompany.companyName) || '-') + '</td>' +
+                '<td>' + escHtml((r.PharmacyTransportCompany && r.PharmacyTransportCompany.companyName) || '-') + '</td>' +
+                '<td>' + (r.returnedToWarehouse ? '<span class="badge bg-dark">Returned</span>' : '<span class="badge bg-light text-dark">Not Returned</span>') + '</td>' +
+                '<td>' + (nextStep ? '<span class="badge bg-warning text-dark">' + escHtml(nextStep.name) + '</span>' : '<span class="badge bg-success">All done</span>') + '</td>' +
+                '<td>' + workflowBadge + '</td>' +
             '</tr>';
         });
         tbody.innerHTML = rxRowsHtml;
@@ -583,7 +587,7 @@
             renderRxActionReport();
         });
         }).catch(function(err) {
-            tbody.innerHTML = '<tr><td colspan="8" class="text-center text-danger py-4">Could not load RX action report.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="12" class="text-center text-danger py-4">Could not load RX action report.</td></tr>';
             if (countEl) countEl.textContent = '';
             if (navEl) navEl.innerHTML = '';
             console.error('RX action report load error:', err);
@@ -601,7 +605,9 @@
     }
 
     function clearRxFilters() {
-        ['rrfRxId','rrfFirstName','rrfLastName','rrfPatientCode','rrfPharmacy','rxDateFrom','rxDateTo']
+        ['rrfRxId','rrfFirstName','rrfLastName','rrfPatientCode','rxDateFrom','rxDateTo','rrfArrivalFrom','rrfArrivalTo',
+         'rrfPharmacyId','rrfClinicId','rrfPatientType','rrfWorkflowStage','rrfPatientTransportId',
+         'rrfPharmacyTransportId','rrfWarehouseStatus']
             .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
         document.getElementById('rrfProgress').value = '';
         rrPage = 1;
@@ -1011,41 +1017,88 @@
         });
     }
 
+    function patientReportHeaders() {
+        return [
+            'Patient ID','First Name','Last Name','DOB','Phone','Address','Service Date','Status','Patient Type',
+            'Clinic','Default Pharmacy','Patient Transport','Pharmacy Transport'
+        ];
+    }
+
+    function patientReportExportRows(data) {
+        return (data || []).map(function(p) {
+            return [
+                p.patientCode || '', p.firstName || '', p.lastName || '', p.dob || '', p.phone || '', p.address || '',
+                p.serviceDate || '', p.isActive ? 'Active' : 'Inactive',
+                p.isNonCompanyPatient ? 'Non-Company' : 'Company',
+                (p.Clinic && p.Clinic.name) || '',
+                (p.Pharmacy && p.Pharmacy.name) || '',
+                (p.PatientTransportCompany && p.PatientTransportCompany.companyName) || '',
+                (p.PharmacyTransportCompany && p.PharmacyTransportCompany.companyName) || ''
+            ];
+        });
+    }
+
+    function rxWorkflowLabelForExport(r) {
+        const steps = r.completedSteps || [];
+        const total = allWorkflowActions.length;
+        if (total > 0 && steps.length >= total) return 'Completed';
+        if (r.serviceDate) {
+            const expiry = new Date(r.serviceDate + 'T12:00:00');
+            expiry.setDate(expiry.getDate() + (Number(window.SERVICE_WINDOW_DAYS) || 90));
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            if (expiry < today) return 'Expired';
+        }
+        return steps.length ? 'In Progress' : 'Not Started';
+    }
+
+    function rxReportHeaders() {
+        return [
+            'RX #','Patient','Patient ID','Patient Type','Clinic','Pharmacy','Arrival Date','Service Date',
+            'Patient Transport','Pharmacy Transport','Warehouse Status','Warehouse Return Date','Warehouse Return Note',
+            'Completed Steps','Next Pending Step','Workflow Status','Progress %'
+        ];
+    }
+
+    function rxReportExportRows(data) {
+        return (data || []).map(function(r) {
+            const steps = r.completedSteps || [];
+            const pct = allWorkflowActions.length ? Math.round(steps.length / allWorkflowActions.length * 100) : 0;
+            const nextStep = allWorkflowActions.find(w => !steps.includes(w.id));
+            return [
+                'RX-' + r.id,
+                r.Patient ? `${r.Patient.firstName || ''} ${r.Patient.lastName || ''}`.trim() : '',
+                r.Patient ? r.Patient.patientCode || '' : '',
+                r.Patient && r.Patient.isNonCompanyPatient ? 'Non-Company' : 'Company',
+                r.Patient && r.Patient.Clinic ? r.Patient.Clinic.name || '' : '',
+                r.Pharmacy ? r.Pharmacy.name || '' : '',
+                r.arrivalDate || '',
+                r.serviceDate || '',
+                r.PatientTransportCompany ? r.PatientTransportCompany.companyName || '' : '',
+                r.PharmacyTransportCompany ? r.PharmacyTransportCompany.companyName || '' : '',
+                r.returnedToWarehouse ? 'Returned to Warehouse' : 'Not Returned',
+                r.warehouseReturnDate || '',
+                r.warehouseReturnNote || '',
+                steps.length,
+                nextStep ? nextStep.name : '',
+                rxWorkflowLabelForExport(r),
+                pct + '%'
+            ];
+        });
+    }
+
     function setupReportExports() {
         document.getElementById('exportPatientCsv').addEventListener('click', async () => {
             const data = await fetchPatientReportRows({ exportAll: true });
             if (!data.length) { showToast('No data to export', 'warning'); return; }
-            const headers = ['Patient ID','First Name','Last Name','DOB','Phone','Address','Service Date','Status','Clinic','Patient Transport','Pharmacy Transport'];
-            const rows = data.map(p => [
-                p.patientCode||'', p.firstName||'', p.lastName||'',
-                p.dob||'', p.phone||'', p.address||'', p.serviceDate||'',
-                p.isActive ? 'Active' : 'Inactive',
-                (p.Clinic&&p.Clinic.name)||'',
-                (p.PatientTransportCompany&&p.PatientTransportCompany.companyName)||'',
-                (p.PharmacyTransportCompany&&p.PharmacyTransportCompany.companyName)||''
-            ]);
-            downloadCsv('patient_report.csv', headers, rows);
+            downloadCsv('patient_report.csv', patientReportHeaders(), patientReportExportRows(data));
             showToast('Patient report exported!', 'success');
         });
 
         document.getElementById('exportRxCsv').addEventListener('click', async () => {
             const data = await fetchRxReportRows({ exportAll: true });
             if (!data.length) { showToast('No data to export', 'warning'); return; }
-            const headers = ['RX #','Patient','Patient ID','Pharmacy','Service Date','Done Steps','Progress %'];
-            const rows = data.map(r => {
-                const steps = r.completedSteps || [];
-                const pct   = allWorkflowActions.length ? Math.round(steps.length / allWorkflowActions.length * 100) : 0;
-                return [
-                    'RX-' + r.id,
-                    r.Patient ? r.Patient.firstName + ' ' + r.Patient.lastName : '',
-                    r.Patient ? r.Patient.patientCode : '',
-                    r.Pharmacy ? r.Pharmacy.name : '',
-                    r.serviceDate||'',
-                    steps.length,
-                    pct + '%'
-                ];
-            });
-            downloadCsv('rx_report.csv', headers, rows);
+            downloadCsv('rx_report.csv', rxReportHeaders(), rxReportExportRows(data));
             showToast('RX report exported!', 'success');
         });
 
@@ -1134,15 +1187,11 @@
         if (patXls) patXls.addEventListener('click', async function() {
             var data = await getFilteredPatientData();
             if (!data.length) { showToast('No data to export', 'warning'); return; }
-            var headers = ['Patient ID','First Name','Last Name','DOB','Phone','Address','Service Date','Status','Clinic','Patient Transport','Pharmacy Transport'];
-            var rows = data.map(function(p) {
-                return [p.patientCode||'', p.firstName||'', p.lastName||'', p.dob||'', p.phone||'', p.address||'', p.serviceDate||'',
-                        p.isActive ? 'Active' : 'Inactive',
-                        (p.Clinic && p.Clinic.name) || '',
-                        (p.PatientTransportCompany && p.PatientTransportCompany.companyName) || '',
-                        (p.PharmacyTransportCompany && p.PharmacyTransportCompany.companyName) || ''];
-            });
-            downloadXls('patient_report_' + new Date().toISOString().slice(0,10) + '.xls', headers, rows);
+            downloadXls(
+                'patient_report_' + new Date().toISOString().slice(0,10) + '.xls',
+                patientReportHeaders(),
+                patientReportExportRows(data)
+            );
             showToast('Patient report exported as Excel!', 'success');
         });
         var patPdf   = document.getElementById('exportPatientPdf');
@@ -1155,17 +1204,11 @@
         if (rxXls) rxXls.addEventListener('click', async function() {
             var data = await fetchRxReportRows({ exportAll: true });
             if (!data.length) { showToast('No data to export', 'warning'); return; }
-            var headers = ['RX #','Patient','Patient ID','Pharmacy','Service Date','Done Steps','Progress %'];
-            var rows = data.map(function(r) {
-                var steps = r.completedSteps || [];
-                var pct   = allWorkflowActions.length ? Math.round(steps.length / allWorkflowActions.length * 100) : 0;
-                return ['RX-' + r.id,
-                        r.Patient ? r.Patient.firstName + ' ' + r.Patient.lastName : '',
-                        r.Patient ? r.Patient.patientCode : '',
-                        r.Pharmacy ? r.Pharmacy.name : '',
-                        r.serviceDate || '', steps.length, pct + '%'];
-            });
-            downloadXls('rx_report_' + new Date().toISOString().slice(0,10) + '.xls', headers, rows);
+            downloadXls(
+                'rx_report_' + new Date().toISOString().slice(0,10) + '.xls',
+                rxReportHeaders(),
+                rxReportExportRows(data)
+            );
             showToast('RX report exported as Excel!', 'success');
         });
         var rxPdf   = document.getElementById('exportRxPdf');

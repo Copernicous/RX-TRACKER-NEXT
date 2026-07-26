@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "projectControlVersion": "2.1.0",
+  "projectControlVersion": "2.2.0",
   "project": "RX-TRACKER",
   "displayName": "RX Tracker",
   "serviceName": "Patient RX System",

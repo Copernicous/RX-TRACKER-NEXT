@@ -2,7 +2,7 @@
 setlocal EnableExtensions
 cd /d "%~dp0"
 
-title Install RX Tracker Project Control 2.1
+title Install RX Tracker Project Control 2.2
 
 where powershell.exe >nul 2>nul
 if errorlevel 1 (

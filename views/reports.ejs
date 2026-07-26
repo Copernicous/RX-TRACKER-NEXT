@@ -167,18 +167,65 @@
                                     <input type="text" class="form-control form-control-sm" id="prfPhone" placeholder="Phone..." autocomplete="off">
                                 </div>
                                 <div class="col-md-2">
-                                    <label class="form-label small fw-bold mb-1">Transport</label>
-                                    <div class="ac-wrap">
-                                        <input type="text" class="form-control form-control-sm" id="prfTransport" placeholder="Transport..." autocomplete="off">
-                                        <div class="ac-list" id="ac-prfTransport"></div>
-                                    </div>
+                                    <label class="form-label small fw-bold mb-1">Date of Birth</label>
+                                    <input type="date" class="form-control form-control-sm" id="prfDob">
                                 </div>
                                 <div class="col-md-2">
-                                    <label class="form-label small fw-bold mb-1">Clinic</label>
-                                    <div class="ac-wrap">
-                                        <input type="text" class="form-control form-control-sm" id="prfClinic" placeholder="Clinic name..." autocomplete="off">
-                                        <div class="ac-list" id="ac-prfClinic"></div>
-                                    </div>
+                                    <label class="form-label small fw-bold mb-1">Patient Type</label>
+                                    <select class="form-select form-select-sm" id="prfPatientType">
+                                        <option value="">All Patient Types</option>
+                                        <option value="company">Company Patients</option>
+                                        <option value="non_company">Non-Company Patients</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small fw-bold mb-1">Eligibility</label>
+                                    <select class="form-select form-select-sm" id="prfEligibility">
+                                        <option value="">All Eligibility</option>
+                                        <option value="needsAction">Needs Workflow Action</option>
+                                        <option value="eligible">Eligible Now</option>
+                                        <option value="expiring">Call Pre-Eligibility</option>
+                                        <option value="window">In Active Window</option>
+                                        <option value="none">No Service Date</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small fw-bold mb-1">Missing Information</label>
+                                    <select class="form-select form-select-sm" id="prfMissingInfo">
+                                        <option value="">All Completeness</option>
+                                        <option value="any">Missing Any Assignment</option>
+                                        <option value="all">Missing All Assignments</option>
+                                        <option value="clinic">Missing Clinic</option>
+                                        <option value="pharmacy">Missing Pharmacy</option>
+                                        <option value="patientTransport">Missing Patient Transport</option>
+                                        <option value="pharmacyTransport">Missing Pharmacy Transport</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small fw-bold mb-1">RX Records</label>
+                                    <select class="form-select form-select-sm" id="prfRxStatus">
+                                        <option value="">With or Without RX</option>
+                                        <option value="has_rx">Has RX Records</option>
+                                        <option value="no_rx">No RX Records</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="row g-2 align-items-end mt-1">
+                                <div class="col-md-2">
+                                    <label class="form-label small fw-bold mb-1">Clinic / Location</label>
+                                    <select class="form-select form-select-sm" id="prfClinicId"><option value="">All Clinics</option></select>
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small fw-bold mb-1">Default Pharmacy</label>
+                                    <select class="form-select form-select-sm" id="prfPharmacyId"><option value="">All Pharmacies</option></select>
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small fw-bold mb-1">Patient Transport</label>
+                                    <select class="form-select form-select-sm" id="prfPatientTransportId"><option value="">All Patient Transports</option></select>
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small fw-bold mb-1">Pharmacy Transport</label>
+                                    <select class="form-select form-select-sm" id="prfPharmacyTransportId"><option value="">All Pharmacy Transports</option></select>
                                 </div>
                                 <div class="col-md-2">
                                     <label class="form-label small fw-bold mb-1"><i class="fas fa-calendar me-1"></i>Service From</label>
@@ -221,13 +268,15 @@
                                         <th style="cursor:pointer" onclick="sortPatientReport('address')">Address <i class="fas fa-sort text-muted" style="opacity:.3" id="prIcon_address"></i></th>
                                         <th style="cursor:pointer" onclick="sortPatientReport('serviceDate')">Service Date <i class="fas fa-sort text-muted" style="opacity:.3" id="prIcon_serviceDate"></i></th>
                                         <th style="cursor:pointer" onclick="sortPatientReport('isActive')">Status <i class="fas fa-sort text-muted" style="opacity:.3" id="prIcon_isActive"></i></th>
+                                        <th style="cursor:pointer" onclick="sortPatientReport('isNonCompanyPatient')">Patient Type <i class="fas fa-sort text-muted" style="opacity:.3" id="prIcon_isNonCompanyPatient"></i></th>
                                         <th style="cursor:pointer" onclick="sortPatientReport('Clinic.name')">Clinic <i class="fas fa-sort text-muted" style="opacity:.3" id="prIcon_Clinic.name"></i></th>
+                                        <th style="cursor:pointer" onclick="sortPatientReport('Pharmacy.name')">Default Pharmacy <i class="fas fa-sort text-muted" style="opacity:.3" id="prIcon_Pharmacy.name"></i></th>
                                         <th style="cursor:pointer" onclick="sortPatientReport('PatientTransportCompany.companyName')">Patient Transport <i class="fas fa-sort text-muted" style="opacity:.3" id="prIcon_PatientTransportCompany.companyName"></i></th>
                                         <th style="cursor:pointer" onclick="sortPatientReport('PharmacyTransportCompany.companyName')">Pharmacy Transport <i class="fas fa-sort text-muted" style="opacity:.3" id="prIcon_PharmacyTransportCompany.companyName"></i></th>
                                     </tr>
                                 </thead>
                                 <tbody id="patientReportBody">
-                                    <tr><td colspan="11" class="text-center text-muted py-4">Loading...</td></tr>
+                                    <tr><td colspan="13" class="text-center text-muted py-4">Loading...</td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -271,11 +320,14 @@
                                 </div>
                             </div>
                             <div class="col-md-2">
-                                <label class="form-label small fw-bold mb-1">Progress</label>
+                                <label class="form-label small fw-bold mb-1">Workflow Status</label>
                                 <select class="form-select form-select-sm" id="rrfProgress">
-                                    <option value="">All</option>
-                                    <option value="complete">Complete</option>
+                                    <option value="">All Workflow Statuses</option>
                                     <option value="pending">Pending</option>
+                                    <option value="not-started">Not Started</option>
+                                    <option value="in-progress">In Progress</option>
+                                    <option value="expired">Expired</option>
+                                    <option value="completed">Completed</option>
                                 </select>
                             </div>
                             <div class="col-md-2 d-flex gap-2 align-items-end">
@@ -299,11 +351,26 @@
                                 </div>
                                 <div class="col-md-2">
                                     <label class="form-label small fw-bold mb-1">Pharmacy</label>
-                                    <div class="ac-wrap">
-                                        <input type="text" class="form-control form-control-sm" id="rrfPharmacy" placeholder="Pharmacy name..." autocomplete="off">
-                                        <div class="ac-list" id="ac-rrfPharmacy"></div>
-                                    </div>
+                                    <select class="form-select form-select-sm" id="rrfPharmacyId"><option value="">All Pharmacies</option></select>
                                 </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small fw-bold mb-1">Clinic / Location</label>
+                                    <select class="form-select form-select-sm" id="rrfClinicId"><option value="">All Clinics</option></select>
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small fw-bold mb-1">Patient Type</label>
+                                    <select class="form-select form-select-sm" id="rrfPatientType">
+                                        <option value="">All Patient Types</option>
+                                        <option value="company">Company Patients</option>
+                                        <option value="non_company">Non-Company Patients</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small fw-bold mb-1">Workflow Stage</label>
+                                    <select class="form-select form-select-sm" id="rrfWorkflowStage"><option value="">All Stages</option></select>
+                                </div>
+                            </div>
+                            <div class="row g-2 align-items-end mt-1">
                                 <div class="col-md-2">
                                     <label class="form-label small fw-bold mb-1"><i class="fas fa-calendar me-1"></i>Service From</label>
                                     <input type="date" class="form-control form-control-sm" id="rxDateFrom">
@@ -311,6 +378,32 @@
                                 <div class="col-md-2">
                                     <label class="form-label small fw-bold mb-1"><i class="fas fa-calendar me-1"></i>Service To</label>
                                     <input type="date" class="form-control form-control-sm" id="rxDateTo">
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small fw-bold mb-1">Arrival From</label>
+                                    <input type="date" class="form-control form-control-sm" id="rrfArrivalFrom">
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small fw-bold mb-1">Arrival To</label>
+                                    <input type="date" class="form-control form-control-sm" id="rrfArrivalTo">
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small fw-bold mb-1">Patient Transport</label>
+                                    <select class="form-select form-select-sm" id="rrfPatientTransportId"><option value="">All Patient Transports</option></select>
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small fw-bold mb-1">Pharmacy Transport</label>
+                                    <select class="form-select form-select-sm" id="rrfPharmacyTransportId"><option value="">All Pharmacy Transports</option></select>
+                                </div>
+                            </div>
+                            <div class="row g-2 align-items-end mt-1">
+                                <div class="col-md-2">
+                                    <label class="form-label small fw-bold mb-1">Warehouse Status</label>
+                                    <select class="form-select form-select-sm" id="rrfWarehouseStatus">
+                                        <option value="">All Warehouse Statuses</option>
+                                        <option value="returned">Returned to Warehouse</option>
+                                        <option value="not-returned">Not Returned</option>
+                                    </select>
                                 </div>
                             </div>
                         </div>
@@ -341,14 +434,18 @@
                                         <th style="cursor:pointer" onclick="sortRxReport('Patient.firstName')">Patient <i class="fas fa-sort text-muted" style="opacity:.3" id="rrIcon_Patient.firstName"></i></th>
                                         <th style="cursor:pointer" onclick="sortRxReport('Patient.patientCode')">Patient ID <i class="fas fa-sort text-muted" style="opacity:.3" id="rrIcon_Patient.patientCode"></i></th>
                                         <th style="cursor:pointer" onclick="sortRxReport('Pharmacy.name')">Pharmacy <i class="fas fa-sort text-muted" style="opacity:.3" id="rrIcon_Pharmacy.name"></i></th>
+                                        <th style="cursor:pointer" onclick="sortRxReport('Clinic.name')">Clinic <i class="fas fa-sort text-muted" style="opacity:.3" id="rrIcon_Clinic.name"></i></th>
+                                        <th style="cursor:pointer" onclick="sortRxReport('arrivalDate')">Arrival Date <i class="fas fa-sort text-muted" style="opacity:.3" id="rrIcon_arrivalDate"></i></th>
                                         <th style="cursor:pointer" onclick="sortRxReport('serviceDate')">Service Date <i class="fas fa-sort text-muted" style="opacity:.3" id="rrIcon_serviceDate"></i></th>
-                                        <th>Completed Steps</th>
+                                        <th style="cursor:pointer" onclick="sortRxReport('PatientTransportCompany.companyName')">Patient Transport <i class="fas fa-sort text-muted" style="opacity:.3" id="rrIcon_PatientTransportCompany.companyName"></i></th>
+                                        <th style="cursor:pointer" onclick="sortRxReport('PharmacyTransportCompany.companyName')">Pharmacy Transport <i class="fas fa-sort text-muted" style="opacity:.3" id="rrIcon_PharmacyTransportCompany.companyName"></i></th>
+                                        <th style="cursor:pointer" onclick="sortRxReport('returnedToWarehouse')">Warehouse <i class="fas fa-sort text-muted" style="opacity:.3" id="rrIcon_returnedToWarehouse"></i></th>
                                         <th>Next Pending</th>
-                                        <th>Progress</th>
+                                        <th style="cursor:pointer" onclick="sortRxReport('workflowStatus')">Workflow <i class="fas fa-sort text-muted" style="opacity:.3" id="rrIcon_workflowStatus"></i></th>
                                     </tr>
                                 </thead>
                                 <tbody id="rxActionBody">
-                                    <tr><td colspan="8" class="text-center text-muted py-4">Loading...</td></tr>
+                                    <tr><td colspan="12" class="text-center text-muted py-4">Loading...</td></tr>
                                 </tbody>
                             </table>
                         </div>

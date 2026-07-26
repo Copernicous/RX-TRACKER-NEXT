@@ -10,7 +10,7 @@ frozen 3.3.1 repository, its production database, or the RX Softphone source.
 
 ## Current status
 
-Version: `4.0.0-next.25` production release candidate
+Version: `4.0.0-next.26` production release candidate
 
 | Area | NEXT behavior |
 |---|---|
@@ -32,6 +32,7 @@ production-shaped dump rehearsals and user acceptance are complete.
 - [Sanitized dump rehearsal](docs/database/SANITIZED_DUMP_REHEARSAL.md)
 - [Cutover and rollback](docs/database/CUTOVER_AND_ROLLBACK.md)
 - [Routine compiled updates](docs/database/COMPILED_RELEASE_UPDATES.md)
+- [Verified test-copy restore](docs/database/TEST_COPY_RESTORE.md)
 - [3.3.1 startup mutation inventory](docs/database/STARTUP_MUTATION_INVENTORY.md)
 
 Every push and pull request runs the fresh-provision, checksum-drift,
@@ -53,8 +54,11 @@ database lifecycle commands separately; never make the web service account a
 database owner merely to make startup succeed.
 
 The packaged `scripts\Invoke-NextProduction.ps1` orchestrator is only for the
-one-time 3.3.1-to-NEXT conversion. After cutover, use Project Control 2.1 for
+one-time 3.3.1-to-NEXT conversion. After cutover, use Project Control 2.2 for
 routine compiled updates. It verifies the official release, backs up the live
 database, checks business-data fingerprints, preserves `.env`, applies audited
 migrations, starts the service, and automatically attempts paired recovery when
-an update fails during downtime.
+an update fails during downtime. On a testing server, option **25** restores a
+verified custom-format dump into a separately named test database, configures
+the restricted runtime role, and can activate the copy with automatic
+service-configuration recovery.

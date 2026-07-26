@@ -9,10 +9,12 @@ const staging = prepareStagingEnv();
 process.env.PATIENT_PAGINATION_TEST_DB_NAME = staging.dbName;
 process.env.DASHBOARD_ANALYTICS_TEST_DB_NAME = staging.dbName;
 process.env.CALL_CENTER_PAGINATION_TEST_DB_NAME = staging.dbName;
+process.env.REPORT_FILTER_TEST_DB_NAME = staging.dbName;
 
 const tasks = [
     ['public JavaScript encoding and syntax check', 'check-public-js.js'],
     ['portable new-server installer regression', 'test-new-server-installer.js'],
+    ['guided test-copy restore regression', 'test-project-control-test-copy-restore.js'],
     ['staging config check', 'check-staging-config.js'],
     ['patient import guard smoke', 'smoke-staging-import-guard.js'],
     ['security alerts smoke', 'smoke-staging-security-alerts.js'],
@@ -20,6 +22,8 @@ const tasks = [
     ['Call Center API restriction smoke', 'smoke-staging-call-center-security.js'],
     ['Call Center database-side pagination regression', 'test-call-center-server-pagination.js'],
     ['patient database-side pagination regression', 'test-patient-server-pagination.js'],
+    ['report filter parity regression', 'test-report-filter-parity.js'],
+    ['report view render regression', 'test-report-view-render.js'],
     ['persisted dashboard analytics regression', 'test-dashboard-persisted-analytics.js'],
     ['RX warehouse filter and Call Center cleanup regression', 'test-rx-warehouse-filter-cleanup.js'],
     ['managed RX Softphone relay regression', 'test-softphone-relay.js'],

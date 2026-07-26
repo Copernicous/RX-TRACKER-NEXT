@@ -442,6 +442,33 @@ async function runAdminDashboardAndReports(fixtures) {
 
     await page.goto(route('/reports'), { waitUntil: 'domcontentloaded' });
     await page.waitForLoadState('networkidle').catch(() => {});
+    await page.locator('#patientReport button:has-text("Advanced")').click();
+    await page.fill('#prfPatientCode', fixtures.nonCompanyPatient.patientCode);
+    await page.fill('#prfDob', '1980-01-01');
+    await page.selectOption('#prfPatientType', 'non_company');
+    await page.selectOption('#prfClinicId', String(fixtures.clinic.id));
+    await page.selectOption('#prfPatientTransportId', String(fixtures.patientTransport.id));
+    const patientReportResponse = page.waitForResponse(response =>
+        response.url().includes('/api/reports/patients?')
+        && response.url().includes('patientType=non_company')
+        && response.url().includes('clinicId=' + fixtures.clinic.id)
+        && response.url().includes('patientTransportId=' + fixtures.patientTransport.id)
+        && response.status() === 200,
+        { timeout: 15000 }
+    );
+    await page.locator('#patientReport button[title="Search"]').click();
+    await patientReportResponse;
+    await page.waitForFunction((code) => {
+        const body = document.querySelector('#patientReportBody');
+        return body && body.textContent.indexOf(code) !== -1;
+    }, fixtures.nonCompanyPatient.patientCode, { timeout: 15000 });
+    const patientReportText = await page.locator('#patientReportBody').innerText();
+    assert(patientReportText.includes('Non-Company'), 'Patient report did not show the selected patient type.');
+    assert(patientReportText.includes(fixtures.clinic.name), 'Patient report did not show the selected clinic.');
+    assert(patientReportText.includes(fixtures.patientTransport.companyName), 'Patient report did not show the selected patient transport.');
+    pass('Patient report advanced filters and assignment columns');
+    await expectDownload(page, '#exportPatientCsv', 'Filtered Patient report CSV export');
+
     await page.locator('a[href="#callCenterReport"]').click();
     await expectVisible(page, '#callCenterReport.active, #callCenterReport.show', 'Call Center Report tab visible');
     await page.fill('#ccrPatientCode', fixtures.metricPatient.patientCode);
@@ -510,6 +537,33 @@ async function runAdminDashboardAndReports(fixtures) {
         isDeleted: false,
         returnedToWarehouse: false
     });
+
+    await page.goto(route('/reports'), { waitUntil: 'domcontentloaded' });
+    await page.waitForLoadState('networkidle').catch(() => {});
+    await page.locator('a[href="#rxActionReport"]').click();
+    await page.locator('#rxActionReport button:has-text("Advanced")').click();
+    await page.fill('#rrfRxId', String(returnedRx.id));
+    await page.selectOption('#rrfClinicId', String(fixtures.clinic.id));
+    await page.selectOption('#rrfPatientType', 'company');
+    await page.selectOption('#rrfWarehouseStatus', 'returned');
+    const rxReportResponse = page.waitForResponse(response =>
+        response.url().includes('/api/reports/rx-actions?')
+        && response.url().includes('warehouseStatus=returned')
+        && response.url().includes('clinicId=' + fixtures.clinic.id)
+        && response.status() === 200,
+        { timeout: 15000 }
+    );
+    await page.locator('#rxActionReport button[title="Search"]').click();
+    await rxReportResponse;
+    await page.waitForFunction((rxId) => {
+        const body = document.querySelector('#rxActionBody');
+        return body && body.textContent.indexOf('RX-' + rxId) !== -1;
+    }, returnedRx.id, { timeout: 15000 });
+    const rxReportText = await page.locator('#rxActionBody').innerText();
+    assert(rxReportText.includes('Returned'), 'RX action report did not show the warehouse status.');
+    assert(rxReportText.includes(fixtures.clinic.name), 'RX action report did not show the selected clinic.');
+    pass('RX action report advanced filters and operational columns');
+    await expectDownload(page, '#exportRxCsv', 'Filtered RX action report CSV export');
 
     await page.goto(route('/rx-records'), { waitUntil: 'domcontentloaded' });
     await page.locator('button[onclick="toggleRxPanel()"]').click();

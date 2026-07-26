@@ -289,7 +289,8 @@ function Expand-ValidatedPackage([string]$ZipPath, [string]$Destination) {
         }
     } finally { $zip.Dispose() }
     foreach ($required in @('server.exe', 'rx-db.exe', 'package.json', 'PROJECT-CONTROL.bat',
-        'project-control.json', 'scripts/project-control.ps1', 'scripts/Invoke-ReleaseUpdate.ps1')) {
+        'project-control.json', 'scripts/project-control.ps1', 'scripts/Invoke-ReleaseUpdate.ps1',
+        'scripts/Invoke-TestCopyRestore.ps1')) {
         if ($files -notcontains $required) { Fail "Release ZIP is missing required file: $required" }
     }
     return @($files)

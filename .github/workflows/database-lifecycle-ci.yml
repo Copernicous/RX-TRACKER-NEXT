@@ -95,9 +95,13 @@ jobs:
           pwsh -NoProfile -File scripts/Invoke-NextProduction.ps1 -Action SelfTest
           pwsh -NoProfile -File scripts/Invoke-ReleaseUpdate.ps1 -Action Help
           pwsh -NoProfile -File scripts/Invoke-ReleaseUpdate.ps1 -Action SelfTest
+          pwsh -NoProfile -File scripts/Invoke-TestCopyRestore.ps1 -Action SelfTest
           npm run test:dependency-policy
           npm run test:security-automation
           npm run test:reference-data
+          npm run test:new-server-installer
+          npm run test:project-control-test-copy
+          npm run test:report-view-render
 
       - name: Provision and verify a fresh database
         run: |
@@ -139,6 +143,7 @@ jobs:
           CALL_ATTEMPT_TEST_DB_NAME=rx_next_ci_regression_test npm run test:call-center-call-attempts
           CALL_CENTER_PAGINATION_TEST_DB_NAME=rx_next_ci_regression_test npm run test:call-center-pagination
           PATIENT_PAGINATION_TEST_DB_NAME=rx_next_ci_regression_test npm run test:patient-pagination
+          REPORT_FILTER_TEST_DB_NAME=rx_next_ci_regression_test npm run test:report-filter-parity
           DASHBOARD_ANALYTICS_TEST_DB_NAME=rx_next_ci_regression_test npm run test:dashboard-analytics
           npm run test:patient-double-update
           QA_DB_NAME=rx_next_ci_regression_test npm run test:rx-override

@@ -1,4 +1,4 @@
-# Compiled production updates with Project Control 2.1
+# Compiled production updates with Project Control 2.2
 
 The side-by-side 3.3.1-to-NEXT cutover is a one-time conversion. Routine NEXT
 updates do not create another database copy and do not repeat the cutover
@@ -80,3 +80,18 @@ forward-recovery backup of the current application and database. Type
 
 Never place `.env` in an update ZIP and never run old and new server executables
 against the same database simultaneously.
+
+## Refresh a testing server from a production dump
+
+Project Control option **25** is separate from updates and emergency rollback.
+It accepts a PostgreSQL custom-format `.dump`, restores it only into a
+separately named database containing `test`, `copy`, `sandbox`, `rehearsal`, or
+`scratch`, applies and verifies migrations, configures the existing restricted
+runtime role, and optionally points the testing service to that copy.
+
+If the target test database already exists, Project Control first creates and
+validates a checksummed backup and then requires the exact
+`REPLACE:<database>` confirmation. The active database is never a valid target.
+If service activation fails, the prior `.env` and service configuration are
+restored automatically. See
+[`TEST_COPY_RESTORE.md`](TEST_COPY_RESTORE.md) for the operator procedure.

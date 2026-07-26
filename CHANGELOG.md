@@ -7,6 +7,35 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+## [4.0.0-next.26] - 2026-07-26
+
+### Added
+
+- Expanded Patient Reports with date of birth, company/non-company status, service eligibility, missing assignment, RX presence, exact clinic, default pharmacy, patient transport, pharmacy transport, and service-date filters.
+- Expanded RX Action Reports with patient type, exact clinic/pharmacy/transports, service and arrival date ranges, workflow status and stage, and returned-to-warehouse filters.
+- Added the related operational columns to report tables and filtered CSV/Excel exports: patient type, clinic, pharmacy, transports, arrival date, warehouse status, next workflow step, and workflow state.
+- Added Project Control 2.2 option **25** to validate a PostgreSQL custom-format dump, restore it into an isolated test-copy database, run audited migrations and verification, configure the restricted runtime role, fingerprint business data, and optionally activate the copy.
+- Added browser, database-filter, view-render, packaging, Project Control routing, and restore-safety regressions to local staging and PostgreSQL CI.
+
+### Changed
+
+- Kept Patient and RX report filtering, sorting, counting, and pagination in PostgreSQL; only the selected page relationships are loaded into Node.js.
+- Added the guided restore utility and its operator guide to official update ZIPs, portable fresh-server ZIPs, Project Control bootstrap packages, and release validation.
+- A test-copy activation now backs up `.env`, synchronizes NSSM, requires exact-version/database health, and automatically restores the prior service configuration if activation fails.
+
+### Security
+
+- Restore targets must be separately named with `test`, `copy`, `sandbox`, `rehearsal`, or `scratch`; the currently configured database and PostgreSQL system databases are rejected.
+- Replacing an existing test copy requires a validated checksummed backup plus the exact `REPLACE:<database>` phrase.
+- PostgreSQL maintenance credentials remain only in process memory and are not saved to `.env`, the restore receipt, or application logs.
+
+### Testing
+
+- Passed the complete staging smoke suite and isolated browser workflow, including filtered Patient/RX report rendering and CSV exports.
+- Passed report filter parity against PostgreSQL, public JavaScript validation, Project Control restore safety, portable-installer packaging, dependency policy, and exact migration verification.
+
+**Database impact:** No schema migration or business-data rewrite. Normal installation changes no database structure or data. Project Control option 25 creates or replaces only an explicitly named isolated test database after operator confirmation; the source dump and currently active database remain unchanged.
+
 ## [4.0.0-next.25] - 2026-07-25
 
 ### Added

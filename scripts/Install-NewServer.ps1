@@ -41,6 +41,7 @@ $RequiredPackageFiles = @(
     'project-control.json',
     'scripts\project-control.ps1',
     'scripts\Invoke-ReleaseUpdate.ps1',
+    'scripts\Invoke-TestCopyRestore.ps1',
     'scripts\Install-NewServer.ps1'
 )
 
