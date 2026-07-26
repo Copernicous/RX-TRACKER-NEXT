@@ -44,7 +44,8 @@ ejs.renderFile(reportView, {
         assert(html.includes(`id="${id}"`), `Rendered report is missing #${id}.`);
     });
     assert(html.includes('Default Pharmacy'), 'Patient report must expose the default-pharmacy dimension.');
-    assert(html.includes('Full Patient + RX Transfer Export'), 'Reports must expose the vertical Patient + RX transfer export.');
+    assert(html.includes('Complete History CSV'), 'Reports must expose the normalized complete Patient + RX history export.');
+    assert(html.includes('table below stays compact for reference'), 'Reports must explain that history expansion applies to the export, not the screen.');
     assert(html.includes('Returned to Warehouse'), 'RX report must expose warehouse-return filtering.');
     assert(html.includes('Current Stage'), 'RX report must expose the current workflow stage.');
     assert(html.includes('Stage Date'), 'RX report must expose workflow stage dates.');

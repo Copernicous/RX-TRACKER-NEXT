@@ -468,7 +468,7 @@ async function runAdminDashboardAndReports(fixtures) {
     assert(patientReportText.includes(fixtures.patientTransport.companyName), 'Patient report did not show the selected patient transport.');
     pass('Patient report advanced filters and assignment columns');
     await expectDownload(page, '#exportPatientCsv', 'Filtered Patient report CSV export');
-    await expectDownload(page, '#exportPatientRxDetailCsv', 'Vertical Patient + RX full-detail CSV export');
+    await expectDownload(page, '#exportPatientRxDetailCsv', 'Normalized Patient + RX complete-history CSV export');
 
     await page.locator('a[href="#callCenterReport"]').click();
     await expectVisible(page, '#callCenterReport.active, #callCenterReport.show', 'Call Center Report tab visible');

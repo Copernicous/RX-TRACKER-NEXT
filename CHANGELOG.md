@@ -7,6 +7,34 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+## [4.0.0-next.28] - 2026-07-26
+
+### Added
+
+- Added an import-oriented **Complete History CSV** to Patient Reports. It uses a stable schema version and consistent vertical rows linked by Patient Database ID, Patient ID, RX Database ID, detail record ID, definition ID, and parent ID.
+- Included separate record types for Patient/RX summaries, every completed or pending workflow step, medications, RX change history, patient notes, patient service-date history and cycles, patient/RX document metadata, and automatic Call Center attempts with SIP/timing results.
+- Added raw assignment IDs and the patient service-date cycle ID alongside readable names so a future system can rebuild relationships without parsing display text.
+- Added regression fixtures for each historical record type and assertions that completed and pending workflow stages remain separate linked rows.
+
+### Changed
+
+- Kept the visible Patient report compact. Historical expansion happens only when an authorized user explicitly requests **Complete History CSV**; the existing Excel action remains a readable Patient/RX summary.
+- Ordered Patient/RX parent records before their historical detail records and retained one patient-level history row per source record rather than repeating patient history once per RX.
+- Streams the complete CSV from the server in bounded patient batches instead of materializing the entire history as browser JSON. On the 5,000-patient/12,000-RX annual stress dataset, 186,611 rows (200.5 MB) streamed in about 12.8 seconds with roughly 197 MB process growth, compared with roughly 1.0 GB growth for the rejected all-at-once JSON prototype.
+- Added UTF-8 CSV identification, exact column-count validation, and spreadsheet-formula neutralization for exported cells.
+
+### Security
+
+- The complete export continues to require the Reports **Export** permission server-side. It excludes passwords, authentication/session data, SIP credentials, encryption keys, document file contents, and unrelated security logs.
+
+### Testing
+
+- Passed the complete staging smoke suite, including isolated Chromium generation of the streamed complete-history CSV through the real report button.
+- Passed PostgreSQL fixture coverage for all nine record types, every completed and pending workflow action, action identity/order/date, fixed CSV column shape, relationship IDs, attachment scope, call SIP/timing fields, and spreadsheet-formula neutralization.
+- Passed the 5,000-patient/12,000-RX/50,000-call annual stress export described above without loading the complete dataset into browser JSON.
+
+**Database impact:** No schema migration and no business-data rewrite. The feature is read-only and does not change normal report pagination, proxy routes, origins, ports, authentication, PBX behavior, or RX Softphone.
+
 ## [4.0.0-next.27] - 2026-07-26
 
 ### Added

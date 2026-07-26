@@ -241,17 +241,17 @@
                         <!-- ── Pagination bar TOP ── -->
                         <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 border rounded p-2 mt-3 mb-2">
                             <div>
-                                <div class="fw-bold small"><i class="fas fa-table me-1 text-primary"></i>Full Patient + RX Transfer Export</div>
+                                <div class="fw-bold small"><i class="fas fa-table me-1 text-primary"></i>Patient + RX Transfer Files</div>
                                 <div class="small text-muted">
-                                    Uses the Patient filters above. Each RX is a separate row; patient details repeat consistently. Patients without RX receive one row with blank RX fields.
+                                    The table below stays compact for reference. Complete History CSV uses the filters above and writes every patient/RX, workflow step, medication, change, note, service-date record, document reference, and call attempt as a linked vertical row.
                                 </div>
                             </div>
                             <div class="d-flex gap-2">
                                 <button class="btn btn-outline-success btn-sm" id="exportPatientRxDetailCsv">
-                                    <i class="fas fa-file-csv me-1"></i>Full CSV
+                                    <i class="fas fa-file-csv me-1"></i>Complete History CSV
                                 </button>
                                 <button class="btn btn-outline-primary btn-sm" id="exportPatientRxDetailXls">
-                                    <i class="fas fa-file-excel me-1"></i>Full Excel
+                                    <i class="fas fa-file-excel me-1"></i>Summary Excel
                                 </button>
                             </div>
                         </div>

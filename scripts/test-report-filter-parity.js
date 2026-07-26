@@ -16,12 +16,18 @@ if (!/(staging|stage|qa|test|sandbox|copy)/i.test(String(process.env.DB_NAME || 
 
 const db = require('../models');
 const reportController = require('../controllers/reportController');
+const patientRxCompleteCsv = require('../utils/patientRxCompleteCsv');
 
 const marker = `REPORT${Date.now()}`;
 const created = {
     patientIds: [],
     rxIds: [],
     trackingIds: [],
+    medicationIds: [],
+    rxHistoryIds: [],
+    patientNoteIds: [],
+    documentIds: [],
+    callAttemptIds: [],
     clinicIds: [],
     pharmacyIds: [],
     patientTransportIds: [],
@@ -84,7 +90,32 @@ async function patientRxDetailRows(filters) {
     return result.payload.rows;
 }
 
+async function patientRxCompleteRows(filters) {
+    const result = await runHandler(reportController.getPatientRxDetailReport, {
+        lastName: marker,
+        completeHistory: 'true',
+        ...filters
+    });
+    assert.strictEqual(result.status, 200, result.payload.error || 'Complete Patient + RX history report failed');
+    return result.payload.rows;
+}
+
 async function cleanup() {
+    if (created.callAttemptIds.length) {
+        await db.CallCenterCallAttempt.destroy({ where: { id: created.callAttemptIds } }).catch(() => {});
+    }
+    if (created.documentIds.length) {
+        await db.DocumentAttachment.destroy({ where: { id: created.documentIds }, force: true }).catch(() => {});
+    }
+    if (created.patientNoteIds.length) {
+        await db.PatientNote.destroy({ where: { id: created.patientNoteIds } }).catch(() => {});
+    }
+    if (created.rxHistoryIds.length) {
+        await db.RXHistory.destroy({ where: { id: created.rxHistoryIds } }).catch(() => {});
+    }
+    if (created.medicationIds.length) {
+        await db.Medication.destroy({ where: { id: created.medicationIds } }).catch(() => {});
+    }
     if (created.trackingIds.length) {
         await db.RXWorkflowTracking.destroy({ where: { id: created.trackingIds } }).catch(() => {});
     }
@@ -230,6 +261,90 @@ async function createFixtures() {
     const createdTrackings = await db.RXWorkflowTracking.bulkCreate(trackingRows, { returning: true });
     created.trackingIds.push(...createdTrackings.map(row => row.id));
 
+    const medication = await db.Medication.create({
+        rxRecordId: rxRows[0].id,
+        name: `${marker} Medication`,
+        quantity: 30,
+        notes: 'Complete transfer medication'
+    });
+    created.medicationIds.push(medication.id);
+    const rxHistory = await db.RXHistory.create({
+        rxRecordId: rxRows[0].id,
+        changeType: 'Update',
+        snapshot: JSON.stringify({ serviceDate: '2020-01-01' }),
+        changedFields: JSON.stringify([{ field: 'serviceDate', from: '2019-01-01', to: '2020-01-01' }]),
+        note: 'Complete transfer RX history'
+    });
+    created.rxHistoryIds.push(rxHistory.id);
+    const patientNote = await db.PatientNote.create({
+        patientId: patients[0].id,
+        note: 'Complete transfer patient note',
+        source: 'Report regression'
+    });
+    created.patientNoteIds.push(patientNote.id);
+    await db.PatientServiceDateHistory.create({
+        patientId: patients[0].id,
+        previousServiceDate: '2019-01-01',
+        newServiceDate: patients[0].serviceDate,
+        changeSource: 'Report regression',
+        reason: 'Complete transfer service-date history',
+        metadata: { marker }
+    });
+    await db.PatientServiceDateCycle.create({
+        patientId: patients[0].id,
+        serviceDate: patients[0].serviceDate,
+        status: 'historical',
+        source: 'Report regression',
+        startedAt: new Date('2020-01-01T12:00:00Z'),
+        endedAt: new Date('2020-03-31T12:00:00Z'),
+        metadata: { marker }
+    });
+    const patientDocument = await db.DocumentAttachment.create({
+        ownerType: 'patient',
+        patientId: patients[0].id,
+        originalName: `${marker}-patient.pdf`,
+        storedName: `${marker}-patient-stored.pdf`,
+        mimeType: 'application/pdf',
+        sizeBytes: 321,
+        provider: 'local',
+        localPath: `test/${marker}-patient-stored.pdf`
+    });
+    const rxDocument = await db.DocumentAttachment.create({
+        ownerType: 'rx',
+        patientId: patients[0].id,
+        rxRecordId: rxRows[0].id,
+        originalName: `${marker}-rx.pdf`,
+        storedName: `${marker}-rx-stored.pdf`,
+        mimeType: 'application/pdf',
+        sizeBytes: 654,
+        provider: 'local',
+        localPath: `test/${marker}-rx-stored.pdf`
+    });
+    created.documentIds.push(patientDocument.id, rxDocument.id);
+    const callAttempt = await db.CallCenterCallAttempt.create({
+        patientId: patients[0].id,
+        correlationId: `${marker}-call`,
+        phoneClient: 'rx_softphone',
+        direction: 'outbound',
+        state: 'ended',
+        outcome: 'answered',
+        patientCode: patients[0].patientCode,
+        patientName: `${patients[0].firstName} ${patients[0].lastName}`,
+        clinicName: clinicA.name,
+        agentName: 'Report Regression',
+        extension: '9001',
+        dialedNumber: patients[0].phone,
+        sipResponseCode: 200,
+        sipReason: 'OK',
+        dialedAt: new Date('2026-06-01T14:00:00Z'),
+        ringingAt: new Date('2026-06-01T14:00:02Z'),
+        answeredAt: new Date('2026-06-01T14:00:05Z'),
+        endedAt: new Date('2026-06-01T14:01:05Z'),
+        ringDurationSeconds: 5,
+        conversationDurationSeconds: 60
+    });
+    created.callAttemptIds.push(callAttempt.id);
+
     return { clinicA, clinicB, pharmacyA, pharmacyB, patientTransport, pharmacyTransport, actions };
 }
 
@@ -279,7 +394,68 @@ async function main() {
     assert(completeExport.workflowStageHistory.includes(refs.actions[0].name));
     assert.strictEqual(completeExport.currentStage, refs.actions[refs.actions.length - 1].name);
 
-    console.log('PASS: Patient/RX filters, stage dates, stage history, and vertical full-detail export match operational dimensions.');
+    const completeHistory = await patientRxCompleteRows({});
+    const recordTypes = new Set(completeHistory.map(row => row.recordType));
+    [
+        'PATIENT_RX',
+        'WORKFLOW_STEP',
+        'MEDICATION',
+        'RX_CHANGE_HISTORY',
+        'PATIENT_NOTE',
+        'SERVICE_DATE_HISTORY',
+        'SERVICE_DATE_CYCLE',
+        'DOCUMENT_ATTACHMENT',
+        'CALL_ATTEMPT'
+    ].forEach(type => assert(recordTypes.has(type), `Complete history export is missing ${type}.`));
+    assert.strictEqual(
+        completeHistory.filter(row => row.recordType === 'PATIENT_RX').length,
+        4,
+        'Complete history export must retain one summary row per RX plus the patient without RX.'
+    );
+    const completedWorkflowRows = completeHistory.filter(row =>
+        row.recordType === 'WORKFLOW_STEP'
+        && row.rxId === completeExport.rxId
+        && row.detailStatus === 'Completed'
+    );
+    assert.strictEqual(completedWorkflowRows.length, refs.actions.length, 'Every completed workflow step must be a separate row.');
+    assert(completedWorkflowRows.every(row =>
+        row.detailDefinitionId
+        && row.detailName
+        && row.detailSequence
+        && row.eventDate
+    ), 'Every completed workflow step must retain action identity, order, and completion date.');
+    const pendingWorkflowRows = completeHistory.filter(row =>
+        row.recordType === 'WORKFLOW_STEP'
+        && row.detailStatus === 'Pending'
+    );
+    assert(pendingWorkflowRows.length >= refs.actions.length, 'Uncompleted workflow steps must remain visible as pending rows.');
+    assert(completeHistory.every(row => row.exportSchemaVersion === 1), 'Every complete-history row must carry the export schema version.');
+    assert(completeHistory.every(row => row.patientDatabaseId), 'Every patient-related complete-history row must retain its patient database ID.');
+    assert(completeHistory.some(row =>
+        row.recordType === 'DOCUMENT_ATTACHMENT'
+        && row.recordScope === 'RX'
+        && row.attachmentOriginalName === `${marker}-rx.pdf`
+    ), 'RX document metadata must retain its RX scope and original filename.');
+    assert(completeHistory.some(row =>
+        row.recordType === 'CALL_ATTEMPT'
+        && row.callSipResponseCode === 200
+        && row.callConversationSeconds === 60
+    ), 'Call attempt timing and SIP result must remain in the complete history export.');
+    completeHistory.forEach(row => {
+        assert.strictEqual(
+            patientRxCompleteCsv.rowValues(row).length,
+            patientRxCompleteCsv.headers.length,
+            `CSV ${row.recordType} row must match the fixed header count.`
+        );
+    });
+    assert(patientRxCompleteCsv.headers.includes('Event Date'), 'Complete CSV must expose the workflow/event date column.');
+    assert(patientRxCompleteCsv.rowLine({
+        exportSchemaVersion: 1,
+        recordType: 'PATIENT_NOTE',
+        detailNotes: '=unsafe-spreadsheet-formula'
+    }).includes("'=unsafe-spreadsheet-formula"), 'CSV cells must neutralize spreadsheet formulas.');
+
+    console.log('PASS: Patient/RX filters, stage dates, compact reference rows, and normalized complete-history records match operational dimensions.');
 }
 
 main()

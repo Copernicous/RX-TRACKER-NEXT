@@ -115,6 +115,19 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
   without RX. The complete staging smoke and isolated browser workflow pass.
   It has no migration, data rewrite, proxy/origin/port change, or RX Softphone
   change. It is not official until promoted through develop/main and published.
+- Staging candidate `4.0.0-next.28` keeps the report screen compact but upgrades
+  the filtered Patient/RX CSV into a versioned, normalized history ledger for
+  future system transfer. Patient/RX parent rows precede separate linked rows
+  for every workflow step (completed and pending), medication, RX change,
+  patient note, service-date change/cycle, document reference, and Call Center
+  attempt. Numeric relationship IDs accompany readable labels. Attachment file
+  contents, credentials, secrets, sessions, and unrelated security logs remain
+  excluded. The complete staging smoke and isolated Chromium CSV download pass.
+  A 5,000-patient/12,000-RX/50,000-call annual stress export streamed 186,611
+  rows (200.5 MB) in about 12.8 seconds with roughly 197 MB process growth;
+  the rejected all-at-once JSON design required about 1.0 GB. It has no
+  migration, data rewrite, proxy/origin/port change, or RX Softphone change.
+  It is not official until promoted through develop/main and published.
 - Official `v4.0.0-next.26` assets were published on 2026-07-26 and
   independently verified against `SHA256SUMS.txt`:
   - `server-update-4.0.0-next.26.zip`:

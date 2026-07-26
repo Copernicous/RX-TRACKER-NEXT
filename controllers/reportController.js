@@ -6,6 +6,7 @@ const {
     getEligibilityCutoffIso,
     getCallCenterCutoffIso
 } = require('../utils/serviceWindowEligibility');
+const patientRxCompleteCsv = require('../utils/patientRxCompleteCsv');
 
 const CALL_CENTER_MODULE = 'Call Center';
 const CC_CALL_ACTION = 'Called';
@@ -828,10 +829,15 @@ function patientReportSortSql(sort) {
     return allowed[sort] || allowed.id;
 }
 
-async function getPatientRxDetailRows(query) {
+async function getPatientRxDetailRows(query, patientIdsOverride) {
     const totalSteps = await db.WorkflowAction.count({ where: { isActive: true } });
     const replacements = {};
     const where = patientReportFilters(query, replacements, totalSteps);
+    if (Array.isArray(patientIdsOverride)) {
+        if (!patientIdsOverride.length) return [];
+        replacements.exportPatientIds = patientIdsOverride;
+        where.push('p.id IN (:exportPatientIds)');
+    }
     const fromSql = patientReportFromSql();
     const rows = await db.sequelize.query(
         `
@@ -851,6 +857,10 @@ async function getPatientRxDetailRows(query) {
             p."serviceDate" AS "patientServiceDate",
             p."isActive" AS "patientIsActive",
             p."isNonCompanyPatient",
+            p."clinicId",
+            p."pharmacyId" AS "defaultPharmacyId",
+            p."patientTransportCompanyId" AS "defaultPatientTransportId",
+            p."pharmacyTransportCompanyId" AS "defaultPharmacyTransportId",
             p.notes AS "patientNotes",
             p."createdAt" AS "patientCreatedAt",
             p."updatedAt" AS "patientUpdatedAt",
@@ -869,8 +879,12 @@ async function getPatientRxDetailRows(query) {
                  ELSE ROW_NUMBER() OVER (PARTITION BY p.id ORDER BY r.id)::integer
             END AS "patientRxRow",
             r.id AS "rxId",
+            r."patientServiceDateCycleId",
             r."arrivalDate" AS "rxArrivalDate",
             r."serviceDate" AS "rxServiceDate",
+            r."pharmacyId" AS "rxPharmacyId",
+            r."patientTransportCompanyId" AS "rxPatientTransportId",
+            r."pharmacyTransportCompanyId" AS "rxPharmacyTransportId",
             rx_ph.name AS "rxPharmacyName",
             rx_ph.address AS "rxPharmacyAddress",
             rx_ph.phone AS "rxPharmacyPhone",
@@ -1020,6 +1034,502 @@ async function getPatientRxDetailRows(query) {
         { type: QueryTypes.SELECT, replacements }
     );
     return rows;
+}
+
+const PATIENT_RX_EXPORT_USER_ATTRIBUTES = ['id', 'username', 'firstName', 'lastName'];
+const PATIENT_RX_ONLY_FIELDS = [
+    'patientRxRow',
+    'rxId',
+    'patientServiceDateCycleId',
+    'rxArrivalDate',
+    'rxServiceDate',
+    'rxPharmacyId',
+    'rxPatientTransportId',
+    'rxPharmacyTransportId',
+    'rxPharmacyName',
+    'rxPharmacyAddress',
+    'rxPharmacyPhone',
+    'rxPatientTransport',
+    'rxPatientTransportPhone',
+    'rxPharmacyTransport',
+    'rxPharmacyTransportPhone',
+    'returnedToWarehouse',
+    'warehouseReturnDate',
+    'warehouseReturnNote',
+    'rxCreatedAt',
+    'rxUpdatedAt',
+    'medications',
+    'completedSteps',
+    'totalWorkflowSteps',
+    'currentStage',
+    'currentStageDate',
+    'currentStageCompletedBy',
+    'nextPendingStage',
+    'workflowStageHistory'
+];
+
+function patientOnlyExportBase(row) {
+    const result = { ...row };
+    PATIENT_RX_ONLY_FIELDS.forEach(field => { result[field] = null; });
+    return result;
+}
+
+function plainExportRow(row) {
+    return row && typeof row.toJSON === 'function' ? row.toJSON() : row;
+}
+
+function exportJson(value) {
+    if (value === undefined || value === null || value === '') return '';
+    if (typeof value === 'string') return value;
+    try { return JSON.stringify(value); } catch (error) { return String(value); }
+}
+
+function groupExportRows(rows, field) {
+    const groups = new Map();
+    (rows || []).forEach(item => {
+        const row = plainExportRow(item);
+        const key = row && row[field];
+        if (key === undefined || key === null) return;
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key).push(row);
+    });
+    return groups;
+}
+
+function completeExportRow(base, recordType, recordScope, details) {
+    return {
+        ...base,
+        exportSchemaVersion: 1,
+        recordType,
+        recordScope,
+        detailRecordId: '',
+        detailDefinitionId: '',
+        detailParentId: '',
+        detailSequence: '',
+        detailStatus: '',
+        detailName: '',
+        eventDate: '',
+        eventEndDate: '',
+        actor: '',
+        previousValue: '',
+        newValue: '',
+        quantity: '',
+        source: '',
+        detailNotes: '',
+        metadataJson: '',
+        detailCreatedAt: '',
+        detailUpdatedAt: '',
+        attachmentOwnerType: '',
+        attachmentOriginalName: '',
+        attachmentStoredName: '',
+        attachmentMimeType: '',
+        attachmentSizeBytes: '',
+        attachmentProvider: '',
+        attachmentExternalFileId: '',
+        attachmentLink: '',
+        attachmentLocalPath: '',
+        attachmentDeletedAt: '',
+        callCorrelationId: '',
+        callDirection: '',
+        callPhoneClient: '',
+        callExtension: '',
+        callDialedNumber: '',
+        callSipResponseCode: '',
+        callSipReason: '',
+        callRingingAt: '',
+        callAnsweredAt: '',
+        callRingSeconds: '',
+        callConversationSeconds: '',
+        ...(details || {})
+    };
+}
+
+async function getPatientRxCompleteExportRows(query, patientIdsOverride) {
+    const summaryRows = await getPatientRxDetailRows(query, patientIdsOverride);
+    if (!summaryRows.length) return [];
+
+    const patientIds = [...new Set(summaryRows.map(row => row.patientDatabaseId).filter(Boolean))];
+    const rxIds = [...new Set(summaryRows.map(row => row.rxId).filter(value => value !== null && value !== undefined))];
+    const userInclude = attributes => ({
+        model: db.User,
+        as: attributes,
+        attributes: PATIENT_RX_EXPORT_USER_ATTRIBUTES,
+        required: false
+    });
+
+    const [
+        medications,
+        workflowTrackings,
+        workflowActions,
+        rxHistories,
+        patientNotes,
+        serviceDateHistories,
+        serviceDateCycles,
+        documents,
+        callAttempts
+    ] = await Promise.all([
+        rxIds.length
+            ? db.Medication.findAll({ where: { rxRecordId: { [Op.in]: rxIds } }, order: [['rxRecordId', 'ASC'], ['id', 'ASC']] })
+            : [],
+        rxIds.length
+            ? db.RXWorkflowTracking.findAll({
+                where: { rxRecordId: { [Op.in]: rxIds } },
+                include: [
+                    { model: db.WorkflowAction, required: false },
+                    { model: db.User, attributes: PATIENT_RX_EXPORT_USER_ATTRIBUTES, required: false }
+                ],
+                order: [['rxRecordId', 'ASC'], ['completionDate', 'ASC'], ['id', 'ASC']]
+            })
+            : [],
+        rxIds.length
+            ? db.WorkflowAction.findAll({ order: [['sequenceNumber', 'ASC'], ['id', 'ASC']] })
+            : [],
+        rxIds.length
+            ? db.RXHistory.findAll({
+                where: { rxRecordId: { [Op.in]: rxIds } },
+                include: [userInclude('ChangedBy')],
+                order: [['rxRecordId', 'ASC'], ['createdAt', 'ASC'], ['id', 'ASC']]
+            })
+            : [],
+        db.PatientNote.findAll({
+            where: { patientId: { [Op.in]: patientIds } },
+            include: [userInclude('Author')],
+            order: [['patientId', 'ASC'], ['createdAt', 'ASC'], ['id', 'ASC']]
+        }),
+        db.PatientServiceDateHistory.findAll({
+            where: { patientId: { [Op.in]: patientIds } },
+            include: [userInclude('ChangedBy')],
+            order: [['patientId', 'ASC'], ['createdAt', 'ASC'], ['id', 'ASC']]
+        }),
+        db.PatientServiceDateCycle.findAll({
+            where: { patientId: { [Op.in]: patientIds } },
+            include: [userInclude('CreatedBy')],
+            order: [['patientId', 'ASC'], ['serviceDate', 'ASC'], ['id', 'ASC']]
+        }),
+        db.DocumentAttachment.findAll({
+            where: {
+                [Op.or]: [
+                    { patientId: { [Op.in]: patientIds } },
+                    ...(rxIds.length ? [{ rxRecordId: { [Op.in]: rxIds } }] : [])
+                ]
+            },
+            include: [userInclude('UploadedBy')],
+            order: [['patientId', 'ASC'], ['rxRecordId', 'ASC'], ['createdAt', 'ASC'], ['id', 'ASC']]
+        }),
+        db.CallCenterCallAttempt.findAll({
+            where: { patientId: { [Op.in]: patientIds } },
+            include: [userInclude('Agent')],
+            order: [['patientId', 'ASC'], ['dialedAt', 'ASC'], ['id', 'ASC']]
+        })
+    ]);
+
+    const medicationByRx = groupExportRows(medications, 'rxRecordId');
+    const trackingByRx = groupExportRows(workflowTrackings, 'rxRecordId');
+    const historyByRx = groupExportRows(rxHistories, 'rxRecordId');
+    const notesByPatient = groupExportRows(patientNotes, 'patientId');
+    const serviceHistoryByPatient = groupExportRows(serviceDateHistories, 'patientId');
+    const cyclesByPatient = groupExportRows(serviceDateCycles, 'patientId');
+    const callsByPatient = groupExportRows(callAttempts, 'patientId');
+    const documentsByPatient = new Map();
+    const documentsByRx = new Map();
+    documents.map(plainExportRow).forEach(document => {
+        const target = document.rxRecordId ? documentsByRx : documentsByPatient;
+        const key = document.rxRecordId || document.patientId;
+        if (key === undefined || key === null) return;
+        if (!target.has(key)) target.set(key, []);
+        target.get(key).push(document);
+    });
+
+    const actionRows = workflowActions.map(plainExportRow);
+    const patientGroups = new Map();
+    summaryRows.forEach(row => {
+        if (!patientGroups.has(row.patientDatabaseId)) {
+            patientGroups.set(row.patientDatabaseId, { base: patientOnlyExportBase(row), rxRows: [] });
+        }
+        if (row.rxId === null || row.rxId === undefined) {
+            patientGroups.get(row.patientDatabaseId).noRxRow = row;
+        } else {
+            patientGroups.get(row.patientDatabaseId).rxRows.push(row);
+        }
+    });
+
+    const result = [];
+    const addDocument = (base, document, scope) => {
+        result.push(completeExportRow(base, 'DOCUMENT_ATTACHMENT', scope, {
+            detailRecordId: document.id,
+            detailParentId: document.rxRecordId || document.patientId || '',
+            detailStatus: document.isDeleted ? 'Deleted' : 'Active',
+            detailName: document.originalName || '',
+            eventDate: document.createdAt || '',
+            actor: getUserLabel(document.UploadedBy),
+            source: document.provider || '',
+            detailNotes: document.mimeType || '',
+            detailCreatedAt: document.createdAt || '',
+            detailUpdatedAt: document.updatedAt || '',
+            attachmentOwnerType: document.ownerType || '',
+            attachmentOriginalName: document.originalName || '',
+            attachmentStoredName: document.storedName || '',
+            attachmentMimeType: document.mimeType || '',
+            attachmentSizeBytes: document.sizeBytes || 0,
+            attachmentProvider: document.provider || '',
+            attachmentExternalFileId: document.driveFileId || '',
+            attachmentLink: document.driveWebViewLink || '',
+            attachmentLocalPath: document.localPath || '',
+            attachmentDeletedAt: document.deletedAt || ''
+        }));
+    };
+
+    patientGroups.forEach(group => {
+        const patientBase = group.base;
+        const patientId = patientBase.patientDatabaseId;
+
+        if (!group.rxRows.length) {
+            result.push(completeExportRow(group.noRxRow || patientBase, 'PATIENT_RX', 'PATIENT', {
+                detailParentId: patientId,
+                detailStatus: 'No RX'
+            }));
+        } else {
+            group.rxRows.forEach(rxBase => {
+                result.push(completeExportRow(rxBase, 'PATIENT_RX', 'RX', {
+                    detailRecordId: rxBase.rxId,
+                    detailParentId: patientId,
+                    detailStatus: 'Current',
+                    detailName: `RX-${rxBase.rxId}`,
+                    eventDate: rxBase.rxCreatedAt || ''
+                }));
+            });
+        }
+
+        (notesByPatient.get(patientId) || []).forEach(note => {
+            result.push(completeExportRow(patientBase, 'PATIENT_NOTE', 'PATIENT', {
+                detailRecordId: note.id,
+                detailParentId: patientId,
+                detailStatus: 'Recorded',
+                detailName: 'Patient Note',
+                eventDate: note.createdAt || '',
+                actor: getUserLabel(note.Author),
+                source: note.source || 'Patient',
+                detailNotes: note.note || '',
+                detailCreatedAt: note.createdAt || '',
+                detailUpdatedAt: note.updatedAt || ''
+            }));
+        });
+        (serviceHistoryByPatient.get(patientId) || []).forEach(history => {
+            result.push(completeExportRow(patientBase, 'SERVICE_DATE_HISTORY', 'PATIENT', {
+                detailRecordId: history.id,
+                detailParentId: patientId,
+                detailStatus: 'Changed',
+                detailName: 'Patient Service Date',
+                eventDate: history.createdAt || '',
+                actor: getUserLabel(history.ChangedBy),
+                previousValue: history.previousServiceDate || '',
+                newValue: history.newServiceDate || '',
+                source: history.changeSource || '',
+                detailNotes: history.reason || '',
+                metadataJson: exportJson(history.metadata),
+                detailCreatedAt: history.createdAt || '',
+                detailUpdatedAt: history.updatedAt || ''
+            }));
+        });
+        (cyclesByPatient.get(patientId) || []).forEach(cycle => {
+            result.push(completeExportRow(patientBase, 'SERVICE_DATE_CYCLE', 'PATIENT', {
+                detailRecordId: cycle.id,
+                detailParentId: patientId,
+                detailStatus: cycle.status || '',
+                detailName: 'Patient Service Date Cycle',
+                eventDate: cycle.startedAt || cycle.createdAt || '',
+                eventEndDate: cycle.endedAt || '',
+                actor: getUserLabel(cycle.CreatedBy),
+                newValue: cycle.serviceDate || '',
+                source: cycle.source || '',
+                metadataJson: exportJson(cycle.metadata),
+                detailCreatedAt: cycle.createdAt || '',
+                detailUpdatedAt: cycle.updatedAt || ''
+            }));
+        });
+        (callsByPatient.get(patientId) || []).forEach(call => {
+            result.push(completeExportRow(patientBase, 'CALL_ATTEMPT', 'PATIENT', {
+                detailRecordId: call.id,
+                detailParentId: patientId,
+                detailStatus: call.outcome || call.state || '',
+                detailName: 'Call Attempt',
+                eventDate: call.dialedAt || '',
+                eventEndDate: call.endedAt || '',
+                actor: call.Agent ? getUserLabel(call.Agent) : (call.agentName || 'System'),
+                source: `${call.phoneClient || ''}${call.direction ? ` / ${call.direction}` : ''}`,
+                detailNotes: call.sipReason || '',
+                metadataJson: exportJson({
+                    state: call.state,
+                    patientCodeSnapshot: call.patientCode,
+                    patientNameSnapshot: call.patientName,
+                    clinicNameSnapshot: call.clinicName,
+                    agentNameSnapshot: call.agentName,
+                    calledAuditLogId: call.calledAuditLogId
+                }),
+                detailCreatedAt: call.createdAt || '',
+                detailUpdatedAt: call.updatedAt || '',
+                callCorrelationId: call.correlationId || '',
+                callDirection: call.direction || '',
+                callPhoneClient: call.phoneClient || '',
+                callExtension: call.extension || '',
+                callDialedNumber: call.dialedNumber || '',
+                callSipResponseCode: call.sipResponseCode || '',
+                callSipReason: call.sipReason || '',
+                callRingingAt: call.ringingAt || '',
+                callAnsweredAt: call.answeredAt || '',
+                callRingSeconds: call.ringDurationSeconds === null ? '' : call.ringDurationSeconds,
+                callConversationSeconds: call.conversationDurationSeconds === null ? '' : call.conversationDurationSeconds
+            }));
+        });
+        (documentsByPatient.get(patientId) || []).forEach(document => addDocument(patientBase, document, 'PATIENT'));
+
+        group.rxRows.forEach(rxBase => {
+            const rxId = rxBase.rxId;
+            (medicationByRx.get(rxId) || []).forEach(medication => {
+                result.push(completeExportRow(rxBase, 'MEDICATION', 'RX', {
+                    detailRecordId: medication.id,
+                    detailParentId: rxId,
+                    detailStatus: 'Recorded',
+                    detailName: medication.name || '',
+                    eventDate: medication.createdAt || '',
+                    quantity: medication.quantity === null ? '' : medication.quantity,
+                    source: 'RX Medication',
+                    detailNotes: medication.notes || '',
+                    detailCreatedAt: medication.createdAt || '',
+                    detailUpdatedAt: medication.updatedAt || ''
+                }));
+            });
+
+            const trackedRows = trackingByRx.get(rxId) || [];
+            const trackingByAction = groupExportRows(trackedRows, 'workflowActionId');
+            const emittedTrackingIds = new Set();
+            actionRows.filter(action => action.isActive).forEach(action => {
+                const matches = trackingByAction.get(action.id) || [];
+                if (!matches.length) {
+                    result.push(completeExportRow(rxBase, 'WORKFLOW_STEP', 'RX', {
+                        detailDefinitionId: action.id,
+                        detailParentId: rxId,
+                        detailSequence: action.sequenceNumber,
+                        detailStatus: 'Pending',
+                        detailName: action.name || '',
+                        source: 'RX Workflow',
+                        detailNotes: action.description || '',
+                        metadataJson: exportJson({ workflowActionActive: true })
+                    }));
+                    return;
+                }
+                matches.forEach(tracking => {
+                    emittedTrackingIds.add(tracking.id);
+                    result.push(completeExportRow(rxBase, 'WORKFLOW_STEP', 'RX', {
+                        detailRecordId: tracking.id,
+                        detailDefinitionId: action.id,
+                        detailParentId: rxId,
+                        detailSequence: action.sequenceNumber,
+                        detailStatus: 'Completed',
+                        detailName: action.name || '',
+                        eventDate: tracking.completionDate || '',
+                        actor: getUserLabel(tracking.User),
+                        source: 'RX Workflow',
+                        detailNotes: action.description || '',
+                        metadataJson: exportJson({ workflowActionActive: true }),
+                        detailCreatedAt: tracking.createdAt || '',
+                        detailUpdatedAt: tracking.updatedAt || ''
+                    }));
+                });
+            });
+            trackedRows.filter(tracking => !emittedTrackingIds.has(tracking.id)).forEach(tracking => {
+                const action = tracking.WorkflowAction || {};
+                result.push(completeExportRow(rxBase, 'WORKFLOW_STEP', 'RX', {
+                    detailRecordId: tracking.id,
+                    detailDefinitionId: tracking.workflowActionId || '',
+                    detailParentId: rxId,
+                    detailSequence: action.sequenceNumber || '',
+                    detailStatus: 'Completed Historical',
+                    detailName: action.name || `Stage ${tracking.workflowActionId || ''}`,
+                    eventDate: tracking.completionDate || '',
+                    actor: getUserLabel(tracking.User),
+                    source: 'RX Workflow',
+                    detailNotes: action.description || '',
+                    metadataJson: exportJson({ workflowActionActive: Boolean(action.isActive) }),
+                    detailCreatedAt: tracking.createdAt || '',
+                    detailUpdatedAt: tracking.updatedAt || ''
+                }));
+            });
+
+            (historyByRx.get(rxId) || []).forEach(history => {
+                result.push(completeExportRow(rxBase, 'RX_CHANGE_HISTORY', 'RX', {
+                    detailRecordId: history.id,
+                    detailParentId: rxId,
+                    detailStatus: history.changeType || 'Update',
+                    detailName: 'RX Change',
+                    eventDate: history.createdAt || '',
+                    actor: getUserLabel(history.ChangedBy),
+                    previousValue: history.snapshot || '',
+                    newValue: history.changedFields || '',
+                    source: 'RX History',
+                    detailNotes: history.note || '',
+                    detailCreatedAt: history.createdAt || ''
+                }));
+            });
+            (documentsByRx.get(rxId) || []).forEach(document => addDocument(rxBase, document, 'RX'));
+        });
+    });
+
+    return result;
+}
+
+async function getPatientRxExportPatientIds(query) {
+    const totalSteps = await db.WorkflowAction.count({ where: { isActive: true } });
+    const replacements = {};
+    const where = patientReportFilters(query, replacements, totalSteps);
+    const rows = await db.sequelize.query(
+        `SELECT p.id
+         ${patientReportFromSql()}
+         WHERE ${where.join(' AND ')}
+         ORDER BY
+             LOWER(COALESCE(p."patientCode", '')),
+             LOWER(COALESCE(p."lastName", '')),
+             LOWER(COALESCE(p."firstName", '')),
+             p.id`,
+        { type: QueryTypes.SELECT, replacements }
+    );
+    return rows.map(row => row.id);
+}
+
+function writeExportChunk(res, chunk) {
+    if (res.write(chunk)) return Promise.resolve();
+    return new Promise(resolve => {
+        const finish = () => {
+            res.removeListener('drain', finish);
+            res.removeListener('close', finish);
+            resolve();
+        };
+        res.once('drain', finish);
+        res.once('close', finish);
+    });
+}
+
+async function streamPatientRxCompleteCsv(req, res) {
+    const patientIds = await getPatientRxExportPatientIds(req.query || {});
+    const filename = `patient_rx_complete_history_${new Date().toISOString().slice(0, 10)}.csv`;
+    res.status(200);
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Cache-Control', 'private, no-store, max-age=0');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    await writeExportChunk(res, `\uFEFF${patientRxCompleteCsv.headerLine()}\r\n`);
+
+    const batchSize = 250;
+    for (let offset = 0; offset < patientIds.length; offset += batchSize) {
+        if (res.destroyed || res.writableEnded) return;
+        const batchIds = patientIds.slice(offset, offset + batchSize);
+        const rows = await getPatientRxCompleteExportRows(req.query || {}, batchIds);
+        for (const row of rows) {
+            if (res.destroyed || res.writableEnded) return;
+            await writeExportChunk(res, `${patientRxCompleteCsv.rowLine(row)}\r\n`);
+        }
+    }
+    res.end();
 }
 
 async function getPaginatedPatientReport(query) {
@@ -1281,9 +1791,20 @@ exports.getPatientReport = async (req, res) => {
 
 exports.getPatientRxDetailReport = async (req, res) => {
     try {
-        res.json({ rows: await getPatientRxDetailRows(req.query || {}) });
+        const query = req.query || {};
+        if (query.completeHistory === 'true' && query.format === 'csv') {
+            return await streamPatientRxCompleteCsv(req, res);
+        }
+        const rows = query.completeHistory === 'true'
+            ? await getPatientRxCompleteExportRows(query)
+            : await getPatientRxDetailRows(query);
+        res.json({ rows });
     } catch (err) {
         console.error('[Reports] Patient + RX detail export error:', err);
+        if (res.headersSent) {
+            if (!res.writableEnded) res.end();
+            return;
+        }
         res.status(500).json({ error: err.message });
     }
 };

@@ -206,6 +206,20 @@
         return data && Array.isArray(data.rows) ? data.rows : [];
     }
 
+    function patientRxCompleteExportUrl() {
+        const params = buildPatientReportParams({ exportAll: true });
+        params.delete('paginated');
+        params.delete('exportAll');
+        params.delete('page');
+        params.delete('pageSize');
+        params.delete('sort');
+        params.delete('dir');
+        params.set('completeHistory', 'true');
+        params.set('format', 'csv');
+        const path = '/api/reports/patient-rx-detail?' + params.toString();
+        return typeof window.rxUrl === 'function' ? window.rxUrl(path) : path;
+    }
+
     function setDefaultCallCenterDates() {
         const fromEl = document.getElementById('ccrDateFrom');
         const toEl = document.getElementById('ccrDateTo');
@@ -1081,10 +1095,14 @@
         return [
             'Patient Database ID','Patient ID','First Name','Last Name','DOB','Phone','Address','Patient Service Date',
             'Patient Status','Patient Type','Patient Profile Notes','Patient Created At','Patient Updated At',
-            'Clinic','Clinic Address','Clinic Phone','Default Pharmacy','Default Pharmacy Address','Default Pharmacy Phone',
-            'Default Patient Transport','Default Patient Transport Phone','Default Pharmacy Transport','Default Pharmacy Transport Phone',
-            'Patient RX Row','Patient RX Count','RX #','RX Arrival Date','RX Service Date','RX Pharmacy','RX Pharmacy Address',
-            'RX Pharmacy Phone','RX Patient Transport','RX Patient Transport Phone','RX Pharmacy Transport','RX Pharmacy Transport Phone',
+            'Clinic Database ID','Clinic','Clinic Address','Clinic Phone',
+            'Default Pharmacy Database ID','Default Pharmacy','Default Pharmacy Address','Default Pharmacy Phone',
+            'Default Patient Transport Database ID','Default Patient Transport','Default Patient Transport Phone',
+            'Default Pharmacy Transport Database ID','Default Pharmacy Transport','Default Pharmacy Transport Phone',
+            'Patient RX Row','Patient RX Count','RX Database ID','RX #','Patient Service Date Cycle ID','RX Arrival Date','RX Service Date',
+            'RX Pharmacy Database ID','RX Pharmacy','RX Pharmacy Address','RX Pharmacy Phone',
+            'RX Patient Transport Database ID','RX Patient Transport','RX Patient Transport Phone',
+            'RX Pharmacy Transport Database ID','RX Pharmacy Transport','RX Pharmacy Transport Phone',
             'Returned to Warehouse','Warehouse Return Date','Warehouse Return Note','RX Created At','RX Updated At','Medications',
             'Completed Workflow Steps','Total Workflow Steps','Current Stage','Current Stage Date','Current Stage Completed By',
             'Next Pending Stage','Workflow Status','Workflow Stage History','Patient Note History','Patient Service Date History'
@@ -1105,14 +1123,16 @@
                 row.patientIsActive ? 'Active' : 'Inactive',
                 row.isNonCompanyPatient ? 'Non-Company' : 'Company',
                 row.patientNotes || '', exportDateTime(row.patientCreatedAt), exportDateTime(row.patientUpdatedAt),
-                row.clinicName || '', row.clinicAddress || '', row.clinicPhone || '',
-                row.defaultPharmacyName || '', row.defaultPharmacyAddress || '', row.defaultPharmacyPhone || '',
-                row.defaultPatientTransport || '', row.defaultPatientTransportPhone || '',
-                row.defaultPharmacyTransport || '', row.defaultPharmacyTransportPhone || '',
-                hasRx ? row.patientRxRow || '' : '', row.patientRxCount || 0, hasRx ? 'RX-' + row.rxId : '',
-                row.rxArrivalDate || '', row.rxServiceDate || '', row.rxPharmacyName || '', row.rxPharmacyAddress || '',
-                row.rxPharmacyPhone || '', row.rxPatientTransport || '', row.rxPatientTransportPhone || '',
-                row.rxPharmacyTransport || '', row.rxPharmacyTransportPhone || '',
+                row.clinicId || '', row.clinicName || '', row.clinicAddress || '', row.clinicPhone || '',
+                row.defaultPharmacyId || '', row.defaultPharmacyName || '', row.defaultPharmacyAddress || '', row.defaultPharmacyPhone || '',
+                row.defaultPatientTransportId || '', row.defaultPatientTransport || '', row.defaultPatientTransportPhone || '',
+                row.defaultPharmacyTransportId || '', row.defaultPharmacyTransport || '', row.defaultPharmacyTransportPhone || '',
+                hasRx ? row.patientRxRow || '' : '', row.patientRxCount || 0, hasRx ? row.rxId : '',
+                hasRx ? 'RX-' + row.rxId : '', hasRx ? row.patientServiceDateCycleId || '' : '',
+                row.rxArrivalDate || '', row.rxServiceDate || '', row.rxPharmacyId || '', row.rxPharmacyName || '',
+                row.rxPharmacyAddress || '', row.rxPharmacyPhone || '',
+                row.rxPatientTransportId || '', row.rxPatientTransport || '', row.rxPatientTransportPhone || '',
+                row.rxPharmacyTransportId || '', row.rxPharmacyTransport || '', row.rxPharmacyTransportPhone || '',
                 hasRx ? (row.returnedToWarehouse ? 'Yes' : 'No') : '',
                 exportDateTime(row.warehouseReturnDate), row.warehouseReturnNote || '',
                 exportDateTime(row.rxCreatedAt), exportDateTime(row.rxUpdatedAt), row.medications || '',
@@ -1193,15 +1213,15 @@
         });
 
         const patientRxCsv = document.getElementById('exportPatientRxDetailCsv');
-        if (patientRxCsv) patientRxCsv.addEventListener('click', async () => {
-            const data = await fetchPatientRxDetailRows();
-            if (!data.length) { showToast('No Patient + RX data to export', 'warning'); return; }
-            downloadCsv(
-                'patient_rx_full_export_' + new Date().toISOString().slice(0,10) + '.csv',
-                patientRxDetailHeaders(),
-                patientRxDetailExportRows(data)
-            );
-            showToast('Full Patient + RX transfer export created.', 'success');
+        if (patientRxCsv) patientRxCsv.addEventListener('click', () => {
+            const link = document.createElement('a');
+            link.href = patientRxCompleteExportUrl();
+            link.download = 'patient_rx_complete_history_' + new Date().toISOString().slice(0,10) + '.csv';
+            link.style.display = 'none';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            showToast('Complete Patient + RX history CSV download started.', 'success');
         });
 
         document.getElementById('exportRxCsv').addEventListener('click', async () => {
@@ -1242,8 +1262,16 @@
     }
 
     function downloadCsv(filename, headers, rows) {
-        const csv = [headers, ...rows].map(r => r.map(v => '"' + String(v||'').replace(/"/g,'""') + '"').join(',')).join('\n');
-        const blob = new Blob([csv], { type: 'text/csv' });
+        const invalidRow = (rows || []).findIndex(row => !Array.isArray(row) || row.length !== headers.length);
+        if (invalidRow >= 0) {
+            throw new Error(`CSV row ${invalidRow + 1} has an invalid column count.`);
+        }
+        const csv = [headers, ...rows].map(r => r.map(v => {
+            let cell = String(v === undefined || v === null ? '' : v);
+            if (/^[=+\-@]/.test(cell)) cell = "'" + cell;
+            return '"' + cell.replace(/"/g,'""') + '"';
+        }).join(',')).join('\n');
+        const blob = new Blob(['\uFEFF', csv], { type: 'text/csv;charset=utf-8' });
         const url  = URL.createObjectURL(blob);
         const a    = Object.assign(document.createElement('a'), { href: url, download: filename });
         document.body.appendChild(a); a.click(); document.body.removeChild(a);
