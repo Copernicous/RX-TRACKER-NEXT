@@ -9,8 +9,9 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 ## Current state
 
 - Repository: `Copernicous/RX-TRACKER-NEXT`
-- Branch: staging candidate based on `main`; official `v4.0.0-next.22` is published
-  and verified.
+- Branch: `4.0.0-next.25` production release candidate validated through
+  `develop`; official status requires the immutable tag plus independently
+  verified GitHub release assets.
 - Current production release must be confirmed from Project Control or
   `server.exe --v`; do not infer it from this repository.
 - Production application folder: `C:\RX-Tracker\RX-APP-NEXT`
