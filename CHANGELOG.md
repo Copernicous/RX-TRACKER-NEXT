@@ -7,6 +7,36 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+## [4.0.0-next.33] - 2026-07-26
+
+### Added
+
+- Added bounded CRM context to the Administrator-only **Live RX Phones**
+  presence board for calls initiated through RX Tracker: patient name,
+  patient ID, clinic, and dialed number.
+- Labels active calls as **RX Tracker call** and retained terminal snapshots
+  as **Last RX Tracker call**. Manually dialed softphone calls remain
+  phone-only because they have no RX Tracker patient association.
+- Extended Live RX Phones search to match patient name, patient ID, clinic,
+  and dialed number.
+
+### Security and privacy
+
+- Patient context is resolved server-side from the existing call-attempt
+  correlation ID and is returned only by the existing Administrator-protected
+  device inventory endpoint.
+- No date of birth, address, notes, SIP password, or other patient data is
+  added to the presence response.
+
+### Testing
+
+- Extended the managed-relay regression to verify correlated patient context
+  and the browser integration regression to verify CRM rendering and search.
+
+**Database impact:** No migration and no data rewrite. The feature reads the
+existing call-attempt snapshot fields. It does not change call placement,
+relay polling, PBX behavior, proxy routes, ports, or RX Softphone.
+
 ## [4.0.0-next.32] - 2026-07-26
 
 ### Fixed

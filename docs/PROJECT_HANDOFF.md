@@ -54,6 +54,12 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
   Center queue, and call-attempt report queries described below. The version
   installed on the production server must still be confirmed through Project
   Control or `server.exe --v`; publication alone does not install it.
+- Staging candidate `4.0.0-next.33` adds bounded CRM context to the
+  Administrator-only **Live RX Phones** board for RX Tracker-originated calls:
+  patient name, patient ID, clinic, and dialed number. The context comes from
+  the existing call-attempt snapshot matched by relay correlation ID; manual
+  calls remain phone-only. No database migration, data rewrite, proxy change,
+  PBX change, or RX Softphone update is required.
 - Staging candidate `4.0.0-next.18` adds an Administrator-only, view-only
   **Live RX Phones** presence board for configured or paired RX Softphone
   workstations. It shows registration, relay heartbeat, idle/dialing/ringing/
