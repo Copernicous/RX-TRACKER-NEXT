@@ -9,8 +9,8 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 ## Current state
 
 - Repository: `Copernicous/RX-TRACKER-NEXT`
-- Branch: official `v4.0.0-next.31` release on `main` at commit
-  `c25f1a2954504d9a3a1cbf6c375bea3b8db0e32a`.
+- Branch: official `v4.0.0-next.32` release on `main` at commit
+  `a0b07f7e7f7a6e110acf81ed38085e765ad146d1`.
 - Current production release must be confirmed from Project Control or
   `server.exe --v`; do not infer it from this repository.
 - Production application folder: `C:\RX-Tracker\RX-APP-NEXT`
@@ -18,10 +18,10 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 - Production HTTP port: `3000`
 - NEXT database name at the completed cutover: `patient_rx_next_cutover_copy`
 - Project Control version: `2.2.0`
-- Latest official release: `v4.0.0-next.31`, which makes **Current Stage**
-  the primary RX Records workflow filter, keeps **Next Action Required**
-  under Advanced filters, and exports both meanings explicitly. The staging
-  candidate `next.32` applies the same clarity to **Reports → RX Actions**:
+- Latest official release: `v4.0.0-next.32`. Version `next.31` made
+  **Current Stage** the primary RX Records workflow filter, kept **Next Action
+  Required** under Advanced filters, and exported both meanings explicitly.
+  Version `next.32` applies the same clarity to **Reports → RX Actions**:
   Current Stage is primary, Next Action Required is operational follow-up,
   and History Includes Action is explicitly historical. It also uses active
   workflow definitions for report progress/current-stage calculations while
