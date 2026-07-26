@@ -60,6 +60,7 @@ function enrichRxReportRows(rows) {
                 actionId: tracking.workflowActionId,
                 stage: tracking.WorkflowAction ? tracking.WorkflowAction.name : `Stage ${tracking.workflowActionId}`,
                 sequenceNumber: tracking.WorkflowAction ? tracking.WorkflowAction.sequenceNumber : null,
+                isActive: Boolean(tracking.WorkflowAction && tracking.WorkflowAction.isActive),
                 completionDate: tracking.completionDate || null,
                 completedBy: getUserLabel(tracking.User)
             }))
@@ -71,9 +72,10 @@ function enrichRxReportRows(rows) {
                 const dateB = b.completionDate ? new Date(b.completionDate).getTime() : 0;
                 return dateA - dateB || Number(a.trackingId || 0) - Number(b.trackingId || 0);
             });
-        plain.completedSteps = [...new Set(stageHistory.map(stage => stage.actionId).filter(Boolean))];
+        const activeStageHistory = stageHistory.filter(stage => stage.isActive);
+        plain.completedSteps = [...new Set(activeStageHistory.map(stage => stage.actionId).filter(Boolean))];
         plain.stageHistory = stageHistory;
-        plain.currentStage = stageHistory.length ? stageHistory[stageHistory.length - 1] : null;
+        plain.currentStage = activeStageHistory.length ? activeStageHistory[activeStageHistory.length - 1] : null;
         return plain;
     });
 }
@@ -1587,6 +1589,7 @@ function rxReportFilters(query, replacements, totalSteps) {
     const patientCode = cleanString(query.patientCode).toLowerCase();
     const pharmacy = cleanString(query.pharmacy).toLowerCase();
     const workflowStatus = cleanString(query.workflowStatus || query.progress);
+    const currentWorkflowStage = cleanString(query.currentWorkflowStage);
     const workflowStage = cleanString(query.workflowStage);
     const completedStageId = exactPositiveId(query.completedStageId);
     const stageFrom = isDateOnly(query.stageFrom) ? query.stageFrom : '';
@@ -1688,9 +1691,38 @@ function rxReportFilters(query, replacements, totalSteps) {
     } else if (workflowStatus) {
         where.push('FALSE');
     }
+    if (/^\d+$/.test(currentWorkflowStage)) {
+        replacements.currentWorkflowStage = parseInt(currentWorkflowStage, 10);
+        where.push('wc.current_stage_sequence = :currentWorkflowStage');
+    } else if (currentWorkflowStage) {
+        where.push('FALSE');
+    }
     if (/^\d+$/.test(workflowStage)) {
-        replacements.workflowStageDone = Math.max(0, parseInt(workflowStage, 10) - 1);
-        where.push(`${completedExpr} = :workflowStageDone`);
+        replacements.nextWorkflowSequence = parseInt(workflowStage, 10);
+        where.push(`EXISTS (
+            SELECT 1
+            FROM "WorkflowActions" selected_action
+            WHERE selected_action."isActive" = TRUE
+              AND selected_action."sequenceNumber" = :nextWorkflowSequence
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM "RXWorkflowTrackings" selected_tracking
+                  WHERE selected_tracking."rxRecordId" = r.id
+                    AND selected_tracking."workflowActionId" = selected_action.id
+              )
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM "WorkflowActions" earlier_action
+                  WHERE earlier_action."isActive" = TRUE
+                    AND earlier_action."sequenceNumber" < selected_action."sequenceNumber"
+                    AND NOT EXISTS (
+                        SELECT 1
+                        FROM "RXWorkflowTrackings" earlier_tracking
+                        WHERE earlier_tracking."rxRecordId" = r.id
+                          AND earlier_tracking."workflowActionId" = earlier_action.id
+                    )
+              )
+        )`);
     } else if (workflowStage) {
         where.push('FALSE');
     }
@@ -1730,11 +1762,16 @@ function rxReportFromSql() {
         LEFT JOIN (
             SELECT
                 wt."rxRecordId",
-                COUNT(*)::integer AS completed_steps,
+                COUNT(DISTINCT wt."workflowActionId") FILTER (
+                    WHERE wa."isActive" = TRUE
+                )::integer AS completed_steps,
                 (ARRAY_AGG(
                     wt."completionDate"
                     ORDER BY wa."sequenceNumber" DESC NULLS LAST, wt."completionDate" DESC, wt.id DESC
-                ))[1] AS current_stage_at
+                ) FILTER (WHERE wa."isActive" = TRUE))[1] AS current_stage_at,
+                MAX(wa."sequenceNumber") FILTER (
+                    WHERE wa."isActive" = TRUE
+                )::integer AS current_stage_sequence
             FROM "RXWorkflowTrackings" wt
             LEFT JOIN "WorkflowActions" wa ON wa.id = wt."workflowActionId"
             GROUP BY wt."rxRecordId"

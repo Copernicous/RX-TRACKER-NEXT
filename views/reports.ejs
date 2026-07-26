@@ -319,7 +319,7 @@
 
                         <!-- Basic RX filters -->
                         <div class="row g-2 mb-2 align-items-end">
-                            <div class="col-md-2">
+                            <div class="col-md-1">
                                 <label class="form-label small fw-bold mb-1">RX #</label>
                                 <input type="text" class="form-control form-control-sm" id="rrfRxId" placeholder="RX number..." autocomplete="off">
                             </div>
@@ -341,14 +341,20 @@
                                 <label class="form-label small fw-bold mb-1">Workflow Status</label>
                                 <select class="form-select form-select-sm" id="rrfProgress">
                                     <option value="">All Workflow Statuses</option>
-                                    <option value="pending">Pending</option>
+                                    <option value="pending">Open — Not Completed</option>
                                     <option value="not-started">Not Started</option>
                                     <option value="in-progress">In Progress</option>
                                     <option value="expired">Expired</option>
                                     <option value="completed">Completed</option>
                                 </select>
                             </div>
-                            <div class="col-md-2 d-flex gap-2 align-items-end">
+                            <div class="col-md-2">
+                                <label class="form-label small fw-bold mb-1">Current Stage</label>
+                                <select class="form-select form-select-sm" id="rrfCurrentWorkflowStage">
+                                    <option value="">All Current Stages</option>
+                                </select>
+                            </div>
+                            <div class="col-md-1 d-flex gap-2 align-items-end">
                                 <button class="btn btn-primary btn-sm btn-search" onclick="rrPage=1;renderRxActionReport()" title="Search"><i class="fas fa-search"></i></button>
                                 <button class="btn btn-outline-secondary btn-sm" onclick="clearRxFilters()" title="Clear"><i class="fas fa-times"></i></button>
                             </div>
@@ -384,12 +390,12 @@
                                     </select>
                                 </div>
                                 <div class="col-md-2">
-                                    <label class="form-label small fw-bold mb-1">Next Pending Stage</label>
-                                    <select class="form-select form-select-sm" id="rrfWorkflowStage"><option value="">All Pending Stages</option></select>
+                                    <label class="form-label small fw-bold mb-1">Next Action Required</label>
+                                    <select class="form-select form-select-sm" id="rrfWorkflowStage"><option value="">All Next Actions</option></select>
                                 </div>
                                 <div class="col-md-2">
-                                    <label class="form-label small fw-bold mb-1">Completed Stage</label>
-                                    <select class="form-select form-select-sm" id="rrfCompletedStage"><option value="">Any Completed Stage</option></select>
+                                    <label class="form-label small fw-bold mb-1">History Includes Action</label>
+                                    <select class="form-select form-select-sm" id="rrfCompletedStage"><option value="">Any Action in History</option></select>
                                 </div>
                             </div>
                             <div class="row g-2 align-items-end mt-1">
@@ -437,7 +443,7 @@
                                 </div>
                                 <div class="col-md-6">
                                     <div class="small text-muted pb-1">
-                                        <i class="fas fa-info-circle me-1"></i>Stage Activity dates filter when a workflow stage was completed, independently from Service and Arrival dates.
+                                        <i class="fas fa-info-circle me-1"></i>Stage Activity dates filter recorded completion events. Combine them with History Includes Action; they are independent from Current Stage, Service, and Arrival dates.
                                     </div>
                                 </div>
                             </div>
@@ -476,9 +482,9 @@
                                         <th style="cursor:pointer" onclick="sortRxReport('PharmacyTransportCompany.companyName')">Pharmacy Transport <i class="fas fa-sort text-muted" style="opacity:.3" id="rrIcon_PharmacyTransportCompany.companyName"></i></th>
                                         <th style="cursor:pointer" onclick="sortRxReport('returnedToWarehouse')">Warehouse <i class="fas fa-sort text-muted" style="opacity:.3" id="rrIcon_returnedToWarehouse"></i></th>
                                         <th>Current Stage</th>
-                                        <th style="cursor:pointer" onclick="sortRxReport('stageDate')">Stage Date <i class="fas fa-sort text-muted" style="opacity:.3" id="rrIcon_stageDate"></i></th>
+                                        <th style="cursor:pointer" onclick="sortRxReport('stageDate')">Current Stage Date <i class="fas fa-sort text-muted" style="opacity:.3" id="rrIcon_stageDate"></i></th>
                                         <th>Stage History</th>
-                                        <th>Next Pending</th>
+                                        <th>Next Action Required</th>
                                         <th style="cursor:pointer" onclick="sortRxReport('workflowStatus')">Workflow <i class="fas fa-sort text-muted" style="opacity:.3" id="rrIcon_workflowStatus"></i></th>
                                     </tr>
                                 </thead>

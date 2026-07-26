@@ -15,6 +15,7 @@ const requiredIds = [
     'prfPharmacyTransportId',
     'exportPatientRxDetailCsv',
     'exportPatientRxDetailXls',
+    'rrfCurrentWorkflowStage',
     'rrfWorkflowStage',
     'rrfCompletedStage',
     'rrfStageFrom',
@@ -48,7 +49,11 @@ ejs.renderFile(reportView, {
     assert(html.includes('table below stays compact for reference'), 'Reports must explain that history expansion applies to the export, not the screen.');
     assert(html.includes('Returned to Warehouse'), 'RX report must expose warehouse-return filtering.');
     assert(html.includes('Current Stage'), 'RX report must expose the current workflow stage.');
-    assert(html.includes('Stage Date'), 'RX report must expose workflow stage dates.');
+    assert(html.includes('Current Stage Date'), 'RX report must expose the current workflow stage date.');
+    assert(html.includes('Next Action Required'), 'RX report must name the next operational action explicitly.');
+    assert(html.includes('History Includes Action'), 'RX report must distinguish historical completion from current stage.');
+    assert(!html.includes('Next Pending Stage'), 'RX report must not retain the misleading Next Pending Stage label.');
+    assert(!html.includes('Completed Stage'), 'RX report must not present historical completion as the current stage.');
     assert(
         html.includes('separate Status, Date, and Completed By columns for every configured workflow step'),
         'Reports must explain that configured workflow headers remain present without completion data.'

@@ -7,6 +7,28 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+## [4.0.0-next.32] - 2026-07-26
+
+### Fixed
+
+- Corrected the **Reports → RX Actions** workflow filters so **Current Stage** means the last active workflow action completed for an RX and no longer conflicts with historical-completion totals.
+- Replaced the count-offset implementation behind **Next Action Required** with an ordered active-workflow check that finds the first genuinely uncompleted action.
+- Made report progress and current-stage calculations ignore retired workflow definitions while preserving retired steps in the visible audit history.
+
+### Changed
+
+- Added **Current Stage** to the primary RX Actions filter row.
+- Renamed **Next Pending Stage** to **Next Action Required** and **Completed Stage** to **History Includes Action**, making current state, future work, and historical activity three separate concepts.
+- Renamed the table and export fields to **Current Stage Date** and **Next Action Required**; the full Patient + RX export uses the same terminology.
+- Clarified the broad workflow status as **Open — Not Completed** while retaining its existing API value and behavior.
+
+### Testing
+
+- Added database regression coverage for not-started, first-stage, final-stage, next-action, and historical-action filters.
+- Extended browser coverage to verify the primary Current Stage selector, advanced historical/next-action controls, query parameters, process history, and filtered export.
+
+**Database impact:** No migration and no data rewrite. This is a read-only reporting/query correction. RX Records, workflow completion, proxy routes, ports, authentication, PBX behavior, and RX Softphone are unchanged.
+
 ## [4.0.0-next.31] - 2026-07-26
 
 ### Changed
