@@ -587,8 +587,26 @@ async function runAdminDashboardAndReports(fixtures) {
     await page.goto(route('/reports'), { waitUntil: 'domcontentloaded' });
     await page.waitForLoadState('networkidle').catch(() => {});
     await page.locator('a[href="#rxActionReport"]').click();
+    await expectVisible(page, '#rrfCurrentWorkflowStage', 'RX report Current Stage filter');
+    const reportCurrentStageLabel = await page.locator(
+        '#rxActionReport label.form-label:has-text("Current Stage")'
+    ).first().innerText();
+    assert.strictEqual(reportCurrentStageLabel.trim().toLowerCase(), 'current stage');
+    const reportCurrentStageOptions = await page.locator('#rrfCurrentWorkflowStage option').allTextContents();
+    assert(
+        reportCurrentStageOptions.includes(firstWorkflowAction.name),
+        'RX report Current Stage choices must use the business action name.'
+    );
     await page.locator('#rxActionReport button:has-text("Advanced")').click();
+    await expectVisible(page, '#rrfWorkflowStage', 'RX report Next Action Required filter');
+    await expectVisible(page, '#rrfCompletedStage', 'RX report History Includes Action filter');
+    const reportNextActionOptions = await page.locator('#rrfWorkflowStage option').allTextContents();
+    assert(
+        reportNextActionOptions.includes('Needs: ' + secondWorkflowAction.name),
+        'RX report Next Action Required choices must state the required business action.'
+    );
     await page.fill('#rrfRxId', String(returnedRx.id));
+    await page.selectOption('#rrfCurrentWorkflowStage', String(firstWorkflowAction.sequenceNumber));
     await page.selectOption('#rrfClinicId', String(fixtures.clinic.id));
     await page.selectOption('#rrfPatientType', 'company');
     await page.selectOption('#rrfWarehouseStatus', 'returned');
@@ -599,6 +617,7 @@ async function runAdminDashboardAndReports(fixtures) {
         response.url().includes('/api/reports/rx-actions?')
         && response.url().includes('warehouseStatus=returned')
         && response.url().includes('clinicId=' + fixtures.clinic.id)
+        && response.url().includes('currentWorkflowStage=' + firstWorkflowAction.sequenceNumber)
         && response.url().includes('completedStageId=' + firstWorkflowAction.id)
         && response.url().includes('stageFrom=')
         && response.status() === 200,
@@ -615,7 +634,7 @@ async function runAdminDashboardAndReports(fixtures) {
     assert(rxReportText.includes(fixtures.clinic.name), 'RX action report did not show the selected clinic.');
     assert(rxReportText.includes(firstWorkflowAction.name), 'RX action report did not show the completed process stage.');
     assert(rxReportText.includes(fixtures.adminUser.firstName), 'RX action report did not show who completed the stage.');
-    pass('RX action report stage/date filters and process history');
+    pass('RX action report distinguishes current stage, next action, and process history');
     await expectDownload(page, '#exportRxCsv', 'Filtered RX action report CSV export');
 
     await page.goto(route('/rx-records'), { waitUntil: 'domcontentloaded' });
