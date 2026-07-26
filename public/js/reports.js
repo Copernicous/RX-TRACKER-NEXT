@@ -63,14 +63,17 @@
         return Array.isArray(data) ? data : [];
     }
 
-    function populateLookupSelect(id, rows, labelField, placeholder, valueField) {
+    function populateLookupSelect(id, rows, labelField, placeholder, valueField, labelFormatter) {
         const select = document.getElementById(id);
         if (!select) return;
         const current = select.value || '';
         valueField = valueField || 'id';
         let html = '<option value="">' + escHtml(placeholder) + '</option>';
         (rows || []).forEach(function(row) {
-            html += '<option value="' + escHtml(row[valueField]) + '">' + escHtml(row[labelField] || ('#' + row.id)) + '</option>';
+            const label = typeof labelFormatter === 'function'
+                ? labelFormatter(row)
+                : (row[labelField] || ('#' + row.id));
+            html += '<option value="' + escHtml(row[valueField]) + '">' + escHtml(label) + '</option>';
         });
         select.innerHTML = html;
         select.value = current;
@@ -98,8 +101,16 @@
             populateLookupSelect(id, reportLookups.patientTransport, 'companyName', 'All Patient Transports'));
         ['prfPharmacyTransportId', 'rrfPharmacyTransportId'].forEach(id =>
             populateLookupSelect(id, reportLookups.pharmacyTransport, 'companyName', 'All Pharmacy Transports'));
-        populateLookupSelect('rrfWorkflowStage', allWorkflowActions, 'name', 'All Pending Stages', 'sequenceNumber');
-        populateLookupSelect('rrfCompletedStage', allWorkflowActions, 'name', 'Any Completed Stage', 'id');
+        populateLookupSelect('rrfCurrentWorkflowStage', allWorkflowActions, 'name', 'All Current Stages', 'sequenceNumber');
+        populateLookupSelect(
+            'rrfWorkflowStage',
+            allWorkflowActions,
+            'name',
+            'All Next Actions',
+            'sequenceNumber',
+            action => 'Needs: ' + (action.name || ('Workflow action ' + action.sequenceNumber))
+        );
+        populateLookupSelect('rrfCompletedStage', allWorkflowActions, 'name', 'Any Action in History', 'id');
     }
 
     function setReportParam(params, name, value) {
@@ -170,6 +181,7 @@
         setReportParam(params, 'clinicId', document.getElementById('rrfClinicId')?.value || '');
         setReportParam(params, 'patientType', document.getElementById('rrfPatientType')?.value || '');
         setReportParam(params, 'workflowStatus', document.getElementById('rrfProgress')?.value || '');
+        setReportParam(params, 'currentWorkflowStage', document.getElementById('rrfCurrentWorkflowStage')?.value || '');
         setReportParam(params, 'workflowStage', document.getElementById('rrfWorkflowStage')?.value || '');
         setReportParam(params, 'completedStageId', document.getElementById('rrfCompletedStage')?.value || '');
         setReportParam(params, 'stageFrom', document.getElementById('rrfStageFrom')?.value || '');
@@ -653,7 +665,7 @@
 
     function clearRxFilters() {
         ['rrfRxId','rrfFirstName','rrfLastName','rrfPatientCode','rxDateFrom','rxDateTo','rrfArrivalFrom','rrfArrivalTo',
-         'rrfPharmacyId','rrfClinicId','rrfPatientType','rrfWorkflowStage','rrfCompletedStage','rrfStageFrom','rrfStageTo',
+         'rrfPharmacyId','rrfClinicId','rrfPatientType','rrfCurrentWorkflowStage','rrfWorkflowStage','rrfCompletedStage','rrfStageFrom','rrfStageTo',
          'rrfPatientTransportId','rrfPharmacyTransportId','rrfWarehouseStatus']
             .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
         document.getElementById('rrfProgress').value = '';
@@ -1135,7 +1147,7 @@
             'RX Pharmacy Transport Database ID','RX Pharmacy Transport','RX Pharmacy Transport Phone',
             'Returned to Warehouse','Warehouse Return Date','Warehouse Return Note','RX Created At','RX Updated At','Medications',
             'Completed Workflow Steps','Total Workflow Steps','Current Stage','Current Stage Date','Current Stage Completed By',
-            'Next Pending Stage','Workflow Status',
+            'Next Action Required','Workflow Status',
             ...workflowStepHeaders(),
             'Patient Note History','Patient Service Date History'
         ];
@@ -1197,7 +1209,7 @@
             'Patient Transport','Pharmacy Transport','Warehouse Status','Warehouse Return Date','Warehouse Return Note',
             'Completed Steps','Current Stage','Current Stage Date','Current Stage Completed By',
             ...workflowStepHeaders(),
-            'Next Pending Step','Workflow Status','Progress %'
+            'Next Action Required','Workflow Status','Progress %'
         ];
     }
 

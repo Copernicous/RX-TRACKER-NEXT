@@ -367,7 +367,12 @@ async function main() {
     assert.strictEqual((await rxRows({ workflowStatus: 'completed' })).length, 1);
     assert.strictEqual((await rxRows({ workflowStatus: 'expired' })).length, 1);
     assert.strictEqual((await rxRows({ workflowStatus: 'not-started' })).length, 1);
+    assert.strictEqual((await rxRows({ workflowStage: '1' })).length, 1);
     assert.strictEqual((await rxRows({ workflowStage: '2' })).length, 1);
+    assert.strictEqual((await rxRows({ currentWorkflowStage: String(refs.actions[0].sequenceNumber) })).length, 1);
+    assert.strictEqual((await rxRows({
+        currentWorkflowStage: String(refs.actions[refs.actions.length - 1].sequenceNumber)
+    })).length, 1);
     assert.strictEqual((await rxRows({ completedStageId: refs.actions[0].id })).length, 2);
     assert.strictEqual((await rxRows({ stageFrom: '2026-05-01', stageTo: '2026-05-31' })).length, 1);
     assert.strictEqual((await rxRows({
