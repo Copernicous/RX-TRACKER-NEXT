@@ -8,7 +8,7 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
 
-- Staging candidate `4.0.0-next.34` adds an English-default,
+- Official release `v4.0.0-next.34` adds an English-default,
   Spanish-selectable program UI plus configurable login/sidebar branding.
   Translation is browser-side and UI-only, Backoffice is explicitly excluded,
   and stored patient/business data is untouched. A second localization pass
@@ -18,12 +18,13 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
   and safe same-site image paths; its visual picker includes transport presets
   and bundled people-riding/boarding-minivan SVG icons. Spanish add-only and
   edit-only role checks use stable modal-mode markers, so authorization UI does
-  not depend on translated words. This candidate is not an official release
-  until it completes the normal staging, develop, main, CI, tag, package, and
-  production-validation process.
+  not depend on translated words. Staging, develop, main, lifecycle CI, the
+  Windows softphone build, CodeQL, tag packaging, checksum publication, and an
+  independent downloaded-package verification all passed. Production
+  installation and operator validation remain pending.
 - Repository: `Copernicous/RX-TRACKER-NEXT`
-- Branch: official `v4.0.0-next.33` release on `main` at commit
-  `f74eb0b898ec8ecaa4b2ac609681b27571cbe708`.
+- Branch: official `v4.0.0-next.34` release on `main` at commit
+  `b739d416476ade3418cae8964fca6ec82f83bd00`.
 - Current production release must be confirmed from Project Control or
   `server.exe --v`; do not infer it from this repository.
 - Production application folder: `C:\RX-Tracker\RX-APP-NEXT`
@@ -31,7 +32,7 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 - Production HTTP port: `3000`
 - NEXT database name at the completed cutover: `patient_rx_next_cutover_copy`
 - Project Control version: `2.2.0`
-- Latest official release: `v4.0.0-next.33`. Version `next.31` made
+- Latest official release: `v4.0.0-next.34`. Version `next.31` made
   **Current Stage** the primary RX Records workflow filter, kept **Next Action
   Required** under Advanced filters, and exported both meanings explicitly.
   Version `next.32` applies the same clarity to **Reports → RX Actions**:
@@ -67,6 +68,22 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
   Center queue, and call-attempt report queries described below. The version
   installed on the production server must still be confirmed through Project
   Control or `server.exe --v`; publication alone does not install it.
+- Official `v4.0.0-next.34` assets were published on 2026-07-27 and
+  independently verified against both GitHub asset digests and
+  `SHA256SUMS.txt`. The downloaded server archive contains no `.env`, dump,
+  log, upload, or unsafe traversal entry; `server.exe --v` reports
+  `4.0.0-next.34` and `rx-db.exe help` succeeds. Official hashes:
+  - `server-update-4.0.0-next.34.zip`:
+    `536cd49b35665e6f6cf81f1895e596783f19cbe0d09babacf0d1cf6568822b9e`
+  - packaged `server.exe`:
+    `72a3345a34f8cd4c093932ea9ec90532bbac4adc4dec327561b278cbcb4c122f`
+  - packaged `rx-db.exe`:
+    `0b1e1630139d82267891faf033402d6b1ca6608fa5788c1181b849adb402d820`
+  - `RxSoftphone-0.6.0-win-x64.zip`:
+    `a75715d401a77e3e423e789358786d507aa76cbd986214df97fb2097bc93dca1`
+  The release requires no database migration, data rewrite, proxy/PBX change,
+  or RX Softphone workstation update. Install it only through Project Control
+  options 8 then 15; do not repeat the one-time NEXT cutover workflow.
 - Official release `4.0.0-next.33` adds bounded CRM context to the
   Administrator-only **Live RX Phones** board for RX Tracker-originated calls:
   patient name, patient ID, clinic, and dialed number. The context comes from
