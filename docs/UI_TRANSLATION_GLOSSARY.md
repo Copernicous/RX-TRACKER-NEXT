@@ -1,6 +1,6 @@
 # RX Tracker Next English-Spanish UI Translation Glossary
 
-Generated from `public/js/i18n.js`. Entries: **759**.
+Generated from `public/js/i18n.js`. Entries: **764**.
 
 English is the default UI language. Spanish affects interface text only. Patient names, notes, clinics, pharmacies, medications, addresses, documents, and other user-entered or stored business data are never translated.
 
@@ -210,6 +210,7 @@ To correct or add a translation:
 | Could not connect to the server. Please try again. | No se pudo conectar con el servidor. Inténtelo nuevamente. |
 | Could not generate a pairing code. | No se pudo generar un código de vinculación. |
 | Could not load active sessions | No se pudieron cargar las sesiones activas |
+| Could not load pipeline data. | No se pudieron cargar los datos del flujo de trabajo. |
 | Create | Crear |
 | Creating a secure one-time code... | Creando un código seguro de un solo uso... |
 | CSV | CSV |
@@ -218,6 +219,7 @@ To correct or add a translation:
 | Current password | Contraseña actual |
 | Current server time in selected zone: | Hora actual del servidor en la zona seleccionada: |
 | Current Stage | Etapa actual |
+| Current Stage Breakdown — RX records by latest completed step | Desglose por etapa actual — registros RX según el último paso completado |
 | Current Stage Date | Fecha de la etapa actual |
 | Current UTC time: | Hora UTC actual: |
 | Current Value | Valor actual |
@@ -259,6 +261,7 @@ To correct or add a translation:
 | Download | Descargar |
 | Download CSV Template | Descargar plantilla CSV |
 | Drag and drop or click to browse files | Arrastre y suelte o haga clic para buscar archivos |
+| Each horizontal bar shows how many RX records currently have that workflow action as their Current Stage (the highest active workflow step completed). Completed RX records remain in the final-stage bar, while Not Started records stay in the summary card because they do not yet have a Current Stage. | Cada barra horizontal muestra cuántos registros RX tienen actualmente esa acción del flujo como su etapa actual (la etapa activa más avanzada que se completó). Los registros RX completados permanecen en la barra de la etapa final, mientras que los no iniciados permanecen en la tarjeta de resumen porque todavía no tienen una etapa actual. |
 | Edit | Editar |
 | Efficiency | Eficiencia |
 | Efficiency History | Historial de eficiencia |
@@ -444,6 +447,7 @@ To correct or add a translation:
 | No RX Records Found | No se encontraron registros RX |
 | No RX records found. | No se encontraron registros RX. |
 | No Service Date | Sin fecha de servicio |
+| No workflow steps configured yet. | Aún no hay etapas del flujo de trabajo configuradas. |
 | No workflow steps defined. | No se definieron etapas del flujo de trabajo. |
 | No-Answer Rate | Tasa sin respuesta |
 | Non-Company Patient | Paciente fuera de la compañía |
@@ -589,6 +593,7 @@ To correct or add a translation:
 | RX History — Previous Service Dates | Historial RX: fechas de servicio anteriores |
 | RX number | Número RX |
 | RX number... | Número RX... |
+| RX Pipeline chart — reading the bars | Gráfico del flujo RX: cómo leer las barras |
 | RX Record | Registro RX |
 | RX Record Details | Detalles del registro RX |
 | RX Record History | Historial del registro RX |
@@ -794,3 +799,5 @@ Values inside braces are preserved from the application or business record; only
 | {count} records selected | {count} registros seleccionados |
 | {count} filter(s) | {count} filtro(s) |
 | Showing {range} of {total} records | Mostrando {range} de {total} registros |
+| {percent}% complete | {percent}% completado |
+| Updated {time} | Actualizado {time} |

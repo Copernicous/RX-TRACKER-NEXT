@@ -7,6 +7,7 @@ const {
     localSnapshotDate,
     materializeSnapshotHistory
 } = require('../services/snapshotService');
+const { activeRxWorkflowAggregateSql } = require('../utils/rxWorkflowAggregateSql');
 
 // ── Helper: build a date-range WHERE clause from ?from= / ?to= params ─────────
 function buildDateRange(req) {
@@ -934,25 +935,34 @@ exports.getRxPipeline = async (req, res) => {
         const steps = await db.WorkflowAction.findAll({
             where: { isActive: true },
             order: [['sequenceNumber', 'ASC'], ['id', 'ASC']],
-            attributes: ['id', 'name'],
+            attributes: ['id', 'name', 'sequenceNumber'],
             raw: true
         });
         const totalSteps = steps.length;
         const grouped = await db.sequelize.query(`
-            WITH tracking_counts AS (
-                SELECT "rxRecordId", COUNT(*)::integer AS done
-                FROM "RXWorkflowTrackings"
-                GROUP BY "rxRecordId"
+            WITH workflow_counts AS (
+                ${activeRxWorkflowAggregateSql()}
             )
-            SELECT COALESCE(tracking_counts.done, 0)::integer AS done,
+            SELECT COALESCE(workflow_counts.completed_steps, 0)::integer AS completed_steps,
+                   workflow_counts.current_stage_sequence,
                    COUNT(*)::integer AS count
             FROM "RXRecords" AS rx
-            LEFT JOIN tracking_counts ON tracking_counts."rxRecordId" = rx.id
+            LEFT JOIN workflow_counts ON workflow_counts."rxRecordId" = rx.id
             WHERE COALESCE(rx."isDeleted", false) = false
-            GROUP BY COALESCE(tracking_counts.done, 0)
-            ORDER BY done
+            GROUP BY
+                COALESCE(workflow_counts.completed_steps, 0),
+                workflow_counts.current_stage_sequence
+            ORDER BY workflow_counts.current_stage_sequence NULLS FIRST
         `, { type: QueryTypes.SELECT });
-        const countByDone = new Map(grouped.map(row => [Number(row.done), Number(row.count)]));
+        const countByCurrentStage = new Map();
+        grouped.forEach(row => {
+            if (row.current_stage_sequence === null || row.current_stage_sequence === undefined) return;
+            const sequenceNumber = Number(row.current_stage_sequence);
+            countByCurrentStage.set(
+                sequenceNumber,
+                Number(countByCurrentStage.get(sequenceNumber) || 0) + Number(row.count)
+            );
+        });
         const total = grouped.reduce((sum, row) => sum + Number(row.count), 0);
         let notStarted = 0;
         let inProgress = 0;
@@ -961,17 +971,18 @@ exports.getRxPipeline = async (req, res) => {
             completed = total;
         } else {
             for (const row of grouped) {
-                const done = Number(row.done);
+                const done = Number(row.completed_steps);
                 const count = Number(row.count);
                 if (done === 0) notStarted += count;
                 else if (done >= totalSteps) completed += count;
                 else inProgress += count;
             }
         }
-        const stepBreakdown = steps.map((step, index) => ({
+        const stepBreakdown = steps.map(step => ({
             id: step.id,
             name: step.name,
-            count: index > 0 ? Number(countByDone.get(index) || 0) : 0
+            sequenceNumber: Number(step.sequenceNumber),
+            count: Number(countByCurrentStage.get(Number(step.sequenceNumber)) || 0)
         }));
 
         res.json({

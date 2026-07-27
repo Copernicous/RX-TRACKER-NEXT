@@ -119,6 +119,27 @@ function migrateIsolatedDatabase(env, databaseName) {
     });
 }
 
+function seedIsolatedReferenceData(env, databaseName) {
+    return new Promise((resolve, reject) => {
+        const child = spawn(process.execPath, [
+            path.join(__dirname, 'db-lifecycle.js'),
+            'seed-reference',
+            '--confirm-database',
+            databaseName
+        ], {
+            cwd: root,
+            env,
+            stdio: 'inherit',
+            windowsHide: true
+        });
+        child.once('error', reject);
+        child.once('exit', code => {
+            if (code === 0) resolve();
+            else reject(new Error('Isolated staging reference-data seed failed with exit code ' + code));
+        });
+    });
+}
+
 async function stopServer(child) {
     if (!child || child.exitCode !== null) return;
     child.kill('SIGTERM');
@@ -170,6 +191,7 @@ async function main() {
     console.log('Database   : ' + databaseName + ' (separate from shared staging)');
 
     await migrateIsolatedDatabase(isolatedEnv, databaseName);
+    await seedIsolatedReferenceData(isolatedEnv, databaseName);
 
     const server = spawn(process.execPath, [path.join(root, 'app.js')], {
         cwd: root,

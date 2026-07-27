@@ -1,6 +1,6 @@
 {
   "name": "patient-rx-system",
-  "version": "4.0.0-next.34",
+  "version": "4.0.0-next.35",
   "description": "Patient RX Delivery Management System - NEXT database lifecycle preview",
   "main": "app.js",
   "scripts": {
@@ -37,6 +37,7 @@
     "test:report-filter-parity": "node scripts/test-report-filter-parity.js",
     "test:report-view-render": "node scripts/test-report-view-render.js",
     "test:dashboard-analytics": "node scripts/test-dashboard-persisted-analytics.js",
+    "test:rx-pipeline-filter-parity": "node scripts/test-rx-pipeline-filter-parity.js",
     "test:patient-double-update": "node scripts/test-patient-service-date-double-update.js",
     "test:rx-override": "node scripts/test-rx-override-permissions.js",
     "test:rx-warehouse-filter-cleanup": "node scripts/test-rx-warehouse-filter-cleanup.js",
