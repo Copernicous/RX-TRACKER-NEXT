@@ -70,6 +70,9 @@ ports, authentication, PBX behavior, or RX Softphone.
   runtime.
 - Restricted custom icon/background values to safe same-site paths and retained
   built-in fallbacks for invalid environment configuration.
+- Documented the optional safe branding defaults in `.env.example` and updated
+  the packaged production checklist to route routine releases exclusively
+  through the guarded Project Control update and rollback flow.
 - Added no database migration and no patient/business data rewrite. Branding
   rows are created only through the existing audited System Settings update
   path.
