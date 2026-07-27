@@ -20,8 +20,8 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
   edit-only role checks use stable modal-mode markers, so authorization UI does
   not depend on translated words. Staging, develop, main, lifecycle CI, the
   Windows softphone build, CodeQL, tag packaging, checksum publication, and an
-  independent downloaded-package verification all passed. Production
-  installation and operator validation remain pending.
+  independent downloaded-package verification all passed. Live-production
+  installation and operator validation remain unconfirmed.
 - Repository: `Copernicous/RX-TRACKER-NEXT`
 - Branch: official `v4.0.0-next.34` release on `main` at commit
   `b739d416476ade3418cae8964fca6ec82f83bd00`.
@@ -84,6 +84,19 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
   The release requires no database migration, data rewrite, proxy/PBX change,
   or RX Softphone workstation update. Install it only through Project Control
   options 8 then 15; do not repeat the one-time NEXT cutover workflow.
+- Testing-production deployment handoff (2026-07-27): Project Control option 8
+  reported installed `4.0.0-next.25`, latest `4.0.0-next.34`, and **Update
+  available**. The first option 15 attempt stopped at the Administrator check,
+  before the updater acquired its lock or changed the service, files, or
+  database. The operator then relaunched Project Control elevated. Because
+  this server uses a restricted PostgreSQL runtime identity, the updater
+  correctly requested a separate maintenance login in process memory before
+  downtime. The operator subsequently reported that the server was up with no
+  observed problems. This is not yet exact installation validation: at the
+  start of the next session, run Project Control options **4**, **3**, and
+  **6**, confirm version `4.0.0-next.34`, and complete the bilingual login,
+  Dashboard, Patients, and Call Center browser checks. Do not infer the live
+  production version from this testing-server report.
 - Official release `4.0.0-next.33` adds bounded CRM context to the
   Administrator-only **Live RX Phones** board for RX Tracker-originated calls:
   patient name, patient ID, clinic, and dialed number. The context comes from
