@@ -265,6 +265,21 @@ exports.update = async (req, res) => {
             if (key === 'app_timezone' && !settings.KNOWN_TIMEZONES.includes(value)) {
                 return res.status(400).json({ error: `Unknown timezone: "${value}". Please select a value from the list.` });
             }
+            if (['app_name', 'brand_title', 'brand_subtitle'].includes(key)) {
+                const text = String(value || '').trim();
+                if (!text || text.length > 80 || /[<>]/.test(text)) {
+                    return res.status(400).json({ error: `${key} must contain 1-80 plain-text characters.` });
+                }
+            }
+            if (key === 'brand_icon_class' && !/^(fas|far|fab) fa-[a-z0-9-]+$/.test(String(value || '').trim())) {
+                return res.status(400).json({ error: 'Icon class must use a bundled Font Awesome class such as "fas fa-pills".' });
+            }
+            if (['brand_icon_url', 'login_background_url'].includes(key)) {
+                const pathValue = String(value || '').trim();
+                if (pathValue && (!/^\/[a-zA-Z0-9_./-]+$/.test(pathValue) || pathValue.includes('..'))) {
+                    return res.status(400).json({ error: `${key} must be empty or a safe same-site path beginning with "/".` });
+                }
+            }
             // Port must be numeric
             if (key === 'smtp_port' && (isNaN(value) || parseInt(value) < 1 || parseInt(value) > 65535)) {
                 return res.status(400).json({ error: 'SMTP port must be a number between 1 and 65535.' });

@@ -1298,11 +1298,11 @@
     async function loadPatients() {
         var tbody = document.getElementById('ccPatientRows');
         if (tbody) {
-            tbody.innerHTML = '<tr><td class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin me-2"></i>Loading</td></tr>';
+            tbody.innerHTML = '<tr><td class="text-center text-muted py-4" data-i18n-ui><i class="fas fa-spinner fa-spin me-2"></i>Loading</td></tr>';
         }
         var res = await fetchWithAuth(queryUrl());
         if (!res || !res.ok) {
-            if (tbody) tbody.innerHTML = '<tr><td class="text-center text-muted py-4">No access</td></tr>';
+            if (tbody) tbody.innerHTML = '<tr><td class="text-center text-muted py-4" data-i18n-ui>No access</td></tr>';
             return;
         }
         var data = await res.json();
@@ -1331,7 +1331,7 @@
         var tbody = document.getElementById('ccPatientRows');
         if (!tbody) return;
         if (!rows.length) {
-            tbody.innerHTML = '<tr><td class="text-center text-muted py-4">No eligible patients found.</td></tr>';
+            tbody.innerHTML = '<tr><td class="text-center text-muted py-4" data-i18n-ui>No eligible patients found.</td></tr>';
             return;
         }
         var html = '';
@@ -1413,7 +1413,7 @@
                 '</div>';
         }
         var extra = count - calls.length;
-        if (extra > 0) html += '<div>+' + extra + ' more</div>';
+        if (extra > 0) html += '<div data-i18n-ui>+' + extra + ' more</div>';
         html += '</div>';
         return html;
     }

@@ -7,6 +7,56 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+## [4.0.0-next.34] - 2026-07-27
+
+### Added
+
+- Added an English-default, Spanish-selectable program interface on the login
+  page and authenticated RX Tracker screens. The browser remembers the
+  selection locally; patient names, notes, clinics, pharmacies, medications,
+  documents, and other stored business data are never translated.
+- Added a generated English-Spanish UI glossary and maintenance guide.
+- Added configurable login/sidebar branding under **System Settings >
+  General**, including browser application name, title, subtitle, bundled
+  Font Awesome icon, optional same-site icon image, and optional same-site
+  login background image.
+- Expanded the Spanish catalog from the initial pass to more than 700 fixed
+  interface entries plus formatted UI patterns. The second pass covers Call
+  Center cards, dynamic headings, pagination, queue and phone states, and the
+  primary Dashboard, Patients, RX Records, Reports, Import, Audit, live-phone,
+  active-session, and System Settings surfaces.
+- Added a visual transportation/service icon gallery to branding settings,
+  including bundled people-riding-in-a-minivan and minivan-boarding SVG icons.
+
+### Security and scope
+
+- Kept Backoffice English-only and unchanged; it does not load the translation
+  runtime.
+- Restricted custom icon/background values to safe same-site paths and retained
+  built-in fallbacks for invalid environment configuration.
+- Documented the optional safe branding defaults in `.env.example` and updated
+  the packaged production checklist to route routine releases exclusively
+  through the guarded Project Control update and rollback flow.
+- Added no database migration and no patient/business data rewrite. Branding
+  rows are created only through the existing audited System Settings update
+  path.
+- Made Add/Edit permission rendering independent of translated labels and
+  excluded patient-name autocomplete values from translation.
+
+### Testing
+
+- Added a localization/branding regression covering English default, Spanish
+  translation, language persistence, patient-table protection, branding
+  bindings and validation, glossary completeness, and Backoffice exclusion.
+- Extended the regression for Call Center card copy, formatted dynamic text,
+  later text/attribute updates, table UI-only states, business-data
+  preservation, and the transportation icon gallery/assets.
+- Passed public JavaScript validation, Reports EJS rendering, the complete
+  isolated staging browser suite, and focused Playwright login verification in
+  English and Spanish.
+- Added isolated Spanish browser coverage for add-only and edit-only roles on
+  Patients and shared CRUD screens.
+
 ## [4.0.0-next.33] - 2026-07-26
 
 ### Added

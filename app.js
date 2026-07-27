@@ -523,6 +523,13 @@ function addProxyBootstrapToHtml(html) {
 
 // Expose build/version/environment info to all EJS templates
 app.use(function(req, res, next) {
+    const safeAssetPath = value => {
+        const candidate = String(value || '').trim();
+        return candidate && /^\/[a-zA-Z0-9_./-]+$/.test(candidate) && !candidate.includes('..')
+            ? candidate
+            : '';
+    };
+    const configuredIconClass = String(settingsService.get('brand_icon_class') || '').trim();
     res.locals.appBuild = APP_BUILD;
     res.locals.appVersion = packageInfo.version;
     res.locals.appEnvironment = getAppEnvironment();
@@ -532,6 +539,14 @@ app.use(function(req, res, next) {
     res.locals.stagingConfirmHeader = getStagingConfirmHeader();
     res.locals.serviceWindowDays = require('./utils/globalSettings').getServiceWindowDays();
     res.locals.callCenterLeadDays = require('./utils/globalSettings').getCallCenterLeadDays();
+    res.locals.branding = {
+        appName: settingsService.get('app_name') || 'Patient RX System',
+        title: settingsService.get('brand_title') || 'Patient RX',
+        subtitle: settingsService.get('brand_subtitle') || 'Delivery Management System',
+        iconClass: /^(fas|far|fab) fa-[a-z0-9-]+$/.test(configuredIconClass) ? configuredIconClass : 'fas fa-pills',
+        iconUrl: safeAssetPath(settingsService.get('brand_icon_url')),
+        loginBackgroundUrl: safeAssetPath(settingsService.get('login_background_url'))
+    };
     next();
 });
 

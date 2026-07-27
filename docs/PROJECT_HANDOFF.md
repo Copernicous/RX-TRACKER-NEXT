@@ -1,6 +1,6 @@
 # RX Tracker NEXT project handoff
 
-Last updated: 2026-07-26
+Last updated: 2026-07-27
 
 This file is the sanitized continuity record for a future administrator or
 Codex session. It intentionally contains no credentials, `.env` values,
@@ -8,6 +8,19 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
 
+- Staging candidate `4.0.0-next.34` adds an English-default,
+  Spanish-selectable program UI plus configurable login/sidebar branding.
+  Translation is browser-side and UI-only, Backoffice is explicitly excluded,
+  and stored patient/business data is untouched. A second localization pass
+  expands the catalog beyond 700 fixed entries, adds formatted/dynamic UI
+  handling, and specifically verifies every Call Center metric card and its
+  dynamic list state. Branding uses existing audited System Settings storage
+  and safe same-site image paths; its visual picker includes transport presets
+  and bundled people-riding/boarding-minivan SVG icons. Spanish add-only and
+  edit-only role checks use stable modal-mode markers, so authorization UI does
+  not depend on translated words. This candidate is not an official release
+  until it completes the normal staging, develop, main, CI, tag, package, and
+  production-validation process.
 - Repository: `Copernicous/RX-TRACKER-NEXT`
 - Branch: official `v4.0.0-next.33` release on `main` at commit
   `f74eb0b898ec8ecaa4b2ac609681b27571cbe708`.
