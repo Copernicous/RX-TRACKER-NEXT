@@ -60,6 +60,16 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
   the existing call-attempt snapshot matched by relay correlation ID; manual
   calls remain phone-only. No database migration, data rewrite, proxy change,
   PBX change, or RX Softphone update is required.
+- Last operator-confirmed production validation (2026-07-26):
+  `v4.0.0-next.33` was installed through Project Control and a real
+  RX Tracker-originated call displayed its patient call information correctly
+  on **Administration → Live RX Phones**. Staging, develop, main, database
+  lifecycle, Windows softphone build, CodeQL, release packaging, published
+  checksum, and downloaded-package version validation all passed. This feature
+  has no pending corrective work. At the start of a future session, confirm the
+  currently installed/running version through Project Control option 4 before
+  making new changes; do not repeat this release or modify RX Softphone for
+  this completed feature.
 - Staging candidate `4.0.0-next.18` adds an Administrator-only, view-only
   **Live RX Phones** presence board for configured or paired RX Softphone
   workstations. It shows registration, relay heartbeat, idle/dialing/ringing/
