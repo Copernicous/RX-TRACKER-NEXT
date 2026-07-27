@@ -14,10 +14,13 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
   counts distinct active actions, ignores retired/orphaned history, and uses
   the highest active workflow sequence. Exact graph/filter parity, duplicate
   history, hidden RX, English/Spanish terminology, and browser regressions are
-  registered in staging and CI. There is no migration or data rewrite, and no
-  proxy, port, authentication, PBX, or RX Softphone change. It must remain on
-  staging until browser/CI validation and user acceptance are complete. It is
-  based on the official `v4.0.0-next.34` release history recorded below.
+  registered in staging and CI. The isolated browser suite, database lifecycle
+  CI run `30305430316`, and CodeQL run `30305430228` all passed for implementation
+  merge `staging@5c2b70d6d4344997406aa71c71406e3f7bdea316`. There is no migration or
+  data rewrite, and no proxy, port, authentication, PBX, or RX Softphone change.
+  The candidate remains staging-only pending user acceptance; `develop` and
+  `main` are unchanged. It is based on the official `v4.0.0-next.34` release
+  history recorded below.
 - Official release `v4.0.0-next.34` adds an English-default,
   Spanish-selectable program UI plus configurable login/sidebar branding.
   Translation is browser-side and UI-only, Backoffice is explicitly excluded,
