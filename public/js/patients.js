@@ -2019,7 +2019,9 @@ var allPatients = [];
     function openPatientModal(id, options) {
         options = options || {};
         editingPatientId = id;
-        document.getElementById('patientModalTitle').textContent = id ? 'Edit Patient' : 'Add Patient';
+        var patientModalTitle = document.getElementById('patientModalTitle');
+        patientModalTitle.setAttribute('data-modal-mode', id ? 'edit' : 'add');
+        patientModalTitle.textContent = id ? 'Edit Patient' : 'Add Patient';
         const patient = id ? allPatients.find(p => p.id === id) : null;
         patientModalOriginalServiceDate = patient ? (window.isoDate(patient.serviceDate) || '') : '';
         patientModalCanUseAddRxShortcut = false;

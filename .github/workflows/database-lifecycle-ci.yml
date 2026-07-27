@@ -102,6 +102,7 @@ jobs:
           npm run test:new-server-installer
           npm run test:project-control-test-copy
           npm run test:report-view-render
+          npm run test:i18n-branding
 
       - name: Provision and verify a fresh database
         run: |

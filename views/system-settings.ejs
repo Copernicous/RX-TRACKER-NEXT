@@ -121,6 +121,17 @@
         .perm-badge { font-size:.68rem; padding:1px 6px; border-radius:3px; background:rgba(107,114,128,.1); color:#6b7280; }
         .perm-badge.admin { background:rgba(239,68,68,.1); color:#ef4444; }
         .section-divider { font-size:.7rem; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:#9ca3af; padding:10px 0 4px; }
+        .brand-icon-gallery { display:grid; grid-template-columns:repeat(auto-fit,minmax(118px,1fr)); gap:8px; }
+        .brand-icon-choice {
+            min-height:86px; border:1px solid var(--border); border-radius:10px;
+            background:rgba(148,163,184,.05); color:var(--text-color); padding:9px 7px;
+            display:flex; flex-direction:column; align-items:center; justify-content:center; gap:7px;
+            font-size:.72rem; font-weight:700; line-height:1.2; text-align:center;
+        }
+        .brand-icon-choice:hover { border-color:#22c55e; background:rgba(34,197,94,.08); }
+        .brand-icon-choice.selected { border-color:#22c55e; box-shadow:0 0 0 2px rgba(34,197,94,.2); background:rgba(34,197,94,.1); }
+        .brand-icon-choice i { color:#50e3c2; font-size:1.8rem; }
+        .brand-icon-choice img { width:48px; height:34px; object-fit:contain; }
     </style>
 </head>
 <body>
@@ -240,24 +251,66 @@
                         </div>
                     </div>
 
-                    <!-- App Name Card -->
+                    <!-- Application Branding Card -->
                     <div class="glass-card p-4 mb-4 setting-card" style="border-left-color:#22c55e;">
                         <div class="d-flex align-items-start gap-3">
                             <div class="setting-icon" style="background:rgba(34,197,94,.12);color:#22c55e;">
-                                <i class="fas fa-tag"></i>
+                                <i class="fas fa-palette"></i>
                             </div>
                             <div class="flex-grow-1">
-                                <h6 class="mb-1 fw-bold">Application Name</h6>
-                                <p class="text-muted small mb-3">Displayed in the browser tab. Default: "Patient RX System".</p>
-                                <div class="row g-2 align-items-end">
-                                    <div class="col-md-5">
-                                        <input type="text" class="form-control form-control-sm" id="appNameInput" placeholder="Patient RX System" style="max-width:300px;">
+                                <h6 class="mb-1 fw-bold">Login and Sidebar Branding</h6>
+                                <p class="text-muted small mb-3">
+                                    Customize the application title, login subtitle, icon, and login background.
+                                    Icon and background URLs must be same-site paths to files placed under the public folder.
+                                </p>
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-semibold small" for="appNameInput">Browser Application Name</label>
+                                        <input type="text" class="form-control form-control-sm" id="appNameInput" maxlength="80" placeholder="Patient RX System">
                                     </div>
-                                    <div class="col-auto">
-                                        <button class="btn btn-success btn-sm" id="saveNameBtn"><i class="fas fa-save me-1"></i>Save Name</button>
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-semibold small" for="brandTitleInput">Login and Sidebar Title</label>
+                                        <input type="text" class="form-control form-control-sm" id="brandTitleInput" maxlength="80" placeholder="Patient RX">
                                     </div>
-                                    <div class="col-auto">
-                                        <div class="save-indicator" id="nameSaveOk"><i class="fas fa-check-circle"></i> Saved!</div>
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-semibold small" for="brandSubtitleInput">Login Subtitle</label>
+                                        <input type="text" class="form-control form-control-sm" id="brandSubtitleInput" maxlength="80" placeholder="Delivery Management System">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-semibold small" for="brandIconClassInput">Fallback Icon Class</label>
+                                        <input type="text" class="form-control form-control-sm" id="brandIconClassInput" placeholder="fas fa-pills">
+                                        <div class="form-text">Use a bundled Font Awesome class, for example <code>fas fa-pills</code>.</div>
+                                    </div>
+                                    <div class="col-12">
+                                        <label class="form-label fw-semibold small">Transportation and Service Icons</label>
+                                        <div class="brand-icon-gallery" id="brandIconGallery">
+                                            <button type="button" class="brand-icon-choice" data-icon-class="fas fa-pills" data-icon-url=""><i class="fas fa-pills"></i><span>Medication</span></button>
+                                            <button type="button" class="brand-icon-choice" data-icon-class="fas fa-shuttle-van" data-icon-url=""><i class="fas fa-shuttle-van"></i><span>Minivan / Shuttle</span></button>
+                                            <button type="button" class="brand-icon-choice" data-icon-class="fas fa-van-shuttle" data-icon-url=""><i class="fas fa-van-shuttle"></i><span>Passenger Van</span></button>
+                                            <button type="button" class="brand-icon-choice" data-icon-class="fas fa-car-side" data-icon-url=""><i class="fas fa-car-side"></i><span>Car Service</span></button>
+                                            <button type="button" class="brand-icon-choice" data-icon-class="fas fa-taxi" data-icon-url=""><i class="fas fa-taxi"></i><span>Taxi</span></button>
+                                            <button type="button" class="brand-icon-choice" data-icon-class="fas fa-bus-alt" data-icon-url=""><i class="fas fa-bus-alt"></i><span>Community Shuttle</span></button>
+                                            <button type="button" class="brand-icon-choice" data-icon-class="fas fa-wheelchair" data-icon-url=""><i class="fas fa-wheelchair"></i><span>Accessible Transport</span></button>
+                                            <button type="button" class="brand-icon-choice" data-icon-class="fas fa-ambulance" data-icon-url=""><i class="fas fa-ambulance"></i><span>Medical Transport</span></button>
+                                            <button type="button" class="brand-icon-choice" data-icon-class="fas fa-shuttle-van" data-icon-url="/images/brand-icons/minivan-passengers.svg"><img src="/images/brand-icons/minivan-passengers.svg" alt=""><span>People Riding in Minivan</span></button>
+                                            <button type="button" class="brand-icon-choice" data-icon-class="fas fa-shuttle-van" data-icon-url="/images/brand-icons/minivan-boarding.svg"><img src="/images/brand-icons/minivan-boarding.svg" alt=""><span>Boarding a Minivan</span></button>
+                                        </div>
+                                        <div class="form-text">Choose a preset or enter a different bundled Font Awesome class below. Custom icon paths still override the fallback class.</div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-semibold small" for="brandIconUrlInput">Custom Icon Path (optional)</label>
+                                        <input type="text" class="form-control form-control-sm" id="brandIconUrlInput" placeholder="/images/my-logo.png">
+                                        <div class="form-text">Leave blank to use the fallback icon class.</div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-semibold small" for="loginBackgroundUrlInput">Login Background Path (optional)</label>
+                                        <input type="text" class="form-control form-control-sm" id="loginBackgroundUrlInput" placeholder="/images/login-background.jpg">
+                                        <div class="form-text">Leave blank to use the standard gradient.</div>
+                                    </div>
+                                    <div class="col-12 d-flex align-items-center gap-2">
+                                        <button class="btn btn-success btn-sm" id="saveBrandingBtn"><i class="fas fa-save me-1"></i>Save Branding</button>
+                                        <button class="btn btn-outline-secondary btn-sm" id="resetBrandingBtn" type="button"><i class="fas fa-undo me-1"></i>Use Defaults</button>
+                                        <div class="save-indicator" id="brandingSaveOk"><i class="fas fa-check-circle"></i> Saved!</div>
                                     </div>
                                 </div>
                             </div>

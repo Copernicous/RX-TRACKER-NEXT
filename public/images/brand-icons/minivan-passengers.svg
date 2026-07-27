@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 96" role="img" aria-labelledby="title desc">
+  <title id="title">Passenger minivan</title>
+  <desc id="desc">A side-view minivan carrying three passengers</desc>
+  <g fill="none" stroke="#50e3c2" stroke-width="6" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M18 65V43c0-7 5-13 12-14l72-9c10-1 20 3 27 11l15 18v16"/>
+    <path d="M30 30h71c8 0 15 3 20 9l9 11H27"/>
+    <path d="M101 24v26M65 26v24"/>
+    <path d="M17 65h15m24 0h49m24 0h16"/>
+    <circle cx="44" cy="66" r="12" fill="#203a43"/>
+    <circle cx="117" cy="66" r="12" fill="#203a43"/>
+    <circle cx="45" cy="37" r="5" fill="#50e3c2" stroke="none"/>
+    <circle cx="82" cy="37" r="5" fill="#50e3c2" stroke="none"/>
+    <circle cx="111" cy="38" r="5" fill="#50e3c2" stroke="none"/>
+  </g>
+</svg>
