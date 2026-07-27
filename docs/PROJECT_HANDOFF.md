@@ -8,7 +8,7 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
 
-- Staging candidate `4.0.0-next.35` changes the Dashboard RX Workflow Pipeline
+- Development test candidate `4.0.0-next.35` changes the Dashboard RX Workflow Pipeline
   from raw Next Action/count-offset semantics to the same **Current Stage**
   definition used by RX Records and Reports. A canonical read-only aggregate
   counts distinct active actions, ignores retired/orphaned history, and uses
@@ -18,9 +18,11 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
   CI run `30305430316`, and CodeQL run `30305430228` all passed for implementation
   merge `staging@5c2b70d6d4344997406aa71c71406e3f7bdea316`. There is no migration or
   data rewrite, and no proxy, port, authentication, PBX, or RX Softphone change.
-  The candidate remains staging-only pending user acceptance; `develop` and
-  `main` are unchanged. It is based on the official `v4.0.0-next.34` release
-  history recorded below.
+  The validated staging implementation was promoted to `develop` at merge
+  `e63c31a5b337ec95d2811a0975a4a28132e762e9` for testing against development
+  data. It remains out of `main` and production pending real-data user
+  acceptance. It is based on the official `v4.0.0-next.34` release history
+  recorded below.
 - Official release `v4.0.0-next.34` adds an English-default,
   Spanish-selectable program UI plus configurable login/sidebar branding.
   Translation is browser-side and UI-only, Backoffice is explicitly excluded,
