@@ -40,6 +40,11 @@ const DEFAULT_EMAIL_ALERT_RULES = JSON.stringify({
 const DEFAULTS = {
     app_timezone:  process.env.TZ          || 'America/New_York',
     app_name:      process.env.APP_NAME    || 'Patient RX System',
+    brand_title:   process.env.BRAND_TITLE || 'Patient RX',
+    brand_subtitle:process.env.BRAND_SUBTITLE || 'Delivery Management System',
+    brand_icon_class: process.env.BRAND_ICON_CLASS || 'fas fa-pills',
+    brand_icon_url: process.env.BRAND_ICON_URL || '',
+    login_background_url: process.env.LOGIN_BACKGROUND_URL || '',
     // Global 2FA enforcement toggle (true = 2FA required for users who have it set up)
     require_2fa:   'true',
     // SMTP — seeded from .env if present, otherwise blank (user fills via UI)

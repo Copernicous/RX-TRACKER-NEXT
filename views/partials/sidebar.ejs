@@ -48,7 +48,14 @@
 <% } %>
 <nav id="sidebar" class="<%= locals.isStaging ? 'rx-staging-sidebar' : '' %>">
     <div class="sidebar-header">
-        <span><i class="fas fa-pills me-2"></i>Patient RX</span>
+        <span class="rx-sidebar-brand">
+            <% if (locals.branding && locals.branding.iconUrl) { %>
+                <img src="<%= locals.branding.iconUrl %>" alt="" class="rx-brand-icon-image me-2">
+            <% } else { %>
+                <i class="<%= (locals.branding && locals.branding.iconClass) || 'fas fa-pills' %> me-2"></i>
+            <% } %>
+            <span data-i18n-skip><%= (locals.branding && locals.branding.title) || 'Patient RX' %></span>
+        </span>
         <% if (locals.isStaging) { %>
             <span class="rx-staging-sidebar-badge">STAGING</span>
         <% } %>
@@ -230,6 +237,16 @@
     </div>
     <% } %>
 </nav>
+
+<style nonce="<%= cspNonce %>">
+.sidebar-header { gap:.55rem; flex-wrap:wrap; }
+.rx-sidebar-brand { display:inline-flex; align-items:center; min-width:0; }
+.rx-brand-icon-image { width:24px; height:24px; object-fit:contain; border-radius:5px; }
+.rx-language-selector { width:100%; margin-top:.45rem; }
+.rx-language-selector .form-select { min-height:30px; border-color:rgba(255,255,255,.2); background-color:rgba(255,255,255,.1); color:#fff; font-size:.72rem; }
+.rx-language-selector .form-select option { color:#111827; background:#fff; }
+</style>
+<script src="/js/i18n.js?v=<%= encodeURIComponent(locals.appVersion || '') %>"></script>
 
 <% if (!hideVersionSidebar) { %>
 <script>

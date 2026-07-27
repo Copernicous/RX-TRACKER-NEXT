@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - Patient RX Delivery System v<%= locals.appVersion || '—' %></title>
+    <title>Login - <%= (locals.branding && locals.branding.appName) || 'Patient RX System' %> v<%= locals.appVersion || '—' %></title>
     <meta name="description" content="Patient RX Delivery Management System - Secure Login">
     <link href="/assets/bootstrap.min.css" rel="stylesheet">
     <link href="/assets/inter.css" rel="stylesheet">
@@ -16,7 +16,13 @@
     <style>
         body {
             min-height: 100vh;
-            background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+            background-color: #203a43;
+            background-image:
+                linear-gradient(135deg, rgba(15,32,39,.88), rgba(32,58,67,.84), rgba(44,83,100,.88))
+                <% if (locals.branding && locals.branding.loginBackgroundUrl) { %>, url("<%= locals.branding.loginBackgroundUrl %>")<% } %>;
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -47,7 +53,11 @@
             border-color: rgba(251,146,60,0.48);
             box-shadow: 0 25px 55px rgba(59,10,69,0.44), 0 0 0 1px rgba(251,146,60,0.22);
         }
-        body.rx-staging-env .login-card .brand-icon,
+        body.rx-staging-env .login-card .brand-icon i {
+            background: none;
+            color: #f59e0b;
+            -webkit-text-fill-color: #f59e0b;
+        }
         body.rx-staging-env .btn-login {
             background: linear-gradient(135deg, #f59e0b, #c026d3);
         }
@@ -66,11 +76,33 @@
         }
         .login-card .brand-icon {
             font-size: 3rem;
-            background: linear-gradient(135deg, #4a90e2, #50e3c2);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
         }
+        .login-card .brand-icon i {
+            background: none;
+            color: #50e3c2;
+            -webkit-text-fill-color: #50e3c2;
+        }
+        .login-card .brand-icon img {
+            display: block;
+            width: 58px;
+            height: 58px;
+            margin: 0 auto;
+            object-fit: contain;
+            border-radius: 12px;
+        }
+        .login-language {
+            position: fixed;
+            top: 14px;
+            right: 16px;
+            z-index: 1250;
+            width: 130px;
+            min-width: 125px;
+            color: #fff;
+            background: rgba(15,23,42,.72);
+            border: 1px solid rgba(255,255,255,.25);
+            backdrop-filter: blur(10px);
+        }
+        body.rx-staging-env .login-language { top: 52px; }
         .login-card h2 {
             color: #fff;
             font-weight: 700;
@@ -169,13 +201,22 @@
     <% if (locals.isStaging) { %>
     <div class="rx-staging-login-banner">Staging Environment</div>
     <% } %>
+    <label for="loginLanguageSelect" class="visually-hidden">Select Language</label>
+    <select id="loginLanguageSelect" class="form-select form-select-sm login-language" data-rx-language-selector aria-label="Select Language">
+        <option value="en">English</option>
+        <option value="es">Español</option>
+    </select>
     <div class="login-card">
         <div class="text-center mb-4">
             <div class="brand-icon mb-2">
-                <i class="fas fa-pills"></i>
+                <% if (locals.branding && locals.branding.iconUrl) { %>
+                    <img src="<%= locals.branding.iconUrl %>" alt="">
+                <% } else { %>
+                    <i class="<%= (locals.branding && locals.branding.iconClass) || 'fas fa-pills' %>"></i>
+                <% } %>
             </div>
-            <h2>Patient RX</h2>
-            <p class="subtitle">Delivery Management System</p>
+            <h2 data-i18n-skip><%= (locals.branding && locals.branding.title) || 'Patient RX' %></h2>
+            <p class="subtitle" data-i18n-skip><%= (locals.branding && locals.branding.subtitle) || 'Delivery Management System' %></p>
         </div>
 
         <div id="errorMsg" class="mb-3 login-notice login-notice-error d-none"></div>
@@ -230,13 +271,22 @@
         </div>
 
         <p class="text-center mt-4" style="color:rgba(255,255,255,0.3);font-size:0.75rem;">
-            Patient RX v<%= locals.appVersion || '—' %> &copy; 2026 &mdash; All rights reserved
+            <span data-i18n-skip><%= (locals.branding && locals.branding.title) || 'Patient RX' %></span> v<%= locals.appVersion || '—' %> &copy; 2026 &mdash; <span>All rights reserved</span>
         </p>
     </div>
 
     <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index:1100"></div>
 
+    <script src="/js/i18n.js?v=<%= encodeURIComponent(locals.appVersion || '') %>"></script>
     <script>
+        (function() {
+            var select = document.getElementById('loginLanguageSelect');
+            if (!select || !window.RXI18n) return;
+            select.value = window.RXI18n.getLanguage();
+            select.addEventListener('change', function() {
+                window.RXI18n.setLanguage(select.value);
+            });
+        })();
         // Show timeout message if redirected due to session expiry
         (function() {
             var params = new URLSearchParams(window.location.search);

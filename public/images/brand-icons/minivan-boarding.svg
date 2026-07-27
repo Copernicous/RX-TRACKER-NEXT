@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 104" role="img" aria-labelledby="title desc">
+  <title id="title">Boarding a minivan</title>
+  <desc id="desc">A passenger stepping into the open side door of a minivan</desc>
+  <g fill="none" stroke="#50e3c2" stroke-width="6" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M48 72V46c0-8 6-14 14-15l68-7c10-1 20 3 27 12l13 17v19"/>
+    <path d="M61 31h67c9 0 16 4 22 11l8 11H58"/>
+    <path d="M129 27v45M93 29v43"/>
+    <path d="M48 72h13m24 0h47m24 0h15"/>
+    <circle cx="73" cy="73" r="12" fill="#203a43"/>
+    <circle cx="145" cy="73" r="12" fill="#203a43"/>
+    <path d="M93 50h31v29H93z" stroke-dasharray="4 5"/>
+    <path d="M91 79h32"/>
+    <circle cx="25" cy="29" r="8" fill="#50e3c2" stroke="none"/>
+    <path d="M25 40v22m0-13 17 8m-17-5-12 12m12-2-10 22m10-22 14 20"/>
+    <path d="M39 82h17v-8h18"/>
+    <path d="M43 57l16-4"/>
+  </g>
+</svg>
