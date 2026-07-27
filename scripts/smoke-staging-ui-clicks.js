@@ -39,6 +39,7 @@ const sipTestExtension = 'smoke-' + runId;
 const screenshotsDir = path.join(stagingConfig.writableRoot, 'smoke-screenshots');
 
 const created = {
+    roles: [],
     users: [],
     patients: [],
     clinics: [],
@@ -116,6 +117,29 @@ async function createUser(role, label) {
     return user;
 }
 
+async function createPermissionTestRole(label, canAdd, canEdit) {
+    const permissions = roleDefaults('Read Only');
+    ['patients', 'clinics'].forEach(key => {
+        permissions[key] = {
+            ...permissions[key],
+            visible: true,
+            canAdd,
+            canEdit,
+            canDelete: false,
+            canExport: false,
+            canCopy: true
+        };
+    });
+    const role = await db.Role.create({
+        name: `Smoke ${label} ${runId}`,
+        description: 'Temporary Spanish permission rendering smoke role',
+        isSystem: false,
+        permissions
+    });
+    created.roles.push(role);
+    return role;
+}
+
 async function createPatient(clinic, patientTransport, label, serviceDate, options) {
     options = options || {};
     const patient = await db.Patient.create({
@@ -159,8 +183,12 @@ async function seedFixtures() {
 
     const adminRole = await ensureBuiltInRole('Administrator');
     const callCenterRole = await ensureBuiltInRole('Call Center');
+    const addOnlyRole = await createPermissionTestRole('Add Only', true, false);
+    const editOnlyRole = await createPermissionTestRole('Edit Only', false, true);
     const adminUser = await createUser(adminRole, 'Admin');
     const callCenterUser = await createUser(callCenterRole, 'CallCenter');
+    const addOnlyUser = await createUser(addOnlyRole, 'AddOnly');
+    const editOnlyUser = await createUser(editOnlyRole, 'EditOnly');
 
     const clinic = await db.Clinic.create({
         name: 'Smoke CC Clinic ' + runId,
@@ -284,6 +312,8 @@ async function seedFixtures() {
     return {
         adminUser,
         callCenterUser,
+        addOnlyUser,
+        editOnlyUser,
         clinic,
         patientTransport,
         queuePatient,
@@ -1241,8 +1271,132 @@ async function runCallCenterWorkspace(fixtures) {
     assert(/Service date entered|Done/i.test(serviceDateText), 'Service date card did not show completed patient.');
     pass('Call Center service date assignment moved patient to dates card');
 
+    await page.evaluate(() => localStorage.setItem('rxUiLanguage', 'es'));
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.locator('#ccCardQueue').waitFor({ state: 'visible', timeout: 15000 });
+    const spanishCards = await page.locator('.cc-metric .label').allTextContents();
+    assert.deepStrictEqual(
+        spanishCards.map(value => value.trim()),
+        ['Cola de llamadas', 'Llamadas en esta sesión', 'Pacientes en esta sesión', 'Fechas en esta sesión', 'Eficiencia'],
+        'Call Center metric cards should render in Spanish.'
+    );
+    assert(/^Página \d+ de \d+$/.test((await page.locator('#ccPageLabel').innerText()).trim()), 'Call Center pagination should render in Spanish.');
+    assert.strictEqual(await page.title(), 'Centro de llamadas - Patient RX System', 'Call Center document title should render in Spanish.');
+
+    await page.locator('#ccCardCalls').click();
+    await page.waitForFunction(() => (document.getElementById('ccListTitle') || {}).textContent === 'Llamadas en esta sesión', null, { timeout: 15000 });
+    assert(
+        (await page.locator('#ccListSubtitle').innerText()).includes('Registros de llamadas de esta sesión'),
+        'Dynamic Call Center card subtitle should render in Spanish.'
+    );
+
+    await page.locator('#ccCardServiceDates').click();
+    const spanishBusinessRow = page.locator('tr[data-id="' + fixtures.queuePatient.id + '"]');
+    await spanishBusinessRow.waitFor({ state: 'visible', timeout: 15000 });
+    assert.strictEqual(
+        (await spanishBusinessRow.locator('.cc-name-cell').allInnerTexts()).join(' '),
+        fixtures.queuePatient.firstName + ' ' + fixtures.queuePatient.lastName,
+        'Spanish UI must preserve the patient name exactly as stored.'
+    );
+    assert.strictEqual(
+        (await spanishBusinessRow.locator('.cc-clinic-name').innerText()).trim(),
+        fixtures.clinic.name,
+        'Spanish UI must preserve the clinic name exactly as stored.'
+    );
+    assert.strictEqual(
+        (await spanishBusinessRow.locator('.cc-patient-transport-name').innerText()).trim(),
+        fixtures.patientTransport.companyName,
+        'Spanish UI must preserve the patient transport name exactly as stored.'
+    );
+    assert(/Fecha de servicio ingresada|Listo/.test(await spanishBusinessRow.innerText()), 'Call Center status should render in Spanish.');
+    pass('Call Center Spanish cards, dynamic copy, and business-data preservation');
+
     assertNoBrowserErrors('Call Center workspace flow');
     await context.close();
+}
+
+async function runSpanishPermissionWorkspace(fixtures) {
+    async function useSpanish(page) {
+        await page.addInitScript(function() {
+            localStorage.setItem('rxUiLanguage', 'es');
+        });
+    }
+
+    async function closeModal(page, modalSelector) {
+        await page.locator(modalSelector + ' .btn-close').click();
+        await page.locator(modalSelector).waitFor({ state: 'hidden', timeout: 5000 });
+    }
+
+    const addOnly = await newContext();
+    await useSpanish(addOnly.page);
+    await login(addOnly.page, fixtures.addOnlyUser.username, '/dashboard');
+    await addOnly.page.goto(route('/patients'), { waitUntil: 'domcontentloaded' });
+    await addOnly.page.waitForLoadState('networkidle').catch(() => {});
+    assert.strictEqual(await addOnly.page.locator('html').getAttribute('lang'), 'es', 'Add-only permission test must run in Spanish.');
+    await addOnly.page.locator('#addPatientBtn').click();
+    await addOnly.page.locator('#patientModal').waitFor({ state: 'visible', timeout: 10000 });
+    assert.strictEqual(await addOnly.page.locator('#patientModalTitle').getAttribute('data-modal-mode'), 'add');
+    assert.strictEqual(await addOnly.page.locator('#savePatientBtn').isVisible(), true, 'Spanish add-only user must retain Patient Save in Add mode.');
+    await closeModal(addOnly.page, '#patientModal');
+    const addOnlyPatientRow = addOnly.page.locator('tr[data-patient-id="' + fixtures.queuePatient.id + '"]');
+    await addOnlyPatientRow.waitFor({ state: 'visible', timeout: 15000 });
+    await addOnlyPatientRow.locator('button:has(i.fa-eye)').click();
+    await addOnly.page.locator('#patientModal').waitFor({ state: 'visible', timeout: 10000 });
+    assert.strictEqual(await addOnly.page.locator('#patientModalTitle').getAttribute('data-modal-mode'), 'edit');
+    assert.strictEqual(await addOnly.page.locator('#savePatientBtn').isHidden(), true, 'Spanish add-only user must not gain Patient Save in Edit mode.');
+    await closeModal(addOnly.page, '#patientModal');
+
+    await addOnly.page.goto(route('/clinics'), { waitUntil: 'domcontentloaded' });
+    await addOnly.page.waitForLoadState('networkidle').catch(() => {});
+    await addOnly.page.locator('#addNewBtn').click();
+    await addOnly.page.locator('#crudModal').waitFor({ state: 'visible', timeout: 10000 });
+    assert.strictEqual(await addOnly.page.locator('#crudModalLabel').getAttribute('data-modal-mode'), 'add');
+    assert.strictEqual(await addOnly.page.locator('#saveCrudBtn').isVisible(), true, 'Spanish add-only user must retain CRUD Save in Add mode.');
+    await closeModal(addOnly.page, '#crudModal');
+    const addOnlyClinicRow = addOnly.page.locator('#crudTable tbody tr').filter({ hasText: fixtures.clinic.name }).first();
+    await addOnlyClinicRow.waitFor({ state: 'visible', timeout: 15000 });
+    await addOnlyClinicRow.locator('button:has(i.fa-eye)').evaluate(button => button.click());
+    await addOnly.page.locator('#crudModal').waitFor({ state: 'visible', timeout: 10000 });
+    assert.strictEqual(await addOnly.page.locator('#crudModalLabel').getAttribute('data-modal-mode'), 'edit');
+    assert.strictEqual(await addOnly.page.locator('#saveCrudBtn').isHidden(), true, 'Spanish add-only user must not gain CRUD Save in Edit mode.');
+    await closeModal(addOnly.page, '#crudModal');
+    await addOnly.context.close();
+
+    const editOnly = await newContext();
+    await useSpanish(editOnly.page);
+    await login(editOnly.page, fixtures.editOnlyUser.username, '/dashboard');
+    await editOnly.page.goto(route('/patients'), { waitUntil: 'domcontentloaded' });
+    await editOnly.page.waitForLoadState('networkidle').catch(() => {});
+    assert.strictEqual(await editOnly.page.locator('html').getAttribute('lang'), 'es', 'Edit-only permission test must run in Spanish.');
+    const editOnlyPatientRow = editOnly.page.locator('tr[data-patient-id="' + fixtures.queuePatient.id + '"]');
+    await editOnlyPatientRow.waitFor({ state: 'visible', timeout: 15000 });
+    await editOnlyPatientRow.locator('button:has(i.fa-edit)').click();
+    await editOnly.page.locator('#patientModal').waitFor({ state: 'visible', timeout: 10000 });
+    assert.strictEqual(await editOnly.page.locator('#savePatientBtn').isVisible(), true, 'Spanish edit-only user must retain Patient Save in Edit mode.');
+    await closeModal(editOnly.page, '#patientModal');
+    await editOnly.page.evaluate(() => document.getElementById('addPatientBtn').click());
+    await editOnly.page.locator('#patientModal').waitFor({ state: 'visible', timeout: 10000 });
+    assert.strictEqual(await editOnly.page.locator('#patientModalTitle').getAttribute('data-modal-mode'), 'add');
+    assert.strictEqual(await editOnly.page.locator('#savePatientBtn').isHidden(), true, 'Spanish edit-only user must not gain Patient Save in Add mode.');
+    await closeModal(editOnly.page, '#patientModal');
+
+    await editOnly.page.goto(route('/clinics'), { waitUntil: 'domcontentloaded' });
+    await editOnly.page.waitForLoadState('networkidle').catch(() => {});
+    const editOnlyClinicRow = editOnly.page.locator('#crudTable tbody tr').filter({ hasText: fixtures.clinic.name }).first();
+    await editOnlyClinicRow.waitFor({ state: 'visible', timeout: 15000 });
+    await editOnlyClinicRow.locator('button:has(i.fa-edit)').click();
+    await editOnly.page.locator('#crudModal').waitFor({ state: 'visible', timeout: 10000 });
+    assert.strictEqual(await editOnly.page.locator('#saveCrudBtn').isVisible(), true, 'Spanish edit-only user must retain CRUD Save in Edit mode.');
+    await closeModal(editOnly.page, '#crudModal');
+    await editOnly.page.evaluate(() => document.getElementById('addNewBtn').click());
+    await editOnly.page.locator('#crudModal').waitFor({ state: 'visible', timeout: 10000 });
+    assert.strictEqual(await editOnly.page.locator('#crudModalLabel').getAttribute('data-modal-mode'), 'add');
+    assert.strictEqual(await editOnly.page.locator('#saveCrudBtn').isHidden(), true, 'Spanish edit-only user must not gain CRUD Save in Add mode.');
+    await closeModal(editOnly.page, '#crudModal');
+    await editOnly.context.close();
+
+    pass('Spanish Add/Edit permission rendering uses stable modal modes');
+    assertNoBrowserErrors('Spanish permission workspace flow');
 }
 
 async function cleanup() {
@@ -1250,6 +1404,7 @@ async function cleanup() {
     const userIds = created.users.map(row => row.id);
     const clinicIds = created.clinics.map(row => row.id);
     const patientTransportIds = created.patientTransports.map(row => row.id);
+    const roleIds = created.roles.map(row => row.id);
     await new Promise(resolve => setTimeout(resolve, 500));
 
     if (patientIds.length) {
@@ -1285,6 +1440,9 @@ async function cleanup() {
     if (patientTransportIds.length) {
         await db.PatientTransportCompany.destroy({ where: { id: { [Op.in]: patientTransportIds } } }).catch(() => {});
     }
+    if (roleIds.length) {
+        await db.Role.destroy({ where: { id: { [Op.in]: roleIds } } }).catch(() => {});
+    }
 }
 
 async function main() {
@@ -1310,6 +1468,7 @@ async function main() {
     });
 
     await runAdminDashboardAndReports(fixtures);
+    await runSpanishPermissionWorkspace(fixtures);
     await runCallCenterWorkspace(fixtures);
     console.log('All staging UI click smoke checks passed.');
 }

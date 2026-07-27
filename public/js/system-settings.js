@@ -114,12 +114,44 @@ function renderSettingsTable(s) {
     tbody.innerHTML = (function(){ var _en=''; entries.forEach(function(_e){ var k=_e[0],v=_e[1]; _en+='<tr><td><code>'+safeHtml(k)+'</code></td><td><span class="tz-badge">'+safeHtml(v||'-')+'</span></td></tr>'; }); return _en; })();
 }
 
+function updateBrandIconGallery() {
+    const iconClass = document.getElementById('brandIconClassInput')?.value.trim() || '';
+    const iconUrl = document.getElementById('brandIconUrlInput')?.value.trim() || '';
+    document.querySelectorAll('.brand-icon-choice').forEach(button => {
+        const matchesClass = (button.dataset.iconClass || '') === iconClass;
+        const matchesUrl = (button.dataset.iconUrl || '') === iconUrl;
+        button.classList.toggle('selected', matchesClass && matchesUrl);
+        button.setAttribute('aria-pressed', matchesClass && matchesUrl ? 'true' : 'false');
+    });
+}
+
+function bindBrandIconGallery() {
+    const classInput = document.getElementById('brandIconClassInput');
+    const urlInput = document.getElementById('brandIconUrlInput');
+    document.querySelectorAll('.brand-icon-choice').forEach(button => {
+        button.addEventListener('click', () => {
+            if (classInput) classInput.value = button.dataset.iconClass || 'fas fa-pills';
+            if (urlInput) urlInput.value = button.dataset.iconUrl || '';
+            updateBrandIconGallery();
+        });
+    });
+    classInput?.addEventListener('input', updateBrandIconGallery);
+    urlInput?.addEventListener('input', updateBrandIconGallery);
+    updateBrandIconGallery();
+}
+
 async function loadSettings() {
     try {
         currentSettings = await fetchJsonOrThrow('/api/settings', { silent: true });
         const tz = currentSettings.app_timezone || 'America/New_York';
         document.getElementById('currentTzBadge').textContent = tz;
         document.getElementById('appNameInput').value = currentSettings.app_name || '';
+        document.getElementById('brandTitleInput').value = currentSettings.brand_title || 'Patient RX';
+        document.getElementById('brandSubtitleInput').value = currentSettings.brand_subtitle || 'Delivery Management System';
+        document.getElementById('brandIconClassInput').value = currentSettings.brand_icon_class || 'fas fa-pills';
+        document.getElementById('brandIconUrlInput').value = currentSettings.brand_icon_url || '';
+        document.getElementById('loginBackgroundUrlInput').value = currentSettings.login_background_url || '';
+        updateBrandIconGallery();
         populateTzSelect(tz);
         renderSettingsTable(currentSettings);
         updateClocks(tz);
@@ -970,6 +1002,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
     }
 
+    bindBrandIconGallery();
     await loadSettings();
     initSmtpPasswordField();
 
@@ -1017,19 +1050,48 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     // ── Save App Name ──────────────────────────────────────────────────────
-    document.getElementById('saveNameBtn')?.addEventListener('click', async () => {
+    document.getElementById('saveBrandingBtn')?.addEventListener('click', async () => {
         const name = document.getElementById('appNameInput').value.trim();
-        if (!name) { showToast('App name cannot be empty', 'warning'); return; }
-        const btn = document.getElementById('saveNameBtn');
+        const title = document.getElementById('brandTitleInput').value.trim();
+        const subtitle = document.getElementById('brandSubtitleInput').value.trim();
+        const iconClass = document.getElementById('brandIconClassInput').value.trim();
+        const iconUrl = document.getElementById('brandIconUrlInput').value.trim();
+        const backgroundUrl = document.getElementById('loginBackgroundUrlInput').value.trim();
+        if (!name || !title || !subtitle) {
+            showToast('Application name, title, and subtitle cannot be empty', 'warning');
+            return;
+        }
+        const btn = document.getElementById('saveBrandingBtn');
         btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Saving...';
         try {
-            const data = await fetchJsonOrThrow('/api/settings', { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ app_name:name }) });
+            const data = await fetchJsonOrThrow('/api/settings', {
+                method:'PUT',
+                headers:{'Content-Type':'application/json'},
+                body:JSON.stringify({
+                    app_name:name,
+                    brand_title:title,
+                    brand_subtitle:subtitle,
+                    brand_icon_class:iconClass || 'fas fa-pills',
+                    brand_icon_url:iconUrl,
+                    login_background_url:backgroundUrl
+                })
+            });
             currentSettings = data.settings;
             renderSettingsTable(currentSettings);
-            showSaved('nameSaveOk');
-            showToast('App name updated!', 'success');
-        } catch(e) { showToast(e.message || 'Failed to save name', 'danger'); }
-        finally { btn.disabled = false; btn.innerHTML = '<i class="fas fa-save me-1"></i>Save Name'; }
+            showSaved('brandingSaveOk');
+            showToast('Branding updated. Refresh or open the login page to view it.', 'success');
+        } catch(e) { showToast(e.message || 'Failed to save branding', 'danger'); }
+        finally { btn.disabled = false; btn.innerHTML = '<i class="fas fa-save me-1"></i>Save Branding'; }
+    });
+
+    document.getElementById('resetBrandingBtn')?.addEventListener('click', () => {
+        document.getElementById('appNameInput').value = 'Patient RX System';
+        document.getElementById('brandTitleInput').value = 'Patient RX';
+        document.getElementById('brandSubtitleInput').value = 'Delivery Management System';
+        document.getElementById('brandIconClassInput').value = 'fas fa-pills';
+        document.getElementById('brandIconUrlInput').value = '';
+        document.getElementById('loginBackgroundUrlInput').value = '';
+        updateBrandIconGallery();
     });
 
     // ── Save Global 2FA Setting ────────────────────────────────────────────

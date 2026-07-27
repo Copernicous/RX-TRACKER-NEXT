@@ -340,7 +340,7 @@
                 if (!matches.length) { listEl.classList.remove('open'); return; }
                 var listHtml = '';
                 matches.slice(0, 40).forEach(function(o) {
-                    listHtml += '<div class="ac-item">' + escHtml(o) + '</div>';
+                    listHtml += '<div class="ac-item" data-i18n-skip>' + escHtml(o) + '</div>';
                 });
                 listEl.innerHTML = listHtml;
                 listEl.querySelectorAll('.ac-item').forEach(item => {

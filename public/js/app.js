@@ -157,9 +157,15 @@ function setupNavDate() {
 
     function formatDate() {
         var d = new Date();
-        var days    = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-        var months  = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-        return days[d.getDay()] + ', ' + months[d.getMonth()] + ' ' + d.getDate() + ', ' + d.getFullYear();
+        var language = window.RXI18n && window.RXI18n.getLanguage
+            ? window.RXI18n.getLanguage()
+            : 'en';
+        return d.toLocaleDateString(language === 'es' ? 'es-US' : 'en-US', {
+            weekday: 'long',
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric'
+        });
     }
 
     dateEl.innerHTML = '<i class="fas fa-calendar-day" style="font-size:.7rem;opacity:.7"></i><span id="navLiveDateText">' + formatDate() + '</span>';
@@ -1314,7 +1320,7 @@ function renderTable() {
     var hdrs = config ? config.headers : cols;
     var thead = document.getElementById('tableHeaders');
     if (thead) {
-        var actionHeader = '<th>Actions</th>';
+        var actionHeader = '<th data-role-column="actions">Actions</th>';
         var _thHtml = '';
         for (var _thi = 0; _thi < hdrs.length; _thi++) {
             var h = hdrs[_thi];
@@ -1477,7 +1483,9 @@ function openModal(id) {
     crudState.editingId = id;
     var config = crudState.config;
     var title = id ? ('Edit ' + (config ? config.label : 'Record')) : ('Add ' + (config ? config.label : 'Record'));
-    document.getElementById('crudModalLabel').textContent = title;
+    var modalTitle = document.getElementById('crudModalLabel');
+    modalTitle.setAttribute('data-modal-mode', id ? 'edit' : 'add');
+    modalTitle.textContent = title;
 
     // Widen to xl for Users (permissions table has 6 columns)
     var dlg = document.querySelector('#crudModal .modal-dialog');
@@ -2250,25 +2258,25 @@ function applyReadOnlyRestrictions() {
     }
 
     // ---- hide EDIT / SAVE buttons (requires canEdit when editing, canAdd when adding) ----
-    // We check the modal title to determine if the modal is open in Add or Edit mode,
+    // Stable mode attributes keep permission logic independent of translated UI copy,
     // so the MutationObserver does not override the correct Save button state.
     (function() {
         // --- Generic CRUD modal (pharmacies, transport, workflow, etc.) ---
         var crudTitle  = document.getElementById('crudModalLabel');
         var saveCrud   = document.getElementById('saveCrudBtn');
         if (saveCrud) {
-            var crudIsAdd = !crudTitle || crudTitle.textContent.trim().toLowerCase().startsWith('add');
+            var crudIsAdd = !crudTitle || crudTitle.getAttribute('data-modal-mode') !== 'edit';
             var showCrud  = crudIsAdd ? perm.canAdd : perm.canEdit;
-            if (!showCrud) saveCrud.classList.add('d-none');
+            saveCrud.classList.toggle('d-none', !showCrud);
         }
 
         // --- Patient modal ---
         var patTitle  = document.getElementById('patientModalTitle');
         var savePat   = document.getElementById('savePatientBtn');
         if (savePat) {
-            var patIsAdd = !patTitle || patTitle.textContent.trim().toLowerCase().startsWith('add');
+            var patIsAdd = !patTitle || patTitle.getAttribute('data-modal-mode') !== 'edit';
             var showPat  = patIsAdd ? perm.canAdd : perm.canEdit;
-            if (!showPat) savePat.classList.add('d-none');
+            savePat.classList.toggle('d-none', !showPat);
         }
 
         // --- RX modal (always Add — there is no edit-RX flow) ---
@@ -2308,8 +2316,8 @@ function applyReadOnlyRestrictions() {
         if (thead) {
             var thList = thead.querySelectorAll('th');
             if (thList.length > 0) {
-                var lastTh = thList[thList.length - 1];
-                if (lastTh && lastTh.textContent.trim() === 'Actions') lastTh.classList.add('d-none');
+                var actionsTh = thead.querySelector('[data-role-column="actions"]');
+                if (actionsTh) actionsTh.classList.add('d-none');
             }
         }
         document.querySelectorAll('#crudTable tbody tr').forEach(function(tr) {
