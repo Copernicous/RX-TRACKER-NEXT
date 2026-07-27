@@ -337,7 +337,9 @@
         'Click to view patients with no service date': 'Haga clic para ver pacientes sin fecha de servicio',
         'Conversion': 'Conversión',
         'Copy All Codes': 'Copiar todos los códigos',
+        'Could not load pipeline data.': 'No se pudieron cargar los datos del flujo de trabajo.',
         'Current password': 'Contraseña actual',
+        'Current Stage Breakdown — RX records by latest completed step': 'Desglose por etapa actual — registros RX según el último paso completado',
         'Dashboard Card Totals': 'Totales de tarjetas del panel',
         'Date Range:': 'Intervalo de fechas:',
         'Dates': 'Fechas',
@@ -363,6 +365,7 @@
         'New password (min 8 chars)': 'Contraseña nueva (mínimo 8 caracteres)',
         'New service dates entered': 'Nuevas fechas de servicio ingresadas',
         'No Service Date': 'Sin fecha de servicio',
+        'No workflow steps configured yet.': 'Aún no hay etapas del flujo de trabajo configuradas.',
         'Notes / Call': 'Notas / llamada',
         'Off': 'Desactivado',
         'Overall Completion': 'Finalización general',
@@ -376,6 +379,7 @@
         'Repeat Rate': 'Tasa de repetición',
         'Report': 'Informe',
         'RX Records Status': 'Estado de registros RX',
+        'RX Pipeline chart — reading the bars': 'Gráfico del flujo RX: cómo leer las barras',
         'RX Workflow Pipeline': 'Flujo de trabajo RX',
         'Scope: All Users': 'Alcance: todos los usuarios',
         'Service Date Entries': 'Registros de fecha de servicio',
@@ -411,6 +415,7 @@
         'View RX Records': 'Ver registros RX',
         'Workflow Completion': 'Finalización del flujo de trabajo',
         'Workflow Over Time': 'Flujo de trabajo a lo largo del tiempo',
+        'Each horizontal bar shows how many RX records currently have that workflow action as their Current Stage (the highest active workflow step completed). Completed RX records remain in the final-stage bar, while Not Started records stay in the summary card because they do not yet have a Current Stage.': 'Cada barra horizontal muestra cuántos registros RX tienen actualmente esa acción del flujo como su etapa actual (la etapa activa más avanzada que se completó). Los registros RX completados permanecen en la barra de la etapa final, mientras que los no iniciados permanecen en la tarjeta de resumen porque todavía no tienen una etapa actual.',
 
         // Patients and patient timeline.
         '(Optional - Will auto-generate if blank)': '(Opcional; se generará automáticamente si se deja en blanco)',
@@ -847,6 +852,12 @@
         }
         if ((match = value.match(/^Showing (.+) of (.+) records$/))) {
             return 'Mostrando ' + match[1] + ' de ' + match[2] + ' registros';
+        }
+        if ((match = value.match(/^(\d+)% complete$/))) {
+            return match[1] + '% completado';
+        }
+        if ((match = value.match(/^Updated (.+)$/))) {
+            return 'Actualizado ' + match[1];
         }
         if ((match = value.match(/^(.+) - Patient RX System$/))) {
             return (EXACT_ES[match[1]] || PHRASE_ES[match[1]] || match[1]) + ' - Patient RX System';

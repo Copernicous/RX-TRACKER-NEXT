@@ -2,6 +2,7 @@ const db = require('../models');
 const { parseDate, parseLocalDateOnly } = require('../utils/dateUtils');
 const { isServiceDateOverrideEnabled, getServiceWindowDays } = require('../utils/globalSettings');
 const { userCanOverrideExpired, getRequestPermission } = require('../middleware/rbac');
+const { activeRxWorkflowAggregateSql } = require('../utils/rxWorkflowAggregateSql');
 const {
     dateOnly,
     ensureCycleForRx,
@@ -260,13 +261,7 @@ function rxPageFromSql() {
         LEFT JOIN "Patients" p ON p.id = r."patientId"
         LEFT JOIN "Pharmacies" ph ON ph.id = r."pharmacyId"
         LEFT JOIN (
-            SELECT
-                wt."rxRecordId",
-                COUNT(*)::integer AS completed_steps,
-                MAX(wa."sequenceNumber")::integer AS current_stage_sequence
-            FROM "RXWorkflowTrackings" wt
-            LEFT JOIN "WorkflowActions" wa ON wa.id = wt."workflowActionId"
-            GROUP BY wt."rxRecordId"
+            ${activeRxWorkflowAggregateSql()}
         ) wc ON wc."rxRecordId" = r.id
     `;
 }

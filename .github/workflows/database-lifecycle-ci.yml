@@ -146,6 +146,7 @@ jobs:
           PATIENT_PAGINATION_TEST_DB_NAME=rx_next_ci_regression_test npm run test:patient-pagination
           REPORT_FILTER_TEST_DB_NAME=rx_next_ci_regression_test npm run test:report-filter-parity
           DASHBOARD_ANALYTICS_TEST_DB_NAME=rx_next_ci_regression_test npm run test:dashboard-analytics
+          RX_PIPELINE_FILTER_TEST_DB_NAME=rx_next_ci_regression_test npm run test:rx-pipeline-filter-parity
           npm run test:patient-double-update
           QA_DB_NAME=rx_next_ci_regression_test npm run test:rx-override
           npm run test:workflow-date

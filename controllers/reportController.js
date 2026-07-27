@@ -7,6 +7,7 @@ const {
     getCallCenterCutoffIso
 } = require('../utils/serviceWindowEligibility');
 const patientRxCompleteCsv = require('../utils/patientRxCompleteCsv');
+const { activeRxWorkflowAggregateSql } = require('../utils/rxWorkflowAggregateSql');
 
 const CALL_CENTER_MODULE = 'Call Center';
 const CC_CALL_ACTION = 'Called';
@@ -1760,21 +1761,7 @@ function rxReportFromSql() {
         LEFT JOIN "PatientTransportCompanies" pt ON pt.id = r."patientTransportCompanyId"
         LEFT JOIN "PharmacyTransportCompanies" pht ON pht.id = r."pharmacyTransportCompanyId"
         LEFT JOIN (
-            SELECT
-                wt."rxRecordId",
-                COUNT(DISTINCT wt."workflowActionId") FILTER (
-                    WHERE wa."isActive" = TRUE
-                )::integer AS completed_steps,
-                (ARRAY_AGG(
-                    wt."completionDate"
-                    ORDER BY wa."sequenceNumber" DESC NULLS LAST, wt."completionDate" DESC, wt.id DESC
-                ) FILTER (WHERE wa."isActive" = TRUE))[1] AS current_stage_at,
-                MAX(wa."sequenceNumber") FILTER (
-                    WHERE wa."isActive" = TRUE
-                )::integer AS current_stage_sequence
-            FROM "RXWorkflowTrackings" wt
-            LEFT JOIN "WorkflowActions" wa ON wa.id = wt."workflowActionId"
-            GROUP BY wt."rxRecordId"
+            ${activeRxWorkflowAggregateSql()}
         ) wc ON wc."rxRecordId" = r.id
     `;
 }
