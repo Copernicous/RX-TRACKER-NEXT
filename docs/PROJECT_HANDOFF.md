@@ -9,8 +9,8 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 ## Current state
 
 - Repository: `Copernicous/RX-TRACKER-NEXT`
-- Branch: official `v4.0.0-next.32` release on `main` at commit
-  `a0b07f7e7f7a6e110acf81ed38085e765ad146d1`.
+- Branch: official `v4.0.0-next.33` release on `main` at commit
+  `f74eb0b898ec8ecaa4b2ac609681b27571cbe708`.
 - Current production release must be confirmed from Project Control or
   `server.exe --v`; do not infer it from this repository.
 - Production application folder: `C:\RX-Tracker\RX-APP-NEXT`
@@ -18,7 +18,7 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 - Production HTTP port: `3000`
 - NEXT database name at the completed cutover: `patient_rx_next_cutover_copy`
 - Project Control version: `2.2.0`
-- Latest official release: `v4.0.0-next.32`. Version `next.31` made
+- Latest official release: `v4.0.0-next.33`. Version `next.31` made
   **Current Stage** the primary RX Records workflow filter, kept **Next Action
   Required** under Advanced filters, and exported both meanings explicitly.
   Version `next.32` applies the same clarity to **Reports → RX Actions**:
@@ -54,7 +54,7 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
   Center queue, and call-attempt report queries described below. The version
   installed on the production server must still be confirmed through Project
   Control or `server.exe --v`; publication alone does not install it.
-- Staging candidate `4.0.0-next.33` adds bounded CRM context to the
+- Official release `4.0.0-next.33` adds bounded CRM context to the
   Administrator-only **Live RX Phones** board for RX Tracker-originated calls:
   patient name, patient ID, clinic, and dialed number. The context comes from
   the existing call-attempt snapshot matched by relay correlation ID; manual
