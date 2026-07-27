@@ -1131,15 +1131,18 @@ function loadRxPipeline() {
             return;
         }
 
-        var stepsHtml = '<div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#888;margin-bottom:10px">Workflow Step Breakdown &mdash; RX records waiting at each step</div>' +
+        var stepBreakdownTotal = d.stepBreakdown.reduce(function(total, step) {
+            return total + Number(step && step.count || 0);
+        }, 0);
+        var stepsHtml = '<div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#888;margin-bottom:10px">Current Stage Breakdown &mdash; RX records by latest completed step</div>' +
             '<div style="display:flex;flex-direction:column;gap:8px">';
         for (var si = 0; si < d.stepBreakdown.length; si++) {
             var step  = d.stepBreakdown[si];
             var color = COLORS[si % COLORS.length];
-            var barPct = d.inProgress > 0 ? Math.round((step.count / d.inProgress) * 100) : 0;
+            var barPct = stepBreakdownTotal > 0 ? Math.round((step.count / stepBreakdownTotal) * 100) : 0;
             stepsHtml += '<div style="display:flex;align-items:center;gap:12px">' +
                 '<div style="flex-shrink:0;width:22px;height:22px;border-radius:50%;background:' + color + '22;display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;color:' + color + '">' + (si + 1) + '</div>' +
-                '<div style="flex-shrink:0;width:160px;font-size:.82rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="' + (step.name || '') + '">' + (step.name || '') + '</div>' +
+                '<div data-i18n-skip style="flex-shrink:0;width:160px;font-size:.82rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="' + (step.name || '') + '">' + (step.name || '') + '</div>' +
                 '<div style="flex:1;height:8px;border-radius:4px;background:rgba(0,0,0,.07);overflow:hidden">' +
                     '<div style="height:100%;border-radius:4px;background:' + color + ';width:' + barPct + '%;transition:width .5s ease"></div>' +
                 '</div>' +
@@ -1147,18 +1150,6 @@ function loadRxPipeline() {
                 '</div>';
         }
         stepsHtml += '</div>';
-
-        if (d.completed > 0) {
-            var completedPct = d.total > 0 ? Math.round(d.completed / d.total * 100) : 0;
-            stepsHtml += '<div style="display:flex;align-items:center;gap:12px;margin-top:8px;padding-top:8px;border-top:1px solid rgba(0,0,0,.07)">' +
-                '<div style="flex-shrink:0;width:22px;height:22px;border-radius:50%;background:#19875422;display:flex;align-items:center;justify-content:center"><i class="fas fa-check" style="font-size:.6rem;color:#198754"></i></div>' +
-                '<div style="flex-shrink:0;width:160px;font-size:.82rem;font-weight:600;color:#198754">Completed</div>' +
-                '<div style="flex:1;height:8px;border-radius:4px;background:rgba(0,0,0,.07);overflow:hidden">' +
-                    '<div style="height:100%;border-radius:4px;background:#198754;width:' + completedPct + '%;transition:width .5s ease"></div>' +
-                '</div>' +
-                '<div style="flex-shrink:0;width:32px;text-align:right;font-size:.82rem;font-weight:600;color:#198754">' + d.completed + '</div>' +
-                '</div>';
-        }
         stepsEl.innerHTML = stepsHtml;
     }).catch(function() {
         stepsEl.innerHTML = '<p class="text-danger text-center small py-2"><i class="fas fa-exclamation-triangle me-1"></i>Could not load pipeline data.</p>';

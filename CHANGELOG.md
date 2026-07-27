@@ -7,6 +7,42 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+## [4.0.0-next.35] - 2026-07-27
+
+### Fixed
+
+- Corrected the Dashboard **RX Workflow Pipeline** breakdown so every action
+  row represents the RX record's actual **Current Stage** instead of the next
+  action inferred from a raw tracking-row count.
+- Made Dashboard, RX Records, and RX Reports share one workflow-state
+  aggregate: distinct active actions determine progress, the highest active
+  sequence determines Current Stage, retired/orphaned actions are ignored,
+  and duplicate tracking rows cannot advance or prematurely complete an RX.
+- Corrected the first-stage row, which was previously hard-coded to zero.
+
+### Changed
+
+- Renamed the graph section to **Current Stage Breakdown — RX records by latest
+  completed step**. Completed RX records remain in the final-stage bar and the top
+  Completed card; the duplicate green Completed breakdown row was removed.
+- Updated English/Spanish graph text and help content while preserving
+  configured workflow action names as business data.
+
+### Testing
+
+- Added an exact parity regression comparing every graph action count with RX
+  Records filtered by the same Current Stage.
+- Added duplicate-history, hidden-record, Not Started, In Progress, Completed,
+  and Current Stage versus Next Action Required fixtures.
+- Registered the regression in staging full smoke and PostgreSQL lifecycle CI,
+  and extended browser and localization checks for the new terminology.
+- Verified all six action rows against a 12,000-RX staging dataset; graph and
+  filter counts matched exactly, with a warm pipeline median of about 28 ms.
+
+**Database impact:** No migration and no data rewrite. The change reads the
+existing RX/workflow history and does not alter patients, proxy/origin rules,
+ports, authentication, PBX behavior, or RX Softphone.
+
 ## [4.0.0-next.34] - 2026-07-27
 
 ### Added
@@ -34,6 +70,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
   runtime.
 - Restricted custom icon/background values to safe same-site paths and retained
   built-in fallbacks for invalid environment configuration.
+- Documented the optional safe branding defaults in `.env.example` and updated
+  the packaged production checklist to route routine releases exclusively
+  through the guarded Project Control update and rollback flow.
 - Added no database migration and no patient/business data rewrite. Branding
   rows are created only through the existing audited System Settings update
   path.

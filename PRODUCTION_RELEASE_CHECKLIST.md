@@ -18,7 +18,7 @@ Use this list every time a new production version is compiled, tagged, uploaded 
 - [ ] Add a top entry to `CHANGELOG.md`.
 - [ ] Add tag-specific GitHub release notes at `.github/releases/v<version>.md`.
 - [ ] Confirm `.env.example` contains any new safe, non-secret config keys.
-- [ ] Confirm the real `.env` exists on the build machine and production machine, but is not committed to Git or packaged in release zips.
+- [ ] Confirm the real production `.env` exists, but is not committed to Git or packaged in release zips. A release build does not require a production `.env`.
 
 ## Build Package
 
@@ -45,31 +45,33 @@ Use this list every time a new production version is compiled, tagged, uploaded 
 ## GitHub Upload
 
 - [ ] Commit the version files, changelog, release notes, workflow/script updates, and checklist updates.
-- [ ] Create the matching tag: `git tag v<version>`.
 - [ ] Push the branch: `git push origin main`.
+- [ ] Wait for the exact `main` commit to pass database lifecycle CI, CodeQL, and the Windows RX Softphone build.
+- [ ] Create the matching annotated tag only after `main` CI passes: `git tag -a v<version> -m "RX Tracker NEXT <version>"`.
 - [ ] Push the tag: `git push origin v<version>`.
 - [ ] Confirm the GitHub Actions release workflow runs on the new tag.
 - [ ] Confirm the GitHub Release body uses `.github/releases/v<version>.md`.
+- [ ] Download the official GitHub release assets and verify them against `SHA256SUMS.txt`; never deploy the local build as the official release.
 
-## Production Upload
+## Routine Production Installation
 
-- [ ] Copy `dist/server-update-<version>.zip` to the production upload/staging path.
-- [ ] Extract the package into the side-by-side `C:\RX-Tracker\RX-APP-NEXT` folder; do not overwrite `C:\RX-Tracker\RX-APP`.
-- [ ] From an Administrator PowerShell terminal, run `scripts\Invoke-NextProduction.ps1 -Action Preflight`; confirm it reports that no database or service changes were made.
-- [ ] Run the exact-confirmation `Rehearsal` action while production remains online, then record the verified dump and hash.
-- [ ] Optionally run `StartRehearsal`, complete browser acceptance at port 3100, and run `StopRehearsal`.
-- [ ] Back up the current production app folder or confirm the scheduled backup completed before final cutover.
-- [ ] Record the backup filename, path, or timestamp used for this deployment: `__________`.
-- [ ] Announce downtime and run the exact-confirmation `Cutover` action. It stops the service, takes the final backup, rebuilds/migrates/verifies the isolated database, switches the service, and health-checks NEXT.
-- [ ] Confirm `C:\RX-Tracker\RX-APP\.env` remains unchanged and `RX-APP-NEXT\.env` differs only by the isolated `DB_NAME`.
-- [ ] Run `server.exe --v` on production and confirm the expected version.
+- [ ] Use only the official GitHub `server-update-<version>.zip` whose hash matches `SHA256SUMS.txt`; optionally archive it under `C:\Shared\Versions`.
+- [ ] Open `C:\RX-Tracker\RX-APP-NEXT\PROJECT-CONTROL.bat` as Administrator. Do not manually extract files into the active application folder and do not run the one-time `Invoke-NextProduction.ps1` cutover workflow.
+- [ ] Select option **4** and record the currently installed/running version: `__________`.
+- [ ] Select option **8** and confirm it reports `<version>` as a newer official release. If it reports no newer release, do not run option 15.
+- [ ] Select option **15**. Leave the ZIP field blank for the verified official download, or provide the archived official ZIP path.
+- [ ] Supply the maintenance database login only in the Project Control prompt when required; never save it in `.env` or an operations note.
+- [ ] Confirm the update and wait for the final green exact-version and database-health result. Project Control creates the paired application/database backup and preserves `.env` byte-for-byte.
+- [ ] Record the Project Control backup/deployment-state timestamp used for this deployment: `__________`.
+- [ ] Run Project Control options **4**, **3**, and **6** to verify version, health, and doctor results.
 - [ ] Open `/login` and changed production pages through the normal production URL or FortiGate URL.
-- [ ] Record any deployment notes, rollback notes, or manual `.env` changes in the release notes or operations log.
+- [ ] Verify dashboard totals, configured RX Actions, Call Center, and the features changed by this release. Record deployment and rollback notes in the sanitized operations log.
 
 ## Rollback Reference
 
 - [ ] Keep the previous `server-update-<previous-version>.zip` available.
 - [ ] Know the previous Git tag: `v__________`.
 - [ ] Know the latest known-good production backup timestamp: `__________`.
-- [ ] During the controlled early acceptance window, use the script's guarded `Rollback` action to return the service to the untouched 3.3.1 folder/database; stop users first because new NEXT records are not copied back.
-- [ ] For a later or reconciled rollback, stop NEXT and restore both the previous package and its paired pre-cutover database backup, confirm `.env`, and restart.
+- [ ] For an emergency release rollback, stop user activity and use Project Control option **16**. Type `ROLLBACK` only during controlled downtime.
+- [ ] Confirm the rollback restores the paired previous application and pre-update database. Records created after that database backup will not remain in the active database.
+- [ ] Do not move, rename, or separately delete `C:\RX-Tracker\backups`, `C:\RX-Tracker\release-backups`, or `C:\RX-Tracker\deployment-state`.

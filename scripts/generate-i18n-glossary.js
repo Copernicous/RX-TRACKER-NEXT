@@ -49,7 +49,9 @@ const formattedRows = [
     ['Call {phone} with {phone client}', 'Llamar al {phone} con {phone client}'],
     ['{count} records selected', '{count} registros seleccionados'],
     ['{count} filter(s)', '{count} filtro(s)'],
-    ['Showing {range} of {total} records', 'Mostrando {range} de {total} registros']
+    ['Showing {range} of {total} records', 'Mostrando {range} de {total} registros'],
+    ['{percent}% complete', '{percent}% completado'],
+    ['Updated {time}', 'Actualizado {time}']
 ];
 
 const escapeCell = value => String(value).replace(/\|/g, '\\|').replace(/\r?\n/g, '<br>');

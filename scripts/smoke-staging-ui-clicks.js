@@ -483,6 +483,22 @@ async function runAdminDashboardAndReports(fixtures) {
     await waitForNonPlaceholder(page, '#pendingDeliveriesCount', 'dashboard pending deliveries card');
     await expectVisible(page, '#rxPipelineRow', 'RX Workflow Pipeline visible');
     await waitForNonPlaceholder(page, '#rxPipelinePercent', 'RX Workflow Pipeline calculator loaded');
+    await page.waitForFunction(() => {
+        const steps = document.querySelector('#rxPipelineSteps');
+        const text = steps ? (steps.textContent || '') : '';
+        return text.includes('Current Stage Breakdown — RX records by latest completed step') ||
+            text.includes('No workflow steps configured yet.');
+    }, null, { timeout: 15000 });
+    const pipelineBreakdownText = (await page.locator('#rxPipelineSteps').textContent()).trim();
+    assert(
+        pipelineBreakdownText.includes('Current Stage Breakdown — RX records by latest completed step'),
+        'RX Workflow Pipeline must identify Current Stage as the latest completed workflow step.'
+    );
+    assert(
+        !pipelineBreakdownText.includes('RX records waiting at each step'),
+        'RX Workflow Pipeline must not label Current Stage counts as Next Action waiting counts.'
+    );
+    pass('dashboard RX pipeline uses Current Stage terminology');
 
     await expectVisible(page, '#callCenterReviewCard', 'Call Center Metrics card visible under RX pipeline');
     await page.locator('[data-cc-history-range="all"]').click();
