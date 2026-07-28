@@ -14,6 +14,7 @@ process.env.RX_PIPELINE_FILTER_TEST_DB_NAME = staging.dbName;
 process.env.RX_PIPELINE_FILTER_TEST_CONFIRM_DB_NAME = staging.dbName;
 process.env.CALL_CENTER_PAGINATION_TEST_DB_NAME = staging.dbName;
 process.env.REPORT_FILTER_TEST_DB_NAME = staging.dbName;
+process.env.QA_DB_NAME = staging.dbName;
 
 const tasks = [
     ['public JavaScript encoding and syntax check', 'check-public-js.js'],
