@@ -239,6 +239,14 @@ function buildTrendQuery() {
     return parts.length ? '?' + parts.join('&') : '';
 }
 
+function rxPipelineAllIncomplete(pipeline) {
+    var explicitTotal = pipeline ? Number(pipeline.allIncomplete) : NaN;
+    if (isFinite(explicitTotal) && explicitTotal >= 0) return explicitTotal;
+    return Number(pipeline && pipeline.notStarted || 0) +
+        Number(pipeline && pipeline.inProgress || 0) +
+        Number(pipeline && pipeline.expired || 0);
+}
+
 function loadDashboardCharts() {
     var q = buildTrendQuery();
     return fetchWithAuth(_uApi(_api.charts, q)).then(function(chartRes) {
@@ -247,7 +255,7 @@ function loadDashboardCharts() {
                 if (!_dashFrom && !_dashTo && window._lastDashboardStats && window._lastRxPipeline) {
                     var liveStats = window._lastDashboardStats;
                     var livePipeline = window._lastRxPipeline;
-                    var livePending = Number(livePipeline.notStarted || 0) + Number(livePipeline.inProgress || 0);
+                    var livePending = rxPipelineAllIncomplete(livePipeline);
                     if (chartData.cardTotals && Array.isArray(chartData.cardTotals.data)) {
                         chartData.cardTotals.data[0] = Number(liveStats.activePatients || 0);
                         chartData.cardTotals.data[1] = Number(liveStats.inactivePatients || 0);
@@ -1137,11 +1145,12 @@ function loadRxPipeline() {
         var setTxt = function(id, val) { var el = document.getElementById(id); if (el) el.textContent = val; };
         setTxt('rxPipelineNotStarted', safe(d.notStarted));
         setTxt('rxPipelineInProgress', safe(d.inProgress));
+        setTxt('rxPipelineExpired',    safe(d.expired));
         setTxt('rxPipelineCompleted',  safe(d.completed));
         if (!_dashFrom && !_dashTo) {
             // The all-time RX cards and pipeline now render from the same live response.
             setTxt('activeRxCount', safe(d.total));
-            setTxt('pendingDeliveriesCount', Number(safe(d.notStarted)) + Number(safe(d.inProgress)));
+            setTxt('pendingDeliveriesCount', rxPipelineAllIncomplete(d));
         }
 
         var pct = d.total > 0 ? Math.round((d.completed / d.total) * 100) : 0;
@@ -1159,7 +1168,8 @@ function loadRxPipeline() {
         var stepBreakdownTotal = d.stepBreakdown.reduce(function(total, step) {
             return total + Number(step && step.count || 0);
         }, 0);
-        var stepsHtml = '<div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#888;margin-bottom:10px">Current Stage Breakdown &mdash; RX records by latest completed step</div>' +
+        var stepsHtml = '<div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#888;margin-bottom:6px">Current Stage Breakdown &mdash; RX records by latest completed step</div>' +
+            '<div class="text-muted small mb-2"><i class="fas fa-info-circle me-1"></i>Expired RX remain shown in their actual Current Stage.</div>' +
             '<div style="display:flex;flex-direction:column;gap:8px">';
         for (var si = 0; si < d.stepBreakdown.length; si++) {
             var step  = d.stepBreakdown[si];

@@ -166,6 +166,14 @@
                             </select>
                         </div>
                         <div class="col-md-2">
+                            <label class="form-label small fw-bold"><i class="fas fa-calendar-alt me-1"></i>Current Stage Date From</label>
+                            <input type="date" class="form-control form-control-sm" id="rxFilterCurrentStageDateFrom" title="Date the actual Current Stage was completed">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small fw-bold"><i class="fas fa-calendar-alt me-1"></i>Current Stage Date To</label>
+                            <input type="date" class="form-control form-control-sm" id="rxFilterCurrentStageDateTo" title="Date the actual Current Stage was completed">
+                        </div>
+                        <div class="col-md-2">
                             <label class="form-label small fw-bold"><i class="fas fa-forward me-1"></i>Next Action Required</label>
                             <select class="form-select form-select-sm" id="rxFilterWorkflowStage">
                                 <option value="">All Next Actions</option>
@@ -975,7 +983,7 @@
             var headers = [
                 'RX #', 'Patient ID', 'Patient Name', 'Pharmacy', 'Service Date',
                 'Warehouse Status', 'Warehouse Return Date', 'Warehouse Return Note',
-                'Completed Steps', 'Current Stage', 'Next Action Required'
+                'Completed Steps', 'Current Stage', 'Current Stage Date', 'Next Action Required'
             ].concat(stageHeaders);
 
             function _csvDaysBetween(d1, d2) {
@@ -986,6 +994,7 @@
 
             var rows = rowsForExport.map(function(rx) {
                 var trkMap = {};
+                var currentStageDateValue = getRxCurrentStageDateValue(rx);
                 (rx.RXWorkflowTrackings || []).forEach(function(t) { trkMap[t.workflowActionId] = t; });
                 var currentAction = null;
                 var nextAction = null;
@@ -1013,6 +1022,7 @@
                     rx.warehouseReturnNote || '',
                     getRxCompletedStepCount(rx) + ' / ' + allWorkflowActions.length,
                     currentAction ? currentAction.name : 'Not Started',
+                    currentStageDateValue ? formatRxAppDateTime(currentStageDateValue) : '',
                     nextAction ? nextAction.name : (allWorkflowActions.length ? 'Workflow Completed' : '')
                 ];
                 var svcDate = rx.serviceDate ? new Date(rx.serviceDate) : null;
@@ -1101,6 +1111,7 @@
         var _filterIds = ['rxFilterPatient','rxFilterId','rxFilterPharmacy','rxFilterPatientCode',
                           'rxFilterDateFrom','rxFilterDateTo','rxFilterSvcFrom','rxFilterSvcTo',
                           'rxFilterPatientTransport','rxFilterPharmacyTransport','rxFilterWarehouseStatus',
+                          'rxFilterCurrentStageDateFrom','rxFilterCurrentStageDateTo',
                           'rxFilterWorkflowStatus','rxFilterWorkflowStage','rxFilterCurrentWorkflowStage'];
         for (var _fi = 0; _fi < _filterIds.length; _fi++) {
             (function(fid) {
@@ -1241,6 +1252,8 @@
         setRxParam(params, 'workflowStatus', document.getElementById('rxFilterWorkflowStatus')?.value || '');
         setRxParam(params, 'workflowStage', document.getElementById('rxFilterWorkflowStage')?.value || '');
         setRxParam(params, 'currentWorkflowStage', document.getElementById('rxFilterCurrentWorkflowStage')?.value || '');
+        setRxParam(params, 'currentStageDateFrom', document.getElementById('rxFilterCurrentStageDateFrom')?.value || '');
+        setRxParam(params, 'currentStageDateTo', document.getElementById('rxFilterCurrentStageDateTo')?.value || '');
         setRxParam(params, 'patientId', window._rxPrefilterPatientId || '');
 
         var sdEl = document.getElementById('rxShowDeleted');
@@ -1355,9 +1368,81 @@
         return currentSequence > 0 ? String(currentSequence) : '';
     }
 
+    function getRxCurrentStageDateValue(rx) {
+        if (rx && rx.currentStageDate) return rx.currentStageDate;
+        var trackings = rx && Array.isArray(rx.RXWorkflowTrackings) ? rx.RXWorkflowTrackings : [];
+        var sequenceByActionId = {};
+        var currentSequence = 0;
+        for (var ai = 0; ai < allWorkflowActions.length; ai++) {
+            var action = allWorkflowActions[ai];
+            var sequence = Number(action.sequenceNumber) || (ai + 1);
+            sequenceByActionId[String(Number(action.id))] = sequence;
+        }
+        for (var ti = 0; ti < trackings.length; ti++) {
+            var trackingSequence = sequenceByActionId[String(Number(trackings[ti].workflowActionId))];
+            if (trackingSequence) currentSequence = Math.max(currentSequence, trackingSequence);
+        }
+        if (!currentSequence) return '';
+        var latestDate = null;
+        var latestTrackingId = -1;
+        for (var di = 0; di < trackings.length; di++) {
+            var tracking = trackings[di];
+            if (sequenceByActionId[String(Number(tracking.workflowActionId))] !== currentSequence) continue;
+            if (!tracking.completionDate) continue;
+            var completionDate = new Date(tracking.completionDate);
+            if (isNaN(completionDate.getTime())) continue;
+            var trackingId = Number(tracking.id) || 0;
+            if (!latestDate || completionDate > latestDate
+                || (completionDate.getTime() === latestDate.getTime() && trackingId > latestTrackingId)) {
+                latestDate = completionDate;
+                latestTrackingId = trackingId;
+            }
+        }
+        return latestDate ? latestDate.toISOString() : '';
+    }
+
+    function getRxAppDateParts(value) {
+        if (!value) return null;
+        var date = new Date(value);
+        if (isNaN(date.getTime())) return null;
+        var options = {
+            timeZone: window.APP_TIME_ZONE || 'America/New_York',
+            year: 'numeric', month: '2-digit', day: '2-digit',
+            hour: '2-digit', minute: '2-digit', second: '2-digit',
+            hour12: false
+        };
+        var parts;
+        try {
+            parts = new Intl.DateTimeFormat('en-US', options).formatToParts(date);
+        } catch (error) {
+            options.timeZone = 'America/New_York';
+            parts = new Intl.DateTimeFormat('en-US', options).formatToParts(date);
+        }
+        var result = {};
+        for (var pi = 0; pi < parts.length; pi++) {
+            if (parts[pi].type !== 'literal') result[parts[pi].type] = parts[pi].value;
+        }
+        if (result.hour === '24') result.hour = '00';
+        return result;
+    }
+
+    function getRxLocalDateKey(value) {
+        var parts = getRxAppDateParts(value);
+        return parts ? (parts.year + '-' + parts.month + '-' + parts.day) : '';
+    }
+
+    function formatRxAppDateTime(value) {
+        var parts = getRxAppDateParts(value);
+        return parts
+            ? (parts.year + '-' + parts.month + '-' + parts.day + ' '
+                + parts.hour + ':' + parts.minute + ':' + parts.second)
+            : '';
+    }
+
     function getRxWorkflowSortValue(rx) {
         var completedSteps = getRxCompletedStepCount(rx);
         var totalSteps = allWorkflowActions.length || 0;
+        if (totalSteps > 0 && completedSteps >= totalSteps) return totalSteps + 100;
         var svc = rx && rx.serviceDate ? new Date(rx.serviceDate) : null;
         if (svc && !isNaN(svc.getTime())) {
             svc.setHours(0, 0, 0, 0);
@@ -1367,7 +1452,6 @@
             today.setHours(0, 0, 0, 0);
             if (today > exp) return 1000 + completedSteps;
         }
-        if (totalSteps > 0 && completedSteps >= totalSteps) return totalSteps + 100;
         return completedSteps;
     }
 
@@ -1398,12 +1482,17 @@
         var wfStage = _wfsEl ? _wfsEl.value : '';
         var _currentWfsEl = document.getElementById('rxFilterCurrentWorkflowStage');
         var currentWfStage = _currentWfsEl ? _currentWfsEl.value : '';
+        var _currentStageFromEl = document.getElementById('rxFilterCurrentStageDateFrom');
+        var currentStageDateFrom = _currentStageFromEl ? _currentStageFromEl.value : '';
+        var _currentStageToEl = document.getElementById('rxFilterCurrentStageDateTo');
+        var currentStageDateTo = _currentStageToEl ? _currentStageToEl.value : '';
         var preId = window._rxPrefilterPatientId;
 
         filteredRx = allRx.filter(function(r) {
             var wfKey = getRxWorkflowStatusKey(r);
             var wfStageKey = getRxWorkflowStageKey(r);
             var currentWfStageKey = getRxCurrentWorkflowStageKey(r);
+            var currentStageDateKey = getRxLocalDateKey(getRxCurrentStageDateValue(r));
             if (pat) {
                 var fullName = r.Patient ? (r.Patient.firstName + ' ' + r.Patient.lastName).toLowerCase() : '';
                 var code     = r.Patient ? (r.Patient.patientCode || '').toLowerCase() : '';
@@ -1432,6 +1521,8 @@
             if (wf && wf !== 'pending' && wf !== 'incomplete' && wfKey !== wf) return false;
             if (wfStage && wfStageKey !== wfStage) return false;
             if (currentWfStage && currentWfStageKey !== currentWfStage) return false;
+            if (currentStageDateFrom && (!currentStageDateKey || currentStageDateKey < currentStageDateFrom)) return false;
+            if (currentStageDateTo && (!currentStageDateKey || currentStageDateKey > currentStageDateTo)) return false;
             return true;
         });
         renderRxSorted();
@@ -1595,13 +1686,13 @@
                     var _wfSvc = new Date(rx.serviceDate); _wfSvc.setHours(0,0,0,0);
                     var _wfExp = new Date(_wfSvc.getTime() + window.SERVICE_WINDOW_DAYS * 864e5);
                     var _wfToday = new Date(); _wfToday.setHours(0,0,0,0);
-                    if (_wfToday > _wfExp) {
+                    if (wfKey === 'completed') {
+                        wfBadge.className += ' bg-primary';
+                        wfBadge.textContent = 'Completed';
+                    } else if (wfKey === 'expired') {
                         wfBadge.className += ' bg-danger';
                         wfBadge.textContent = 'Expired';
                         wfBadge.title = 'The 90-day window ended on ' + _wfExp.toLocaleDateString();
-                    } else if (wfKey === 'completed') {
-                        wfBadge.className += ' bg-primary';
-                        wfBadge.textContent = 'Completed';
                     } else if (wfKey === 'in-progress') {
                         wfBadge.className += ' bg-warning text-dark';
                         wfBadge.textContent = 'In Progress';

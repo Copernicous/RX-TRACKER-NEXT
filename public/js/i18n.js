@@ -418,6 +418,9 @@
         'Workflow Over Time': 'Flujo de trabajo a lo largo del tiempo',
         'Each horizontal bar shows how many RX records currently have that workflow action as their Current Stage (the highest active workflow step completed). Completed RX records remain in the final-stage bar, while Not Started records stay in the summary card because they do not yet have a Current Stage.': 'Cada barra horizontal muestra cuántos registros RX tienen actualmente esa acción del flujo como su etapa actual (la etapa activa más avanzada que se completó). Los registros RX completados permanecen en la barra de la etapa final, mientras que los no iniciados permanecen en la tarjeta de resumen porque todavía no tienen una etapa actual.',
 
+        'Expired RX remain shown in their actual Current Stage.': 'Los RX vencidos permanecen visibles en su etapa actual real.',
+        'The four summary cards are mutually exclusive Workflow Status groups: Not Started, In Progress, Expired, and Completed. Each horizontal bar below shows the RX record\'s actual Current Stage (the highest active workflow step completed). Expired RX remain included in their actual Current Stage, so the stage bars continue to match the Current Stage filters.': 'Las cuatro tarjetas de resumen son grupos mutuamente excluyentes del estado del flujo de trabajo: No iniciado, En curso, Vencido y Completado. Cada barra horizontal inferior muestra la etapa actual real del registro RX (la etapa activa más avanzada que se completó). Los RX vencidos permanecen incluidos en su etapa actual real, por lo que las barras continúan coincidiendo con los filtros de Etapa actual.',
+
         // Patients and patient timeline.
         '(Optional - Will auto-generate if blank)': '(Opcional; se generará automáticamente si se deja en blanco)',
         'Address': 'Dirección',
@@ -587,6 +590,11 @@
         'Complete History CSV': 'CSV del historial completo',
         'Conversation': 'Conversación',
         'Current Stage Date': 'Fecha de la etapa actual',
+        'Current Stage Date From': 'Fecha de la etapa actual desde',
+        'Current Stage Date To': 'Fecha de la etapa actual hasta',
+        'Date the actual Current Stage was completed': 'Fecha en que se completó la etapa actual real',
+        'Filtering by Current Stage completion date': 'Filtrar por fecha de finalización de la etapa actual',
+        'Open Advanced in RX Records and use Current Stage Date From and Current Stage Date To. The range is inclusive in the configured application timezone and uses the completion timestamp of the RX record\'s actual Current Stage. It is independent from Service Date and Next Action Required. Not Started records have no Current Stage date and are excluded when either date filter is used.': 'Abra Avanzado en Registros RX y use Fecha de la etapa actual desde y Fecha de la etapa actual hasta. El rango es inclusivo en la zona horaria configurada de la aplicación y usa la fecha y hora de finalización de la etapa actual real del registro RX. Es independiente de Fecha de servicio y Próxima acción requerida. Los registros No iniciados no tienen una fecha de etapa actual y se excluyen cuando se usa cualquiera de los filtros de fecha.',
         'Daily Summary (stats overview)': 'Resumen diario (estadísticas generales)',
         'Date From (optional)': 'Fecha desde (opcional)',
         'Date To (optional)': 'Fecha hasta (opcional)',

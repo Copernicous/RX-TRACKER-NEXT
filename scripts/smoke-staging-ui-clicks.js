@@ -347,12 +347,13 @@ async function captureFailureScreenshot(name) {
     return screenshotPath;
 }
 
-async function newContext() {
+async function newContext(contextOptions) {
     const context = await browser.newContext({
         ignoreHTTPSErrors: true,
         baseURL: baseUrl,
         viewport: { width: 1440, height: 1000 },
-        acceptDownloads: true
+        acceptDownloads: true,
+        ...(contextOptions || {})
     });
     await context.addInitScript(function() {
         try {
@@ -435,6 +436,56 @@ async function downloadText(page, selector, name) {
     return contents;
 }
 
+function parseCsvRows(text) {
+    const rows = [];
+    let row = [];
+    let field = '';
+    let quoted = false;
+    const input = String(text || '').replace(/^\uFEFF/, '');
+    for (let index = 0; index < input.length; index += 1) {
+        const char = input[index];
+        if (quoted) {
+            if (char === '"' && input[index + 1] === '"') {
+                field += '"';
+                index += 1;
+            } else if (char === '"') {
+                quoted = false;
+            } else {
+                field += char;
+            }
+        } else if (char === '"') {
+            quoted = true;
+        } else if (char === ',') {
+            row.push(field);
+            field = '';
+        } else if (char === '\n') {
+            row.push(field.replace(/\r$/, ''));
+            if (row.some(value => value !== '')) rows.push(row);
+            row = [];
+            field = '';
+        } else {
+            field += char;
+        }
+    }
+    if (field || row.length) {
+        row.push(field.replace(/\r$/, ''));
+        if (row.some(value => value !== '')) rows.push(row);
+    }
+    return rows;
+}
+
+function csvRecordByRxId(text, rxId) {
+    const rows = parseCsvRows(text);
+    assert(rows.length >= 2, 'RX CSV must contain a header and at least one data row.');
+    const headers = rows[0];
+    const row = rows.slice(1).find(values => String(values[0]) === String(rxId));
+    assert(row, 'RX CSV is missing RX #' + rxId + '.');
+    return headers.reduce((record, header, index) => {
+        record[header] = row[index] === undefined ? '' : row[index];
+        return record;
+    }, {});
+}
+
 function textOfMetric(totals, key, suffix) {
     const value = totals && totals[key] !== undefined && totals[key] !== null ? totals[key] : 0;
     return String(value) + (suffix || '');
@@ -473,7 +524,8 @@ async function assertDashboardCallCenterCalculations(page, expected) {
 }
 
 async function runAdminDashboardAndReports(fixtures) {
-    const { context, page } = await newContext();
+    // Keep the browser in a different timezone to prove stage dates use the configured app timezone.
+    const { context, page } = await newContext({ timezoneId: 'Pacific/Honolulu' });
     await login(page, fixtures.adminUser.username, '/dashboard');
 
     const version = await context.request.get(route('/api/version'));
@@ -485,6 +537,7 @@ async function runAdminDashboardAndReports(fixtures) {
     await waitForNonPlaceholder(page, '#pendingDeliveriesCount', 'dashboard pending deliveries card');
     await expectVisible(page, '#rxPipelineRow', 'RX Workflow Pipeline visible');
     await waitForNonPlaceholder(page, '#rxPipelinePercent', 'RX Workflow Pipeline calculator loaded');
+    await waitForNonPlaceholder(page, '#rxPipelineExpired', 'RX Workflow Pipeline Expired card loaded');
     await page.waitForFunction(() => {
         const steps = document.querySelector('#rxPipelineSteps');
         const text = steps ? (steps.textContent || '') : '';
@@ -500,6 +553,10 @@ async function runAdminDashboardAndReports(fixtures) {
         !pipelineBreakdownText.includes('RX records waiting at each step'),
         'RX Workflow Pipeline must not label Current Stage counts as Next Action waiting counts.'
     );
+    assert(
+        pipelineBreakdownText.includes('Expired RX remain shown in their actual Current Stage.'),
+        'RX Workflow Pipeline must explain that Expired remains a Workflow Status while retaining Current Stage.'
+    );
     const waitForDashboardParity = () => page.waitForFunction(() => {
         const chart = window._lastChartData;
         const stats = window._lastDashboardStats;
@@ -508,7 +565,9 @@ async function runAdminDashboardAndReports(fixtures) {
         const labels = chart.cardTotals.labels || [];
         const values = chart.cardTotals.data || [];
         const value = (label) => Number(values[labels.indexOf(label)] || 0);
-        const pending = Number(pipeline.notStarted || 0) + Number(pipeline.inProgress || 0);
+        const explicitAllIncomplete = Number(pipeline.allIncomplete);
+        const pending = Number.isFinite(explicitAllIncomplete) ? explicitAllIncomplete :
+            Number(pipeline.notStarted || 0) + Number(pipeline.inProgress || 0) + Number(pipeline.expired || 0);
         return value('Active') === Number(stats.activePatients || 0) &&
             value('Inactive') === Number(stats.inactivePatients || 0) &&
             value('Total RX') === Number(pipeline.total || 0) &&
@@ -528,25 +587,37 @@ async function runAdminDashboardAndReports(fixtures) {
             pendingCard: Number((document.querySelector('#pendingDeliveriesCount') || {}).textContent || 0),
             notStarted: Number((document.querySelector('#rxPipelineNotStarted') || {}).textContent || 0),
             inProgress: Number((document.querySelector('#rxPipelineInProgress') || {}).textContent || 0),
+            expired: Number((document.querySelector('#rxPipelineExpired') || {}).textContent || 0),
             completed: Number((document.querySelector('#rxPipelineCompleted') || {}).textContent || 0),
+            allIncomplete: Number(window._lastRxPipeline.allIncomplete || 0),
             chartActive: chartValue('Active'),
             chartInactive: chartValue('Inactive'),
             chartTotalRx: chartValue('Total RX'),
             chartPending: chartValue('Pending'),
             donutCompleted: Number(window._lastChartData.rxStatus.data[0] || 0),
             donutPending: Number(window._lastChartData.rxStatus.data[1] || 0),
-            pendingHref: (document.querySelector('#xl-rx-records-pending') || {}).getAttribute('href') || ''
+            pendingHref: (document.querySelector('#xl-rx-records-pending') || {}).getAttribute('href') || '',
+            notStartedHref: (document.querySelector('#xl-rx-records-not-started') || {}).getAttribute('href') || '',
+            inProgressHref: (document.querySelector('#xl-rx-records-in-progress') || {}).getAttribute('href') || '',
+            expiredHref: (document.querySelector('#xl-rx-records-expired') || {}).getAttribute('href') || '',
+            completedHref: (document.querySelector('#xl-rx-records-completed') || {}).getAttribute('href') || ''
         };
     });
     assert.strictEqual(
         workflowReconciliation.totalRx,
-        workflowReconciliation.notStarted + workflowReconciliation.inProgress + workflowReconciliation.completed,
-        'Dashboard Total RX card must reconcile to the live pipeline.'
+        workflowReconciliation.notStarted + workflowReconciliation.inProgress +
+            workflowReconciliation.expired + workflowReconciliation.completed,
+        'Dashboard Total RX card must reconcile to all four Workflow Status groups.'
+    );
+    assert.strictEqual(
+        workflowReconciliation.allIncomplete,
+        workflowReconciliation.notStarted + workflowReconciliation.inProgress + workflowReconciliation.expired,
+        'All Incomplete must reconcile to Not Started, In Progress, and Expired.'
     );
     assert.strictEqual(
         workflowReconciliation.pendingCard,
-        workflowReconciliation.notStarted + workflowReconciliation.inProgress,
-        'Dashboard Pending card must reconcile to the live pipeline.'
+        workflowReconciliation.allIncomplete,
+        'Dashboard Pending card must reconcile to every incomplete Workflow Status.'
     );
     assert.strictEqual(workflowReconciliation.chartActive, workflowReconciliation.activePatients, 'Active Patients graph must match its live card.');
     assert.strictEqual(workflowReconciliation.chartInactive, workflowReconciliation.inactivePatients, 'Inactive Patients graph must match its live card.');
@@ -558,7 +629,23 @@ async function runAdminDashboardAndReports(fixtures) {
         workflowReconciliation.pendingHref.includes('workflowStatus=incomplete'),
         'Dashboard Pending card must link to the exact All Incomplete RX Records filter.'
     );
-    pass('dashboard patient/RX cards, graphs, pipeline, and All Incomplete link reconcile');
+    assert(
+        workflowReconciliation.notStartedHref.includes('workflowStatus=not-started'),
+        'Dashboard Not Started card must link to the exact Not Started RX Records filter.'
+    );
+    assert(
+        workflowReconciliation.inProgressHref.includes('workflowStatus=in-progress'),
+        'Dashboard In Progress card must link to the exact In Progress RX Records filter.'
+    );
+    assert(
+        workflowReconciliation.expiredHref.includes('workflowStatus=expired'),
+        'Dashboard Expired card must link to the exact Expired RX Records filter.'
+    );
+    assert(
+        workflowReconciliation.completedHref.includes('workflowStatus=completed'),
+        'Dashboard Completed card must link to the exact Completed RX Records filter.'
+    );
+    pass('dashboard patient/RX cards, graphs, four Workflow Status groups, and filter links reconcile');
 
     const pipelineRefreshResponse = page.waitForResponse(response =>
         response.url().includes('/api/dashboard/rx-pipeline') && response.status() === 200,
@@ -597,7 +684,10 @@ async function runAdminDashboardAndReports(fixtures) {
             assert.strictEqual(Number(zeroPipeline.total), visibleRxTotal);
             assert.strictEqual(Number(zeroPipeline.notStarted), visibleRxTotal);
             assert.strictEqual(Number(zeroPipeline.inProgress), 0);
+            assert.strictEqual(Number(zeroPipeline.expired), 0);
             assert.strictEqual(Number(zeroPipeline.completed), 0);
+            assert.strictEqual(Number(zeroPipeline.allIncomplete), visibleRxTotal);
+            assert.strictEqual(Number(zeroPipeline.startedIncomplete), 0);
             assert.deepStrictEqual(zeroPipeline.stepBreakdown, []);
 
             const zeroStatsResponse = await context.request.get(route('/api/dashboard/stats'));
@@ -793,6 +883,11 @@ async function runAdminDashboardAndReports(fixtures) {
     });
     created.workflowActions.push(inactiveWorkflowAction);
     const reportStageDate = new Date();
+    reportStageDate.setHours(0, 30, 0, 0);
+    const reportStageDateKey = localDateOnly(reportStageDate);
+    const expectedReportStageTimestamp = reportStageDateKey + ' 00:30:00';
+    const inactiveReportStageDate = new Date(reportStageDate);
+    inactiveReportStageDate.setDate(inactiveReportStageDate.getDate() + 1);
     const reportTrackings = await db.RXWorkflowTracking.bulkCreate([
         {
             rxRecordId: returnedRx.id,
@@ -809,10 +904,28 @@ async function runAdminDashboardAndReports(fixtures) {
         {
             rxRecordId: returnedRx.id,
             workflowActionId: inactiveWorkflowAction.id,
-            completionDate: reportStageDate,
+            completionDate: inactiveReportStageDate,
             userId: fixtures.adminUser.id
         }
     ], { returning: true });
+
+    const completedOldRx = await db.RXRecord.create({
+        patientId: fixtures.secondMetricPatient.id,
+        serviceDate: dateFromToday(-150),
+        isDeleted: false,
+        returnedToWarehouse: false
+    });
+    const completedOldStageDate = new Date(reportStageDate);
+    completedOldStageDate.setDate(completedOldStageDate.getDate() - 2);
+    const completedOldTrackings = await db.RXWorkflowTracking.bulkCreate(
+        configuredWorkflowActions.map((action, index) => ({
+            rxRecordId: completedOldRx.id,
+            workflowActionId: action.id,
+            completionDate: new Date(completedOldStageDate.getTime() + index * 1000),
+            userId: fixtures.adminUser.id
+        })),
+        { returning: true }
+    );
 
     await page.goto(route('/reports'), { waitUntil: 'domcontentloaded' });
     await page.waitForLoadState('networkidle').catch(() => {});
@@ -841,8 +954,8 @@ async function runAdminDashboardAndReports(fixtures) {
     await page.selectOption('#rrfPatientType', 'company');
     await page.selectOption('#rrfWarehouseStatus', 'returned');
     await page.selectOption('#rrfCompletedStage', String(firstWorkflowAction.id));
-    await page.fill('#rrfStageFrom', reportStageDate.toISOString().slice(0, 10));
-    await page.fill('#rrfStageTo', reportStageDate.toISOString().slice(0, 10));
+    await page.fill('#rrfStageFrom', reportStageDateKey);
+    await page.fill('#rrfStageTo', reportStageDateKey);
     const rxReportResponse = page.waitForResponse(response =>
         response.url().includes('/api/reports/rx-actions?')
         && response.url().includes('warehouseStatus=returned')
@@ -905,18 +1018,19 @@ async function runAdminDashboardAndReports(fixtures) {
     await page.locator('#rxDetailModal .btn-close').click();
     await page.locator('#rxDetailModal').waitFor({ state: 'hidden', timeout: 10000 });
     const quickRxCsv = await downloadText(page, '#exportRxListCsvBtn', 'Filtered RX warehouse CSV export');
-    assert(
-        quickRxCsv.includes('"Completed Steps","Current Stage","Next Action Required"'),
-        'RX Records CSV must place the explicit Current Stage and Next Action Required columns together.'
-    );
-    assert(
-        quickRxCsv.includes(`"${firstWorkflowAction.name}","${secondWorkflowAction.name}"`),
-        'RX Records CSV must export the current completed stage beside the next required action.'
-    );
-    assert(
-        quickRxCsv.includes('"1 / ' + configuredWorkflowActions.length + '"'),
+    const quickRxRecord = csvRecordByRxId(quickRxCsv, returnedRx.id);
+    assert.strictEqual(
+        quickRxRecord['Completed Steps'],
+        '1 / ' + configuredWorkflowActions.length,
         'RX Records CSV must export canonical distinct-active workflow progress.'
     );
+    assert.strictEqual(quickRxRecord['Current Stage'], firstWorkflowAction.name);
+    assert.strictEqual(
+        quickRxRecord['Current Stage Date'],
+        expectedReportStageTimestamp,
+        'RX Records CSV must format Current Stage Date in the configured application timezone.'
+    );
+    assert.strictEqual(quickRxRecord['Next Action Required'], secondWorkflowAction.name);
 
     warehouseResponse = page.waitForResponse(response =>
         response.url().includes('/api/rx-records?')
@@ -936,6 +1050,8 @@ async function runAdminDashboardAndReports(fixtures) {
     pass('RX Records warehouse filter and readable status badge');
 
     await expectVisible(page, '#rxFilterCurrentWorkflowStage', 'RX Records Current Stage filter');
+    await expectVisible(page, '#rxFilterCurrentStageDateFrom', 'RX Records Current Stage Date From filter');
+    await expectVisible(page, '#rxFilterCurrentStageDateTo', 'RX Records Current Stage Date To filter');
     await expectVisible(page, '#rxFilterWorkflowStage', 'RX Records Next Action Required filter');
     await expectVisible(
         page,
@@ -956,6 +1072,16 @@ async function runAdminDashboardAndReports(fixtures) {
         await page.locator('#rxFilterWorkflowStage').evaluate(element => Boolean(element.closest('#rxAdvPanel'))),
         true,
         'Next Action Required must be in Advanced filters.'
+    );
+    assert.strictEqual(
+        await page.locator('#rxFilterCurrentStageDateFrom').evaluate(element => Boolean(element.closest('#rxAdvPanel'))),
+        true,
+        'Current Stage Date From must be in Advanced filters.'
+    );
+    assert.strictEqual(
+        await page.locator('#rxFilterCurrentStageDateTo').evaluate(element => Boolean(element.closest('#rxAdvPanel'))),
+        true,
+        'Current Stage Date To must be in Advanced filters.'
     );
 
     const firstStageSequence = Number(firstWorkflowAction.sequenceNumber);
@@ -1011,6 +1137,107 @@ async function runAdminDashboardAndReports(fixtures) {
     assert(!stageBody.includes('#' + notReturnedRx.id), 'Current Stage must exclude a not-started RX.');
     pass('RX Records prioritizes Current Stage and keeps Next Action Required advanced');
 
+    let currentStageDateResponse = page.waitForResponse(response =>
+        response.url().includes('/api/rx-records?')
+        && response.url().includes(`currentStageDateFrom=${reportStageDateKey}`)
+        && response.url().includes(`currentStageDateTo=${reportStageDateKey}`)
+        && response.status() === 200,
+        { timeout: 15000 }
+    );
+    await page.fill('#rxFilterCurrentStageDateFrom', reportStageDateKey);
+    await page.fill('#rxFilterCurrentStageDateTo', reportStageDateKey);
+    await currentStageDateResponse;
+    await page.waitForFunction((rxId) => {
+        const body = document.querySelector('#rxBody');
+        return body && body.textContent.indexOf('#' + rxId) !== -1;
+    }, returnedRx.id, { timeout: 15000 });
+    let currentStageDateBody = await page.locator('#rxBody').innerText();
+    assert(
+        currentStageDateBody.includes('#' + returnedRx.id),
+        'Current Stage Date must include the RX whose actual current stage was completed on the selected date.'
+    );
+    assert(
+        !currentStageDateBody.includes('#' + notReturnedRx.id),
+        'Current Stage Date must exclude a Not Started RX with no current-stage completion date.'
+    );
+
+    const filteredCsvResponse = page.waitForResponse(response =>
+        response.url().includes('/api/rx-records?')
+        && response.url().includes('exportAll=true')
+        && response.url().includes(`currentStageDateFrom=${reportStageDateKey}`)
+        && response.url().includes(`currentStageDateTo=${reportStageDateKey}`)
+        && response.status() === 200,
+        { timeout: 15000 }
+    );
+    const filteredStageCsvPromise = downloadText(
+        page,
+        '#exportRxListCsvBtn',
+        'Filtered RX Current Stage Date CSV export'
+    );
+    await filteredCsvResponse;
+    const filteredStageCsv = await filteredStageCsvPromise;
+    const filteredStageRecord = csvRecordByRxId(filteredStageCsv, returnedRx.id);
+    assert.strictEqual(filteredStageRecord['Current Stage'], firstWorkflowAction.name);
+    assert.strictEqual(
+        filteredStageRecord['Current Stage Date'],
+        expectedReportStageTimestamp,
+        'Filtered CSV must export the exact app-local timestamp used by Current Stage Date filtering.'
+    );
+    assert.strictEqual(filteredStageRecord['Next Action Required'], secondWorkflowAction.name);
+
+    const futureStageDate = '2099-12-31';
+    currentStageDateResponse = page.waitForResponse(response =>
+        response.url().includes('/api/rx-records?')
+        && response.url().includes(`currentStageDateFrom=${futureStageDate}`)
+        && response.url().includes(`currentStageDateTo=${futureStageDate}`)
+        && response.status() === 200,
+        { timeout: 15000 }
+    );
+    await page.fill('#rxFilterCurrentStageDateFrom', futureStageDate);
+    await page.fill('#rxFilterCurrentStageDateTo', futureStageDate);
+    await currentStageDateResponse;
+    await page.waitForFunction(() => {
+        const body = document.querySelector('#rxBody');
+        return body && body.textContent.includes('No RX records found.');
+    }, null, { timeout: 15000 });
+
+    const clearCurrentStageDateResponse = page.waitForResponse(response =>
+        response.url().includes('/api/rx-records?')
+        && !response.url().includes('currentStageDateFrom=')
+        && !response.url().includes('currentStageDateTo=')
+        && response.status() === 200,
+        { timeout: 15000 }
+    );
+    await page.click('#rxClearBtn');
+    await clearCurrentStageDateResponse;
+    assert.strictEqual(await page.inputValue('#rxFilterCurrentStageDateFrom'), '');
+    assert.strictEqual(await page.inputValue('#rxFilterCurrentStageDateTo'), '');
+    pass('RX Records Current Stage Date filters, clear action, and CSV export parity');
+
+    const completedOldResponse = page.waitForResponse(response =>
+        response.url().includes('/api/rx-records?')
+        && response.url().includes('id=' + completedOldRx.id)
+        && response.status() === 200,
+        { timeout: 15000 }
+    );
+    await page.fill('#rxFilterId', String(completedOldRx.id));
+    await completedOldResponse;
+    const completedOldRow = page.locator('#rxBody tr').filter({ hasText: '#' + completedOldRx.id }).first();
+    await completedOldRow.waitFor({ state: 'visible', timeout: 15000 });
+    const completedOldWorkflowText = await completedOldRow.locator('td[data-label="Workflow"]').innerText();
+    assert(completedOldWorkflowText.includes('Completed'), 'Completed old-service-date RX must display Completed.');
+    assert(!completedOldWorkflowText.includes('Expired'), 'Completed old-service-date RX must not display Expired.');
+    pass('RX Records completed status takes precedence over an old service-window date');
+
+    const clearCompletedOldResponse = page.waitForResponse(response =>
+        response.url().includes('/api/rx-records?')
+        && !response.url().includes('id=' + completedOldRx.id)
+        && response.status() === 200,
+        { timeout: 15000 }
+    );
+    await page.click('#rxClearBtn');
+    await clearCompletedOldResponse;
+
     await page.goto(route('/patients/' + fixtures.metricPatient.id + '/timeline'), { waitUntil: 'domcontentloaded' });
     const timelineEntry = page.locator('#tlEntry_' + returnedRx.id);
     await timelineEntry.waitFor({ state: 'visible', timeout: 15000 });
@@ -1025,8 +1252,12 @@ async function runAdminDashboardAndReports(fixtures) {
     );
     pass('RX Records and Patient Timeline canonical duplicate-history progress');
 
-    await db.RXWorkflowTracking.destroy({ where: { id: { [Op.in]: reportTrackings.map(row => row.id) } } });
-    await db.RXRecord.destroy({ where: { id: { [Op.in]: [returnedRx.id, notReturnedRx.id] } } });
+    await db.RXWorkflowTracking.destroy({
+        where: { id: { [Op.in]: reportTrackings.concat(completedOldTrackings).map(row => row.id) } }
+    });
+    await db.RXRecord.destroy({
+        where: { id: { [Op.in]: [returnedRx.id, notReturnedRx.id, completedOldRx.id] } }
+    });
     await db.WorkflowAction.destroy({ where: { id: inactiveWorkflowAction.id } });
 
     await page.goto(route('/patients'), { waitUntil: 'domcontentloaded' });
@@ -1476,6 +1707,7 @@ async function runCallCenterWorkspace(fixtures) {
         ['Cola de llamadas', 'Llamadas en esta sesión', 'Pacientes en esta sesión', 'Fechas en esta sesión', 'Eficiencia'],
         'Call Center metric cards should render in Spanish.'
     );
+    await page.waitForFunction(() => /^Página \d+ de \d+$/.test((document.getElementById('ccPageLabel') || {}).textContent || ''), null, { timeout: 15000 });
     assert(/^Página \d+ de \d+$/.test((await page.locator('#ccPageLabel').innerText()).trim()), 'Call Center pagination should render in Spanish.');
     assert.strictEqual(await page.title(), 'Centro de llamadas - Patient RX System', 'Call Center document title should render in Spanish.');
 

@@ -153,7 +153,7 @@ async function stopServer(child) {
 async function main() {
     const staging = prepareStagingEnv();
     const databaseName = safeDatabaseName(
-        process.env.STAGING_UI_SMOKE_DB_NAME || (staging.dbName.replace(/[^A-Za-z0-9_]/g, '_') + '_ui_smoke')
+        process.env.STAGING_UI_SMOKE_DB_NAME || (staging.dbName.replace(/[^A-Za-z0-9_]/g, '_') + '_qa_ui_smoke')
     );
     const port = await reservePort();
     const baseUrl = 'http://127.0.0.1:' + port;

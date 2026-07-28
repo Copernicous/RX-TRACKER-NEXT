@@ -79,6 +79,15 @@ function parseLocalDateOnly(input) {
     return date;
 }
 
+/** Convert a local calendar day (plus an optional day offset) to a UTC boundary. */
+function localDayBoundaryIso(input, dayOffset) {
+    const date = parseLocalDateOnly(input);
+    if (!date) return '';
+    date.setHours(0, 0, 0, 0);
+    date.setDate(date.getDate() + Number(dayOffset || 0));
+    return date.toISOString();
+}
+
 /** Internal: validate year/month/day are valid calendar dates */
 function _validParts(y, m, d) {
     const yi = parseInt(y, 10);
@@ -96,4 +105,4 @@ function _validParts(y, m, d) {
            normalized.getDate() === di;
 }
 
-module.exports = { parseDate, formatDate, parseLocalDateOnly };
+module.exports = { parseDate, formatDate, parseLocalDateOnly, localDayBoundaryIso };
