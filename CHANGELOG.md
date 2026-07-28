@@ -18,22 +18,40 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
   aggregate: distinct active actions determine progress, the highest active
   sequence determines Current Stage, retired/orphaned actions are ignored,
   and duplicate tracking rows cannot advance or prematurely complete an RX.
+- Corrected RX Records list, detail, print preview, CSV progress, Patient RX
+  History, Patient Timeline, service-date history badges, print views, Needs
+  Action filtering, Dashboard cards, and Pending drilldown so duplicate or
+  inactive audit history cannot produce impossible values such as `7/6` or
+  `6/7`; the original history rows remain preserved.
 - Corrected the first-stage row, which was previously hard-coded to zero.
+- Removed stale operational-card discrepancies: all-time Active/Inactive
+  patient counts now read live visible Patients rows, while Total RX and
+  Pending are reconciled from the same live response as the pipeline; the
+  Dashboard Card Totals and RX Status graphs reuse those exact live values.
+- Added an explicit **All Incomplete** RX Records filter for the Dashboard
+  Pending card, including expired incomplete cycles while preserving the
+  narrower operational Pending and Expired filters.
+- Made newly rebuilt historical dashboard days use distinct active actions and
+  fixed the final fractional-second day-boundary gap.
 
 ### Changed
 
 - Renamed the graph section to **Current Stage Breakdown — RX records by latest
   completed step**. Completed RX records remain in the final-stage bar and the top
   Completed card; the duplicate green Completed breakdown row was removed.
-- Updated English/Spanish graph text and help content while preserving
+- Updated English/Spanish graph, All Incomplete, and help text while preserving
   configured workflow action names as business data.
+- Defined an empty workflow configuration as fail-closed: visible RX records
+  remain Not Started/Pending rather than appearing completed.
 
 ### Testing
 
 - Added an exact parity regression comparing every graph action count with RX
   Records filtered by the same Current Stage.
-- Added duplicate-history, hidden-record, Not Started, In Progress, Completed,
-  and Current Stage versus Next Action Required fixtures.
+- Added duplicate-history, inactive-action, hidden-record, expired versus All
+  Incomplete, Not Started, In Progress, Completed, stale/current/historical
+  snapshot, Pending-drilldown, service-history, and Current Stage versus Next
+  Action Required fixtures.
 - Registered the regression in staging full smoke and PostgreSQL lifecycle CI,
   and extended browser and localization checks for the new terminology.
 - Verified all six action rows against a 12,000-RX staging dataset; graph and

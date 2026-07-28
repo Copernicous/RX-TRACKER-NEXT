@@ -244,6 +244,22 @@ function loadDashboardCharts() {
     return fetchWithAuth(_uApi(_api.charts, q)).then(function(chartRes) {
         if (chartRes && chartRes.ok) {
             return chartRes.json().then(function(chartData) {
+                if (!_dashFrom && !_dashTo && window._lastDashboardStats && window._lastRxPipeline) {
+                    var liveStats = window._lastDashboardStats;
+                    var livePipeline = window._lastRxPipeline;
+                    var livePending = Number(livePipeline.notStarted || 0) + Number(livePipeline.inProgress || 0);
+                    if (chartData.cardTotals && Array.isArray(chartData.cardTotals.data)) {
+                        chartData.cardTotals.data[0] = Number(liveStats.activePatients || 0);
+                        chartData.cardTotals.data[1] = Number(liveStats.inactivePatients || 0);
+                        chartData.cardTotals.data[2] = Number(livePipeline.total || 0);
+                        chartData.cardTotals.data[3] = livePending;
+                        chartData.cardTotals.data[4] = Number(liveStats.patientsWithNoRx || 0);
+                    }
+                    if (chartData.rxStatus && Array.isArray(chartData.rxStatus.data)) {
+                        chartData.rxStatus.data[0] = Number(livePipeline.completed || 0);
+                        chartData.rxStatus.data[1] = livePending;
+                    }
+                }
                 window._lastChartData = chartData;
                 renderCharts(chartData);
             });
@@ -259,6 +275,7 @@ function refreshDashboard() {
     return fetchWithAuth(_uApi(_api.stats, q)).then(function(res) {
         if (!res) return;
         return res.json().then(function(data) {
+            window._lastDashboardStats = data;
             var safe = function(v) { return (v !== undefined && v !== null) ? v : 0; };
             var setTxt = function(id, val) { var el = document.getElementById(id); if (el) el.textContent = val; };
             setTxt('activePatientsCount',    safe(data.activePatients));
@@ -295,7 +312,9 @@ function refreshDashboard() {
     }).catch(function(e) {
         console.warn('Stats refresh error:', e);
     }).then(function() {
-        loadRxPipeline();
+        return loadRxPipeline();
+    }).then(function() {
+        return loadDashboardCharts();
     });
 }
 
@@ -1106,18 +1125,24 @@ function loadEligibility() {
 function loadRxPipeline() {
     var stepsEl = document.getElementById('rxPipelineSteps');
     var luEl    = document.getElementById('rxPipelineLastUpdated');
-    if (!stepsEl) return;
+    if (!stepsEl) return Promise.resolve();
     stepsEl.innerHTML = '<div class="text-muted text-center py-3"><i class="fas fa-spinner fa-spin me-2"></i>Loading...</div>';
 
-    fetchWithAuth(_api.rxp()).then(function(res) {
+    return fetchWithAuth(_api.rxp()).then(function(res) {
         if (!res || !res.ok) throw new Error('Failed');
         return res.json();
     }).then(function(d) {
+        window._lastRxPipeline = d;
         var safe = function(v) { return (v !== undefined && v !== null) ? v : 0; };
         var setTxt = function(id, val) { var el = document.getElementById(id); if (el) el.textContent = val; };
         setTxt('rxPipelineNotStarted', safe(d.notStarted));
         setTxt('rxPipelineInProgress', safe(d.inProgress));
         setTxt('rxPipelineCompleted',  safe(d.completed));
+        if (!_dashFrom && !_dashTo) {
+            // The all-time RX cards and pipeline now render from the same live response.
+            setTxt('activeRxCount', safe(d.total));
+            setTxt('pendingDeliveriesCount', Number(safe(d.notStarted)) + Number(safe(d.inProgress)));
+        }
 
         var pct = d.total > 0 ? Math.round((d.completed / d.total) * 100) : 0;
         setTxt('rxPipelinePercent', pct + '% complete');
@@ -1963,9 +1988,8 @@ document.addEventListener('DOMContentLoaded', function() {
     var trendExport = document.getElementById('trendExportBtn');
     if (trendExport) trendExport.addEventListener('click', exportTrendCsv);
 
-    // Load data
+    // Load data. refreshDashboard sequences live cards/pipeline before charts.
     refreshDashboard();
-    loadDashboardCharts();
 
     // Load eligibility widget independently
     loadEligibility();

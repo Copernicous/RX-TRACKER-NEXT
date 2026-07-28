@@ -519,7 +519,7 @@
                             <h5 class="mb-0"><i class="fas fa-project-diagram me-2" style="color:#4a90e2"></i>RX Workflow Pipeline</h5>
                             <div class="d-flex align-items-center gap-3">
                                 <span class="badge bg-secondary" id="rxPipelineLastUpdated" style="font-weight:400;font-size:.72rem"></span>
-                                <button class="btn btn-outline-secondary btn-sm" onclick="loadRxPipeline()" title="Refresh"><i class="fas fa-sync-alt"></i></button>
+                                <button id="rxPipelineRefreshBtn" class="btn btn-outline-secondary btn-sm" onclick="refreshDashboard()" title="Refresh"><i class="fas fa-sync-alt"></i></button>
                                 <a href="/rx-records" class="btn btn-outline-primary btn-sm"><i class="fas fa-external-link-alt me-1"></i>View RX Records</a>
                             </div>
                         </div>
@@ -861,7 +861,7 @@
     <a id="xl-patients-active"    href="/patients?status=active"></a>
     <a id="xl-patients-inactive"  href="/patients?status=inactive"></a>
     <a id="xl-rx-records"         href="/rx-records"></a>
-    <a id="xl-rx-records-pending" href="/rx-records?pending=true"></a>
+    <a id="xl-rx-records-pending" href="/rx-records?workflowStatus=incomplete"></a>
     <a id="xl-patients-norx"      href="/patients?status=norx"></a>
     <!-- Eligibility filter page links -->
     <a id="xl-elig-eligible" href="/patients?eligFilter=eligible&status=active"></a>

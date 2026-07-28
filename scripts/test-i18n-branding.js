@@ -25,11 +25,14 @@ const reportsClient = read('public/js/reports.js');
 const crudView = read('views/crud.ejs');
 const patientsView = read('views/patients.ejs');
 const dashboardClient = read('public/js/dashboard.js');
+const dashboardView = read('views/dashboard.ejs');
+const rxRecordsView = read('views/rx-records.ejs');
 const helpClient = read('public/js/help.js');
 const passengerMinivanIcon = read('public/images/brand-icons/minivan-passengers.svg');
 const boardingMinivanIcon = read('public/images/brand-icons/minivan-boarding.svg');
 
 assert(i18nSource.includes("'Patients': 'Pacientes'"), 'Spanish Patients translation is missing');
+assert(i18nSource.includes("'All Incomplete': 'Todos incompletos'"), 'Spanish All Incomplete translation is missing');
 assert(i18nSource.includes("'Sign In': 'Iniciar sesión'"), 'Spanish login translation is missing');
 assert(i18nSource.includes('localStorage.setItem(STORAGE_KEY, lang)'), 'Language preference is not persisted');
 assert(i18nSource.includes("parent.closest('tbody td')"), 'Patient/business table protection is missing');
@@ -89,7 +92,10 @@ assert(
 );
 assert(!dashboardClient.includes('var completedPct ='), 'Dashboard must not render a duplicate Completed breakdown row');
 assert(dashboardClient.includes('<div data-i18n-skip'), 'Configured workflow action names must not be translated');
+assert(dashboardView.includes('workflowStatus=incomplete'), 'Dashboard Pending card must link to All Incomplete');
+assert(rxRecordsView.includes('<option value="incomplete">All Incomplete</option>'), 'RX Records All Incomplete filter is missing');
 assert(helpClient.includes('highest active workflow step completed'), 'Dashboard pipeline help still describes Next Action semantics');
+assert(helpClient.includes('including expired cycles'), 'Dashboard Pending help must disclose expired-cycle inclusion');
 
 const glossaryRows = glossary.split(/\r?\n/).filter(line => /^\| .+ \| .+ \|$/.test(line));
 assert(glossaryRows.length >= 700, `Expected at least 700 glossary rows; found ${glossaryRows.length}`);
@@ -97,6 +103,7 @@ assert(
     glossary.includes('| Current Stage Breakdown — RX records by latest completed step | Desglose por etapa actual — registros RX según el último paso completado |'),
     'Generated glossary is missing the Current Stage breakdown translation'
 );
+assert(glossary.includes('| All Incomplete | Todos incompletos |'), 'Generated glossary is missing All Incomplete');
 assert(glossary.includes('| {percent}% complete | {percent}% completado |'), 'Generated glossary is missing the completion pattern');
 assert(glossary.includes('| Updated {time} | Actualizado {time} |'), 'Generated glossary is missing the updated-time pattern');
 
@@ -126,6 +133,7 @@ vm.runInContext(i18nSource, sandbox);
 assert.strictEqual(sandbox.window.RXI18n.getLanguage(), 'en');
 storage.set('rxUiLanguage', 'es');
 assert.strictEqual(sandbox.window.RXI18n.translate('Patients'), 'Pacientes');
+assert.strictEqual(sandbox.window.RXI18n.translate('All Incomplete'), 'Todos incompletos');
 assert.strictEqual(sandbox.window.RXI18n.translate('Call Queue'), 'Cola de llamadas');
 assert.strictEqual(sandbox.window.RXI18n.translate('Calling from day 60 · Service eligible day 90'), 'Llamadas desde el día 60 · Servicio elegible el día 90');
 assert.strictEqual(sandbox.window.RXI18n.translate('Page 2 of 14'), 'Página 2 de 14');

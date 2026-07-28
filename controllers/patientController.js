@@ -88,8 +88,16 @@ async function loadPatientServiceDateCycles(patient, options) {
     return cycles.map(summarizeServiceDateCycle);
 }
 
-function isWorkflowCycleNeedsAction(serviceDate, rxRecords, totalWorkflowSteps) {
-    if (!serviceDate || !Array.isArray(rxRecords) || totalWorkflowSteps <= 0) {
+function completedActiveWorkflowStepIds(rx, activeActionIds) {
+    return Array.from(new Set(
+        ((rx && rx.RXWorkflowTrackings) || [])
+            .map(tracking => Number(tracking.workflowActionId))
+            .filter(actionId => Number.isInteger(actionId) && activeActionIds.has(actionId))
+    ));
+}
+
+function isWorkflowCycleNeedsAction(serviceDate, rxRecords, activeActionIds) {
+    if (!serviceDate || !Array.isArray(rxRecords) || activeActionIds.size <= 0) {
         return false;
     }
 
@@ -105,10 +113,9 @@ function isWorkflowCycleNeedsAction(serviceDate, rxRecords, totalWorkflowSteps) 
 
     if (today <= svcExpiry) return false;
 
-    return rxRecords.some((rx) => {
-        const tracked = Array.isArray(rx.RXWorkflowTrackings) ? rx.RXWorkflowTrackings.length : 0;
-        return tracked < totalWorkflowSteps;
-    });
+    return rxRecords.some(rx => (
+        completedActiveWorkflowStepIds(rx, activeActionIds).length < activeActionIds.size
+    ));
 }
 
 function cleanString(value) {
@@ -155,7 +162,7 @@ function patientInclude(options) {
             attributes: ['id'],
             include: [{
                 model: db.RXWorkflowTracking,
-                attributes: ['id']
+                attributes: ['id', 'workflowActionId']
             }],
             where: { [Op.or]: [{ isDeleted: false }, { isDeleted: null }] },
             required: false
@@ -163,13 +170,13 @@ function patientInclude(options) {
     ];
 }
 
-function enrichPatientRows(data, totalWorkflowSteps) {
+function enrichPatientRows(data, activeActionIds) {
     return data.map((patient) => {
         const plain = patient.toJSON();
         plain.needsAction = isWorkflowCycleNeedsAction(
             plain.serviceDate,
             plain.RXRecords,
-            totalWorkflowSteps
+            activeActionIds
         );
         return plain;
     });
@@ -205,8 +212,11 @@ function needsActionExistsCondition(totalWorkflowSteps) {
         WHERE rx_action."patientId" = "Patient"."id"
           AND COALESCE(rx_action."isDeleted", false) = false
           AND (
-              SELECT COUNT(*)
+              SELECT COUNT(DISTINCT tracking_action."workflowActionId")
               FROM "RXWorkflowTrackings" AS tracking_action
+              INNER JOIN "WorkflowActions" AS action_def
+                  ON action_def.id = tracking_action."workflowActionId"
+                 AND action_def."isActive" = TRUE
               WHERE tracking_action."rxRecordId" = rx_action.id
           ) < ${stepCount}
     )`);
@@ -414,7 +424,7 @@ async function loadPatientFacets(where) {
     };
 }
 
-async function loadPatientRowsByIds(ids, totalWorkflowSteps, includeFullNotes) {
+async function loadPatientRowsByIds(ids, activeActionIds, includeFullNotes) {
     if (!ids.length) return [];
     const orderIndex = new Map(ids.map((id, index) => [Number(id), index]));
     const rows = [];
@@ -425,7 +435,7 @@ async function loadPatientRowsByIds(ids, totalWorkflowSteps, includeFullNotes) {
             where: { id: batchIds },
             include: patientInclude({ includeFullNotes })
         });
-        rows.push(...enrichPatientRows(batch, totalWorkflowSteps));
+        rows.push(...enrichPatientRows(batch, activeActionIds));
     }
     rows.sort((left, right) => orderIndex.get(Number(left.id)) - orderIndex.get(Number(right.id)));
     return rows;
@@ -433,7 +443,15 @@ async function loadPatientRowsByIds(ids, totalWorkflowSteps, includeFullNotes) {
 
 exports.getAll = async (req, res) => {
     try {
-        const totalWorkflowSteps = await db.WorkflowAction.count({ where: { isActive: true } });
+        const activeWorkflowActions = await db.WorkflowAction.findAll({
+            attributes: ['id'],
+            where: { isActive: true },
+            raw: true
+        });
+        const activeActionIds = new Set(
+            activeWorkflowActions.map(action => Number(action.id)).filter(Number.isInteger)
+        );
+        const totalWorkflowSteps = activeActionIds.size;
 
         if (req.query.paginated === 'true') {
             const pageSize = parsePositiveInt(req.query.pageSize, 10, 1, 500);
@@ -472,7 +490,7 @@ exports.getAll = async (req, res) => {
             });
             const pageRows = await loadPatientRowsByIds(
                 idRows.map(row => row.id),
-                totalWorkflowSteps,
+                activeActionIds,
                 exportAll
             );
 
@@ -495,7 +513,7 @@ exports.getAll = async (req, res) => {
                 : { [Op.or]: [{ isDeleted: false }, { isDeleted: null }] },
             include: patientInclude({ includeFullNotes: req.query.exportAll === 'true' })
         });
-        const rows = enrichPatientRows(data, totalWorkflowSteps);
+        const rows = enrichPatientRows(data, activeActionIds);
         res.json(rows);
     } catch (err) { res.status(500).json({ error: err.message }); }
 };
@@ -1021,8 +1039,12 @@ exports.getTimeline = async (req, res) => {
         });
 
         const allWorkflowActions = await db.WorkflowAction.findAll({
-            order: [['sequenceNumber', 'ASC']]
+            where: { isActive: true },
+            order: [['sequenceNumber', 'ASC'], ['id', 'ASC']]
         });
+        const activeActionIds = new Set(
+            allWorkflowActions.map(action => Number(action.id)).filter(Number.isInteger)
+        );
 
         const serviceDateHistory = await db.PatientServiceDateHistory.findAll({
             where: { patientId: req.params.id },
@@ -1040,7 +1062,7 @@ exports.getTimeline = async (req, res) => {
             patient: patient.toJSON(),
             rxRecords: rxRecords.map(rx => {
                 const plain = rx.toJSON();
-                plain.completedSteps = (plain.RXWorkflowTrackings || []).map(t => t.workflowActionId);
+                plain.completedSteps = completedActiveWorkflowStepIds(plain, activeActionIds);
                 return plain;
             }),
             workflowActions: allWorkflowActions.map(a => a.toJSON()),

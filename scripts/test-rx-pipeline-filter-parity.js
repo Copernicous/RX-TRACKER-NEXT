@@ -12,7 +12,8 @@ if (explicitDatabase) {
     process.env.DB_NAME = staging.dbName;
 }
 
-const safeDatabaseTokens = new Set(['staging', 'stage', 'qa', 'test', 'sandbox', 'copy']);
+const confirmedDatabase = String(process.env.RX_PIPELINE_FILTER_TEST_CONFIRM_DB_NAME || '').trim();
+const safeDatabaseTokens = new Set(['staging', 'stage', 'qa', 'test', 'sandbox']);
 const databaseTokens = String(process.env.DB_NAME || '')
     .toLowerCase()
     .split(/[^a-z0-9]+/)
@@ -22,10 +23,17 @@ if (!databaseTokens.some(token => safeDatabaseTokens.has(token))) {
         `Refusing RX pipeline/filter parity regression on non-test database "${process.env.DB_NAME || ''}".`
     );
 }
+if (!confirmedDatabase || confirmedDatabase !== String(process.env.DB_NAME || '')) {
+    throw new Error(
+        'Refusing RX pipeline/filter parity regression without an exact ' +
+        'RX_PIPELINE_FILTER_TEST_CONFIRM_DB_NAME match.'
+    );
+}
 
 const db = require('../models');
 const dashboardController = require('../controllers/dashboardController');
 const rxController = require('../controllers/rxController');
+const { getServiceWindowDays } = require('../utils/globalSettings');
 
 const runId = String(Date.now());
 const marker = `PIPELINE${runId}`;
@@ -190,6 +198,9 @@ async function main() {
     });
 
     const serviceDate = new Date().toISOString().slice(0, 10);
+    const expiredDate = new Date();
+    expiredDate.setUTCDate(expiredDate.getUTCDate() - getServiceWindowDays() - 2);
+    const expiredServiceDate = expiredDate.toISOString().slice(0, 10);
     const patient = await db.Patient.create({
         firstName: 'PIPELINE',
         lastName: marker,
@@ -206,7 +217,7 @@ async function main() {
     const unstartedRx = await createRx(patient.id, serviceDate, false);
     const firstStageRx = await createRx(patient.id, serviceDate, false);
     const secondStageRx = await createRx(patient.id, serviceDate, false);
-    const duplicateStageRx = await createRx(patient.id, serviceDate, false);
+    const duplicateStageRx = await createRx(patient.id, expiredServiceDate, false);
     const completedRx = await createRx(patient.id, serviceDate, false);
     const hiddenFirstStageRx = await createRx(patient.id, serviceDate, true);
 
@@ -259,6 +270,37 @@ async function main() {
             duplicateStageRx.id,
             completedRx.id
         ].sort((a, b) => a - b)
+    );
+    const allIncomplete = await getRxPage(patient.id, { workflowStatus: 'incomplete' });
+    assert.deepStrictEqual(
+        sortedIds(allIncomplete.rows),
+        [unstartedRx.id, firstStageRx.id, secondStageRx.id, duplicateStageRx.id].sort((a, b) => a - b),
+        'All Incomplete must match the Dashboard Pending card and include expired incomplete RX records'
+    );
+    const operationalPending = await getRxPage(patient.id, { workflowStatus: 'pending' });
+    assert.deepStrictEqual(
+        sortedIds(operationalPending.rows),
+        [unstartedRx.id, firstStageRx.id, secondStageRx.id].sort((a, b) => a - b),
+        'Operational Pending must keep the separately labeled Expired status excluded'
+    );
+    const expiredOnly = await getRxPage(patient.id, { workflowStatus: 'expired' });
+    assert.deepStrictEqual(
+        sortedIds(expiredOnly.rows),
+        [duplicateStageRx.id],
+        'Expired filter must contain the expired duplicate-history fixture'
+    );
+
+    const duplicateRow = allVisible.rows.find(row => Number(row.id) === Number(duplicateStageRx.id));
+    assert(duplicateRow, 'RX Records response must include the duplicate-history fixture');
+    assert.strictEqual(
+        duplicateRow.RXWorkflowTrackings.length,
+        actions.length,
+        'RX Records must preserve every duplicate audit-history row'
+    );
+    assert.deepStrictEqual(
+        duplicateRow.completedSteps,
+        [Number(actions[0].id)],
+        'RX Records progress must expose one distinct active completed step for duplicate history'
     );
 
     const expectedByActionId = new Map(actions.map(action => [Number(action.id), []]));
@@ -326,6 +368,7 @@ async function main() {
     console.log('PASS: dashboard workflow stages match RX Records Current Stage filters exactly');
     console.log('PASS: duplicate workflow history cannot advance stage or completion status');
     console.log('PASS: Current Stage remains distinct from Next Action and excludes hidden RX records');
+    console.log('PASS: Dashboard All Incomplete includes expired RX while operational Pending remains distinct');
 }
 
 async function run() {

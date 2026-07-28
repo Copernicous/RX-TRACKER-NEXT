@@ -7,6 +7,7 @@
  */
 const { QueryTypes } = require('sequelize');
 const { getServiceWindowDays, getCallCenterLeadDays } = require('../utils/globalSettings');
+const { activeRxWorkflowAggregateSql } = require('../utils/rxWorkflowAggregateSql');
 
 let _db = null;
 let _trendSchemaReady = null;
@@ -70,15 +71,14 @@ async function captureSnapshot(forDate) {
     const pad = n => String(n).padStart(2, '0');
     const snapshotDate = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 
-    // M6 FIX: Build timezone-aware day window using the configured app timezone.
-    // Using Date.UTC ensures the boundary timestamps are unambiguous regardless of
-    // the PostgreSQL server's timezone setting.
+    // M6 FIX: Build the local-day boundaries in the configured process timezone.
+    // ISO conversion makes the PostgreSQL TIMESTAMPTZ comparisons unambiguous.
     const dayStartDt = new Date(`${snapshotDate}T00:00:00`);
-    const dayEndDt   = new Date(`${snapshotDate}T23:59:59`);
-    // ISO strings are always UTC — PostgreSQL TIMESTAMPTZ will compare correctly
+    const dayEndDt   = new Date(`${snapshotDate}T00:00:00`);
+    dayEndDt.setDate(dayEndDt.getDate() + 1);
+    // ISO strings are always UTC; use a half-open range [start, next midnight).
     const dayStart = dayStartDt.toISOString();
     const dayEnd   = dayEndDt.toISOString();
-
     const seq = db().sequelize;
 
     // ── Patients ──────────────────────────────────────────────────────────
@@ -87,7 +87,7 @@ async function captureSnapshot(forDate) {
             COUNT(*)                                                             AS "totalPatients",
             COUNT(*) FILTER (WHERE "isActive" = true)                            AS "activePatients",
             COUNT(*) FILTER (WHERE "isActive" = false)                           AS "inactivePatients",
-            COUNT(*) FILTER (WHERE "createdAt" BETWEEN :dayStart AND :dayEnd)    AS "newPatientsToday",
+            COUNT(*) FILTER (WHERE "createdAt" >= :dayStart AND "createdAt" < :dayEnd)    AS "newPatientsToday",
             COUNT(*) FILTER (WHERE "isNonCompanyPatient" = true)                 AS "nonCompanyPatients"
         FROM "Patients"
         WHERE COALESCE("isDeleted", false) = false
@@ -96,21 +96,31 @@ async function captureSnapshot(forDate) {
     // ── RX Records ────────────────────────────────────────────────────────
     // pendingRX = RX where NOT all workflow steps are completed
     const [rx] = await seq.query(`
-        WITH wf_totals AS (
+        WITH active_step_total AS (
+            SELECT COUNT(*)::integer AS total_steps
+            FROM "WorkflowActions"
+            WHERE "isActive" = TRUE
+        ),
+        workflow_counts AS (
+            ${activeRxWorkflowAggregateSql()}
+        ),
+        wf_totals AS (
             SELECT
                 r.id,
-                (SELECT COUNT(*) FROM "WorkflowActions" WHERE "isActive" = true) AS total_steps,
-                (SELECT COUNT(*) FROM "RXWorkflowTrackings" t WHERE t."rxRecordId" = r.id) AS done_steps
+                active_step_total.total_steps,
+                COALESCE(workflow_counts.completed_steps, 0)::integer AS done_steps
             FROM "RXRecords" r
-            WHERE r."isDeleted" = false
+            CROSS JOIN active_step_total
+            LEFT JOIN workflow_counts ON workflow_counts."rxRecordId" = r.id
+            WHERE COALESCE(r."isDeleted", false) = false
         )
         SELECT
-            (SELECT COUNT(*) FROM "RXRecords" WHERE "isDeleted" = false)                                                            AS "totalRX",
-            (SELECT COUNT(*) FROM "RXRecords" WHERE "isDeleted" = false AND "createdAt" BETWEEN :dayStart AND :dayEnd)              AS "newRXToday",
-            (SELECT COUNT(*) FROM wf_totals WHERE total_steps = 0 OR done_steps < total_steps)                                      AS "pendingRX",
-            (SELECT COUNT(*) FROM wf_totals WHERE done_steps >= total_steps AND total_steps > 0)                                    AS "completedRX",
-            (SELECT COUNT(*) FROM "RXRecords" WHERE "isDeleted" = true)                                                             AS "deletedRX",
-            (SELECT COUNT(*) FROM "RXRecords" WHERE "returnedToWarehouse" = true AND "isDeleted" = false)                          AS "returnedToWarehouseRX"
+            (SELECT COUNT(*) FROM wf_totals)                                                                                         AS "totalRX",
+            (SELECT COUNT(*) FROM "RXRecords" WHERE COALESCE("isDeleted", false) = false AND "createdAt" >= :dayStart AND "createdAt" < :dayEnd) AS "newRXToday",
+            (SELECT COUNT(*) FROM wf_totals WHERE total_steps = 0 OR done_steps < total_steps)                                    AS "pendingRX",
+            (SELECT COUNT(*) FROM wf_totals WHERE total_steps > 0 AND done_steps >= total_steps)                                   AS "completedRX",
+            (SELECT COUNT(*) FROM "RXRecords" WHERE "isDeleted" = true)                                                           AS "deletedRX",
+            (SELECT COUNT(*) FROM "RXRecords" WHERE "returnedToWarehouse" = true AND COALESCE("isDeleted", false) = false)        AS "returnedToWarehouseRX"
     `, { type: QueryTypes.SELECT, replacements: { dayStart, dayEnd } });
 
     // ── Workflow steps ────────────────────────────────────────────────────
@@ -119,20 +129,38 @@ async function captureSnapshot(forDate) {
         { type: QueryTypes.SELECT }
     );
     const activeRXCount = parseInt((await seq.query(
-        `SELECT COUNT(*) AS cnt FROM "RXRecords" WHERE "isDeleted" = false`,
+        `SELECT COUNT(*) AS cnt FROM "RXRecords" WHERE COALESCE("isDeleted", false) = false`,
         { type: QueryTypes.SELECT }
     ))[0].cnt, 10);
     const totalWorkflowSteps     = parseInt(totalActiveStepDefs[0].cnt, 10) * activeRXCount;
     const completedWorkflowSteps = await seq.query(
-        // H3 FIX: Only count tracking rows for non-deleted RX records to prevent rate > 100%
-        `SELECT COUNT(*) AS cnt
+        `SELECT COUNT(DISTINCT (t."rxRecordId", t."workflowActionId")) AS cnt
          FROM "RXWorkflowTrackings" t
-         JOIN "RXRecords" r ON r.id = t."rxRecordId"
-         WHERE r."isDeleted" = false`,
+         INNER JOIN "WorkflowActions" a
+             ON a.id = t."workflowActionId"
+            AND a."isActive" = true
+         INNER JOIN "RXRecords" r
+             ON r.id = t."rxRecordId"
+            AND COALESCE(r."isDeleted", false) = false`,
         { type: QueryTypes.SELECT }
     ).then(r => parseInt(r[0].cnt, 10));
     const workflowStepsToday = await seq.query(
-        `SELECT COUNT(*) AS cnt FROM "RXWorkflowTrackings" WHERE "completionDate" BETWEEN :dayStart AND :dayEnd`,
+        `SELECT COUNT(*) AS cnt
+         FROM (
+             SELECT
+                 t."rxRecordId",
+                 t."workflowActionId",
+                 MIN(t."completionDate") AS first_completion
+             FROM "RXWorkflowTrackings" t
+             INNER JOIN "WorkflowActions" a
+                 ON a.id = t."workflowActionId"
+                AND a."isActive" = true
+             INNER JOIN "RXRecords" r
+                 ON r.id = t."rxRecordId"
+                AND COALESCE(r."isDeleted", false) = false
+             GROUP BY t."rxRecordId", t."workflowActionId"
+         ) completed_steps
+         WHERE first_completion >= :dayStart AND first_completion < :dayEnd`,
         { type: QueryTypes.SELECT, replacements: { dayStart, dayEnd } }
     ).then(r => parseInt(r[0].cnt, 10));
     const workflowCompletionRate = totalWorkflowSteps > 0
@@ -166,17 +194,17 @@ async function captureSnapshot(forDate) {
     `, { type: QueryTypes.SELECT, replacements: { snapshotDate } });
 
     const loginEventsToday = await seq.query(
-        `SELECT COUNT(*) AS cnt FROM "AuditLogs" WHERE "createdAt" BETWEEN :dayStart AND :dayEnd AND "module" = 'Authentication' AND "action" = 'Login'`,
+        `SELECT COUNT(*) AS cnt FROM "AuditLogs" WHERE "createdAt" >= :dayStart AND "createdAt" < :dayEnd AND "module" = 'Authentication' AND "action" = 'Login'`,
         { type: QueryTypes.SELECT, replacements: { dayStart, dayEnd } }
     ).then(r => parseInt(r[0].cnt, 10));
 
     const uniqueLoginUsersToday = await seq.query(
-        `SELECT COUNT(DISTINCT "userId") AS cnt FROM "AuditLogs" WHERE "createdAt" BETWEEN :dayStart AND :dayEnd AND "module" = 'Authentication' AND "action" = 'Login' AND "userId" IS NOT NULL`,
+        `SELECT COUNT(DISTINCT "userId") AS cnt FROM "AuditLogs" WHERE "createdAt" >= :dayStart AND "createdAt" < :dayEnd AND "module" = 'Authentication' AND "action" = 'Login' AND "userId" IS NOT NULL`,
         { type: QueryTypes.SELECT, replacements: { dayStart, dayEnd } }
     ).then(r => parseInt(r[0].cnt, 10));
 
     const userActivity = await seq.query(
-        `SELECT COUNT(*) AS events, COUNT(DISTINCT "userId") AS users FROM "UserActivityLogs" WHERE "visitedAt" BETWEEN :dayStart AND :dayEnd`,
+        `SELECT COUNT(*) AS events, COUNT(DISTINCT "userId") AS users FROM "UserActivityLogs" WHERE "visitedAt" >= :dayStart AND "visitedAt" < :dayEnd`,
         { type: QueryTypes.SELECT, replacements: { dayStart, dayEnd } }
     ).then(r => ({
         events: parseInt(r[0].events, 10) || 0,
@@ -184,12 +212,12 @@ async function captureSnapshot(forDate) {
     })).catch(() => ({ events: 0, users: 0 }));
 
     const auditEventsToday = await seq.query(
-        `SELECT COUNT(*) AS cnt FROM "AuditLogs" WHERE "createdAt" BETWEEN :dayStart AND :dayEnd`,
+        `SELECT COUNT(*) AS cnt FROM "AuditLogs" WHERE "createdAt" >= :dayStart AND "createdAt" < :dayEnd`,
         { type: QueryTypes.SELECT, replacements: { dayStart, dayEnd } }
     ).then(r => parseInt(r[0].cnt, 10));
 
     const errorLogsToday = await seq.query(
-        `SELECT COUNT(*) AS cnt FROM "ErrorLogs" WHERE "createdAt" BETWEEN :dayStart AND :dayEnd`,
+        `SELECT COUNT(*) AS cnt FROM "ErrorLogs" WHERE "createdAt" >= :dayStart AND "createdAt" < :dayEnd`,
         { type: QueryTypes.SELECT, replacements: { dayStart, dayEnd } }
     ).then(r => parseInt(r[0].cnt, 10));
 
@@ -368,7 +396,7 @@ async function materializeSnapshotChunk(startDate, endDate) {
                    ("createdAt" AT TIME ZONE :timeZone)::date AS created_date,
                    ("returnedToWarehouse" = true) AS returned_to_warehouse
             FROM "RXRecords"
-            WHERE "isDeleted" = false
+            WHERE COALESCE("isDeleted", false) = false
         ),
         rx_daily AS (
             SELECT d.snapshot_date,
@@ -428,32 +456,34 @@ async function materializeSnapshotChunk(startDate, endDate) {
              AND (c.next_service_date IS NULL OR c.next_service_date > d.snapshot_date)
             GROUP BY d.snapshot_date
         ),
-        tracking_ranked AS (
-            SELECT t."rxRecordId" AS rx_id,
-                   (t."completionDate" AT TIME ZONE :timeZone)::date AS completion_date,
-                   ROW_NUMBER() OVER (
-                       PARTITION BY t."rxRecordId"
-                       ORDER BY t."completionDate", t.id
-                   )::integer AS step_number
+        tracking_first AS (
+            SELECT
+                t."rxRecordId" AS rx_id,
+                t."workflowActionId" AS action_id,
+                MIN((t."completionDate" AT TIME ZONE :timeZone)::date) AS completion_date
             FROM "RXWorkflowTrackings" t
-            JOIN rx_base r ON r.id = t."rxRecordId"
+            INNER JOIN "WorkflowActions" a
+                ON a.id = t."workflowActionId"
+               AND a."isActive" = true
+            INNER JOIN rx_base r ON r.id = t."rxRecordId"
             WHERE t."completionDate" IS NOT NULL
+            GROUP BY t."rxRecordId", t."workflowActionId"
         ),
         rx_completion AS (
-            SELECT tr.rx_id,
-                   MIN(tr.completion_date) FILTER (
-                       WHERE tr.step_number = wc.active_steps AND wc.active_steps > 0
-                   ) AS completed_date
-            FROM tracking_ranked tr
+            SELECT
+                tf.rx_id,
+                MAX(tf.completion_date) AS completed_date
+            FROM tracking_first tf
             CROSS JOIN workflow_config wc
-            GROUP BY tr.rx_id
+            GROUP BY tf.rx_id, wc.active_steps
+            HAVING wc.active_steps > 0 AND COUNT(*) = wc.active_steps
         ),
         workflow_step_daily AS (
             SELECT d.snapshot_date,
-                   COUNT(tr.rx_id) FILTER (WHERE tr.completion_date <= d.snapshot_date)::integer AS completed_steps,
-                   COUNT(tr.rx_id) FILTER (WHERE tr.completion_date = d.snapshot_date)::integer AS steps_today
+                   COUNT(tf.rx_id) FILTER (WHERE tf.completion_date <= d.snapshot_date)::integer AS completed_steps,
+                   COUNT(tf.rx_id) FILTER (WHERE tf.completion_date = d.snapshot_date)::integer AS steps_today
             FROM dates d
-            LEFT JOIN tracking_ranked tr ON tr.completion_date <= d.snapshot_date
+            LEFT JOIN tracking_first tf ON tf.completion_date <= d.snapshot_date
             GROUP BY d.snapshot_date
         ),
         completion_daily AS (

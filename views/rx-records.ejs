@@ -103,6 +103,7 @@
                         <label class="form-label small fw-bold"><i class="fas fa-tasks me-1"></i>Workflow Status</label>
                         <select class="form-select form-select-sm" id="rxFilterWorkflowStatus">
                             <option value="">All Workflow</option>
+                            <option value="incomplete">All Incomplete</option>
                             <option value="pending">Pending</option>
                             <option value="not-started">Not Started</option>
                             <option value="in-progress">In Progress</option>
@@ -1010,7 +1011,7 @@
                     rx.returnedToWarehouse ? 'Returned to Warehouse' : 'Not Returned',
                     rx.warehouseReturnDate ? new Date(rx.warehouseReturnDate).toLocaleString() : '',
                     rx.warehouseReturnNote || '',
-                    (rx.RXWorkflowTrackings || []).length + ' / ' + allWorkflowActions.length,
+                    getRxCompletedStepCount(rx) + ' / ' + allWorkflowActions.length,
                     currentAction ? currentAction.name : 'Not Started',
                     nextAction ? nextAction.name : (allWorkflowActions.length ? 'Workflow Completed' : '')
                 ];
@@ -1055,7 +1056,8 @@
         var patientId   = urlParams.get('patient');
         var patientName = urlParams.get('name');
         var autoOpenAddRx = urlParams.get('addRx') === '1' || urlParams.get('newRx') === '1';
-        var pendingParam = urlParams.get('pending') === 'true' || urlParams.get('workflowStatus') === 'pending';
+        var workflowStatusParam = urlParams.get('workflowStatus') ||
+            (urlParams.get('pending') === 'true' ? 'pending' : '');
         var stageParam = urlParams.get('workflowStage') || urlParams.get('stage') || '';
         var decodedName = '';
 
@@ -1078,9 +1080,9 @@
         } else if (decodedName) {
             _rxPrefillPatientName = decodedName.trim();
         }
-        if (pendingParam) {
+        if (workflowStatusParam) {
             var wfFilterEl = document.getElementById('rxFilterWorkflowStatus');
-            if (wfFilterEl) wfFilterEl.value = 'pending';
+            if (wfFilterEl) wfFilterEl.value = workflowStatusParam;
             var advPanel = document.getElementById('rxAdvPanel');
             if (advPanel) {
                 advPanel.style.display = '';
@@ -1283,8 +1285,36 @@
         }).catch(function(e) { console.error('[RX] loadRxRecords error:', e); });
     }
 
+    function getRxCompletedStepIds(rx) {
+        var source = rx && Array.isArray(rx.completedSteps)
+            ? rx.completedSteps
+            : ((rx && rx.RXWorkflowTrackings) || []).map(function(tracking) {
+                return tracking.workflowActionId;
+            });
+        var activeIds = {};
+        var seen = {};
+        var completedIds = [];
+
+        for (var ai = 0; ai < allWorkflowActions.length; ai++) {
+            activeIds[String(Number(allWorkflowActions[ai].id))] = true;
+        }
+        for (var si = 0; si < source.length; si++) {
+            var actionId = Number(source[si]);
+            var actionKey = String(actionId);
+            if (!isNaN(actionId) && activeIds[actionKey] && !seen[actionKey]) {
+                seen[actionKey] = true;
+                completedIds.push(actionId);
+            }
+        }
+        return completedIds;
+    }
+
+    function getRxCompletedStepCount(rx) {
+        return getRxCompletedStepIds(rx).length;
+    }
+
     function getRxWorkflowStatusKey(rx) {
-        var completedSteps = rx && rx.RXWorkflowTrackings ? rx.RXWorkflowTrackings.length : 0;
+        var completedSteps = getRxCompletedStepCount(rx);
         var totalSteps = allWorkflowActions.length;
         var svc = rx && rx.serviceDate ? new Date(rx.serviceDate) : null;
         if (svc && !isNaN(svc.getTime())) {
@@ -1303,7 +1333,7 @@
     function getRxWorkflowStageKey(rx) {
         var totalSteps = allWorkflowActions.length || 0;
         if (totalSteps <= 0) return '';
-        var completedSteps = rx && rx.RXWorkflowTrackings ? rx.RXWorkflowTrackings.length : 0;
+        var completedSteps = getRxCompletedStepCount(rx);
         if (completedSteps >= totalSteps) return 'completed';
         return String(completedSteps + 1);
     }
@@ -1326,7 +1356,7 @@
     }
 
     function getRxWorkflowSortValue(rx) {
-        var completedSteps = rx && rx.RXWorkflowTrackings ? rx.RXWorkflowTrackings.length : 0;
+        var completedSteps = getRxCompletedStepCount(rx);
         var totalSteps = allWorkflowActions.length || 0;
         var svc = rx && rx.serviceDate ? new Date(rx.serviceDate) : null;
         if (svc && !isNaN(svc.getTime())) {
@@ -1396,9 +1426,10 @@
             if (phtVal && String(r.pharmacyTransportCompanyId || '') !== String(phtVal)) return false;
             if (whVal === 'returned' && !r.returnedToWarehouse) return false;
             if (whVal === 'not-returned' && r.returnedToWarehouse) return false;
-            if (wf === 'pending' && (wfKey === 'completed')) return false;
+            if (wf === 'incomplete' && wfKey === 'completed') return false;
+            if (wf === 'pending' && wfKey === 'completed') return false;
             if (wf === 'pending' && wfKey === 'expired') return false;
-            if (wf && wf !== 'pending' && wfKey !== wf) return false;
+            if (wf && wf !== 'pending' && wf !== 'incomplete' && wfKey !== wf) return false;
             if (wfStage && wfStageKey !== wfStage) return false;
             if (currentWfStage && currentWfStageKey !== currentWfStage) return false;
             return true;
@@ -1461,9 +1492,9 @@
                 var patDeleted   = rx.Patient && rx.Patient.isDeleted === true;
                 var patientName  = rx.Patient ? rx.Patient.firstName + ' ' + rx.Patient.lastName : 'ID:' + rx.patientId;
                 var pharmacyName = rx.Pharmacy ? rx.Pharmacy.name : 'ID:' + rx.pharmacyId;
-                var completedSteps = rx.RXWorkflowTrackings ? rx.RXWorkflowTrackings.length : 0;
+                var completedSteps = getRxCompletedStepCount(rx);
                 var totalSteps   = allWorkflowActions.length;
-                var pct          = totalSteps > 0 ? Math.round((completedSteps / totalSteps) * 100) : 0;
+                var pct          = totalSteps > 0 ? Math.min(100, Math.round((completedSteps / totalSteps) * 100)) : 0;
                 var rxP          = getPagePerms();
                 var isSel        = _rxBulkSel.has(rx.id);
 
@@ -2096,8 +2127,8 @@
                 var meds       = rx.Medications || [];
                 var trackings  = rx.RXWorkflowTrackings || [];
                 var totalSteps = allWorkflowActions.length;
-                var doneCount  = trackings.length;
-                var pct        = totalSteps > 0 ? Math.round((doneCount / totalSteps) * 100) : 0;
+                var doneCount  = getRxCompletedStepCount(rx);
+                var pct        = totalSteps > 0 ? Math.min(100, Math.round((doneCount / totalSteps) * 100)) : 0;
 
                 var statusColor = pct >= 100 ? '#198754' : pct > 0 ? '#fd7e14' : '#6c757d';
                 var statusLabel = pct >= 100 ? 'Completed' : pct > 0 ? 'In Progress' : 'Not Started';
@@ -2820,8 +2851,8 @@
         var pharmacy     = rx.Pharmacy || {};
         var trackings    = rx.RXWorkflowTrackings || [];
         var totalSteps   = allWorkflowActions.length;
-        var doneCount    = trackings.length;
-        var pct          = totalSteps > 0 ? Math.round((doneCount / totalSteps) * 100) : 0;
+        var doneCount    = getRxCompletedStepCount(rx);
+        var pct          = totalSteps > 0 ? Math.min(100, Math.round((doneCount / totalSteps) * 100)) : 0;
         var printDate    = new Date().toLocaleString();
 
         var STEP_COLORS = ['#4a90e2','#7b61ff','#fd7e14','#20c997','#e24a9a','#50e3c2','#f5a623'];

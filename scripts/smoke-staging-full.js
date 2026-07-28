@@ -7,8 +7,11 @@ const { prepareStagingEnv } = require('./lib/staging-env');
 const root = path.join(__dirname, '..');
 const staging = prepareStagingEnv();
 process.env.PATIENT_PAGINATION_TEST_DB_NAME = staging.dbName;
+process.env.PATIENT_PAGINATION_TEST_CONFIRM_DB_NAME = staging.dbName;
 process.env.DASHBOARD_ANALYTICS_TEST_DB_NAME = staging.dbName;
+process.env.DASHBOARD_ANALYTICS_TEST_CONFIRM_DB_NAME = staging.dbName;
 process.env.RX_PIPELINE_FILTER_TEST_DB_NAME = staging.dbName;
+process.env.RX_PIPELINE_FILTER_TEST_CONFIRM_DB_NAME = staging.dbName;
 process.env.CALL_CENTER_PAGINATION_TEST_DB_NAME = staging.dbName;
 process.env.REPORT_FILTER_TEST_DB_NAME = staging.dbName;
 

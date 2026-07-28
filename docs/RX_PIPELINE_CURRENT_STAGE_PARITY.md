@@ -21,16 +21,30 @@ an offset to the next action.
 - **In Progress** means at least one, but not every, distinct active action has
   been completed.
 - **Completed** means every distinct active action has been completed.
+- With no active workflow definitions, RX records fail closed as Not Started
+  and Pending; they are not reported as completed.
 - A completed RX remains in the final Current Stage bar and in the top
   Completed summary card. There is no second Completed row below the bars.
 
 The endpoint reads the current RX and tracking rows whenever the widget is
 refreshed, so changes made through a patient's RX workflow are reflected in the
-next graph refresh.
+next graph refresh. On the all-time Dashboard, Total RX and Pending are then
+rendered from that same live response, enforcing:
+
+```text
+Total RX = Not Started + In Progress + Completed
+Pending = Not Started + In Progress
+```
+
+The Pending card opens the explicit **All Incomplete** RX Records filter. That
+view includes expired incomplete cycles. The regular **Pending** workflow
+status remains the narrower operational view that excludes records shown under
+**Expired**.
 
 ## History safeguards
 
-Dashboard, RX Records, and RX Reports share one aggregate with these rules:
+Dashboard, RX Records, RX Reports, Patient RX History, Patient Timeline, and
+Patient Needs Action status share these rules:
 
 1. Count distinct workflow action IDs so duplicate history rows cannot advance
    an RX or mark it completed.
@@ -39,6 +53,8 @@ Dashboard, RX Records, and RX Reports share one aggregate with these rules:
    underlying audit/history rows.
 4. Use the highest active sequence number as Current Stage, including for a
    non-contiguous history.
+5. Apply the same distinct-active rule to current snapshots and to newly
+   materialized historical days; existing stored history rows are not rewritten.
 
 Configured active workflow actions are expected to have unique sequence
 numbers. This was already an application configuration assumption; `next.35`
@@ -73,15 +89,22 @@ new index or materialized data is required at this scale.
 
 ## Regression and operator check
 
-Automated coverage:
+Automated coverage (use a disposable database for the mutating pipeline fixture):
 
 ```powershell
+$env:RX_PIPELINE_FILTER_TEST_DB_NAME = 'rx_next_regression_test'
+$env:RX_PIPELINE_FILTER_TEST_CONFIRM_DB_NAME = 'rx_next_regression_test'
+$env:DASHBOARD_ANALYTICS_TEST_DB_NAME = 'rx_next_regression_test'
+$env:DASHBOARD_ANALYTICS_TEST_CONFIRM_DB_NAME = 'rx_next_regression_test'
 npm run test:rx-pipeline-filter-parity
 npm run test:dashboard-analytics
 npm run test:report-filter-parity
 npm run test:i18n-branding
 npm run check:public-js
 ```
+
+Each mutating regression requires an exact matching confirmation variable.
+Production database names are refused even if a confirmation variable is supplied.
 
 For a manual staging check:
 
@@ -90,6 +113,10 @@ For a manual staging check:
 3. Open RX Records and choose the same action under **Current Stage**.
 4. Run the search and compare the total. The two values must match.
 5. Repeat for the first, an intermediate, and the final action.
+6. Confirm **Total RX = Not Started + In Progress + Completed** and **Pending =
+   Not Started + In Progress**.
+7. Open the Pending card and confirm RX Records selects **All Incomplete** with
+   the same total, including any expired incomplete records.
 
 Do not compare these rows with **Next Action Required**. That advanced filter
 answers a different operational question: what action must happen next.
