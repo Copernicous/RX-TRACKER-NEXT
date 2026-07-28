@@ -15,17 +15,26 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
   history, and service-history badges use distinct active workflow actions.
   Expired incomplete RX remain in Dashboard All Incomplete while the narrower
   operational Pending filter excludes Expired. Empty workflow configuration
-  fails closed as Not Started/Pending. On the imported production-shaped dev
-  copy, the verified no-PHI totals are 2,139 active + 2 inactive visible
-  patients (plus 2 deleted), and 1,771 RX = 2 Not Started + 158 In Progress +
-  1,611 Completed; every one of six Current Stage graph rows exactly matched
-  its RX Records filter. The source contained 9,870 tracking rows but 9,869
+  fails closed as Not Started/Pending. Final comparison used the verified
+  production backup `backup_2026-07-28T00-47-28.dump`, restored only into the
+  isolated test database `rx_next_prod_final_compare_test_20260728_0047` on
+  local PostgreSQL port 55433. The live production `next.34` dashboard and the
+  restored `next.35` controllers matched exactly: 2,247 active + 2 inactive
+  visible patients (plus 2 deleted), 564 active patients with no RX, and 1,771
+  RX = 2 Not Started + 158 In Progress + 1,611 Completed. The six corrected
+  Current Stage rows and RX Records filters both returned
+  127/17/14/0/0/1,611. The source contained 9,870 tracking rows but 9,869
   distinct active RX/action pairs, confirming the duplicate-row discrepancy
-  that the old raw calculation could count twice. Focused current/historical,
-  cleanup, localization, static JavaScript, and isolated browser regressions
-  pass. Production is untouched and remains on the last operator-installed
-  official release until develop UAT, CI, main promotion, official checksummed
-  packaging, and a final fresh production comparison all pass. There is no
+  that the old raw calculation could count twice. The earlier 2,136-patient /
+  1,633-RX mismatch was traced to restoring the older July 26 scheduled dump
+  into `rx_next_fresh_test`; it was not evidence of bad production arithmetic.
+  The testing site at port 3000 now runs `next.35` against the isolated final
+  comparison copy and reports application/database health `ok`. Focused
+  read-only controller, filter, snapshot, syntax, and browser checks pass.
+  Production data was not modified during diagnosis; the only production-side
+  action was the explicitly requested manual backup. Production remains on
+  `next.34` until operator UI UAT, staging/main promotion, official checksummed
+  packaging, and guarded Project Control installation pass. There is no
   migration or business-data rewrite and no proxy, port, authentication, PBX,
   relay, or RX Softphone change. It is based on the official
   `v4.0.0-next.34` release history recorded below.
