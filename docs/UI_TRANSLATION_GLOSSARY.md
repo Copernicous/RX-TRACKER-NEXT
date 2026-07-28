@@ -1,6 +1,6 @@
 # RX Tracker Next English-Spanish UI Translation Glossary
 
-Generated from `public/js/i18n.js`. Entries: **764**.
+Generated from `public/js/i18n.js`. Entries: **765**.
 
 English is the default UI language. Spanish affects interface text only. Patient names, notes, clinics, pharmacies, medications, addresses, documents, and other user-entered or stored business data are never translated.
 
@@ -59,6 +59,7 @@ To correct or add a translation:
 | All Current Stages | Todas las etapas actuales |
 | All dates and times recorded by the system — workflow steps, audit logs, and patient records — will use this timezone. | Todas las fechas y horas registradas por el sistema —etapas del flujo, auditorías y registros de pacientes— usarán esta zona horaria. |
 | All Eligibility | Cualquier elegibilidad |
+| All Incomplete | Todos incompletos |
 | All Next Actions | Todas las próximas acciones |
 | All Outcomes | Todos los resultados |
 | All Patient Transports | Todos los transportes de pacientes |

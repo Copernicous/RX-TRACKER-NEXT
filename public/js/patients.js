@@ -1747,11 +1747,31 @@ var allPatients = [];
         return null;
     }
 
+    function patientCompletedWorkflowStepCount(rx, actions) {
+        var source = rx && Array.isArray(rx.completedSteps)
+            ? rx.completedSteps
+            : ((rx && rx.RXWorkflowTrackings) || []).map(function(tracking) {
+                return tracking.workflowActionId;
+            });
+        var activeIds = {};
+        var seen = {};
+        actions = Array.isArray(actions) ? actions : [];
+
+        for (var ai = 0; ai < actions.length; ai++) {
+            activeIds[String(Number(actions[ai].id))] = true;
+        }
+        for (var si = 0; si < source.length; si++) {
+            var actionId = Number(source[si]);
+            var actionKey = String(actionId);
+            if (!isNaN(actionId) && activeIds[actionKey]) seen[actionKey] = true;
+        }
+        return Object.keys(seen).length;
+    }
     function rxHistoryWorkflowStatus(rx) {
         var actions = _rxHistoryContext && Array.isArray(_rxHistoryContext.workflowActions) ? _rxHistoryContext.workflowActions : [];
-        var done = rx && Array.isArray(rx.RXWorkflowTrackings) ? rx.RXWorkflowTrackings.length : 0;
+        var done = patientCompletedWorkflowStepCount(rx, actions);
         var total = actions.length;
-        var pct = total > 0 ? Math.round((done / total) * 100) : 0;
+        var pct = total > 0 ? Math.min(100, Math.round((done / total) * 100)) : 0;
         var label = total > 0 && done >= total ? 'Complete' : done > 0 ? 'In Progress' : 'Not Started';
         return { done: done, total: total, pct: pct, label: label };
     }
@@ -1935,9 +1955,9 @@ var allPatients = [];
                 else                  { cycleLabel = 'Active';     cycleBg = '#198754'; }
 
                 var trackings  = rx.RXWorkflowTrackings || [];
-                var doneCount  = trackings.length;
+                var doneCount  = patientCompletedWorkflowStepCount(rx, allWA);
                 var totalSteps = allWA.length;
-                var pct        = totalSteps > 0 ? Math.round((doneCount / totalSteps) * 100) : 0;
+                var pct        = totalSteps > 0 ? Math.min(100, Math.round((doneCount / totalSteps) * 100)) : 0;
                 var barColor   = pct >= 100 ? '#198754' : pct > 0 ? '#fd7e14' : '#6c757d';
                 var pharmacy   = rx.Pharmacy ? rx.Pharmacy.name : '\u2014';
 
@@ -2540,9 +2560,9 @@ var allPatients = [];
         function buildRxBlock(rx, style) {
             const trackMap = {};
             (rx.RXWorkflowTrackings || []).forEach(t => { trackMap[t.workflowActionId] = t; });
-            const completedCount = (rx.RXWorkflowTrackings || []).length;
+            const completedCount = patientCompletedWorkflowStepCount(rx, allWA);
             const totalSteps     = allWA.length;
-            const pct            = totalSteps > 0 ? Math.round((completedCount / totalSteps) * 100) : 0;
+            const pct            = totalSteps > 0 ? Math.min(100, Math.round((completedCount / totalSteps) * 100)) : 0;
             const statusColor    = pct >= 100 ? '#198754' : pct > 0 ? '#fd7e14' : '#6c757d';
             const statusLabel    = pct >= 100 ? 'Complete' : pct > 0 ? pct + '% Done' : 'Not Started';
 

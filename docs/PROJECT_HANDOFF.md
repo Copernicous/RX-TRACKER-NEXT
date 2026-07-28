@@ -8,19 +8,36 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
 
-- Staging candidate `4.0.0-next.35` changes the Dashboard RX Workflow Pipeline
-  from raw Next Action/count-offset semantics to the same **Current Stage**
-  definition used by RX Records and Reports. A canonical read-only aggregate
-  counts distinct active actions, ignores retired/orphaned history, and uses
-  the highest active workflow sequence. Exact graph/filter parity, duplicate
-  history, hidden RX, English/Spanish terminology, and browser regressions are
-  registered in staging and CI. The isolated browser suite, database lifecycle
-  CI run `30305430316`, and CodeQL run `30305430228` all passed for implementation
-  merge `staging@5c2b70d6d4344997406aa71c71406e3f7bdea316`. There is no migration or
-  data rewrite, and no proxy, port, authentication, PBX, or RX Softphone change.
-  The candidate remains staging-only pending user acceptance; `develop` and
-  `main` are unchanged. It is based on the official `v4.0.0-next.34` release
-  history recorded below.
+- Development test candidate `4.0.0-next.35` corrects Dashboard/Patients/RX
+  reconciliation. All-time Active and Inactive cards read live visible Patient
+  rows; deleted patients remain excluded. Total RX, Pending, Completed, the RX
+  Status and Card Totals graphs, the pipeline, Current Stage filters, Patient RX
+  history, and service-history badges use distinct active workflow actions.
+  Expired incomplete RX remain in Dashboard All Incomplete while the narrower
+  operational Pending filter excludes Expired. Empty workflow configuration
+  fails closed as Not Started/Pending. Final comparison used the verified
+  production backup `backup_2026-07-28T00-47-28.dump`, restored only into the
+  isolated test database `rx_next_prod_final_compare_test_20260728_0047` on
+  local PostgreSQL port 55433. The live production `next.34` dashboard and the
+  restored `next.35` controllers matched exactly: 2,247 active + 2 inactive
+  visible patients (plus 2 deleted), 564 active patients with no RX, and 1,771
+  RX = 2 Not Started + 158 In Progress + 1,611 Completed. The six corrected
+  Current Stage rows and RX Records filters both returned
+  127/17/14/0/0/1,611. The source contained 9,870 tracking rows but 9,869
+  distinct active RX/action pairs, confirming the duplicate-row discrepancy
+  that the old raw calculation could count twice. The earlier 2,136-patient /
+  1,633-RX mismatch was traced to restoring the older July 26 scheduled dump
+  into `rx_next_fresh_test`; it was not evidence of bad production arithmetic.
+  The testing site at port 3000 now runs `next.35` against the isolated final
+  comparison copy and reports application/database health `ok`. Focused
+  read-only controller, filter, snapshot, syntax, and browser checks pass.
+  Production data was not modified during diagnosis; the only production-side
+  action was the explicitly requested manual backup. Production remains on
+  `next.34` until operator UI UAT, staging/main promotion, official checksummed
+  packaging, and guarded Project Control installation pass. There is no
+  migration or business-data rewrite and no proxy, port, authentication, PBX,
+  relay, or RX Softphone change. It is based on the official
+  `v4.0.0-next.34` release history recorded below.
 - Official release `v4.0.0-next.34` adds an English-default,
   Spanish-selectable program UI plus configurable login/sidebar branding.
   Translation is browser-side and UI-only, Backoffice is explicitly excluded,

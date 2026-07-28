@@ -597,12 +597,41 @@ function tlRxMedicationText(rx) {
     }).join(', ');
 }
 
+function tlCompletedWorkflowStepIds(rx, actions) {
+    var source = rx && Array.isArray(rx.completedSteps)
+        ? rx.completedSteps
+        : ((rx && rx.RXWorkflowTrackings) || []).map(function(tracking) {
+            return tracking.workflowActionId;
+        });
+    var activeIds = {};
+    var seen = {};
+    var completedIds = [];
+    actions = Array.isArray(actions) ? actions : [];
+
+    actions.forEach(function(action) {
+        activeIds[String(Number(action.id))] = true;
+    });
+    source.forEach(function(value) {
+        var actionId = Number(value);
+        var actionKey = String(actionId);
+        if (!isNaN(actionId) && activeIds[actionKey] && !seen[actionKey]) {
+            seen[actionKey] = true;
+            completedIds.push(actionId);
+        }
+    });
+    return completedIds;
+}
+
 function tlRxStatus(rx) {
     var actions = _timelineData && Array.isArray(_timelineData.workflowActions) ? _timelineData.workflowActions : [];
-    var trackings = rx && Array.isArray(rx.RXWorkflowTrackings) ? rx.RXWorkflowTrackings : [];
+    var hasDetailedProgress = rx && (
+        Array.isArray(rx.completedSteps) || Array.isArray(rx.RXWorkflowTrackings)
+    );
     var total = actions.length || Number(rx && rx.workflowStepCount) || 0;
-    var done = trackings.length || Number(rx && rx.workflowStepCount) || 0;
-    var pct = total > 0 ? Math.round((done / total) * 100) : 0;
+    var done = hasDetailedProgress
+        ? tlCompletedWorkflowStepIds(rx, actions).length
+        : Number(rx && rx.workflowStepCount) || 0;
+    var pct = total > 0 ? Math.min(100, Math.round((done / total) * 100)) : 0;
     var label = total > 0 && done >= total ? 'Complete' : done > 0 ? 'In Progress' : 'Not Started';
     return { done: done, total: total, pct: pct, label: label };
 }
@@ -1089,8 +1118,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 function renderTimeline({ patient, rxRecords, workflowActions, serviceDateHistory, serviceDateCycles }) {
     document.getElementById('tlLoading').style.display = 'none';
     rxRecords = Array.isArray(rxRecords) ? rxRecords : [];
-    rxRecords.forEach(function(rx) { if (!Array.isArray(rx.completedSteps)) rx.completedSteps = []; });
     workflowActions = Array.isArray(workflowActions) ? workflowActions : [];
+    rxRecords.forEach(function(rx) {
+        rx.completedSteps = tlCompletedWorkflowStepIds(rx, workflowActions);
+    });
     const serviceHistory = Array.isArray(serviceDateHistory) ? serviceDateHistory : [];
     const serviceCycles = Array.isArray(serviceDateCycles) ? serviceDateCycles : [];
     _timelineData = { patient: patient || {}, rxRecords: rxRecords, workflowActions: workflowActions, serviceDateHistory: serviceHistory, serviceDateCycles: serviceCycles };
@@ -1178,7 +1209,7 @@ function renderTimeline({ patient, rxRecords, workflowActions, serviceDateHistor
         const rxtrans  = rx.PharmacyTransportCompany ? (rx.PharmacyTransportCompany.companyName || rx.PharmacyTransportCompany.contactPerson) : null;
 
         // Status badge
-        const pct = totalSteps > 0 ? Math.round((completedCount / totalSteps) * 100) : 0;
+        const pct = totalSteps > 0 ? Math.min(100, Math.round((completedCount / totalSteps) * 100)) : 0;
         const statusBadge = isComplete
             ? '<span class="badge bg-success"><i class="fas fa-check me-1"></i>Complete</span>'
             : completedCount > 0

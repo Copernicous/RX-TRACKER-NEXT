@@ -12,6 +12,7 @@
         'Administration': 'Administración',
         'Administrator Access Required': 'Se requiere acceso de administrador',
         'All': 'Todos',
+        'All Incomplete': 'Todos incompletos',
         'All Current Settings': 'Todas las configuraciones actuales',
         'All Patients': 'Todos los pacientes',
         'All Pharmacies': 'Todas las farmacias',
