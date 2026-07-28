@@ -92,10 +92,20 @@ assert(
 );
 assert(!dashboardClient.includes('var completedPct ='), 'Dashboard must not render a duplicate Completed breakdown row');
 assert(dashboardClient.includes('<div data-i18n-skip'), 'Configured workflow action names must not be translated');
+assert(dashboardClient.includes("setTxt('rxPipelineExpired'"), 'Dashboard client does not render the Expired count');
+assert(dashboardClient.includes('rxPipelineAllIncomplete'), 'Dashboard charts do not preserve All Incomplete totals');
 assert(dashboardView.includes('workflowStatus=incomplete'), 'Dashboard Pending card must link to All Incomplete');
+assert(dashboardView.includes('id="rxPipelineExpired"'), 'Dashboard Expired Workflow Status card is missing');
+assert(dashboardView.includes('id="xl-rx-records-not-started"'), 'Dashboard Not Started card link is missing');
+assert(dashboardView.includes('id="xl-rx-records-in-progress"'), 'Dashboard In Progress card link is missing');
+assert(dashboardView.includes('id="xl-rx-records-expired"'), 'Dashboard Expired card link is missing');
+assert(dashboardView.includes('id="xl-rx-records-completed"'), 'Dashboard Completed card link is missing');
+assert(dashboardView.includes('workflowStatus=expired'), 'Dashboard Expired card must link to the Expired filter');
 assert(rxRecordsView.includes('<option value="incomplete">All Incomplete</option>'), 'RX Records All Incomplete filter is missing');
 assert(helpClient.includes('highest active workflow step completed'), 'Dashboard pipeline help still describes Next Action semantics');
 assert(helpClient.includes('including expired cycles'), 'Dashboard Pending help must disclose expired-cycle inclusion');
+assert(helpClient.includes('mutually exclusive Workflow Status groups'), 'Dashboard pipeline help must explain the four status groups');
+assert(helpClient.includes('Expired RX remain included in their actual Current Stage'), 'Dashboard help must preserve Expired Current Stage semantics');
 
 const glossaryRows = glossary.split(/\r?\n/).filter(line => /^\| .+ \| .+ \|$/.test(line));
 assert(glossaryRows.length >= 700, `Expected at least 700 glossary rows; found ${glossaryRows.length}`);
@@ -104,6 +114,11 @@ assert(
     'Generated glossary is missing the Current Stage breakdown translation'
 );
 assert(glossary.includes('| All Incomplete | Todos incompletos |'), 'Generated glossary is missing All Incomplete');
+assert(glossary.includes('| Expired | Vencido |'), 'Generated glossary is missing Expired');
+assert(
+    glossary.includes('| Expired RX remain shown in their actual Current Stage. | Los RX vencidos permanecen visibles en su etapa actual real. |'),
+    'Generated glossary is missing the Expired Current Stage explanation'
+);
 assert(glossary.includes('| {percent}% complete | {percent}% completado |'), 'Generated glossary is missing the completion pattern');
 assert(glossary.includes('| Updated {time} | Actualizado {time} |'), 'Generated glossary is missing the updated-time pattern');
 
@@ -134,6 +149,7 @@ assert.strictEqual(sandbox.window.RXI18n.getLanguage(), 'en');
 storage.set('rxUiLanguage', 'es');
 assert.strictEqual(sandbox.window.RXI18n.translate('Patients'), 'Pacientes');
 assert.strictEqual(sandbox.window.RXI18n.translate('All Incomplete'), 'Todos incompletos');
+assert.strictEqual(sandbox.window.RXI18n.translate('Expired'), 'Vencido');
 assert.strictEqual(sandbox.window.RXI18n.translate('Call Queue'), 'Cola de llamadas');
 assert.strictEqual(sandbox.window.RXI18n.translate('Calling from day 60 · Service eligible day 90'), 'Llamadas desde el día 60 · Servicio elegible el día 90');
 assert.strictEqual(sandbox.window.RXI18n.translate('Page 2 of 14'), 'Página 2 de 14');
@@ -155,8 +171,12 @@ assert.strictEqual(
     'Gráfico del flujo RX: cómo leer las barras'
 );
 assert.strictEqual(
-    sandbox.window.RXI18n.translate('Each horizontal bar shows how many RX records currently have that workflow action as their Current Stage (the highest active workflow step completed). Completed RX records remain in the final-stage bar, while Not Started records stay in the summary card because they do not yet have a Current Stage.'),
-    'Cada barra horizontal muestra cuántos registros RX tienen actualmente esa acción del flujo como su etapa actual (la etapa activa más avanzada que se completó). Los registros RX completados permanecen en la barra de la etapa final, mientras que los no iniciados permanecen en la tarjeta de resumen porque todavía no tienen una etapa actual.'
+    sandbox.window.RXI18n.translate('Expired RX remain shown in their actual Current Stage.'),
+    'Los RX vencidos permanecen visibles en su etapa actual real.'
+);
+assert.strictEqual(
+    sandbox.window.RXI18n.translate('The four summary cards are mutually exclusive Workflow Status groups: Not Started, In Progress, Expired, and Completed. Each horizontal bar below shows the RX record\'s actual Current Stage (the highest active workflow step completed). Expired RX remain included in their actual Current Stage, so the stage bars continue to match the Current Stage filters.'),
+    'Las cuatro tarjetas de resumen son grupos mutuamente excluyentes del estado del flujo de trabajo: No iniciado, En curso, Vencido y Completado. Cada barra horizontal inferior muestra la etapa actual real del registro RX (la etapa activa más avanzada que se completó). Los RX vencidos permanecen incluidos en su etapa actual real, por lo que las barras continúan coincidiendo con los filtros de Etapa actual.'
 );
 assert.strictEqual(sandbox.window.RXI18n.translate('91% complete'), '91% completado');
 assert.strictEqual(sandbox.window.RXI18n.translate('Updated 4:15:56 PM'), 'Actualizado 4:15:56 PM');

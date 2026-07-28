@@ -1,6 +1,6 @@
 # RX Tracker Next English-Spanish UI Translation Glossary
 
-Generated from `public/js/i18n.js`. Entries: **765**.
+Generated from `public/js/i18n.js`. Entries: **767**.
 
 English is the default UI language. Spanish affects interface text only. Patient names, notes, clinics, pharmacies, medications, addresses, documents, and other user-entered or stored business data are never translated.
 
@@ -293,6 +293,7 @@ To correct or add a translation:
 | Excel | Excel |
 | Expand All | Expandir todo |
 | Expired | Vencido |
+| Expired RX remain shown in their actual Current Stage. | Los RX vencidos permanecen visibles en su etapa actual real. |
 | Expires in 10 minutes and can be used once. | Vence en 10 minutos y solo puede usarse una vez. |
 | Export | Exportar |
 | Export CSV | Exportar CSV |
@@ -688,6 +689,7 @@ To correct or add a translation:
 | System Settings — General | Configuración del sistema: General |
 | Talk | Conversación |
 | Taxi | Taxi |
+| The four summary cards are mutually exclusive Workflow Status groups: Not Started, In Progress, Expired, and Completed. Each horizontal bar below shows the RX record's actual Current Stage (the highest active workflow step completed). Expired RX remain included in their actual Current Stage, so the stage bars continue to match the Current Stage filters. | Las cuatro tarjetas de resumen son grupos mutuamente excluyentes del estado del flujo de trabajo: No iniciado, En curso, Vencido y Completado. Cada barra horizontal inferior muestra la etapa actual real del registro RX (la etapa activa más avanzada que se completó). Los RX vencidos permanecen incluidos en su etapa actual real, por lo que las barras continúan coincidiendo con los filtros de Etapa actual. |
 | The green phone opens MicroSIP with the number. MicroSIP must show Online before it can place the call. After the call, mark Called and Save. | El teléfono verde abre MicroSIP con el número. MicroSIP debe indicar En línea antes de realizar la llamada. Después, marque Llamado y guarde. |
 | The relay carries commands and call status only. SIP and audio remain on the Windows PC. | El enlace transmite solamente comandos y el estado de la llamada. SIP y el audio permanecen en la computadora con Windows. |
 | Theme | Tema |

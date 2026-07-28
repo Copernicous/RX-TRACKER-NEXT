@@ -8,36 +8,21 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
 
-- Development test candidate `4.0.0-next.35` corrects Dashboard/Patients/RX
-  reconciliation. All-time Active and Inactive cards read live visible Patient
-  rows; deleted patients remain excluded. Total RX, Pending, Completed, the RX
-  Status and Card Totals graphs, the pipeline, Current Stage filters, Patient RX
-  history, and service-history badges use distinct active workflow actions.
-  Expired incomplete RX remain in Dashboard All Incomplete while the narrower
-  operational Pending filter excludes Expired. Empty workflow configuration
-  fails closed as Not Started/Pending. Final comparison used the verified
-  production backup `backup_2026-07-28T00-47-28.dump`, restored only into the
-  isolated test database `rx_next_prod_final_compare_test_20260728_0047` on
-  local PostgreSQL port 55433. The live production `next.34` dashboard and the
-  restored `next.35` controllers matched exactly: 2,247 active + 2 inactive
-  visible patients (plus 2 deleted), 564 active patients with no RX, and 1,771
-  RX = 2 Not Started + 158 In Progress + 1,611 Completed. The six corrected
-  Current Stage rows and RX Records filters both returned
-  127/17/14/0/0/1,611. The source contained 9,870 tracking rows but 9,869
-  distinct active RX/action pairs, confirming the duplicate-row discrepancy
-  that the old raw calculation could count twice. The earlier 2,136-patient /
-  1,633-RX mismatch was traced to restoring the older July 26 scheduled dump
-  into `rx_next_fresh_test`; it was not evidence of bad production arithmetic.
-  The testing site at port 3000 now runs `next.35` against the isolated final
-  comparison copy and reports application/database health `ok`. Focused
-  read-only controller, filter, snapshot, syntax, and browser checks pass.
-  Production data was not modified during diagnosis; the only production-side
-  action was the explicitly requested manual backup. Production remains on
-  `next.34` until operator UI UAT, staging/main promotion, official checksummed
-  packaging, and guarded Project Control installation pass. There is no
-  migration or business-data rewrite and no proxy, port, authentication, PBX,
-  relay, or RX Softphone change. It is based on the official
-  `v4.0.0-next.34` release history recorded below.
+- Development test candidate `4.0.0-next.36` separates the Dashboard pipeline
+  summary into the same mutually exclusive Workflow Status groups used by RX
+  Records: Not Started, non-expired In Progress, Expired, and Completed.
+  Dashboard Pending and both dashboard charts remain All Incomplete and include
+  Expired. Current Stage remains independent and retains expired RX at their
+  actual completed step. Local database regressions cover expired RX with and
+  without progress, duplicate workflow history, zero active workflow actions,
+  exact RX filter parity, chart math, and Spanish UI. No migration or business
+  data rewrite is included. The candidate has not been installed in production.
+- Production is confirmed healthy on official `v4.0.0-next.35`. The verified
+  live baseline used for this correction is 1,771 Total RX = 2 Not Started +
+  156 In Progress + 2 Expired + 1,611 Completed; Dashboard All Incomplete is
+  160 and operational Pending is 158. Current Stage remains
+  127/17/14/0/0/1,611. Production data was not modified while developing
+  `next.36`.
 - Official release `v4.0.0-next.34` adds an English-default,
   Spanish-selectable program UI plus configurable login/sidebar branding.
   Translation is browser-side and UI-only, Backoffice is explicitly excluded,
@@ -53,16 +38,16 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
   independent downloaded-package verification all passed. Live-production
   installation and operator validation remain unconfirmed.
 - Repository: `Copernicous/RX-TRACKER-NEXT`
-- Branch: official `v4.0.0-next.34` release on `main` at commit
-  `b739d416476ade3418cae8964fca6ec82f83bd00`.
-- Current production release must be confirmed from Project Control or
-  `server.exe --v`; do not infer it from this repository.
+- Branch: official `v4.0.0-next.35` release on `main` at commit
+  `1ed9a71acb887e059faacdac91205df3337d81ba`.
+- Current production release: `v4.0.0-next.35`, confirmed through the live
+  version and health endpoints on 2026-07-27.
 - Production application folder: `C:\RX-Tracker\RX-APP-NEXT`
 - Windows service ID: `PatientRXSystem`
 - Production HTTP port: `3000`
 - NEXT database name at the completed cutover: `patient_rx_next_cutover_copy`
 - Project Control version: `2.2.0`
-- Latest official release: `v4.0.0-next.34`. Version `next.31` made
+- Latest official release: `v4.0.0-next.35`. Version `next.31` made
   **Current Stage** the primary RX Records workflow filter, kept **Next Action
   Required** under Advanced filters, and exported both meanings explicitly.
   Version `next.32` applies the same clarity to **Reports → RX Actions**:
@@ -95,8 +80,8 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
   removes automatic call attempts and legacy call audit events without
   removing patients or RX records. Versions `next.23` through `next.25` add
   the Supervisor Summary and bounded SQL-backed Patients, Dashboard, Call
-  Center queue, and call-attempt report queries described below. The version
-  installed on the production server must still be confirmed through Project
+  Center queue, and call-attempt report queries described below. For each
+  future deployment, confirm the installed version through Project
   Control or `server.exe --v`; publication alone does not install it.
 - Official `v4.0.0-next.34` assets were published on 2026-07-27 and
   independently verified against both GitHub asset digests and
@@ -114,19 +99,19 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
   The release requires no database migration, data rewrite, proxy/PBX change,
   or RX Softphone workstation update. Install it only through Project Control
   options 8 then 15; do not repeat the one-time NEXT cutover workflow.
-- Testing-production deployment handoff (2026-07-27): Project Control option 8
-  reported installed `4.0.0-next.25`, latest `4.0.0-next.34`, and **Update
-  available**. The first option 15 attempt stopped at the Administrator check,
-  before the updater acquired its lock or changed the service, files, or
-  database. The operator then relaunched Project Control elevated. Because
-  this server uses a restricted PostgreSQL runtime identity, the updater
-  correctly requested a separate maintenance login in process memory before
-  downtime. The operator subsequently reported that the server was up with no
-  observed problems. This is not yet exact installation validation: at the
-  start of the next session, run Project Control options **4**, **3**, and
-  **6**, confirm version `4.0.0-next.34`, and complete the bilingual login,
-  Dashboard, Patients, and Call Center browser checks. Do not infer the live
-  production version from this testing-server report.
+- Testing-production server update remains pending (2026-07-27). The first
+  option 15 attempt stopped at the Administrator check before changing the
+  service, files, or database. A later `next.34` to `next.35` attempt stopped
+  at the updater's pre-update health gate because the current installation did
+  not become healthy at `http://127.0.0.1:3090/api/healthz`. That gate runs
+  before download, backup, service stop, migration, or file replacement, so no
+  update mutation or rollback was required. The application may be running on
+  a different inherited NSSM port than the `.env` value used by the updater.
+  Before retrying option 15, use Project Control status, port, version, health,
+  logs, and doctor diagnostics to make the current installation healthy at one
+  consistent local URL. Inspect only the necessary `PORT` and `DB_NAME` NSSM
+  environment entries; never print the full environment because it contains
+  secrets.
 - Official release `4.0.0-next.33` adds bounded CRM context to the
   Administrator-only **Live RX Phones** board for RX Tracker-originated calls:
   patient name, patient ID, clinic, and dialed number. The context comes from
@@ -306,15 +291,16 @@ checksums. Older preview packages may be moved to an Archive subfolder.
 - Do not delete `C:\RX-Tracker\RX-APP` yet. Keep it stopped and unchanged as
   the final legacy recovery/reference package while customer acceptance is in
   progress.
-- The former local 3.3.x development instance at `192.168.15.87:3000` is
-  frozen. Disable automatic startup when it is no longer needed for a
-  controlled comparison; do not add features or fixes there.
-- All new development belongs in
-  `E:\Documents\0-PROJECTS\RX-TRACKER-NEXT`.
-- NEXT development and any deliberate legacy comparison must use different
-  ports and separate databases. Never point both versions at the same
-  database. A suitable comparison layout is legacy on port 3000 and NEXT on
-  port 3100 with a dedicated non-production NEXT database.
+- `192.168.15.87:3000` is now the local **NEXT development** site, not the
+  former 3.3.x runtime. It runs from the develop worktree against a separate
+  test-copy database and dedicated `database-work/dev-runtime`; scheduled
+  backups are disabled there.
+- Staging work belongs in
+  `E:\Documents\0-PROJECTS\RX-TRACKER\RX-TRACKER-NEXT-STAGING-PROMOTE` and
+  tested promotion belongs in the `RX-TRACKER-NEXT-STAGE-FIX` develop worktree.
+- Any deliberate legacy comparison must use a different unused port and a
+  separate database. Never point legacy and NEXT at the same database, and do
+  not reuse port 3000 while the NEXT development site is active.
 - Do not remove the legacy server or local repository until the customer has
   accepted NEXT, production backups have been verified, and a deliberate
   retirement decision has been recorded here.
@@ -345,10 +331,11 @@ Production server cleanup:
 Local development cleanup:
 
 1. Confirm all current work is committed and pushed to RX-TRACKER-NEXT.
-2. Stop and disable the former 3.3.x local runtime at
-   `192.168.15.87:3000`.
-3. Verify that no local service, scheduled task, tunnel, or shortcut still
-   starts the legacy runtime.
+2. Treat `192.168.15.87:3000` as the active NEXT development site; do not stop
+   or remove it as part of legacy cleanup.
+3. Identify any remaining legacy runtime by its executable path, working
+   directory, service, scheduled task, or shortcut rather than by port 3000,
+   then verify it is stopped and cannot start automatically.
 4. Preserve one clearly labeled, read-only legacy source archive if still
    required for historical reference.
 5. Remove obsolete local databases, dumps, build artifacts, and working copies

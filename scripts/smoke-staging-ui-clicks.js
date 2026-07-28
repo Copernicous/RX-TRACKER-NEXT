@@ -485,6 +485,7 @@ async function runAdminDashboardAndReports(fixtures) {
     await waitForNonPlaceholder(page, '#pendingDeliveriesCount', 'dashboard pending deliveries card');
     await expectVisible(page, '#rxPipelineRow', 'RX Workflow Pipeline visible');
     await waitForNonPlaceholder(page, '#rxPipelinePercent', 'RX Workflow Pipeline calculator loaded');
+    await waitForNonPlaceholder(page, '#rxPipelineExpired', 'RX Workflow Pipeline Expired card loaded');
     await page.waitForFunction(() => {
         const steps = document.querySelector('#rxPipelineSteps');
         const text = steps ? (steps.textContent || '') : '';
@@ -500,6 +501,10 @@ async function runAdminDashboardAndReports(fixtures) {
         !pipelineBreakdownText.includes('RX records waiting at each step'),
         'RX Workflow Pipeline must not label Current Stage counts as Next Action waiting counts.'
     );
+    assert(
+        pipelineBreakdownText.includes('Expired RX remain shown in their actual Current Stage.'),
+        'RX Workflow Pipeline must explain that Expired remains a Workflow Status while retaining Current Stage.'
+    );
     const waitForDashboardParity = () => page.waitForFunction(() => {
         const chart = window._lastChartData;
         const stats = window._lastDashboardStats;
@@ -508,7 +513,9 @@ async function runAdminDashboardAndReports(fixtures) {
         const labels = chart.cardTotals.labels || [];
         const values = chart.cardTotals.data || [];
         const value = (label) => Number(values[labels.indexOf(label)] || 0);
-        const pending = Number(pipeline.notStarted || 0) + Number(pipeline.inProgress || 0);
+        const explicitAllIncomplete = Number(pipeline.allIncomplete);
+        const pending = Number.isFinite(explicitAllIncomplete) ? explicitAllIncomplete :
+            Number(pipeline.notStarted || 0) + Number(pipeline.inProgress || 0) + Number(pipeline.expired || 0);
         return value('Active') === Number(stats.activePatients || 0) &&
             value('Inactive') === Number(stats.inactivePatients || 0) &&
             value('Total RX') === Number(pipeline.total || 0) &&
@@ -528,25 +535,37 @@ async function runAdminDashboardAndReports(fixtures) {
             pendingCard: Number((document.querySelector('#pendingDeliveriesCount') || {}).textContent || 0),
             notStarted: Number((document.querySelector('#rxPipelineNotStarted') || {}).textContent || 0),
             inProgress: Number((document.querySelector('#rxPipelineInProgress') || {}).textContent || 0),
+            expired: Number((document.querySelector('#rxPipelineExpired') || {}).textContent || 0),
             completed: Number((document.querySelector('#rxPipelineCompleted') || {}).textContent || 0),
+            allIncomplete: Number(window._lastRxPipeline.allIncomplete || 0),
             chartActive: chartValue('Active'),
             chartInactive: chartValue('Inactive'),
             chartTotalRx: chartValue('Total RX'),
             chartPending: chartValue('Pending'),
             donutCompleted: Number(window._lastChartData.rxStatus.data[0] || 0),
             donutPending: Number(window._lastChartData.rxStatus.data[1] || 0),
-            pendingHref: (document.querySelector('#xl-rx-records-pending') || {}).getAttribute('href') || ''
+            pendingHref: (document.querySelector('#xl-rx-records-pending') || {}).getAttribute('href') || '',
+            notStartedHref: (document.querySelector('#xl-rx-records-not-started') || {}).getAttribute('href') || '',
+            inProgressHref: (document.querySelector('#xl-rx-records-in-progress') || {}).getAttribute('href') || '',
+            expiredHref: (document.querySelector('#xl-rx-records-expired') || {}).getAttribute('href') || '',
+            completedHref: (document.querySelector('#xl-rx-records-completed') || {}).getAttribute('href') || ''
         };
     });
     assert.strictEqual(
         workflowReconciliation.totalRx,
-        workflowReconciliation.notStarted + workflowReconciliation.inProgress + workflowReconciliation.completed,
-        'Dashboard Total RX card must reconcile to the live pipeline.'
+        workflowReconciliation.notStarted + workflowReconciliation.inProgress +
+            workflowReconciliation.expired + workflowReconciliation.completed,
+        'Dashboard Total RX card must reconcile to all four Workflow Status groups.'
+    );
+    assert.strictEqual(
+        workflowReconciliation.allIncomplete,
+        workflowReconciliation.notStarted + workflowReconciliation.inProgress + workflowReconciliation.expired,
+        'All Incomplete must reconcile to Not Started, In Progress, and Expired.'
     );
     assert.strictEqual(
         workflowReconciliation.pendingCard,
-        workflowReconciliation.notStarted + workflowReconciliation.inProgress,
-        'Dashboard Pending card must reconcile to the live pipeline.'
+        workflowReconciliation.allIncomplete,
+        'Dashboard Pending card must reconcile to every incomplete Workflow Status.'
     );
     assert.strictEqual(workflowReconciliation.chartActive, workflowReconciliation.activePatients, 'Active Patients graph must match its live card.');
     assert.strictEqual(workflowReconciliation.chartInactive, workflowReconciliation.inactivePatients, 'Inactive Patients graph must match its live card.');
@@ -558,7 +577,23 @@ async function runAdminDashboardAndReports(fixtures) {
         workflowReconciliation.pendingHref.includes('workflowStatus=incomplete'),
         'Dashboard Pending card must link to the exact All Incomplete RX Records filter.'
     );
-    pass('dashboard patient/RX cards, graphs, pipeline, and All Incomplete link reconcile');
+    assert(
+        workflowReconciliation.notStartedHref.includes('workflowStatus=not-started'),
+        'Dashboard Not Started card must link to the exact Not Started RX Records filter.'
+    );
+    assert(
+        workflowReconciliation.inProgressHref.includes('workflowStatus=in-progress'),
+        'Dashboard In Progress card must link to the exact In Progress RX Records filter.'
+    );
+    assert(
+        workflowReconciliation.expiredHref.includes('workflowStatus=expired'),
+        'Dashboard Expired card must link to the exact Expired RX Records filter.'
+    );
+    assert(
+        workflowReconciliation.completedHref.includes('workflowStatus=completed'),
+        'Dashboard Completed card must link to the exact Completed RX Records filter.'
+    );
+    pass('dashboard patient/RX cards, graphs, four Workflow Status groups, and filter links reconcile');
 
     const pipelineRefreshResponse = page.waitForResponse(response =>
         response.url().includes('/api/dashboard/rx-pipeline') && response.status() === 200,
@@ -597,7 +632,10 @@ async function runAdminDashboardAndReports(fixtures) {
             assert.strictEqual(Number(zeroPipeline.total), visibleRxTotal);
             assert.strictEqual(Number(zeroPipeline.notStarted), visibleRxTotal);
             assert.strictEqual(Number(zeroPipeline.inProgress), 0);
+            assert.strictEqual(Number(zeroPipeline.expired), 0);
             assert.strictEqual(Number(zeroPipeline.completed), 0);
+            assert.strictEqual(Number(zeroPipeline.allIncomplete), visibleRxTotal);
+            assert.strictEqual(Number(zeroPipeline.startedIncomplete), 0);
             assert.deepStrictEqual(zeroPipeline.stepBreakdown, []);
 
             const zeroStatsResponse = await context.request.get(route('/api/dashboard/stats'));

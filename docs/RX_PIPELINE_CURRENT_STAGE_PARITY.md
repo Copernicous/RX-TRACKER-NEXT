@@ -2,13 +2,15 @@
 
 ## Decision
 
-Starting with the `4.0.0-next.35` staging candidate, each Dashboard **RX
-Workflow Pipeline** action row means **Current Stage**: the highest active
-workflow action completed for that RX record.
+Starting with `4.0.0-next.35`, each Dashboard **RX Workflow Pipeline** action
+row means **Current Stage**: the highest active workflow action completed for
+that RX record. This is the same definition used by the primary **Current
+Stage** filter in RX Records and by RX Reports.
 
-This is the same definition used by the primary **Current Stage** filter in RX
-Records and by RX Reports. The graph no longer uses raw tracking-row counts as
-an offset to the next action.
+Starting with the `4.0.0-next.36` candidate, the summary cards independently
+represent the same mutually exclusive **Workflow Status** groups used by RX
+Records: Not Started, In Progress, Expired, and Completed. Current Stage remains
+separate and is never replaced by Next Action Required.
 
 ## What is counted
 
@@ -17,12 +19,18 @@ an offset to the next action.
 - Patient names, notes, addresses, and other stored patient/business data are
   neither changed nor displayed by this graph calculation.
 - Soft-deleted RX records are excluded, matching the default RX Records view.
-- **Not Started** means no active workflow action has been completed.
+- **Not Started** means no active workflow action has been completed and the RX
+  is not expired.
 - **In Progress** means at least one, but not every, distinct active action has
-  been completed.
-- **Completed** means every distinct active action has been completed.
+  been completed and the RX is not expired.
+- **Expired** means the RX is incomplete and its service window has passed. It
+  may have zero or several completed workflow actions.
+- **Completed** means every distinct active action has been completed and takes
+  precedence over the service-window date.
 - With no active workflow definitions, RX records fail closed as Not Started
-  and Pending; they are not reported as completed.
+  and All Incomplete; they are not reported as expired or completed.
+- An expired RX with progress remains in its actual Current Stage bar. An
+  expired RX with no completed step has no Current Stage row.
 - A completed RX remains in the final Current Stage bar and in the top
   Completed summary card. There is no second Completed row below the bars.
 
@@ -32,14 +40,15 @@ next graph refresh. On the all-time Dashboard, Total RX and Pending are then
 rendered from that same live response, enforcing:
 
 ```text
-Total RX = Not Started + In Progress + Completed
-Pending = Not Started + In Progress
+Total RX = Not Started + In Progress + Expired + Completed
+All Incomplete = Not Started + In Progress + Expired
+Operational Pending = Not Started + In Progress
 ```
 
-The Pending card opens the explicit **All Incomplete** RX Records filter. That
-view includes expired incomplete cycles. The regular **Pending** workflow
-status remains the narrower operational view that excludes records shown under
-**Expired**.
+The Dashboard Pending card and Pending graph open the explicit **All
+Incomplete** RX Records filter. They include expired incomplete cycles. The
+regular **Pending** workflow status remains the narrower operational view that
+excludes records shown under **Expired**.
 
 ## History safeguards
 
@@ -77,10 +86,14 @@ only and no patient information.
 
 The old values were shifted because they represented the next action. After
 the correction, all six graph rows equal the filter for the same sequence.
-The summary remained internally reconciled:
+The original `next.35` comparison recorded structural started/incomplete totals
+before Expired became a separate summary card. The `next.36` production-shaped
+comparison uses the four-way status contract:
 
 ```text
-12,000 total = 1,529 Not Started + 2,404 In Progress + 8,067 Completed
+1,771 Total RX = 2 Not Started + 156 In Progress + 2 Expired + 1,611 Completed
+160 All Incomplete = 2 Not Started + 156 In Progress + 2 Expired
+158 Operational Pending = 2 Not Started + 156 In Progress
 ```
 
 Warm staging measurements at 51,420 tracking rows were approximately 28 ms
@@ -113,10 +126,13 @@ For a manual staging check:
 3. Open RX Records and choose the same action under **Current Stage**.
 4. Run the search and compare the total. The two values must match.
 5. Repeat for the first, an intermediate, and the final action.
-6. Confirm **Total RX = Not Started + In Progress + Completed** and **Pending =
-   Not Started + In Progress**.
-7. Open the Pending card and confirm RX Records selects **All Incomplete** with
-   the same total, including any expired incomplete records.
+6. Confirm **Total RX = Not Started + In Progress + Expired + Completed**.
+7. Confirm **All Incomplete = Not Started + In Progress + Expired** and the
+   Dashboard Pending card and charts use that value.
+8. Open each summary card and confirm RX Records selects the corresponding
+   Workflow Status with the same total.
+9. Confirm expired RX with completed steps remain in their actual Current Stage
+   row, while an expired RX with no completed step has no Current Stage.
 
 Do not compare these rows with **Next Action Required**. That advanced filter
 answers a different operational question: what action must happen next.
@@ -128,5 +144,5 @@ patient or workflow data. It does not change proxy routes, origins, ports,
 sessions, authentication, PBX integration, or RX Softphone.
 
 Promote through `staging` and then `develop` only after validation. Production
-requires a separately approved immutable official release; never modify the
-existing `v4.0.0-next.34` release.
+requires a separately approved immutable `v4.0.0-next.36` release; never modify
+the existing `v4.0.0-next.35` release.

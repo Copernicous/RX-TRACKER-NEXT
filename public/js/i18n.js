@@ -418,6 +418,9 @@
         'Workflow Over Time': 'Flujo de trabajo a lo largo del tiempo',
         'Each horizontal bar shows how many RX records currently have that workflow action as their Current Stage (the highest active workflow step completed). Completed RX records remain in the final-stage bar, while Not Started records stay in the summary card because they do not yet have a Current Stage.': 'Cada barra horizontal muestra cuántos registros RX tienen actualmente esa acción del flujo como su etapa actual (la etapa activa más avanzada que se completó). Los registros RX completados permanecen en la barra de la etapa final, mientras que los no iniciados permanecen en la tarjeta de resumen porque todavía no tienen una etapa actual.',
 
+        'Expired RX remain shown in their actual Current Stage.': 'Los RX vencidos permanecen visibles en su etapa actual real.',
+        'The four summary cards are mutually exclusive Workflow Status groups: Not Started, In Progress, Expired, and Completed. Each horizontal bar below shows the RX record\'s actual Current Stage (the highest active workflow step completed). Expired RX remain included in their actual Current Stage, so the stage bars continue to match the Current Stage filters.': 'Las cuatro tarjetas de resumen son grupos mutuamente excluyentes del estado del flujo de trabajo: No iniciado, En curso, Vencido y Completado. Cada barra horizontal inferior muestra la etapa actual real del registro RX (la etapa activa más avanzada que se completó). Los RX vencidos permanecen incluidos en su etapa actual real, por lo que las barras continúan coincidiendo con los filtros de Etapa actual.',
+
         // Patients and patient timeline.
         '(Optional - Will auto-generate if blank)': '(Opcional; se generará automáticamente si se deja en blanco)',
         'Address': 'Dirección',
