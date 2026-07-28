@@ -8,7 +8,7 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
 
-- Development test candidate `4.0.0-next.36` separates the Dashboard pipeline
+- Development is healthy on `4.0.0-next.36`. This version separates the Dashboard pipeline
   summary into the same mutually exclusive Workflow Status groups used by RX
   Records: Not Started, non-expired In Progress, Expired, and Completed.
   Dashboard Pending and both dashboard charts remain All Incomplete and include
@@ -16,7 +16,9 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
   actual completed step. Local database regressions cover expired RX with and
   without progress, duplicate workflow history, zero active workflow actions,
   exact RX filter parity, chart math, and Spanish UI. No migration or business
-  data rewrite is included. The candidate has not been installed in production.
+  data rewrite is included. Development was installed from merge commit
+  `f49ea3b` and validated against its separate restored production-copy database
+  on 2026-07-27. The candidate has not been installed in production.
 - Production is confirmed healthy on official `v4.0.0-next.35`. The verified
   live baseline used for this correction is 1,771 Total RX = 2 Not Started +
   156 In Progress + 2 Expired + 1,611 Completed; Dashboard All Incomplete is
@@ -424,6 +426,21 @@ C:\RX-Tracker\deployment-state
 
 ## Latest candidate validation
 
+- On 2026-07-27, staging commit `9b89549` was promoted to `develop` by merge
+  commit `f49ea3b` and installed only on the local NEXT development runtime at
+  `192.168.15.87:3000`. Health reported application and database `ok` on
+  `4.0.0-next.36`.
+- The restored development data reconciled exactly: 1,771 Total RX = 2 Not
+  Started + 156 In Progress + 2 Expired + 1,611 Completed; All Incomplete is
+  160 and operational Pending is 158. RX Records filter totals matched all six
+  status views, and actual Current Stage totals were
+  127/17/14/0/0/1,611.
+- The exact candidate passed public JavaScript validation, dashboard template
+  compilation, 784-row English/Spanish regression coverage, focused pipeline
+  and analytics regressions, the complete isolated staging smoke suite, and a
+  fresh isolated Chrome smoke covering all four dashboard status links. The
+  live development login loaded in English and Spanish with no browser console
+  errors. No production service or database was changed.
 - On 2026-07-23, staging commits `ba9f9a0` and `8175567` were promoted to
   `develop` by merge commit `2d6d0bc`; the development continuity update is
   commit `18d85b4`.
