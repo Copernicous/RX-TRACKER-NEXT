@@ -539,6 +539,7 @@ app.use(function(req, res, next) {
     res.locals.stagingConfirmHeader = getStagingConfirmHeader();
     res.locals.serviceWindowDays = require('./utils/globalSettings').getServiceWindowDays();
     res.locals.callCenterLeadDays = require('./utils/globalSettings').getCallCenterLeadDays();
+    res.locals.appTimeZone = process.env.TZ || settingsService.get('app_timezone') || 'America/New_York';
     res.locals.branding = {
         appName: settingsService.get('app_name') || 'Patient RX System',
         title: settingsService.get('brand_title') || 'Patient RX',

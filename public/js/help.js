@@ -64,6 +64,8 @@ var HELP_SECTIONS = [
         a:'Expand an RX record by clicking on it or clicking the expand arrow. In the workflow section, each step has a checkbox or button next to it. Click the button to mark it complete. The system records your username and the current timestamp. If you are trying to mark a step but nothing happens, check that your user role has permission to edit RX records — Viewer role cannot complete steps.' },
       { q:'Undo last workflow step — correcting a mistake',
         a:'Every RX record has an <b>"Undo Last Step"</b> button that becomes active after at least one step has been completed. Clicking it reverses only the most recently completed step — it does not undo all steps. This is designed for simple corrections, like accidentally clicking the wrong step. The undo action is also logged in the Audit Log.' },
+      { q:'Filtering by Current Stage completion date',
+        a:'Open Advanced in RX Records and use Current Stage Date From and Current Stage Date To. The range is inclusive in the configured application timezone and uses the completion timestamp of the RX record\'s actual Current Stage. It is independent from Service Date and Next Action Required. Not Started records have no Current Stage date and are excluded when either date filter is used.' },
       { q:'RX record history — field-level change tracking',
         a:'Click the <b>History icon 🕐</b> on any RX record row. This opens the full change history for that specific RX: every save, every field that was edited, every workflow step completion, all with timestamps and user names. Click the <b>bold action word</b> on any history row to see the exact before and after values for that change.' },
       { q:'Medications — adding and editing',

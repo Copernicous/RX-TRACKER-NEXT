@@ -1,5 +1,5 @@
 const db = require('../models');
-const { parseDate, parseLocalDateOnly } = require('../utils/dateUtils');
+const { parseDate, parseLocalDateOnly, localDayBoundaryIso } = require('../utils/dateUtils');
 const { isServiceDateOverrideEnabled, getServiceWindowDays } = require('../utils/globalSettings');
 const { userCanOverrideExpired, getRequestPermission } = require('../middleware/rbac');
 const { activeRxWorkflowAggregateSql } = require('../utils/rxWorkflowAggregateSql');
@@ -186,6 +186,8 @@ function addRxPageFilters(query, replacements, totalSteps) {
     const workflowStatus = cleanString(query.workflowStatus);
     const workflowStage = cleanString(query.workflowStage);
     const currentWorkflowStage = cleanString(query.currentWorkflowStage);
+    const currentStageDateFrom = localDayBoundaryIso(query.currentStageDateFrom, 0);
+    const currentStageDateToExclusive = localDayBoundaryIso(query.currentStageDateTo, 1);
     const from = maxDateOnly([query.dateFrom, query.serviceFrom]);
     const to = minDateOnly([query.dateTo, query.serviceTo]);
     const completedExpr = 'COALESCE(wc.completed_steps, 0)';
@@ -268,6 +270,14 @@ function addRxPageFilters(query, replacements, totalSteps) {
         replacements.currentWorkflowStage = parseInt(currentWorkflowStage, 10);
         whereSql.push('wc.current_stage_sequence = :currentWorkflowStage');
     }
+    if (currentStageDateFrom) {
+        replacements.currentStageDateFrom = currentStageDateFrom;
+        whereSql.push('wc.current_stage_at >= CAST(:currentStageDateFrom AS TIMESTAMPTZ)');
+    }
+    if (currentStageDateToExclusive) {
+        replacements.currentStageDateToExclusive = currentStageDateToExclusive;
+        whereSql.push('wc.current_stage_at < CAST(:currentStageDateToExclusive AS TIMESTAMPTZ)');
+    }
 
     return whereSql;
 }
@@ -336,12 +346,15 @@ async function getPaginatedRxRecords(query) {
         offset: pageOffset
     });
     const idRows = total === 0 ? [] : await db.sequelize.query(
-        `SELECT r.id ${fromSql} ${whereClause}
+        `SELECT r.id, wc.current_stage_at AS "currentStageDate" ${fromSql} ${whereClause}
          ORDER BY ${sortSql} ${dirSql} NULLS LAST, r.id DESC
          LIMIT :limit OFFSET :offset`,
         { type: db.Sequelize.QueryTypes.SELECT, replacements: pageReplacements }
     );
     const ids = idRows.map(row => row.id);
+    const currentStageDateById = new Map(
+        idRows.map(row => [Number(row.id), row.currentStageDate || null])
+    );
     let rows = [];
     if (ids.length) {
         const data = await db.RXRecord.findAll({
@@ -349,7 +362,10 @@ async function getPaginatedRxRecords(query) {
             include: rxInclude()
         });
         const byId = new Map(enrichRxRows(data, activeActionIds).map(row => [row.id, row]));
-        rows = ids.map(id => byId.get(id)).filter(Boolean);
+        rows = ids.map(id => byId.get(id)).filter(Boolean).map(row => ({
+            ...row,
+            currentStageDate: currentStageDateById.get(Number(row.id)) || null
+        }));
     }
 
     return {

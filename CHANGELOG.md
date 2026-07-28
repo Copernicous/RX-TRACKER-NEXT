@@ -7,6 +7,36 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+## [4.0.0-next.37] - 2026-07-28
+
+### Added
+
+- Added inclusive **Current Stage Date From** and **Current Stage Date To**
+  filters under RX Records Advanced filters.
+- Made the filters use the completion timestamp of the actual Current Stage:
+  the highest active workflow step completed for each RX record.
+- Added **Current Stage Date** to filtered RX Records CSV exports.
+- Added English/Spanish UI, help, and glossary coverage for the new controls.
+
+### Fixed
+
+- Kept date filtering aligned with the same canonical Current Stage calculation
+  used by the Dashboard pipeline, including duplicate-history and inactive-
+  action safeguards.
+- Made completed RX records display as Completed even when their service window
+  is old, matching the server-side Workflow Status precedence.
+
+### Testing
+
+- Added local-time boundary, same-day inclusivity, open-ended range, reversed
+  range, invalid-date, duplicate-history, completed, hidden-record, combined
+  filter, response-field, clear-button, and CSV-export parity coverage.
+
+**Database impact:** No migration and no data rewrite. This release reads the
+existing workflow completion history and does not change patients, workflow
+actions, proxy/origin rules, ports, authentication, PBX behavior, Backoffice,
+or RX Softphone.
+
 ## [4.0.0-next.36] - 2026-07-27
 
 ### Fixed
