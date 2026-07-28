@@ -1,6 +1,6 @@
 # RX Tracker Next English-Spanish UI Translation Glossary
 
-Generated from `public/js/i18n.js`. Entries: **767**.
+Generated from `public/js/i18n.js`. Entries: **772**.
 
 English is the default UI language. Spanish affects interface text only. Patient names, notes, clinics, pharmacies, medications, addresses, documents, and other user-entered or stored business data are never translated.
 
@@ -222,6 +222,8 @@ To correct or add a translation:
 | Current Stage | Etapa actual |
 | Current Stage Breakdown — RX records by latest completed step | Desglose por etapa actual — registros RX según el último paso completado |
 | Current Stage Date | Fecha de la etapa actual |
+| Current Stage Date From | Fecha de la etapa actual desde |
+| Current Stage Date To | Fecha de la etapa actual hasta |
 | Current UTC time: | Hora UTC actual: |
 | Current Value | Valor actual |
 | Custom Icon Path (optional) | Ruta de icono personalizado (opcional) |
@@ -242,6 +244,7 @@ To correct or add a translation:
 | Date From (optional) | Fecha desde (opcional) |
 | Date of Birth | Fecha de nacimiento |
 | Date Range: | Intervalo de fechas: |
+| Date the actual Current Stage was completed | Fecha en que se completó la etapa actual real |
 | Date To | Fecha hasta |
 | Date To (optional) | Fecha hasta (opcional) |
 | Dates | Fechas |
@@ -311,6 +314,7 @@ To correct or add a translation:
 | Fallback Icon Class | Clase del icono alternativo |
 | Field | Campo |
 | Fields below are auto-filled from the patient record | Los campos siguientes se completan automáticamente con el registro del paciente |
+| Filtering by Current Stage completion date | Filtrar por fecha de finalización de la etapa actual |
 | First | Nombre |
 | First name | Nombre |
 | First Name | Nombre |
@@ -469,6 +473,7 @@ To correct or add a translation:
 | Only Administrators can manage system settings. | Solo los administradores pueden gestionar la configuración del sistema. |
 | Only records matching your current search & filters will be exported. | Solo se exportarán los registros que coincidan con la búsqueda y los filtros actuales. |
 | Open — Not Completed | Abierto: no completado |
+| Open Advanced in RX Records and use Current Stage Date From and Current Stage Date To. The range is inclusive in the configured application timezone and uses the completion timestamp of the RX record's actual Current Stage. It is independent from Service Date and Next Action Required. Not Started records have no Current Stage date and are excluded when either date filter is used. | Abra Avanzado en Registros RX y use Fecha de la etapa actual desde y Fecha de la etapa actual hasta. El rango es inclusivo en la zona horaria configurada de la aplicación y usa la fecha y hora de finalización de la etapa actual real del registro RX. Es independiente de Fecha de servicio y Próxima acción requerida. Los registros No iniciados no tienen una fecha de etapa actual y se excluyen cuando se usa cualquiera de los filtros de fecha. |
 | Open in RX Records | Abrir en Registros RX |
 | Open Only | Solo abiertos |
 | Open Print Preview | Abrir vista previa de impresión |

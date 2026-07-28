@@ -30,6 +30,10 @@ if (!confirmedDatabase || confirmedDatabase !== String(process.env.DB_NAME || ''
     );
 }
 
+// Make the date-filter contract deterministic in CI and exercise the configured
+// application timezone rather than the machine/browser timezone.
+process.env.TZ = 'America/New_York';
+
 const db = require('../models');
 const dashboardController = require('../controllers/dashboardController');
 const rxController = require('../controllers/rxController');
@@ -40,7 +44,8 @@ const marker = `PIPELINE${runId}`;
 const created = {
     patientId: null,
     rxIds: [],
-    trackingIds: []
+    trackingIds: [],
+    workflowActionIds: []
 };
 
 function runHandler(handler, query) {
@@ -104,16 +109,35 @@ async function createRx(patientId, serviceDate, isDeleted) {
     return rx;
 }
 
-async function createTrackings(rxId, actions) {
+async function createTrackings(rxId, actions, completionDates) {
     if (!actions.length) return [];
-    const rows = await db.RXWorkflowTracking.bulkCreate(actions.map(action => ({
+    const rows = await db.RXWorkflowTracking.bulkCreate(actions.map((action, index) => ({
         rxRecordId: rxId,
         workflowActionId: action.id,
-        completionDate: new Date(),
+        completionDate: Array.isArray(completionDates)
+            ? completionDates[index]
+            : (completionDates || new Date()),
         userId: null
     })), { returning: true });
     created.trackingIds.push(...rows.map(row => row.id));
     return rows;
+}
+
+function localDateIso(dayOffset) {
+    const date = new Date();
+    date.setHours(12, 0, 0, 0);
+    date.setDate(date.getDate() + Number(dayOffset || 0));
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return String(date.getFullYear()) + '-' + month + '-' + day;
+}
+
+function localDateKey(value) {
+    const date = new Date(value);
+    if (isNaN(date.getTime())) return '';
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return String(date.getFullYear()) + '-' + month + '-' + day;
 }
 
 async function cleanup() {
@@ -134,6 +158,11 @@ async function cleanup() {
     if (created.rxIds.length) {
         await attempt('delete RX fixtures', () => db.RXRecord.destroy({
             where: { id: { [Op.in]: created.rxIds } }
+        }));
+    }
+    if (created.workflowActionIds.length) {
+        await attempt('delete inactive workflow action fixtures', () => db.WorkflowAction.destroy({
+            where: { id: { [Op.in]: created.workflowActionIds } }
         }));
     }
     if (created.patientId) {
@@ -187,6 +216,13 @@ async function main() {
         actions.length >= 3,
         'RX pipeline/filter parity regression requires at least three active workflow actions'
     );
+    const inactiveAction = await db.WorkflowAction.create({
+        name: 'PIPELINE INACTIVE ' + runId,
+        description: 'Temporary inactive action for Current Stage Date parity',
+        sequenceNumber: Math.max(...actions.map(action => Number(action.sequenceNumber) || 0)) + 100,
+        isActive: false
+    });
+    created.workflowActionIds.push(inactiveAction.id);
 
     const pipelineBefore = await getPipeline();
     const beforeByAction = stepCountMap(pipelineBefore);
@@ -198,6 +234,12 @@ async function main() {
     });
 
     const serviceDate = new Date().toISOString().slice(0, 10);
+    const selectedStageDate = localDateIso(-1);
+    const outsideStageDate = localDateIso(0);
+    const selectedStageStart = new Date(selectedStageDate + 'T00:00:00.000');
+    const selectedStageMidday = new Date(selectedStageDate + 'T12:00:00.000');
+    const selectedStageEnd = new Date(selectedStageDate + 'T23:59:59.999');
+    const outsideStageMidday = new Date(outsideStageDate + 'T12:00:00.000');
     const expiredDate = new Date();
     expiredDate.setUTCDate(expiredDate.getUTCDate() - getServiceWindowDays() - 2);
     const expiredServiceDate = expiredDate.toISOString().slice(0, 10);
@@ -223,20 +265,38 @@ async function main() {
     const expiredCompletedRx = await createRx(patient.id, expiredServiceDate, false);
     const hiddenFirstStageRx = await createRx(patient.id, serviceDate, true);
 
-    await createTrackings(firstStageRx.id, [actions[0]]);
-    await createTrackings(secondStageRx.id, actions.slice(0, 2));
+    await createTrackings(firstStageRx.id, [actions[0]], [selectedStageStart]);
+    await createTrackings(firstStageRx.id, [inactiveAction], [outsideStageMidday]);
+    await createTrackings(
+        secondStageRx.id,
+        actions.slice(0, 2),
+        [selectedStageMidday, outsideStageMidday]
+    );
+    const duplicateActions = Array.from({ length: actions.length }, () => actions[0]);
+    const duplicateDates = duplicateActions.map((action, index) =>
+        index === 0
+            ? selectedStageStart
+            : new Date(outsideStageMidday.getTime() + index)
+    );
     const duplicateRows = await createTrackings(
         duplicateStageRx.id,
-        Array.from({ length: actions.length }, () => actions[0])
+        duplicateActions,
+        duplicateDates
     );
     assert.strictEqual(
         duplicateRows.length,
         actions.length,
         'Duplicate-history fixture must contain totalSteps copies of the first action'
     );
-    await createTrackings(completedRx.id, actions);
-    await createTrackings(expiredCompletedRx.id, actions);
-    await createTrackings(hiddenFirstStageRx.id, [actions[0]]);
+    await createTrackings(
+        completedRx.id,
+        actions,
+        actions.map((action, index) => index === actions.length - 1
+            ? selectedStageEnd
+            : new Date(selectedStageStart.getTime() + index))
+    );
+    await createTrackings(expiredCompletedRx.id, actions, actions.map(() => outsideStageMidday));
+    await createTrackings(hiddenFirstStageRx.id, [actions[0]], [selectedStageMidday]);
 
     const pipelineAfter = await getPipeline();
     const afterByAction = stepCountMap(pipelineAfter);
@@ -397,6 +457,96 @@ async function main() {
         );
     }
 
+    const selectedStagePage = await getRxPage(patient.id, {
+        currentStageDateFrom: selectedStageDate,
+        currentStageDateTo: selectedStageDate
+    });
+    assert.deepStrictEqual(
+        sortedIds(selectedStagePage.rows),
+        [firstStageRx.id, completedRx.id].sort((a, b) => a - b),
+        'Same-day Current Stage Date must include local midnight and 23:59:59 while excluding historical-only matches'
+    );
+    assert.strictEqual(selectedStagePage.total, 2, 'Current Stage Date total must equal returned rows');
+    selectedStagePage.rows.forEach(row => {
+        assert.strictEqual(
+            localDateKey(row.currentStageDate),
+            selectedStageDate,
+            'RX response must expose the same canonical Current Stage Date used by the filter'
+        );
+    });
+
+    const stageDateFromOnly = await getRxPage(patient.id, {
+        currentStageDateFrom: selectedStageDate
+    });
+    assert.deepStrictEqual(
+        sortedIds(stageDateFromOnly.rows),
+        [
+            firstStageRx.id,
+            secondStageRx.id,
+            duplicateStageRx.id,
+            completedRx.id,
+            expiredCompletedRx.id
+        ].sort((a, b) => a - b),
+        'Current Stage Date From must include all visible records on or after the local day boundary'
+    );
+    const stageDateToOnly = await getRxPage(patient.id, {
+        currentStageDateTo: selectedStageDate
+    });
+    assert.deepStrictEqual(
+        sortedIds(stageDateToOnly.rows),
+        [firstStageRx.id, completedRx.id].sort((a, b) => a - b),
+        'Current Stage Date To must include the full selected local day and exclude later current stages'
+    );
+    const outsideStagePage = await getRxPage(patient.id, {
+        currentStageDateFrom: outsideStageDate,
+        currentStageDateTo: outsideStageDate
+    });
+    assert.deepStrictEqual(
+        sortedIds(outsideStagePage.rows),
+        [secondStageRx.id, duplicateStageRx.id, expiredCompletedRx.id].sort((a, b) => a - b),
+        'Current Stage Date must use the latest duplicate at the highest active stage'
+    );
+    const combinedStageDate = await getRxPage(patient.id, {
+        currentWorkflowStage: String(actions[0].sequenceNumber),
+        currentStageDateFrom: selectedStageDate,
+        currentStageDateTo: selectedStageDate
+    });
+    assert.deepStrictEqual(
+        sortedIds(combinedStageDate.rows),
+        [firstStageRx.id],
+        'Current Stage and Current Stage Date filters must intersect without using older history'
+    );
+    const combinedCompletedDate = await getRxPage(patient.id, {
+        workflowStatus: 'completed',
+        currentStageDateFrom: selectedStageDate,
+        currentStageDateTo: selectedStageDate
+    });
+    assert.deepStrictEqual(
+        sortedIds(combinedCompletedDate.rows),
+        [completedRx.id],
+        'Completed status must use the final active-stage completion date'
+    );
+    const reversedStageDate = await getRxPage(patient.id, {
+        currentStageDateFrom: outsideStageDate,
+        currentStageDateTo: selectedStageDate
+    });
+    assert.strictEqual(reversedStageDate.total, 0, 'Reversed Current Stage Date range must return zero records');
+    const invalidStageDate = await getRxPage(patient.id, {
+        currentStageDateFrom: '2026-02-31',
+        currentStageDateTo: 'not-a-date'
+    });
+    assert.strictEqual(invalidStageDate.total, 7, 'Invalid Current Stage dates must not cause an API error');
+    const exportedStageDate = await getRxPage(patient.id, {
+        exportAll: 'true',
+        currentStageDateFrom: selectedStageDate,
+        currentStageDateTo: selectedStageDate
+    });
+    assert.deepStrictEqual(
+        sortedIds(exportedStageDate.rows),
+        [firstStageRx.id, completedRx.id].sort((a, b) => a - b),
+        'RX exportAll must preserve the Current Stage Date filters'
+    );
+
     const nextActionOne = await getRxPage(patient.id, { workflowStage: '1' });
     assert.deepStrictEqual(
         sortedIds(nextActionOne.rows),
@@ -416,7 +566,9 @@ async function main() {
 
     const hiddenOnly = await getRxPage(patient.id, {
         includeDeleted: 'true',
-        currentWorkflowStage: String(actions[0].sequenceNumber)
+        currentWorkflowStage: String(actions[0].sequenceNumber),
+        currentStageDateFrom: selectedStageDate,
+        currentStageDateTo: selectedStageDate
     });
     assert.strictEqual(hiddenOnly.total, 1, 'Hidden RX query must return exactly one fixture');
     assert.deepStrictEqual(
@@ -428,6 +580,8 @@ async function main() {
     console.log('PASS: dashboard workflow stages match RX Records Current Stage filters exactly');
     console.log('PASS: duplicate workflow history cannot advance stage or completion status');
     console.log('PASS: Current Stage remains distinct from Next Action and excludes hidden RX records');
+    console.log('PASS: Current Stage Date uses inclusive app-local boundaries and ignores inactive history');
+    console.log('PASS: Current Stage Date filter parity is preserved in exportAll and combined filters');
     console.log('PASS: Dashboard All Incomplete includes expired RX while operational Pending remains distinct');
 }
 

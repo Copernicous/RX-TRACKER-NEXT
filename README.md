@@ -10,7 +10,7 @@ frozen 3.3.1 repository, its production database, or the RX Softphone source.
 
 ## Current status
 
-Version: `4.0.0-next.36` development test candidate
+Version: `4.0.0-next.37` staging test candidate
 
 | Area | NEXT behavior |
 |---|---|
@@ -25,7 +25,10 @@ Version `next.35` made the Dashboard RX Workflow Pipeline use the same **Current
 Stage** definition as RX Records and Reports. The `next.36` candidate also makes
 the summary cards use the same four mutually exclusive **Workflow Status**
 groups as RX Records: Not Started, In Progress, Expired, and Completed. The
-Dashboard Pending card and charts remain **All Incomplete**, including Expired.
+`next.37` staging candidate adds inclusive RX Records **Current Stage Date
+From/To** filters and CSV output based on the completion timestamp of that same
+actual Current Stage. The Dashboard Pending card and charts remain **All
+Incomplete**, including Expired.
 
 The frozen application remains an emergency rollback option. New NEXT changes
 must pass staging and development validation before a separately approved,

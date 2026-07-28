@@ -12,6 +12,11 @@ represent the same mutually exclusive **Workflow Status** groups used by RX
 Records: Not Started, In Progress, Expired, and Completed. Current Stage remains
 separate and is never replaced by Next Action Required.
 
+Starting with the `4.0.0-next.37` candidate, RX Records also supports
+**Current Stage Date From** and **Current Stage Date To**. These controls filter
+on the completion timestamp of that same canonical Current Stage. They do not
+filter Service Date, Next Action Required, or any older historical action.
+
 ## What is counted
 
 - Counts are per RX record, not per unique patient. If one patient has two RX
@@ -64,6 +69,26 @@ Patient Needs Action status share these rules:
    non-contiguous history.
 5. Apply the same distinct-active rule to current snapshots and to newly
    materialized historical days; existing stored history rows are not rewritten.
+6. For duplicate rows at the highest active sequence, use the latest completion
+   timestamp (and latest tracking ID as a deterministic tie-breaker) as Current
+   Stage Date.
+
+## Current Stage Date range
+
+- The From and To dates are independent and may be used separately.
+- Both dates are inclusive in the application's configured local timezone. The
+  To boundary is implemented as local midnight immediately after the selected
+  day, so completion times through 11:59:59.999 PM remain included.
+- Not Started RX records have no Current Stage Date and are excluded whenever
+  either date filter is active.
+- A completed RX uses its final active-stage completion timestamp, even when its
+  service window is old.
+- An RX with a lower historical action on the selected date but a later actual
+  Current Stage outside the selected range is excluded.
+- The filtered list total, returned Current Stage Date, and CSV `exportAll`
+  result use the same server-side aggregate and range.
+- Invalid date values are ignored without changing stored data; a reversed valid
+  range naturally returns zero records.
 
 Configured active workflow actions are expected to have unique sequence
 numbers. This was already an application configuration assumption; `next.35`
@@ -133,6 +158,11 @@ For a manual staging check:
    Workflow Status with the same total.
 9. Confirm expired RX with completed steps remain in their actual Current Stage
    row, while an expired RX with no completed step has no Current Stage.
+10. Under RX Records Advanced filters, select a date on which a visible RX's
+    actual Current Stage was completed. Confirm the RX appears and the filtered
+    CSV contains the same RX and its Current Stage Date.
+11. Confirm a Not Started RX is excluded while either Current Stage Date filter
+    is active, then use Clear and confirm both date controls are empty.
 
 Do not compare these rows with **Next Action Required**. That advanced filter
 answers a different operational question: what action must happen next.
@@ -144,5 +174,5 @@ patient or workflow data. It does not change proxy routes, origins, ports,
 sessions, authentication, PBX integration, or RX Softphone.
 
 Promote through `staging` and then `develop` only after validation. Production
-requires a separately approved immutable `v4.0.0-next.36` release; never modify
+requires a separately approved immutable `v4.0.0-next.37` release; never modify
 the existing `v4.0.0-next.35` release.

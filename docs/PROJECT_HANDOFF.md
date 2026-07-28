@@ -1,6 +1,6 @@
 # RX Tracker NEXT project handoff
 
-Last updated: 2026-07-27
+Last updated: 2026-07-28
 
 This file is the sanitized continuity record for a future administrator or
 Codex session. It intentionally contains no credentials, `.env` values,
@@ -8,6 +8,17 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
 
+- Staging is healthy on the `4.0.0-next.37` source candidate at port 3100. It
+  adds inclusive RX Records **Current Stage Date From/To** filters and a
+  **Current Stage Date** CSV column based on the canonical highest completed
+  active workflow step. The range and CSV use the configured application
+  timezone; deterministic tests cover 23-hour and 25-hour DST days, duplicate
+  and inactive history, Not Started null dates, completed old-service-date
+  precedence, combined filters, clear behavior, and export parity. The full
+  staging API/database/security/report/relay suite and isolated Playwright
+  browser-click suite passed on 2026-07-28, including a browser deliberately
+  set to a different timezone. There is no migration or business-data rewrite.
+  This candidate is not installed on development or production.
 - Development is healthy on `4.0.0-next.36`. This version separates the Dashboard pipeline
   summary into the same mutually exclusive Workflow Status groups used by RX
   Records: Not Started, non-expired In Progress, Expired, and Completed.
@@ -24,7 +35,7 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
   156 In Progress + 2 Expired + 1,611 Completed; Dashboard All Incomplete is
   160 and operational Pending is 158. Current Stage remains
   127/17/14/0/0/1,611. Production data was not modified while developing
-  `next.36`.
+  `next.36` or `next.37`.
 - Official release `v4.0.0-next.34` adds an English-default,
   Spanish-selectable program UI plus configurable login/sidebar branding.
   Translation is browser-side and UI-only, Backoffice is explicitly excluded,
