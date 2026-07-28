@@ -24,10 +24,15 @@ const patientsClient = read('public/js/patients.js');
 const reportsClient = read('public/js/reports.js');
 const crudView = read('views/crud.ejs');
 const patientsView = read('views/patients.ejs');
+const dashboardClient = read('public/js/dashboard.js');
+const dashboardView = read('views/dashboard.ejs');
+const rxRecordsView = read('views/rx-records.ejs');
+const helpClient = read('public/js/help.js');
 const passengerMinivanIcon = read('public/images/brand-icons/minivan-passengers.svg');
 const boardingMinivanIcon = read('public/images/brand-icons/minivan-boarding.svg');
 
 assert(i18nSource.includes("'Patients': 'Pacientes'"), 'Spanish Patients translation is missing');
+assert(i18nSource.includes("'All Incomplete': 'Todos incompletos'"), 'Spanish All Incomplete translation is missing');
 assert(i18nSource.includes("'Sign In': 'Iniciar sesión'"), 'Spanish login translation is missing');
 assert(i18nSource.includes('localStorage.setItem(STORAGE_KEY, lang)'), 'Language preference is not persisted');
 assert(i18nSource.includes("parent.closest('tbody td')"), 'Patient/business table protection is missing');
@@ -77,9 +82,30 @@ assert(!appClient.includes("textContent.trim() === 'Actions'"), 'Permission logi
 assert(appClient.includes("classList.toggle('d-none', !showCrud)"), 'CRUD Save visibility can remain stale across modal modes');
 assert(appClient.includes("classList.toggle('d-none', !showPat)"), 'Patient Save visibility can remain stale across modal modes');
 assert(reportsClient.includes('class="ac-item" data-i18n-skip'), 'Patient autocomplete business data must be excluded from translation');
+assert(
+    dashboardClient.includes('Current Stage Breakdown &mdash; RX records by latest completed step'),
+    'Dashboard pipeline must describe the Current Stage breakdown accurately'
+);
+assert(
+    dashboardClient.includes('step.count / stepBreakdownTotal'),
+    'Current Stage bars must scale against the full breakdown total'
+);
+assert(!dashboardClient.includes('var completedPct ='), 'Dashboard must not render a duplicate Completed breakdown row');
+assert(dashboardClient.includes('<div data-i18n-skip'), 'Configured workflow action names must not be translated');
+assert(dashboardView.includes('workflowStatus=incomplete'), 'Dashboard Pending card must link to All Incomplete');
+assert(rxRecordsView.includes('<option value="incomplete">All Incomplete</option>'), 'RX Records All Incomplete filter is missing');
+assert(helpClient.includes('highest active workflow step completed'), 'Dashboard pipeline help still describes Next Action semantics');
+assert(helpClient.includes('including expired cycles'), 'Dashboard Pending help must disclose expired-cycle inclusion');
 
 const glossaryRows = glossary.split(/\r?\n/).filter(line => /^\| .+ \| .+ \|$/.test(line));
 assert(glossaryRows.length >= 700, `Expected at least 700 glossary rows; found ${glossaryRows.length}`);
+assert(
+    glossary.includes('| Current Stage Breakdown — RX records by latest completed step | Desglose por etapa actual — registros RX según el último paso completado |'),
+    'Generated glossary is missing the Current Stage breakdown translation'
+);
+assert(glossary.includes('| All Incomplete | Todos incompletos |'), 'Generated glossary is missing All Incomplete');
+assert(glossary.includes('| {percent}% complete | {percent}% completado |'), 'Generated glossary is missing the completion pattern');
+assert(glossary.includes('| Updated {time} | Actualizado {time} |'), 'Generated glossary is missing the updated-time pattern');
 
 // Execute the browser dictionary in a minimal sandbox and prove default English,
 // Spanish switching, and exact translation without a real DOM.
@@ -107,10 +133,33 @@ vm.runInContext(i18nSource, sandbox);
 assert.strictEqual(sandbox.window.RXI18n.getLanguage(), 'en');
 storage.set('rxUiLanguage', 'es');
 assert.strictEqual(sandbox.window.RXI18n.translate('Patients'), 'Pacientes');
+assert.strictEqual(sandbox.window.RXI18n.translate('All Incomplete'), 'Todos incompletos');
 assert.strictEqual(sandbox.window.RXI18n.translate('Call Queue'), 'Cola de llamadas');
 assert.strictEqual(sandbox.window.RXI18n.translate('Calling from day 60 · Service eligible day 90'), 'Llamadas desde el día 60 · Servicio elegible el día 90');
 assert.strictEqual(sandbox.window.RXI18n.translate('Page 2 of 14'), 'Página 2 de 14');
 assert.strictEqual(sandbox.window.RXI18n.translate('Hello, Maria Rivera'), 'Hola, Maria Rivera');
+assert.strictEqual(
+    sandbox.window.RXI18n.translate('Current Stage Breakdown — RX records by latest completed step'),
+    'Desglose por etapa actual — registros RX según el último paso completado'
+);
+assert.strictEqual(
+    sandbox.window.RXI18n.translate('No workflow steps configured yet.'),
+    'Aún no hay etapas del flujo de trabajo configuradas.'
+);
+assert.strictEqual(
+    sandbox.window.RXI18n.translate('Could not load pipeline data.'),
+    'No se pudieron cargar los datos del flujo de trabajo.'
+);
+assert.strictEqual(
+    sandbox.window.RXI18n.translate('RX Pipeline chart — reading the bars'),
+    'Gráfico del flujo RX: cómo leer las barras'
+);
+assert.strictEqual(
+    sandbox.window.RXI18n.translate('Each horizontal bar shows how many RX records currently have that workflow action as their Current Stage (the highest active workflow step completed). Completed RX records remain in the final-stage bar, while Not Started records stay in the summary card because they do not yet have a Current Stage.'),
+    'Cada barra horizontal muestra cuántos registros RX tienen actualmente esa acción del flujo como su etapa actual (la etapa activa más avanzada que se completó). Los registros RX completados permanecen en la barra de la etapa final, mientras que los no iniciados permanecen en la tarjeta de resumen porque todavía no tienen una etapa actual.'
+);
+assert.strictEqual(sandbox.window.RXI18n.translate('91% complete'), '91% completado');
+assert.strictEqual(sandbox.window.RXI18n.translate('Updated 4:15:56 PM'), 'Actualizado 4:15:56 PM');
 assert.strictEqual(sandbox.window.RXI18n.translate('Acme Clinic 42'), 'Acme Clinic 42', 'Unknown/business text should be preserved');
 
 console.log(`Localization and branding regression passed (${glossaryRows.length} glossary rows).`);

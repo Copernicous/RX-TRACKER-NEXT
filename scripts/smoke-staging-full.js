@@ -7,9 +7,14 @@ const { prepareStagingEnv } = require('./lib/staging-env');
 const root = path.join(__dirname, '..');
 const staging = prepareStagingEnv();
 process.env.PATIENT_PAGINATION_TEST_DB_NAME = staging.dbName;
+process.env.PATIENT_PAGINATION_TEST_CONFIRM_DB_NAME = staging.dbName;
 process.env.DASHBOARD_ANALYTICS_TEST_DB_NAME = staging.dbName;
+process.env.DASHBOARD_ANALYTICS_TEST_CONFIRM_DB_NAME = staging.dbName;
+process.env.RX_PIPELINE_FILTER_TEST_DB_NAME = staging.dbName;
+process.env.RX_PIPELINE_FILTER_TEST_CONFIRM_DB_NAME = staging.dbName;
 process.env.CALL_CENTER_PAGINATION_TEST_DB_NAME = staging.dbName;
 process.env.REPORT_FILTER_TEST_DB_NAME = staging.dbName;
+process.env.QA_DB_NAME = staging.dbName;
 
 const tasks = [
     ['public JavaScript encoding and syntax check', 'check-public-js.js'],
@@ -25,6 +30,7 @@ const tasks = [
     ['report filter parity regression', 'test-report-filter-parity.js'],
     ['report view render regression', 'test-report-view-render.js'],
     ['persisted dashboard analytics regression', 'test-dashboard-persisted-analytics.js'],
+    ['RX pipeline and Current Stage filter parity regression', 'test-rx-pipeline-filter-parity.js'],
     ['RX warehouse filter and Call Center cleanup regression', 'test-rx-warehouse-filter-cleanup.js'],
     ['managed RX Softphone relay regression', 'test-softphone-relay.js'],
     ['staging browser click smoke', 'run-isolated-staging-ui-smoke.js']

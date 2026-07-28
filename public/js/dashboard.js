@@ -244,6 +244,22 @@ function loadDashboardCharts() {
     return fetchWithAuth(_uApi(_api.charts, q)).then(function(chartRes) {
         if (chartRes && chartRes.ok) {
             return chartRes.json().then(function(chartData) {
+                if (!_dashFrom && !_dashTo && window._lastDashboardStats && window._lastRxPipeline) {
+                    var liveStats = window._lastDashboardStats;
+                    var livePipeline = window._lastRxPipeline;
+                    var livePending = Number(livePipeline.notStarted || 0) + Number(livePipeline.inProgress || 0);
+                    if (chartData.cardTotals && Array.isArray(chartData.cardTotals.data)) {
+                        chartData.cardTotals.data[0] = Number(liveStats.activePatients || 0);
+                        chartData.cardTotals.data[1] = Number(liveStats.inactivePatients || 0);
+                        chartData.cardTotals.data[2] = Number(livePipeline.total || 0);
+                        chartData.cardTotals.data[3] = livePending;
+                        chartData.cardTotals.data[4] = Number(liveStats.patientsWithNoRx || 0);
+                    }
+                    if (chartData.rxStatus && Array.isArray(chartData.rxStatus.data)) {
+                        chartData.rxStatus.data[0] = Number(livePipeline.completed || 0);
+                        chartData.rxStatus.data[1] = livePending;
+                    }
+                }
                 window._lastChartData = chartData;
                 renderCharts(chartData);
             });
@@ -259,6 +275,7 @@ function refreshDashboard() {
     return fetchWithAuth(_uApi(_api.stats, q)).then(function(res) {
         if (!res) return;
         return res.json().then(function(data) {
+            window._lastDashboardStats = data;
             var safe = function(v) { return (v !== undefined && v !== null) ? v : 0; };
             var setTxt = function(id, val) { var el = document.getElementById(id); if (el) el.textContent = val; };
             setTxt('activePatientsCount',    safe(data.activePatients));
@@ -295,7 +312,9 @@ function refreshDashboard() {
     }).catch(function(e) {
         console.warn('Stats refresh error:', e);
     }).then(function() {
-        loadRxPipeline();
+        return loadRxPipeline();
+    }).then(function() {
+        return loadDashboardCharts();
     });
 }
 
@@ -1106,18 +1125,24 @@ function loadEligibility() {
 function loadRxPipeline() {
     var stepsEl = document.getElementById('rxPipelineSteps');
     var luEl    = document.getElementById('rxPipelineLastUpdated');
-    if (!stepsEl) return;
+    if (!stepsEl) return Promise.resolve();
     stepsEl.innerHTML = '<div class="text-muted text-center py-3"><i class="fas fa-spinner fa-spin me-2"></i>Loading...</div>';
 
-    fetchWithAuth(_api.rxp()).then(function(res) {
+    return fetchWithAuth(_api.rxp()).then(function(res) {
         if (!res || !res.ok) throw new Error('Failed');
         return res.json();
     }).then(function(d) {
+        window._lastRxPipeline = d;
         var safe = function(v) { return (v !== undefined && v !== null) ? v : 0; };
         var setTxt = function(id, val) { var el = document.getElementById(id); if (el) el.textContent = val; };
         setTxt('rxPipelineNotStarted', safe(d.notStarted));
         setTxt('rxPipelineInProgress', safe(d.inProgress));
         setTxt('rxPipelineCompleted',  safe(d.completed));
+        if (!_dashFrom && !_dashTo) {
+            // The all-time RX cards and pipeline now render from the same live response.
+            setTxt('activeRxCount', safe(d.total));
+            setTxt('pendingDeliveriesCount', Number(safe(d.notStarted)) + Number(safe(d.inProgress)));
+        }
 
         var pct = d.total > 0 ? Math.round((d.completed / d.total) * 100) : 0;
         setTxt('rxPipelinePercent', pct + '% complete');
@@ -1131,15 +1156,18 @@ function loadRxPipeline() {
             return;
         }
 
-        var stepsHtml = '<div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#888;margin-bottom:10px">Workflow Step Breakdown &mdash; RX records waiting at each step</div>' +
+        var stepBreakdownTotal = d.stepBreakdown.reduce(function(total, step) {
+            return total + Number(step && step.count || 0);
+        }, 0);
+        var stepsHtml = '<div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#888;margin-bottom:10px">Current Stage Breakdown &mdash; RX records by latest completed step</div>' +
             '<div style="display:flex;flex-direction:column;gap:8px">';
         for (var si = 0; si < d.stepBreakdown.length; si++) {
             var step  = d.stepBreakdown[si];
             var color = COLORS[si % COLORS.length];
-            var barPct = d.inProgress > 0 ? Math.round((step.count / d.inProgress) * 100) : 0;
+            var barPct = stepBreakdownTotal > 0 ? Math.round((step.count / stepBreakdownTotal) * 100) : 0;
             stepsHtml += '<div style="display:flex;align-items:center;gap:12px">' +
                 '<div style="flex-shrink:0;width:22px;height:22px;border-radius:50%;background:' + color + '22;display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;color:' + color + '">' + (si + 1) + '</div>' +
-                '<div style="flex-shrink:0;width:160px;font-size:.82rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="' + (step.name || '') + '">' + (step.name || '') + '</div>' +
+                '<div data-i18n-skip style="flex-shrink:0;width:160px;font-size:.82rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="' + (step.name || '') + '">' + (step.name || '') + '</div>' +
                 '<div style="flex:1;height:8px;border-radius:4px;background:rgba(0,0,0,.07);overflow:hidden">' +
                     '<div style="height:100%;border-radius:4px;background:' + color + ';width:' + barPct + '%;transition:width .5s ease"></div>' +
                 '</div>' +
@@ -1147,18 +1175,6 @@ function loadRxPipeline() {
                 '</div>';
         }
         stepsHtml += '</div>';
-
-        if (d.completed > 0) {
-            var completedPct = d.total > 0 ? Math.round(d.completed / d.total * 100) : 0;
-            stepsHtml += '<div style="display:flex;align-items:center;gap:12px;margin-top:8px;padding-top:8px;border-top:1px solid rgba(0,0,0,.07)">' +
-                '<div style="flex-shrink:0;width:22px;height:22px;border-radius:50%;background:#19875422;display:flex;align-items:center;justify-content:center"><i class="fas fa-check" style="font-size:.6rem;color:#198754"></i></div>' +
-                '<div style="flex-shrink:0;width:160px;font-size:.82rem;font-weight:600;color:#198754">Completed</div>' +
-                '<div style="flex:1;height:8px;border-radius:4px;background:rgba(0,0,0,.07);overflow:hidden">' +
-                    '<div style="height:100%;border-radius:4px;background:#198754;width:' + completedPct + '%;transition:width .5s ease"></div>' +
-                '</div>' +
-                '<div style="flex-shrink:0;width:32px;text-align:right;font-size:.82rem;font-weight:600;color:#198754">' + d.completed + '</div>' +
-                '</div>';
-        }
         stepsEl.innerHTML = stepsHtml;
     }).catch(function() {
         stepsEl.innerHTML = '<p class="text-danger text-center small py-2"><i class="fas fa-exclamation-triangle me-1"></i>Could not load pipeline data.</p>';
@@ -1972,9 +1988,8 @@ document.addEventListener('DOMContentLoaded', function() {
     var trendExport = document.getElementById('trendExportBtn');
     if (trendExport) trendExport.addEventListener('click', exportTrendCsv);
 
-    // Load data
+    // Load data. refreshDashboard sequences live cards/pipeline before charts.
     refreshDashboard();
-    loadDashboardCharts();
 
     // Load eligibility widget independently
     loadEligibility();

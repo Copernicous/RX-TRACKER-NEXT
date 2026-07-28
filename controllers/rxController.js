@@ -2,6 +2,7 @@ const db = require('../models');
 const { parseDate, parseLocalDateOnly } = require('../utils/dateUtils');
 const { isServiceDateOverrideEnabled, getServiceWindowDays } = require('../utils/globalSettings');
 const { userCanOverrideExpired, getRequestPermission } = require('../middleware/rbac');
+const { activeRxWorkflowAggregateSql } = require('../utils/rxWorkflowAggregateSql');
 const {
     dateOnly,
     ensureCycleForRx,
@@ -119,12 +120,25 @@ function rxInclude() {
     ];
 }
 
-function enrichRxRows(data) {
+function enrichRxRows(data, activeActionIds) {
     return data.map(rx => {
         const plain = rx.toJSON();
-        plain.completedSteps = (plain.RXWorkflowTrackings || []).map(t => t.workflowActionId);
+        plain.completedSteps = Array.from(new Set(
+            (plain.RXWorkflowTrackings || [])
+                .map(tracking => Number(tracking.workflowActionId))
+                .filter(actionId => Number.isInteger(actionId) && activeActionIds.has(actionId))
+        ));
         return plain;
     });
+}
+
+async function getActiveWorkflowActionIds() {
+    const rows = await db.WorkflowAction.findAll({
+        attributes: ['id'],
+        where: { isActive: true },
+        raw: true
+    });
+    return new Set(rows.map(row => Number(row.id)).filter(Number.isInteger));
 }
 
 function buildRxWhere(query) {
@@ -226,7 +240,11 @@ function addRxPageFilters(query, replacements, totalSteps) {
         whereSql.push('LOWER(COALESCE(p."patientCode", \'\')) LIKE :patientCodeLike');
     }
 
-    if (workflowStatus === 'pending') {
+    if (workflowStatus === 'incomplete') {
+        // Dashboard Pending card: every incomplete RX, including expired cycles.
+        whereSql.push(`NOT ${completedExprSql}`);
+    } else if (workflowStatus === 'pending') {
+        // Operational Pending status excludes the separately labeled Expired status.
         whereSql.push(`NOT ${completedExprSql}`);
         whereSql.push(`NOT ${expiredExpr}`);
     } else if (workflowStatus === 'expired') {
@@ -260,13 +278,7 @@ function rxPageFromSql() {
         LEFT JOIN "Patients" p ON p.id = r."patientId"
         LEFT JOIN "Pharmacies" ph ON ph.id = r."pharmacyId"
         LEFT JOIN (
-            SELECT
-                wt."rxRecordId",
-                COUNT(*)::integer AS completed_steps,
-                MAX(wa."sequenceNumber")::integer AS current_stage_sequence
-            FROM "RXWorkflowTrackings" wt
-            LEFT JOIN "WorkflowActions" wa ON wa.id = wt."workflowActionId"
-            GROUP BY wt."rxRecordId"
+            ${activeRxWorkflowAggregateSql()}
         ) wc ON wc."rxRecordId" = r.id
     `;
 }
@@ -301,7 +313,8 @@ async function getPaginatedRxRecords(query) {
     const requestedPage = parsePositiveInt(query.page, 1, 1, 1000000);
     const sort = cleanString(query.sort) || 'id';
     const dir = cleanString(query.dir).toLowerCase() === 'asc' ? 'asc' : 'desc';
-    const totalWorkflowSteps = await db.WorkflowAction.count({ where: { isActive: true } });
+    const activeActionIds = await getActiveWorkflowActionIds();
+    const totalWorkflowSteps = activeActionIds.size;
     const replacements = {};
     const whereSql = addRxPageFilters(query, replacements, totalWorkflowSteps);
     const fromSql = rxPageFromSql();
@@ -335,7 +348,7 @@ async function getPaginatedRxRecords(query) {
             where: { id: { [Op.in]: ids } },
             include: rxInclude()
         });
-        const byId = new Map(enrichRxRows(data).map(row => [row.id, row]));
+        const byId = new Map(enrichRxRows(data, activeActionIds).map(row => [row.id, row]));
         rows = ids.map(id => byId.get(id)).filter(Boolean);
     }
 
@@ -363,8 +376,8 @@ exports.getAll = async (req, res) => {
             include: rxInclude(),
             order: [['id', 'DESC']]
         });
-        const totalWorkflowSteps = await db.WorkflowAction.count({ where: { isActive: true } });
-        let result = enrichRxRows(data);
+        const activeActionIds = await getActiveWorkflowActionIds();
+        const result = enrichRxRows(data, activeActionIds);
 
         res.json(result);
     } catch (err) { res.status(500).json({ error: err.message }); }
@@ -377,7 +390,8 @@ exports.getOne = async (req, res) => {
             include: [db.Patient, db.PatientServiceDateCycle, db.Pharmacy, db.Medication, db.RXWorkflowTracking]
         });
         if (!data) return res.status(404).json({ message: 'Not found' });
-        res.json(data);
+        const activeActionIds = await getActiveWorkflowActionIds();
+        res.json(enrichRxRows([data], activeActionIds)[0]);
     } catch (err) { res.status(500).json({ error: err.message }); }
 };
 

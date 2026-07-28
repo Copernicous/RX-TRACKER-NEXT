@@ -27,6 +27,7 @@ if (isolatedSmoke && !/(ui_smoke|smoke_ui|test)/i.test(stagingConfig.dbName)) {
     throw new Error('Refusing isolated UI smoke because DB_NAME is not marked as a smoke/test database.');
 }
 const db = require('../models');
+const { captureSnapshot } = require('../services/snapshotService');
 const { BUILT_IN_DEFAULTS } = require('../middleware/rbac');
 const Op = db.Sequelize.Op;
 
@@ -43,7 +44,8 @@ const created = {
     users: [],
     patients: [],
     clinics: [],
-    patientTransports: []
+    patientTransports: [],
+    workflowActions: []
 };
 
 let browser;
@@ -483,6 +485,141 @@ async function runAdminDashboardAndReports(fixtures) {
     await waitForNonPlaceholder(page, '#pendingDeliveriesCount', 'dashboard pending deliveries card');
     await expectVisible(page, '#rxPipelineRow', 'RX Workflow Pipeline visible');
     await waitForNonPlaceholder(page, '#rxPipelinePercent', 'RX Workflow Pipeline calculator loaded');
+    await page.waitForFunction(() => {
+        const steps = document.querySelector('#rxPipelineSteps');
+        const text = steps ? (steps.textContent || '') : '';
+        return text.includes('Current Stage Breakdown — RX records by latest completed step') ||
+            text.includes('No workflow steps configured yet.');
+    }, null, { timeout: 15000 });
+    const pipelineBreakdownText = (await page.locator('#rxPipelineSteps').textContent()).trim();
+    assert(
+        pipelineBreakdownText.includes('Current Stage Breakdown — RX records by latest completed step'),
+        'RX Workflow Pipeline must identify Current Stage as the latest completed workflow step.'
+    );
+    assert(
+        !pipelineBreakdownText.includes('RX records waiting at each step'),
+        'RX Workflow Pipeline must not label Current Stage counts as Next Action waiting counts.'
+    );
+    const waitForDashboardParity = () => page.waitForFunction(() => {
+        const chart = window._lastChartData;
+        const stats = window._lastDashboardStats;
+        const pipeline = window._lastRxPipeline;
+        if (!chart || !stats || !pipeline || !chart.cardTotals || !chart.rxStatus) return false;
+        const labels = chart.cardTotals.labels || [];
+        const values = chart.cardTotals.data || [];
+        const value = (label) => Number(values[labels.indexOf(label)] || 0);
+        const pending = Number(pipeline.notStarted || 0) + Number(pipeline.inProgress || 0);
+        return value('Active') === Number(stats.activePatients || 0) &&
+            value('Inactive') === Number(stats.inactivePatients || 0) &&
+            value('Total RX') === Number(pipeline.total || 0) &&
+            value('Pending') === pending &&
+            Number(chart.rxStatus.data[0] || 0) === Number(pipeline.completed || 0) &&
+            Number(chart.rxStatus.data[1] || 0) === pending;
+    }, null, { timeout: 15000 });
+    await waitForDashboardParity();
+    const workflowReconciliation = await page.evaluate(() => {
+        const labels = window._lastChartData.cardTotals.labels || [];
+        const values = window._lastChartData.cardTotals.data || [];
+        const chartValue = (label) => Number(values[labels.indexOf(label)] || 0);
+        return {
+            activePatients: Number((document.querySelector('#activePatientsCount') || {}).textContent || 0),
+            inactivePatients: Number((document.querySelector('#inactivePatientsCount') || {}).textContent || 0),
+            totalRx: Number((document.querySelector('#activeRxCount') || {}).textContent || 0),
+            pendingCard: Number((document.querySelector('#pendingDeliveriesCount') || {}).textContent || 0),
+            notStarted: Number((document.querySelector('#rxPipelineNotStarted') || {}).textContent || 0),
+            inProgress: Number((document.querySelector('#rxPipelineInProgress') || {}).textContent || 0),
+            completed: Number((document.querySelector('#rxPipelineCompleted') || {}).textContent || 0),
+            chartActive: chartValue('Active'),
+            chartInactive: chartValue('Inactive'),
+            chartTotalRx: chartValue('Total RX'),
+            chartPending: chartValue('Pending'),
+            donutCompleted: Number(window._lastChartData.rxStatus.data[0] || 0),
+            donutPending: Number(window._lastChartData.rxStatus.data[1] || 0),
+            pendingHref: (document.querySelector('#xl-rx-records-pending') || {}).getAttribute('href') || ''
+        };
+    });
+    assert.strictEqual(
+        workflowReconciliation.totalRx,
+        workflowReconciliation.notStarted + workflowReconciliation.inProgress + workflowReconciliation.completed,
+        'Dashboard Total RX card must reconcile to the live pipeline.'
+    );
+    assert.strictEqual(
+        workflowReconciliation.pendingCard,
+        workflowReconciliation.notStarted + workflowReconciliation.inProgress,
+        'Dashboard Pending card must reconcile to the live pipeline.'
+    );
+    assert.strictEqual(workflowReconciliation.chartActive, workflowReconciliation.activePatients, 'Active Patients graph must match its live card.');
+    assert.strictEqual(workflowReconciliation.chartInactive, workflowReconciliation.inactivePatients, 'Inactive Patients graph must match its live card.');
+    assert.strictEqual(workflowReconciliation.chartTotalRx, workflowReconciliation.totalRx, 'Total RX graph must match its live card.');
+    assert.strictEqual(workflowReconciliation.chartPending, workflowReconciliation.pendingCard, 'Pending graph must match its live card.');
+    assert.strictEqual(workflowReconciliation.donutCompleted, workflowReconciliation.completed, 'Completed donut must match the live pipeline.');
+    assert.strictEqual(workflowReconciliation.donutPending, workflowReconciliation.pendingCard, 'Pending donut must match the live pipeline.');
+    assert(
+        workflowReconciliation.pendingHref.includes('workflowStatus=incomplete'),
+        'Dashboard Pending card must link to the exact All Incomplete RX Records filter.'
+    );
+    pass('dashboard patient/RX cards, graphs, pipeline, and All Incomplete link reconcile');
+
+    const pipelineRefreshResponse = page.waitForResponse(response =>
+        response.url().includes('/api/dashboard/rx-pipeline') && response.status() === 200,
+        { timeout: 15000 }
+    );
+    const chartRefreshResponse = page.waitForResponse(response =>
+        response.url().includes('/api/dashboard/charts') && response.status() === 200,
+        { timeout: 15000 }
+    );
+    await page.click('#rxPipelineRefreshBtn');
+    await Promise.all([pipelineRefreshResponse, chartRefreshResponse]);
+    await waitForDashboardParity();
+    pass('RX Pipeline refresh button preserves card/graph/pipeline parity');
+
+    if (isolatedSmoke) {
+        const activeWorkflowRows = await db.WorkflowAction.findAll({
+            where: { isActive: true },
+            attributes: ['id'],
+            raw: true
+        });
+        const activeWorkflowIds = activeWorkflowRows.map(row => row.id);
+        assert(activeWorkflowIds.length > 0, 'Zero-workflow smoke requires active actions to restore.');
+        const visibleRxTotal = await db.RXRecord.count({
+            where: { [Op.or]: [{ isDeleted: false }, { isDeleted: null }] }
+        });
+        await db.WorkflowAction.update({ isActive: false }, { where: { id: { [Op.in]: activeWorkflowIds } } });
+        try {
+            const zeroSnapshot = await captureSnapshot();
+            assert.strictEqual(Number(zeroSnapshot.totalRX), visibleRxTotal);
+            assert.strictEqual(Number(zeroSnapshot.pendingRX), visibleRxTotal);
+            assert.strictEqual(Number(zeroSnapshot.completedRX), 0);
+
+            const zeroPipelineResponse = await context.request.get(route('/api/dashboard/rx-pipeline'));
+            assert.strictEqual(zeroPipelineResponse.status(), 200, 'Zero-workflow pipeline request failed.');
+            const zeroPipeline = await zeroPipelineResponse.json();
+            assert.strictEqual(Number(zeroPipeline.total), visibleRxTotal);
+            assert.strictEqual(Number(zeroPipeline.notStarted), visibleRxTotal);
+            assert.strictEqual(Number(zeroPipeline.inProgress), 0);
+            assert.strictEqual(Number(zeroPipeline.completed), 0);
+            assert.deepStrictEqual(zeroPipeline.stepBreakdown, []);
+
+            const zeroStatsResponse = await context.request.get(route('/api/dashboard/stats'));
+            assert.strictEqual(zeroStatsResponse.status(), 200, 'Zero-workflow stats request failed.');
+            const zeroStats = await zeroStatsResponse.json();
+            assert.strictEqual(Number(zeroStats.activeRxCount), visibleRxTotal);
+            assert.strictEqual(Number(zeroStats.pendingDeliveriesCount), visibleRxTotal);
+
+            const zeroIncompleteResponse = await context.request.get(route('/api/rx-records?paginated=true&page=1&pageSize=1&workflowStatus=incomplete'));
+            const zeroCompletedResponse = await context.request.get(route('/api/rx-records?paginated=true&page=1&pageSize=1&workflowStatus=completed'));
+            assert.strictEqual(zeroIncompleteResponse.status(), 200, 'Zero-workflow All Incomplete request failed.');
+            assert.strictEqual(zeroCompletedResponse.status(), 200, 'Zero-workflow Completed request failed.');
+            assert.strictEqual(Number((await zeroIncompleteResponse.json()).total), visibleRxTotal);
+            assert.strictEqual(Number((await zeroCompletedResponse.json()).total), 0);
+        } finally {
+            await db.WorkflowAction.update({ isActive: true }, { where: { id: { [Op.in]: activeWorkflowIds } } });
+            await captureSnapshot();
+        }
+        pass('zero-active-workflow state fails closed across snapshot, cards, pipeline, and RX filters');
+    } else {
+        console.log('SKIP zero-active-workflow mutation: isolated smoke database required.');
+    }
 
     await expectVisible(page, '#callCenterReviewCard', 'Call Center Metrics card visible under RX pipeline');
     await page.locator('[data-cc-history-range="all"]').click();
@@ -647,13 +784,35 @@ async function runAdminDashboardAndReports(fixtures) {
     );
     const firstWorkflowAction = workflowActionsForRxSmoke[0];
     const secondWorkflowAction = workflowActionsForRxSmoke[1];
-    const reportStageDate = new Date();
-    const reportTracking = await db.RXWorkflowTracking.create({
-        rxRecordId: returnedRx.id,
-        workflowActionId: firstWorkflowAction.id,
-        completionDate: reportStageDate,
-        userId: fixtures.adminUser.id
+    const maxWorkflowSequence = await db.WorkflowAction.max('sequenceNumber');
+    const inactiveWorkflowAction = await db.WorkflowAction.create({
+        name: 'Smoke inactive action ' + Date.now(),
+        description: 'Temporary inactive action for canonical progress browser coverage',
+        sequenceNumber: (Number(maxWorkflowSequence) || 0) + 1,
+        isActive: false
     });
+    created.workflowActions.push(inactiveWorkflowAction);
+    const reportStageDate = new Date();
+    const reportTrackings = await db.RXWorkflowTracking.bulkCreate([
+        {
+            rxRecordId: returnedRx.id,
+            workflowActionId: firstWorkflowAction.id,
+            completionDate: reportStageDate,
+            userId: fixtures.adminUser.id
+        },
+        {
+            rxRecordId: returnedRx.id,
+            workflowActionId: firstWorkflowAction.id,
+            completionDate: reportStageDate,
+            userId: fixtures.adminUser.id
+        },
+        {
+            rxRecordId: returnedRx.id,
+            workflowActionId: inactiveWorkflowAction.id,
+            completionDate: reportStageDate,
+            userId: fixtures.adminUser.id
+        }
+    ], { returning: true });
 
     await page.goto(route('/reports'), { waitUntil: 'domcontentloaded' });
     await page.waitForLoadState('networkidle').catch(() => {});
@@ -727,6 +886,24 @@ async function runAdminDashboardAndReports(fixtures) {
     assert(returnedBody.includes('#' + returnedRx.id), 'Returned filter did not include the returned RX.');
     assert(!returnedBody.includes('#' + notReturnedRx.id), 'Returned filter included a non-returned RX.');
     assert(returnedBody.includes('Returned to Warehouse'), 'Returned RX must show a readable warehouse badge.');
+    const expectedCanonicalProgress = '1/' + configuredWorkflowActions.length;
+    const returnedRow = page.locator('#rxBody tr').filter({ hasText: '#' + returnedRx.id }).first();
+    assert(
+        (await returnedRow.innerText()).includes(expectedCanonicalProgress),
+        'RX Records list must count duplicate and inactive history as one active completed step.'
+    );
+    await returnedRow.locator('button[title="View Details"]').click();
+    await page.locator('#rxDetailModal').waitFor({ state: 'visible', timeout: 10000 });
+    await page.waitForFunction((progress) => {
+        const detail = document.querySelector('#rxDetailBody');
+        return detail && detail.textContent.includes(progress);
+    }, '1 / ' + configuredWorkflowActions.length + ' steps', { timeout: 15000 });
+    assert(
+        (await page.locator('#rxDetailBody').innerText()).includes('1 / ' + configuredWorkflowActions.length + ' steps'),
+        'RX detail must show canonical distinct-active workflow progress.'
+    );
+    await page.locator('#rxDetailModal .btn-close').click();
+    await page.locator('#rxDetailModal').waitFor({ state: 'hidden', timeout: 10000 });
     const quickRxCsv = await downloadText(page, '#exportRxListCsvBtn', 'Filtered RX warehouse CSV export');
     assert(
         quickRxCsv.includes('"Completed Steps","Current Stage","Next Action Required"'),
@@ -735,6 +912,10 @@ async function runAdminDashboardAndReports(fixtures) {
     assert(
         quickRxCsv.includes(`"${firstWorkflowAction.name}","${secondWorkflowAction.name}"`),
         'RX Records CSV must export the current completed stage beside the next required action.'
+    );
+    assert(
+        quickRxCsv.includes('"1 / ' + configuredWorkflowActions.length + '"'),
+        'RX Records CSV must export canonical distinct-active workflow progress.'
     );
 
     warehouseResponse = page.waitForResponse(response =>
@@ -830,8 +1011,23 @@ async function runAdminDashboardAndReports(fixtures) {
     assert(!stageBody.includes('#' + notReturnedRx.id), 'Current Stage must exclude a not-started RX.');
     pass('RX Records prioritizes Current Stage and keeps Next Action Required advanced');
 
-    await db.RXWorkflowTracking.destroy({ where: { id: reportTracking.id } });
+    await page.goto(route('/patients/' + fixtures.metricPatient.id + '/timeline'), { waitUntil: 'domcontentloaded' });
+    const timelineEntry = page.locator('#tlEntry_' + returnedRx.id);
+    await timelineEntry.waitFor({ state: 'visible', timeout: 15000 });
+    const timelineEntryText = await timelineEntry.innerText();
+    assert(
+        timelineEntryText.includes('1/' + configuredWorkflowActions.length + ' steps'),
+        'Patient Timeline must ignore duplicate and inactive history in current progress.'
+    );
+    assert(
+        !timelineEntryText.includes('3/' + (configuredWorkflowActions.length + 1) + ' steps'),
+        'Patient Timeline must not count raw or inactive workflow history.'
+    );
+    pass('RX Records and Patient Timeline canonical duplicate-history progress');
+
+    await db.RXWorkflowTracking.destroy({ where: { id: { [Op.in]: reportTrackings.map(row => row.id) } } });
     await db.RXRecord.destroy({ where: { id: { [Op.in]: [returnedRx.id, notReturnedRx.id] } } });
+    await db.WorkflowAction.destroy({ where: { id: inactiveWorkflowAction.id } });
 
     await page.goto(route('/patients'), { waitUntil: 'domcontentloaded' });
     await page.locator('#advancedToggleBtn').click();
@@ -1426,6 +1622,11 @@ async function cleanup() {
         if (db.PatientServiceDateCycle) await db.PatientServiceDateCycle.destroy({ where: { patientId: { [Op.in]: patientIds } } }).catch(() => {});
         await db.AuditLog.destroy({ where: { recordId: { [Op.in]: patientIds }, module: 'Call Center' } }).catch(() => {});
         await db.Patient.destroy({ where: { id: { [Op.in]: patientIds } } }).catch(() => {});
+    }
+    if (created.workflowActions.length) {
+        await db.WorkflowAction.destroy({
+            where: { id: { [Op.in]: created.workflowActions.map(row => row.id) } }
+        }).catch(() => {});
     }
     if (userIds.length) {
         if (db.SoftphoneRelayDevice) await db.SoftphoneRelayDevice.destroy({ where: { userId: { [Op.in]: userIds } } }).catch(() => {});

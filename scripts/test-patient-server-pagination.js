@@ -5,8 +5,20 @@ const { Op } = require('sequelize');
 
 const explicitDatabase = String(process.env.PATIENT_PAGINATION_TEST_DB_NAME || '').trim();
 if (explicitDatabase) process.env.DB_NAME = explicitDatabase;
-if (!/(test|qa|staging|stage|sandbox|copy)/i.test(String(process.env.DB_NAME || ''))) {
+const confirmedDatabase = String(process.env.PATIENT_PAGINATION_TEST_CONFIRM_DB_NAME || '').trim();
+const safeDatabaseTokens = new Set(['staging', 'stage', 'qa', 'test', 'sandbox']);
+const databaseTokens = String(process.env.DB_NAME || '')
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean);
+if (!databaseTokens.some(token => safeDatabaseTokens.has(token))) {
     throw new Error('Refusing patient pagination regression on a non-test database.');
+}
+if (!confirmedDatabase || confirmedDatabase !== String(process.env.DB_NAME || '')) {
+    throw new Error(
+        'Refusing patient pagination regression without an exact ' +
+        'PATIENT_PAGINATION_TEST_CONFIRM_DB_NAME match.'
+    );
 }
 
 const db = require('../models');
@@ -22,7 +34,8 @@ const created = {
     pharmacyIds: [],
     patientTransportIds: [],
     pharmacyTransportIds: [],
-    workflowActionId: null
+    workflowActionIds: [],
+    inactiveWorkflowActionId: null
 };
 
 function runHandler(query) {
@@ -41,6 +54,23 @@ function runHandler(query) {
             }
         };
         Promise.resolve(patientController.getAll({ query }, res)).catch(reject);
+    });
+}
+
+function runTimelineHandler(patientId) {
+    return new Promise((resolve, reject) => {
+        const res = {
+            statusCode: 200,
+            status(code) {
+                this.statusCode = code;
+                return this;
+            },
+            json(payload) {
+                resolve({ status: this.statusCode, payload });
+            }
+        };
+        const req = { params: { id: String(patientId) }, user: { id: null } };
+        Promise.resolve(patientController.getTimeline(req, res)).catch(reject);
     });
 }
 
@@ -65,8 +95,11 @@ async function cleanup() {
     if (created.pharmacyTransportIds.length) {
         await db.PharmacyTransportCompany.destroy({ where: { id: created.pharmacyTransportIds } }).catch(() => {});
     }
-    if (created.workflowActionId) {
-        await db.WorkflowAction.destroy({ where: { id: created.workflowActionId } }).catch(() => {});
+    if (created.workflowActionIds.length) {
+        await db.WorkflowAction.destroy({ where: { id: created.workflowActionIds } }).catch(() => {});
+    }
+    if (created.inactiveWorkflowActionId) {
+        await db.WorkflowAction.destroy({ where: { id: created.inactiveWorkflowActionId } }).catch(() => {});
     }
 }
 
@@ -93,15 +126,33 @@ async function createFixtures() {
         where: { isActive: true },
         order: [['sequenceNumber', 'ASC'], ['id', 'ASC']]
     });
-    if (!activeActions.length) {
-        const action = await db.WorkflowAction.create({
-            name: `${marker} Action`,
-            description: 'Temporary patient pagination regression action',
-            sequenceNumber: 1,
-            isActive: true
+    if (activeActions.length < 2) {
+        let nextSequence = (Number(await db.WorkflowAction.max('sequenceNumber')) || 0) + 1;
+        while (activeActions.length < 2) {
+            const action = await db.WorkflowAction.create({
+                name: `${marker} Action ${activeActions.length + 1}`,
+                description: 'Temporary patient pagination regression action',
+                sequenceNumber: nextSequence++,
+                isActive: true
+            });
+            created.workflowActionIds.push(action.id);
+            activeActions.push(action);
+        }
+    }
+
+    let inactiveAction = await db.WorkflowAction.findOne({
+        where: { isActive: false },
+        order: [['sequenceNumber', 'ASC'], ['id', 'ASC']]
+    });
+    if (!inactiveAction) {
+        const maxSequence = await db.WorkflowAction.max('sequenceNumber');
+        inactiveAction = await db.WorkflowAction.create({
+            name: `${marker} Inactive Action`,
+            description: 'Temporary inactive patient pagination regression action',
+            sequenceNumber: (Number(maxSequence) || 0) + 1,
+            isActive: false
         });
-        created.workflowActionId = action.id;
-        activeActions = [action];
+        created.inactiveWorkflowActionId = inactiveAction.id;
     }
 
     const common = {
@@ -173,12 +224,46 @@ async function createFixtures() {
         completionDate: new Date(),
         userId: null
     })), { returning: true });
-    created.trackingIds.push(...completed.map(row => row.id));
+    const edgeHistory = await db.RXWorkflowTracking.bulkCreate([
+        {
+            rxRecordId: completeRx.id,
+            workflowActionId: activeActions[0].id,
+            completionDate: new Date(),
+            userId: null
+        },
+        {
+            rxRecordId: completeRx.id,
+            workflowActionId: inactiveAction.id,
+            completionDate: new Date(),
+            userId: null
+        },
+        {
+            rxRecordId: incompleteRx.id,
+            workflowActionId: activeActions[0].id,
+            completionDate: new Date(),
+            userId: null
+        },
+        {
+            rxRecordId: incompleteRx.id,
+            workflowActionId: activeActions[0].id,
+            completionDate: new Date(),
+            userId: null
+        },
+        {
+            rxRecordId: incompleteRx.id,
+            workflowActionId: inactiveAction.id,
+            completionDate: new Date(),
+            userId: null
+        }
+    ], { returning: true });
+    created.trackingIds.push(...completed.map(row => row.id), ...edgeHistory.map(row => row.id));
+
+    return { activeActions, inactiveAction, patients, incompleteRx, completeRx };
 }
 
 async function main() {
     await db.sequelize.authenticate();
-    await createFixtures();
+    const fixtures = await createFixtures();
 
     const originalFindAll = db.Patient.findAll;
     const observedQueries = [];
@@ -200,6 +285,10 @@ async function main() {
         assert.strictEqual(result.payload.total, 4);
         assert.deepStrictEqual(result.payload.rows.map(row => row.firstName), ['ALPHA', 'BETA']);
         assert.strictEqual(result.payload.totalPages, 2);
+        const alphaRow = result.payload.rows.find(row => row.firstName === 'ALPHA');
+        const betaRow = result.payload.rows.find(row => row.firstName === 'BETA');
+        assert.strictEqual(alphaRow.needsAction, true, 'Duplicate and inactive history must remain incomplete');
+        assert.strictEqual(betaRow.needsAction, false, 'All distinct active steps must be complete');
         assert(result.payload.facets.clinics.some(row => row.label === `${marker} Clinic A`));
         assert(result.payload.facets.clinics.some(row => row.label === `${marker} Clinic B`));
 
@@ -247,6 +336,40 @@ async function main() {
         });
         assert.deepStrictEqual(result.payload.rows.map(row => row.firstName), ['ALPHA']);
         assert.strictEqual(result.payload.needsActionTotal, 1);
+        const completeTimeline = await runTimelineHandler(fixtures.patients[1].id);
+        assert.strictEqual(completeTimeline.status, 200, completeTimeline.payload.error || 'Timeline failed');
+        assert.strictEqual(
+            completeTimeline.payload.workflowActions.length,
+            fixtures.activeActions.length,
+            'Timeline must return active workflow definitions only'
+        );
+        assert(completeTimeline.payload.workflowActions.every(action => action.isActive === true));
+        const timelineCompleteRx = completeTimeline.payload.rxRecords.find(
+            row => Number(row.id) === Number(fixtures.completeRx.id)
+        );
+        assert.strictEqual(
+            timelineCompleteRx.RXWorkflowTrackings.length,
+            fixtures.activeActions.length + 2,
+            'Timeline must preserve duplicate and inactive audit-history rows'
+        );
+        assert.strictEqual(
+            timelineCompleteRx.completedSteps.length,
+            fixtures.activeActions.length,
+            'Timeline must expose each completed active step exactly once'
+        );
+        assert(!timelineCompleteRx.completedSteps.includes(Number(fixtures.inactiveAction.id)));
+
+        const incompleteTimeline = await runTimelineHandler(fixtures.patients[0].id);
+        assert.strictEqual(incompleteTimeline.status, 200, incompleteTimeline.payload.error || 'Timeline failed');
+        const timelineIncompleteRx = incompleteTimeline.payload.rxRecords.find(
+            row => Number(row.id) === Number(fixtures.incompleteRx.id)
+        );
+        assert.strictEqual(timelineIncompleteRx.RXWorkflowTrackings.length, 3);
+        assert.deepStrictEqual(
+            timelineIncompleteRx.completedSteps,
+            [Number(fixtures.activeActions[0].id)],
+            'Duplicate and inactive history must count as one active completed step'
+        );
 
         result = await runHandler({
             paginated: 'true',

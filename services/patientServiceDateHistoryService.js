@@ -46,7 +46,9 @@ function summarizeRxRecord(rx) {
         serviceDate: dateOnly(plain.serviceDate),
         arrivalDate: dateOnly(plain.arrivalDate),
         pharmacyName: plain.Pharmacy ? plain.Pharmacy.name : null,
-        workflowStepCount: Array.isArray(plain.RXWorkflowTrackings) ? plain.RXWorkflowTrackings.length : 0,
+        workflowStepCount: new Set(
+            (plain.RXWorkflowTrackings || []).map(row => Number(row.workflowActionId))
+        ).size,
         returnedToWarehouse: plain.returnedToWarehouse === true
     };
 }
@@ -121,7 +123,17 @@ async function findRelatedRxRecords(patientIds, serviceDates, options) {
         include: [
             { model: db.PatientServiceDateCycle, attributes: ['id', 'patientId', 'serviceDate'], required: false },
             { model: db.Pharmacy, attributes: ['id', 'name'], required: false },
-            { model: db.RXWorkflowTracking, attributes: ['id', 'workflowActionId'], required: false }
+            {
+                model: db.RXWorkflowTracking,
+                attributes: ['id', 'workflowActionId'],
+                required: false,
+                include: [{
+                    model: db.WorkflowAction,
+                    attributes: [],
+                    where: { isActive: true },
+                    required: true
+                }]
+            }
         ],
         order: [['serviceDate', 'DESC'], ['id', 'DESC']]
     };

@@ -7,6 +7,7 @@ const {
     localSnapshotDate,
     materializeSnapshotHistory
 } = require('../services/snapshotService');
+const { activeRxWorkflowAggregateSql } = require('../utils/rxWorkflowAggregateSql');
 
 // ── Helper: build a date-range WHERE clause from ?from= / ?to= params ─────────
 function buildDateRange(req) {
@@ -38,12 +39,22 @@ function localDateOnlyStart(value) {
     return fallback;
 }
 
+async function loadCanonicalWorkflowCountMap() {
+    const rows = await db.sequelize.query(activeRxWorkflowAggregateSql(), {
+        type: QueryTypes.SELECT
+    });
+    return new Map(rows.map(row => [
+        Number(row.rxRecordId),
+        Number(row.completed_steps || 0)
+    ]));
+}
+
 exports.getStats = async (req, res) => {
     try {
         const dateRange = buildDateRange(req);
         const currentSnapshot = dateRange
             ? null
-            : await getFreshCurrentSnapshot({ maxAgeMs: 5 * 60 * 1000 });
+            : await getFreshCurrentSnapshot({ maxAgeMs: 1000 });
 
         // M3 FIX: Use Op.or [false, null] to match getAll — include legacy rows where isDeleted IS NULL
         const notDeleted = { [Op.or]: [{ isDeleted: false }, { isDeleted: null }] };
@@ -52,43 +63,31 @@ exports.getStats = async (req, res) => {
         const patientWhere = { ...notDeleted };
         if (dateRange) patientWhere.createdAt = dateRange;
 
-        const activePatients = currentSnapshot
-            ? Number(currentSnapshot.activePatients || 0)
-            : await db.Patient.count({ where: { ...patientWhere, isActive: true } });
-        const inactivePatients = currentSnapshot
-            ? Number(currentSnapshot.inactivePatients || 0)
-            : await db.Patient.count({ where: { ...patientWhere, isActive: false } });
+        // Patient cards are operational counts and must match the Patients page
+        // at request time. DailySnapshots remain the source for historical trends.
+        const [activePatients, inactivePatients] = await Promise.all([
+            db.Patient.count({ where: { ...patientWhere, isActive: true } }),
+            db.Patient.count({ where: { ...patientWhere, isActive: false } })
+        ]);
 
         // RX counts — filtered by serviceDate if a date range is active (UX-01: exclude deleted)
-        const rxWhere = { isDeleted: false };
+        const rxWhere = { ...notDeleted };
         if (dateRange) rxWhere.serviceDate = dateRange;
 
-        const activeRxCount = currentSnapshot
-            ? Number(currentSnapshot.totalRX || 0)
-            : await db.RXRecord.count({ where: rxWhere });
+        // RX cards are operational counts: always read them live. The persisted
+        // snapshot remains the source for trend history, not the live card total.
+        const activeRxCount = await db.RXRecord.count({ where: rxWhere });
 
         // Pending deliveries: RX records that have NOT completed ALL workflow steps
         // PERF-01: Use a single aggregate query instead of N+1 per-record loop
         const totalWorkflowSteps = await db.WorkflowAction.count({ where: { isActive: true } });
 
-        let pendingDeliveriesCount = currentSnapshot
-            ? Number(currentSnapshot.pendingRX || 0)
-            : 0;
-        if (!currentSnapshot && totalWorkflowSteps === 0) {
-            // No steps defined — all RX records are "pending"
-            pendingDeliveriesCount = await db.RXRecord.count({ where: rxWhere });
-        } else if (!currentSnapshot) {
-            // Fetch tracking counts grouped by rxRecordId in one query
-            const trackingCounts = await db.RXWorkflowTracking.findAll({
-                attributes: ['rxRecordId', [fn('COUNT', col('id')), 'stepsDone']],
-                group: ['rxRecordId'],
-                raw: true
-            });
-
-            const doneMap = {};
-            for (const row of trackingCounts) {
-                doneMap[row.rxRecordId] = parseInt(row.stepsDone, 10);
-            }
+        let pendingDeliveriesCount = 0;
+        if (totalWorkflowSteps === 0) {
+            // Fail closed when workflow configuration is empty.
+            pendingDeliveriesCount = activeRxCount;
+        } else {
+            const doneMap = await loadCanonicalWorkflowCountMap();
 
             // Get all non-deleted RX IDs (with optional date filter)
             const allRxIds = await db.RXRecord.findAll({
@@ -98,11 +97,10 @@ exports.getStats = async (req, res) => {
             });
 
             for (const { id } of allRxIds) {
-                const done = doneMap[id] || 0;
+                const done = Number(doneMap.get(Number(id)) || 0);
                 if (done < totalWorkflowSteps) pendingDeliveriesCount++;
             }
         }
-
         const recentActivity = await db.AuditLog.findAll({
             limit: 10,
             order: [['date', 'DESC'], ['time', 'DESC']],
@@ -194,8 +192,9 @@ exports.getPatientsWithNoRx = async (req, res) => {
 exports.getPendingRx = async (req, res) => {
     try {
         const totalWorkflowSteps = await db.WorkflowAction.count({ where: { isActive: true } });
+        const workflowCountMap = await loadCanonicalWorkflowCountMap();
         const allRx = await db.RXRecord.findAll({
-            where: { isDeleted: false },   // BUG-12 fix: exclude soft-deleted
+            where: { [Op.or]: [{ isDeleted: false }, { isDeleted: null }] },
             include: [
                 { model: db.Patient,  attributes: ['firstName', 'lastName', 'patientCode'] },
                 { model: db.Pharmacy, attributes: ['name'] },
@@ -204,9 +203,13 @@ exports.getPendingRx = async (req, res) => {
             order: [['serviceDate', 'DESC']]
         });
         const pending = allRx
-            .filter(rx => (rx.RXWorkflowTrackings || []).length < totalWorkflowSteps)
+            .filter(rx => (
+                totalWorkflowSteps === 0 ||
+                Number(workflowCountMap.get(Number(rx.id)) || 0) < totalWorkflowSteps
+            ))
             .map(rx => {
                 const plain = rx.toJSON();
+                plain.workflowStepsDone = Number(workflowCountMap.get(Number(rx.id)) || 0);
                 plain.workflowStepTotal = totalWorkflowSteps;
                 return plain;
             });
@@ -217,8 +220,9 @@ exports.getPendingRx = async (req, res) => {
 exports.getTotalRx = async (req, res) => {
     try {
         const totalWorkflowSteps = await db.WorkflowAction.count({ where: { isActive: true } });
+        const workflowCountMap = await loadCanonicalWorkflowCountMap();
         const allRx = await db.RXRecord.findAll({
-            where: { isDeleted: false },   // exclude soft-deleted
+            where: { [Op.or]: [{ isDeleted: false }, { isDeleted: null }] },
             include: [
                 { model: db.Patient,  attributes: ['firstName', 'lastName', 'patientCode'] },
                 { model: db.Pharmacy, attributes: ['name'] },
@@ -228,12 +232,12 @@ exports.getTotalRx = async (req, res) => {
         });
         res.json(allRx.map(rx => {
             const plain = rx.toJSON();
+            plain.workflowStepsDone = Number(workflowCountMap.get(Number(rx.id)) || 0);
             plain.workflowStepTotal = totalWorkflowSteps;
             return plain;
         }));
     } catch (error) { res.status(500).json({ error: error.message }); }
 };
-
 function dashboardDateKeys(startDate, endDate) {
     const keys = [];
     const cursor = new Date(`${startDate}T12:00:00`);
@@ -323,7 +327,7 @@ async function loadPersistedDashboardChart(query) {
 
     const today = localSnapshotDate();
     if (range.startDate <= today && range.endDate >= today) {
-        await getFreshCurrentSnapshot({ maxAgeMs: 5 * 60 * 1000 });
+        await getFreshCurrentSnapshot({ maxAgeMs: 1000 });
     }
     const snapshots = await db.DailySnapshot.findAll({
         where: { snapshotDate: { [Op.between]: [range.startDate, range.endDate] } },
@@ -334,7 +338,7 @@ async function loadPersistedDashboardChart(query) {
     const missingDates = new Set(keys.filter(key => !byDate.has(key)));
     if (missingDates.size) return { response: null, missingDates, range };
 
-    const current = await getFreshCurrentSnapshot({ maxAgeMs: 5 * 60 * 1000 });
+    const current = await getFreshCurrentSnapshot({ maxAgeMs: 1000 });
     const serviceEntries = await serviceDateEntriesForRange(range.startDate, range.endDate);
     const dailyTrends = {
         labels: keys,
@@ -804,7 +808,7 @@ async function getEligibilityStatsLegacy(req, res) {
         const notDeleted = { [Op.or]: [{ isDeleted: false }, { isDeleted: null }] };
 
         const today = new Date(); today.setHours(0, 0, 0, 0);
-        const currentSnapshot = await getFreshCurrentSnapshot({ maxAgeMs: 5 * 60 * 1000 });
+        const currentSnapshot = await getFreshCurrentSnapshot({ maxAgeMs: 1000 });
         const eligibilityCutoff = new Date(`${localSnapshotDate(today)}T12:00:00`);
         eligibilityCutoff.setDate(eligibilityCutoff.getDate() - getServiceWindowDays());
         const eligibilityCutoffIso = localDateString(eligibilityCutoff);
@@ -885,7 +889,7 @@ exports.getEligibilityStats = async (req, res) => {
         const notDeleted = { [Op.or]: [{ isDeleted: false }, { isDeleted: null }] };
         const today = new Date();
         today.setHours(0, 0, 0, 0);
-        const currentSnapshot = await getFreshCurrentSnapshot({ maxAgeMs: 5 * 60 * 1000 });
+        const currentSnapshot = await getFreshCurrentSnapshot({ maxAgeMs: 1000 });
         const eligibilityCutoff = new Date(`${localSnapshotDate(today)}T12:00:00`);
         eligibilityCutoff.setDate(eligibilityCutoff.getDate() - getServiceWindowDays());
         const eligibilityCutoffIso = localDateString(eligibilityCutoff);
@@ -934,44 +938,54 @@ exports.getRxPipeline = async (req, res) => {
         const steps = await db.WorkflowAction.findAll({
             where: { isActive: true },
             order: [['sequenceNumber', 'ASC'], ['id', 'ASC']],
-            attributes: ['id', 'name'],
+            attributes: ['id', 'name', 'sequenceNumber'],
             raw: true
         });
         const totalSteps = steps.length;
         const grouped = await db.sequelize.query(`
-            WITH tracking_counts AS (
-                SELECT "rxRecordId", COUNT(*)::integer AS done
-                FROM "RXWorkflowTrackings"
-                GROUP BY "rxRecordId"
+            WITH workflow_counts AS (
+                ${activeRxWorkflowAggregateSql()}
             )
-            SELECT COALESCE(tracking_counts.done, 0)::integer AS done,
+            SELECT COALESCE(workflow_counts.completed_steps, 0)::integer AS completed_steps,
+                   workflow_counts.current_stage_sequence,
                    COUNT(*)::integer AS count
             FROM "RXRecords" AS rx
-            LEFT JOIN tracking_counts ON tracking_counts."rxRecordId" = rx.id
+            LEFT JOIN workflow_counts ON workflow_counts."rxRecordId" = rx.id
             WHERE COALESCE(rx."isDeleted", false) = false
-            GROUP BY COALESCE(tracking_counts.done, 0)
-            ORDER BY done
+            GROUP BY
+                COALESCE(workflow_counts.completed_steps, 0),
+                workflow_counts.current_stage_sequence
+            ORDER BY workflow_counts.current_stage_sequence NULLS FIRST
         `, { type: QueryTypes.SELECT });
-        const countByDone = new Map(grouped.map(row => [Number(row.done), Number(row.count)]));
+        const countByCurrentStage = new Map();
+        grouped.forEach(row => {
+            if (row.current_stage_sequence === null || row.current_stage_sequence === undefined) return;
+            const sequenceNumber = Number(row.current_stage_sequence);
+            countByCurrentStage.set(
+                sequenceNumber,
+                Number(countByCurrentStage.get(sequenceNumber) || 0) + Number(row.count)
+            );
+        });
         const total = grouped.reduce((sum, row) => sum + Number(row.count), 0);
         let notStarted = 0;
         let inProgress = 0;
         let completed = 0;
         if (totalSteps === 0) {
-            completed = total;
+            notStarted = total;
         } else {
             for (const row of grouped) {
-                const done = Number(row.done);
+                const done = Number(row.completed_steps);
                 const count = Number(row.count);
                 if (done === 0) notStarted += count;
                 else if (done >= totalSteps) completed += count;
                 else inProgress += count;
             }
         }
-        const stepBreakdown = steps.map((step, index) => ({
+        const stepBreakdown = steps.map(step => ({
             id: step.id,
             name: step.name,
-            count: index > 0 ? Number(countByDone.get(index) || 0) : 0
+            sequenceNumber: Number(step.sequenceNumber),
+            count: Number(countByCurrentStage.get(Number(step.sequenceNumber)) || 0)
         }));
 
         res.json({
