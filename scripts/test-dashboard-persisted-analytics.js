@@ -470,14 +470,25 @@ async function main() {
     assert(Number(pipeline.payload.total) >= 1);
     assert.strictEqual(
         Number(pipeline.payload.total),
-        Number(pipeline.payload.notStarted) + Number(pipeline.payload.inProgress) + Number(pipeline.payload.completed)
+        Number(pipeline.payload.notStarted) +
+            Number(pipeline.payload.inProgress) +
+            Number(pipeline.payload.expired) +
+            Number(pipeline.payload.completed)
+    );
+    assert.strictEqual(
+        Number(pipeline.payload.allIncomplete),
+        Number(pipeline.payload.notStarted) +
+            Number(pipeline.payload.inProgress) +
+            Number(pipeline.payload.expired)
+    );
+    assert.strictEqual(
+        pipeline.payload.stepBreakdown.reduce((sum, step) => sum + Number(step.count || 0), 0),
+        Number(pipeline.payload.startedIncomplete) + Number(pipeline.payload.completed),
+        'Current Stage rows must retain every started incomplete RX, including Expired'
     );
     assert.strictEqual(Number(captured.totalRX), Number(pipeline.payload.total));
     assert.strictEqual(Number(captured.completedRX), Number(pipeline.payload.completed));
-    assert.strictEqual(
-        Number(captured.pendingRX),
-        Number(pipeline.payload.notStarted) + Number(pipeline.payload.inProgress)
-    );
+    assert.strictEqual(Number(captured.pendingRX), Number(pipeline.payload.allIncomplete));
 
     const pendingDrilldown = await runHandler(dashboardController.getPendingRx, {});
     assert.strictEqual(pendingDrilldown.status, 200, pendingDrilldown.payload.error || 'Pending RX drilldown failed');

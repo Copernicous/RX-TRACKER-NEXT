@@ -15,7 +15,7 @@ var HELP_SECTIONS = [
       { q:'What counts as a "Pending" RX?',
         a:'The Dashboard Pending card counts every RX with one or more active workflow steps incomplete, including expired cycles. Clicking it opens RX Records with All Incomplete selected. The regular Pending status remains an operational view that excludes the separately labeled Expired status.' },
       { q:'RX Pipeline chart — reading the bars',
-        a:'Each horizontal bar shows how many RX records currently have that workflow action as their Current Stage (the highest active workflow step completed). Completed RX records remain in the final-stage bar, while Not Started records stay in the summary card because they do not yet have a Current Stage.' },
+        a:'The four summary cards are mutually exclusive Workflow Status groups: Not Started, In Progress, Expired, and Completed. Each horizontal bar below shows the RX record\'s actual Current Stage (the highest active workflow step completed). Expired RX remain included in their actual Current Stage, so the stage bars continue to match the Current Stage filters.' },
       { q:'Date range filter — how to use it',
         a:'The <b>From</b> and <b>To</b> date fields at the top of the dashboard filter every stat and chart on the page. Leave both blank to see all-time data. Click <b>"Today"</b> to reset to just today. You can also type dates manually in YYYY-MM-DD format. The filter does NOT affect the Patients table — it only filters RX-based statistics.' },
       { q:'Active Patients vs Total Patients — the difference',

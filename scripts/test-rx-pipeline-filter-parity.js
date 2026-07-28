@@ -217,8 +217,10 @@ async function main() {
     const unstartedRx = await createRx(patient.id, serviceDate, false);
     const firstStageRx = await createRx(patient.id, serviceDate, false);
     const secondStageRx = await createRx(patient.id, serviceDate, false);
+    const expiredUnstartedRx = await createRx(patient.id, expiredServiceDate, false);
     const duplicateStageRx = await createRx(patient.id, expiredServiceDate, false);
     const completedRx = await createRx(patient.id, serviceDate, false);
+    const expiredCompletedRx = await createRx(patient.id, expiredServiceDate, false);
     const hiddenFirstStageRx = await createRx(patient.id, serviceDate, true);
 
     await createTrackings(firstStageRx.id, [actions[0]]);
@@ -233,6 +235,7 @@ async function main() {
         'Duplicate-history fixture must contain totalSteps copies of the first action'
     );
     await createTrackings(completedRx.id, actions);
+    await createTrackings(expiredCompletedRx.id, actions);
     await createTrackings(hiddenFirstStageRx.id, [actions[0]]);
 
     const pipelineAfter = await getPipeline();
@@ -240,41 +243,79 @@ async function main() {
 
     assert.strictEqual(
         Number(pipelineAfter.total) - Number(pipelineBefore.total),
-        5,
+        7,
         'Dashboard pipeline must exclude the hidden fixture from its total'
     );
     assert.strictEqual(
         Number(pipelineAfter.notStarted) - Number(pipelineBefore.notStarted),
         1,
-        'Dashboard Not Started must include only the unstarted fixture'
+        'Dashboard Not Started must include only the non-expired unstarted fixture'
     );
     assert.strictEqual(
         Number(pipelineAfter.inProgress) - Number(pipelineBefore.inProgress),
-        3,
-        'Dashboard In Progress must include stage 1, stage 2, and duplicate-history fixtures'
+        2,
+        'Dashboard In Progress must include only non-expired started fixtures'
+    );
+    assert.strictEqual(
+        Number(pipelineAfter.expired) - Number(pipelineBefore.expired),
+        2,
+        'Dashboard Expired must include expired incomplete RX with and without progress'
     );
     assert.strictEqual(
         Number(pipelineAfter.completed) - Number(pipelineBefore.completed),
-        1,
-        'Only the fixture with every distinct active action may be Completed'
+        2,
+        'Completed must include every fully completed fixture regardless of service date'
+    );
+    assert.strictEqual(
+        Number(pipelineAfter.allIncomplete) - Number(pipelineBefore.allIncomplete),
+        5,
+        'Dashboard All Incomplete must include Not Started, In Progress, and Expired fixtures'
+    );
+    assert.strictEqual(
+        Number(pipelineAfter.startedIncomplete) - Number(pipelineBefore.startedIncomplete),
+        3,
+        'Started Incomplete must preserve all Current Stage records, including expired progress'
+    );
+    assert.strictEqual(
+        Number(pipelineAfter.total),
+        Number(pipelineAfter.notStarted) +
+            Number(pipelineAfter.inProgress) +
+            Number(pipelineAfter.expired) +
+            Number(pipelineAfter.completed),
+        'Dashboard Workflow Status categories must be mutually exclusive and exhaustive'
+    );
+    assert.strictEqual(
+        Number(pipelineAfter.allIncomplete),
+        Number(pipelineAfter.notStarted) +
+            Number(pipelineAfter.inProgress) +
+            Number(pipelineAfter.expired),
+        'Dashboard All Incomplete must reconcile to every incomplete Workflow Status'
     );
 
     const allVisible = await getRxPage(patient.id, {});
-    assert.strictEqual(allVisible.total, 5, 'RX Records default view must exclude the hidden fixture');
+    assert.strictEqual(allVisible.total, 7, 'RX Records default view must exclude the hidden fixture');
     assert.deepStrictEqual(
         sortedIds(allVisible.rows),
         [
             unstartedRx.id,
             firstStageRx.id,
             secondStageRx.id,
+            expiredUnstartedRx.id,
             duplicateStageRx.id,
-            completedRx.id
+            completedRx.id,
+            expiredCompletedRx.id
         ].sort((a, b) => a - b)
     );
     const allIncomplete = await getRxPage(patient.id, { workflowStatus: 'incomplete' });
     assert.deepStrictEqual(
         sortedIds(allIncomplete.rows),
-        [unstartedRx.id, firstStageRx.id, secondStageRx.id, duplicateStageRx.id].sort((a, b) => a - b),
+        [
+            unstartedRx.id,
+            firstStageRx.id,
+            secondStageRx.id,
+            expiredUnstartedRx.id,
+            duplicateStageRx.id
+        ].sort((a, b) => a - b),
         'All Incomplete must match the Dashboard Pending card and include expired incomplete RX records'
     );
     const operationalPending = await getRxPage(patient.id, { workflowStatus: 'pending' });
@@ -286,8 +327,26 @@ async function main() {
     const expiredOnly = await getRxPage(patient.id, { workflowStatus: 'expired' });
     assert.deepStrictEqual(
         sortedIds(expiredOnly.rows),
-        [duplicateStageRx.id],
-        'Expired filter must contain the expired duplicate-history fixture'
+        [expiredUnstartedRx.id, duplicateStageRx.id].sort((a, b) => a - b),
+        'Expired filter must contain expired incomplete RX with and without progress'
+    );
+    const inProgressOnly = await getRxPage(patient.id, { workflowStatus: 'in-progress' });
+    assert.deepStrictEqual(
+        sortedIds(inProgressOnly.rows),
+        [firstStageRx.id, secondStageRx.id].sort((a, b) => a - b),
+        'In Progress filter must match the Dashboard category and exclude Expired'
+    );
+    const notStartedOnly = await getRxPage(patient.id, { workflowStatus: 'not-started' });
+    assert.deepStrictEqual(
+        sortedIds(notStartedOnly.rows),
+        [unstartedRx.id],
+        'Not Started filter must match the Dashboard category and exclude Expired'
+    );
+    const completedOnly = await getRxPage(patient.id, { workflowStatus: 'completed' });
+    assert.deepStrictEqual(
+        sortedIds(completedOnly.rows),
+        [completedRx.id, expiredCompletedRx.id].sort((a, b) => a - b),
+        'Completed filter must match the Dashboard category and take precedence over Expired'
     );
 
     const duplicateRow = allVisible.rows.find(row => Number(row.id) === Number(duplicateStageRx.id));
@@ -306,7 +365,7 @@ async function main() {
     const expectedByActionId = new Map(actions.map(action => [Number(action.id), []]));
     expectedByActionId.get(Number(actions[0].id)).push(firstStageRx.id, duplicateStageRx.id);
     expectedByActionId.get(Number(actions[1].id)).push(secondStageRx.id);
-    expectedByActionId.get(Number(actions[actions.length - 1].id)).push(completedRx.id);
+    expectedByActionId.get(Number(actions[actions.length - 1].id)).push(completedRx.id, expiredCompletedRx.id);
 
     for (const action of actions) {
         const filtered = await getRxPage(patient.id, {
@@ -341,17 +400,18 @@ async function main() {
     const nextActionOne = await getRxPage(patient.id, { workflowStage: '1' });
     assert.deepStrictEqual(
         sortedIds(nextActionOne.rows),
-        [unstartedRx.id],
-        'Next Action 1 must contain only the unstarted fixture'
+        [unstartedRx.id, expiredUnstartedRx.id].sort((a, b) => a - b),
+        'Next Action 1 must contain incomplete fixtures with no completed Current Stage'
     );
+    const firstStageIds = [firstStageRx.id, duplicateStageRx.id].sort((a, b) => a - b);
     const firstStageDelta =
         Number(afterByAction.get(Number(actions[0].id))) -
         Number(beforeByAction.get(Number(actions[0].id)));
-    assert.strictEqual(firstStageDelta, 2, 'Dashboard first Current Stage must contain two fixtures');
-    assert.notStrictEqual(
-        firstStageDelta,
-        nextActionOne.total,
-        'Dashboard Current Stage must not silently use Next Action Required counts'
+    assert.strictEqual(firstStageDelta, firstStageIds.length, 'Dashboard first Current Stage must contain two fixtures');
+    assert.notDeepStrictEqual(
+        firstStageIds,
+        sortedIds(nextActionOne.rows),
+        'Dashboard Current Stage must not silently use Next Action Required records'
     );
 
     const hiddenOnly = await getRxPage(patient.id, {

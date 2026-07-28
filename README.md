@@ -10,7 +10,7 @@ frozen 3.3.1 repository, its production database, or the RX Softphone source.
 
 ## Current status
 
-Version: `4.0.0-next.35` development test candidate
+Version: `4.0.0-next.36` development test candidate
 
 | Area | NEXT behavior |
 |---|---|
@@ -21,13 +21,15 @@ Version: `4.0.0-next.35` development test candidate
 | Test data | Explicit sanitizer removes identities, credentials, tokens, pairings, document pointers, and free text |
 | RX Softphone | Version 0.6.0 runs as a tray application with its own Windows control window and per-user automatic startup, supports optional PBX Authentication ID, and is published as a separate, checksummed workstation ZIP |
 
-The `next.35` candidate makes the Dashboard RX Workflow Pipeline use the same
-**Current Stage** definition as RX Records and Reports. Each graph row now
-matches the corresponding Current Stage filter, including the final/completed
-stage, while Not Started remains a separate summary.
+Version `next.35` made the Dashboard RX Workflow Pipeline use the same **Current
+Stage** definition as RX Records and Reports. The `next.36` candidate also makes
+the summary cards use the same four mutually exclusive **Workflow Status**
+groups as RX Records: Not Started, In Progress, Expired, and Completed. The
+Dashboard Pending card and charts remain **All Incomplete**, including Expired.
 
-The frozen application remains the production fallback until repeated
-production-shaped dump rehearsals and user acceptance are complete.
+The frozen application remains an emergency rollback option. New NEXT changes
+must pass staging and development validation before a separately approved,
+checksummed production release.
 
 ## Start here
 

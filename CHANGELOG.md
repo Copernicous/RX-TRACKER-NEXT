@@ -7,6 +7,35 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+## [4.0.0-next.36] - 2026-07-27
+
+### Fixed
+
+- Split the Dashboard RX Workflow Pipeline summary into the same four mutually
+  exclusive Workflow Status groups as RX Records: **Not Started**, **In
+  Progress**, **Expired**, and **Completed**.
+- Kept Dashboard Pending, the Card Totals graph, and the RX Status donut on the
+  broader **All Incomplete** definition, including Expired, so all totals still
+  reconcile without changing any RX record.
+- Preserved Current Stage independently: expired RX with completed steps remain
+  in their actual stage row, while expired RX with no progress has no invented
+  Current Stage.
+
+### Changed
+
+- Made all four summary cards open their matching RX Records Workflow Status
+  filter and added English/Spanish explanatory UI and help text.
+
+### Testing
+
+- Added regression fixtures for expired RX with and without progress, completed
+  old-service-date precedence, four-way status/filter parity, zero-workflow
+  fail-closed behavior, chart reconciliation, links, and bilingual UI.
+
+**Database impact:** No migration and no data rewrite. This release does not
+change patients, RX history, workflow actions, proxy/origin rules, ports,
+authentication, PBX behavior, Backoffice, or RX Softphone.
+
 ## [4.0.0-next.35] - 2026-07-27
 
 ### Fixed

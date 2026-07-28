@@ -942,21 +942,41 @@ exports.getRxPipeline = async (req, res) => {
             raw: true
         });
         const totalSteps = steps.length;
+        const serviceWindowDays = getServiceWindowDays();
         const grouped = await db.sequelize.query(`
             WITH workflow_counts AS (
                 ${activeRxWorkflowAggregateSql()}
+            ),
+            pipeline_rows AS (
+                SELECT
+                    COALESCE(workflow_counts.completed_steps, 0)::integer AS completed_steps,
+                    workflow_counts.current_stage_sequence,
+                    (
+                        rx."serviceDate" IS NOT NULL
+                        AND (
+                            rx."serviceDate"::date
+                            + INTERVAL '${serviceWindowDays} days'
+                        )::date < CURRENT_DATE
+                        AND COALESCE(workflow_counts.completed_steps, 0) < :totalSteps
+                    ) AS is_expired
+                FROM "RXRecords" AS rx
+                LEFT JOIN workflow_counts ON workflow_counts."rxRecordId" = rx.id
+                WHERE COALESCE(rx."isDeleted", false) = false
             )
-            SELECT COALESCE(workflow_counts.completed_steps, 0)::integer AS completed_steps,
-                   workflow_counts.current_stage_sequence,
+            SELECT completed_steps,
+                   current_stage_sequence,
+                   is_expired,
                    COUNT(*)::integer AS count
-            FROM "RXRecords" AS rx
-            LEFT JOIN workflow_counts ON workflow_counts."rxRecordId" = rx.id
-            WHERE COALESCE(rx."isDeleted", false) = false
+            FROM pipeline_rows
             GROUP BY
-                COALESCE(workflow_counts.completed_steps, 0),
-                workflow_counts.current_stage_sequence
-            ORDER BY workflow_counts.current_stage_sequence NULLS FIRST
-        `, { type: QueryTypes.SELECT });
+                completed_steps,
+                current_stage_sequence,
+                is_expired
+            ORDER BY current_stage_sequence NULLS FIRST, is_expired
+        `, {
+            replacements: { totalSteps },
+            type: QueryTypes.SELECT
+        });
         const countByCurrentStage = new Map();
         grouped.forEach(row => {
             if (row.current_stage_sequence === null || row.current_stage_sequence === undefined) return;
@@ -969,18 +989,23 @@ exports.getRxPipeline = async (req, res) => {
         const total = grouped.reduce((sum, row) => sum + Number(row.count), 0);
         let notStarted = 0;
         let inProgress = 0;
+        let expired = 0;
         let completed = 0;
+        let startedIncomplete = 0;
         if (totalSteps === 0) {
             notStarted = total;
         } else {
             for (const row of grouped) {
                 const done = Number(row.completed_steps);
                 const count = Number(row.count);
-                if (done === 0) notStarted += count;
-                else if (done >= totalSteps) completed += count;
+                if (done > 0 && done < totalSteps) startedIncomplete += count;
+                if (done >= totalSteps) completed += count;
+                else if (row.is_expired === true) expired += count;
+                else if (done === 0) notStarted += count;
                 else inProgress += count;
             }
         }
+        const allIncomplete = notStarted + inProgress + expired;
         const stepBreakdown = steps.map(step => ({
             id: step.id,
             name: step.name,
@@ -992,7 +1017,10 @@ exports.getRxPipeline = async (req, res) => {
             total,
             notStarted,
             inProgress,
+            expired,
             completed,
+            allIncomplete,
+            startedIncomplete,
             totalSteps,
             stepBreakdown
         });
