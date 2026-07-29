@@ -158,6 +158,7 @@
     "node-cron": "^4.4.1",
     "node-windows": "^1.0.0-beta.8",
     "nodemailer": "^9.0.1",
+    "pdf-lib": "^1.17.1",
     "pg": "^8.22.0",
     "pg-hstore": "^2.3.4",
     "qrcode": "^1.5.4",

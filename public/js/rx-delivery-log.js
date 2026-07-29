@@ -161,7 +161,6 @@
                 '<td>' + escapeHtml(row.receivedDate || '-') + '</td>' +
                 '<td class="patient">' + escapeHtml(row.patient) + '</td>' +
                 '<td>' + escapeHtml(row.dob) + '</td>' +
-                '<td></td>' +
                 '<td>' + escapeHtml(row.notes) + '</td>' +
             '</tr>';
         }).join('');
@@ -200,7 +199,7 @@
         return '<article class="report-page">' +
             '<div class="company-masthead">RB &amp; DC SOLUTIONS LLC - ORIGINAL RECEIPTS DELIVERY LOG</div>' +
             '<header class="report-header">' +
-                '<div class="title-block"><h1>Print &amp; Delivery Log</h1></div>' +
+                '<div class="title-block"><h1>Print &amp; Delivery Log</h1><label class="driver-header">Driver: <input class="driver-header-field" type="text" aria-label="Driver for pharmacy"></label></div>' +
                 '<dl>' +
                     '<dt>Report Reference:</dt><dd>' + escapeHtml(metadata.reference) + '</dd>' +
                     '<dt>Reporting Period:</dt><dd>' + escapeHtml(metadata.period) + '</dd>' +
@@ -211,7 +210,7 @@
             (isFirst ? metricCards(allRows) : '<div class="continuation"><span>CONTINUATION</span><b>Applied Filters:</b> ' + escapeHtml(metadata.filters) + '</div>') +
             '<table class="log-table">' +
                 '<thead><tr>' +
-                    '<th>Date Delivered</th><th>Patient Full Name</th><th>DOB</th><th>Driver</th><th>Notes</th>' +
+                    '<th>Date Delivered</th><th>Patient Full Name</th><th>DOB</th><th>Notes</th>' +
                 '</tr></thead>' +
                 '<tbody>' + tableRows(pageRows) + '</tbody>' +
             '</table>' +
@@ -303,11 +302,11 @@
                 }
             });
             var metadata = baseMetadata;
-            var documentHtml = '<!doctype html><html><head><meta charset="UTF-8"><title>' + escapeHtml(metadata.reference) + '</title><link rel="stylesheet" href="/css/rx-delivery-log.css?v=20260729-2"></head><body>' + pages + '<script>window.onload=function(){setTimeout(function(){window.print();},200)};<\/script></body></html>';
+            var documentHtml = '<!doctype html><html><head><meta charset="UTF-8"><title>' + escapeHtml(metadata.reference) + '</title><link rel="stylesheet" href="/css/rx-delivery-log.css?v=20260729-2"></head><body>' + pages + '<div class="report-actions"><button id="printReportBtn" type="button">Print / Save PDF</button></div></body></html>';
             reportWindow.document.open();
             reportWindow.document.write(documentHtml);
             reportWindow.document.close();
-            reportWindow.onload = function () { window.setTimeout(function () { reportWindow.focus(); reportWindow.print(); }, 300); };
+            reportWindow.onload = function () { var printButton = reportWindow.document.getElementById('printReportBtn'); if (printButton) printButton.addEventListener('click', function () { reportWindow.focus(); reportWindow.print(); }); };
         }).catch(function (error) {
             reportWindow.close();
             window.showToast(error.message || 'Could not generate delivery log.', 'danger');
@@ -373,3 +372,5 @@
         }
     });
 }());
+
+

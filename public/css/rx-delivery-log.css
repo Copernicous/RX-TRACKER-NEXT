@@ -8,3 +8,10 @@
 .report-page .checks{position:static;display:block;margin:14px 0 0;text-align:center;border:0;background:transparent;padding:0;font-size:8px}.signature-received{padding-bottom:10px;margin-top:18px}.signature-received .signature-grid{row-gap:18px}.signature-received .signature-grid.two{margin-top:18px}.signature-received .signature label b{height:28px}
 .report-footer{bottom:-.04in}.audit-strip{bottom:.18in}
 .report-page{height:10in;min-height:10in;position:relative}.report-page .audit-strip{position:absolute;bottom:.32in;left:.3in;right:.3in}.report-page .report-footer{position:absolute;bottom:0;left:0;right:0}
+.driver-field{width:100%;border:0;border-bottom:1px solid #647184;background:transparent;font:inherit;color:#14233d;outline:none}.driver-field:focus{background:#fff8d8}
+.driver-header{display:block;margin-top:12px;color:#233753;font-size:10px;font-weight:bold}.driver-header-field{width:180px;border:0;border-bottom:1px solid #647184;background:transparent;font:inherit;outline:none;margin-left:5px}.driver-header-field:focus{background:#fff8d8}
+.driver-header{display:block!important;visibility:visible!important;margin-top:14px!important;font-size:12px!important;color:#123b70!important}.driver-header-field{display:inline-block!important;width:220px!important;height:24px!important;border:1px solid #647184!important;border-radius:2px!important;background:#fff!important;color:#14233d!important;padding:2px 5px!important;font-size:12px!important}
+.driver-header-field{border:0!important;border-bottom:2px dotted #647184!important;border-radius:0!important;background:transparent!important;padding:2px 0!important}
+.driver-header-field{width:125px!important;border-bottom:1px dotted rgba(100,113,132,.45)!important;opacity:.9}
+.report-actions{text-align:right;margin:8px 0}.report-actions button{background:#123b70;color:white;border:0;border-radius:3px;padding:6px 12px;font-size:11px}@media print{.report-actions{display:none}}
+.report-actions{position:fixed;top:10px;right:14px;z-index:100;margin:0}.report-actions button{font-size:12px;padding:7px 14px}
