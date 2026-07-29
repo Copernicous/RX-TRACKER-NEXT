@@ -15,6 +15,7 @@ const sessionIdleService = require('../services/sessionIdleService');
 const { getWritableRoot } = require('../utils/runtimePaths');
 const { spawn } = require('child_process');
 const rateLimit = require('express-rate-limit');
+const deliveryOutcomeController = require('../controllers/deliveryOutcomeController');
 
 const phoneAccountSaveLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
@@ -330,6 +331,7 @@ generateCRUDRoutes('/medication-catalog', medicationCatalogController, 'Medicati
 router.put('/medication-catalog/:id/restore', rbac.requirePermission('medication_catalog', 'edit'), auditLogger('Medication Catalog'), medicationCatalogController.restore);
 
 // RX Workflow must be registered BEFORE the generic rx-records CRUD to avoid :id matching "workflow"
+router.post('/rx-records/delivery-outcome', rbac.requirePermission('rx_records', 'add'), deliveryOutcomeController.setOutcome);
 router.post('/rx-records/return-to-warehouse', rbac.requirePermission('rx_records', 'warehouse'), auditLogger('RX Workflow'), rxController.returnToWarehouse);
 router.post('/rx-records/undo-workflow',        rbac.requirePermission('rx_records', 'undo'), auditLogger('RX Workflow'), rxController.undoWorkflow);
 router.post('/rx-records/workflow',             rbac.requirePermission('rx_records', 'add'),  auditLogger('RX Workflow'), rxController.updateWorkflow);
