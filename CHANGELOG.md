@@ -7,6 +7,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+### Added
+
+- Added professional **Delivery Log PDF** and **Delivery Log Excel** actions to RX Records.
+- The delivery log preserves the active RX filters, uses the configured **Mark as Received to print log** workflow completion date, and includes RX references, patient/DOB, pharmacy transport, received/returned/pending status, exception notes, page numbering, controlled-copy metadata, and chain-of-custody signature fields.
+- PDF output uses a repeating portrait multi-page layout with pharmacy-separated page sets; Excel output downloads a preformatted workbook-compatible .xls file with one worksheet per pharmacy, report metadata, summary totals, data rows, and acknowledgment fields.
+
+**Database impact:** No migration and no data rewrite. The report is read-only and uses existing RX, patient, pharmacy, transport, warehouse-return, and workflow history data.
+
 ## [4.0.0-next.37] - 2026-07-28
 
 ### Added
