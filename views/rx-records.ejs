@@ -2603,6 +2603,22 @@
     } // end openWorkflow
 
     function completeStep(rxId, actionId) {
+        var action = (allWorkflowActions || []).find(function (item) { return Number(item.id) === Number(actionId); });
+        if (action && /^rx\s+delivered$/i.test(String(action.name || '').trim())) {
+            var outcome = window.prompt('Delivery outcome: enter DELIVERED or RETURNED', 'DELIVERED');
+            if (outcome === null) return;
+            var normalized = String(outcome).trim().toLowerCase() === 'returned' ? 'returned' : 'delivered';
+            var note = normalized === 'returned' ? (window.prompt('Return reason (optional):', '') || '') : '';
+            return fetchWithAuth(window.rxUrl('/api/rx-records/delivery-outcome'), {
+                method: 'POST',
+                body: JSON.stringify({ rxId: rxId, actionId: actionId, outcome: normalized, note: note })
+            }).then(function (res) {
+                if (!res) return;
+                if (!res.ok) return res.json().then(function (err) { showToast(err.error || 'Outcome failed', 'danger'); });
+                showToast(normalized === 'returned' ? 'Package returned to pharmacy.' : 'Package delivered.', 'success');
+                return openWorkflow(rxId).then(function () { return loadRxRecords(); });
+            }).catch(function () { showToast('Network error.', 'danger'); });
+        }
         fetchWithAuth(window.rxUrl('/api/rx-records/workflow'), { method: 'POST', body: JSON.stringify({ rxId: rxId, actionId: actionId }) })
 
         .then(function(res) {
