@@ -38,11 +38,11 @@
             opacity: 0.85;
         }
 
-        /* ── Date range preset buttons ─────────────────────────────────────
-           Plain .btn .btn-sm has no visible background — dark on dark in
+        /* â”€â”€ Date range preset buttons â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+           Plain .btn .btn-sm has no visible background â€” dark on dark in
            dark mode. Give them an explicit outline pill style by default
            and a filled primary style when active.
-        ── */
+        â”€â”€ */
         .dash-preset {
             background: transparent;
             border: 1.5px solid var(--border, rgba(0,0,0,0.15));
@@ -206,7 +206,7 @@
             </button>
             <span class="ms-3 fw-bold fs-5">Dashboard</span>
             <div class="ms-auto d-flex align-items-center gap-3">
-                <!-- ── Auto-refresh control ── -->
+                <!-- â”€â”€ Auto-refresh control â”€â”€ -->
                 <div class="d-flex align-items-center gap-1" id="autoRefreshWidget"
                      style="border:1.5px solid var(--border);border-radius:20px;padding:2px 10px 2px 8px;background:transparent">
                     <!-- Pulse dot -->
@@ -464,7 +464,7 @@
                         <div>
                             <div class="text-muted small">Call Pre-Eligibility (&le;<%= callCenterLeadDays %> Days)</div>
                             <div class="fs-2 fw-bold" id="eligExpiringCount">&mdash;</div>
-                            <small class="text-muted d-block mt-1" id="eligExpiringNote">Loading Call Queue cutoff…</small>
+                            <small class="text-muted d-block mt-1" id="eligExpiringNote">Loading Call Queue cutoffâ€¦</small>
                             <small class="text-danger"><i class="fas fa-external-link-alt me-1"></i>View patients</small>
                         </div>
                     </div>
@@ -558,7 +558,7 @@
                                 </a>
                             </div>
                             <div class="col-md-6 col-xl">
-                                <a id="xl-rx-records-returned" href="/rx-records?warehouseStatus=returned" class="text-decoration-none text-reset d-block h-100">
+                                <a id="xl-rx-records-returned" href="/rx-records?currentWorkflowStage=returned_to_pharmacy" class="text-decoration-none text-reset d-block h-100">
                                     <div class="h-100" style="background:rgba(217,119,6,.10);border-radius:12px;padding:16px 20px;display:flex;align-items:center;gap:14px">
                                         <div style="width:44px;height:44px;border-radius:50%;background:rgba(217,119,6,.18);display:flex;align-items:center;justify-content:center;flex-shrink:0"><i class="fas fa-undo-alt" style="color:#b45309;font-size:1.1rem"></i></div>
                                         <div><div class="text-muted" style="font-size:.75rem;text-transform:uppercase;letter-spacing:.05em">Returned to Pharmacy</div><div class="fw-bold fs-3" id="rxPipelineReturned">&mdash;</div></div>

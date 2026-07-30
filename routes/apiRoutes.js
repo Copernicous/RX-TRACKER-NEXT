@@ -180,7 +180,7 @@ function restrictCallCenterApi(req, res, next) {
     return res.status(403).json({ message: 'Call Center users can only access the Call Center workspace.' });
 }
 
-// ── Public routes (no auth required) — must be declared BEFORE router.use(auth) ──
+// â”€â”€ Public routes (no auth required) â€” must be declared BEFORE router.use(auth) â”€â”€
 // All remaining API routes require authentication
 router.post('/softphone-relay/device/pair', softphoneRelayPairLimiter, softphoneRelayController.pairDevice);
 router.post('/softphone-relay/device/poll', softphoneRelayController.pollDevice);
@@ -213,10 +213,10 @@ router.get('/call-center/metrics/me', callCenterController.requireAccess, callCe
 router.get('/call-center/metrics/drilldown', callCenterController.requireReviewAccess, callCenterController.getReviewDrilldown);
 router.get('/call-center/metrics/review', callCenterController.requireReviewAccess, callCenterController.getReviewMetrics);
 
-// ── Lookup endpoint — auth-only, NO visibility check ─────────────────────────
+// â”€â”€ Lookup endpoint â€” auth-only, NO visibility check â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Used by forms (patient, RX records, etc.) to populate dropdowns.
 // Decouples "can navigate to the management page" from "can read data for selects".
-// Any authenticated user can call this — hiding a module in the nav/RBAC does NOT
+// Any authenticated user can call this â€” hiding a module in the nav/RBAC does NOT
 // break form dropdowns that depend on that reference data.
 const LOOKUP_MAP = {
     'pharmacies':         { model: db.Pharmacy,                  fields: ['id', 'name',        'address'],       where: { isActive: true } },
@@ -258,7 +258,7 @@ const pathMap = {
 };
 
 // Helper function to generate CRUD routes
-// POST (create) uses 'add', PUT (update) uses 'edit' — intentionally separate
+// POST (create) uses 'add', PUT (update) uses 'edit' â€” intentionally separate
 const generateCRUDRoutes = (path, controller, moduleName) => {
     const key = pathMap[path] || moduleName.toLowerCase().replace(/ /g, '_');
 
@@ -275,7 +275,7 @@ const generateCRUDRoutes = (path, controller, moduleName) => {
     router.delete(`${path}/:id`, deleteGuard, requireStagingDestructiveConfirmation, auditLogger(moduleName), controller.delete);
 };
 
-// Pharmacy purge (admin only) — must be BEFORE generateCRUDRoutes to avoid :id conflict
+// Pharmacy purge (admin only) â€” must be BEFORE generateCRUDRoutes to avoid :id conflict
 router.delete('/pharmacies/purge', rbac.requireRole(['Administrator']), requireStagingDestructiveConfirmation, auditLogger('Pharmacies'), pharmacyController.purge);
 router.post('/users/:id/phone-account/setup-access', rbac.requireRole(['Administrator']), softphoneAccountController.enableSetupAccess);
 router.get('/admin/softphone-devices', rbac.requireRole(['Administrator']), softphoneRelayController.getAdminDevices);
@@ -294,7 +294,7 @@ router.put('/pharmacy-transport/:id/restore', rbac.requirePermission('pharmacy_t
 generateCRUDRoutes('/users', userController, 'Users');
 router.put('/users/:id/restore', rbac.requireRole(['Administrator']), auditLogger('Users'), userController.restore);
 
-// ─── Custom Roles Management ──────────────────────────────────────────────────
+// â”€â”€â”€ Custom Roles Management â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // All role management requires Administrator role
 router.get('/roles/permission-defaults',  rbac.requireRole(['Administrator']), roleController.getDefaults);
 router.get('/roles',                      rbac.requireRole(['Administrator']), roleController.getAll);
@@ -315,7 +315,7 @@ router.get('/patients/:id/service-date-history', rbac.requirePermission('patient
 router.put('/patients/:id/restore',     rbac.requirePermission('patients', 'edit'), auditLogger('Patients'), patientController.restore);
 generateCRUDRoutes('/patients', patientController, 'Patients');
 
-// Patient Notes — permissions handled separately via patient_notes module
+// Patient Notes â€” permissions handled separately via patient_notes module
 // POST: requires patient_notes.canAdd
 // DELETE: controller enforces canDelete OR isAuthor logic
 router.get('/patients/:id/notes',           rbac.requirePermission('patients',      'read'), patientNoteController.getNotes);
@@ -333,6 +333,7 @@ router.put('/medication-catalog/:id/restore', rbac.requirePermission('medication
 // RX Workflow must be registered BEFORE the generic rx-records CRUD to avoid :id matching "workflow"
 router.post('/rx-records/delivery-outcome', rbac.requirePermission('rx_records', 'add'), deliveryOutcomeController.setOutcome);
 router.post('/rx-records/return-to-warehouse', rbac.requirePermission('rx_records', 'warehouse'), auditLogger('RX Workflow'), rxController.returnToWarehouse);
+router.post('/rx-records/reopen-warehouse-return', rbac.requirePermission('rx_records', 'warehouse'), auditLogger('RX Workflow'), rxController.reopenWarehouseReturn);
 router.post('/rx-records/undo-workflow',        rbac.requirePermission('rx_records', 'undo'), auditLogger('RX Workflow'), rxController.undoWorkflow);
 router.post('/rx-records/workflow',             rbac.requirePermission('rx_records', 'add'),  auditLogger('RX Workflow'), rxController.updateWorkflow);
 // FEAT-10: Bulk workflow step application
@@ -342,7 +343,7 @@ router.put('/rx-records/workflow-date',         rbac.requirePermission('rx_recor
 router.post('/rx-records/:id/reset-cycle',      rbac.requirePermission('rx_records', 'edit'), auditLogger('RX Records'), rxController.resetRxCycle);
 router.post('/rx-records/:id/close-expired-workflow', rbac.requirePermission('rx_records', 'writeOrOverrideExpired'), auditLogger('RX Workflow'), rxController.closeExpiredWorkflow);
 router.put('/rx-records/:id/restore',           rbac.requirePermission('rx_records', 'edit'), auditLogger('RX Records'), rxController.restore);
-// RX History — must be before the generic CRUD block
+// RX History â€” must be before the generic CRUD block
 router.get('/rx-records/:id/history', rbac.requirePermission('rx_records', 'read'), rxController.getHistory);
 router.get('/rx-records/:id/documents', rbac.requirePermission('rx_records', 'read'), documentController.listRxDocuments);
 generateCRUDRoutes('/rx-records', rxController, 'RX Records');
@@ -372,7 +373,7 @@ router.get('/reports/call-center', rbac.requirePermission('reports', 'read'), re
 router.get('/reports/call-center-attempts', rbac.requirePermission('reports', 'read'), reportController.getCallCenterAttemptReport);
 router.get('/reports/call-center-supervisor', rbac.requirePermission('reports', 'read'), reportController.getCallCenterSupervisorSummary);
 
-// Audit Log — controlled by its own audit_log permission
+// Audit Log â€” controlled by its own audit_log permission
 router.get('/audit-logs',              rbac.requirePermission('audit_log', 'read'),  auditLogController.getAll);
 router.get('/audit-logs/users',        rbac.requirePermission('audit_log', 'read'),  auditLogController.getUsers);
 router.get('/audit-logs/modules',      rbac.requirePermission('audit_log', 'read'),  auditLogController.getModules);
@@ -407,8 +408,8 @@ router.post('/auth/logout', auth, async (req, res) => {
     res.status(200).json({ message: 'Logged out.' });
 });
 
-// ── Active User Sessions (Who's Online) ──────────────────────────────────────
-// POST /api/heartbeat — any authenticated user; updates their session entry
+// â”€â”€ Active User Sessions (Who's Online) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// POST /api/heartbeat â€” any authenticated user; updates their session entry
 // POST /api/session/activity - user-driven activity extends the server-side idle timer.
 router.post('/session/activity', auth, (req, res) => {
     sessionIdleService.touch(req.authToken, req.user);
@@ -417,8 +418,8 @@ router.post('/session/activity', auth, (req, res) => {
 
 router.post('/heartbeat', auth, (req, res) => {
     const { currentPage, currentUrl } = req.body || {};
-    // Capture real IP — x-forwarded-for first (FortiGate/proxy), then direct
-    const ip = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.ip || '—';
+    // Capture real IP â€” x-forwarded-for first (FortiGate/proxy), then direct
+    const ip = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.ip || 'â€”';
     sessionTracker.upsert(req.user.id, {
         username:    req.user.username,
         firstName:   req.user.firstName  || '',
@@ -431,7 +432,7 @@ router.post('/heartbeat', auth, (req, res) => {
     res.status(204).end();
 });
 
-// GET /api/active-sessions — role-gated: requires active_users visibility
+// GET /api/active-sessions â€” role-gated: requires active_users visibility
 router.get('/active-sessions', rbac.requirePermission('active_users', 'read'), (req, res) => {
     res.json(sessionTracker.getActive());
 });
@@ -455,7 +456,7 @@ function adminOnly(req, res, next) {
 
 // ---- Back-Office / Data Control Center (MASTER admin only) ----
 // masterOnly checks isMaster === true in the JWT.
-// This flag can ONLY be set via direct SQL on PostgreSQL — never via UI or API.
+// This flag can ONLY be set via direct SQL on PostgreSQL â€” never via UI or API.
 // Recovery: UPDATE "Users" SET "isMaster" = true WHERE "username" = 'your_username';
 function masterOnly(req, res, next) {
     if (!req.user || req.user.isMaster !== true) {
@@ -469,7 +470,7 @@ function masterOnly(req, res, next) {
     next();
 }
 
-// ---- DB Restore — multer upload ----
+// ---- DB Restore â€” multer upload ----
 const UPLOAD_DIR = path.join(getWritableRoot(), 'backups', 'uploads');
 
 const restoreUpload = multer({
@@ -648,7 +649,7 @@ router.delete('/backups/site/history/:id', adminOnly, requireStagingDestructiveC
 
 
 // ---- Error Boundary Logging ----
-// Frontend can POST without being authenticated (token optional — anonymous errors still useful)
+// Frontend can POST without being authenticated (token optional â€” anonymous errors still useful)
 router.post('/errors', (req, res, next) => {
     // Try to decode the auth cookie if present but don't block unauthenticated logs.
     const cookieToken = getCookie(req.headers.cookie, 'rxToken');
@@ -743,14 +744,14 @@ router.post('/admin/snapshots/capture',    masterOnly, snapshotController.captur
 router.delete('/admin/snapshots/:date',    masterOnly, requireStagingDestructiveConfirmation, snapshotController.deleteSnapshot);
 
 
-// ── Git commit log (admin only) ───────────────────────────────────────────────
+// â”€â”€ Git commit log (admin only) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Returns last N commits with per-file stats for the changelog page
 router.get('/git-log', auth, adminOnly, (req, res) => {
     const IS_PKG = typeof process.pkg !== 'undefined';
 
     // git is only available in dev mode (not inside server.exe snapshot)
     if (IS_PKG) {
-        return res.json({ available: false, commits: [], reason: 'Running as compiled exe — git log not available' });
+        return res.json({ available: false, commits: [], reason: 'Running as compiled exe â€” git log not available' });
     }
 
     try {
