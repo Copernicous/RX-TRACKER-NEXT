@@ -537,7 +537,11 @@
                     <div style="font-size:1rem;font-weight:700"><i class="fas fa-arrows-rotate me-1" style="color:#a5b4fc"></i>RX Profile Sync</div>
                     <div style="font-size:.75rem;color:var(--text-muted);margin-top:.25rem">Select any RX record and copy Pharmacy or Transport values from its current Patient profile. This never changes the Patient profile, workflow, or future RX records.</div>
                 </div>
-                <button class="btn-bo btn-bo-primary" onclick="loadRxProfileSync()"><i class="fas fa-sync-alt me-1"></i>Scan</button>
+                <div style="display:flex;gap:.45rem;flex-wrap:wrap;justify-content:flex-end">
+                    <button class="btn-bo btn-bo-primary" id="rxSyncBulkBtn" disabled onclick="bulkSyncRxProfiles()"><i class="fas fa-check-double me-1"></i>Sync checked RX</button>
+                    <button class="btn-bo btn-bo-outline" onclick="exportRxProfileSyncHistory()"><i class="fas fa-file-csv me-1"></i>Export Sync History</button>
+                    <button class="btn-bo btn-bo-outline" onclick="loadRxProfileSync()"><i class="fas fa-sync-alt me-1"></i>Scan</button>
+                </div>
             </div>
             <div style="display:flex;gap:.6rem;flex-wrap:wrap;margin-top:1rem">
                 <input id="rxSyncSearch" class="schema-search" style="margin:0;min-width:260px;flex:1" placeholder="Search patient name, Patient ID, or RX #" onkeydown="if(event.key==='Enter')loadRxProfileSync()">

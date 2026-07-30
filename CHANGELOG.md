@@ -7,6 +7,21 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+## [4.0.0-next.44] - 2026-07-30
+
+### Added
+
+- RX Profile Sync now supports selecting multiple RX rows and synchronizing up to 100 selected records in one confirmed batch. Each RX remains an independent transaction with its own RX History and Audit Log entry.
+- Added a master-administrator **Export Sync History** CSV containing the audit timestamp, user, RX and Patient references, corrected field, and before/after IDs.
+
+### Fixed
+
+- Patient Transport and Pharmacy Transport corrections now use explicit transport-field persistence and are re-read before success is returned. Pharmacy synchronization retains its existing update path.
+- Empty field selections and blank Patient profile assignments make no changes. Re-scanning after Patient profile corrections shows only remaining RX differences.
+
+### Safety
+
+- No database migration, workflow-action configuration, automatic background synchronization, or business-data rewrite. Bulk sync is master-only, explicitly selected, limited to 100 RX records, and audited per RX.
 ## [4.0.0-next.43] - 2026-07-30
 
 ### Fixed

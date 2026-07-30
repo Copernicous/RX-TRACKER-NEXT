@@ -710,6 +710,8 @@ router.delete('/admin/orphans',         masterOnly, requireStagingDestructiveCon
 router.get('/admin/duplicates',         masterOnly, adminController.getDuplicates);
 router.get('/admin/audit-logs',         masterOnly, adminController.getAuditLogs);
 router.get('/admin/rx-profile-sync', masterOnly, rxProfileSyncController.list);
+router.get('/admin/rx-profile-sync/export', masterOnly, rxProfileSyncController.exportHistory);
+router.post('/admin/rx-profile-sync/bulk', masterOnly, rxProfileSyncController.bulkSync);
 router.post('/admin/rx-profile-sync/:rxId', masterOnly, rxProfileSyncController.sync);
 router.get('/admin/call-center-cleanup', masterOnly, adminController.getCallCenterCleanupPreview);
 router.delete('/admin/call-center-cleanup', masterOnly, requireStagingDestructiveConfirmation, adminController.purgeCallCenterCleanup);

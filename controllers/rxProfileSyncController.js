@@ -8,6 +8,11 @@ const SYNC_FIELDS = [
     'patientTransportCompanyId',
     'pharmacyTransportCompanyId'
 ];
+const SYNC_FIELD_LABELS = {
+    pharmacyId: 'Pharmacy',
+    patientTransportCompanyId: 'Patient Transport',
+    pharmacyTransportCompanyId: 'Pharmacy Transport'
+};
 
 function positiveId(value) {
     const parsed = Number.parseInt(value, 10);
@@ -46,17 +51,27 @@ function profileSearchCondition(value) {
 
 function auditValues(record) {
     return {
-        pharmacyId: record.pharmacyId || null,
-        patientTransportCompanyId: record.patientTransportCompanyId || null,
-        pharmacyTransportCompanyId: record.pharmacyTransportCompanyId || null
+        pharmacyId: fieldValue(record, 'pharmacyId'),
+        patientTransportCompanyId: fieldValue(record, 'patientTransportCompanyId'),
+        pharmacyTransportCompanyId: fieldValue(record, 'pharmacyTransportCompanyId')
     };
 }
 
+function fieldValue(record, field) {
+    const value = record && typeof record.get === 'function'
+        ? record.get(field)
+        : record && record[field];
+    return positiveId(value);
+}
+
 function fieldsToSync(rx, patient, requestedFields) {
-    const requested = Array.isArray(requestedFields) && requestedFields.length
-        ? requestedFields.filter(field => SYNC_FIELDS.includes(field))
+    const requested = Array.isArray(requestedFields)
+        ? [...new Set(requestedFields.filter(field => SYNC_FIELDS.includes(field)))]
         : SYNC_FIELDS;
-    return requested.filter(field => patient[field] && Number(rx[field] || 0) !== Number(patient[field]));
+    return requested.filter(field => {
+        const patientValue = fieldValue(patient, field);
+        return patientValue && fieldValue(rx, field) !== patientValue;
+    });
 }
 
 function fieldLabels(lookups) {
@@ -130,52 +145,200 @@ exports.list = async (req, res) => {
     }
 };
 
+async function syncRxRecord({ rxId, requestedFields, user, ipAddress }) {
+    return db.sequelize.transaction(async transaction => {
+        const rx = await db.RXRecord.findOne({
+            where: { id: rxId, [Op.and]: [activeRecordCondition()] },
+            include: [{ model: db.Patient, required: true, where: activeRecordCondition() }],
+            transaction,
+            lock: transaction.LOCK.UPDATE
+        });
+        if (!rx) throw new Error('RX record was not found or is deleted.');
+        const patient = rx.Patient;
+        const fields = fieldsToSync(rx, patient, requestedFields);
+        if (!fields.length) return { updated: false, rxId, patientId: patient.id, changes: [] };
+
+        const before = rx.get({ plain: true });
+        const update = {};
+        const changes = fields.map(field => {
+            const value = fieldValue(patient, field);
+            update[field] = value;
+            return { field, from: fieldValue(before, field), to: value };
+        });
+        if (fields.includes('pharmacyId')) {
+            await rx.update({ pharmacyId: update.pharmacyId }, { transaction });
+        }
+        const transportFields = fields.filter(field => field !== 'pharmacyId');
+        if (transportFields.length) {
+            transportFields.forEach(field => rx.setDataValue(field, update[field]));
+            await rx.save({ fields: transportFields, transaction });
+        }
+
+        await rx.reload({
+            attributes: ['id', ...SYNC_FIELDS],
+            transaction
+        });
+        const failedFields = fields.filter(field => fieldValue(rx, field) !== fieldValue(patient, field));
+        if (failedFields.length) {
+            throw new Error(`RX profile sync did not persist: ${failedFields.join(', ')}.`);
+        }
+        await db.RXHistory.create({
+            rxRecordId: rx.id,
+            userId: user ? user.id : null,
+            changeType: 'Profile Sync',
+            snapshot: JSON.stringify(before),
+            changedFields: JSON.stringify(changes),
+            note: 'Administrator synced selected RX profile fields from the current Patient profile.'
+        }, { transaction });
+        const patientName = `${patient.firstName || ''} ${patient.lastName || ''}`.trim();
+        await db.AuditLog.create({
+            userId: user ? user.id : null,
+            date: new Date().toISOString().slice(0, 10),
+            time: new Date().toTimeString().slice(0, 8),
+            module: 'RX Profile Sync',
+            action: 'Sync',
+            recordId: rx.id,
+            previousValue: {
+                rxId: rx.id,
+                patientId: patient.id,
+                patientCode: patient.patientCode || '',
+                patientName,
+                fields: changes.map(change => ({ field: change.field, value: change.from }))
+            },
+            newValue: {
+                rxId: rx.id,
+                patientId: patient.id,
+                patientCode: patient.patientCode || '',
+                patientName,
+                source: 'Patient profile',
+                fields: changes.map(change => ({ field: change.field, value: change.to }))
+            },
+            ipAddress: ipAddress || 'unknown'
+        }, { transaction });
+        return {
+            updated: true,
+            rxId,
+            patientId: patient.id,
+            changes,
+            values: auditValues(rx)
+        };
+    });
+}
+
 exports.sync = async (req, res) => {
     const rxId = positiveId(req.params.rxId);
     if (!rxId) return res.status(400).json({ error: 'A valid RX record is required.' });
     try {
-        const result = await db.sequelize.transaction(async transaction => {
-            const rx = await db.RXRecord.findOne({
-                where: { id: rxId, [Op.and]: [activeRecordCondition()] },
-                include: [{ model: db.Patient, required: true, where: activeRecordCondition() }],
-                transaction,
-                lock: transaction.LOCK.UPDATE
-            });
-            if (!rx) throw new Error('RX record was not found or is deleted.');
-            const patient = rx.Patient;
-            const fields = fieldsToSync(rx, patient, req.body && req.body.fields);
-            if (!fields.length) return { updated: false, rxId, changes: [] };
-
-            const before = rx.get({ plain: true });
-            const update = {};
-            const changes = fields.map(field => {
-                update[field] = patient[field];
-                return { field, from: before[field] || null, to: patient[field] || null };
-            });
-            await rx.update(update, { transaction });
-            await db.RXHistory.create({
-                rxRecordId: rx.id,
-                userId: req.user ? req.user.id : null,
-                changeType: 'Profile Sync',
-                snapshot: JSON.stringify(before),
-                changedFields: JSON.stringify(changes),
-                note: 'Administrator synced selected RX profile fields from the current Patient profile.'
-            }, { transaction });
-            await db.AuditLog.create({
-                userId: req.user ? req.user.id : null,
-                date: new Date().toISOString().slice(0, 10),
-                time: new Date().toTimeString().slice(0, 8),
-                module: 'RX Profile Sync',
-                action: 'Sync',
-                recordId: rx.id,
-                previousValue: { rxId: rx.id, patientId: patient.id, fields: changes.map(change => ({ field: change.field, value: change.from })) },
-                newValue: { rxId: rx.id, patientId: patient.id, source: 'Patient profile', fields: changes.map(change => ({ field: change.field, value: change.to })) },
-                ipAddress: req.ip || req.socket?.remoteAddress || 'unknown'
-            }, { transaction });
-            return { updated: true, rxId, patientId: patient.id, changes };
+        const result = await syncRxRecord({
+            rxId,
+            requestedFields: req.body && req.body.fields,
+            user: req.user,
+            ipAddress: req.ip || req.socket?.remoteAddress || 'unknown'
         });
         res.json(result);
     } catch (error) {
         res.status(400).json({ error: error.message });
+    }
+};
+
+exports.bulkSync = async (req, res) => {
+    const entries = req.body && Array.isArray(req.body.entries) ? req.body.entries : [];
+    if (!entries.length) return res.status(400).json({ error: 'Select at least one RX record.' });
+    if (entries.length > 100) return res.status(400).json({ error: 'A maximum of 100 RX records can be synchronized at once.' });
+
+    const normalized = [];
+    const seen = new Set();
+    for (const entry of entries) {
+        const rxId = positiveId(entry && entry.rxId);
+        const fields = entry && Array.isArray(entry.fields)
+            ? [...new Set(entry.fields.filter(field => SYNC_FIELDS.includes(field)))]
+            : [];
+        if (!rxId || seen.has(rxId) || !fields.length) continue;
+        seen.add(rxId);
+        normalized.push({ rxId, fields });
+    }
+    if (!normalized.length) return res.status(400).json({ error: 'The selected RX records have no valid fields to synchronize.' });
+
+    const results = [];
+    for (const entry of normalized) {
+        try {
+            const result = await syncRxRecord({
+                rxId: entry.rxId,
+                requestedFields: entry.fields,
+                user: req.user,
+                ipAddress: req.ip || req.socket?.remoteAddress || 'unknown'
+            });
+            results.push({ ...result, ok: true });
+        } catch (error) {
+            results.push({ rxId: entry.rxId, ok: false, updated: false, error: error.message });
+        }
+    }
+    res.json({
+        requested: normalized.length,
+        updated: results.filter(result => result.ok && result.updated).length,
+        unchanged: results.filter(result => result.ok && !result.updated).length,
+        failed: results.filter(result => !result.ok).length,
+        results
+    });
+};
+
+function csvCell(value) {
+    const text = value === null || value === undefined ? '' : String(value);
+    const safe = /^[=+\-@]/.test(text) ? `'${text}` : text;
+    return /[",\r\n]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
+}
+
+function auditObject(value) {
+    if (!value) return {};
+    if (typeof value === 'object') return value;
+    try { return JSON.parse(value); } catch { return {}; }
+}
+
+exports.exportHistory = async (req, res) => {
+    try {
+        const logs = await db.AuditLog.findAll({
+            where: { module: 'RX Profile Sync', action: 'Sync' },
+            include: [{ model: db.User, attributes: ['id', 'username', 'firstName', 'lastName'], required: false }],
+            order: [['createdAt', 'ASC'], ['id', 'ASC']]
+        });
+        const columns = [
+            'Audit Log ID', 'Timestamp', 'User ID', 'Username', 'RX Record ID',
+            'Patient ID', 'Patient Code', 'Patient Name', 'Field', 'Field Key',
+            'Previous ID', 'New ID', 'Source', 'IP Address'
+        ];
+        const rows = [];
+        logs.forEach(logRecord => {
+            const log = logRecord.get ? logRecord.get({ plain: true }) : logRecord;
+            const previous = auditObject(log.previousValue);
+            const next = auditObject(log.newValue);
+            const previousFields = new Map((previous.fields || []).map(field => [field.field, field.value]));
+            const nextFields = Array.isArray(next.fields) ? next.fields : [];
+            const user = log.User || {};
+            nextFields.forEach(field => {
+                rows.push([
+                    log.id,
+                    log.createdAt ? new Date(log.createdAt).toISOString() : `${log.date || ''} ${log.time || ''}`.trim(),
+                    log.userId || user.id || '',
+                    user.username || '',
+                    next.rxId || previous.rxId || log.recordId || '',
+                    next.patientId || previous.patientId || '',
+                    next.patientCode || previous.patientCode || '',
+                    next.patientName || previous.patientName || '',
+                    SYNC_FIELD_LABELS[field.field] || field.field || '',
+                    field.field || '',
+                    previousFields.get(field.field) || '',
+                    field.value || '',
+                    next.source || 'Patient profile',
+                    log.ipAddress || ''
+                ]);
+            });
+        });
+        const csv = '\uFEFF' + [columns, ...rows].map(row => row.map(csvCell).join(',')).join('\r\n');
+        const filename = `rx-profile-sync-history-${new Date().toISOString().slice(0, 10)}.csv`;
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        res.send(csv);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
     }
 };

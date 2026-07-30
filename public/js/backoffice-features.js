@@ -2472,6 +2472,7 @@ async function loadRxProfileSync() {
     var status = document.getElementById('rxSyncStatus');
     if (!list) return;
     list.innerHTML = '<p style="text-align:center;padding:2rem;color:var(--text-muted)"><i class="fas fa-spinner fa-spin me-2"></i>Scanning RX records...</p>';
+    updateRxSyncBulkSelection();
     try {
         var search = document.getElementById('rxSyncSearch').value || '';
         var showAll = document.getElementById('rxSyncShowAll').checked;
@@ -2483,14 +2484,15 @@ async function loadRxProfileSync() {
             list.innerHTML = '<p style="text-align:center;padding:3rem;color:var(--text-muted)"><i class="fas fa-check-circle" style="color:#34d399"></i> No RX records match this scan.</p>';
             return;
         }
-        list.innerHTML = '<div style="overflow:auto"><table class="bo-table"><thead><tr><th>Patient / RX</th><th>Dates</th><th>Clinic</th><th>Differences</th><th>Action</th></tr></thead><tbody>' + data.rows.map(function(row) {
+        list.innerHTML = '<div style="overflow:auto"><table class="bo-table"><thead><tr><th style="width:38px;text-align:center"><input type="checkbox" aria-label="Select all visible RX records" onchange="toggleRxProfileSyncRows(this)"></th><th>Patient / RX</th><th>Dates</th><th>Clinic</th><th>Differences</th><th>Action</th></tr></thead><tbody>' + data.rows.map(function(row) {
             var diffs = row.differences.length ? row.differences.map(function(field) {
                 var patient = rxSyncValue(row, 'patient', field);
                 var rx = rxSyncValue(row, 'rx', field);
                 return '<label style="display:block;margin:.22rem 0"><input type="checkbox" data-rx-sync-field="' + rxSyncEsc(field) + '" checked> <strong>' + rxSyncEsc(rxSyncFieldLabel(field)) + '</strong>: <span style="color:#fca5a5">' + rxSyncEsc(rx.label) + '</span> → <span style="color:#6ee7b7">' + rxSyncEsc(patient.label) + '</span></label>';
             }).join('') : '<span style="color:#6ee7b7">Already matches Patient profile</span>';
-            return '<tr data-rx-sync-id="' + row.rxId + '"><td><strong>' + rxSyncEsc(row.patientName) + '</strong><br><small style="color:var(--text-muted)">Patient ' + rxSyncEsc(row.patientCode || ('#' + row.patientId)) + ' · RX #' + row.rxId + '</small></td><td><small>Arrival: ' + rxSyncDate(row.arrivalDate) + '<br>Service: ' + rxSyncDate(row.serviceDate) + '</small></td><td><small>' + rxSyncEsc(row.clinicLabel) + '</small></td><td>' + diffs + '</td><td><button class="btn-bo btn-bo-primary" style="padding:.35rem .6rem;font-size:.72rem" ' + (row.differences.length ? '' : 'disabled') + ' onclick="syncRxProfile(' + row.rxId + ', this)"><i class="fas fa-arrows-rotate me-1"></i>Sync selected</button></td></tr>';
+            return '<tr data-rx-sync-id="' + row.rxId + '"><td style="text-align:center"><input type="checkbox" data-rx-sync-select aria-label="Select RX #' + row.rxId + '" ' + (row.differences.length ? 'onchange="updateRxSyncBulkSelection()"' : 'disabled') + '></td><td><strong>' + rxSyncEsc(row.patientName) + '</strong><br><small style="color:var(--text-muted)">Patient ' + rxSyncEsc(row.patientCode || ('#' + row.patientId)) + ' · RX #' + row.rxId + '</small></td><td><small>Arrival: ' + rxSyncDate(row.arrivalDate) + '<br>Service: ' + rxSyncDate(row.serviceDate) + '</small></td><td><small>' + rxSyncEsc(row.clinicLabel) + '</small></td><td>' + diffs + '</td><td><button class="btn-bo btn-bo-primary" style="padding:.35rem .6rem;font-size:.72rem" ' + (row.differences.length ? '' : 'disabled') + ' onclick="syncRxProfile(' + row.rxId + ', this)"><i class="fas fa-arrows-rotate me-1"></i>Sync selected</button></td></tr>';
         }).join('') + '</tbody></table></div>';
+        updateRxSyncBulkSelection();
     } catch (error) {
         list.innerHTML = '<p style="padding:2rem;color:#fca5a5">' + rxSyncEsc(error.message) + '</p>';
         if (status) status.textContent = '';
@@ -2498,6 +2500,84 @@ async function loadRxProfileSync() {
     }
 }
 
+function updateRxSyncBulkSelection() {
+    var button = document.getElementById('rxSyncBulkBtn');
+    if (!button) return;
+    var count = document.querySelectorAll('#rxSyncList [data-rx-sync-select]:checked').length;
+    button.disabled = count === 0;
+    button.innerHTML = '<i class="fas fa-check-double me-1"></i>Sync checked RX' + (count ? ' (' + count + ')' : '');
+}
+
+function toggleRxProfileSyncRows(source) {
+    Array.prototype.slice.call(document.querySelectorAll('#rxSyncList [data-rx-sync-select]:not(:disabled)')).forEach(function(input) {
+        input.checked = !!source.checked;
+    });
+    updateRxSyncBulkSelection();
+}
+
+async function bulkSyncRxProfiles() {
+    var selected = Array.prototype.slice.call(document.querySelectorAll('#rxSyncList [data-rx-sync-select]:checked'));
+    var entries = selected.map(function(input) {
+        var row = input.closest('tr');
+        return {
+            rxId: row.getAttribute('data-rx-sync-id'),
+            fields: Array.prototype.slice.call(row.querySelectorAll('[data-rx-sync-field]:checked')).map(function(fieldInput) {
+                return fieldInput.getAttribute('data-rx-sync-field');
+            })
+        };
+    }).filter(function(entry) { return entry.fields.length > 0; });
+    if (!entries.length) { toast('Select at least one RX record and one differing field.', 'info'); return; }
+    if (entries.length > 100) { toast('Select no more than 100 RX records per batch.', 'info'); return; }
+    if (!confirm('Sync selected fields for ' + entries.length + ' RX record(s)? Every changed RX will receive its own History and Audit Log entry.')) return;
+
+    var button = document.getElementById('rxSyncBulkBtn');
+    button.disabled = true;
+    try {
+        var res = await apiFetch('/api/admin/rx-profile-sync/bulk', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ entries: entries })
+        });
+        var data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Bulk sync failed');
+        var message = data.updated + ' RX record(s) synchronized';
+        if (data.unchanged) message += ', ' + data.unchanged + ' already matched';
+        if (data.failed) message += ', ' + data.failed + ' failed';
+        toast(message + '.', data.failed ? 'warning' : 'success');
+        await loadRxProfileSync();
+    } catch (error) {
+        toast('RX profile bulk sync failed: ' + error.message, 'danger');
+        updateRxSyncBulkSelection();
+    }
+}
+
+async function exportRxProfileSyncHistory() {
+    try {
+        var res = await apiFetch('/api/admin/rx-profile-sync/export');
+        if (!res.ok) {
+            var errorData = await res.json();
+            throw new Error(errorData.error || 'Export failed');
+        }
+        var blob = await res.blob();
+        var disposition = res.headers.get('Content-Disposition') || '';
+        var match = /filename="?([^";]+)"?/i.exec(disposition);
+        var filename = match ? match[1] : 'rx-profile-sync-history.csv';
+        var url = URL.createObjectURL(blob);
+        var link = document.createElement('a');
+        link.style.display = 'none';
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        setTimeout(function() {
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        }, 1000);
+        toast('Exported RX Profile Sync history.', 'success');
+    } catch (error) {
+        toast('RX profile sync export failed: ' + error.message, 'danger');
+    }
+}
 async function syncRxProfile(rxId, button) {
     var row = button.closest('tr');
     var fields = Array.prototype.slice.call(row.querySelectorAll('[data-rx-sync-field]:checked')).map(function(input) { return input.getAttribute('data-rx-sync-field'); });
