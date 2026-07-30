@@ -286,7 +286,23 @@ function addRxPageFilters(query, replacements, totalSteps) {
         replacements.workflowStageDone = parseInt(workflowStage, 10) - 1;
         whereSql.push(`${completedExpr} = :workflowStageDone`);
     }
-    if (currentWorkflowStage === 'returned_to_pharmacy' || deliveryOutcome === 'returned_to_pharmacy') {
+    if (currentWorkflowStage === 'print_log') {
+        whereSql.push(`(
+            r."deliveryOutcome" = 'returned_to_pharmacy'
+            OR EXISTS (
+                SELECT 1
+                FROM "RXWorkflowTrackings" print_tracking
+                INNER JOIN "WorkflowActions" print_action
+                    ON print_action.id = print_tracking."workflowActionId"
+                   AND print_action."isActive" = TRUE
+                WHERE print_tracking."rxRecordId" = r.id
+                  AND (
+                      LOWER(TRIM(COALESCE(print_action.name, ''))) LIKE '%print log%'
+                      OR LOWER(TRIM(COALESCE(print_action.name, ''))) = 'driver receipt obtained'
+                  )
+            )
+        )`);
+    } else if (currentWorkflowStage === 'returned_to_pharmacy' || deliveryOutcome === 'returned_to_pharmacy') {
         whereSql.push('r."deliveryOutcome" = \'returned_to_pharmacy\'');
     } else if (/^\d+$/.test(currentWorkflowStage)) {
         replacements.currentWorkflowStage = parseInt(currentWorkflowStage, 10);
@@ -463,7 +479,7 @@ exports.create = async (req, res) => {
             return res.status(400).json({ error: `Arrival date must be within ${getServiceWindowDays()} days prior to Service Date.` });
         }
 
-        // â”€â”€ 90-DAY ELIGIBILITY CHECK â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // Ã¢â€â‚¬Ã¢â€â‚¬ 90-DAY ELIGIBILITY CHECK Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
         // The 90-day window is owned by the PATIENT record's serviceDate field.
         // That is the canonical clock. We check it directly here rather than
         // looking at the latest RX record's serviceDate, so that the Patient
@@ -472,7 +488,7 @@ exports.create = async (req, res) => {
         if (rxData.patientId && !req.body.bypassEligibility) {
             const patient = await db.Patient.findByPk(rxData.patientId);
 
-            // â”€â”€ INACTIVE PATIENT GUARD â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            // Ã¢â€â‚¬Ã¢â€â‚¬ INACTIVE PATIENT GUARD Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
             // Inactive patients cannot receive new RX records under any circumstance.
             if (patient && patient.isActive === false) {
                 await transaction.rollback();
@@ -481,10 +497,10 @@ exports.create = async (req, res) => {
                     code: 'PATIENT_INACTIVE'
                 });
             }
-            // â”€â”€ END INACTIVE GUARD â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            // Ã¢â€â‚¬Ã¢â€â‚¬ END INACTIVE GUARD Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
         }
-        // â”€â”€ END ELIGIBILITY CHECK â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // Ã¢â€â‚¬Ã¢â€â‚¬ END ELIGIBILITY CHECK Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
         // New RX records belong to the patient's active service-date cycle.
         // Older service dates stay available for review/history, not normal creation.
@@ -578,7 +594,7 @@ exports.create = async (req, res) => {
         }
 
         await saveHistory(rx.id, req.user?.id, 'Create', rx.toJSON(), null,
-            `Record created${step1 ? ' â€” auto-completed: ' + step1.name : ''}`, transaction);
+            `Record created${step1 ? ' Ã¢â‚¬â€ auto-completed: ' + step1.name : ''}`, transaction);
 
         await transaction.commit();
         res.status(201).json(rx);
@@ -642,7 +658,7 @@ exports.updateWorkflow = async (req, res) => {
 
 // POST /api/rx-records/bulk-workflow  (FEAT-10)
 // Body: { rxIds: [1,2,3], actionId: 5 }
-// Processes each record independently â€” partial success allowed.
+// Processes each record independently Ã¢â‚¬â€ partial success allowed.
 exports.bulkWorkflow = async (req, res) => {
     try {
         const { rxIds, actionId } = req.body;
@@ -705,7 +721,7 @@ exports.bulkWorkflow = async (req, res) => {
                     continue;
                 }
 
-                // Sequence guard â€” same logic as updateWorkflow
+                // Sequence guard Ã¢â‚¬â€ same logic as updateWorkflow
                 if (prevAction) {
                     var prevCompleted = await db.RXWorkflowTracking.findOne({
                         where: { rxRecordId: rxId, workflowActionId: prevAction.id }
@@ -780,7 +796,7 @@ exports.bulkWorkflow = async (req, res) => {
 };
 
 // PUT /api/rx-records/workflow-date  (FEAT-11: Step date override)
-// Body: { trackingId, newDate }  â€” newDate format: YYYY-MM-DD or ISO string
+// Body: { trackingId, newDate }  Ã¢â‚¬â€ newDate format: YYYY-MM-DD or ISO string
 exports.updateWorkflowDate = async (req, res) => {
     try {
         const { trackingId, newDate } = req.body;
@@ -815,7 +831,7 @@ exports.updateWorkflowDate = async (req, res) => {
         if (!rx)     return res.status(404).json({ error: 'Associated RX record not found.' });
         if (!action) return res.status(404).json({ error: 'Associated workflow action not found.' });
 
-        // â”€â”€ Sequential date guard â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // Ã¢â€â‚¬Ã¢â€â‚¬ Sequential date guard Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
         // Fetch all other trackings for this RX with their workflow actions
         const allTrackings = await db.RXWorkflowTracking.findAll({
             where: { rxRecordId: rx.id },
@@ -866,7 +882,7 @@ exports.updateWorkflowDate = async (req, res) => {
             return res.status(403).json({ error: 'Access denied: you cannot edit workflow dates or override expired RX locks.' });
         }
 
-        // â”€â”€ Step 1: must be >= serviceDate; all steps: must be <= serviceDate + 90 days â”€â”€
+        // Ã¢â€â‚¬Ã¢â€â‚¬ Step 1: must be >= serviceDate; all steps: must be <= serviceDate + 90 days Ã¢â€â‚¬Ã¢â€â‚¬
         const cycleServiceDate = getRxCycleServiceDate(rx);
         if (cycleServiceDate) {
             const svcDay    = new Date(cycleServiceDate); svcDay.setHours(0,0,0,0);
@@ -879,7 +895,7 @@ exports.updateWorkflowDate = async (req, res) => {
                 return res.status(400).json({
                     code: 'RX_WORKFLOW_DATE_WINDOW_LOCKED',
                     windowExpiry: expiryDay.toISOString().slice(0, 10),
-                    error: `Date must be within ${getServiceWindowDays()} days of service date (${svcDay.toLocaleDateString()} â€“ ${expiryDay.toLocaleDateString()}).`
+                    error: `Date must be within ${getServiceWindowDays()} days of service date (${svcDay.toLocaleDateString()} Ã¢â‚¬â€œ ${expiryDay.toLocaleDateString()}).`
                 });
             }
             if (!canEditWorkflowDate && canOverrideExpired && todayDay <= expiryDay) {
@@ -897,7 +913,7 @@ exports.updateWorkflowDate = async (req, res) => {
                 });
             }
         }
-        // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
         const oldDate  = tracking.completionDate ? new Date(tracking.completionDate).toLocaleDateString() : '(none)';
         const newLabel = parsed.toLocaleDateString();
@@ -1030,7 +1046,7 @@ exports.returnToWarehouse = async (req, res) => {
         const rx = await db.RXRecord.findByPk(rxId);
         if (!rx) return res.status(404).json({ error: 'RX Record not found.' });
 
-        // Find Step 1 (warehouse step â€” the first workflow action by sequenceNumber)
+        // Find Step 1 (warehouse step Ã¢â‚¬â€ the first workflow action by sequenceNumber)
         const step1 = await db.WorkflowAction.findOne({
             where: { sequenceNumber: 1 },
             order: [['sequenceNumber', 'ASC']]
@@ -1060,7 +1076,7 @@ exports.returnToWarehouse = async (req, res) => {
         }, { transaction });
 
         await saveHistory(rxId, req.user?.id, 'Workflow', rx.toJSON(), null,
-            `Returned to Warehouse${note ? ': ' + note : ''}${step1 ? ' â€” reset to Step 1: ' + step1.name : ''}`);
+            `Returned to Warehouse${note ? ': ' + note : ''}${step1 ? ' Ã¢â‚¬â€ reset to Step 1: ' + step1.name : ''}`);
 
         await transaction.commit();
         res.status(200).json({ message: 'Returned to warehouse. Workflow reset to Step 1.' });
@@ -1071,7 +1087,7 @@ exports.returnToWarehouse = async (req, res) => {
 };
 
 // PUT /api/rx-records/:id
-// H2 FIX: Explicit field whitelist â€” prevents arbitrary column writes via req.body
+// H2 FIX: Explicit field whitelist Ã¢â‚¬â€ prevents arbitrary column writes via req.body
 const RX_ALLOWED_FIELDS = [
     'patientId', 'arrivalDate', 'serviceDate',
     'pharmacyId', 'patientTransportCompanyId', 'pharmacyTransportCompanyId',
@@ -1093,7 +1109,7 @@ exports.update = async (req, res) => {
             }
         });
 
-        // â”€â”€ 90-DAY SERVICE DATE LOCK â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // Ã¢â€â‚¬Ã¢â€â‚¬ 90-DAY SERVICE DATE LOCK Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
         // Block changes to serviceDate while the current 90-day window is still active.
         // This prevents silently resetting the eligibility clock mid-cycle.
         // bypassEligibility=true allows admin override (e.g., data corrections).
@@ -1131,7 +1147,7 @@ exports.update = async (req, res) => {
                 }
             }
         }
-        // â”€â”€ END SERVICE DATE LOCK â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // Ã¢â€â‚¬Ã¢â€â‚¬ END SERVICE DATE LOCK Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 
         const nextPatientId = safeData.patientId !== undefined ? safeData.patientId : before.patientId;
         const nextServiceDate = safeData.serviceDate !== undefined ? parseDate(safeData.serviceDate) : dateOnly(before.serviceDate);
