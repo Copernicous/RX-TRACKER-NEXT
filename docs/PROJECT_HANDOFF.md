@@ -16,8 +16,8 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
   workflow configuration, PDF, CSV, or business-data behavior changed.
   Production remains on **v4.0.0-next.35** until Project Control option **8**
   then **15** installs this release. Published SHA-256 values:
-  `server-update-4.0.0-next.39.zip` `pending checksum recording`, `server.exe` `pending checksum recording`,
-  and `rx-db.exe` `pending checksum recording`.
+  `server-update-4.0.0-next.39.zip` `2ce75ce63a764b2a7aa81c6d45dba8b2a25471794eb4f9e6aa33f7a508d7a3d3`, `server.exe` `ede40e6869d9f36cf82e427d41c044021215d6913cca07b03b7a53ce64d56b92`,
+  and `rx-db.exe` `b11eb0ccd73ea7ca587150962d3e8f46529a6ea4c2d9f8995b35a777b65c8cb8`.
 - Official **v4.0.0-next.38** was published on 2026-07-30 from `main` commit
   `d9d72af857f8343cab6e1cd61bff16672d6d07ea` after the required PostgreSQL
   lifecycle CI passed and the tagged release workflow built, verified, and
