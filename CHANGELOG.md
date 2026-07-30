@@ -7,6 +7,18 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+## [4.0.0-next.41] - 2026-07-30
+
+### Fixed
+
+- Delivery Log PDF preview now provides a Close button next to Print / Save PDF.
+- Delivery Log PDF and Excel exclude RX records whose active workflow is fully completed/archived.
+- Delivery Log pagination reserves final-page acknowledgement space so patient rows do not overlap signatures.
+
+### Safety
+
+- No database migration, workflow-action configuration, or business-data change.
+
 ## [4.0.0-next.40] - 2026-07-30
 
 ### Added

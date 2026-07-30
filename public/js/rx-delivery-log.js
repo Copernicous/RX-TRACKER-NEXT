@@ -2,7 +2,8 @@
     'use strict';
 
     var DATA_PAGE_SIZE = 24;
-    var SIGNATURE_PAGE_SIZE = 12;
+    // Reserve room for the acknowledgement block on the pharmacy's final page.
+    var SIGNATURE_PAGE_SIZE = 8;
 
     function escapeHtml(value) {
         return String(value == null ? '' : value)
@@ -285,7 +286,20 @@
             '.audit-strip{position:absolute;left:.3in;right:.3in;bottom:.29in;display:flex;justify-content:space-between;align-items:center;border:1px solid #d2dbe4;padding:4px 8px;background:#fafbfd;color:#536174;font-size:6.3px}' +
             '.audit-strip i{display:inline-flex;align-items:center;justify-content:center;width:12px;height:12px;border:1px solid #123b70;border-radius:50%;color:#123b70;font-size:6px;font-style:normal;font-weight:bold}' +
             '.report-footer{position:absolute;left:0;right:0;bottom:0;height:.22in;display:flex;justify-content:space-between;align-items:center;padding:0 .3in;background:#123b70;color:#fff;font-size:6.5px}' +
-            '@media print{body{background:#fff}.report-page{width:auto;min-height:7.82in;margin:0;box-shadow:none;-webkit-print-color-adjust:exact;print-color-adjust:exact}}';
+            '.report-actions{position:fixed;top:16px;right:16px;z-index:10;display:flex;gap:8px}.report-actions button{border:0;border-radius:4px;padding:9px 13px;background:#123b70;color:#fff;font-weight:700;cursor:pointer}.report-actions .report-close-btn{background:#536174}' +
+            '@media print{body{background:#fff}.report-page{width:auto;min-height:7.82in;margin:0;box-shadow:none;-webkit-print-color-adjust:exact;print-color-adjust:exact}.report-actions{display:none}}';
+    }
+
+    function isClosedWorkflow(rx) {
+        var activeActions = Array.isArray(window.allWorkflowActions)
+            ? window.allWorkflowActions.filter(function (action) { return action && action.isActive !== false; })
+            : [];
+        var completedSteps = Array.isArray(rx && rx.completedSteps) ? rx.completedSteps : [];
+        return activeActions.length > 0 && completedSteps.length >= activeActions.length;
+    }
+
+    function openDeliveryLogRecords(records) {
+        return (records || []).filter(function (rx) { return !isClosedWorkflow(rx); });
     }
 
     function fetchRows() {
@@ -307,8 +321,9 @@
             return;
         }
         fetchRows().then(function (records) {
-            if (!records.length) throw new Error('No RX records match the current filters.');
-            var rows = normalizeRows(records);
+            var openRecords = openDeliveryLogRecords(records);
+            if (!openRecords.length) throw new Error('No open RX records are eligible for the delivery log. Closed and archived RX records are excluded.');
+            var rows = normalizeRows(openRecords);
             var baseMetadata = reportMetadata(rows.length);
             var pharmacyGroups = groupRowsByPharmacy(rows);
             var pages = '';
@@ -328,14 +343,21 @@
                 });
             });
             var metadata = baseMetadata;
-            var documentHtml = '<!doctype html><html><head><meta charset="UTF-8"><title>' + escapeHtml(metadata.reference) + '</title><link rel="stylesheet" href="/css/rx-delivery-log.css?v=20260730-4"></head><body>' + pages + '<div class="report-actions"><button id="printReportBtn" type="button">Print / Save PDF</button></div></body></html>';
+            var documentHtml = '<!doctype html><html><head><meta charset="UTF-8"><title>' + escapeHtml(metadata.reference) + '</title><link rel="stylesheet" href="/css/rx-delivery-log.css?v=20260730-5"></head><body>' + pages + '<div class="report-actions"><button id="printReportBtn" type="button">Print / Save PDF</button><button id="closeReportBtn" class="report-close-btn" type="button">Close</button></div></body></html>';
             reportWindow.document.open();
             reportWindow.document.write(documentHtml);
             reportWindow.document.close();
             try {
                 reportWindow.history.replaceState(null, '', '/rx-records/delivery-log-preview');
             } catch {}
-            reportWindow.onload = function () { var printButton = reportWindow.document.getElementById('printReportBtn'); if (printButton) printButton.addEventListener('click', function () { reportWindow.focus(); reportWindow.print(); }); };
+            function bindReportActions() {
+                var printButton = reportWindow.document.getElementById('printReportBtn');
+                var closeButton = reportWindow.document.getElementById('closeReportBtn');
+                if (printButton) printButton.addEventListener('click', function () { reportWindow.focus(); reportWindow.print(); });
+                if (closeButton) closeButton.addEventListener('click', function () { reportWindow.close(); });
+            }
+            reportWindow.onload = bindReportActions;
+            bindReportActions();
         }).catch(function (error) {
             reportWindow.close();
             window.showToast(error.message || 'Could not generate delivery log.', 'danger');
@@ -355,8 +377,9 @@
         destinationPromise.then(function(destination) {
             if (destination && destination.cancelled) return;
             return fetchRows().then(function (records) {
-                if (!records.length) throw new Error('No RX records match the current filters.');
-                var rows = normalizeRows(records);
+                var openRecords = openDeliveryLogRecords(records);
+                if (!openRecords.length) throw new Error('No open RX records are eligible for the delivery log. Closed and archived RX records are excluded.');
+                var rows = normalizeRows(openRecords);
                 var metadata = reportMetadata(rows.length);
                 var pharmacyGroups = groupRowsByPharmacy(rows);
                 var sheets = pharmacyGroups.map(function (group) {
