@@ -8,18 +8,24 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
 
-- Production release candidate **v4.0.0-next.38** is prepared from the
-  validated delivery-workflow and export work on `develop`, merged into `main`.
-  It must be published as a new immutable checksummed GitHub release and then
-  installed only through Project Control options **8** then **15**. It contains
-  two additive audited migrations: `20260729233000-add-delivery-outcome-mode-to-workflow-actions.js`
-  and `20260730000000-add-rx-delivery-outcome.js`. The migrations add outcome
+- Official **v4.0.0-next.38** was published on 2026-07-30 from `main` commit
+  `d9d72af857f8343cab6e1cd61bff16672d6d07ea` after the required PostgreSQL
+  lifecycle CI passed and the tagged release workflow built, verified, and
+  published the compiled assets. The release is published but not installed:
+  production remains on **v4.0.0-next.35** until an operator runs Project
+  Control option **8** followed by option **15**. Published SHA-256 values:
+  `server-update-4.0.0-next.38.zip`
+  `44652df56c87ba17e737e78f9922df671ae8df16c2e3d347767feb68bcada5e3`,
+  `server.exe` `aaa2b623e2c40403709d6db0ab0d6cadbc749d0569824a349fe3b6d4d8e769ba`,
+  and `rx-db.exe` `dfcb88f314407a081bb7b8a49959fc84b39d8e5f4ae4f4392fa9a1f337ca9b0a`.
+  It contains two additive audited migrations:
+  `20260729233000-add-delivery-outcome-mode-to-workflow-actions.js` and
+  `20260730000000-add-rx-delivery-outcome.js`. The migrations add outcome
   configuration/data fields and an index only; they do not reseed, rename,
   enable, disable, or reorder existing configured RX Actions, and they do not
   rewrite business data. Before option 15, verify the production reverse-proxy
   origin is already included in the production CORS configuration through the
   approved configuration process; do not overwrite production `.env`.
-
 - Staging has an unpromoted delivery-outcome correction: **Returned to Pharmacy** is now stored separately from the pre-existing **Returned to Warehouse** flag. The Dashboard tile and RX Records Current Stage filter count only the explicit pharmacy-return outcome; legacy warehouse returns are not auto-converted. A permission-controlled **Reopen Warehouse Return** action preserves the audit and Step 1, then allows the operator to continue the normal delivery outcome, print-log, signature, and archive flow. RX Records also supports searchable multi-select Pharmacy and Clinic filters. The audited migration `20260730000000-add-rx-delivery-outcome.js` adds outcome, date, and note fields only; it performs no business-data rewrite. Staging schema check and read-only parity verification passed on 2026-07-29 (`1` dashboard outcome record = `1` filtered record).
 - Staging is healthy on the `4.0.0-next.37` source candidate at port 3100. It
   adds inclusive RX Records **Current Stage Date From/To** filters and a
