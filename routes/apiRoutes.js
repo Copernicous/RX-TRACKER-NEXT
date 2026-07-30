@@ -223,7 +223,7 @@ const LOOKUP_MAP = {
     'clinics':            { model: db.Clinic,                    fields: ['id', 'name',        'address'],       where: { isActive: true } },
     'patient-transport':  { model: db.PatientTransportCompany,   fields: ['id', 'companyName', 'contactPerson'], where: { isActive: true } },
     'pharmacy-transport': { model: db.PharmacyTransportCompany,  fields: ['id', 'companyName', 'contactPerson'], where: { isActive: true } },
-    'workflow-actions':   { model: db.WorkflowAction,            fields: ['id', 'name', 'sequenceNumber', 'description'], where: { isActive: true }, order: [['sequenceNumber', 'ASC'], ['id', 'ASC']] },
+    'workflow-actions':   { model: db.WorkflowAction,            fields: ['id', 'name', 'sequenceNumber', 'description', 'deliveryOutcomeMode'], where: { isActive: true }, order: [['sequenceNumber', 'ASC'], ['id', 'ASC']] },
     'medication-catalog': { model: db.MedicationCatalog,         fields: ['id', 'name', 'sortOrder', 'description'],      where: { isActive: true } },
 };
 router.get('/lookup/:module', async (req, res) => {

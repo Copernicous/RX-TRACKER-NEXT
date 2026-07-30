@@ -598,8 +598,13 @@ exports.updateWorkflow = async (req, res) => {
             userId: req.user.id
         });
 
-        // If this RX was previously returned to warehouse, clear the flag now that it's moving again
-        if (rx.returnedToWarehouse && action.sequenceNumber > 1) {
+        // Preserve a patient-refused delivery outcome through later receipt/log steps.
+        // Legacy warehouse returns still clear when the RX starts moving again before the delivery step.
+        var deliveryAction = (await db.WorkflowAction.findAll({ attributes: ['name', 'sequenceNumber', 'deliveryOutcomeMode'] })).find(function (item) {
+            return item.deliveryOutcomeMode === 'delivered_or_returned';
+        });
+        var isPostDeliveryStep = deliveryAction && action.sequenceNumber > deliveryAction.sequenceNumber;
+        if (rx.returnedToWarehouse && action.sequenceNumber > 1 && !isPostDeliveryStep) {
             await rx.update({
                 returnedToWarehouse: false,
                 warehouseReturnDate: null,
@@ -894,16 +899,21 @@ exports.updateWorkflowDate = async (req, res) => {
 
 // POST /api/rx-records/undo-workflow
 exports.undoWorkflow = async (req, res) => {
+    const transaction = await db.sequelize.transaction();
     try {
         const { rxId } = req.body;
 
         // BUG-03 FIX: Guard against null RX record before any further operations
-        const rx = await db.RXRecord.findByPk(rxId);
-        if (!rx) return res.status(404).json({ error: 'RX Record not found.' });
+        const rx = await db.RXRecord.findByPk(rxId, { transaction });
+        if (!rx) {
+            await transaction.rollback();
+            return res.status(404).json({ error: 'RX Record not found.' });
+        }
 
         const completedTrackings = await db.RXWorkflowTracking.findAll({
             where: { rxRecordId: rxId },
-            include: [{ model: db.WorkflowAction }]
+            include: [{ model: db.WorkflowAction }],
+            transaction
         });
 
         const latestTracking = completedTrackings
@@ -919,17 +929,41 @@ exports.undoWorkflow = async (req, res) => {
             })[0] || completedTrackings
             .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())[0];
 
-        if (!latestTracking) return res.status(400).json({ error: 'No workflow steps to undo.' });
+        if (!latestTracking) {
+            await transaction.rollback();
+            return res.status(400).json({ error: 'No workflow steps to undo.' });
+        }
 
-        const stepName = latestTracking.WorkflowAction ? latestTracking.WorkflowAction.name : 'step';
-        await latestTracking.destroy();
+        const action = latestTracking.WorkflowAction;
+        const stepName = action ? action.name : 'step';
+        const undoingDeliveryOutcome = action && action.deliveryOutcomeMode === 'delivered_or_returned';
+        await latestTracking.destroy({ transaction });
 
-        await saveHistory(rxId, req.user?.id, 'Workflow', rx.toJSON(), null, `Step undone: ${stepName}`);
+        if (undoingDeliveryOutcome) {
+            await rx.update({
+                returnedToWarehouse: false,
+                warehouseReturnDate: null,
+                warehouseReturnNote: null
+            }, { transaction });
+        }
+
+        await saveHistory(
+            rxId,
+            req.user?.id,
+            'Workflow',
+            rx.toJSON(),
+            null,
+            undoingDeliveryOutcome ? `Delivery outcome undone: ${stepName}` : `Step undone: ${stepName}`,
+            transaction
+        );
+        await transaction.commit();
 
         res.status(200).json({ message: 'Undo successful' });
-    } catch (err) { res.status(400).json({ error: err.message }); }
+    } catch (err) {
+        await transaction.rollback();
+        res.status(400).json({ error: err.message });
+    }
 };
-
 // POST /api/rx-records/return-to-warehouse
 exports.returnToWarehouse = async (req, res) => {
     const transaction = await db.sequelize.transaction();

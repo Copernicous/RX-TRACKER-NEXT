@@ -523,9 +523,9 @@
                                 <a href="/rx-records" class="btn btn-outline-primary btn-sm"><i class="fas fa-external-link-alt me-1"></i>View RX Records</a>
                             </div>
                         </div>
-                        <div class="text-muted mb-2" data-i18n-ui style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em">Workflow Status</div>
+                        <div class="text-muted mb-2" data-i18n-ui style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em">Workflow Status &amp; Outcome</div>
                         <div class="row g-3 mb-4" id="rxPipelineSummary">
-                            <div class="col-md-6 col-xl-3">
+                            <div class="col-md-6 col-xl">
                                 <a id="xl-rx-records-not-started" href="/rx-records?workflowStatus=not-started" class="text-decoration-none text-reset d-block h-100">
                                     <div class="h-100" style="background:rgba(108,117,125,.08);border-radius:12px;padding:16px 20px;display:flex;align-items:center;gap:14px">
                                         <div style="width:44px;height:44px;border-radius:50%;background:rgba(108,117,125,.15);display:flex;align-items:center;justify-content:center;flex-shrink:0"><i class="fas fa-hourglass-start" style="color:#6c757d;font-size:1.1rem"></i></div>
@@ -533,7 +533,7 @@
                                     </div>
                                 </a>
                             </div>
-                            <div class="col-md-6 col-xl-3">
+                            <div class="col-md-6 col-xl">
                                 <a id="xl-rx-records-in-progress" href="/rx-records?workflowStatus=in-progress" class="text-decoration-none text-reset d-block h-100">
                                     <div class="h-100" style="background:rgba(253,126,20,.08);border-radius:12px;padding:16px 20px;display:flex;align-items:center;gap:14px">
                                         <div style="width:44px;height:44px;border-radius:50%;background:rgba(253,126,20,.15);display:flex;align-items:center;justify-content:center;flex-shrink:0"><i class="fas fa-spinner" style="color:#fd7e14;font-size:1.1rem"></i></div>
@@ -541,7 +541,7 @@
                                     </div>
                                 </a>
                             </div>
-                            <div class="col-md-6 col-xl-3">
+                            <div class="col-md-6 col-xl">
                                 <a id="xl-rx-records-expired" href="/rx-records?workflowStatus=expired" class="text-decoration-none text-reset d-block h-100">
                                     <div class="h-100" style="background:rgba(220,53,69,.08);border-radius:12px;padding:16px 20px;display:flex;align-items:center;gap:14px">
                                         <div style="width:44px;height:44px;border-radius:50%;background:rgba(220,53,69,.15);display:flex;align-items:center;justify-content:center;flex-shrink:0"><i class="fas fa-calendar-times" style="color:#dc3545;font-size:1.1rem"></i></div>
@@ -549,11 +549,19 @@
                                     </div>
                                 </a>
                             </div>
-                            <div class="col-md-6 col-xl-3">
+                            <div class="col-md-6 col-xl">
                                 <a id="xl-rx-records-completed" href="/rx-records?workflowStatus=completed" class="text-decoration-none text-reset d-block h-100">
                                     <div class="h-100" style="background:rgba(25,135,84,.08);border-radius:12px;padding:16px 20px;display:flex;align-items:center;gap:14px">
                                         <div style="width:44px;height:44px;border-radius:50%;background:rgba(25,135,84,.15);display:flex;align-items:center;justify-content:center;flex-shrink:0"><i class="fas fa-check-circle" style="color:#198754;font-size:1.1rem"></i></div>
                                         <div><div class="text-muted" style="font-size:.75rem;text-transform:uppercase;letter-spacing:.05em">Completed</div><div class="fw-bold fs-3" id="rxPipelineCompleted">&mdash;</div></div>
+                                    </div>
+                                </a>
+                            </div>
+                            <div class="col-md-6 col-xl">
+                                <a id="xl-rx-records-returned" href="/rx-records?warehouseStatus=returned" class="text-decoration-none text-reset d-block h-100">
+                                    <div class="h-100" style="background:rgba(217,119,6,.10);border-radius:12px;padding:16px 20px;display:flex;align-items:center;gap:14px">
+                                        <div style="width:44px;height:44px;border-radius:50%;background:rgba(217,119,6,.18);display:flex;align-items:center;justify-content:center;flex-shrink:0"><i class="fas fa-undo-alt" style="color:#b45309;font-size:1.1rem"></i></div>
+                                        <div><div class="text-muted" style="font-size:.75rem;text-transform:uppercase;letter-spacing:.05em">Returned to Pharmacy</div><div class="fw-bold fs-3" id="rxPipelineReturned">&mdash;</div></div>
                                     </div>
                                 </a>
                             </div>
