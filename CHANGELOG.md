@@ -7,6 +7,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+## [4.0.0-next.45] - 2026-07-30
+
+### Fixed
+
+- RX Details now loads Patient Transport and Pharmacy Transport associations through the same canonical include set used by the RX list, so transport values synchronized from the Patient profile display correctly when the RX record is opened.
+
+### Safety
+
+- No database migration, workflow-action configuration, automatic synchronization, or business-data rewrite. The correction changes only the read response for a single RX record.
+
 ## [4.0.0-next.44] - 2026-07-30
 
 ### Added

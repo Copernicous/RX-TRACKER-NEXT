@@ -262,14 +262,20 @@ async function main() {
     const viewSource = fs.readFileSync(path.join(__dirname, '..', 'views', 'backoffice.ejs'), 'utf8');
     const browserSource = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'backoffice-features.js'), 'utf8');
     const routeSource = fs.readFileSync(path.join(__dirname, '..', 'routes', 'apiRoutes.js'), 'utf8');
+    const rxControllerSource = fs.readFileSync(path.join(__dirname, '..', 'controllers', 'rxController.js'), 'utf8');
     assert.match(viewSource, /id="rxSyncBulkBtn"/);
     assert.match(viewSource, /Export Sync History/);
     assert.match(browserSource, /function bulkSyncRxProfiles\(\)/);
     assert.match(browserSource, /function exportRxProfileSyncHistory\(\)/);
     assert.match(routeSource, /rx-profile-sync\/bulk/);
     assert.match(routeSource, /rx-profile-sync\/export/);
+    assert.match(
+        rxControllerSource,
+        /exports\.getOne[\s\S]*?RXRecord\.findByPk\(req\.params\.id,\s*\{\s*include:\s*rxInclude\(\)/,
+        'The RX Details endpoint must include the same transport associations as the RX list.'
+    );
 
-    console.log('PASS: RX Profile Sync preserves pharmacy behavior, persists both transport fields, preserves values when the Patient profile is blank, bulk-syncs audited RX records, exports history, and rejects partial saves.');
+    console.log('PASS: RX Profile Sync persists profile fields, exports audited history, rejects partial saves, and exposes synced transports in RX Details.');
 }
 
 main().catch(error => {

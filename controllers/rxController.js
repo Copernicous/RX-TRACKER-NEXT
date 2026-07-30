@@ -423,7 +423,7 @@ exports.getAll = async (req, res) => {
 exports.getOne = async (req, res) => {
     try {
         const data = await db.RXRecord.findByPk(req.params.id, {
-            include: [db.Patient, db.PatientServiceDateCycle, db.Pharmacy, db.Medication, db.RXWorkflowTracking]
+            include: rxInclude()
         });
         if (!data) return res.status(404).json({ message: 'Not found' });
         const activeActionIds = await getActiveWorkflowActionIds();
