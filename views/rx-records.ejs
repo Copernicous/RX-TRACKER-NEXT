@@ -482,6 +482,9 @@
     </div>
 </div>
 
+<!-- RX Export Column Selector Modal -->
+<div class="modal fade" id="rxExportColumnsModal" tabindex="-1" aria-hidden="true"><div class="modal-dialog modal-lg modal-dialog-scrollable"><div class="modal-content" style="border-radius:16px;overflow:hidden"><div class="modal-header" style="background:linear-gradient(135deg,#1a3a5c,#2d6a9f);color:#fff;border:none"><div><h5 class="modal-title mb-0"><i class="fas fa-file-export me-2"></i>Export RX Records &mdash; Select Columns</h5><small style="opacity:.75" id="rxExportModalCount">Exporting 0 records matching current filters</small></div><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="d-flex justify-content-between align-items-center mb-3 gap-2"><span class="fw-bold small">Choose which columns to include:</span><div class="d-flex gap-2"><button class="btn btn-outline-primary btn-sm" type="button" id="rxExportSelectAllBtn"><i class="fas fa-check-double me-1"></i>All</button><button class="btn btn-outline-secondary btn-sm" type="button" id="rxExportSelectNoneBtn"><i class="fas fa-times me-1"></i>None</button></div></div><div class="row g-2" id="rxExportColList"></div><div class="mt-3 p-2 rounded" style="background:rgba(74,144,226,.06);border:1px solid rgba(74,144,226,.15)"><small class="text-muted"><i class="fas fa-info-circle me-1 text-primary"></i>Only RX records matching your current search and filters will be exported.</small></div></div><div class="modal-footer border-0 pt-0"><button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-success px-4" id="doRxExportBtn"><i class="fas fa-download me-2"></i>Export CSV</button></div></div></div></div>
+
 <!-- RX Detail View Modal -->
 <div class="modal fade" id="rxDetailModal" tabindex="-1">
     <div class="modal-dialog modal-lg modal-dialog-scrollable">
@@ -1038,97 +1041,23 @@
         var bulkCloseConfirmBtn = document.getElementById('bulkCloseExpiredConfirmBtn');
         if (bulkCloseConfirmBtn) bulkCloseConfirmBtn.addEventListener('click', _rxRunBulkCloseExpired);
 
-        document.getElementById('exportRxListCsvBtn').addEventListener('click', function() {
-            function runRxCsvExport(rowsForExport) {
-            if (!rowsForExport.length) { showToast('No data to export.', 'warning'); return; }
-
-            var stageHeaders = [];
-            allWorkflowActions.forEach(function(a) {
-                stageHeaders.push(a.name);
-                stageHeaders.push(a.name + ' (Days Lag)');
-            });
-            var headers = [
-                'RX #', 'Patient ID', 'Patient Name', 'Pharmacy', 'Clinic', 'Service Date',
-                'Warehouse Status', 'Warehouse Return Date', 'Warehouse Return Note',
-                'Completed Steps', 'Current Stage', 'Current Stage Date', 'Next Action Required'
-            ].concat(stageHeaders);
-
-            function _csvDaysBetween(d1, d2) {
-                var t1 = new Date(d1); t1.setHours(0,0,0,0);
-                var t2 = new Date(d2); t2.setHours(0,0,0,0);
-                return Math.round((t2 - t1) / 864e5);
-            }
-
-            var rows = rowsForExport.map(function(rx) {
-                var trkMap = {};
-                var currentStageDateValue = getRxCurrentStageDateValue(rx);
-                (rx.RXWorkflowTrackings || []).forEach(function(t) { trkMap[t.workflowActionId] = t; });
-                var currentAction = null;
-                var nextAction = null;
-                allWorkflowActions.forEach(function(action, actionIndex) {
-                    if (trkMap[action.id]) {
-                        if (
-                            !currentAction
-                            || Number(action.sequenceNumber || actionIndex + 1)
-                                > Number(currentAction.sequenceNumber || 0)
-                        ) {
-                            currentAction = action;
-                        }
-                    } else if (!nextAction) {
-                        nextAction = action;
-                    }
-                });
-                var row = [
-                    rx.id,
-                    rx.Patient ? (rx.Patient.patientCode || rx.patientId) : rx.patientId,
-                    rx.Patient ? (rx.Patient.firstName + ' ' + rx.Patient.lastName).trim() : '',
-                    rx.Pharmacy ? rx.Pharmacy.name : '',
-                    rx.Patient && rx.Patient.Clinic ? rx.Patient.Clinic.name : '',
-                    rx.serviceDate ? new Date(rx.serviceDate).toLocaleDateString() : '',
-                    rx.returnedToWarehouse ? 'Returned to Warehouse' : 'Not Returned',
-                    rx.warehouseReturnDate ? new Date(rx.warehouseReturnDate).toLocaleString() : '',
-                    rx.warehouseReturnNote || '',
-                    getRxCompletedStepCount(rx) + ' / ' + allWorkflowActions.length,
-                    currentAction ? currentAction.name : 'Not Started',
-                    currentStageDateValue ? formatRxAppDateTime(currentStageDateValue) : '',
-                    nextAction ? nextAction.name : (allWorkflowActions.length ? 'Workflow Completed' : '')
-                ];
-                var svcDate = rx.serviceDate ? new Date(rx.serviceDate) : null;
-                allWorkflowActions.forEach(function(a, idx) {
-                    var trk = trkMap[a.id];
-                    row.push(trk && trk.completionDate ? new Date(trk.completionDate).toLocaleDateString() : '');
-                    var lag = '';
-                    if (trk && trk.completionDate) {
-                        var prevDate = null;
-                        if (idx === 0) { prevDate = svcDate; }
-                        else {
-                            var prevTrk = trkMap[allWorkflowActions[idx-1].id];
-                            if (prevTrk && prevTrk.completionDate) prevDate = new Date(prevTrk.completionDate);
-                        }
-                        if (prevDate) { lag = _csvDaysBetween(prevDate, new Date(trk.completionDate)); }
-                    }
-                    row.push(lag);
-                });
-                return row;
-            });
-            exportToCsv('rx_workflow_report_' + new Date().toISOString().slice(0,10) + '.csv', headers, rows);
-            }
-
-            if (rxServerPaging) {
-                var params = buildRxQueryParams({ exportAll: true });
-                fetchWithAuth(window.rxUrl('/api/rx-records') + '?' + params.toString()).then(function(res) {
-                    if (!res || !res.ok) { showToast('Could not export RX records.', 'danger'); return; }
-                    return res.json();
-                }).then(function(data) {
-                    if (!data) return;
-                    runRxCsvExport(Array.isArray(data.rows) ? data.rows : []);
-                }).catch(function() {
-                    showToast('Could not export RX records.', 'danger');
-                });
-            } else {
-                runRxCsvExport(filteredRx);
-            }
-        });
+        function rxCsvDate(value, withTime) { if (!value) return ''; var raw=String(value); if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw; var date=new Date(value); return isNaN(date.getTime())?raw:(withTime?formatRxAppDateTime(value):date.toLocaleDateString()); }
+        function rxCsvPath(obj, path) { return path.split('.').reduce(function(value,key){return value&&value[key]!==undefined?value[key]:'';},obj); }
+        function rxCsvStageInfo(rx) { var tracks={};(rx.RXWorkflowTrackings||[]).forEach(function(t){var k=String(t.workflowActionId),old=tracks[k];if(!old||new Date(t.completionDate||0)>=new Date(old.completionDate||0))tracks[k]=t;});var current=null,next=null;allWorkflowActions.forEach(function(a,i){if(tracks[String(a.id)]){if(!current||Number(a.sequenceNumber||i+1)>Number(current.sequenceNumber||0))current=a;}else if(!next)next=a;});return {tracks:tracks,current:current,next:next,currentDate:getRxCurrentStageDateValue(rx)}; }
+        function rxCsvColumns() { var items=[
+          ['rxId','RX Record ID',function(r){return r.id||'';}],['patientRecordId','Patient Record ID',function(r){return r.patientId||'';}],['patientId','Patient ID',function(r){return rxCsvPath(r,'Patient.patientCode');}],['patientFirst','Patient First Name',function(r){return rxCsvPath(r,'Patient.firstName');}],['patientLast','Patient Last Name',function(r){return rxCsvPath(r,'Patient.lastName');}],['patientName','Patient Full Name',function(r){return [rxCsvPath(r,'Patient.firstName'),rxCsvPath(r,'Patient.lastName')].filter(Boolean).join(' ');}],['patientDob','Patient Date of Birth',function(r){return rxCsvPath(r,'Patient.dob');}],['patientPhone','Patient Phone',function(r){return rxCsvPath(r,'Patient.phone');}],['patientAddress','Patient Address',function(r){return rxCsvPath(r,'Patient.address');}],['patientType','Patient Type',function(r){return rxCsvPath(r,'Patient.isNonCompanyPatient')?'Non-Company':'Company';}],
+          ['arrivalDate','Arrival Date',function(r){return rxCsvDate(r.arrivalDate);}],['serviceDate','RX Service Date',function(r){return rxCsvDate(r.serviceDate);}],['cycleId','Service Date Cycle ID',function(r){return r.patientServiceDateCycleId||'';}],['rxStatus','RX Status',function(r){return r.isDeleted?'Deleted':'Active';}],['deletedAt','RX Deleted At',function(r){return rxCsvDate(r.deletedAt,true);}],
+          ['pharmacyId','Pharmacy ID',function(r){return r.pharmacyId||'';}],['pharmacy','Pharmacy',function(r){return rxCsvPath(r,'Pharmacy.name');}],['pharmacyAddress','Pharmacy Address',function(r){return rxCsvPath(r,'Pharmacy.address');}],['pharmacyPhone','Pharmacy Phone',function(r){return rxCsvPath(r,'Pharmacy.phone');}],['pharmacyContact','Pharmacy Contact',function(r){return rxCsvPath(r,'Pharmacy.contactPerson');}],
+          ['clinicId','Clinic ID',function(r){return rxCsvPath(r,'Patient.clinicId');}],['clinic','Clinic',function(r){return rxCsvPath(r,'Patient.Clinic.name');}],['clinicAddress','Clinic Address',function(r){return rxCsvPath(r,'Patient.Clinic.address');}],['clinicPhone','Clinic Phone',function(r){return rxCsvPath(r,'Patient.Clinic.phone');}],['clinicContact','Clinic Contact',function(r){return rxCsvPath(r,'Patient.Clinic.contactPerson');}],
+          ['patientTransportId','Patient Transport ID',function(r){return r.patientTransportCompanyId||'';}],['patientTransport','Patient Transport',function(r){return rxCsvPath(r,'PatientTransportCompany.companyName')||rxCsvPath(r,'PatientTransportCompany.contactPerson');}],['patientTransportContact','Patient Transport Contact',function(r){return rxCsvPath(r,'PatientTransportCompany.contactPerson');}],['patientTransportPhone','Patient Transport Phone',function(r){return rxCsvPath(r,'PatientTransportCompany.phone');}],['pharmacyTransportId','Pharmacy Transport ID',function(r){return r.pharmacyTransportCompanyId||'';}],['pharmacyTransport','Pharmacy Transport',function(r){return rxCsvPath(r,'PharmacyTransportCompany.companyName')||rxCsvPath(r,'PharmacyTransportCompany.contactPerson');}],['pharmacyTransportContact','Pharmacy Transport Contact',function(r){return rxCsvPath(r,'PharmacyTransportCompany.contactPerson');}],['pharmacyTransportPhone','Pharmacy Transport Phone',function(r){return rxCsvPath(r,'PharmacyTransportCompany.phone');}],
+          ['warehouseStatus','Warehouse Status',function(r){return r.returnedToWarehouse?'Returned to Warehouse':'Not Returned';}],['warehouseDate','Warehouse Return Date',function(r){return rxCsvDate(r.warehouseReturnDate,true);}],['warehouseNote','Warehouse Return Note',function(r){return r.warehouseReturnNote||'';}],['deliveryOutcome','Delivery Outcome',function(r){return r.deliveryOutcome==='returned'?'Returned to Pharmacy':(r.deliveryOutcome==='delivered'?'Delivered':'Not Recorded');}],['deliveryDate','Delivery Outcome Date',function(r){return rxCsvDate(r.deliveryOutcomeDate,true);}],['deliveryNote','Delivery Outcome Note',function(r){return r.deliveryOutcomeNote||'';}],
+          ['completedSteps','Completed Steps',function(r){return getRxCompletedStepCount(r)+' / '+allWorkflowActions.length;}],['currentStage','Current Stage',function(r,i){return i.current?i.current.name:'Not Started';}],['currentStageDate','Current Stage Date',function(r,i){return i.currentDate?rxCsvDate(i.currentDate,true):'';}],['nextAction','Next Action Required',function(r,i){return i.next?i.next.name:(allWorkflowActions.length?'Workflow Completed':'');}],['createdAt','RX Created At',function(r){return rxCsvDate(r.createdAt,true);}],['updatedAt','RX Updated At',function(r){return rxCsvDate(r.updatedAt,true);}]
+        ].map(function(x){return {key:x[0],label:x[1],fn:x[2]};});allWorkflowActions.forEach(function(a,index){var key=String(a.id);items.push({key:'stageStatus_'+key,label:a.name+' Status',fn:function(r,i){return i.tracks[key]?'Completed':'Pending';}},{key:'stageDate_'+key,label:a.name+' Completed Date',fn:function(r,i){var t=i.tracks[key];return t&&t.completionDate?rxCsvDate(t.completionDate,true):'';}},{key:'stageLag_'+key,label:a.name+' Days Lag',fn:function(r,i){var t=i.tracks[key],previous=index===0?r.serviceDate:(i.tracks[String(allWorkflowActions[index-1].id)]||{}).completionDate;if(!t||!previous)return '';var x=new Date(previous),y=new Date(t.completionDate);x.setHours(0,0,0,0);y.setHours(0,0,0,0);return Math.round((y-x)/864e5);}});});return items; }
+        var rxCsvSelected={};function rxCsvPaint(key){var el=document.getElementById('rxEcWrap_'+key);if(el){el.style.background=rxCsvSelected[key]?'rgba(40,167,69,.08)':'';el.style.borderColor=rxCsvSelected[key]?'rgba(40,167,69,.35)':'';}}
+        function rxCsvSetAll(value){rxCsvColumns().forEach(function(c){rxCsvSelected[c.key]=value;var box=document.getElementById('rxEc_'+c.key);if(box)box.checked=value;rxCsvPaint(c.key);});}
+        function openRxExportModal(){var count=rxServerPaging?rxTotalCount:filteredRx.length;if(!count){showToast('No RX records to export. Adjust filters first.','warning');return;}document.getElementById('rxExportModalCount').textContent='Exporting '+count+' record'+(count===1?'':'s')+' matching current filters';var html='';rxCsvColumns().forEach(function(c){if(rxCsvSelected[c.key]===undefined)rxCsvSelected[c.key]=true;html+='<div class="col-md-6"><label class="d-flex align-items-center gap-2 p-2 rounded" style="border:1px solid var(--border-color,#dee2e6);cursor:pointer" id="rxEcWrap_'+c.key+'"><input type="checkbox" class="form-check-input mt-0 rx-ec-col-checkbox" id="rxEc_'+c.key+'" data-col-key="'+c.key+'" '+(rxCsvSelected[c.key]?'checked':'')+'><span class="small">'+c.label+'</span></label></div>';});var list=document.getElementById('rxExportColList');list.innerHTML=html;list.querySelectorAll('.rx-ec-col-checkbox').forEach(function(box){box.addEventListener('change',function(){var key=this.getAttribute('data-col-key');rxCsvSelected[key]=this.checked;rxCsvPaint(key);});});rxCsvColumns().forEach(function(c){rxCsvPaint(c.key);});bootstrap.Modal.getOrCreateInstance(document.getElementById('rxExportColumnsModal')).show();}
+        function rxCsvRows(){if(!rxServerPaging)return Promise.resolve(filteredRx);var params=buildRxQueryParams({exportAll:true});return fetchWithAuth(window.rxUrl('/api/rx-records')+'?'+params.toString()).then(function(res){if(!res||!res.ok)throw Error('Could not load RX records for export.');return res.json();}).then(function(data){return data&&Array.isArray(data.rows)?data.rows:[];});}
+        document.getElementById('exportRxListCsvBtn').addEventListener('click',openRxExportModal);document.getElementById('rxExportSelectAllBtn').addEventListener('click',function(){rxCsvSetAll(true);});document.getElementById('rxExportSelectNoneBtn').addEventListener('click',function(){rxCsvSetAll(false);});document.getElementById('doRxExportBtn').addEventListener('click',function(){var selected=rxCsvColumns().filter(function(c){return rxCsvSelected[c.key];});if(!selected.length){showToast('Select at least one column.','warning');return;}rxCsvRows().then(function(records){if(!records.length){showToast('No RX records to export.','warning');return;}var rows=records.map(function(record){var info=rxCsvStageInfo(record);return selected.map(function(c){return c.fn(record,info);});});exportToCsv('rx_records_'+new Date().toISOString().slice(0,10)+'.csv',selected.map(function(c){return c.label;}),rows);bootstrap.Modal.getInstance(document.getElementById('rxExportColumnsModal')).hide();showToast('Exported '+records.length+' records ('+selected.length+' columns).','success');}).catch(function(error){showToast((error&&error.message)||'Could not export RX records.','danger');});});
 
         var urlParams = new URLSearchParams(window.location.search);
         var patientId   = urlParams.get('patient');
