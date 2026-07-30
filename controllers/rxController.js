@@ -198,9 +198,9 @@ function addRxPageFilters(query, replacements, totalSteps) {
     const patientTransportId = cleanString(query.patientTransportId);
     const pharmacyTransportId = cleanString(query.pharmacyTransportId);
     const warehouseStatus = cleanString(query.warehouseStatus);
-    const workflowStatus = cleanString(query.workflowStatus);
+    const workflowStatus = String(query.workflowStatus || '').split(',').map(cleanString).filter(Boolean);
     const workflowStage = cleanString(query.workflowStage);
-    const currentWorkflowStage = cleanString(query.currentWorkflowStage);
+    const currentWorkflowStage = String(query.currentWorkflowStage || '').split(',').map(cleanString).filter(Boolean);
     const deliveryOutcome = cleanString(query.deliveryOutcome);
     const currentStageDateFrom = localDayBoundaryIso(query.currentStageDateFrom, 0);
     const currentStageDateToExclusive = localDayBoundaryIso(query.currentStageDateTo, 1);
@@ -262,49 +262,33 @@ function addRxPageFilters(query, replacements, totalSteps) {
         whereSql.push('LOWER(COALESCE(p."patientCode", \'\')) LIKE :patientCodeLike');
     }
 
-    if (workflowStatus === 'incomplete') {
-        // Dashboard Pending card: every incomplete RX, including expired cycles.
-        whereSql.push(`NOT ${completedExprSql}`);
-    } else if (workflowStatus === 'pending') {
-        // Operational Pending status excludes the separately labeled Expired status.
-        whereSql.push(`NOT ${completedExprSql}`);
-        whereSql.push(`NOT ${expiredExpr}`);
-    } else if (workflowStatus === 'expired') {
-        whereSql.push(expiredExpr);
-    } else if (workflowStatus === 'completed') {
-        whereSql.push(completedExprSql);
-    } else if (workflowStatus === 'in-progress') {
-        whereSql.push(`${completedExpr} > 0`);
-        whereSql.push(`NOT ${completedExprSql}`);
-        whereSql.push(`NOT ${expiredExpr}`);
-    } else if (workflowStatus === 'not-started') {
-        whereSql.push(`${completedExpr} = 0`);
-        whereSql.push(`NOT ${expiredExpr}`);
+    if (workflowStatus.length) {
+        const statusConditions = workflowStatus.map(function(status) {
+            if (status === 'incomplete') return 'NOT ' + completedExprSql;
+            if (status === 'pending') return '(NOT ' + completedExprSql + ' AND NOT ' + expiredExpr + ')';
+            if (status === 'expired') return expiredExpr;
+            if (status === 'completed') return completedExprSql;
+            if (status === 'in-progress') return '(' + completedExpr + ' > 0 AND NOT ' + completedExprSql + ' AND NOT ' + expiredExpr + ')';
+            if (status === 'not-started') return '(' + completedExpr + ' = 0 AND NOT ' + expiredExpr + ')';
+            return '';
+        }).filter(Boolean);
+        if (statusConditions.length) whereSql.push('(' + statusConditions.join(' OR ') + ')');
     }
 
     if (/^\d+$/.test(workflowStage)) {
         replacements.workflowStageDone = parseInt(workflowStage, 10) - 1;
         whereSql.push(`${completedExpr} = :workflowStageDone`);
     }
-    if (currentWorkflowStage === 'print_log') {
-        whereSql.push(`(
-            r."deliveryOutcome" = 'returned_to_pharmacy'
-            OR EXISTS (
-                SELECT 1
-                FROM "WorkflowActions" print_action
-                WHERE print_action."isActive" = TRUE
-                  AND print_action."sequenceNumber" = wc.current_stage_sequence
-                  AND (
-                      LOWER(TRIM(COALESCE(print_action.name, ''))) LIKE '%print log%'
-                      OR LOWER(TRIM(COALESCE(print_action.name, ''))) = 'driver receipt obtained'
-                  )
-            )
-        )`);
-    } else if (currentWorkflowStage === 'returned_to_pharmacy' || deliveryOutcome === 'returned_to_pharmacy') {
-        whereSql.push('r."deliveryOutcome" = \'returned_to_pharmacy\'');
-    } else if (/^\d+$/.test(currentWorkflowStage)) {
-        replacements.currentWorkflowStage = parseInt(currentWorkflowStage, 10);
-        whereSql.push('wc.current_stage_sequence = :currentWorkflowStage');
+    if (currentWorkflowStage.length) {
+        const stageConditions = currentWorkflowStage.map(function(stage, index) {
+            if (stage === 'print_log') return `(r."deliveryOutcome" = 'returned_to_pharmacy' OR EXISTS (SELECT 1 FROM "WorkflowActions" print_action WHERE print_action."isActive" = TRUE AND print_action."sequenceNumber" = wc.current_stage_sequence AND (LOWER(TRIM(COALESCE(print_action.name, ''))) LIKE '%print log%' OR LOWER(TRIM(COALESCE(print_action.name, ''))) = 'driver receipt obtained')))`;
+            if (stage === 'returned_to_pharmacy') return `r."deliveryOutcome" = 'returned_to_pharmacy'`;
+            if (/^\d+$/.test(stage)) { const key = 'currentWorkflowStage' + index; replacements[key] = parseInt(stage, 10); return 'wc.current_stage_sequence = :' + key; }
+            return '';
+        }).filter(Boolean);
+        if (stageConditions.length) whereSql.push('(' + stageConditions.join(' OR ') + ')');
+    } else if (deliveryOutcome === 'returned_to_pharmacy') {
+        whereSql.push(`r."deliveryOutcome" = 'returned_to_pharmacy'`);
     }
     if (currentStageDateFrom) {
         replacements.currentStageDateFrom = currentStageDateFrom;
