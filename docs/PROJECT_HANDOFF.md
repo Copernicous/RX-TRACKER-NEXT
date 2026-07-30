@@ -8,7 +8,21 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
 
-- **v4.0.0-next.40 candidate** is prepared for release. It adds native browser Save As selection for the Patient CSV, RX Records CSV, and Delivery Log Excel exports when accessed through a secure browser origin, with the existing browser-download fallback otherwise. It also simplifies the Delivery Log audit strip, changes report references from `RX-LOG-...` to `LOG-...`, and replaces the PDF preview window address from `about:blank` to a same-origin preview address without changing the validated page footer layout. No database migration, workflow configuration, or business-data change is included.
+- Official **v4.0.0-next.40** was published on 2026-07-30 from `main` commit
+  `07a28abd0daf7beca34278a2df2c10c2fdcf6f59` after PostgreSQL lifecycle CI and
+  the tagged compiled-release workflow passed. It adds native browser Save As
+  selection for Patient CSV, RX Records CSV, and Delivery Log Excel exports on
+  secure browser origins, with the existing browser-download fallback otherwise.
+  It also simplifies the Delivery Log audit strip, changes report references
+  from `RX-LOG-...` to `LOG-...`, and replaces the PDF preview window address
+  from `about:blank` to a same-origin preview address without changing the
+  validated page footer layout. No database migration, workflow configuration,
+  or business-data change is included. Production remains on
+  **v4.0.0-next.35** until Project Control option **8** then **15** installs
+  this release. Published SHA-256 values: `server-update-4.0.0-next.40.zip`
+  `bac399de74e6221e222de43461b740fada42b342abe4c547acdfacb35af92d46`,
+  `server.exe` `e119844461ecb1c5771aec7316d5c5437765eb40c33e70e1916a7bcc9c64f8f2`,
+  and `rx-db.exe` `9bf8547f780c72c430af2f6d6bfe2bdcd91fffd58da02675de4e5b610cf32957`.
 
 - Official **v4.0.0-next.39** was published on 2026-07-30 from `main` commit
   `a2f069c0e871e01157813326674894651038665c` after PostgreSQL lifecycle CI
