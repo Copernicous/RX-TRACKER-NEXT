@@ -53,13 +53,14 @@
             var receiptTracking = receiptAction ? trackings.find(function (tracking) {
                 return Number(tracking.workflowActionId) === Number(receiptAction.id);
             }) : null;
-            var status = rx.returnedToWarehouse
+            var returnedToPharmacy = rx.deliveryOutcome === 'returned_to_pharmacy';
+            var status = returnedToPharmacy
                 ? 'RETURNED'
                 : receiptTracking && receiptTracking.completionDate ? 'RECEIVED' : 'PENDING';
             return {
                 number: index + 1,
-                receivedDate: formatDate(rx.returnedToWarehouse ? rx.warehouseReturnDate : (receiptTracking && receiptTracking.completionDate), false),
-                receivedAt: formatDate(rx.returnedToWarehouse ? rx.warehouseReturnDate : (receiptTracking && receiptTracking.completionDate), true),
+                receivedDate: formatDate(returnedToPharmacy ? rx.deliveryOutcomeDate : (receiptTracking && receiptTracking.completionDate), false),
+                receivedAt: formatDate(returnedToPharmacy ? rx.deliveryOutcomeDate : (receiptTracking && receiptTracking.completionDate), true),
                 reference: 'RX-' + String(rx.id || '').padStart(6, '0'),
                 patient: [patient.firstName, patient.lastName].filter(Boolean).join(' '),
                 dob: formatDate(patient.dob, false),
@@ -67,7 +68,7 @@
                 driver: transport.contactPerson || transport.companyName || '',
                 status: status,
                 notes: status === 'RETURNED'
-                    ? ('Package returned to pharmacy' + (rx.warehouseReturnNote ? ': ' + rx.warehouseReturnNote : ''))
+                    ? ('Package returned to pharmacy' + (rx.deliveryOutcomeNote ? ': ' + rx.deliveryOutcomeNote : ''))
                     : (status === 'PENDING' ? 'Pending delivery receipt' : ''),
                 initials: ''
             };
@@ -238,7 +239,7 @@
             '</header>' +
             (isFirst ? metricCards(allRows) : (pageRows.length ? '<div class="continuation"><span>CONTINUATION</span></div>' : '')) +
             logTable(pageRows.filter(function (row) { return row.status !== 'RETURNED'; }), pageRows.some(function (row) { return row.status === 'RETURNED'; }) ? 'Delivery / Receipt Packages' : '', false) +
-            logTable(pageRows.filter(function (row) { return row.status === 'RETURNED'; }), 'Returned Packages to Pharmacy � Patient Not Accepted', true) +
+            logTable(pageRows.filter(function (row) { return row.status === 'RETURNED'; }), 'Returned Packages to Pharmacy - Patient Not Accepted', true) +
             (isLast ? '<div class="signature-stack">' + preparedSignature() + receivedSignature() + '</div>' : '') +
             '<div class="audit-strip">' +
                 '<span><i>F</i> Export Format: PDF / XLSX</span>' +

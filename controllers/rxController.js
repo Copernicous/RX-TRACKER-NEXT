@@ -88,6 +88,18 @@ function cleanString(value) {
     return value === undefined || value === null ? '' : String(value).trim();
 }
 
+function parseSelectedIds(value) {
+    return Array.from(new Set(String(value || '').split(',')
+        .map(function (item) { return parseInt(item, 10); })
+        .filter(function (item) { return Number.isInteger(item) && item > 0; })));
+}
+
+function parseSelectedIds(value) {
+    return Array.from(new Set(String(value || '').split(',')
+        .map(function (item) { return parseInt(item, 10); })
+        .filter(function (item) { return Number.isInteger(item) && item > 0; })));
+}
+
 function parsePositiveInt(value, fallback, min, max) {
     const parsed = parseInt(value, 10);
     if (isNaN(parsed)) return fallback;
@@ -145,7 +157,8 @@ function buildRxWhere(query) {
     const showDeleted = query.deleted === 'true' || query.includeDeleted === 'true';
     const where = showDeleted ? { isDeleted: true } : { [Op.or]: [{ isDeleted: false }, { isDeleted: null }] };
     const rxId = cleanString(query.id);
-    const pharmacyId = cleanString(query.pharmacyId);
+    const pharmacyIds = parseSelectedIds(query.pharmacyIds || query.pharmacyId);
+    const clinicIds = parseSelectedIds(query.clinicIds);
     const patientId = cleanString(query.patientId);
     const patientTransportId = cleanString(query.patientTransportId);
     const pharmacyTransportId = cleanString(query.pharmacyTransportId);
@@ -154,7 +167,8 @@ function buildRxWhere(query) {
     const to = minDateOnly([query.dateTo, query.serviceTo]);
 
     if (/^\d+$/.test(rxId)) where.id = parseInt(rxId, 10);
-    if (/^\d+$/.test(pharmacyId)) where.pharmacyId = parseInt(pharmacyId, 10);
+    if (pharmacyIds.length) where.pharmacyId = pharmacyIds.length === 1 ? pharmacyIds[0] : { [Op.in]: pharmacyIds };
+    if (clinicIds.length) where['$Patient.clinicId$'] = { [Op.in]: clinicIds };
     if (/^\d+$/.test(patientId)) where.patientId = parseInt(patientId, 10);
     if (/^\d+$/.test(patientTransportId)) where.patientTransportCompanyId = parseInt(patientTransportId, 10);
     if (/^\d+$/.test(pharmacyTransportId)) where.pharmacyTransportCompanyId = parseInt(pharmacyTransportId, 10);
@@ -179,13 +193,15 @@ function addRxPageFilters(query, replacements, totalSteps) {
     const patient = cleanString(query.patient).toLowerCase();
     const patientCode = cleanString(query.patientCode).toLowerCase();
     const patientId = cleanString(query.patientId);
-    const pharmacyId = cleanString(query.pharmacyId);
+    const pharmacyIds = parseSelectedIds(query.pharmacyIds || query.pharmacyId);
+    const clinicIds = parseSelectedIds(query.clinicIds);
     const patientTransportId = cleanString(query.patientTransportId);
     const pharmacyTransportId = cleanString(query.pharmacyTransportId);
     const warehouseStatus = cleanString(query.warehouseStatus);
     const workflowStatus = cleanString(query.workflowStatus);
     const workflowStage = cleanString(query.workflowStage);
     const currentWorkflowStage = cleanString(query.currentWorkflowStage);
+    const deliveryOutcome = cleanString(query.deliveryOutcome);
     const currentStageDateFrom = localDayBoundaryIso(query.currentStageDateFrom, 0);
     const currentStageDateToExclusive = localDayBoundaryIso(query.currentStageDateTo, 1);
     const from = maxDateOnly([query.dateFrom, query.serviceFrom]);
@@ -205,9 +221,13 @@ function addRxPageFilters(query, replacements, totalSteps) {
         replacements.patientId = parseInt(patientId, 10);
         whereSql.push('r."patientId" = :patientId');
     }
-    if (/^\d+$/.test(pharmacyId)) {
-        replacements.pharmacyId = parseInt(pharmacyId, 10);
-        whereSql.push('r."pharmacyId" = :pharmacyId');
+    if (pharmacyIds.length) {
+        replacements.pharmacyIds = pharmacyIds;
+        whereSql.push('r."pharmacyId" IN (:pharmacyIds)');
+    }
+    if (clinicIds.length) {
+        replacements.clinicIds = clinicIds;
+        whereSql.push('p."clinicId" IN (:clinicIds)');
     }
     if (/^\d+$/.test(patientTransportId)) {
         replacements.patientTransportId = parseInt(patientTransportId, 10);
@@ -266,7 +286,9 @@ function addRxPageFilters(query, replacements, totalSteps) {
         replacements.workflowStageDone = parseInt(workflowStage, 10) - 1;
         whereSql.push(`${completedExpr} = :workflowStageDone`);
     }
-    if (/^\d+$/.test(currentWorkflowStage)) {
+    if (currentWorkflowStage === 'returned_to_pharmacy' || deliveryOutcome === 'returned_to_pharmacy') {
+        whereSql.push('r."deliveryOutcome" = \'returned_to_pharmacy\'');
+    } else if (/^\d+$/.test(currentWorkflowStage)) {
         replacements.currentWorkflowStage = parseInt(currentWorkflowStage, 10);
         whereSql.push('wc.current_stage_sequence = :currentWorkflowStage');
     }
@@ -441,7 +463,7 @@ exports.create = async (req, res) => {
             return res.status(400).json({ error: `Arrival date must be within ${getServiceWindowDays()} days prior to Service Date.` });
         }
 
-        // ── 90-DAY ELIGIBILITY CHECK ──────────────────────────────────────────────
+        // â”€â”€ 90-DAY ELIGIBILITY CHECK â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         // The 90-day window is owned by the PATIENT record's serviceDate field.
         // That is the canonical clock. We check it directly here rather than
         // looking at the latest RX record's serviceDate, so that the Patient
@@ -450,7 +472,7 @@ exports.create = async (req, res) => {
         if (rxData.patientId && !req.body.bypassEligibility) {
             const patient = await db.Patient.findByPk(rxData.patientId);
 
-            // ── INACTIVE PATIENT GUARD ────────────────────────────────────────────
+            // â”€â”€ INACTIVE PATIENT GUARD â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             // Inactive patients cannot receive new RX records under any circumstance.
             if (patient && patient.isActive === false) {
                 await transaction.rollback();
@@ -459,10 +481,10 @@ exports.create = async (req, res) => {
                     code: 'PATIENT_INACTIVE'
                 });
             }
-            // ── END INACTIVE GUARD ────────────────────────────────────────────────
+            // â”€â”€ END INACTIVE GUARD â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
         }
-        // ── END ELIGIBILITY CHECK ─────────────────────────────────────────────────
+        // â”€â”€ END ELIGIBILITY CHECK â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
         // New RX records belong to the patient's active service-date cycle.
         // Older service dates stay available for review/history, not normal creation.
@@ -556,7 +578,7 @@ exports.create = async (req, res) => {
         }
 
         await saveHistory(rx.id, req.user?.id, 'Create', rx.toJSON(), null,
-            `Record created${step1 ? ' — auto-completed: ' + step1.name : ''}`, transaction);
+            `Record created${step1 ? ' â€” auto-completed: ' + step1.name : ''}`, transaction);
 
         await transaction.commit();
         res.status(201).json(rx);
@@ -620,7 +642,7 @@ exports.updateWorkflow = async (req, res) => {
 
 // POST /api/rx-records/bulk-workflow  (FEAT-10)
 // Body: { rxIds: [1,2,3], actionId: 5 }
-// Processes each record independently — partial success allowed.
+// Processes each record independently â€” partial success allowed.
 exports.bulkWorkflow = async (req, res) => {
     try {
         const { rxIds, actionId } = req.body;
@@ -683,7 +705,7 @@ exports.bulkWorkflow = async (req, res) => {
                     continue;
                 }
 
-                // Sequence guard — same logic as updateWorkflow
+                // Sequence guard â€” same logic as updateWorkflow
                 if (prevAction) {
                     var prevCompleted = await db.RXWorkflowTracking.findOne({
                         where: { rxRecordId: rxId, workflowActionId: prevAction.id }
@@ -758,7 +780,7 @@ exports.bulkWorkflow = async (req, res) => {
 };
 
 // PUT /api/rx-records/workflow-date  (FEAT-11: Step date override)
-// Body: { trackingId, newDate }  — newDate format: YYYY-MM-DD or ISO string
+// Body: { trackingId, newDate }  â€” newDate format: YYYY-MM-DD or ISO string
 exports.updateWorkflowDate = async (req, res) => {
     try {
         const { trackingId, newDate } = req.body;
@@ -793,7 +815,7 @@ exports.updateWorkflowDate = async (req, res) => {
         if (!rx)     return res.status(404).json({ error: 'Associated RX record not found.' });
         if (!action) return res.status(404).json({ error: 'Associated workflow action not found.' });
 
-        // ── Sequential date guard ─────────────────────────────────────────
+        // â”€â”€ Sequential date guard â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         // Fetch all other trackings for this RX with their workflow actions
         const allTrackings = await db.RXWorkflowTracking.findAll({
             where: { rxRecordId: rx.id },
@@ -844,7 +866,7 @@ exports.updateWorkflowDate = async (req, res) => {
             return res.status(403).json({ error: 'Access denied: you cannot edit workflow dates or override expired RX locks.' });
         }
 
-        // ── Step 1: must be >= serviceDate; all steps: must be <= serviceDate + 90 days ──
+        // â”€â”€ Step 1: must be >= serviceDate; all steps: must be <= serviceDate + 90 days â”€â”€
         const cycleServiceDate = getRxCycleServiceDate(rx);
         if (cycleServiceDate) {
             const svcDay    = new Date(cycleServiceDate); svcDay.setHours(0,0,0,0);
@@ -857,7 +879,7 @@ exports.updateWorkflowDate = async (req, res) => {
                 return res.status(400).json({
                     code: 'RX_WORKFLOW_DATE_WINDOW_LOCKED',
                     windowExpiry: expiryDay.toISOString().slice(0, 10),
-                    error: `Date must be within ${getServiceWindowDays()} days of service date (${svcDay.toLocaleDateString()} – ${expiryDay.toLocaleDateString()}).`
+                    error: `Date must be within ${getServiceWindowDays()} days of service date (${svcDay.toLocaleDateString()} â€“ ${expiryDay.toLocaleDateString()}).`
                 });
             }
             if (!canEditWorkflowDate && canOverrideExpired && todayDay <= expiryDay) {
@@ -875,7 +897,7 @@ exports.updateWorkflowDate = async (req, res) => {
                 });
             }
         }
-        // ─────────────────────────────────────────────────────────────────
+        // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
         const oldDate  = tracking.completionDate ? new Date(tracking.completionDate).toLocaleDateString() : '(none)';
         const newLabel = parsed.toLocaleDateString();
@@ -941,9 +963,9 @@ exports.undoWorkflow = async (req, res) => {
 
         if (undoingDeliveryOutcome) {
             await rx.update({
-                returnedToWarehouse: false,
-                warehouseReturnDate: null,
-                warehouseReturnNote: null
+                deliveryOutcome: 'none',
+                deliveryOutcomeDate: null,
+                deliveryOutcomeNote: null
             }, { transaction });
         }
 
@@ -964,6 +986,42 @@ exports.undoWorkflow = async (req, res) => {
         res.status(400).json({ error: err.message });
     }
 };
+// POST /api/rx-records/reopen-warehouse-return
+exports.reopenWarehouseReturn = async (req, res) => {
+    const transaction = await db.sequelize.transaction();
+    try {
+        const { rxId } = req.body || {};
+        const rx = await db.RXRecord.findByPk(rxId, { transaction });
+        if (!rx) {
+            await transaction.rollback();
+            return res.status(404).json({ error: 'RX Record not found.' });
+        }
+        if (!rx.returnedToWarehouse) {
+            await transaction.rollback();
+            return res.status(400).json({ error: 'This RX is not marked as returned to warehouse.' });
+        }
+
+        await rx.update({
+            returnedToWarehouse: false,
+            warehouseReturnDate: null,
+            warehouseReturnNote: null
+        }, { transaction });
+        await saveHistory(
+            rx.id,
+            req.user?.id,
+            'Workflow',
+            rx.toJSON(),
+            null,
+            'Warehouse return reopened; resume the delivery workflow and record the delivery outcome.',
+            transaction
+        );
+        await transaction.commit();
+        res.json({ message: 'Warehouse return reopened. Continue the delivery workflow.' });
+    } catch (err) {
+        await transaction.rollback();
+        res.status(400).json({ error: err.message });
+    }
+};
 // POST /api/rx-records/return-to-warehouse
 exports.returnToWarehouse = async (req, res) => {
     const transaction = await db.sequelize.transaction();
@@ -972,7 +1030,7 @@ exports.returnToWarehouse = async (req, res) => {
         const rx = await db.RXRecord.findByPk(rxId);
         if (!rx) return res.status(404).json({ error: 'RX Record not found.' });
 
-        // Find Step 1 (warehouse step — the first workflow action by sequenceNumber)
+        // Find Step 1 (warehouse step â€” the first workflow action by sequenceNumber)
         const step1 = await db.WorkflowAction.findOne({
             where: { sequenceNumber: 1 },
             order: [['sequenceNumber', 'ASC']]
@@ -995,11 +1053,14 @@ exports.returnToWarehouse = async (req, res) => {
         await rx.update({
             returnedToWarehouse: true,
             warehouseReturnDate: new Date(),
-            warehouseReturnNote: note || null
+            warehouseReturnNote: note || null,
+            deliveryOutcome: 'none',
+            deliveryOutcomeDate: null,
+            deliveryOutcomeNote: null
         }, { transaction });
 
         await saveHistory(rxId, req.user?.id, 'Workflow', rx.toJSON(), null,
-            `Returned to Warehouse${note ? ': ' + note : ''}${step1 ? ' — reset to Step 1: ' + step1.name : ''}`);
+            `Returned to Warehouse${note ? ': ' + note : ''}${step1 ? ' â€” reset to Step 1: ' + step1.name : ''}`);
 
         await transaction.commit();
         res.status(200).json({ message: 'Returned to warehouse. Workflow reset to Step 1.' });
@@ -1010,7 +1071,7 @@ exports.returnToWarehouse = async (req, res) => {
 };
 
 // PUT /api/rx-records/:id
-// H2 FIX: Explicit field whitelist — prevents arbitrary column writes via req.body
+// H2 FIX: Explicit field whitelist â€” prevents arbitrary column writes via req.body
 const RX_ALLOWED_FIELDS = [
     'patientId', 'arrivalDate', 'serviceDate',
     'pharmacyId', 'patientTransportCompanyId', 'pharmacyTransportCompanyId',
@@ -1032,7 +1093,7 @@ exports.update = async (req, res) => {
             }
         });
 
-        // ── 90-DAY SERVICE DATE LOCK ──────────────────────────────────────────────
+        // â”€â”€ 90-DAY SERVICE DATE LOCK â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         // Block changes to serviceDate while the current 90-day window is still active.
         // This prevents silently resetting the eligibility clock mid-cycle.
         // bypassEligibility=true allows admin override (e.g., data corrections).
@@ -1070,7 +1131,7 @@ exports.update = async (req, res) => {
                 }
             }
         }
-        // ── END SERVICE DATE LOCK ─────────────────────────────────────────────────
+        // â”€â”€ END SERVICE DATE LOCK â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
         const nextPatientId = safeData.patientId !== undefined ? safeData.patientId : before.patientId;
         const nextServiceDate = safeData.serviceDate !== undefined ? parseDate(safeData.serviceDate) : dateOnly(before.serviceDate);
