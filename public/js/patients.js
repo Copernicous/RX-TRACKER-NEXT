@@ -60,46 +60,19 @@ var allPatients = [];
         return String(value || '').split(',').filter(function(id) { return /^\d+$/.test(id); });
     }
 
-    function refreshPatientClinicMultiFilter() {
-        var hidden = document.getElementById('srchClinic');
-        var picker = document.getElementById('srchClinicPicker');
+    function refreshPatientLookupMultiFilter(hiddenId, pickerId, items, itemLabel, emptyLabel) {
+        var hidden = document.getElementById(hiddenId); var picker = document.getElementById(pickerId);
         if (!hidden || !picker) return;
-        var selectedSet = new Set(selectedPatientClinicIds(hidden.value));
-        var buttonLabel = picker.querySelector('button span');
-        var options = picker.querySelector('.patient-filter-multiselect-options');
-        var search = picker.querySelector('.patient-filter-multiselect-search');
-        var refreshLabel = function() {
-            var names = clinicOptions.filter(function(clinic) { return selectedSet.has(String(clinic.id)); }).map(function(clinic) { return clinic.label; });
-            var label = !names.length ? 'All Clinics' : (names.length <= 2 ? names.join(', ') : names.length + ' selected');
-            buttonLabel.textContent = label;
-            hidden.dataset.filterSummary = label;
-        };
-        options.innerHTML = '';
-        clinicOptions.forEach(function(clinic) {
-            var label = document.createElement('label');
-            label.className = 'patient-filter-multiselect-option';
-            label.dataset.search = String(clinic.label || '').toLowerCase();
-            var checkbox = document.createElement('input');
-            checkbox.type = 'checkbox';
-            checkbox.value = String(clinic.id);
-            checkbox.checked = selectedSet.has(checkbox.value);
-            checkbox.addEventListener('change', function() {
-                if (checkbox.checked) selectedSet.add(checkbox.value); else selectedSet.delete(checkbox.value);
-                hidden.value = Array.from(selectedSet).join(',');
-                refreshLabel();
-                hidden.dispatchEvent(new Event('change', { bubbles: true }));
-            });
-            label.appendChild(checkbox);
-            label.appendChild(document.createTextNode(clinic.label));
-            options.appendChild(label);
-        });
-        if (search) search.oninput = function() {
-            var term = search.value.toLowerCase().trim();
-            options.querySelectorAll('.patient-filter-multiselect-option').forEach(function(option) {
-                option.style.display = !term || option.dataset.search.indexOf(term) >= 0 ? '' : 'none';
-            });
-        };
-        refreshLabel();
+        var selectedSet = new Set(selectedPatientClinicIds(hidden.value)); var buttonLabel = picker.querySelector('button span'); var options = picker.querySelector('.patient-filter-multiselect-options'); var search = picker.querySelector('.patient-filter-multiselect-search');
+        var refreshLabel = function() { var names = items.filter(function(item) { return selectedSet.has(String(item.id)); }).map(itemLabel); var label = !names.length ? emptyLabel : (names.length <= 2 ? names.join(', ') : names.length + ' selected'); buttonLabel.textContent = label; hidden.dataset.filterSummary = label; };
+        options.innerHTML = ''; items.forEach(function(item) { var label = document.createElement('label'); label.className = 'patient-filter-multiselect-option'; label.dataset.search = String(itemLabel(item) || '').toLowerCase(); var checkbox = document.createElement('input'); checkbox.type = 'checkbox'; checkbox.value = String(item.id); checkbox.checked = selectedSet.has(checkbox.value); checkbox.addEventListener('change', function() { if (checkbox.checked) selectedSet.add(checkbox.value); else selectedSet.delete(checkbox.value); hidden.value = Array.from(selectedSet).join(','); refreshLabel(); hidden.dispatchEvent(new Event('change', { bubbles: true })); }); label.appendChild(checkbox); label.appendChild(document.createTextNode(itemLabel(item))); options.appendChild(label); });
+        if (search) search.oninput = function() { var term = search.value.toLowerCase().trim(); options.querySelectorAll('.patient-filter-multiselect-option').forEach(function(option) { option.style.display = !term || option.dataset.search.indexOf(term) >= 0 ? '' : 'none'; }); }; refreshLabel();
+    }
+    function refreshPatientMultiFilters() {
+        refreshPatientLookupMultiFilter('srchClinic', 'srchClinicPicker', clinicOptions, function(item) { return item.label; }, 'All Clinics');
+        refreshPatientLookupMultiFilter('srchPatientTransport', 'srchPatientTransportPicker', patientTransportOptions, function(item) { return item.label; }, 'All Patient Transports');
+        refreshPatientLookupMultiFilter('srchPharmacyTransport', 'srchPharmacyTransportPicker', pharmacyTransportOptions, function(item) { return item.label; }, 'All Pharmacy Transports');
+        refreshPatientLookupMultiFilter('srchPharmacy', 'srchPharmacyPicker', pharmacyOptions, function(item) { return item.label; }, 'All Pharmacies');
     }
 
     function serviceDateHistoryActor(row) {
@@ -514,13 +487,13 @@ var allPatients = [];
             document.getElementById('srchShowDeleted').checked = false;
             patientNoRxFilter = false;
             patientHighlightId = '';
-            refreshPatientClinicMultiFilter();
+            refreshPatientMultiFilters();
             updateFilterBadge();
             currentPage = 1;
             loadPatients();
         });
         document.getElementById('srchShowDeleted').addEventListener('change', applyPatientSearch);
-        document.getElementById('srchClinic').addEventListener('change', applyPatientSearch);
+        ['srchClinic', 'srchPatientTransport', 'srchPharmacyTransport', 'srchPharmacy'].forEach(function(id) { document.getElementById(id).addEventListener('change', applyPatientSearch); });
 
         document.getElementById('savePatientBtn').addEventListener('click', savePatient);
         var savePatientAddRxBtn = document.getElementById('savePatientAddRxBtn');
@@ -753,7 +726,7 @@ var allPatients = [];
                     clinicOptions.push({ id: String(c.id), label: c.name });
                     clSel.innerHTML   += '<option value="' + c.id + '">' + label + '</option>';
                 });
-                refreshPatientClinicMultiFilter();
+                refreshPatientMultiFilters();
             }
             if (phRes && phRes.ok) {
                 const ph = await phRes.json();
@@ -795,9 +768,9 @@ var allPatients = [];
         setPatientParam(params, 'status', document.getElementById('srchStatus')?.value || '');
         setPatientParam(params, 'clinicIds', document.getElementById('srchClinic')?.value || '');
         setPatientParam(params, 'patientCode', document.getElementById('srchPatientCode')?.value || '');
-        setPatientParam(params, 'patientTransportId', document.getElementById('srchPatientTransport')?.value || '');
-        setPatientParam(params, 'pharmacyTransportId', document.getElementById('srchPharmacyTransport')?.value || '');
-        setPatientParam(params, 'pharmacyId', document.getElementById('srchPharmacy')?.value || '');
+        setPatientParam(params, 'patientTransportIds', document.getElementById('srchPatientTransport')?.value || '');
+        setPatientParam(params, 'pharmacyTransportIds', document.getElementById('srchPharmacyTransport')?.value || '');
+        setPatientParam(params, 'pharmacyIds', document.getElementById('srchPharmacy')?.value || '');
         setPatientParam(params, 'serviceFrom', document.getElementById('srchServiceFrom')?.value || '');
         setPatientParam(params, 'serviceTo', document.getElementById('srchServiceTo')?.value || '');
         setPatientParam(params, 'eligibility', document.getElementById('srchEligibility')?.value || '');
@@ -813,10 +786,7 @@ var allPatients = [];
     function applyPatientFacetOptions(facets) {
         patientFacets = facets || null;
         if (!patientFacets) return;
-        refreshPatientClinicMultiFilter();
-        resetSelectOptions(document.getElementById('srchPatientTransport'), 'All Transport Companies', patientFacets.patientTransports || []);
-        resetSelectOptions(document.getElementById('srchPharmacyTransport'), 'All Pharmacy Transport', patientFacets.pharmacyTransports || []);
-        resetSelectOptions(document.getElementById('srchPharmacy'), 'All Pharmacies', patientFacets.pharmacies || []);
+        refreshPatientMultiFilters();
     }
 
     function showNoRxBanner() {

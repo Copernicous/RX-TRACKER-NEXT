@@ -259,26 +259,16 @@ function buildPatientDatabaseWhere(query, totalWorkflowSteps) {
         }
     }
 
-    const rawClinicIds = cleanString(query.clinicIds || query.clinicId);
-    if (rawClinicIds) {
-        const clinicIds = Array.from(new Set(rawClinicIds.split(',')
-            .map(value => Number(String(value).trim()))
-            .filter(value => Number.isInteger(value) && value > 0)));
-        clauses.push(clinicIds.length ? { clinicId: { [Op.in]: clinicIds } } : impossiblePatientCondition());
-    }
-
-    const exactIdFilters = [
-        ['pharmacyId', query.pharmacyId],
-        ['patientTransportCompanyId', query.patientTransportId],
-        ['pharmacyTransportCompanyId', query.pharmacyTransportId]
-    ];
-    exactIdFilters.forEach(([field, rawValue]) => {
-        const value = cleanString(rawValue);
-        if (!value) return;
-        const parsed = Number(value);
-        clauses.push(Number.isInteger(parsed) && parsed > 0
-            ? { [field]: parsed }
-            : impossiblePatientCondition());
+    [
+        ['clinicId', query.clinicIds || query.clinicId],
+        ['pharmacyId', query.pharmacyIds || query.pharmacyId],
+        ['patientTransportCompanyId', query.patientTransportIds || query.patientTransportId],
+        ['pharmacyTransportCompanyId', query.pharmacyTransportIds || query.pharmacyTransportId]
+    ].forEach(([field, rawValue]) => {
+        const rawIds = cleanString(rawValue);
+        if (!rawIds) return;
+        const ids = Array.from(new Set(rawIds.split(',').map(value => Number(String(value).trim())).filter(value => Number.isInteger(value) && value > 0)));
+        clauses.push(ids.length ? { [field]: { [Op.in]: ids } } : impossiblePatientCondition());
     });
 
     const serviceFrom = cleanString(query.serviceFrom);
