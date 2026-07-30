@@ -7,6 +7,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+## [4.0.0-next.39] - 2026-07-30
+
+### Fixed
+
+- Corrected the **Delivery Log Excel** browser download name. It now retains the readable report-reference `.xls` filename instead of a generated UUID.
+- Restored the UTF-8 BOM required for reliable Excel workbook recognition and retains the temporary browser download link until the download has started.
+
+**Database impact:** No migration and no business-data change.
 ## [4.0.0-next.38] - 2026-07-29
 
 ### Added

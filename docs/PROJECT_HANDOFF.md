@@ -8,6 +8,11 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
 
+- Release candidate **v4.0.0-next.39** contains only the Delivery Log Excel
+  download correction: a stable report-reference `.xls` filename, UTF-8 BOM,
+  and delayed temporary-link cleanup for browsers that otherwise assign a UUID.
+  It has no database migration, workflow configuration, PDF, CSV, or business-
+  data change. Validate it on the tester server before production promotion.
 - Official **v4.0.0-next.38** was published on 2026-07-30 from `main` commit
   `d9d72af857f8343cab6e1cd61bff16672d6d07ea` after the required PostgreSQL
   lifecycle CI passed and the tagged release workflow built, verified, and

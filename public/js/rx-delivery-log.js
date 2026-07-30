@@ -368,15 +368,22 @@
                     '</Table></Worksheet>';
             }).join('');
             var xml = '<?xml version="1.0"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"><Styles><Style ss:ID="Title"><Font ss:Bold="1" ss:Size="16" ss:Color="#123B70"/></Style><Style ss:ID="Header"><Font ss:Bold="1" ss:Color="#FFFFFF"/><Interior ss:Color="#123B70" ss:Pattern="Solid"/><Alignment ss:Horizontal="Center"/></Style><Style ss:ID="Metric"><Font ss:Bold="1" ss:Color="#123B70" ss:Size="12"/><Interior ss:Color="#EAF3F4" ss:Pattern="Solid"/></Style><Style ss:ID="Pharmacy"><Font ss:Bold="1" ss:Color="#123B70"/></Style></Styles>' + sheets + '</Workbook>';
-            var blob = new Blob(['?', xml], { type: 'application/vnd.ms-excel' });
+            var filename = String(metadata.reference || 'print-delivery-log')
+                .replace(/[^a-z0-9._-]+/gi, '_')
+                .replace(/^_+|_+$/g, '')
+                .toLowerCase() + '.xls';
+            var blob = new Blob(['\uFEFF', xml], { type: 'application/vnd.ms-excel' });
             var url = URL.createObjectURL(blob);
             var link = document.createElement('a');
             link.href = url;
-            link.download = metadata.reference.toLowerCase() + '.xls';
+            link.download = filename;
+            link.setAttribute('download', filename);
             document.body.appendChild(link);
             link.click();
-            link.remove();
-            setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+            setTimeout(function () {
+                link.remove();
+                URL.revokeObjectURL(url);
+            }, 10000);
         }).catch(function (error) {
             window.showToast(error.message || 'Could not generate delivery log.', 'danger');
         });
