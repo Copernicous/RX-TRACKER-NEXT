@@ -259,8 +259,15 @@ function buildPatientDatabaseWhere(query, totalWorkflowSteps) {
         }
     }
 
+    const rawClinicIds = cleanString(query.clinicIds || query.clinicId);
+    if (rawClinicIds) {
+        const clinicIds = Array.from(new Set(rawClinicIds.split(',')
+            .map(value => Number(String(value).trim()))
+            .filter(value => Number.isInteger(value) && value > 0)));
+        clauses.push(clinicIds.length ? { clinicId: { [Op.in]: clinicIds } } : impossiblePatientCondition());
+    }
+
     const exactIdFilters = [
-        ['clinicId', query.clinicId],
         ['pharmacyId', query.pharmacyId],
         ['patientTransportCompanyId', query.patientTransportId],
         ['pharmacyTransportCompanyId', query.pharmacyTransportId]

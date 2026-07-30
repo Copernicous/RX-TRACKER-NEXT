@@ -56,6 +56,52 @@ var allPatients = [];
         sel.value = current;
     }
 
+    function selectedPatientClinicIds(value) {
+        return String(value || '').split(',').filter(function(id) { return /^\d+$/.test(id); });
+    }
+
+    function refreshPatientClinicMultiFilter() {
+        var hidden = document.getElementById('srchClinic');
+        var picker = document.getElementById('srchClinicPicker');
+        if (!hidden || !picker) return;
+        var selectedSet = new Set(selectedPatientClinicIds(hidden.value));
+        var buttonLabel = picker.querySelector('button span');
+        var options = picker.querySelector('.patient-filter-multiselect-options');
+        var search = picker.querySelector('.patient-filter-multiselect-search');
+        var refreshLabel = function() {
+            var names = clinicOptions.filter(function(clinic) { return selectedSet.has(String(clinic.id)); }).map(function(clinic) { return clinic.label; });
+            var label = !names.length ? 'All Clinics' : (names.length <= 2 ? names.join(', ') : names.length + ' selected');
+            buttonLabel.textContent = label;
+            hidden.dataset.filterSummary = label;
+        };
+        options.innerHTML = '';
+        clinicOptions.forEach(function(clinic) {
+            var label = document.createElement('label');
+            label.className = 'patient-filter-multiselect-option';
+            label.dataset.search = String(clinic.label || '').toLowerCase();
+            var checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.value = String(clinic.id);
+            checkbox.checked = selectedSet.has(checkbox.value);
+            checkbox.addEventListener('change', function() {
+                if (checkbox.checked) selectedSet.add(checkbox.value); else selectedSet.delete(checkbox.value);
+                hidden.value = Array.from(selectedSet).join(',');
+                refreshLabel();
+                hidden.dispatchEvent(new Event('change', { bubbles: true }));
+            });
+            label.appendChild(checkbox);
+            label.appendChild(document.createTextNode(clinic.label));
+            options.appendChild(label);
+        });
+        if (search) search.oninput = function() {
+            var term = search.value.toLowerCase().trim();
+            options.querySelectorAll('.patient-filter-multiselect-option').forEach(function(option) {
+                option.style.display = !term || option.dataset.search.indexOf(term) >= 0 ? '' : 'none';
+            });
+        };
+        refreshLabel();
+    }
+
     function serviceDateHistoryActor(row) {
         var user = row && row.ChangedBy ? row.ChangedBy : null;
         if (!user) return 'System';
@@ -468,6 +514,7 @@ var allPatients = [];
             document.getElementById('srchShowDeleted').checked = false;
             patientNoRxFilter = false;
             patientHighlightId = '';
+            refreshPatientClinicMultiFilter();
             updateFilterBadge();
             currentPage = 1;
             loadPatients();
@@ -706,6 +753,7 @@ var allPatients = [];
                     clinicOptions.push({ id: String(c.id), label: c.name });
                     clSel.innerHTML   += '<option value="' + c.id + '">' + label + '</option>';
                 });
+                refreshPatientClinicMultiFilter();
             }
             if (phRes && phRes.ok) {
                 const ph = await phRes.json();
@@ -745,7 +793,7 @@ var allPatients = [];
         setPatientParam(params, 'dob', document.getElementById('srchDob')?.value || '');
         setPatientParam(params, 'phone', document.getElementById('srchPhone')?.value || '');
         setPatientParam(params, 'status', document.getElementById('srchStatus')?.value || '');
-        setPatientParam(params, 'clinicId', document.getElementById('srchClinic')?.value || '');
+        setPatientParam(params, 'clinicIds', document.getElementById('srchClinic')?.value || '');
         setPatientParam(params, 'patientCode', document.getElementById('srchPatientCode')?.value || '');
         setPatientParam(params, 'patientTransportId', document.getElementById('srchPatientTransport')?.value || '');
         setPatientParam(params, 'pharmacyTransportId', document.getElementById('srchPharmacyTransport')?.value || '');
@@ -765,7 +813,7 @@ var allPatients = [];
     function applyPatientFacetOptions(facets) {
         patientFacets = facets || null;
         if (!patientFacets) return;
-        resetSelectOptions(document.getElementById('srchClinic'), 'All Clinics', patientFacets.clinics || []);
+        refreshPatientClinicMultiFilter();
         resetSelectOptions(document.getElementById('srchPatientTransport'), 'All Transport Companies', patientFacets.patientTransports || []);
         resetSelectOptions(document.getElementById('srchPharmacyTransport'), 'All Pharmacy Transport', patientFacets.pharmacyTransports || []);
         resetSelectOptions(document.getElementById('srchPharmacy'), 'All Pharmacies', patientFacets.pharmacies || []);
