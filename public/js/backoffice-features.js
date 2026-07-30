@@ -2448,6 +2448,7 @@ async function purgeCcCleanup() {
 }
 
 // RX Profile Sync — master-admin manual record correction
+var rxProfileSyncRows = [];
 function rxSyncEsc(value) {
     return String(value === undefined || value === null ? '' : value)
         .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -2471,6 +2472,8 @@ async function loadRxProfileSync() {
     var list = document.getElementById('rxSyncList');
     var status = document.getElementById('rxSyncStatus');
     if (!list) return;
+    rxProfileSyncRows = [];
+    updateRxSyncDisplayExport();
     list.innerHTML = '<p style="text-align:center;padding:2rem;color:var(--text-muted)"><i class="fas fa-spinner fa-spin me-2"></i>Scanning RX records...</p>';
     updateRxSyncBulkSelection();
     try {
@@ -2479,12 +2482,14 @@ async function loadRxProfileSync() {
         var res = await apiFetch('/api/admin/rx-profile-sync?search=' + encodeURIComponent(search) + '&showAll=' + showAll);
         var data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Scan failed');
+        rxProfileSyncRows = Array.isArray(data.rows) ? data.rows : [];
+        updateRxSyncDisplayExport();
         status.textContent = data.total.toLocaleString() + (showAll ? ' RX records shown.' : ' RX records have profile differences.') + (data.limited ? ' Refine search; the scan reached its safety limit.' : '');
         if (!data.rows.length) {
             list.innerHTML = '<p style="text-align:center;padding:3rem;color:var(--text-muted)"><i class="fas fa-check-circle" style="color:#34d399"></i> No RX records match this scan.</p>';
             return;
         }
-        list.innerHTML = '<div style="overflow:auto"><table class="bo-table"><thead><tr><th style="width:38px;text-align:center"><input type="checkbox" aria-label="Select all visible RX records" onchange="toggleRxProfileSyncRows(this)"></th><th>Patient / RX</th><th>Dates</th><th>Clinic</th><th>Differences</th><th>Action</th></tr></thead><tbody>' + data.rows.map(function(row) {
+        list.innerHTML = '<div style="overflow:auto"><table class="bo-table"><thead><tr><th style="width:38px;text-align:center"><input type="checkbox" aria-label="Select up to 100 visible RX records" title="Select the first 100 RX records with differences" onchange="toggleRxProfileSyncRows(this)"></th><th>Patient / RX</th><th>Dates</th><th>Clinic</th><th>Differences</th><th>Action</th></tr></thead><tbody>' + data.rows.map(function(row) {
             var diffs = row.differences.length ? row.differences.map(function(field) {
                 var patient = rxSyncValue(row, 'patient', field);
                 var rx = rxSyncValue(row, 'rx', field);
@@ -2500,6 +2505,43 @@ async function loadRxProfileSync() {
     }
 }
 
+function updateRxSyncDisplayExport() {
+    var button = document.getElementById('rxSyncDisplayExportBtn');
+    if (button) button.disabled = rxProfileSyncRows.length === 0;
+}
+
+function rxSyncCsvCell(value) {
+    var text = value === undefined || value === null ? '' : String(value);
+    var safe = /^[=+\-@]/.test(text) ? '\'' + text : text;
+    return /[",\r\n]/.test(safe) ? '"' + safe.replace(/"/g, '""') + '"' : safe;
+}
+
+function exportRxProfileSyncDisplay() {
+    if (!rxProfileSyncRows.length) { toast('Run a scan with matching records before exporting.', 'info'); return; }
+    var columns = ['RX Record ID', 'Patient Record ID', 'Patient ID', 'Patient Name', 'Arrival Date', 'Service Date', 'Clinic', 'Match Status', 'Difference Fields', 'RX Pharmacy', 'Patient Pharmacy', 'RX Patient Transport', 'Patient Patient Transport', 'RX Pharmacy Transport', 'Patient Pharmacy Transport'];
+    var rows = rxProfileSyncRows.map(function(row) {
+        return [
+            row.rxId, row.patientId, row.patientCode || '', row.patientName || '', row.arrivalDate || '', row.serviceDate || '', row.clinicLabel || '',
+            row.differences.length ? 'Differences found' : 'Matches Patient profile',
+            row.differences.map(rxSyncFieldLabel).join('; '),
+            rxSyncValue(row, 'rx', 'pharmacyId').label, rxSyncValue(row, 'patient', 'pharmacyId').label,
+            rxSyncValue(row, 'rx', 'patientTransportCompanyId').label, rxSyncValue(row, 'patient', 'patientTransportCompanyId').label,
+            rxSyncValue(row, 'rx', 'pharmacyTransportCompanyId').label, rxSyncValue(row, 'patient', 'pharmacyTransportCompanyId').label
+        ];
+    });
+    var csv = '\uFEFF' + [columns].concat(rows).map(function(row) { return row.map(rxSyncCsvCell).join(','); }).join('\r\n');
+    var blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    var url = URL.createObjectURL(blob);
+    var link = document.createElement('a');
+    link.style.display = 'none';
+    link.href = url;
+    link.download = 'rx-profile-sync-displayed-' + new Date().toISOString().slice(0, 10) + '.csv';
+    document.body.appendChild(link);
+    link.click();
+    setTimeout(function() { document.body.removeChild(link); URL.revokeObjectURL(url); }, 1000);
+    toast('Exported ' + rows.length + ' displayed RX Profile Sync record(s).', 'success');
+}
+
 function updateRxSyncBulkSelection() {
     var button = document.getElementById('rxSyncBulkBtn');
     if (!button) return;
@@ -2509,10 +2551,13 @@ function updateRxSyncBulkSelection() {
 }
 
 function toggleRxProfileSyncRows(source) {
-    Array.prototype.slice.call(document.querySelectorAll('#rxSyncList [data-rx-sync-select]:not(:disabled)')).forEach(function(input) {
-        input.checked = !!source.checked;
+    var inputs = Array.prototype.slice.call(document.querySelectorAll('#rxSyncList [data-rx-sync-select]:not(:disabled)'));
+    inputs.forEach(function(input, index) {
+        input.checked = !!source.checked && index < 100;
     });
+    source.indeterminate = !!source.checked && inputs.length > 100;
     updateRxSyncBulkSelection();
+    if (source.checked && inputs.length > 100) toast('Selected the first 100 RX records. Run the batch, then scan again for the next records.', 'info');
 }
 
 async function bulkSyncRxProfiles() {

@@ -539,6 +539,7 @@
                 </div>
                 <div style="display:flex;gap:.45rem;flex-wrap:wrap;justify-content:flex-end">
                     <button class="btn-bo btn-bo-primary" id="rxSyncBulkBtn" disabled onclick="bulkSyncRxProfiles()"><i class="fas fa-check-double me-1"></i>Sync checked RX</button>
+                    <button class="btn-bo btn-bo-outline" id="rxSyncDisplayExportBtn" disabled onclick="exportRxProfileSyncDisplay()"><i class="fas fa-table me-1"></i>Export Displayed Scan</button>
                     <button class="btn-bo btn-bo-outline" onclick="exportRxProfileSyncHistory()"><i class="fas fa-file-csv me-1"></i>Export Sync History</button>
                     <button class="btn-bo btn-bo-outline" onclick="loadRxProfileSync()"><i class="fas fa-sync-alt me-1"></i>Scan</button>
                 </div>
@@ -548,7 +549,7 @@
                 <label style="font-size:.75rem;display:flex;gap:.4rem;align-items:center"><input id="rxSyncShowAll" type="checkbox" onchange="loadRxProfileSync()"> Show matching records too</label>
             </div>
             <div style="margin-top:.7rem;padding:.65rem .8rem;border:1px solid rgba(59,130,246,.25);background:rgba(59,130,246,.07);border-radius:7px;font-size:.74rem;color:var(--text-muted)">
-                <strong style="color:#bfdbfe">Clinic is inherited from the Patient profile</strong>; it is shown for reference and does not need an RX update. Each sync writes RX History and Audit Log entries with the selected fields and before/after values.
+                <strong style="color:#bfdbfe">Clinic is inherited from the Patient profile</strong>; it is shown for reference and does not need an RX update. Each sync writes RX History and Audit Log entries with the selected fields and before/after values. Use <strong style="color:#bfdbfe">Export Displayed Scan</strong> before syncing when you need a pre-change CSV snapshot.
             </div>
         </div>
         <div id="rxSyncStatus" style="margin:.8rem 0;font-size:.78rem;color:var(--text-muted)"></div>

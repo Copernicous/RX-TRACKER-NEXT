@@ -7,6 +7,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+## [4.0.0-next.46] - 2026-07-30
+
+### Added
+
+- RX Profile Sync can export the currently displayed scan as CSV, preserving each RX and Patient Pharmacy/Transport value, match status, and remaining difference fields independently from the completed-sync audit history export.
+- The RX Profile Sync header checkbox selects at most the first 100 eligible displayed RX records, matching the audited batch limit and allowing quick successive batches without an over-limit selection.
+
+### Safety
+
+- No database migration, workflow-action configuration, automatic synchronization, or business-data rewrite. The displayed export is read-only; synchronization remains explicit, master-only, limited to 100 RX records per batch, and audited per changed RX.
+
 ## [4.0.0-next.45] - 2026-07-30
 
 ### Fixed

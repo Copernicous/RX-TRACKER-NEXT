@@ -264,8 +264,14 @@ async function main() {
     const routeSource = fs.readFileSync(path.join(__dirname, '..', 'routes', 'apiRoutes.js'), 'utf8');
     const rxControllerSource = fs.readFileSync(path.join(__dirname, '..', 'controllers', 'rxController.js'), 'utf8');
     assert.match(viewSource, /id="rxSyncBulkBtn"/);
+    assert.match(viewSource, /Export Displayed Scan/);
     assert.match(viewSource, /Export Sync History/);
     assert.match(browserSource, /function bulkSyncRxProfiles\(\)/);
+    assert.match(browserSource, /function exportRxProfileSyncDisplay\(\)/);
+    assert.match(browserSource, /RX Patient Transport/);
+    assert.match(browserSource, /Matches Patient profile/);
+    assert.match(browserSource, /index < 100/);
+    assert.match(browserSource, /Selected the first 100 RX records/);
     assert.match(browserSource, /function exportRxProfileSyncHistory\(\)/);
     assert.match(routeSource, /rx-profile-sync\/bulk/);
     assert.match(routeSource, /rx-profile-sync\/export/);
@@ -275,7 +281,7 @@ async function main() {
         'The RX Details endpoint must include the same transport associations as the RX list.'
     );
 
-    console.log('PASS: RX Profile Sync persists profile fields, exports audited history, rejects partial saves, and exposes synced transports in RX Details.');
+    console.log('PASS: RX Profile Sync persists profile fields, re-scans changed Patient data, exports displayed before/after values and audited history, rejects partial saves, and exposes synced transports in RX Details.');
 }
 
 main().catch(error => {
