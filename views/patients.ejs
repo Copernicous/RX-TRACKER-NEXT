@@ -37,6 +37,10 @@
         [data-theme="dark"] #patientsTable tbody tr.patient-non-company-row > td {
             background: rgba(255, 193, 7, .13) !important;
         }
+        .patient-filter-multiselect .dropdown-menu { width:100%; min-width:260px; padding:.5rem; }
+        .patient-filter-multiselect-search { margin-bottom:.4rem; }
+        .patient-filter-multiselect-options { max-height:185px; overflow-y:auto; }
+        .patient-filter-multiselect-option { display:flex; align-items:center; gap:.45rem; padding:.25rem .1rem; font-size:.82rem; cursor:pointer; }
     </style>
 </head>
 <body>
@@ -142,9 +146,11 @@
                         </div>
                         <div class="col-md-3">
                             <label class="form-label small fw-bold"><i class="fas fa-hospital me-1"></i>Clinic</label>
-                            <select class="form-select form-select-sm" id="srchClinic" onchange="liveFilter()">
-                                <option value="">All Clinics</option>
-                            </select>
+                            <input type="hidden" id="srchClinic">
+                            <div class="dropdown patient-filter-multiselect" id="srchClinicPicker">
+                                <button class="form-select form-select-sm text-start dropdown-toggle" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside"><span>All Clinics</span></button>
+                                <div class="dropdown-menu"><input class="form-control form-control-sm patient-filter-multiselect-search" type="search" placeholder="Type to find clinic..."><div class="patient-filter-multiselect-options"></div></div>
+                            </div>
                         </div>
                         <div class="col-md-2">
                             <label class="form-label small fw-bold">Status</label>
