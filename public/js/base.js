@@ -141,6 +141,27 @@
     /**
      * Navigates to a proxy-aware URL (hard navigation).
      */
+    // FortiGate can resolve Font Awesome's nested relative URLs outside the active proxy path. Re-declare the bundled fonts through rxUrl so external clients use the same proxy-safe path as the API.
+    function installProxyAwareIconFonts() {
+        if (!document.head || document.getElementById('rx-proxy-aware-fonts')) return;
+        var nonceSource = document.querySelector('style[nonce], script[nonce]');
+        if (!nonceSource || !nonceSource.nonce) return;
+        var definitions = [
+            ['Font Awesome 6 Free', '400', 'fa-regular-400.woff2'],
+            ['Font Awesome 6 Free', '900', 'fa-solid-900.woff2'],
+            ['Font Awesome 6 Brands', '400', 'fa-brands-400.woff2']
+        ].map(function(font) {
+            return '@font-face{font-family:"' + font[0] + '";font-style:normal;font-weight:' + font[1] + ';font-display:block;src:url("' + window.rxUrl('/assets/webfonts/' + font[2]) + '") format("woff2")}';
+        }).join('');
+        var style = document.createElement('style');
+        style.id = 'rx-proxy-aware-fonts';
+        style.nonce = nonceSource.nonce;
+        style.textContent = definitions;
+        document.head.appendChild(style);
+    }
+
+    installProxyAwareIconFonts();
+
     window.rxNav = function (path) {
         var locationObject = getNativeLocation();
         if (locationObject) {
