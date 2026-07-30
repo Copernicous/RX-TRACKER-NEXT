@@ -15,3 +15,7 @@
 .driver-header-field{width:125px!important;border-bottom:1px dotted rgba(100,113,132,.45)!important;opacity:.9}
 .report-actions{text-align:right;margin:8px 0}.report-actions button{background:#123b70;color:white;border:0;border-radius:3px;padding:6px 12px;font-size:11px}@media print{.report-actions{display:none}}
 .report-actions{position:fixed;top:10px;right:14px;z-index:100;margin:0}.report-actions button{font-size:12px;padding:7px 14px}
+
+.log-section-title{margin:12px 0 5px;color:#123b70;font-size:11px;text-transform:uppercase;letter-spacing:.03em}.returned-section-title{color:#b45309;border-top:2px solid #d97706;padding-top:8px}.returned-log-table th{background:#a64b00}.returned-log-table td{background:#fff7ed}
+
+.report-page .signature-stack{position:absolute;left:.3in;right:.3in;bottom:.74in}.report-page .signature-stack .signature{margin-top:10px}.report-page .signature-stack .signature:first-child{margin-top:0}

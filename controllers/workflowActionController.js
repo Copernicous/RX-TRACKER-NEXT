@@ -1,7 +1,7 @@
 const db = require('../models');
 
 const Model = db.WorkflowAction;
-const ALLOWED_WORKFLOW_ACTION_FIELDS = ['name', 'sequenceNumber', 'description', 'isActive'];
+const ALLOWED_WORKFLOW_ACTION_FIELDS = ['name', 'sequenceNumber', 'description', 'isActive', 'deliveryOutcomeMode'];
 
 function sanitizeWorkflowPayload(body) {
     const source = body && typeof body === 'object' ? body : {};

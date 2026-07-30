@@ -958,7 +958,8 @@ exports.getRxPipeline = async (req, res) => {
                             + INTERVAL '${serviceWindowDays} days'
                         )::date < CURRENT_DATE
                         AND COALESCE(workflow_counts.completed_steps, 0) < :totalSteps
-                    ) AS is_expired
+                    ) AS is_expired,
+                    COALESCE(rx."returnedToWarehouse", false) AS is_returned
                 FROM "RXRecords" AS rx
                 LEFT JOIN workflow_counts ON workflow_counts."rxRecordId" = rx.id
                 WHERE COALESCE(rx."isDeleted", false) = false
@@ -966,12 +967,14 @@ exports.getRxPipeline = async (req, res) => {
             SELECT completed_steps,
                    current_stage_sequence,
                    is_expired,
+                   is_returned,
                    COUNT(*)::integer AS count
             FROM pipeline_rows
             GROUP BY
                 completed_steps,
                 current_stage_sequence,
-                is_expired
+                is_expired,
+                is_returned
             ORDER BY current_stage_sequence NULLS FIRST, is_expired
         `, {
             replacements: { totalSteps },
@@ -992,12 +995,14 @@ exports.getRxPipeline = async (req, res) => {
         let expired = 0;
         let completed = 0;
         let startedIncomplete = 0;
+        let returnedToPharmacy = 0;
         if (totalSteps === 0) {
             notStarted = total;
         } else {
             for (const row of grouped) {
                 const done = Number(row.completed_steps);
                 const count = Number(row.count);
+                if (row.is_returned === true || row.is_returned === 'true') returnedToPharmacy += count;
                 if (done > 0 && done < totalSteps) startedIncomplete += count;
                 if (done >= totalSteps) completed += count;
                 else if (row.is_expired === true) expired += count;
@@ -1019,6 +1024,7 @@ exports.getRxPipeline = async (req, res) => {
             inProgress,
             expired,
             completed,
+            returnedToPharmacy,
             allIncomplete,
             startedIncomplete,
             totalSteps,

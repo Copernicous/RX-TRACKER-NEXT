@@ -194,7 +194,8 @@
                 <div class="d-flex justify-content-between align-items-center mb-4">
                     <h5 class="mb-0">RX Records</h5>
                     <div class="d-flex gap-2">
-<button id="rxDeliveryLogPdfBtn">Delivery Log PDF</button><button id="rxDeliveryLogExcelBtn">Delivery Log Excel</button>
+                        <button class="btn btn-outline-primary btn-sm" id="rxDeliveryLogPdfBtn" data-role-action="print" title="Open the filtered delivery log for printing or saving as PDF"><i class="fas fa-file-pdf me-1"></i>Delivery Log PDF</button>
+                        <button class="btn btn-outline-success btn-sm" id="rxDeliveryLogExcelBtn" data-role-action="export" title="Download the filtered delivery log as a formatted Excel workbook"><i class="fas fa-file-excel me-1"></i>Delivery Log Excel</button>
                         <button class="btn btn-outline-success btn-sm" id="exportRxListCsvBtn"><i class="fas fa-file-csv me-1"></i>Export CSV</button>
                         <button class="btn btn-success btn-sm" id="addRxBtn"><i class="fas fa-plus me-1"></i>New RX</button>
                     </div>
@@ -2412,24 +2413,19 @@
                 var footer      = document.getElementById('workflowFooter');
                 var warehouseBtn = document.getElementById('returnToWarehouseBtn');
                 var alreadyReturned = !!rx.returnedToWarehouse;
-                if (canWarehouse && footer) {
-                    footer.style.display = '';
-                    if (alreadyReturned) {
-                        warehouseBtn.innerHTML = '<i class="fas fa-warehouse me-1"></i>Already Returned \u2014 Re-send to Warehouse';
-                        warehouseBtn.className = 'btn btn-sm btn-outline-warning fw-semibold';
-                    } else {
+                if (footer) {
+                    footer.style.display = canWarehouse && !alreadyReturned ? '' : 'none';
+                    if (canWarehouse && !alreadyReturned) {
                         warehouseBtn.innerHTML = '<i class="fas fa-warehouse me-1"></i>Return to Warehouse';
                         warehouseBtn.className = 'btn btn-sm btn-warning fw-semibold';
                     }
-                } else if (footer) {
-                    footer.style.display = 'none';
                 }
 
                 var warehouseBanner = '';
                 if (alreadyReturned) {
                     var retDate = rx.warehouseReturnDate ? new Date(rx.warehouseReturnDate).toLocaleString() : '';
                     var retNote = rx.warehouseReturnNote ? ' \u2014 ' + rx.warehouseReturnNote : '';
-                    warehouseBanner = '<div class="alert alert-warning py-2 mb-3"><i class="fas fa-warehouse me-2"></i><strong>Returned to Warehouse</strong> on ' + retDate + retNote + '</div>';
+                    warehouseBanner = '<div class="alert alert-warning py-2 mb-3"><i class="fas fa-warehouse me-2"></i><strong>Package Returned to Pharmacy</strong> on ' + retDate + retNote + '</div>';
                 }
 
                 var cycleServiceDateValue = rx.serviceDate || (rx.Patient && rx.Patient.serviceDate) || '';
@@ -2499,19 +2495,25 @@
                     var prevStepDate = prevTracking && prevTracking.completionDate ? new Date(prevTracking.completionDate).toISOString().slice(0,10) : (idx === 0 && svcDateR ? svcDateR.toISOString().slice(0,10) : '');
                     var nextStepDate = nextTracking && nextTracking.completionDate ? new Date(nextTracking.completionDate).toISOString().slice(0,10) : '';
                     var completedDateStr = done && tracking && tracking.completionDate ? new Date(tracking.completionDate).toISOString().slice(0,10) : '';
-                    listHtml += '<div class="list-group-item d-flex align-items-center gap-3 ' + (done ? 'list-group-item-success' : '') + '">' +
-                        '<span class="badge ' + (done ? 'bg-success' : 'bg-secondary') + ' rounded-pill">' + action.sequenceNumber + '</span>' +
+                    var isReturnedDelivery = done && rx.returnedToWarehouse === true && action.deliveryOutcomeMode === 'delivered_or_returned';
+                    var actionLabel = isReturnedDelivery ? 'Package Returned to Pharmacy' : action.name;
+                    var actionDescription = isReturnedDelivery
+                        ? (rx.warehouseReturnNote || 'Delivery attempt was not successful; package returned to pharmacy.')
+                        : (action.description || '');
+                    var completionLabel = isReturnedDelivery ? 'Returned' : 'Completed';
+                    listHtml += '<div class="list-group-item d-flex align-items-center gap-3 ' + (done ? (isReturnedDelivery ? 'list-group-item-warning' : 'list-group-item-success') : '') + '">' +
+                        '<span class="badge ' + (done ? (isReturnedDelivery ? 'bg-warning text-dark' : 'bg-success') : 'bg-secondary') + ' rounded-pill">' + action.sequenceNumber + '</span>' +
                         '<div class="flex-grow-1">' +
-                            '<div class="fw-bold">' + action.name + '</div>' +
-                            '<small class="text-muted">' + (action.description || '') + '</small>' +
-                            (done && tracking ? '<br><span class="wf-date-wrap d-inline-flex align-items-center gap-1"><small class="text-success wf-date-label"><i class="fas fa-check me-1"></i>Completed: ' + new Date(tracking.completionDate).toLocaleDateString() + '</small></span>' : '') +
+                            '<div class="fw-bold">' + actionLabel + '</div>' +
+                            '<small class="text-muted">' + actionDescription + '</small>' +
+                            (done && tracking ? '<br><span class="wf-date-wrap d-inline-flex align-items-center gap-1"><small class="' + (isReturnedDelivery ? 'text-warning' : 'text-success') + ' wf-date-label"><i class="fas ' + (isReturnedDelivery ? 'fa-undo' : 'fa-check') + ' me-1"></i>' + completionLabel + ': ' + new Date(tracking.completionDate).toLocaleDateString() + '</small></span>' : '') +
                         '</div>' +
                         '<div class="d-flex gap-2 wf-cell"' +
                             ' data-rxid="' + rxId + '" data-aid="' + action.id + '"' +
                             ' data-tid="' + (done && tracking ? tracking.id : '') + '"' +
                             ' data-curdate="' + completedDateStr + '"' +
                             ' data-done="' + (done ? '1' : '0') + '"' +
-                            ' data-canundo="' + (canUndo && action.id === lastCompletedActionId && !alreadyReturned ? '1' : '0') + '"' +
+                            ' data-canundo="' + (canUndo && action.id === lastCompletedActionId ? '1' : '0') + '"' +
                             ' data-cancomp="' + (stepCanComplete && !isExpired ? '1' : '0') + '"' +
                             ' data-candate="' + (done && tracking && canEditWorkflowDate && (!isExpired || canOverrideExpired) ? '1' : '0') + '"' +
                             ' data-prevdate="' + prevStepDate + '"' +
@@ -2602,22 +2604,52 @@
         });
     } // end openWorkflow
 
+    function chooseDeliveryOutcome() {
+        return new Promise(function (resolve) {
+            var element = document.createElement('div');
+            element.className = 'modal fade';
+            element.tabIndex = -1;
+            element.innerHTML = '<div class="modal-dialog modal-dialog-centered"><div class="modal-content">' +
+                '<div class="modal-header"><h5 class="modal-title">Delivery Outcome</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>' +
+                '<div class="modal-body"><p class="text-muted small">Select the final outcome for this delivery attempt.</p>' +
+                '<div class="form-check mb-2"><input class="form-check-input" type="radio" name="deliveryOutcome" id="deliveryOutcomeDelivered" value="delivered" checked><label class="form-check-label fw-semibold text-success" for="deliveryOutcomeDelivered"><i class="fas fa-check-circle me-1"></i>Delivered to patient</label></div>' +
+                '<div class="form-check mb-3"><input class="form-check-input" type="radio" name="deliveryOutcome" id="deliveryOutcomeReturned" value="returned"><label class="form-check-label fw-semibold text-warning" for="deliveryOutcomeReturned"><i class="fas fa-undo me-1"></i>Package returned to pharmacy</label></div>' +
+                '<label class="form-label small" for="deliveryOutcomeNote">Return reason <span class="text-muted">(optional)</span></label><textarea id="deliveryOutcomeNote" class="form-control" rows="2" disabled></textarea></div>' +
+                '<div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button type="button" class="btn btn-primary" id="confirmDeliveryOutcome">Save Outcome</button></div>' +
+                '</div></div>';
+            document.body.appendChild(element);
+            var modal = new bootstrap.Modal(element);
+            var settled = false;
+            function finish(value) { if (settled) return; settled = true; resolve(value); }
+            element.querySelectorAll('input[name="deliveryOutcome"]').forEach(function (input) {
+                input.addEventListener('change', function () { element.querySelector('#deliveryOutcomeNote').disabled = this.value !== 'returned'; });
+            });
+            element.querySelector('#confirmDeliveryOutcome').addEventListener('click', function () {
+                var outcome = element.querySelector('input[name="deliveryOutcome"]:checked').value;
+                var note = element.querySelector('#deliveryOutcomeNote').value.trim();
+                finish({ outcome: outcome, note: outcome === 'returned' ? note : '' });
+                modal.hide();
+            });
+            element.addEventListener('hidden.bs.modal', function () { finish(null); element.remove(); });
+            modal.show();
+        });
+    }
+
     function completeStep(rxId, actionId) {
         var action = (allWorkflowActions || []).find(function (item) { return Number(item.id) === Number(actionId); });
-        if (action && /^rx\s+delivered$/i.test(String(action.name || '').trim())) {
-            var outcome = window.prompt('Delivery outcome: enter DELIVERED or RETURNED', 'DELIVERED');
-            if (outcome === null) return;
-            var normalized = String(outcome).trim().toLowerCase() === 'returned' ? 'returned' : 'delivered';
-            var note = normalized === 'returned' ? (window.prompt('Return reason (optional):', '') || '') : '';
-            return fetchWithAuth(window.rxUrl('/api/rx-records/delivery-outcome'), {
-                method: 'POST',
-                body: JSON.stringify({ rxId: rxId, actionId: actionId, outcome: normalized, note: note })
-            }).then(function (res) {
-                if (!res) return;
-                if (!res.ok) return res.json().then(function (err) { showToast(err.error || 'Outcome failed', 'danger'); });
-                showToast(normalized === 'returned' ? 'Package returned to pharmacy.' : 'Package delivered.', 'success');
-                return openWorkflow(rxId).then(function () { return loadRxRecords(); });
-            }).catch(function () { showToast('Network error.', 'danger'); });
+        if (action && action.deliveryOutcomeMode === 'delivered_or_returned') {
+            return chooseDeliveryOutcome().then(function (selection) {
+                if (!selection) return;
+                return fetchWithAuth(window.rxUrl('/api/rx-records/delivery-outcome'), {
+                    method: 'POST',
+                    body: JSON.stringify({ rxId: rxId, actionId: actionId, outcome: selection.outcome, note: selection.note })
+                }).then(function (res) {
+                    if (!res) return;
+                    if (!res.ok) return res.json().then(function (err) { showToast(err.error || 'Outcome failed', 'danger'); });
+                    showToast(selection.outcome === 'returned' ? 'Package returned to pharmacy.' : 'Package delivered.', 'success');
+                    return openWorkflow(rxId).then(function () { return loadRxRecords(); });
+                }).catch(function () { showToast('Network error.', 'danger'); });
+            });
         }
         fetchWithAuth(window.rxUrl('/api/rx-records/workflow'), { method: 'POST', body: JSON.stringify({ rxId: rxId, actionId: actionId }) })
 
@@ -3163,9 +3195,7 @@
             '<style>' + css + '</style></head>' +
             '<body>' + content.outerHTML +
             '<script>window.onload=function(){window.print();}<\/script>' +
-            '<script src="/js/rx-delivery-log.js?v=20260729-34"></script>
-<script src="/js/rx-delivery-log.js?v=20260729-34"></script>
-</body></html>');
+            '</body></html>');
         win.document.close();
         win.focus();
     }
@@ -3177,5 +3207,6 @@
     });
 
 </script>
+<script src="/js/rx-delivery-log.js?v=20260729-40"></script>
 </body>
 </html>

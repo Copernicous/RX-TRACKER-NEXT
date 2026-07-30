@@ -17,7 +17,8 @@ module.exports = (sequelize, DataTypes) => {
     name: DataTypes.STRING,
     description: DataTypes.TEXT,
     sequenceNumber: DataTypes.INTEGER,
-    isActive: DataTypes.BOOLEAN
+    isActive: DataTypes.BOOLEAN,
+    deliveryOutcomeMode: { type: DataTypes.STRING, allowNull: false, defaultValue: 'none' }
   }, {
     sequelize,
     modelName: 'WorkflowAction',

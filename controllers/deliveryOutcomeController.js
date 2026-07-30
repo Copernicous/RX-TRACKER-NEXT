@@ -9,7 +9,7 @@ exports.setOutcome = async (req, res) => {
         const rx = await db.RXRecord.findByPk(rxId, { transaction });
         const action = await db.WorkflowAction.findByPk(actionId, { transaction });
         if (!rx || !action) { await transaction.rollback(); return res.status(404).json({ error: 'RX record or workflow action not found.' }); }
-        if (!/^rx\s+delivered$/i.test(String(action.name || '').trim())) throw new Error('A delivery outcome can only be recorded for the Delivered action.');
+        if (action.deliveryOutcomeMode !== 'delivered_or_returned') throw new Error('This workflow action is not configured for a delivery outcome.');
         const existing = await db.RXWorkflowTracking.findOne({ where: { rxRecordId: rx.id, workflowActionId: action.id }, transaction });
         if (existing) { await transaction.rollback(); return res.status(409).json({ error: 'Delivered has already been completed for this RX.' }); }
         if (action.sequenceNumber > 1) {
