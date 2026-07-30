@@ -33,7 +33,7 @@ const boardingMinivanIcon = read('public/images/brand-icons/minivan-boarding.svg
 
 assert(i18nSource.includes("'Patients': 'Pacientes'"), 'Spanish Patients translation is missing');
 assert(i18nSource.includes("'All Incomplete': 'Todos incompletos'"), 'Spanish All Incomplete translation is missing');
-assert(i18nSource.includes("'Sign In': 'Iniciar sesión'"), 'Spanish login translation is missing');
+assert(i18nSource.includes("'Sign In': 'Iniciar sesiÃ³n'"), 'Spanish login translation is missing');
 assert(i18nSource.includes('localStorage.setItem(STORAGE_KEY, lang)'), 'Language preference is not persisted');
 assert(i18nSource.includes("parent.closest('tbody td')"), 'Patient/business table protection is missing');
 assert(i18nSource.includes('[data-i18n-skip]'), 'Explicit translation exclusion is missing');
@@ -102,7 +102,7 @@ assert(dashboardView.includes('id="xl-rx-records-in-progress"'), 'Dashboard In P
 assert(dashboardView.includes('id="xl-rx-records-expired"'), 'Dashboard Expired card link is missing');
 assert(dashboardView.includes('id="xl-rx-records-completed"'), 'Dashboard Completed card link is missing');
 assert(dashboardView.includes('workflowStatus=expired'), 'Dashboard Expired card must link to the Expired filter');
-assert(rxRecordsView.includes('<option value="incomplete">All Incomplete</option>'), 'RX Records All Incomplete filter is missing');
+assert(rxRecordsView.includes("{ id: 'incomplete', name: 'All Incomplete' }"), 'RX Records All Incomplete filter is missing from the multi-select picker');
 assert(rxRecordsView.includes('id="rxFilterCurrentStageDateFrom"'), 'RX Records Current Stage Date From filter is missing');
 assert(rxRecordsView.includes('id="rxFilterCurrentStageDateTo"'), 'RX Records Current Stage Date To filter is missing');
 assert(rxRecordsView.includes("'currentStageDateFrom'"), 'RX Records does not send Current Stage Date From');
@@ -132,7 +132,7 @@ assert(helpClient.includes('configured application timezone'), 'RX help must exp
 const glossaryRows = glossary.split(/\r?\n/).filter(line => /^\| .+ \| .+ \|$/.test(line));
 assert(glossaryRows.length >= 700, `Expected at least 700 glossary rows; found ${glossaryRows.length}`);
 assert(
-    glossary.includes('| Current Stage Breakdown — RX records by latest completed step | Desglose por etapa actual — registros RX según el último paso completado |'),
+    glossary.includes('| Current Stage Breakdown â€” RX records by latest completed step | Desglose por etapa actual â€” registros RX segÃºn el Ãºltimo paso completado |'),
     'Generated glossary is missing the Current Stage breakdown translation'
 );
 assert(glossary.includes('| All Incomplete | Todos incompletos |'), 'Generated glossary is missing All Incomplete');
@@ -195,27 +195,27 @@ assert.strictEqual(
 const currentStageDateHelp = 'Open Advanced in RX Records and use Current Stage Date From and Current Stage Date To. The range is inclusive in the configured application timezone and uses the completion timestamp of the RX record\'s actual Current Stage. It is independent from Service Date and Next Action Required. Not Started records have no Current Stage date and are excluded when either date filter is used.';
 assert.strictEqual(
     sandbox.window.RXI18n.translate(currentStageDateHelp),
-    'Abra Avanzado en Registros RX y use Fecha de la etapa actual desde y Fecha de la etapa actual hasta. El rango es inclusivo en la zona horaria configurada de la aplicación y usa la fecha y hora de finalización de la etapa actual real del registro RX. Es independiente de Fecha de servicio y Próxima acción requerida. Los registros No iniciados no tienen una fecha de etapa actual y se excluyen cuando se usa cualquiera de los filtros de fecha.'
+    'Abra Avanzado en Registros RX y use Fecha de la etapa actual desde y Fecha de la etapa actual hasta. El rango es inclusivo en la zona horaria configurada de la aplicaciÃ³n y usa la fecha y hora de finalizaciÃ³n de la etapa actual real del registro RX. Es independiente de Fecha de servicio y PrÃ³xima acciÃ³n requerida. Los registros No iniciados no tienen una fecha de etapa actual y se excluyen cuando se usa cualquiera de los filtros de fecha.'
 );
 assert.strictEqual(sandbox.window.RXI18n.translate('Call Queue'), 'Cola de llamadas');
-assert.strictEqual(sandbox.window.RXI18n.translate('Calling from day 60 · Service eligible day 90'), 'Llamadas desde el día 60 · Servicio elegible el día 90');
-assert.strictEqual(sandbox.window.RXI18n.translate('Page 2 of 14'), 'Página 2 de 14');
+assert.strictEqual(sandbox.window.RXI18n.translate('Calling from day 60 Â· Service eligible day 90'), 'Llamadas desde el dÃ­a 60 Â· Servicio elegible el dÃ­a 90');
+assert.strictEqual(sandbox.window.RXI18n.translate('Page 2 of 14'), 'PÃ¡gina 2 de 14');
 assert.strictEqual(sandbox.window.RXI18n.translate('Hello, Maria Rivera'), 'Hola, Maria Rivera');
 assert.strictEqual(
-    sandbox.window.RXI18n.translate('Current Stage Breakdown — RX records by latest completed step'),
-    'Desglose por etapa actual — registros RX según el último paso completado'
+    sandbox.window.RXI18n.translate('Current Stage Breakdown â€” RX records by latest completed step'),
+    'Desglose por etapa actual â€” registros RX segÃºn el Ãºltimo paso completado'
 );
 assert.strictEqual(
     sandbox.window.RXI18n.translate('No workflow steps configured yet.'),
-    'Aún no hay etapas del flujo de trabajo configuradas.'
+    'AÃºn no hay etapas del flujo de trabajo configuradas.'
 );
 assert.strictEqual(
     sandbox.window.RXI18n.translate('Could not load pipeline data.'),
     'No se pudieron cargar los datos del flujo de trabajo.'
 );
 assert.strictEqual(
-    sandbox.window.RXI18n.translate('RX Pipeline chart — reading the bars'),
-    'Gráfico del flujo RX: cómo leer las barras'
+    sandbox.window.RXI18n.translate('RX Pipeline chart â€” reading the bars'),
+    'GrÃ¡fico del flujo RX: cÃ³mo leer las barras'
 );
 assert.strictEqual(
     sandbox.window.RXI18n.translate('Expired RX remain shown in their actual Current Stage.'),
@@ -223,7 +223,7 @@ assert.strictEqual(
 );
 assert.strictEqual(
     sandbox.window.RXI18n.translate('The four summary cards are mutually exclusive Workflow Status groups: Not Started, In Progress, Expired, and Completed. Each horizontal bar below shows the RX record\'s actual Current Stage (the highest active workflow step completed). Expired RX remain included in their actual Current Stage, so the stage bars continue to match the Current Stage filters.'),
-    'Las cuatro tarjetas de resumen son grupos mutuamente excluyentes del estado del flujo de trabajo: No iniciado, En curso, Vencido y Completado. Cada barra horizontal inferior muestra la etapa actual real del registro RX (la etapa activa más avanzada que se completó). Los RX vencidos permanecen incluidos en su etapa actual real, por lo que las barras continúan coincidiendo con los filtros de Etapa actual.'
+    'Las cuatro tarjetas de resumen son grupos mutuamente excluyentes del estado del flujo de trabajo: No iniciado, En curso, Vencido y Completado. Cada barra horizontal inferior muestra la etapa actual real del registro RX (la etapa activa mÃ¡s avanzada que se completÃ³). Los RX vencidos permanecen incluidos en su etapa actual real, por lo que las barras continÃºan coincidiendo con los filtros de Etapa actual.'
 );
 assert.strictEqual(sandbox.window.RXI18n.translate('91% complete'), '91% completado');
 assert.strictEqual(sandbox.window.RXI18n.translate('Updated 4:15:56 PM'), 'Actualizado 4:15:56 PM');
