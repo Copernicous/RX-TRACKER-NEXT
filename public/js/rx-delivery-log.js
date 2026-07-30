@@ -149,7 +149,7 @@
         var dateFrom = document.getElementById('rxFilterDateFrom');
         var dateTo = document.getElementById('rxFilterDateTo');
         var dateToken = now.toISOString().slice(0, 10).replace(/-/g, '');
-        var reference = 'RX-LOG-' + dateToken + '-' + String(total).padStart(4, '0');
+        var reference = 'LOG-' + dateToken + '-' + String(total).padStart(4, '0');
         return {
             reference: reference,
             verification: dateToken.slice(-4) + '-' + String(total).padStart(4, '0'),
@@ -242,9 +242,8 @@
             logTable(pageRows.filter(function (row) { return row.status === 'RETURNED'; }), 'Returned Packages to Pharmacy - Patient Not Accepted', true) +
             (isLast ? '<div class="signature-stack">' + preparedSignature() + receivedSignature() + '</div>' : '') +
             '<div class="audit-strip">' +
-                '<span><i>F</i> Export Format: PDF / XLSX</span>' +
-                '<span><i>S</i> Source: RX Tracker NEXT</span>' +
-                '<span><i>V</i> Verification: ' + escapeHtml(metadata.verification) + '</span>' +
+                '<span>Export Format: PDF</span>' +
+                '<span>Verification: ' + escapeHtml(metadata.verification) + '</span>' +
             '</div>' +
             '<footer class="report-footer">' +
                 '<span>' + escapeHtml(metadata.reference) + ' &bull; Controlled Copy</span>' +
@@ -329,10 +328,13 @@
                 });
             });
             var metadata = baseMetadata;
-            var documentHtml = '<!doctype html><html><head><meta charset="UTF-8"><title>' + escapeHtml(metadata.reference) + '</title><link rel="stylesheet" href="/css/rx-delivery-log.css?v=20260729-3"></head><body>' + pages + '<div class="report-actions"><button id="printReportBtn" type="button">Print / Save PDF</button></div></body></html>';
+            var documentHtml = '<!doctype html><html><head><meta charset="UTF-8"><title>' + escapeHtml(metadata.reference) + '</title><link rel="stylesheet" href="/css/rx-delivery-log.css?v=20260730-4"></head><body>' + pages + '<div class="report-actions"><button id="printReportBtn" type="button">Print / Save PDF</button></div></body></html>';
             reportWindow.document.open();
             reportWindow.document.write(documentHtml);
             reportWindow.document.close();
+            try {
+                reportWindow.history.replaceState(null, '', '/rx-records/delivery-log-preview');
+            } catch {}
             reportWindow.onload = function () { var printButton = reportWindow.document.getElementById('printReportBtn'); if (printButton) printButton.addEventListener('click', function () { reportWindow.focus(); reportWindow.print(); }); };
         }).catch(function (error) {
             reportWindow.close();
@@ -345,46 +347,41 @@
     }
 
     function downloadExcelReport() {
-        fetchRows().then(function (records) {
-            if (!records.length) throw new Error('No RX records match the current filters.');
-            var rows = normalizeRows(records);
-            var metadata = reportMetadata(rows.length);
-            var pharmacyGroups = groupRowsByPharmacy(rows);
-            var sheets = pharmacyGroups.map(function (group) {
-                var groupCounts = reportCounts(group.rows);
-                var rowsXml = group.rows.map(function (row) {
-                    return '<Row>' + [row.receivedDate, row.patient, row.dob, row.driver, row.notes].map(function (value) { return xmlCell(value); }).join('') + '</Row>';
+        var suggestedName = 'print-delivery-log-' + new Date().toISOString().slice(0, 10) + '.xls';
+        var destinationPromise = window.prepareExportDestination
+            ? window.prepareExportDestination(suggestedName, { description: 'Excel Files', accept: { 'application/vnd.ms-excel': ['.xls'] } })
+            : Promise.resolve(null);
+
+        destinationPromise.then(function(destination) {
+            if (destination && destination.cancelled) return;
+            return fetchRows().then(function (records) {
+                if (!records.length) throw new Error('No RX records match the current filters.');
+                var rows = normalizeRows(records);
+                var metadata = reportMetadata(rows.length);
+                var pharmacyGroups = groupRowsByPharmacy(rows);
+                var sheets = pharmacyGroups.map(function (group) {
+                    var groupCounts = reportCounts(group.rows);
+                    var rowsXml = group.rows.map(function (row) {
+                        return '<Row>' + [row.receivedDate, row.patient, row.dob, row.driver, row.notes].map(function (value) { return xmlCell(value); }).join('') + '</Row>';
+                    }).join('');
+                    return '<Worksheet ss:Name="' + escapeHtml(group.pharmacy).slice(0, 31) + '"><Table>' +
+                        '<Row>' + xmlCell('RB & DC SOLUTIONS LLC - ORIGINAL RECEIPTS DELIVERY LOG', 'Title') + '</Row>' +
+                        '<Row>' + xmlCell('Print & Delivery Log', 'Title') + '</Row>' +
+                        '<Row>' + xmlCell('Pharmacy: ' + group.pharmacy, 'Pharmacy') + '</Row>' +
+                        '<Row>' + xmlCell('Report Reference: ' + metadata.reference) + xmlCell('Generated: ' + metadata.generated) + '</Row>' +
+                        '<Row>' + xmlCell('Total Records: ' + group.rows.length, 'Metric') + xmlCell('Received: ' + groupCounts.received, 'Metric') + xmlCell('Returned: ' + groupCounts.returned, 'Metric') + xmlCell('Pending: ' + groupCounts.pending, 'Metric') + '</Row>' +
+                        '<Row>' + ['Date Delivered','Patient Full Name','DOB','Driver','Notes'].map(function (heading) { return xmlCell(heading, 'Header'); }).join('') + '</Row>' + rowsXml +
+                        '<Row></Row><Row>' + xmlCell('Prepared By (Print Name)') + xmlCell('Prepared By Signature') + xmlCell('Released Date / Time') + '</Row>' +
+                        '<Row>' + xmlCell('Received By (Print Name)') + xmlCell('Recipient Signature') + xmlCell('Date / Time Received') + '</Row>' +
+                        '<Row>' + xmlCell('Pharmacy Representative Signature') + xmlCell('Exception Reference / Notes') + '</Row>' +
+                        '</Table></Worksheet>';
                 }).join('');
-                return '<Worksheet ss:Name="' + escapeHtml(group.pharmacy).slice(0, 31) + '"><Table>' +
-                    '<Row>' + xmlCell('RB & DC SOLUTIONS LLC - ORIGINAL RECEIPTS DELIVERY LOG', 'Title') + '</Row>' +
-                    '<Row>' + xmlCell('Print & Delivery Log', 'Title') + '</Row>' +
-                    '<Row>' + xmlCell('Pharmacy: ' + group.pharmacy, 'Pharmacy') + '</Row>' +
-                    '<Row>' + xmlCell('Report Reference: ' + metadata.reference) + xmlCell('Generated: ' + metadata.generated) + '</Row>' +
-                    '<Row>' + xmlCell('Total Records: ' + group.rows.length, 'Metric') + xmlCell('Received: ' + groupCounts.received, 'Metric') + xmlCell('Returned: ' + groupCounts.returned, 'Metric') + xmlCell('Pending: ' + groupCounts.pending, 'Metric') + '</Row>' +
-                    '<Row>' + ['Date Delivered','Patient Full Name','DOB','Driver','Notes'].map(function (heading) { return xmlCell(heading, 'Header'); }).join('') + '</Row>' + rowsXml +
-                    '<Row></Row><Row>' + xmlCell('Prepared By (Print Name)') + xmlCell('Prepared By Signature') + xmlCell('Released Date / Time') + '</Row>' +
-                    '<Row>' + xmlCell('Received By (Print Name)') + xmlCell('Recipient Signature') + xmlCell('Date / Time Received') + '</Row>' +
-                    '<Row>' + xmlCell('Pharmacy Representative Signature') + xmlCell('Exception Reference / Notes') + '</Row>' +
-                    '</Table></Worksheet>';
-            }).join('');
-            var xml = '<?xml version="1.0"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"><Styles><Style ss:ID="Title"><Font ss:Bold="1" ss:Size="16" ss:Color="#123B70"/></Style><Style ss:ID="Header"><Font ss:Bold="1" ss:Color="#FFFFFF"/><Interior ss:Color="#123B70" ss:Pattern="Solid"/><Alignment ss:Horizontal="Center"/></Style><Style ss:ID="Metric"><Font ss:Bold="1" ss:Color="#123B70" ss:Size="12"/><Interior ss:Color="#EAF3F4" ss:Pattern="Solid"/></Style><Style ss:ID="Pharmacy"><Font ss:Bold="1" ss:Color="#123B70"/></Style></Styles>' + sheets + '</Workbook>';
-            var filename = String(metadata.reference || 'print-delivery-log')
-                .replace(/[^a-z0-9._-]+/gi, '_')
-                .replace(/^_+|_+$/g, '')
-                .toLowerCase() + '.xls';
-            var blob = new Blob(['\uFEFF', xml], { type: 'application/vnd.ms-excel' });
-            var url = URL.createObjectURL(blob);
-            var link = document.createElement('a');
-            link.href = url;
-            link.download = filename;
-            link.setAttribute('download', filename);
-            document.body.appendChild(link);
-            link.click();
-            setTimeout(function () {
-                link.remove();
-                URL.revokeObjectURL(url);
-            }, 10000);
-        }).catch(function (error) {
+                var xml = '<?xml version="1.0"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"><Styles><Style ss:ID="Title"><Font ss:Bold="1" ss:Size="16" ss:Color="#123B70"/></Style><Style ss:ID="Header"><Font ss:Bold="1" ss:Color="#FFFFFF"/><Interior ss:Color="#123B70" ss:Pattern="Solid"/><Alignment ss:Horizontal="Center"/></Style><Style ss:ID="Metric"><Font ss:Bold="1" ss:Color="#123B70" ss:Size="12"/><Interior ss:Color="#EAF3F4" ss:Pattern="Solid"/></Style><Style ss:ID="Pharmacy"><Font ss:Bold="1" ss:Color="#123B70"/></Style></Styles>' + sheets + '</Workbook>';
+                var filename = String(metadata.reference || 'print-delivery-log').replace(/[^a-z0-9._-]+/gi, '_').replace(/^_+|_+$/g, '').toLowerCase() + '.xls';
+                var blob = new Blob(['\uFEFF', xml], { type: 'application/vnd.ms-excel' });
+                return window.saveExportBlob(blob, filename, { description: 'Excel Files', accept: { 'application/vnd.ms-excel': ['.xls'] } }, destination);
+            });
+        }).catch(function(error) {
             window.showToast(error.message || 'Could not generate delivery log.', 'danger');
         });
     }

@@ -1882,57 +1882,67 @@ async function restoreRecord(id) {
 // =============================================
 // CSV Export — shared across all pages
 // =============================================
-async function exportToCsv(filename, headers, rows) {
+function prepareExportDestination(filename, options) {
+    if (!window.showSaveFilePicker) return Promise.resolve(null);
+    var settings = options || {};
+    return window.showSaveFilePicker({
+        suggestedName: filename,
+        types: [{
+            description: settings.description || 'Export File',
+            accept: settings.accept || { 'application/octet-stream': ['.dat'] }
+        }]
+    }).then(function(handle) {
+        return { handle: handle };
+    }).catch(function(error) {
+        if (error && error.name === 'AbortError') return { cancelled: true };
+        console.warn('Save As picker unavailable; using the browser download location.', error);
+        return null;
+    });
+}
+
+async function saveExportBlob(blob, filename, options, destination) {
+    if (destination && destination.cancelled) return false;
+    if (destination && destination.handle) {
+        var writable = await destination.handle.createWritable();
+        await writable.write(blob);
+        await writable.close();
+        showToast('File saved successfully.', 'success');
+        return true;
+    }
+
+    var url = URL.createObjectURL(blob);
+    var link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.setAttribute('download', filename);
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    setTimeout(function() {
+        link.remove();
+        URL.revokeObjectURL(url);
+    }, 10000);
+    showToast('Downloading: ' + filename, 'success');
+    return true;
+}
+
+async function exportToCsv(filename, headers, rows, destination) {
     var allRows = [headers].concat(rows);
-    var csvLines = allRows.map(function(row) {
+    var csvContent = allRows.map(function(row) {
         return row.map(function(val) {
             return '"' + String(val == null ? '' : val).replace(/"/g, '""') + '"';
         }).join(',');
-    });
-    var csvContent = csvLines.join('\n');
-
-    // 1. Try modern File System Access API to force Windows Explorer "Save As" Dialog
-    if (window.showSaveFilePicker) {
-        try {
-            var handle = await window.showSaveFilePicker({
-                suggestedName: filename,
-                types: [{
-                    description: 'CSV Files',
-                    accept: {
-                        'text/csv': ['.csv']
-                    }
-                }]
-            });
-            var writable = await handle.createWritable();
-            await writable.write(csvContent); // Write string directly to avoid [object Blob] serialization bugs
-            await writable.close();
-            showToast('File saved successfully.', 'success');
-            return;
-        } catch (err) {
-            // User aborted the dialog (cancelled)
-            if (err.name === 'AbortError') {
-                return;
-            }
-            console.warn('showSaveFilePicker failed or cancelled, falling back to anchor download:', err);
-        }
-    }
-
-    // 2. Fallback: Standard automatic download
-const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    var a = document.createElement('a');
-    a.style.display = 'none';
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(function() {
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-    }, 150);
-    showToast('Downloading: ' + filename, 'success');
+    }).join('\n');
+    return saveExportBlob(
+        new Blob(['\uFEFF', csvContent], { type: 'text/csv;charset=utf-8;' }),
+        filename,
+        { description: 'CSV Files', accept: { 'text/csv': ['.csv'] } },
+        destination
+    );
 }
 
+window.prepareExportDestination = prepareExportDestination;
+window.saveExportBlob = saveExportBlob;
 // ----- Role & Permissions Helpers -----
 // Single source of truth is rbac.js on the server.
 // The client fetches from GET /api/roles/permission-defaults and caches it.

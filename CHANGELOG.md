@@ -7,6 +7,19 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+## [4.0.0-next.40] - 2026-07-30
+
+### Added
+
+- Added a browser **Save As** destination picker for Patient CSV, RX Records CSV, and Delivery Log Excel exports when the browser supports the secure File System Access API. Unsupported browsers and insecure HTTP origins retain the normal browser-download fallback.
+
+### Changed
+
+- Simplified the Print & Delivery Log audit strip to **Export Format: PDF** and its verification reference only.
+- Shortened the Delivery Log reference prefix from `RX-LOG-` to `LOG-` across PDF, Excel, and controlled-copy footer output.
+- Gives the browser PDF preview a same-origin preview address instead of the visible `about:blank` address; the validated report content and fixed page footer layout are unchanged.
+
+**Database impact:** No migration, workflow configuration, or business-data change.
 ## [4.0.0-next.39] - 2026-07-30
 
 ### Fixed

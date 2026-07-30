@@ -1,12 +1,14 @@
 # RX Tracker NEXT project handoff
 
-Last updated: 2026-07-29
+Last updated: 2026-07-30
 
 This file is the sanitized continuity record for a future administrator or
 Codex session. It intentionally contains no credentials, `.env` values,
 patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
+
+- **v4.0.0-next.40 candidate** is prepared for release. It adds native browser Save As selection for the Patient CSV, RX Records CSV, and Delivery Log Excel exports when accessed through a secure browser origin, with the existing browser-download fallback otherwise. It also simplifies the Delivery Log audit strip, changes report references from `RX-LOG-...` to `LOG-...`, and replaces the PDF preview window address from `about:blank` to a same-origin preview address without changing the validated page footer layout. No database migration, workflow configuration, or business-data change is included.
 
 - Official **v4.0.0-next.39** was published on 2026-07-30 from `main` commit
   `a2f069c0e871e01157813326674894651038665c` after PostgreSQL lifecycle CI

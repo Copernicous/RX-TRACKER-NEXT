@@ -669,6 +669,10 @@ var allPatients = [];
             const selected = EXPORT_COLS.filter(c => _exportColState[c.key]);
             if (!selected.length) { showToast('Select at least one column.', 'warning'); return; }
             const headers = selected.map(c => c.label);
+            const exportDate = new Date().toISOString().slice(0,10);
+            const saveDestinationPromise = window.prepareExportDestination
+                ? window.prepareExportDestination('patients_export_' + exportDate + '.csv', { description: 'CSV Files', accept: { 'text/csv': ['.csv'] } })
+                : Promise.resolve(null);
             let exportPatients;
             try {
                 exportPatients = await loadPatientsForExport();
@@ -678,7 +682,7 @@ var allPatients = [];
             }
             const rows = exportPatients.map(p => selected.map(c => c.fn(p)));
             // IMPROVE-05: include active date range filters in filename
-            const today  = new Date().toISOString().slice(0,10);
+            const today  = exportDate;
             const svcFrom = (document.getElementById('srchServiceFrom') || {}).value || '';
             const svcTo   = (document.getElementById('srchServiceTo')   || {}).value || '';
             const dob     = (document.getElementById('srchDob')         || {}).value || '';
@@ -688,7 +692,9 @@ var allPatients = [];
             else if (svcTo)         { filenamePart += 'through-' + svcTo + '_exported-' + today; }
             else if (dob)           { filenamePart += 'dob-' + dob + '_exported-' + today; }
             else                    { filenamePart += today; }
-            exportToCsv(filenamePart + '.csv', headers, rows);
+            const destination = await saveDestinationPromise;
+            if (destination && destination.cancelled) return;
+            await exportToCsv(filenamePart + '.csv', headers, rows, destination);
             bootstrap.Modal.getInstance(document.getElementById('exportColumnsModal')).hide();
             showToast('Exported ' + exportPatients.length + ' records (' + selected.length + ' columns).', 'success');
         });

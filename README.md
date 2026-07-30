@@ -10,7 +10,7 @@ frozen 3.3.1 repository, its production database, or the RX Softphone source.
 
 ## Current status
 
-Version: `4.0.0-next.39` Excel export correction candidate
+Version: `4.0.0-next.40` Save As and Delivery Log presentation candidate
 
 | Area | NEXT behavior |
 |---|---|
