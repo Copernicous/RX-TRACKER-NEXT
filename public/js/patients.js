@@ -558,20 +558,51 @@ var allPatients = [];
             return parts.join(' | ');
         }
 
+        function formatPatientExportDateTime(value) {
+            if (!value) return '';
+            var date = new Date(value);
+            return isNaN(date.getTime()) ? String(value) : date.toLocaleString();
+        }
+
+        function exportOrganizationValue(record, field) {
+            return record && record[field] ? record[field] : '';
+        }
+
         const EXPORT_COLS = [
-            { key: 'patientCode',  label: 'Patient ID',        fn: p => p.patientCode || p.id },
-            { key: 'firstName',   label: 'First Name',         fn: p => p.firstName || '' },
-            { key: 'lastName',    label: 'Last Name',          fn: p => p.lastName  || '' },
-            { key: 'dob',         label: 'Date of Birth',      fn: p => p.dob       || '' },
-            { key: 'phone',       label: 'Phone',              fn: p => p.phone     || '' },
-            { key: 'address',     label: 'Address',            fn: p => p.address   || '' },
-            { key: 'serviceDate', label: 'Service Date',       fn: p => p.serviceDate || '' },
-            { key: 'notes',       label: 'Notes',              fn: p => exportPatientNotes(p) },
-            { key: 'status',      label: 'Status',             fn: p => p.isDeleted ? 'Deleted' : (p.isActive ? 'Active' : 'Inactive') },
-            { key: 'clinic',      label: 'Clinic',             fn: p => p.Clinic ? p.Clinic.name : '' },
-            { key: 'pharmacy',    label: 'Pharmacy',           fn: p => p.Pharmacy ? p.Pharmacy.name : '' },
-            { key: 'patTrans',    label: 'Patient Transport',  fn: p => p.PatientTransportCompany ? (p.PatientTransportCompany.contactPerson || p.PatientTransportCompany.companyName || '') : '' },
-            { key: 'rxTrans',     label: 'Pharmacy Transport', fn: p => p.PharmacyTransportCompany ? (p.PharmacyTransportCompany.companyName || p.PharmacyTransportCompany.contactPerson || '') : '' },
+            { key: 'recordId', label: 'Patient Record ID', fn: p => p.id || '' },
+            { key: 'patientCode', label: 'Patient ID', fn: p => p.patientCode || '' },
+            { key: 'firstName', label: 'First Name', fn: p => p.firstName || '' },
+            { key: 'lastName', label: 'Last Name', fn: p => p.lastName || '' },
+            { key: 'fullName', label: 'Patient Full Name', fn: p => [p.firstName, p.lastName].filter(Boolean).join(' ') },
+            { key: 'dob', label: 'Date of Birth', fn: p => p.dob || '' },
+            { key: 'phone', label: 'Phone', fn: p => p.phone || '' },
+            { key: 'address', label: 'Address', fn: p => p.address || '' },
+            { key: 'serviceDate', label: 'Service Date', fn: p => p.serviceDate || '' },
+            { key: 'notes', label: 'Notes', fn: p => exportPatientNotes(p) },
+            { key: 'status', label: 'Status', fn: p => p.isDeleted ? 'Deleted' : (p.isActive ? 'Active' : 'Inactive') },
+            { key: 'active', label: 'Active', fn: p => p.isActive ? 'Yes' : 'No' },
+            { key: 'deleted', label: 'Deleted', fn: p => p.isDeleted ? 'Yes' : 'No' },
+            { key: 'patientType', label: 'Patient Type', fn: p => p.isNonCompanyPatient ? 'Non-Company' : 'Company' },
+            { key: 'clinicId', label: 'Clinic ID', fn: p => p.clinicId || '' },
+            { key: 'clinic', label: 'Clinic', fn: p => exportOrganizationValue(p.Clinic, 'name') },
+            { key: 'clinicAddress', label: 'Clinic Address', fn: p => exportOrganizationValue(p.Clinic, 'address') },
+            { key: 'clinicPhone', label: 'Clinic Phone', fn: p => exportOrganizationValue(p.Clinic, 'phone') },
+            { key: 'clinicContact', label: 'Clinic Contact', fn: p => exportOrganizationValue(p.Clinic, 'contactPerson') },
+            { key: 'pharmacyId', label: 'Pharmacy ID', fn: p => p.pharmacyId || '' },
+            { key: 'pharmacy', label: 'Pharmacy', fn: p => exportOrganizationValue(p.Pharmacy, 'name') },
+            { key: 'pharmacyAddress', label: 'Pharmacy Address', fn: p => exportOrganizationValue(p.Pharmacy, 'address') },
+            { key: 'pharmacyPhone', label: 'Pharmacy Phone', fn: p => exportOrganizationValue(p.Pharmacy, 'phone') },
+            { key: 'pharmacyContact', label: 'Pharmacy Contact', fn: p => exportOrganizationValue(p.Pharmacy, 'contactPerson') },
+            { key: 'patientTransportId', label: 'Patient Transport ID', fn: p => p.patientTransportCompanyId || '' },
+            { key: 'patientTransport', label: 'Patient Transport', fn: p => exportOrganizationValue(p.PatientTransportCompany, 'companyName') || exportOrganizationValue(p.PatientTransportCompany, 'contactPerson') },
+            { key: 'patientTransportContact', label: 'Patient Transport Contact', fn: p => exportOrganizationValue(p.PatientTransportCompany, 'contactPerson') },
+            { key: 'patientTransportPhone', label: 'Patient Transport Phone', fn: p => exportOrganizationValue(p.PatientTransportCompany, 'phone') },
+            { key: 'pharmacyTransportId', label: 'Pharmacy Transport ID', fn: p => p.pharmacyTransportCompanyId || '' },
+            { key: 'pharmacyTransport', label: 'Pharmacy Transport', fn: p => exportOrganizationValue(p.PharmacyTransportCompany, 'companyName') || exportOrganizationValue(p.PharmacyTransportCompany, 'contactPerson') },
+            { key: 'pharmacyTransportContact', label: 'Pharmacy Transport Contact', fn: p => exportOrganizationValue(p.PharmacyTransportCompany, 'contactPerson') },
+            { key: 'pharmacyTransportPhone', label: 'Pharmacy Transport Phone', fn: p => exportOrganizationValue(p.PharmacyTransportCompany, 'phone') },
+            { key: 'createdAt', label: 'Created At', fn: p => formatPatientExportDateTime(p.createdAt) },
+            { key: 'updatedAt', label: 'Updated At', fn: p => formatPatientExportDateTime(p.updatedAt) }
         ];
         let _exportColState = {};
         EXPORT_COLS.forEach(c => { _exportColState[c.key] = true; });
@@ -737,6 +768,7 @@ var allPatients = [];
                     phSel.innerHTML += '<option value="' + p.id + '">' + p.name + (p.address ? ' â€“ ' + p.address : '') + '</option>';
                 });
             }
+            refreshPatientMultiFilters();
         } catch(e) {}
     }
 
