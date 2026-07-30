@@ -8,7 +8,7 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
 
-- Release candidate **v4.0.0-next.41** is isolated from the published `v4.0.0-next.40` baseline for test-server validation. It fixes Delivery Log preview closing, excludes fully closed/archived RX workflows from PDF and Excel, and reserves acknowledgement space to prevent row/signature overlap. It has no database migration, workflow-action configuration, or business-data change. It is not yet published or installed.
+- Official **v4.0.0-next.41** was published on 2026-07-30 from `main` commit `ac143a0776a30e9474875b823d680df1114a0216` after the PostgreSQL lifecycle CI and tagged compiled-release workflow passed. It fixes Delivery Log preview closing, excludes fully closed/archived RX workflows from PDF and Excel, and reserves acknowledgement space to prevent row/signature overlap. No database migration, workflow-action configuration, or business-data change is included. It is ready for test-server validation before any production update. Published SHA-256 values: `server-update-4.0.0-next.41.zip` `2de2eb0d3ba073d8113122372e41cb901e27b65876c98dce872464d8cec27e2b`, `server.exe` `20af7817c9456623aef2da3dd0cb9ded2d75889eb20fcb1162764139078d7dce`, and `rx-db.exe` `7681f60ff3a25bcd0832af80cba7258d5ebdc014b6c8237178e479bd0104d91a`.
 
 - Official **v4.0.0-next.40** was published on 2026-07-30 from `main` commit
   `07a28abd0daf7beca34278a2df2c10c2fdcf6f59` after PostgreSQL lifecycle CI and
