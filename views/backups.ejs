@@ -435,177 +435,43 @@ Waiting for restore action…
 
                     <div id="restoreGuideBody" style="display:none;">
 
-                        <!-- Question 1: Do I need to create tables? -->
                         <div class="alert mb-4" style="background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.25);border-radius:12px;">
-                            <h6 class="fw-bold" style="color:#16a34a;"><i class="fas fa-question-circle me-2"></i>Do I need to create the database tables manually on the new server?</h6>
-                            <p class="mb-2"><strong>Short answer: No &mdash; if you restore from a backup dump, the tables are included automatically.</strong></p>
-                            <p class="mb-2">The <code>.dump</code> file (created by pg_dump) contains <em>everything</em>: the table structure (schema), all your data (patients, RX records, users, settings), and all relationships. When you run <code>pg_restore</code>, PostgreSQL recreates it all from scratch.</p>
-                            <p class="mb-2"><strong>The two scenarios:</strong></p>
-                            <ul class="mb-0">
-                                <li><strong>Restoring from backup</strong> &rarr; Run <code>pg_restore</code>. Tables + data are created automatically. <span class="text-success">No migrations needed.</span></li>
-                                <li><strong>Fresh install (no backup)</strong> &rarr; Run <code>setup.bat</code> (included in the project). It runs migrations to create empty tables and seeds a default admin account.</li>
-                            </ul>
+                            <h6 class="fw-bold" style="color:#16a34a;"><i class="fas fa-shield-alt me-2"></i>Current supported restore method</h6>
+                            <p class="mb-2"><strong>Use the official compiled RX Tracker NEXT package and Project Control.</strong> Do not install Node.js, run <code>npm</code>, use PM2, copy a production <code>.env</code>, or run SQL manually.</p>
+                            <p class="mb-0">A restore recreates patients, RX records, users, settings, workflow history, and relationships from the selected PostgreSQL dump. Files uploaded outside the database must be transferred separately from an approved encrypted backup.</p>
                         </div>
 
-                        <!-- Step tabs -->
                         <ul class="nav nav-pills mb-4 gap-2" id="restoreTabs">
-                            <li class="nav-item">
-                                <a class="nav-link active" href="#" onclick="showRestoreTab('fromBackup'); return false;" id="tab-fromBackup">
-                                    <i class="fas fa-file-archive me-1"></i>Restore from ZIP Backup
-                                </a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" href="#" onclick="showRestoreTab('freshInstall'); return false;" id="tab-freshInstall">
-                                    <i class="fas fa-star me-1"></i>Fresh Install (No Backup)
-                                </a>
-                            </li>
+                            <li class="nav-item"><a class="nav-link active" href="#" onclick="showRestoreTab('fromBackup'); return false;" id="tab-fromBackup"><i class="fas fa-file-archive me-1"></i>Move Existing Data</a></li>
+                            <li class="nav-item"><a class="nav-link" href="#" onclick="showRestoreTab('freshInstall'); return false;" id="tab-freshInstall"><i class="fas fa-star me-1"></i>Fresh Empty Server</a></li>
                         </ul>
 
-                        <!-- FROM BACKUP TAB -->
                         <div id="restorePanel-fromBackup">
-                            <!-- PART 1: Dependencies -->
-                            <h6 class="fw-bold text-uppercase mb-3" style="color:#16a34a;letter-spacing:.06em;">
-                                <i class="fas fa-download me-2"></i>Part 1 &mdash; Install Dependencies on the New Computer
-                            </h6>
-                            <div class="table-responsive mb-4">
-                                <table class="table table-bordered align-middle small">
-                                    <thead class="table-dark">
-                                        <tr><th style="width:180px">Software</th><th>Why needed</th><th>Version</th><th style="width:180px">Download Link</th></tr>
-                                    </thead>
-                                    <tbody>
-                                        <tr>
-                                            <td><i class="fas fa-server me-2" style="color:#22c55e"></i><strong>Node.js</strong></td>
-                                            <td>Runs the application server. Required for <code>npm install</code> and <code>npm start</code>.</td>
-                                            <td><span class="badge bg-success">v20 LTS or newer</span></td>
-                                            <td><a href="https://nodejs.org/en/download" target="_blank" class="btn btn-sm btn-outline-success w-100"><i class="fas fa-external-link-alt me-1"></i>nodejs.org</a></td>
-                                        </tr>
-                                        <tr>
-                                            <td><i class="fas fa-database me-2" style="color:#3b82f6"></i><strong>PostgreSQL</strong></td>
-                                            <td>The database engine. Stores all patient and RX data. Includes pg_dump and pg_restore tools.</td>
-                                            <td><span class="badge bg-primary">v14 or newer</span></td>
-                                            <td><a href="https://www.postgresql.org/download/windows/" target="_blank" class="btn btn-sm btn-outline-primary w-100"><i class="fas fa-external-link-alt me-1"></i>postgresql.org</a></td>
-                                        </tr>
-                                        <tr class="table-light">
-                                            <td colspan="4" class="text-muted" style="font-size:.78rem;">
-                                                <i class="fas fa-info-circle me-1"></i>
-                                                <strong>That is all you need to install.</strong> Everything else (Express, Sequelize, bcrypt, etc.) is installed automatically when you run <code>npm install</code> from the project folder.
-                                            </td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
-
-                            <!-- PART 2: Steps -->
-                            <h6 class="fw-bold text-uppercase mb-3" style="color:#16a34a;letter-spacing:.06em;">
-                                <i class="fas fa-list-ol me-2"></i>Part 2 &mdash; Step-by-Step Restore Process
-                            </h6>
+                            <h6 class="fw-bold text-uppercase mb-3" style="color:#16a34a;letter-spacing:.06em;"><i class="fas fa-list-ol me-2"></i>Move RX Tracker data to another server</h6>
                             <div class="d-flex flex-column gap-3">
+                                <div class="p-3 rounded-3" style="background:var(--bg-subtle,#f8fafc);border-left:3px solid #22c55e;"><strong>1. Preserve and verify the source backup</strong><p class="text-muted small mb-0 mt-2">Create or download a current PostgreSQL <code>.dump</code>. If using <code>RX_SiteBackup_*.zip</code>, keep the ZIP encrypted and extract only <code>db_backup.dump</code> for Project Control. Record its SHA-256 hash. Never email or commit the backup.</p></div>
+                                <div class="p-3 rounded-3" style="background:var(--bg-subtle,#f8fafc);border-left:3px solid #22c55e;"><strong>2. Install the same or newer official NEXT release</strong><p class="text-muted small mb-0 mt-2">Download <code>RX-Tracker-NEXT-New-Server-&lt;version&gt;.zip</code> from the official GitHub release. Extract it, run <code>INSTALL-NEW-SERVER.bat</code> as Administrator, and create a new empty database and first administrator. PostgreSQL 14+ is required; Node.js and Git are not.</p></div>
+                                <div class="p-3 rounded-3" style="background:var(--bg-subtle,#f8fafc);border-left:3px solid #22c55e;"><strong>3. Restore through Project Control</strong><p class="text-muted small mb-0 mt-2">Open <code>PROJECT-CONTROL.bat</code> as Administrator and select <strong>25. Restore verified dump into isolated test copy</strong>. Choose a separate database name containing <code>test</code>, <code>copy</code>, <code>sandbox</code>, <code>rehearsal</code>, or <code>scratch</code>. Enter PostgreSQL maintenance credentials only when prompted.</p></div>
+                                <div class="p-3 rounded-3" style="background:var(--bg-subtle,#f8fafc);border-left:3px solid #22c55e;"><strong>4. Verify before activation</strong><p class="text-muted small mb-0 mt-2">Wait for dump validation, migrations, schema checks, restricted-role verification, and the business-data fingerprint. Compare patient/RX totals and important reports. Then choose activation. Project Control changes only <code>DB_NAME</code>, restarts the service, and automatically restores the prior configuration if health validation fails.</p></div>
+                                <div class="p-3 rounded-3" style="background:var(--bg-subtle,#f8fafc);border-left:3px solid #22c55e;"><strong>5. Complete acceptance</strong><p class="text-muted small mb-0 mt-2">Verify login, Dashboard, Patients, RX Records, workflow history, reports, exports, backups, uploaded documents, and RX Softphone. Keep the old server stopped but intact until the approved rollback-retention period ends. Never run both servers against the same live database.</p></div>
+                            </div>
+                        </div>
 
-                                <!-- Step 1 -->
-                                <div class="p-3 rounded-3" style="background:var(--bg-subtle,#f8fafc);border-left:3px solid #22c55e;">
-                                    <div class="d-flex align-items-center gap-2 mb-2">
-                                        <span class="badge rounded-circle" style="background:#22c55e;min-width:24px;height:24px;line-height:24px;text-align:center;">1</span>
-                                        <strong>Copy the Site Backup ZIP to the new computer</strong>
-                                    </div>
-                                    <p class="text-muted small mb-2">Use a USB drive, network share, or cloud storage. The file is named <code>RX_SiteBackup_YYYY-MM-DD.zip</code> and is located in <code>C:\RX-SiteBackups\</code> on this computer.</p>
-                                    <p class="text-muted small mb-0">Create a folder on the new computer, e.g. <code>C:\PatientRX\</code> and extract the ZIP there.</p>
-                                </div>
-
-                                <!-- Step 2 -->
-                                <div class="p-3 rounded-3" style="background:var(--bg-subtle,#f8fafc);border-left:3px solid #22c55e;">
-                                    <div class="d-flex align-items-center gap-2 mb-2">
-                                        <span class="badge rounded-circle" style="background:#22c55e;min-width:24px;height:24px;line-height:24px;text-align:center;">2</span>
-                                        <strong>Configure the .env file</strong>
-                                    </div>
-                                    <p class="text-muted small mb-2">In the extracted folder, find <code>.env.example</code>. Copy it and rename the copy to <code>.env</code>. Open it in Notepad and change:</p>
-                                    <pre class="rounded p-2 mb-0 small" style="background:#1e293b;color:#e2e8f0;"><code>DB_PASS=<span style="color:#4ade80">your_postgresql_password_here</span>   &lt;-- CHANGE THIS
-JWT_SECRET=<span style="color:#4ade80">any_long_random_phrase_here</span>    &lt;-- CHANGE THIS
-DB_HOST=127.0.0.1                                 &lt;-- keep as-is
-DB_NAME=patient_rx_dev                            &lt;-- keep as-is
-TZ=America/New_York                               &lt;-- your timezone</code></pre>
-                                </div>
-
-                                <!-- Step 3 -->
-                                <div class="p-3 rounded-3" style="background:var(--bg-subtle,#f8fafc);border-left:3px solid #22c55e;">
-                                    <div class="d-flex align-items-center gap-2 mb-2">
-                                        <span class="badge rounded-circle" style="background:#22c55e;min-width:24px;height:24px;line-height:24px;text-align:center;">3</span>
-                                        <strong>Run setup.bat with restore mode &mdash; ONE COMMAND does everything</strong>
-                                    </div>
-                                    <p class="text-muted small mb-2">Open <strong>Command Prompt</strong> as Administrator (<kbd>Win</kbd> &rarr; type <code>cmd</code> &rarr; right-click &rarr; "Run as administrator"). Navigate to the project folder and run:</p>
-                                    <pre class="rounded p-2 mb-2 small" style="background:#1e293b;color:#e2e8f0;"><code>cd C:\PatientRX
-setup.bat restore db_backup.dump</code></pre>
-                                    <p class="text-muted small mb-0">This script: &#9312; checks PostgreSQL &#9313; creates the database &#9314; restores all your data from the dump &#9315; runs <code>npm install</code> automatically. Done.</p>
-                                </div>
-
-                                <!-- Step 4 -->
-                                <div class="p-3 rounded-3" style="background:var(--bg-subtle,#f8fafc);border-left:3px solid #22c55e;">
-                                    <div class="d-flex align-items-center gap-2 mb-2">
-                                        <span class="badge rounded-circle" style="background:#22c55e;min-width:24px;height:24px;line-height:24px;text-align:center;">4</span>
-                                        <strong>Start the server and verify</strong>
-                                    </div>
-                                    <pre class="rounded p-2 mb-2 small" style="background:#1e293b;color:#e2e8f0;"><code>cd C:\PatientRX
-npm start</code></pre>
-                                    <p class="text-muted small mb-1">You should see: <code style="color:#22c55e">Server is running on port 3000</code></p>
-                                    <p class="text-muted small mb-0">Open your browser and go to <strong>http://localhost:3000</strong>. Log in with your existing admin account (restored from backup). All patients, RX records, settings, and users will be there.</p>
-                                </div>
-
-                                <!-- Step 5 optional -->
-                                <div class="p-3 rounded-3" style="background:rgba(34,197,94,.05);border-left:3px solid #86efac;">
-                                    <div class="d-flex align-items-center gap-2 mb-2">
-                                        <span class="badge rounded-circle" style="background:#86efac;color:#166534;min-width:24px;height:24px;line-height:24px;text-align:center;">5</span>
-                                        <strong>Optional: Auto-start on boot with PM2</strong>
-                                    </div>
-                                    <pre class="rounded p-2 mb-1 small" style="background:#1e293b;color:#e2e8f0;"><code>npm install -g pm2 pm2-windows-startup
-cd C:\PatientRX
-pm2 start pm2.config.js
-pm2-startup install
-pm2 save</code></pre>
-                                    <p class="text-muted small mb-0">After this, the server starts automatically every time Windows boots, even if you close the terminal.</p>
-                                </div>
-
-                            </div><!-- /steps -->
-                        </div><!-- /#restorePanel-fromBackup -->
-
-                        <!-- FRESH INSTALL TAB -->
                         <div id="restorePanel-freshInstall" style="display:none;">
-                            <div class="alert" style="background:rgba(59,130,246,.07);border:1px solid rgba(59,130,246,.2);border-radius:12px;" >
-                                <i class="fas fa-info-circle me-1 text-primary"></i>
-                                Use this path if you do NOT have a backup dump and want to start with an empty database with a default admin account.
-                            </div>
-                            <div class="d-flex flex-column gap-3">
-                                <div class="p-3 rounded-3" style="background:var(--bg-subtle,#f8fafc);border-left:3px solid #3b82f6;">
-                                    <div class="d-flex align-items-center gap-2 mb-2">
-                                        <span class="badge rounded-circle" style="background:#3b82f6;min-width:24px;height:24px;line-height:24px;text-align:center;">1</span>
-                                        <strong>Install Node.js + PostgreSQL</strong> (see download links in the Restore tab)
-                                    </div>
-                                </div>
-                                <div class="p-3 rounded-3" style="background:var(--bg-subtle,#f8fafc);border-left:3px solid #3b82f6;">
-                                    <div class="d-flex align-items-center gap-2 mb-2">
-                                        <span class="badge rounded-circle" style="background:#3b82f6;min-width:24px;height:24px;line-height:24px;text-align:center;">2</span>
-                                        <strong>Copy the project to the new computer, configure .env</strong>
-                                    </div>
-                                    <p class="text-muted small mb-0">Copy the project folder (or extract the code ZIP without the db_backup.dump). Configure .env with your new PostgreSQL password.</p>
-                                </div>
-                                <div class="p-3 rounded-3" style="background:var(--bg-subtle,#f8fafc);border-left:3px solid #3b82f6;">
-                                    <div class="d-flex align-items-center gap-2 mb-2">
-                                        <span class="badge rounded-circle" style="background:#3b82f6;min-width:24px;height:24px;line-height:24px;text-align:center;">3</span>
-                                        <strong>Run setup.bat (no arguments) &mdash; creates all tables automatically</strong>
-                                    </div>
-                                    <pre class="rounded p-2 mb-2 small" style="background:#1e293b;color:#e2e8f0;"><code>cd C:\PatientRX
-setup.bat</code></pre>
-                                    <p class="text-muted small mb-0">This runs <code>npm install</code>, creates the database, runs all <strong>16 migrations</strong> (creates every table), and seeds the default admin. <strong>No manual SQL needed.</strong></p>
-                                </div>
-                                <div class="p-3 rounded-3" style="background:var(--bg-subtle,#f8fafc);border-left:3px solid #3b82f6;">
-                                    <div class="d-flex align-items-center gap-2 mb-2">
-                                        <span class="badge rounded-circle" style="background:#3b82f6;min-width:24px;height:24px;line-height:24px;text-align:center;">4</span>
-                                        <strong>Start the server &mdash; default login: admin / admin123</strong>
-                                    </div>
-                                    <pre class="rounded p-2 mb-1 small" style="background:#1e293b;color:#e2e8f0;"><code>npm start</code></pre>
-                                    <p class="text-muted small mb-0"><strong>Change the admin password immediately after first login</strong> &mdash; go to User Management &rarr; edit the admin user.</p>
-                                </div>
-                            </div>
-                        </div><!-- /#restorePanel-freshInstall -->
+                            <div class="alert" style="background:rgba(59,130,246,.07);border:1px solid rgba(59,130,246,.2);border-radius:12px;"><i class="fas fa-info-circle me-1 text-primary"></i>Use this only when starting with no existing patient data.</div>
+                            <ol class="small text-muted mb-3">
+                                <li class="mb-2">Install PostgreSQL 14 or later, including its command-line tools.</li>
+                                <li class="mb-2">Download and extract the official <code>RX-Tracker-NEXT-New-Server-&lt;version&gt;.zip</code>.</li>
+                                <li class="mb-2">Run <code>INSTALL-NEW-SERVER.bat</code> as Administrator.</li>
+                                <li class="mb-2">Provide a new database name, connection details, application address/port, and a unique administrator password of at least 12 characters.</li>
+                                <li>Open the URL printed by the installer and complete the acceptance checks. The installer generates secrets, creates the restricted runtime role, installs the Windows service, and requires exact-version/database health.</li>
+                            </ol>
+                            <div class="alert alert-warning mb-0"><strong>No default administrator password is created.</strong> Store the administrator credential and generated RX Softphone administration PIN in the approved password manager.</div>
+                        </div>
 
+                        <div class="alert alert-secondary mt-4 mb-0">
+                            <strong>Backup counts:</strong> database dumps keep <code>BACKUP_RETAIN</code> files (default <code>10</code>); full-site ZIPs keep <code>SITE_BACKUP_RETAIN</code> files (default <code>5</code>). Change these values in the server <code>.env</code>, then restart RX Tracker with Project Control option <strong>11</strong>. The Backoffice <em>Backup Retention (Days)</em> setting controls the separate CSV/table export backup folders; it does not change these two file counts.
+                        </div>
                     </div><!-- /#restoreGuideBody -->
                 </div><!-- /restoreGuidePanel -->
 

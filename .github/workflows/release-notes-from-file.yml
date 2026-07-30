@@ -51,7 +51,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'server.exe version check failed.' }
           .\dist\rx-db.exe help
           if ($LASTEXITCODE -ne 0) { throw 'rx-db.exe help check failed.' }
-          $files = Get-ChildItem dist\server.exe, dist\rx-db.exe, dist\server-update-*.zip, dist\RxSoftphone-*-win-x64.zip
+          $files = Get-ChildItem dist\server.exe, dist\rx-db.exe, dist\server-update-*.zip, dist\RX-Tracker-NEXT-New-Server-*.zip, dist\RxSoftphone-*-win-x64.zip
           $lines = $files | ForEach-Object {
             $hash = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
             "$hash *$($_.Name)"
@@ -88,5 +88,6 @@ jobs:
           fail_on_unmatched_files: true
           files: |
             dist/server-update-*.zip
+            dist/RX-Tracker-NEXT-New-Server-*.zip
             dist/RxSoftphone-*-win-x64.zip
             dist/SHA256SUMS.txt
