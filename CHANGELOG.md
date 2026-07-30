@@ -7,11 +7,18 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+## [4.0.0-next.47] - 2026-07-30
+
 ### Fixed
 
 - Replaced the obsolete in-program new-server restore guide (Node/npm, PM2, `setup.bat`, development database name, and default-password instructions) with the official compiled portable installer plus guarded Project Control option 25 workflow.
 - Official tagged releases now publish and checksum the already-built `RX-Tracker-NEXT-New-Server-<version>.zip` asset referenced by the operator manual.
 - Documented `BACKUP_RETAIN` and `SITE_BACKUP_RETAIN` as restart-required file-count settings and distinguished them from Backoffice Backup Retention (Days).
+
+### Safety
+
+- No database migration or business-data change. Restore remains explicit, isolated, validation-gated, and optionally activated only after operator confirmation.
+
 ## [4.0.0-next.46] - 2026-07-30
 
 ### Added

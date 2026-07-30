@@ -10,7 +10,7 @@ frozen 3.3.1 repository, its production database, or the RX Softphone source.
 
 ## Current status
 
-Version: `4.0.0-next.46` RX Profile Sync recordkeeping release
+Version: `4.0.0-next.47` restore-manual and portable-installer release candidate
 
 | Area | NEXT behavior |
 |---|---|
@@ -31,7 +31,7 @@ multi-select RX workflow filters, and an explicit Delivered / Returned to
 Pharmacy outcome. The Dashboard Pending card and charts remain **All
 Incomplete**, including Expired.
 
-Version `next.46` adds a read-only CSV export of the currently displayed RX Profile Sync scan, including RX and Patient Pharmacy/Transport values, match status, and remaining differences. Its header checkbox selects only the first 100 eligible rows so the selection always matches the audited batch limit. Version `next.45` remains the RX transport detail display correction. No migration or automatic synchronization is included.
+Version `next.47` replaces the obsolete source/PM2 restore instructions with the official portable installer plus guarded Project Control option 25 workflow, publishes the portable New Server ZIP as an official release asset, and documents the database/full-site backup file-count settings. Version `next.46` remains the RX Profile Sync displayed-export and 100-row selection release. No migration or business-data change is included.
 The frozen application remains an emergency rollback option. New NEXT changes
 must pass staging and development validation before a separately approved,
 checksummed production release.
