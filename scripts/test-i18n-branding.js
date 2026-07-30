@@ -102,13 +102,13 @@ assert(dashboardView.includes('id="xl-rx-records-in-progress"'), 'Dashboard In P
 assert(dashboardView.includes('id="xl-rx-records-expired"'), 'Dashboard Expired card link is missing');
 assert(dashboardView.includes('id="xl-rx-records-completed"'), 'Dashboard Completed card link is missing');
 assert(dashboardView.includes('workflowStatus=expired'), 'Dashboard Expired card must link to the Expired filter');
-assert(rxRecordsView.includes('<option value="incomplete">All Incomplete</option>'), 'RX Records All Incomplete filter is missing');
+assert(rxRecordsView.includes("{ id: 'incomplete', name: 'All Incomplete' }"), 'RX Records All Incomplete filter is missing from the multi-select picker');
 assert(rxRecordsView.includes('id="rxFilterCurrentStageDateFrom"'), 'RX Records Current Stage Date From filter is missing');
 assert(rxRecordsView.includes('id="rxFilterCurrentStageDateTo"'), 'RX Records Current Stage Date To filter is missing');
 assert(rxRecordsView.includes("'currentStageDateFrom'"), 'RX Records does not send Current Stage Date From');
 assert(rxRecordsView.includes("'currentStageDateTo'"), 'RX Records does not send Current Stage Date To');
 assert(rxRecordsView.includes("'Current Stage Date'"), 'RX Records CSV is missing Current Stage Date');
-assert(rxRecordsView.includes('formatRxAppDateTime(currentStageDateValue)'), 'Current Stage Date CSV is not app-timezone formatted');
+assert(rxRecordsView.includes('rxCsvDate(i.currentDate,true)'), 'Current Stage Date CSV is not app-timezone formatted');
 assert(rxRecordsView.includes("timeZone: window.APP_TIME_ZONE"), 'Current Stage Date fallback does not use the configured app timezone');
 assert(!rxRecordsView.includes('if (_wfToday > _wfExp) {'), 'RX Records must not label a completed old RX as Expired');
 const legacySortSource = rxRecordsView.slice(
