@@ -1,7 +1,8 @@
 (function () {
     'use strict';
 
-    var PAGE_SIZE = 12;
+    var DATA_PAGE_SIZE = 24;
+    var SIGNATURE_PAGE_SIZE = 12;
 
     function escapeHtml(value) {
         return String(value == null ? '' : value)
@@ -52,13 +53,14 @@
             var receiptTracking = receiptAction ? trackings.find(function (tracking) {
                 return Number(tracking.workflowActionId) === Number(receiptAction.id);
             }) : null;
-            var status = rx.returnedToWarehouse
+            var returnedToPharmacy = rx.deliveryOutcome === 'returned_to_pharmacy';
+            var status = returnedToPharmacy
                 ? 'RETURNED'
                 : receiptTracking && receiptTracking.completionDate ? 'RECEIVED' : 'PENDING';
             return {
                 number: index + 1,
-                receivedDate: formatDate(receiptTracking && receiptTracking.completionDate, false),
-                receivedAt: formatDate(receiptTracking && receiptTracking.completionDate, true),
+                receivedDate: formatDate(returnedToPharmacy ? rx.deliveryOutcomeDate : (receiptTracking && receiptTracking.completionDate), false),
+                receivedAt: formatDate(returnedToPharmacy ? rx.deliveryOutcomeDate : (receiptTracking && receiptTracking.completionDate), true),
                 reference: 'RX-' + String(rx.id || '').padStart(6, '0'),
                 patient: [patient.firstName, patient.lastName].filter(Boolean).join(' '),
                 dob: formatDate(patient.dob, false),
@@ -66,7 +68,7 @@
                 driver: transport.contactPerson || transport.companyName || '',
                 status: status,
                 notes: status === 'RETURNED'
-                    ? (rx.warehouseReturnNote || 'Returned to warehouse')
+                    ? ('Package returned to pharmacy' + (rx.deliveryOutcomeNote ? ': ' + rx.deliveryOutcomeNote : ''))
                     : (status === 'PENDING' ? 'Pending delivery receipt' : ''),
                 initials: ''
             };
@@ -85,6 +87,25 @@
         });
     }
 
+    function paginatePharmacyRows(rows) {
+        var remaining = rows.slice();
+        var pages = [];
+
+        if (remaining.length <= SIGNATURE_PAGE_SIZE) return [remaining];
+
+        while (remaining.length > DATA_PAGE_SIZE) {
+            pages.push(remaining.splice(0, DATA_PAGE_SIZE));
+        }
+
+        if (remaining.length > SIGNATURE_PAGE_SIZE) {
+            pages.push(remaining);
+            pages.push([]);
+        } else {
+            pages.push(remaining);
+        }
+
+        return pages;
+    }
     function pharmacyMetadata(baseMetadata, pharmacyName, groupIndex) {
         return {
             reference: baseMetadata.reference + '-P' + String(groupIndex + 1).padStart(2, '0'),
@@ -166,6 +187,15 @@
         }).join('');
     }
 
+    function logTable(rows, heading, returnedSection) {
+        if (!rows.length) return '';
+        return (heading ? '<h2 class="log-section-title ' + (returnedSection ? 'returned-section-title' : '') + '">' + escapeHtml(heading) + '</h2>' : '') +
+            '<table class="log-table ' + (returnedSection ? 'returned-log-table' : '') + '">' +
+                '<thead><tr><th>Date</th><th>Patient Full Name</th><th>DOB</th><th>Notes</th></tr></thead>' +
+                '<tbody>' + tableRows(rows) + '</tbody>' +
+            '</table>';
+    }
+
     function preparedSignature() {
         return '<section class="signature signature-prepared">' +
             '<h2>Chain of Custody &amp; Acknowledgment</h2>' +
@@ -207,15 +237,10 @@
                     '<dt>Pharmacy:</dt><dd class="pharmacy-name">' + escapeHtml(metadata.location || 'Unassigned Pharmacy') + '</dd>' +
                 '</dl>' +
             '</header>' +
-            (isFirst ? metricCards(allRows) : '<div class="continuation"><span>CONTINUATION</span><b>Applied Filters:</b> ' + escapeHtml(metadata.filters) + '</div>') +
-            '<table class="log-table">' +
-                '<thead><tr>' +
-                    '<th>Date Delivered</th><th>Patient Full Name</th><th>DOB</th><th>Notes</th>' +
-                '</tr></thead>' +
-                '<tbody>' + tableRows(pageRows) + '</tbody>' +
-            '</table>' +
-            (isLast ? preparedSignature() : '') +
-            (isLast ? receivedSignature() : '') +
+            (isFirst ? metricCards(allRows) : (pageRows.length ? '<div class="continuation"><span>CONTINUATION</span></div>' : '')) +
+            logTable(pageRows.filter(function (row) { return row.status !== 'RETURNED'; }), pageRows.some(function (row) { return row.status === 'RETURNED'; }) ? 'Delivery / Receipt Packages' : '', false) +
+            logTable(pageRows.filter(function (row) { return row.status === 'RETURNED'; }), 'Returned Packages to Pharmacy - Patient Not Accepted', true) +
+            (isLast ? '<div class="signature-stack">' + preparedSignature() + receivedSignature() + '</div>' : '') +
             '<div class="audit-strip">' +
                 '<span><i>F</i> Export Format: PDF / XLSX</span>' +
                 '<span><i>S</i> Source: RX Tracker NEXT</span>' +
@@ -289,20 +314,22 @@
             var pharmacyGroups = groupRowsByPharmacy(rows);
             var pages = '';
             pharmacyGroups.forEach(function (group, groupIndex) {
+                group.rows = group.rows.filter(function (row) { return row.status !== 'RETURNED'; }).concat(group.rows.filter(function (row) { return row.status === 'RETURNED'; }));
                 var metadata = pharmacyMetadata(baseMetadata, group.pharmacy, groupIndex);
-                var pageCount = Math.max(1, Math.ceil(group.rows.length / PAGE_SIZE));
-                for (var pageIndex = 0; pageIndex < pageCount; pageIndex += 1) {
+                var pharmacyPages = paginatePharmacyRows(group.rows);
+                var pageCount = pharmacyPages.length;
+                pharmacyPages.forEach(function (pageRows, pageIndex) {
                     pages += reportPage(
-                        group.rows.slice(pageIndex * PAGE_SIZE, (pageIndex + 1) * PAGE_SIZE),
+                        pageRows,
                         pageIndex,
                         pageCount,
                         group.rows,
                         metadata
                     );
-                }
+                });
             });
             var metadata = baseMetadata;
-            var documentHtml = '<!doctype html><html><head><meta charset="UTF-8"><title>' + escapeHtml(metadata.reference) + '</title><link rel="stylesheet" href="/css/rx-delivery-log.css?v=20260729-2"></head><body>' + pages + '<div class="report-actions"><button id="printReportBtn" type="button">Print / Save PDF</button></div></body></html>';
+            var documentHtml = '<!doctype html><html><head><meta charset="UTF-8"><title>' + escapeHtml(metadata.reference) + '</title><link rel="stylesheet" href="/css/rx-delivery-log.css?v=20260729-3"></head><body>' + pages + '<div class="report-actions"><button id="printReportBtn" type="button">Print / Save PDF</button></div></body></html>';
             reportWindow.document.open();
             reportWindow.document.write(documentHtml);
             reportWindow.document.close();
@@ -372,5 +399,3 @@
         }
     });
 }());
-
-

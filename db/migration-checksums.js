@@ -41,5 +41,7 @@ module.exports = Object.freeze({
   '20260721234500-repair-users-username-unique-index.js': '3bec5395a51f1643e06218a1277ccd91b9d7d9f3231b7e508aa73f3c86922c59',
   '20260722160000-add-auth-id-to-user-softphone-accounts.js': 'ff9e4c4ec0a6bbdf39332587a61de161286643485d1272a84b0dc0ec87240c84',
   '20260725110000-add-patient-list-query-indexes.js': '363c892e253d5862f28aed01128f603113c5d43ac6b2935512fd5e735ae5bc9b',
-  '20260725160000-add-growth-query-indexes.js': 'd13796233d940bab75c196c37334e099a830da6bb99a01cfd4259bd3887bd397'
+  '20260725160000-add-growth-query-indexes.js': 'd13796233d940bab75c196c37334e099a830da6bb99a01cfd4259bd3887bd397',
+  '20260729233000-add-delivery-outcome-mode-to-workflow-actions.js': '0291534392b2854092908c22e545ed3bcd11e1573712585b85b4f600a4fd4a4e',
+  '20260730000000-add-rx-delivery-outcome.js': '6ca008ea9cb0832590d3e91424f31caa7a8813fb0d395231ba06501ad2e20be4'
 });

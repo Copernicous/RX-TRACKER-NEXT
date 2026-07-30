@@ -1,6 +1,6 @@
 # RX Tracker NEXT project handoff
 
-Last updated: 2026-07-28
+Last updated: 2026-07-29
 
 This file is the sanitized continuity record for a future administrator or
 Codex session. It intentionally contains no credentials, `.env` values,
@@ -8,6 +8,19 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
 
+- Production release candidate **v4.0.0-next.38** is prepared from the
+  validated delivery-workflow and export work on `develop`, merged into `main`.
+  It must be published as a new immutable checksummed GitHub release and then
+  installed only through Project Control options **8** then **15**. It contains
+  two additive audited migrations: `20260729233000-add-delivery-outcome-mode-to-workflow-actions.js`
+  and `20260730000000-add-rx-delivery-outcome.js`. The migrations add outcome
+  configuration/data fields and an index only; they do not reseed, rename,
+  enable, disable, or reorder existing configured RX Actions, and they do not
+  rewrite business data. Before option 15, verify the production reverse-proxy
+  origin is already included in the production CORS configuration through the
+  approved configuration process; do not overwrite production `.env`.
+
+- Staging has an unpromoted delivery-outcome correction: **Returned to Pharmacy** is now stored separately from the pre-existing **Returned to Warehouse** flag. The Dashboard tile and RX Records Current Stage filter count only the explicit pharmacy-return outcome; legacy warehouse returns are not auto-converted. A permission-controlled **Reopen Warehouse Return** action preserves the audit and Step 1, then allows the operator to continue the normal delivery outcome, print-log, signature, and archive flow. RX Records also supports searchable multi-select Pharmacy and Clinic filters. The audited migration `20260730000000-add-rx-delivery-outcome.js` adds outcome, date, and note fields only; it performs no business-data rewrite. Staging schema check and read-only parity verification passed on 2026-07-29 (`1` dashboard outcome record = `1` filtered record).
 - Staging is healthy on the `4.0.0-next.37` source candidate at port 3100. It
   adds inclusive RX Records **Current Stage Date From/To** filters and a
   **Current Stage Date** CSV column based on the canonical highest completed
@@ -63,7 +76,7 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 - Latest official release: `v4.0.0-next.35`. Version `next.31` made
   **Current Stage** the primary RX Records workflow filter, kept **Next Action
   Required** under Advanced filters, and exported both meanings explicitly.
-  Version `next.32` applies the same clarity to **Reports → RX Actions**:
+  Version `next.32` applies the same clarity to **Reports â†’ RX Actions**:
   Current Stage is primary, Next Action Required is operational follow-up,
   and History Includes Action is explicitly historical. It also uses active
   workflow definitions for report progress/current-stage calculations while
@@ -134,7 +147,7 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 - Last operator-confirmed production validation (2026-07-26):
   `v4.0.0-next.33` was installed through Project Control and a real
   RX Tracker-originated call displayed its patient call information correctly
-  on **Administration → Live RX Phones**. Staging, develop, main, database
+  on **Administration â†’ Live RX Phones**. Staging, develop, main, database
   lifecycle, Windows softphone build, CodeQL, release packaging, published
   checksum, and downloaded-package version validation all passed. This feature
   has no pending corrective work. At the start of a future session, confirm the

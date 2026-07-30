@@ -1147,6 +1147,7 @@ function loadRxPipeline() {
         setTxt('rxPipelineInProgress', safe(d.inProgress));
         setTxt('rxPipelineExpired',    safe(d.expired));
         setTxt('rxPipelineCompleted',  safe(d.completed));
+        setTxt('rxPipelineReturned',   safe(d.returnedToPharmacy));
         if (!_dashFrom && !_dashTo) {
             // The all-time RX cards and pipeline now render from the same live response.
             setTxt('activeRxCount', safe(d.total));

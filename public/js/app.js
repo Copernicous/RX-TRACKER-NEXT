@@ -983,6 +983,7 @@ var MODULE_CONFIGS = {
             { key: 'name', label: 'Name', type: 'text', required: true },
             { key: 'description', label: 'Description', type: 'textarea' },
             { key: 'sequenceNumber', label: 'Sequence Number', type: 'number', required: true },
+            { key: 'deliveryOutcomeMode', label: 'Delivery outcome required', type: 'select', options: [{ value: 'none', label: 'None' }, { value: 'delivered_or_returned', label: 'Delivered / Returned' }], hint: 'Choose this only for the action that records the final delivery outcome.' },
             { key: 'isActive', label: 'Active', type: 'checkbox', default: true }
         ]
     },

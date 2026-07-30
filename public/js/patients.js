@@ -56,6 +56,25 @@ var allPatients = [];
         sel.value = current;
     }
 
+    function selectedPatientClinicIds(value) {
+        return String(value || '').split(',').filter(function(id) { return /^\d+$/.test(id); });
+    }
+
+    function refreshPatientLookupMultiFilter(hiddenId, pickerId, items, itemLabel, emptyLabel) {
+        var hidden = document.getElementById(hiddenId); var picker = document.getElementById(pickerId);
+        if (!hidden || !picker) return;
+        var selectedSet = new Set(selectedPatientClinicIds(hidden.value)); var buttonLabel = picker.querySelector('button span'); var options = picker.querySelector('.patient-filter-multiselect-options'); var search = picker.querySelector('.patient-filter-multiselect-search');
+        var refreshLabel = function() { var names = items.filter(function(item) { return selectedSet.has(String(item.id)); }).map(itemLabel); var label = !names.length ? emptyLabel : (names.length <= 2 ? names.join(', ') : names.length + ' selected'); buttonLabel.textContent = label; hidden.dataset.filterSummary = label; };
+        options.innerHTML = ''; items.forEach(function(item) { var label = document.createElement('label'); label.className = 'patient-filter-multiselect-option'; label.dataset.search = String(itemLabel(item) || '').toLowerCase(); var checkbox = document.createElement('input'); checkbox.type = 'checkbox'; checkbox.value = String(item.id); checkbox.checked = selectedSet.has(checkbox.value); checkbox.addEventListener('change', function() { if (checkbox.checked) selectedSet.add(checkbox.value); else selectedSet.delete(checkbox.value); hidden.value = Array.from(selectedSet).join(','); refreshLabel(); hidden.dispatchEvent(new Event('change', { bubbles: true })); }); label.appendChild(checkbox); label.appendChild(document.createTextNode(itemLabel(item))); options.appendChild(label); });
+        if (search) search.oninput = function() { var term = search.value.toLowerCase().trim(); options.querySelectorAll('.patient-filter-multiselect-option').forEach(function(option) { option.style.display = !term || option.dataset.search.indexOf(term) >= 0 ? '' : 'none'; }); }; refreshLabel();
+    }
+    function refreshPatientMultiFilters() {
+        refreshPatientLookupMultiFilter('srchClinic', 'srchClinicPicker', clinicOptions, function(item) { return item.label; }, 'All Clinics');
+        refreshPatientLookupMultiFilter('srchPatientTransport', 'srchPatientTransportPicker', patientTransportOptions, function(item) { return item.label; }, 'All Patient Transports');
+        refreshPatientLookupMultiFilter('srchPharmacyTransport', 'srchPharmacyTransportPicker', pharmacyTransportOptions, function(item) { return item.label; }, 'All Pharmacy Transports');
+        refreshPatientLookupMultiFilter('srchPharmacy', 'srchPharmacyPicker', pharmacyOptions, function(item) { return item.label; }, 'All Pharmacies');
+    }
+
     function serviceDateHistoryActor(row) {
         var user = row && row.ChangedBy ? row.ChangedBy : null;
         if (!user) return 'System';
@@ -322,7 +341,7 @@ var allPatients = [];
             });
         }
 
-        // ── Determine URL params BEFORE loading patients ────────────────────
+        // â”€â”€ Determine URL params BEFORE loading patients â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         // This lets us avoid loading ALL patients when we only need a subset.
         const urlParams      = new URLSearchParams(window.location.search);
         const statusParam    = urlParams.get('status');
@@ -370,7 +389,7 @@ var allPatients = [];
                 showToast('Showing Inactive Patients only', 'info');
             }
 
-            // ── ELIGIBILITY FILTER from dashboard card click ──────────────────────
+            // â”€â”€ ELIGIBILITY FILTER from dashboard card click â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             // When user clicks an eligibility card on the dashboard, they arrive here
             // with ?eligFilter=eligible|expiring|window|none. Apply it automatically.
             var eligParam = urlParams.get('eligFilter');
@@ -396,13 +415,13 @@ var allPatients = [];
                     showToast('Filter: ' + (labelMap[eligParam] || eligParam), 'info');
                 }
             }
-            // ── END ELIGIBILITY FILTER ──────────────────────────────────────────────
+            // â”€â”€ END ELIGIBILITY FILTER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         }
 
 
         document.getElementById('addPatientBtn').addEventListener('click', () => openPatientModal(null));
 
-    // ── Patient modal soft-lock ───────────────────────────────────────────────
+    // â”€â”€ Patient modal soft-lock â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     let _modalLockPatientId = null;
     let _modalHeartbeatTimer = null;
 
@@ -468,12 +487,13 @@ var allPatients = [];
             document.getElementById('srchShowDeleted').checked = false;
             patientNoRxFilter = false;
             patientHighlightId = '';
+            refreshPatientMultiFilters();
             updateFilterBadge();
             currentPage = 1;
             loadPatients();
         });
         document.getElementById('srchShowDeleted').addEventListener('change', applyPatientSearch);
-        document.getElementById('srchClinic').addEventListener('change', applyPatientSearch);
+        ['srchClinic', 'srchPatientTransport', 'srchPharmacyTransport', 'srchPharmacy'].forEach(function(id) { document.getElementById(id).addEventListener('change', applyPatientSearch); });
 
         document.getElementById('savePatientBtn').addEventListener('click', savePatient);
         var savePatientAddRxBtn = document.getElementById('savePatientAddRxBtn');
@@ -510,7 +530,7 @@ var allPatients = [];
             }
         });
 
-        // ── Export with Column Selector ─────────────────────────────────────────
+        // â”€â”€ Export with Column Selector â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         function cleanCsvNoteText(value) {
             return String(value || '').replace(/\s+/g, ' ').trim();
         }
@@ -538,19 +558,51 @@ var allPatients = [];
             return parts.join(' | ');
         }
 
+        function formatPatientExportDateTime(value) {
+            if (!value) return '';
+            var date = new Date(value);
+            return isNaN(date.getTime()) ? String(value) : date.toLocaleString();
+        }
+
+        function exportOrganizationValue(record, field) {
+            return record && record[field] ? record[field] : '';
+        }
+
         const EXPORT_COLS = [
-            { key: 'patientCode',  label: 'Patient ID',        fn: p => p.patientCode || p.id },
-            { key: 'firstName',   label: 'First Name',         fn: p => p.firstName || '' },
-            { key: 'lastName',    label: 'Last Name',          fn: p => p.lastName  || '' },
-            { key: 'dob',         label: 'Date of Birth',      fn: p => p.dob       || '' },
-            { key: 'phone',       label: 'Phone',              fn: p => p.phone     || '' },
-            { key: 'address',     label: 'Address',            fn: p => p.address   || '' },
-            { key: 'serviceDate', label: 'Service Date',       fn: p => p.serviceDate || '' },
-            { key: 'notes',       label: 'Notes',              fn: p => exportPatientNotes(p) },
-            { key: 'status',      label: 'Status',             fn: p => p.isDeleted ? 'Deleted' : (p.isActive ? 'Active' : 'Inactive') },
-            { key: 'clinic',      label: 'Clinic',             fn: p => p.Clinic ? p.Clinic.name : '' },
-            { key: 'patTrans',    label: 'Patient Transport',  fn: p => p.PatientTransportCompany ? (p.PatientTransportCompany.contactPerson || p.PatientTransportCompany.companyName || '') : '' },
-            { key: 'rxTrans',     label: 'Pharmacy Transport', fn: p => p.PharmacyTransportCompany ? (p.PharmacyTransportCompany.companyName || p.PharmacyTransportCompany.contactPerson || '') : '' },
+            { key: 'recordId', label: 'Patient Record ID', fn: p => p.id || '' },
+            { key: 'patientCode', label: 'Patient ID', fn: p => p.patientCode || '' },
+            { key: 'firstName', label: 'First Name', fn: p => p.firstName || '' },
+            { key: 'lastName', label: 'Last Name', fn: p => p.lastName || '' },
+            { key: 'fullName', label: 'Patient Full Name', fn: p => [p.firstName, p.lastName].filter(Boolean).join(' ') },
+            { key: 'dob', label: 'Date of Birth', fn: p => p.dob || '' },
+            { key: 'phone', label: 'Phone', fn: p => p.phone || '' },
+            { key: 'address', label: 'Address', fn: p => p.address || '' },
+            { key: 'serviceDate', label: 'Service Date', fn: p => p.serviceDate || '' },
+            { key: 'notes', label: 'Notes', fn: p => exportPatientNotes(p) },
+            { key: 'status', label: 'Status', fn: p => p.isDeleted ? 'Deleted' : (p.isActive ? 'Active' : 'Inactive') },
+            { key: 'active', label: 'Active', fn: p => p.isActive ? 'Yes' : 'No' },
+            { key: 'deleted', label: 'Deleted', fn: p => p.isDeleted ? 'Yes' : 'No' },
+            { key: 'patientType', label: 'Patient Type', fn: p => p.isNonCompanyPatient ? 'Non-Company' : 'Company' },
+            { key: 'clinicId', label: 'Clinic ID', fn: p => p.clinicId || '' },
+            { key: 'clinic', label: 'Clinic', fn: p => exportOrganizationValue(p.Clinic, 'name') },
+            { key: 'clinicAddress', label: 'Clinic Address', fn: p => exportOrganizationValue(p.Clinic, 'address') },
+            { key: 'clinicPhone', label: 'Clinic Phone', fn: p => exportOrganizationValue(p.Clinic, 'phone') },
+            { key: 'clinicContact', label: 'Clinic Contact', fn: p => exportOrganizationValue(p.Clinic, 'contactPerson') },
+            { key: 'pharmacyId', label: 'Pharmacy ID', fn: p => p.pharmacyId || '' },
+            { key: 'pharmacy', label: 'Pharmacy', fn: p => exportOrganizationValue(p.Pharmacy, 'name') },
+            { key: 'pharmacyAddress', label: 'Pharmacy Address', fn: p => exportOrganizationValue(p.Pharmacy, 'address') },
+            { key: 'pharmacyPhone', label: 'Pharmacy Phone', fn: p => exportOrganizationValue(p.Pharmacy, 'phone') },
+            { key: 'pharmacyContact', label: 'Pharmacy Contact', fn: p => exportOrganizationValue(p.Pharmacy, 'contactPerson') },
+            { key: 'patientTransportId', label: 'Patient Transport ID', fn: p => p.patientTransportCompanyId || '' },
+            { key: 'patientTransport', label: 'Patient Transport', fn: p => exportOrganizationValue(p.PatientTransportCompany, 'companyName') || exportOrganizationValue(p.PatientTransportCompany, 'contactPerson') },
+            { key: 'patientTransportContact', label: 'Patient Transport Contact', fn: p => exportOrganizationValue(p.PatientTransportCompany, 'contactPerson') },
+            { key: 'patientTransportPhone', label: 'Patient Transport Phone', fn: p => exportOrganizationValue(p.PatientTransportCompany, 'phone') },
+            { key: 'pharmacyTransportId', label: 'Pharmacy Transport ID', fn: p => p.pharmacyTransportCompanyId || '' },
+            { key: 'pharmacyTransport', label: 'Pharmacy Transport', fn: p => exportOrganizationValue(p.PharmacyTransportCompany, 'companyName') || exportOrganizationValue(p.PharmacyTransportCompany, 'contactPerson') },
+            { key: 'pharmacyTransportContact', label: 'Pharmacy Transport Contact', fn: p => exportOrganizationValue(p.PharmacyTransportCompany, 'contactPerson') },
+            { key: 'pharmacyTransportPhone', label: 'Pharmacy Transport Phone', fn: p => exportOrganizationValue(p.PharmacyTransportCompany, 'phone') },
+            { key: 'createdAt', label: 'Created At', fn: p => formatPatientExportDateTime(p.createdAt) },
+            { key: 'updatedAt', label: 'Updated At', fn: p => formatPatientExportDateTime(p.updatedAt) }
         ];
         let _exportColState = {};
         EXPORT_COLS.forEach(c => { _exportColState[c.key] = true; });
@@ -562,7 +614,7 @@ var allPatients = [];
                 'Exporting ' + exportCount + ' record' + (exportCount !== 1 ? 's' : '') + ' matching current filters';
             const list = document.getElementById('exportColList');
             // Build checkbox HTML WITHOUT inline onchange (inline handlers run in global scope
-            // and cannot access the _exportColState closure variable — that's the bug this fixes)
+            // and cannot access the _exportColState closure variable â€” that's the bug this fixes)
             var _ecHtml = '';
             for (var _eci = 0; _eci < EXPORT_COLS.length; _eci++) {
                 var c = EXPORT_COLS[_eci];
@@ -701,10 +753,11 @@ var allPatients = [];
                 clinicOptions = [];
                 const clSel = document.getElementById('pClinicId');
                 cl.forEach(c => {
-                    const label = c.name + (c.address ? ' – ' + c.address : '');
+                    const label = c.name + (c.address ? ' â€“ ' + c.address : '');
                     clinicOptions.push({ id: String(c.id), label: c.name });
                     clSel.innerHTML   += '<option value="' + c.id + '">' + label + '</option>';
                 });
+                refreshPatientMultiFilters();
             }
             if (phRes && phRes.ok) {
                 const ph = await phRes.json();
@@ -712,9 +765,10 @@ var allPatients = [];
                 const phSel = document.getElementById('pPharmacyId');
                 ph.forEach(p => {
                     pharmacyOptions.push({ id: String(p.id), label: p.name });
-                    phSel.innerHTML += '<option value="' + p.id + '">' + p.name + (p.address ? ' – ' + p.address : '') + '</option>';
+                    phSel.innerHTML += '<option value="' + p.id + '">' + p.name + (p.address ? ' â€“ ' + p.address : '') + '</option>';
                 });
             }
+            refreshPatientMultiFilters();
         } catch(e) {}
     }
 
@@ -744,11 +798,11 @@ var allPatients = [];
         setPatientParam(params, 'dob', document.getElementById('srchDob')?.value || '');
         setPatientParam(params, 'phone', document.getElementById('srchPhone')?.value || '');
         setPatientParam(params, 'status', document.getElementById('srchStatus')?.value || '');
-        setPatientParam(params, 'clinicId', document.getElementById('srchClinic')?.value || '');
+        setPatientParam(params, 'clinicIds', document.getElementById('srchClinic')?.value || '');
         setPatientParam(params, 'patientCode', document.getElementById('srchPatientCode')?.value || '');
-        setPatientParam(params, 'patientTransportId', document.getElementById('srchPatientTransport')?.value || '');
-        setPatientParam(params, 'pharmacyTransportId', document.getElementById('srchPharmacyTransport')?.value || '');
-        setPatientParam(params, 'pharmacyId', document.getElementById('srchPharmacy')?.value || '');
+        setPatientParam(params, 'patientTransportIds', document.getElementById('srchPatientTransport')?.value || '');
+        setPatientParam(params, 'pharmacyTransportIds', document.getElementById('srchPharmacyTransport')?.value || '');
+        setPatientParam(params, 'pharmacyIds', document.getElementById('srchPharmacy')?.value || '');
         setPatientParam(params, 'serviceFrom', document.getElementById('srchServiceFrom')?.value || '');
         setPatientParam(params, 'serviceTo', document.getElementById('srchServiceTo')?.value || '');
         setPatientParam(params, 'eligibility', document.getElementById('srchEligibility')?.value || '');
@@ -764,10 +818,7 @@ var allPatients = [];
     function applyPatientFacetOptions(facets) {
         patientFacets = facets || null;
         if (!patientFacets) return;
-        resetSelectOptions(document.getElementById('srchClinic'), 'All Clinics', patientFacets.clinics || []);
-        resetSelectOptions(document.getElementById('srchPatientTransport'), 'All Transport Companies', patientFacets.patientTransports || []);
-        resetSelectOptions(document.getElementById('srchPharmacyTransport'), 'All Pharmacy Transport', patientFacets.pharmacyTransports || []);
-        resetSelectOptions(document.getElementById('srchPharmacy'), 'All Pharmacies', patientFacets.pharmacies || []);
+        refreshPatientMultiFilters();
     }
 
     function showNoRxBanner() {
@@ -1154,7 +1205,7 @@ var allPatients = [];
                 if (missingInfo === 'any' && !(missingClinic || missingPharmacy || missingPatientTransport || missingPharmacyTransport)) return false;
                 if (missingInfo === 'all' && !(missingClinic && missingPharmacy && missingPatientTransport && missingPharmacyTransport)) return false;
             }
-            // ── 90-day eligibility filter ──────────────────────────────────────
+            // â”€â”€ 90-day eligibility filter â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             // Logic MUST match dashboardController.js getEligibilityStats()
             // Source of truth: patient.serviceDate (not latest RX serviceDate)
             // daysLeft = days until expiry (negative = already past = eligible)
@@ -1288,7 +1339,7 @@ var allPatients = [];
                 nonCompanyBadge.className = 'patient-non-company-badge';
                 nonCompanyBadge.title = 'Excluded from the Call Center queue';
                 nonCompanyBadge.innerHTML = '<i class="fas fa-user-slash" aria-hidden="true"></i>';
-                nonCompanyBadge.appendChild(document.createTextNode('Non-Company · No Call Center'));
+                nonCompanyBadge.appendChild(document.createTextNode('Non-Company Â· No Call Center'));
                 tdName.appendChild(nonCompanyBadge);
             }
             tr.appendChild(tdName);
@@ -1298,7 +1349,7 @@ var allPatients = [];
             tdClinic.dataset.label = 'Location / Clinic';
             if (p.Clinic) {
                 var clinicSpan = document.createElement('span');
-                // Custom style: deep teal bg + white text — readable in both light & dark mode
+                // Custom style: deep teal bg + white text â€” readable in both light & dark mode
                 // bg-info with text-dark fails in dark mode (dark text on cyan = invisible)
                 clinicSpan.style.cssText = 'display:inline-flex;align-items:center;gap:4px;background:#0e7490;color:#ffffff;font-size:0.72rem;font-weight:600;padding:2px 8px;border-radius:5px;white-space:nowrap';
                 clinicSpan.innerHTML = '<i class="fas fa-hospital" style="font-size:0.65rem;opacity:0.85"></i>';
@@ -1328,10 +1379,10 @@ var allPatients = [];
             tr.appendChild(tdSvc);
 
             // Col: Next Svc Date (serviceDate + 90 days, color-coded)
-            // daysLeft < 0  → window EXPIRED = patient ELIGIBLE for new service (green)
-            // daysLeft 0-7  → expiring very soon (orange warning)
-            // daysLeft 8-14 → expiring soon (yellow warning)
-            // daysLeft > 14 → in active window (plain date)
+            // daysLeft < 0  â†’ window EXPIRED = patient ELIGIBLE for new service (green)
+            // daysLeft 0-7  â†’ expiring very soon (orange warning)
+            // daysLeft 8-14 â†’ expiring soon (yellow warning)
+            // daysLeft > 14 â†’ in active window (plain date)
             var tdNext = document.createElement('td');
             tdNext.dataset.label = 'Next Svc Date';
             if (p.serviceDate) {
@@ -1341,8 +1392,8 @@ var allPatients = [];
                 var _dl   = Math.round((_exp - _now) / 864e5);
                 var _es   = _exp.toLocaleDateString();
                 if (_dl < 0) {
-                    // Past 90 days — ELIGIBLE for new service
-                    tdNext.innerHTML = '<span class="badge" style="background:#198754;font-size:.72rem" title="Eligible since ' + _es + ' (' + Math.abs(_dl) + 'd ago)"><i class="fas fa-check-circle me-1"></i>Eligible ✓</span><small class="d-block text-muted" style="font-size:.68rem">Since ' + _es + '</small>';
+                    // Past 90 days â€” ELIGIBLE for new service
+                    tdNext.innerHTML = '<span class="badge" style="background:#198754;font-size:.72rem" title="Eligible since ' + _es + ' (' + Math.abs(_dl) + 'd ago)"><i class="fas fa-check-circle me-1"></i>Eligible âœ“</span><small class="d-block text-muted" style="font-size:.68rem">Since ' + _es + '</small>';
                 } else if (_dl <= 7) {
                     tdNext.innerHTML = '<span class="badge bg-danger" style="font-size:.72rem" title="Eligible in ' + _dl + ' days"><i class="fas fa-hourglass-half me-1"></i>' + _dl + 'd left</span><small class="d-block text-muted" style="font-size:.68rem">' + _es + '</small>';
                 } else if (_dl <= 14) {
@@ -1351,7 +1402,7 @@ var allPatients = [];
                     tdNext.innerHTML = '<span style="font-size:.87rem;color:var(--text-muted,#6c757d)">' + _es + '</span>';
                 }
             } else {
-                tdNext.innerHTML = '<span class="text-muted">—</span>';
+                tdNext.innerHTML = '<span class="text-muted">â€”</span>';
             }
             tr.appendChild(tdNext);
 
@@ -1390,7 +1441,7 @@ var allPatients = [];
                 // Shared RX count for badge display on RX, History, and Timeline buttons
                 var rxCount = (p.RXRecords && p.RXRecords.length) || 0;
 
-                // ── Helper: build a count badge pill (only shown when count > 0) ──
+                // â”€â”€ Helper: build a count badge pill (only shown when count > 0) â”€â”€
                 function makeBadgePill(count, color) {
                     if (count <= 0) return null;
                     var pill = document.createElement('span');
@@ -1429,7 +1480,7 @@ var allPatients = [];
                 btnHist.addEventListener('click', function() { openRxHistory(parseInt(this.dataset.pid), this.dataset.pname); });
                 tdAct.appendChild(btnHist);
 
-                // Timeline button — badge = RX count + notes (total events)
+                // Timeline button â€” badge = RX count + notes (total events)
                 var noteCount0 = (p.PatientNotes && p.PatientNotes.length) || 0;
                 var tlCount = rxCount + noteCount0;
                 var btnTl = document.createElement('button');
@@ -1481,7 +1532,7 @@ var allPatients = [];
                 btnPrint.addEventListener('click', function() { printPatientRecord(parseInt(this.dataset.pid)); });
                 tdAct.appendChild(btnPrint);
 
-                // View button (shown when user cannot edit — read-only access to patient details)
+                // View button (shown when user cannot edit â€” read-only access to patient details)
                 if (!pp.canEdit) {
                     var btnView = document.createElement('button');
                     btnView.className = 'btn btn-sm btn-outline-info me-1';
@@ -1521,7 +1572,7 @@ var allPatients = [];
         if (pi) pi.textContent = 'Showing ' + (totalRows === 0 ? 0 : Math.min(start + 1, totalRows)) + '\u2013' + Math.min(start + page.length, totalRows) + ' of ' + totalRows;
 
         pages = Math.max(1, pages);
-        // Smart ellipsis pagination — never renders more than ~9 buttons
+        // Smart ellipsis pagination â€” never renders more than ~9 buttons
         var pagHtml = '<li class="page-item' + (currentPage === 1 ? ' disabled' : '') + '"><a class="page-link" href="#" data-pg="' + (currentPage - 1) + '">&laquo;</a></li>';
         var delta = 2; // pages each side of current
         var lo = Math.max(2, currentPage - delta);
@@ -1538,7 +1589,7 @@ var allPatients = [];
         pagHtml += '<li class="page-item' + ((currentPage >= pages || pages === 0) ? ' disabled' : '') + '"><a class="page-link" href="#" data-pg="' + (currentPage + 1) + '">&raquo;</a></li>';
         var pagEl = document.getElementById('patientPagination');
         pagEl.innerHTML = pagHtml;
-        // Event delegation on pagination — avoids inline onclick= which FortiGate corrupts
+        // Event delegation on pagination â€” avoids inline onclick= which FortiGate corrupts
         pagEl.onclick = function(e) {
             e.preventDefault();
             var a = e.target.closest('a[data-pg]');
@@ -1548,7 +1599,7 @@ var allPatients = [];
     }
 
 
-    // ── Navigation helpers — all URL building via concatenation + data attributes
+    // â”€â”€ Navigation helpers â€” all URL building via concatenation + data attributes
     // Avoids putting complex expressions inside template literal onclick attributes,
     // which FortiGate SSL portal mangles when rewriting URLs.
     function renderNeedsActionBanner() {
@@ -1722,7 +1773,7 @@ var allPatients = [];
         }
     }
 
-    // ── RX History Modal — Previous Service Dates ─────────────────────────────
+    // â”€â”€ RX History Modal â€” Previous Service Dates â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     var _rxHistoryModal = null;
     var _rxHistoryContext = null;
 
@@ -1998,7 +2049,7 @@ var allPatients = [];
                         var pillClr = done ? '#0a5c36' : '#888';
                         html += '<span style="background:' + pillBg + ';color:' + pillClr + ';border-radius:20px;padding:2px 10px;font-size:.72rem;font-weight:' + (done ? '600' : '400') + '">';
                         html += (done ? '\u2713 ' : '\u25cb ') + wa.name;
-                        if (dateStr) html += ' <span style="opacity:.75;font-size:.65rem">· ' + dateStr + '</span>';
+                        if (dateStr) html += ' <span style="opacity:.75;font-size:.65rem">Â· ' + dateStr + '</span>';
                         html += '</span>';
                     });
                     html += '</div>';
@@ -2011,7 +2062,7 @@ var allPatients = [];
             if (body) body.innerHTML = '<p class="text-danger text-center py-4">Error loading RX history.</p>';
         }
     }
-    // ─────────────────────────────────────────────────────────────────────────
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     // Compute and display next available service date inside the edit modal
     function _updateNextSvcDisplay() {
@@ -2061,7 +2112,7 @@ var allPatients = [];
         document.getElementById('pPharmacyId').value = patient ? (patient.pharmacyId !== null && patient.pharmacyId !== undefined ? String(patient.pharmacyId) : '') : '';
         loadPatientServiceDateHistory(id);
 
-        // ── 90-DAY SERVICE DATE LOCK UI ───────────────────────────────────────────
+        // â”€â”€ 90-DAY SERVICE DATE LOCK UI â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         // When editing a patient whose service date is still within the active 90-day
         // window, show the amber lock banner and make the date field read-only.
         // The Patient's serviceDate is the canonical clock for the 90-day cycle.
@@ -2098,7 +2149,7 @@ var allPatients = [];
             if (svcInput) svcInput.removeAttribute('readonly');
             if (detail)   detail.textContent = '';
         }
-        // ── END LOCK UI ───────────────────────────────────────────────────────────
+        // â”€â”€ END LOCK UI â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
         new bootstrap.Modal(document.getElementById('patientModal')).show();
         // Refresh the next-svc-date display for whatever date is loaded
@@ -2153,16 +2204,16 @@ var allPatients = [];
                     _voBanner = document.createElement('div');
                     _voBanner.id = 'patientViewOnlyBanner';
                     _voBanner.className = 'alert alert-info d-flex align-items-center py-2 mb-3';
-                    _voBanner.innerHTML = '<i class="fas fa-eye me-2"></i><span>View Only — you do not have permission to edit patient records.</span>';
+                    _voBanner.innerHTML = '<i class="fas fa-eye me-2"></i><span>View Only â€” you do not have permission to edit patient records.</span>';
                     var _mBody = _patModal.querySelector('.modal-body');
                     if (_mBody) _mBody.insertBefore(_voBanner, _mBody.firstChild);
                 }
                 if (_isOverrideOnly) {
                     _voBanner.className = 'alert alert-warning d-flex align-items-center py-2 mb-3';
-                    _voBanner.innerHTML = '<i class="fas fa-key me-2"></i><span>Override Only — you can update the Service Date for this patient, but other patient fields remain locked.</span>';
+                    _voBanner.innerHTML = '<i class="fas fa-key me-2"></i><span>Override Only â€” you can update the Service Date for this patient, but other patient fields remain locked.</span>';
                 } else {
                     _voBanner.className = 'alert alert-info d-flex align-items-center py-2 mb-3';
-                    _voBanner.innerHTML = '<i class="fas fa-eye me-2"></i><span>View Only — you do not have permission to edit patient records.</span>';
+                    _voBanner.innerHTML = '<i class="fas fa-eye me-2"></i><span>View Only â€” you do not have permission to edit patient records.</span>';
                 }
                 const _hidePermissionBanner = _isEditable && !_isOverrideOnly;
                 _voBanner.classList.toggle('d-none', _hidePermissionBanner);
@@ -2336,7 +2387,7 @@ var allPatients = [];
         }
     }
 
-    // ── Patient Notes ────────────────────────────────────────────────────────
+    // â”€â”€ Patient Notes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     var notesPatientId = null;
     var notesModal = null;
 
@@ -2408,7 +2459,7 @@ var allPatients = [];
             const author = n.Author ? (n.Author.firstName + ' ' + n.Author.lastName) : 'System';
             const dt = new Date(n.createdAt);
             const dateStr = dt.toLocaleDateString() + ' ' + dt.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
-            // Strictly enforce canDelete — no author bypass
+            // Strictly enforce canDelete â€” no author bypass
             const canDel = np.canDelete;
 
             let delBtn = '';
@@ -2473,7 +2524,7 @@ var allPatients = [];
             }
         } catch(e) { showToast('Network error.', 'danger'); }
     }
-    // ────────────────────────────────────────────────────────────────────────
+    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     async function restorePatient(id) {
         if (!confirm('Are you sure you want to restore this patient?')) return;
@@ -2639,7 +2690,7 @@ var allPatients = [];
             ? '<span style="background:#198754;color:#fff;padding:3px 10px;border-radius:12px;font-size:.75rem">Active</span>'
             : '<span style="background:#6c757d;color:#fff;padding:3px 10px;border-radius:12px;font-size:.75rem">Inactive</span>';
 
-        // ── CARD LAYOUT ──────────────────────────────────────────────────────
+        // â”€â”€ CARD LAYOUT â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         const cardHTML =
         '<div id="printContentCard" style="font-family:\'Inter\',Arial,sans-serif;background:#fff;margin:20px;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.12)">' +
           '<div style="background:linear-gradient(135deg,#1a2234,#2c3e6b);color:#fff;padding:20px 28px;display:flex;justify-content:space-between;align-items:center">' +
@@ -2649,20 +2700,20 @@ var allPatients = [];
             '</div>' +
             '<div style="text-align:right">' +
               '<div style="font-size:1.2rem;font-weight:700;font-family:monospace">' + (p.patientCode||'\u2014') + '</div>' +
-              '<div style="margin-top:6px"><span style="background:' + (isActive?'#198754':'#6c757d') + ';color:#fff;padding:3px 12px;border-radius:20px;font-size:.78rem;font-weight:600">' + (isActive?'● Active':'○ Inactive') + '</span></div>' +
+              '<div style="margin-top:6px"><span style="background:' + (isActive?'#198754':'#6c757d') + ';color:#fff;padding:3px 12px;border-radius:20px;font-size:.78rem;font-weight:600">' + (isActive?'â— Active':'â—‹ Inactive') + '</span></div>' +
             '</div>' +
           '</div>' +
           '<div style="padding:24px 28px;display:grid;grid-template-columns:1fr 1fr;gap:14px 32px;border-bottom:1px solid #e9ecef">' +
-(function(){ var _fd=''; var _farr=[['📅 Date of Birth',(p.dob?window.fmtDate(p.dob):'\u2014')],['📞 Phone',p.phone||'\u2014'],['📅 Service Date',(p.serviceDate?window.fmtDate(p.serviceDate):'\u2014')],['🏥 Clinic',clinic],['🏠 Address',p.address||'\u2014'],['🚐 Patient Transport',ptComp],['💊 Pharmacy Transport',phComp]]; for(var _fi=0;_fi<_farr.length;_fi++){ var r=_farr[_fi]; _fd+='<div><div style="font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#888;margin-bottom:3px">'+r[0]+'</div><div style="font-size:.88rem">'+r[1]+'</div></div>'; } return _fd;})() +
+(function(){ var _fd=''; var _farr=[['ðŸ“… Date of Birth',(p.dob?window.fmtDate(p.dob):'\u2014')],['ðŸ“ž Phone',p.phone||'\u2014'],['ðŸ“… Service Date',(p.serviceDate?window.fmtDate(p.serviceDate):'\u2014')],['ðŸ¥ Clinic',clinic],['ðŸ  Address',p.address||'\u2014'],['ðŸš Patient Transport',ptComp],['ðŸ’Š Pharmacy Transport',phComp]]; for(var _fi=0;_fi<_farr.length;_fi++){ var r=_farr[_fi]; _fd+='<div><div style="font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#888;margin-bottom:3px">'+r[0]+'</div><div style="font-size:.88rem">'+r[1]+'</div></div>'; } return _fd;})() +
           '</div>' +
-          (p.notes ? '<div style="margin:16px 28px;padding:12px 16px;background:#fffbea;border-left:4px solid #f5a623;border-radius:4px;font-size:.85rem;color:#7a5800"><strong>📝 Notes:</strong><br>' + p.notes.replace(/\n/g,'<br>') + '</div>' : '') +
+          (p.notes ? '<div style="margin:16px 28px;padding:12px 16px;background:#fffbea;border-left:4px solid #f5a623;border-radius:4px;font-size:.85rem;color:#7a5800"><strong>ðŸ“ Notes:</strong><br>' + p.notes.replace(/\n/g,'<br>') + '</div>' : '') +
           '<div style="padding:0 28px 28px">' +
             '<div style="font-size:.8rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#888;margin:20px 0 12px">RX Records (' + patientRx.length + ')</div>' +
             (patientRx.length ? (function(){var _rx=''; patientRx.forEach(function(rx){_rx+=buildRxBlock(rx,'card');}); return _rx;})() : '<p style="color:#888;font-size:.85rem">No RX records found.</p>') +
           '</div>' +
         '</div>';
 
-        // ── CLASSIC LAYOUT ───────────────────────────────────────────────────
+        // â”€â”€ CLASSIC LAYOUT â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         const classicHTML =
         '<div id="printContentClassic" style="display:none;font-family:Inter,Arial,sans-serif;color:#1a2234;background:#ffffff;padding:28px;border-radius:8px;margin:12px">' +
           '<div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #1a2234;padding-bottom:12px;margin-bottom:20px">' +
@@ -2704,7 +2755,7 @@ var allPatients = [];
             win.document.write('<!DOCTYPE html><html><head>' +
                 '<meta charset="UTF-8">' +
                 '<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">' +
-                '<title>Patient Record — ' + (p.firstName||'') + ' ' + (p.lastName||'') + '</title>' +
+                '<title>Patient Record â€” ' + (p.firstName||'') + ' ' + (p.lastName||'') + '</title>' +
                 '<style>' +
                     '@import url("/assets/inter.css");' +
                     '* { box-sizing:border-box; margin:0; padding:0; }' +
@@ -2724,7 +2775,7 @@ var allPatients = [];
             win.document.write('<!DOCTYPE html><html><head>' +
                 '<meta charset="UTF-8">' +
                 '<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">' +
-                '<title>Patient Record — ' + (p.firstName||'') + ' ' + (p.lastName||'') + '</title>' +
+                '<title>Patient Record â€” ' + (p.firstName||'') + ' ' + (p.lastName||'') + '</title>' +
                 '<style>' +
                     '@import url("/assets/inter.css");' +
                     'body { font-family:Inter,Arial,sans-serif; color:#1a2234; padding:32px; max-width:860px; margin:0 auto; }' +

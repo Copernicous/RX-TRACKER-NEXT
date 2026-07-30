@@ -9,7 +9,7 @@ const {
 } = require('../services/snapshotService');
 const { activeRxWorkflowAggregateSql } = require('../utils/rxWorkflowAggregateSql');
 
-// ── Helper: build a date-range WHERE clause from ?from= / ?to= params ─────────
+// Ã¢â€â‚¬Ã¢â€â‚¬ Helper: build a date-range WHERE clause from ?from= / ?to= params Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 function buildDateRange(req) {
     const from = req.query.from || null;   // 'YYYY-MM-DD' or empty
     const to   = req.query.to   || null;
@@ -56,10 +56,10 @@ exports.getStats = async (req, res) => {
             ? null
             : await getFreshCurrentSnapshot({ maxAgeMs: 1000 });
 
-        // M3 FIX: Use Op.or [false, null] to match getAll — include legacy rows where isDeleted IS NULL
+        // M3 FIX: Use Op.or [false, null] to match getAll Ã¢â‚¬â€ include legacy rows where isDeleted IS NULL
         const notDeleted = { [Op.or]: [{ isDeleted: false }, { isDeleted: null }] };
 
-        // Patient counts — filtered by createdAt if a date range is active
+        // Patient counts Ã¢â‚¬â€ filtered by createdAt if a date range is active
         const patientWhere = { ...notDeleted };
         if (dateRange) patientWhere.createdAt = dateRange;
 
@@ -70,7 +70,7 @@ exports.getStats = async (req, res) => {
             db.Patient.count({ where: { ...patientWhere, isActive: false } })
         ]);
 
-        // RX counts — filtered by serviceDate if a date range is active (UX-01: exclude deleted)
+        // RX counts Ã¢â‚¬â€ filtered by serviceDate if a date range is active (UX-01: exclude deleted)
         const rxWhere = { ...notDeleted };
         if (dateRange) rxWhere.serviceDate = dateRange;
 
@@ -828,13 +828,13 @@ async function getEligibilityStatsLegacy(req, res) {
         });
 
         let eligibleNow    = 0;   // patient.serviceDate window fully expired (daysLeft < 0)
-        let expiringIn7    = 0;   // window expires in 0–7 days
+        let expiringIn7    = 0;   // window expires in 0Ã¢â‚¬â€œ7 days
         let inWindow       = 0;   // window active, > 7 days remaining
         let noServiceDate  = 0;   // patient has no serviceDate at all
         const eligibleList = [];
 
         for (const p of patients) {
-            // ── Canonical source: patient.serviceDate ──────────────────────────
+            // Ã¢â€â‚¬Ã¢â€â‚¬ Canonical source: patient.serviceDate Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
             // This is the same field the frontend patients.js liveFilter() uses.
             if (!p.serviceDate) {
                 noServiceDate++;
@@ -848,7 +848,7 @@ async function getEligibilityStatsLegacy(req, res) {
             const daysLeft = eligibility.daysLeft;
 
             if (eligibility.eligible) {
-                // Window fully expired — patient is eligible for a new service
+                // Window fully expired Ã¢â‚¬â€ patient is eligible for a new service
                 eligibleNow++;
                 eligibleList.push({
                     id:            p.id,
@@ -958,7 +958,8 @@ exports.getRxPipeline = async (req, res) => {
                             + INTERVAL '${serviceWindowDays} days'
                         )::date < CURRENT_DATE
                         AND COALESCE(workflow_counts.completed_steps, 0) < :totalSteps
-                    ) AS is_expired
+                    ) AS is_expired,
+                    (rx."deliveryOutcome" = 'returned_to_pharmacy') AS is_returned_to_pharmacy
                 FROM "RXRecords" AS rx
                 LEFT JOIN workflow_counts ON workflow_counts."rxRecordId" = rx.id
                 WHERE COALESCE(rx."isDeleted", false) = false
@@ -966,12 +967,14 @@ exports.getRxPipeline = async (req, res) => {
             SELECT completed_steps,
                    current_stage_sequence,
                    is_expired,
+                   is_returned_to_pharmacy,
                    COUNT(*)::integer AS count
             FROM pipeline_rows
             GROUP BY
                 completed_steps,
                 current_stage_sequence,
-                is_expired
+                is_expired,
+                is_returned_to_pharmacy
             ORDER BY current_stage_sequence NULLS FIRST, is_expired
         `, {
             replacements: { totalSteps },
@@ -992,12 +995,14 @@ exports.getRxPipeline = async (req, res) => {
         let expired = 0;
         let completed = 0;
         let startedIncomplete = 0;
+        let returnedToPharmacy = 0;
         if (totalSteps === 0) {
             notStarted = total;
         } else {
             for (const row of grouped) {
                 const done = Number(row.completed_steps);
                 const count = Number(row.count);
+                if (row.is_returned_to_pharmacy === true || row.is_returned_to_pharmacy === 'true') returnedToPharmacy += count;
                 if (done > 0 && done < totalSteps) startedIncomplete += count;
                 if (done >= totalSteps) completed += count;
                 else if (row.is_expired === true) expired += count;
@@ -1019,6 +1024,7 @@ exports.getRxPipeline = async (req, res) => {
             inProgress,
             expired,
             completed,
+            returnedToPharmacy,
             allIncomplete,
             startedIncomplete,
             totalSteps,
@@ -1103,7 +1109,7 @@ exports.getEligibilityDrilldown = async (req, res) => {
             }
         }
 
-        // Sort: eligible → oldest first; expiring → fewest days first; window → most days first; none → alpha
+        // Sort: eligible Ã¢â€ â€™ oldest first; expiring Ã¢â€ â€™ fewest days first; window Ã¢â€ â€™ most days first; none Ã¢â€ â€™ alpha
         results.sort((a, b) => {
             if (filter === 'eligible') return b.daysPastDue - a.daysPastDue;
             if (filter === 'expiring') return a.daysLeft   - b.daysLeft;

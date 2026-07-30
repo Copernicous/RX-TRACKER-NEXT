@@ -7,14 +7,22 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+## [4.0.0-next.38] - 2026-07-29
+
 ### Added
 
-- Added professional **Delivery Log PDF** and **Delivery Log Excel** actions to RX Records.
-- The delivery log preserves the active RX filters, uses the configured **Mark as Received to print log** workflow completion date, and includes RX references, patient/DOB, pharmacy transport, received/returned/pending status, exception notes, page numbering, controlled-copy metadata, and chain-of-custody signature fields.
-- PDF output uses a repeating portrait multi-page layout with pharmacy-separated page sets; Excel output downloads a preformatted workbook-compatible .xls file with one worksheet per pharmacy, report metadata, summary totals, data rows, and acknowledgment fields.
+- Added professional **Print & Delivery Log** PDF and Excel actions to RX Records. Each pharmacy is rendered as a separate PDF page set and a separate preformatted Excel worksheet.
+- The portrait PDF preserves the validated controlled-copy layout, pharmacy header, driver line, summary totals, patient rows, chain-of-custody and receipt acknowledgment fields, footer metadata, and page numbering. Returned packages are visibly identified without mixing pharmacy sets.
+- Added a Delivered / Returned to Pharmacy delivery outcome at the configured workflow step. Returned-to-pharmacy is distinct from the pre-existing Returned to Warehouse audit flag, supports the normal print-log, signature, and archive flow, and is included in the Dashboard, RX filters, CSV, PDF, and Excel reporting.
+- Added searchable multiple-selection filters for RX **Workflow Status**, **Current Stage**, Pharmacy, and Clinic; Patient filters use the same checkbox-based reference picker.
+- Added selectable all-fields CSV export dialogs for both Patients and RX Records, including Pharmacy and Clinic.
 
-**Database impact:** No migration and no data rewrite. The report is read-only and uses existing RX, patient, pharmacy, transport, warehouse-return, and workflow history data.
+### Fixed
 
+- Corrected print-log pagination so patient rows use available space before the final-page signature blocks. Signature and controlled-copy footer areas remain on the last page of each pharmacy set.
+- Corrected external stylesheet/font access for configured LAN and reverse-proxy origins through CORS configuration; no proxy or source-path change is required by this release.
+
+**Database impact:** Two additive audited migrations only. They add the `WorkflowActions.deliveryOutcomeMode` configuration field and `RXRecords.deliveryOutcome`, outcome date, outcome note, and index. They do not reseed, rename, reorder, or rewrite configured workflow actions or business data.
 ## [4.0.0-next.37] - 2026-07-28
 
 ### Added

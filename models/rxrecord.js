@@ -33,7 +33,10 @@ module.exports = (sequelize, DataTypes) => {
     deletedAt: { type: DataTypes.DATE, allowNull: true },
     returnedToWarehouse: { type: DataTypes.BOOLEAN, defaultValue: false },
     warehouseReturnDate: { type: DataTypes.DATE, allowNull: true },
-    warehouseReturnNote: { type: DataTypes.STRING, allowNull: true }
+    warehouseReturnNote: { type: DataTypes.STRING, allowNull: true },
+    deliveryOutcome: { type: DataTypes.STRING(32), allowNull: false, defaultValue: 'none' },
+    deliveryOutcomeDate: { type: DataTypes.DATE, allowNull: true },
+    deliveryOutcomeNote: { type: DataTypes.STRING, allowNull: true }
   }, {
     sequelize,
     modelName: 'RXRecord',

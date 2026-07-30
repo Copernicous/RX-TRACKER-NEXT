@@ -1,4 +1,4 @@
-const { PDFDocument, StandardFonts, rgb } = require('pdf-lib');
+﻿const { PDFDocument, StandardFonts, rgb } = require('pdf-lib');
 const db = require('../models');
 
 function text(value) { return String(value || ''); }
