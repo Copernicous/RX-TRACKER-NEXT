@@ -120,21 +120,19 @@
                     </div>
                     <div class="col-md-2">
                         <label class="form-label small fw-bold"><i class="fas fa-tasks me-1"></i>Workflow Status</label>
-                        <select class="form-select form-select-sm" id="rxFilterWorkflowStatus">
-                            <option value="">All Workflow</option>
-                            <option value="incomplete">All Incomplete</option>
-                            <option value="pending">Pending</option>
-                            <option value="not-started">Not Started</option>
-                            <option value="in-progress">In Progress</option>
-                            <option value="expired">Expired</option>
-                            <option value="completed">Completed</option>
-                        </select>
+                        <input type="hidden" id="rxFilterWorkflowStatus">
+                        <div class="dropdown rx-filter-multiselect" id="rxFilterWorkflowStatusPicker">
+                            <button class="form-select form-select-sm text-start dropdown-toggle" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside"><span>All Workflow</span></button>
+                            <div class="dropdown-menu"><input class="form-control form-control-sm rx-filter-multiselect-search" type="search" placeholder="Type to find status..."><div class="rx-filter-multiselect-options"></div></div>
+                        </div>
                     </div>
                     <div class="col-md-2">
                         <label class="form-label small fw-bold"><i class="fas fa-check-circle me-1"></i>Current Stage</label>
-                        <select class="form-select form-select-sm" id="rxFilterCurrentWorkflowStage">
-                            <option value="">All Current Stages</option>
-                        </select>
+                        <input type="hidden" id="rxFilterCurrentWorkflowStage">
+                        <div class="dropdown rx-filter-multiselect" id="rxFilterCurrentWorkflowStagePicker">
+                            <button class="form-select form-select-sm text-start dropdown-toggle" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside"><span>All Current Stages</span></button>
+                            <div class="dropdown-menu"><input class="form-control form-control-sm rx-filter-multiselect-search" type="search" placeholder="Type to find current stage..."><div class="rx-filter-multiselect-options"></div></div>
+                        </div>
                     </div>
                     <div class="col-md-1 d-flex gap-1 align-items-end">
                         <button class="btn btn-primary btn-sm btn-search" id="rxFilterBtn" title="Search"><i class="fas fa-search"></i></button>
@@ -922,7 +920,7 @@
     }
 
     function selectedRxFilterIds(value) {
-        return String(value || '').split(',').filter(function(id) { return /^\d+$/.test(id); });
+        return String(value || '').split(',').map(function(value) { return value.trim(); }).filter(Boolean);
     }
 
     function populateRxMultiFilter(hiddenId, pickerId, items, itemLabel, emptyLabel) {
@@ -967,6 +965,13 @@
     function refreshRxMultiFilters() {
         populateRxMultiFilter('rxFilterPharmacy', 'rxFilterPharmacyPicker', allPharmaciesList, function(item) { return item.name || ('Pharmacy #' + item.id); }, 'All Pharmacies');
         populateRxMultiFilter('rxFilterClinic', 'rxFilterClinicPicker', allClinicsList, function(item) { return item.name || ('Clinic #' + item.id); }, 'All Clinics');
+        populateRxMultiFilter('rxFilterWorkflowStatus', 'rxFilterWorkflowStatusPicker', [
+            { id: 'incomplete', name: 'All Incomplete' }, { id: 'pending', name: 'Pending' }, { id: 'not-started', name: 'Not Started' },
+            { id: 'in-progress', name: 'In Progress' }, { id: 'expired', name: 'Expired' }, { id: 'completed', name: 'Completed' }
+        ], function(item) { return item.name; }, 'All Workflow');
+        var stages = [{ id: 'print_log', name: 'Print Log - Includes Returned to Pharmacy' }, { id: 'returned_to_pharmacy', name: 'Package Returned to Pharmacy' }];
+        allWorkflowActions.forEach(function(action, index) { stages.push({ id: String(action.sequenceNumber || index + 1), name: action.name || ('Workflow action ' + (index + 1)) }); });
+        populateRxMultiFilter('rxFilterCurrentWorkflowStage', 'rxFilterCurrentWorkflowStagePicker', stages, function(item) { return item.name; }, 'All Current Stages');
     }
 
     function populateRxFilterSelects() {
@@ -1009,21 +1014,6 @@
                 wfStageSel.appendChild(wfOpt);
             }
             if (wfStageCurrent) wfStageSel.value = wfStageCurrent;
-        }
-        var currentWfStageSel = document.getElementById('rxFilterCurrentWorkflowStage');
-        if (currentWfStageSel) {
-            var currentWfStageValue = currentWfStageSel.value || window._rxPrefilterCurrentWorkflowStage || '';
-            currentWfStageSel.innerHTML = '<option value="">All Current Stages</option><option value="print_log">Print Log - Includes Returned to Pharmacy</option><option value="returned_to_pharmacy">Package Returned to Pharmacy</option>';
-            for (var cs = 0; cs < allWorkflowActions.length; cs++) {
-                var currentAction = allWorkflowActions[cs];
-                var currentOpt = document.createElement('option');
-                currentOpt.value = String(currentAction && currentAction.sequenceNumber ? currentAction.sequenceNumber : cs + 1);
-                currentOpt.textContent = currentAction && currentAction.name
-                    ? currentAction.name
-                    : 'Workflow action ' + (cs + 1);
-                currentWfStageSel.appendChild(currentOpt);
-            }
-            if (currentWfStageValue) currentWfStageSel.value = currentWfStageValue;
         }
     }
 
@@ -1492,11 +1482,11 @@
         var whSel = document.getElementById('rxFilterWarehouseStatus');
         var whVal = whSel ? whSel.value : '';
         var _wfEl = document.getElementById('rxFilterWorkflowStatus');
-        var wf    = _wfEl ? _wfEl.value : '';
+        var wf    = selectedRxFilterIds(_wfEl ? _wfEl.value : '');
         var _wfsEl = document.getElementById('rxFilterWorkflowStage');
         var wfStage = _wfsEl ? _wfsEl.value : '';
         var _currentWfsEl = document.getElementById('rxFilterCurrentWorkflowStage');
-        var currentWfStage = _currentWfsEl ? _currentWfsEl.value : '';
+        var currentWfStage = selectedRxFilterIds(_currentWfsEl ? _currentWfsEl.value : '');
         var _currentStageFromEl = document.getElementById('rxFilterCurrentStageDateFrom');
         var currentStageDateFrom = _currentStageFromEl ? _currentStageFromEl.value : '';
         var _currentStageToEl = document.getElementById('rxFilterCurrentStageDateTo');
@@ -1531,14 +1521,17 @@
             if (phtVal && String(r.pharmacyTransportCompanyId || '') !== String(phtVal)) return false;
             if (whVal === 'returned' && !r.returnedToWarehouse) return false;
             if (whVal === 'not-returned' && r.returnedToWarehouse) return false;
-            if (wf === 'incomplete' && wfKey === 'completed') return false;
-            if (wf === 'pending' && wfKey === 'completed') return false;
-            if (wf === 'pending' && wfKey === 'expired') return false;
-            if (wf && wf !== 'pending' && wf !== 'incomplete' && wfKey !== wf) return false;
+            if (wf.length && !wf.some(function(status) {
+                if (status === 'incomplete') return wfKey !== 'completed';
+                if (status === 'pending') return wfKey !== 'completed' && wfKey !== 'expired';
+                return wfKey === status;
+            })) return false;
             if (wfStage && wfStageKey !== wfStage) return false;
-            if (currentWfStage === 'print_log' && r.deliveryOutcome !== 'returned_to_pharmacy' && !rxHasPrintLogStage(r)) return false;
-            if (currentWfStage === 'returned_to_pharmacy' && r.deliveryOutcome !== 'returned_to_pharmacy') return false;
-            if (currentWfStage && currentWfStage !== 'print_log' && currentWfStage !== 'returned_to_pharmacy' && currentWfStageKey !== currentWfStage) return false;
+            if (currentWfStage.length && !currentWfStage.some(function(stage) {
+                if (stage === 'print_log') return r.deliveryOutcome === 'returned_to_pharmacy' || rxHasPrintLogStage(r);
+                if (stage === 'returned_to_pharmacy') return r.deliveryOutcome === 'returned_to_pharmacy';
+                return currentWfStageKey === stage;
+            })) return false;
             if (currentStageDateFrom && (!currentStageDateKey || currentStageDateKey < currentStageDateFrom)) return false;
             if (currentStageDateTo && (!currentStageDateKey || currentStageDateKey > currentStageDateTo)) return false;
             return true;
