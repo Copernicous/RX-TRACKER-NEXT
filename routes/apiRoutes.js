@@ -64,6 +64,7 @@ const emailReportController  = require('../controllers/emailReportController');
 const patientLockController  = require('../controllers/patientLockController');
 const medicationCatalogController = require('../controllers/medicationCatalogController');
 const adminController = require('../controllers/adminController');
+const rxProfileSyncController = require('../controllers/rxProfileSyncController');
 const snapshotController = require('../controllers/snapshotController');
 const roleController = require('../controllers/roleController');
 const documentController = require('../controllers/documentController');
@@ -708,6 +709,8 @@ router.get('/admin/orphans',            masterOnly, adminController.getOrphans);
 router.delete('/admin/orphans',         masterOnly, requireStagingDestructiveConfirmation, adminController.cleanOrphans);
 router.get('/admin/duplicates',         masterOnly, adminController.getDuplicates);
 router.get('/admin/audit-logs',         masterOnly, adminController.getAuditLogs);
+router.get('/admin/rx-profile-sync', masterOnly, rxProfileSyncController.list);
+router.post('/admin/rx-profile-sync/:rxId', masterOnly, rxProfileSyncController.sync);
 router.get('/admin/call-center-cleanup', masterOnly, adminController.getCallCenterCleanupPreview);
 router.delete('/admin/call-center-cleanup', masterOnly, requireStagingDestructiveConfirmation, adminController.purgeCallCenterCleanup);
 // System Settings

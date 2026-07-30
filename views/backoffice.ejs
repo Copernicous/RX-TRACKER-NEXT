@@ -215,7 +215,7 @@
         @keyframes spin { to { transform: rotate(360deg); } }
 
         /* ── Tab Nav ── */
-        .tab-nav { display:grid; grid-template-columns:repeat(15,minmax(0,1fr)); gap:0.25rem; margin-bottom:1.5rem; background:var(--surface-2); border:1px solid var(--border); border-radius:10px; padding:0.3rem; }
+        .tab-nav { display:grid; grid-template-columns:repeat(16,minmax(0,1fr)); gap:0.25rem; margin-bottom:1.5rem; background:var(--surface-2); border:1px solid var(--border); border-radius:10px; padding:0.3rem; }
         .tab-btn { min-width:0; border:none; border-radius:7px; padding:0.55rem 0.15rem; font-size:0.8rem; line-height:1.25; overflow-wrap:normal; word-break:normal; font-weight:600; cursor:pointer; transition:all 0.2s; color:var(--text-muted); background:transparent; }
         .tab-btn.active { background:var(--surface); color:var(--text); box-shadow:0 1px 8px rgba(0,0,0,0.3); }
         .tab-btn i { margin-right:0.4rem; }
@@ -414,6 +414,7 @@
         <button class="tab-btn" id="tabSchema" onclick="switchTab('schema')"><i class="fas fa-project-diagram"></i>Schema</button>
         <button class="tab-btn" id="tabOrphans" onclick="switchTab('orphans')"><i class="fas fa-unlink"></i>Orphans</button>
         <button class="tab-btn" id="tabDupes" onclick="switchTab('dupes')"><i class="fas fa-users"></i>Duplicates</button>
+        <button class="tab-btn" id="tabRxSync" onclick="switchTab('rxsync')"><i class="fas fa-arrows-rotate"></i>RX Profile Sync</button>
         <button class="tab-btn" id="tabAudit" onclick="switchTab('audit')"><i class="fas fa-history"></i>Audit Log</button>
         <button class="tab-btn" id="tabCcCleanup" onclick="switchTab('cccleanup')"><i class="fas fa-headset"></i>Call Center Cleanup</button>
         <button class="tab-btn" id="tabSettings" onclick="switchTab('settings')"><i class="fas fa-cog"></i>Settings</button>
@@ -528,6 +529,27 @@
         </div>
     </div>
 
+    <!-- ══ RX Profile Sync Panel ══ -->
+    <div id="rxsyncContent" class="schema-wrap">
+        <div class="schema-card" style="padding:1rem">
+            <div style="display:flex;justify-content:space-between;gap:1rem;align-items:flex-start;flex-wrap:wrap">
+                <div>
+                    <div style="font-size:1rem;font-weight:700"><i class="fas fa-arrows-rotate me-1" style="color:#a5b4fc"></i>RX Profile Sync</div>
+                    <div style="font-size:.75rem;color:var(--text-muted);margin-top:.25rem">Select any RX record and copy Pharmacy or Transport values from its current Patient profile. This never changes the Patient profile, workflow, or future RX records.</div>
+                </div>
+                <button class="btn-bo btn-bo-primary" onclick="loadRxProfileSync()"><i class="fas fa-sync-alt me-1"></i>Scan</button>
+            </div>
+            <div style="display:flex;gap:.6rem;flex-wrap:wrap;margin-top:1rem">
+                <input id="rxSyncSearch" class="schema-search" style="margin:0;min-width:260px;flex:1" placeholder="Search patient name, Patient ID, or RX #" onkeydown="if(event.key==='Enter')loadRxProfileSync()">
+                <label style="font-size:.75rem;display:flex;gap:.4rem;align-items:center"><input id="rxSyncShowAll" type="checkbox" onchange="loadRxProfileSync()"> Show matching records too</label>
+            </div>
+            <div style="margin-top:.7rem;padding:.65rem .8rem;border:1px solid rgba(59,130,246,.25);background:rgba(59,130,246,.07);border-radius:7px;font-size:.74rem;color:var(--text-muted)">
+                <strong style="color:#bfdbfe">Clinic is inherited from the Patient profile</strong>; it is shown for reference and does not need an RX update. Each sync writes RX History and Audit Log entries with the selected fields and before/after values.
+            </div>
+        </div>
+        <div id="rxSyncStatus" style="margin:.8rem 0;font-size:.78rem;color:var(--text-muted)"></div>
+        <div id="rxSyncList"><p style="text-align:center;padding:3rem;color:var(--text-muted)">Click <strong>Scan</strong> to find RX records that differ from their Patient profile.</p></div>
+    </div>
     <!-- ══ Audit Log Panel ══ -->
     <div id="auditContent" class="schema-wrap">
         <!-- Filters -->

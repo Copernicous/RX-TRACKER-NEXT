@@ -7,6 +7,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+## [4.0.0-next.42] - 2026-07-30
+
+### Added
+
+- Added a master-administrator RX Profile Sync Back Office tool for selecting a specific active RX record and copying selected Pharmacy, Patient Transport, and Pharmacy Transport values from the linked Patient profile.
+- RX Profile Sync supports RX number, Patient ID/code, and patient-name searches; it excludes deleted records and writes RX History and Audit Log entries for each applied update.
+
+### Safety
+
+- No database migration, workflow-action configuration, or automatic bulk synchronization. Empty field selections make no changes.
+
 ## [4.0.0-next.41] - 2026-07-30
 
 ### Fixed
