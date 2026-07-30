@@ -7,6 +7,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+## [4.0.0-next.43] - 2026-07-30
+
+### Fixed
+
+- RX Records multi-select filter controls now keep selected text inside the button. Multiple selections use a compact selected-count label, and a single long label truncates safely.
+
+### Safety
+
+- No database migration, workflow-action configuration, or business-data change.
+
 ## [4.0.0-next.42] - 2026-07-30
 
 ### Added
