@@ -7,6 +7,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+## [4.0.0-next.48] - 2026-08-01
+
 ### Added
 
 - Added Delivery Log Archive persistence and reprint workflow:
