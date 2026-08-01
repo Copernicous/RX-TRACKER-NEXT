@@ -17,6 +17,7 @@ const { spawn } = require('child_process');
 const rateLimit = require('express-rate-limit');
 const deliveryLogPdfController = require('../controllers/deliveryLogPdfController');
 const deliveryOutcomeController = require('../controllers/deliveryOutcomeController');
+const deliveryLogArchiveController = require('../controllers/deliveryLogArchiveController');
 
 const phoneAccountSaveLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
@@ -372,6 +373,10 @@ router.get('/reports/patient-rx-detail', rbac.requirePermission('reports', 'expo
 router.get('/reports/rx-receipts', rbac.requirePermission('reports', 'read'), reportController.getRXReceiptReport);
 router.get('/reports/rx-actions', rbac.requirePermission('reports', 'read'), reportController.getRXActionReport);
 router.get('/reports/rx-delivery-log-interactive.pdf', rbac.requirePermission('reports', 'export'), deliveryLogPdfController.download);
+router.get('/reports/delivery-log-archives',       rbac.requirePermission('reports', 'export'), deliveryLogArchiveController.list);
+router.post('/reports/delivery-log-archives',      rbac.requirePermission('reports', 'export'), auditLogger('Delivery Log Archive'), deliveryLogArchiveController.create);
+router.get('/reports/delivery-log-archives/:id',    rbac.requirePermission('reports', 'read'),  deliveryLogArchiveController.get);
+router.get('/reports/delivery-log-archives/:id/print', rbac.requirePermission('reports', 'read'), deliveryLogArchiveController.print);
 router.get('/reports/call-center', rbac.requirePermission('reports', 'read'), reportController.getCallCenterReport);
 router.get('/reports/call-center-attempts', rbac.requirePermission('reports', 'read'), reportController.getCallCenterAttemptReport);
 router.get('/reports/call-center-supervisor', rbac.requirePermission('reports', 'read'), reportController.getCallCenterSupervisorSummary);

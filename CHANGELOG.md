@@ -7,6 +7,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+### Added
+
+- Added Delivery Log Archive persistence and reprint workflow:
+  - Delivery log PDF generation now saves a local JSON archive per print (reference, verification, filters, totals, rows, rendered HTML) under `administration/delivery-log-archives`.
+  - Added a new Reports tab to list archived delivery logs, with refresh and reprint actions and local-time created-at display.
+  - Reprint opens archived HTML and appends a local-time `Reprinted: <timestamp>` marker.
+
+### Changed
+
+- Switched delivery-log archive metadata display and naming to local-time values to avoid UTC rendering in the reporting path.
+
 ## [4.0.0-next.47] - 2026-07-30
 
 ### Fixed

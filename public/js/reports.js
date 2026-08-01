@@ -14,6 +14,7 @@
     var rrSortCol = 'id', rrSortDir = 'desc';
     var ccrSortCol = 'lastActionAt', ccrSortDir = 'desc';
     var ccaSortCol = 'dialedAt', ccaSortDir = 'desc';
+    var allDeliveryLogArchives = [];
     var prPage = 1, prPageSize = 10;
     var rrPage = 1, rrPageSize = 10;
     var ccrPage = 1, ccrPageSize = 10;
@@ -42,6 +43,10 @@
             const el = document.getElementById(id);
             if (el && typeof setRoleActionDisabled === 'function') setRoleActionDisabled(el, !reportPerms.canPrint, 'Print disabled for this role.');
         });
+        ['refreshDeliveryLogArchiveBtn'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el && typeof setRoleActionDisabled === 'function') setRoleActionDisabled(el, !reportPerms.canPrint, 'Print disabled for this role.');
+        });
     });
 
     // ─── Load Data ───────────────────────────────────────────────────────────────
@@ -50,7 +55,7 @@
             await loadReportLookups();
             setDefaultCallCenterDates();
             buildAutocompletes();
-            await Promise.all([renderPatientReport(), renderRxActionReport(), renderCallCenterReports()]);
+            await Promise.all([renderPatientReport(), renderRxActionReport(), renderCallCenterReports(), renderDeliveryLogArchiveRecords()]);
         } catch(e) {
             console.error('Report load error:', e);
         }
@@ -124,6 +129,138 @@
         if (!res) throw new Error('Report API authentication failed');
         if (!res.ok) throw new Error('Report API ' + res.status);
         return res.json();
+    }
+
+    function localDateToken(date) {
+        const d = date ? new Date(date) : new Date();
+        if (isNaN(d.getTime())) return 'invalid-date';
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+        return String(d.getFullYear()) + mm + dd;
+    }
+
+    function formatLocalDateTime(value) {
+        if (!value) return '';
+        const parsed = new Date(value);
+        if (isNaN(parsed.getTime())) return '';
+        return parsed.toLocaleString([], {
+            month: '2-digit',
+            day: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit'
+        });
+    }
+
+    function formatArchiveDate(value) {
+        if (!value) return '';
+        const parsed = new Date(value);
+        if (isNaN(parsed.getTime())) return '';
+        return parsed.toLocaleString([], {
+            month: '2-digit',
+            day: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    }
+
+    function fetchDeliveryLogArchives() {
+        return fetchReportJson('/api/reports/delivery-log-archives');
+    }
+
+    async function renderDeliveryLogArchiveRecords() {
+        const tbody = document.getElementById('deliveryLogArchiveBody');
+        if (!tbody) return Promise.resolve();
+        tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin me-2"></i>Loading...</td></tr>';
+
+        try {
+            const records = await fetchDeliveryLogArchives();
+            allDeliveryLogArchives = Array.isArray(records) ? records : [];
+            if (!allDeliveryLogArchives.length) {
+                tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">No archived delivery logs yet</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = allDeliveryLogArchives.map(function(record) {
+                const encodedId = encodeURIComponent(record.id || '');
+                const createdAt = record.createdAt ? formatArchiveDate(record.createdAt) : '';
+                return '<tr>' +
+                    '<td>' + escHtml(record.reference || '') + '</td>' +
+                    '<td>' + escHtml(record.verification || '') + '</td>' +
+                    '<td>' + escHtml(createdAt || '') + '</td>' +
+                    '<td>' + escHtml(String(record.total || 0)) + '</td>' +
+                    '<td>' + escHtml(record.generated || '') + '</td>' +
+                    '<td>' + escHtml(record.period || 'All dates') + '</td>' +
+                    '<td>' + escHtml(record.filters || 'All visible RX records') + '</td>' +
+                    '<td>' +
+                        '<button class="btn btn-sm btn-outline-primary delivery-log-reprint-btn" type="button" data-record-id="' + escHtml(encodedId) + '">' +
+                            '<i class="fas fa-print me-1"></i>Reprint' +
+                        '</button>' +
+                    '</td>' +
+                '</tr>';
+            }).join('');
+
+            tbody.querySelectorAll('.delivery-log-reprint-btn').forEach(function(button) {
+                button.addEventListener('click', function() {
+                    var recordId = button.getAttribute('data-record-id') || '';
+                    if (!recordId) return;
+                    openDeliveryLogArchivePrint(recordId);
+                });
+            });
+        } catch (_err) {
+            allDeliveryLogArchives = [];
+            tbody.innerHTML = '<tr><td colspan="8" class="text-center text-danger py-4">Could not load archive history.</td></tr>';
+        }
+    }
+
+    function openDeliveryLogArchivePrint(recordId) {
+        var win = window.open('', '_blank');
+        if (!win) {
+            showToast('Popup blocked. Allow popups to open the archived delivery log.', 'warning');
+            return;
+        }
+        var reprintTimestamp = new Date();
+        var reprintLabel = reprintTimestamp.toLocaleString([], {
+            month: '2-digit',
+            day: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit'
+        });
+        win.document.write('<!doctype html><html><head><meta charset="UTF-8"><title>Delivery Log Archive</title></head><body>Loading...</body></html>');
+        win.document.close();
+
+        fetchWithAuth(window.rxUrl('/api/reports/delivery-log-archives/' + encodeURIComponent(recordId) + '/print'))
+            .then(function(res) {
+                if (!res) throw new Error('Archive API authentication failed');
+                if (!res.ok) throw new Error('Archive print request failed (' + res.status + ')');
+                return res.text();
+            })
+            .then(function(html) {
+                if (!html) throw new Error('Archived log is empty');
+                win.document.open();
+                win.document.write(html);
+                win.document.close();
+                win.document.title = 'Delivery Log Archive';
+                var auditStrip = win.document.querySelector('.audit-strip');
+                var reprintLine;
+                if (auditStrip) {
+                    reprintLine = win.document.createElement('span');
+                    reprintLine.textContent = 'Reprinted: ' + reprintLabel;
+                    auditStrip.appendChild(reprintLine);
+                } else {
+                    reprintLine = win.document.createElement('div');
+                    reprintLine.textContent = 'Reprinted: ' + reprintLabel;
+                    win.document.body && win.document.body.appendChild(reprintLine);
+                }
+            })
+            .catch(function(error) {
+                win.close();
+                showToast(error.message || 'Could not open archived delivery log.', 'danger');
+            });
     }
 
     function buildPatientReportParams(options) {
@@ -1426,6 +1563,13 @@
         if (attemptsPrint) attemptsPrint.addEventListener('click', function() { printReport('Automatic Call Attempts', 'ccAttemptReportTable'); });
         var supervisorPrint = document.getElementById('printCcSupervisorBtn');
         if (supervisorPrint) supervisorPrint.addEventListener('click', function() { printReport('Call Center Supervisor Summary', 'ccSupervisorPrintable'); });
+
+        var refreshArchive = document.getElementById('refreshDeliveryLogArchiveBtn');
+        if (refreshArchive) {
+            refreshArchive.addEventListener('click', function() {
+                renderDeliveryLogArchiveRecords();
+            });
+        }
     });
 
     function callCenterSupervisorExportRows(summary) {

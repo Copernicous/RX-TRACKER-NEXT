@@ -26,6 +26,13 @@
         return parsed.toLocaleString([], options);
     }
 
+    function formatLocalDateToken(date) {
+        var now = date || new Date();
+        var mm = String(now.getMonth() + 1).padStart(2, '0');
+        var dd = String(now.getDate()).padStart(2, '0');
+        return String(now.getFullYear()) + mm + dd;
+    }
+
     function findReceiptAction() {
         var actions = Array.isArray(window.allWorkflowActions) ? window.allWorkflowActions : [];
         var acceptedNames = [
@@ -149,7 +156,7 @@
         var now = new Date();
         var dateFrom = document.getElementById('rxFilterDateFrom');
         var dateTo = document.getElementById('rxFilterDateTo');
-        var dateToken = now.toISOString().slice(0, 10).replace(/-/g, '');
+        var dateToken = formatLocalDateToken(now);
         var reference = 'LOG-' + dateToken + '-' + String(total).padStart(4, '0');
         return {
             reference: reference,
@@ -320,6 +327,20 @@
             window.showToast('Popup blocked. Allow popups to create the delivery log PDF.', 'warning');
             return;
         }
+
+        function persistDeliveryLogArchive(payload) {
+            return window.fetchWithAuth(window.rxUrl('/api/reports/delivery-log-archives'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            }).then(function (res) {
+                if (!res || !res.ok) return null;
+                return res.json();
+            }).catch(function () {
+                return null;
+            });
+        }
+
         fetchRows().then(function (records) {
             var openRecords = openDeliveryLogRecords(records);
             if (!openRecords.length) throw new Error('No open RX records are eligible for the delivery log. Closed and archived RX records are excluded.');
@@ -344,6 +365,21 @@
             });
             var metadata = baseMetadata;
             var documentHtml = '<!doctype html><html><head><meta charset="UTF-8"><title>' + escapeHtml(metadata.reference) + '</title><link rel="stylesheet" href="/css/rx-delivery-log.css?v=20260730-5"></head><body>' + pages + '<div class="report-actions"><button id="printReportBtn" type="button">Print / Save PDF</button><button id="closeReportBtn" class="report-close-btn" type="button">Close</button></div></body></html>';
+            var archivePayload = {
+                reference: baseMetadata.reference,
+                verification: baseMetadata.verification,
+                generated: baseMetadata.generated,
+                period: baseMetadata.period,
+                filters: baseMetadata.filters,
+                total: rows.length,
+                counts: reportCounts(rows),
+                rows: rows,
+                pharmacyGroups: pharmacyGroups.map(function (group) {
+                    return { pharmacy: group.pharmacy, rows: group.rows };
+                }),
+                documentHtml: documentHtml
+            };
+            persistDeliveryLogArchive(archivePayload);
             reportWindow.document.open();
             reportWindow.document.write(documentHtml);
             reportWindow.document.close();
@@ -369,7 +405,7 @@
     }
 
     function downloadExcelReport() {
-        var suggestedName = 'print-delivery-log-' + new Date().toISOString().slice(0, 10) + '.xls';
+        var suggestedName = 'print-delivery-log-' + formatLocalDateToken(new Date()) + '.xls';
         var destinationPromise = window.prepareExportDestination
             ? window.prepareExportDestination(suggestedName, { description: 'Excel Files', accept: { 'application/vnd.ms-excel': ['.xls'] } })
             : Promise.resolve(null);
