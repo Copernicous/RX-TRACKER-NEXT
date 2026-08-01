@@ -10,7 +10,7 @@ frozen 3.3.1 repository, its production database, or the RX Softphone source.
 
 ## Current status
 
-Version: `4.0.0-next.58` release candidate
+Version: `4.0.0-next.58` official release
 
 | Area | NEXT behavior |
 |---|---|
@@ -35,8 +35,8 @@ as primary row content. It includes no schema migration, configured RX Action
 change, business-data rewrite, or Kasm, Cloudflare, CORS, cookie, HTTPS,
 trust-proxy, or reverse-proxy behavior change.
 
-Production installation of `next.58` is not confirmed. The compiled GitHub
-release must pass testing-server validation before a separately approved
+Production installation of `next.58` is not confirmed. The official compiled
+GitHub release must pass testing-server validation before a separately approved
 Project Control production update.
 The frozen application remains an emergency rollback option. New NEXT changes
 must pass staging and development validation before a separately approved,

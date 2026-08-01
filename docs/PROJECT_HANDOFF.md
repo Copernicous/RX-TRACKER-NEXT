@@ -8,7 +8,11 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
 
-- Candidate **v4.0.0-next.58** fixes a `.57` Delivery Log regression where the
+- Official **v4.0.0-next.58** was published on 2026-08-01 from `main` commit
+  `bcb69aca29a05c8c8735f39e3dfa3bf1e4c99650` after the PostgreSQL lifecycle
+  CI, application regressions, updater self-test, browser rendering checks,
+  independent code review, CodeQL, and tagged compiled-release workflow
+  passed. It fixes a `.57` Delivery Log regression where the
   strict archive create validator rejected the legitimate top-level `_csrf`
   field added by the authenticated browser fetch helper, blocking both archive
   persistence and printing. The correction also covers audited reprints and
@@ -22,8 +26,16 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
   controller; the token is not archived or audited, and unknown or nested
   fields remain rejected. Focused server, browser-CSRF integration,
   stylesheet-readiness, client-print, report-render, and public JavaScript
-  regressions pass locally. Publication and compiled testing-server
-  installation are not yet confirmed. There is no migration, business-data
+  regressions passed. Published SHA-256 values:
+  `server-update-4.0.0-next.58.zip` and
+  `RX-Tracker-NEXT-New-Server-4.0.0-next.58.zip`
+  `308dfeddcd4d19a4ecc6dd0b8de985a8fa75a95dcf043a69b5e3aec263adc4b4`,
+  `RxSoftphone-0.6.0-win-x64.zip`
+  `4616e563adea0c550995db0b1373ca35c5d0d8c8522beb4f5f3c640079248d42`,
+  `server.exe` `0e1d4db91131bb0825bd8a44c2a3b7ac721895d162be662f8a31abc35f9c210f`,
+  and `rx-db.exe` `a9af4023a0cfef5e88a58daa7b40042a8e20460c03d7ff1226d6bb1e797d947f`.
+  Compiled testing-server and production installation are not yet confirmed.
+  There is no migration, business-data
   rewrite, RX Action change, or Kasm, Cloudflare, CORS, cookie, HTTPS,
   trust-proxy, or reverse-proxy behavior change.
 
@@ -185,7 +197,7 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 - NEXT database name at the completed cutover: `patient_rx_next_cutover_copy`
 - Candidate Project Control version: `2.2.2`; installed production version is
   unconfirmed and must be checked through Project Control before an update.
-- Latest official release: `v4.0.0-next.57`; installation remains unconfirmed.
+- Latest official release: `v4.0.0-next.58`; installation remains unconfirmed.
   Version `next.31` made
   **Current Stage** the primary RX Records workflow filter, kept **Next Action
   Required** under Advanced filters, and exported both meanings explicitly.
