@@ -7,6 +7,28 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+## [4.0.0-next.55]
+
+### Added
+
+- Added resilient routine database checks for production-grade evidence:
+  - configurable thresholds via environment variables (for slow queries, missing/unused indexes, large columns, dead tuples, and backup recency),
+  - confidence-based severity with explicit evidence and required human-approval flags,
+  - informational findings for low-risk observations (including small-table dead-tuples).
+
+### Changed
+
+- Improved missing-index candidate logic to use query evidence, table size/age/context signals, and stronger filtering before recommendation.
+- Improved unused-index detection to ignore constrained/system-owned patterns, honor observation windows, and suppress tiny candidate indexes by size.
+- Hardened oversized-column inspection with schema/table/column-safe metadata checks and row/byte/null metrics per candidate.
+- Added explicit failure-path reporting for routine check query errors (checker errors instead of non-actionable warnings).
+- Added optional backup recoverability validation against a temporary restore DB (schema row counts and basic connectivity validation), with cleanup safeguards.
+- Enhanced health endpoint output with active database connection details and runtime context.
+
+### Safety
+
+- No schema migrations or business-data rewrite in this patch.
+
 ## [4.0.0-next.54]
 
 ### Fixed
