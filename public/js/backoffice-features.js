@@ -208,6 +208,70 @@ async function loadBackups() {
     } catch(e) { document.getElementById('backupList').innerHTML = '<p style="color:#fca5a5;padding:2rem">' + e.message + '</p>'; }
 }
 
+async function loadDeliveryLogArchiveStats() {
+    var statsEl = document.getElementById('dlArchiveStats');
+    if (statsEl) statsEl.textContent = 'Refreshing delivery log archive status...';
+    try {
+        var res  = await apiFetch('/api/admin/delivery-log-archives');
+        var data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Failed');
+        var total = Array.isArray(data) ? data.length : 0;
+        var oldest = null;
+        var newest = null;
+        if (Array.isArray(data) && total > 0) {
+            var sorted = data.slice().sort(function(a, b) {
+                return Number(b.createdAtEpoch || Date.parse(b.createdAt || 0) || 0) - Number(a.createdAtEpoch || Date.parse(a.createdAt || 0) || 0);
+            });
+            newest = sorted[0] ? sorted[0].createdAt : null;
+            oldest = sorted[sorted.length - 1] ? sorted[sorted.length - 1].createdAt : null;
+        }
+        if (statsEl) {
+            var parts = [total + ' total archive(s)'];
+            if (newest) parts.push('Newest: ' + new Date(newest).toLocaleString());
+            if (oldest) parts.push('Oldest: ' + new Date(oldest).toLocaleString());
+            statsEl.textContent = parts.join('  •  ');
+        }
+    } catch(e) {
+        if (statsEl) statsEl.textContent = 'Failed to load archive status: ' + e.message;
+    }
+}
+
+async function purgeDeliveryLogArchives() {
+    var days = parseInt(document.getElementById('dlArchivePurgeDays').value, 10);
+    var confirmText = document.getElementById('dlArchivePurgeConfirm').value.trim();
+    if (!days || days < 1 || days > 3650) {
+        return toast('Enter days between 1 and 3650.', 'danger');
+    }
+    if (confirmText !== 'PURGE DELIVERY LOGS') {
+        return toast('Type PURGE DELIVERY LOGS to confirm.', 'danger');
+    }
+    if (!confirm('This will permanently delete all delivery log archives older than ' + days + ' day(s). Continue?')) return;
+
+    var btn = document.getElementById('dlArchivePurgeBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Purging...';
+    try {
+        var body = {
+            olderThanDays: days,
+            confirm: 'PURGE DELIVERY LOGS'
+        };
+        var res = await apiFetch('/api/admin/delivery-log-archives', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+        var data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Purge failed');
+        toast('\u2713 Purged ' + data.deleted + ' delivery log archive(s).', 'success');
+        await loadDeliveryLogArchiveStats();
+    } catch(e) {
+        toast('Purge failed: ' + e.message, 'danger');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-trash-alt me-1"></i>Purge Old Archives';
+    }
+}
+
 async function createBackup() {
     var btn = document.getElementById('createBackupBtn');
     btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Creating...';

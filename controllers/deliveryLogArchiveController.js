@@ -27,6 +27,20 @@ function cleanText(value, fallback) {
     return String(value).trim();
 }
 
+function toNumber(value, fallback) {
+    const n = Number(value);
+    if (!Number.isFinite(n) || n <= 0) return fallback;
+    return n;
+}
+
+function archiveCreatedAtEpoch(record) {
+    if (!record || typeof record !== 'object') return 0;
+    const epoch = toNumber(record.createdAtEpoch, 0);
+    if (epoch > 0) return epoch;
+    const parsed = Date.parse(cleanText(record.createdAt, ''));
+    return Number.isFinite(parsed) ? parsed : 0;
+}
+
 function normalizeArchiveRecord(record, user) {
     const cleaned = record && typeof record === 'object' ? record : {};
     const metadata = cleaned.metadata && typeof cleaned.metadata === 'object' ? cleaned.metadata : {};
@@ -98,12 +112,14 @@ exports.list = async (_req, res) => {
             try {
                 const content = await fs.promises.readFile(path.join(ARCHIVE_DIR, file), 'utf8');
                 const data = JSON.parse(content);
+                const createdAtEpoch = archiveCreatedAtEpoch(data);
                 records.push({
                     id: data.id,
                     reference: data.reference,
                     verification: data.verification,
                     total: data.total || 0,
                     createdAt: data.createdAt,
+                    createdAtEpoch: createdAtEpoch,
                     generated: data.generated,
                     filters: data.filters,
                     period: data.period
@@ -128,6 +144,70 @@ exports.list = async (_req, res) => {
         res.json(records);
     } catch (err) {
         return res.status(500).json({ error: err.message || 'Failed to list delivery-log archives.' });
+    }
+};
+
+exports.delete = async (req, res) => {
+    try {
+        const filePath = archivePath(req.params.id);
+        await fs.promises.unlink(filePath);
+        return res.json({ success: true, id: sanitizeArchiveId(String(req.params.id || '')), message: 'Delivery-log archive deleted.' });
+    } catch (err) {
+        if (err.code === 'ENOENT') {
+            return res.status(404).json({ error: 'Archive not found.' });
+        }
+        return res.status(500).json({ error: err.message || 'Failed to delete delivery-log archive.' });
+    }
+};
+
+exports.purge = async (req, res) => {
+    try {
+        const olderThanDays = toNumber(req && req.body && req.body.olderThanDays, 0);
+        const confirm = req && req.body ? String(req.body.confirm || '').trim() : '';
+        if (confirm !== 'PURGE DELIVERY LOGS') {
+            return res.status(400).json({ error: 'Type "PURGE DELIVERY LOGS" to confirm this cleanup.' });
+        }
+        if (!olderThanDays || olderThanDays > 3650) {
+            return res.status(400).json({ error: 'olderThanDays is required and must be between 1 and 3650.' });
+        }
+
+        const cutoff = Date.now() - (olderThanDays * 24 * 60 * 60 * 1000);
+        ensureArchiveDirectory();
+        const files = await fs.promises.readdir(ARCHIVE_DIR);
+        let deleted = 0;
+        let inspected = 0;
+        let skipped = 0;
+
+        for (const file of files) {
+            if (!file.endsWith(ARCHIVE_EXT)) continue;
+            inspected += 1;
+            const filePath = path.join(ARCHIVE_DIR, file);
+            try {
+                const content = await fs.promises.readFile(filePath, 'utf8');
+                const data = JSON.parse(content);
+                const createdAtEpoch = archiveCreatedAtEpoch(data);
+                if (!createdAtEpoch) {
+                    skipped += 1;
+                    continue;
+                }
+                if (createdAtEpoch <= cutoff) {
+                    await fs.promises.unlink(filePath);
+                    deleted += 1;
+                }
+            } catch (_error) {
+                skipped += 1;
+            }
+        }
+
+        res.json({
+            success: true,
+            deleted: deleted,
+            inspected: inspected,
+            skipped: skipped,
+            olderThanDays: olderThanDays
+        });
+    } catch (err) {
+        return res.status(500).json({ error: err.message || 'Failed to purge delivery-log archives.' });
     }
 };
 

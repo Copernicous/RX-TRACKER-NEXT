@@ -377,6 +377,9 @@ router.get('/reports/delivery-log-archives',       rbac.requirePermission('repor
 router.post('/reports/delivery-log-archives',      rbac.requirePermission('reports', 'export'), auditLogger('Delivery Log Archive'), deliveryLogArchiveController.create);
 router.get('/reports/delivery-log-archives/:id',    rbac.requirePermission('reports', 'read'),  deliveryLogArchiveController.get);
 router.get('/reports/delivery-log-archives/:id/print', rbac.requirePermission('reports', 'read'), deliveryLogArchiveController.print);
+router.get('/admin/delivery-log-archives', masterOnly, deliveryLogArchiveController.list);
+router.delete('/admin/delivery-log-archives/:id', masterOnly, requireStagingDestructiveConfirmation, deliveryLogArchiveController.delete);
+router.delete('/admin/delivery-log-archives', masterOnly, requireStagingDestructiveConfirmation, deliveryLogArchiveController.purge);
 router.get('/reports/call-center', rbac.requirePermission('reports', 'read'), reportController.getCallCenterReport);
 router.get('/reports/call-center-attempts', rbac.requirePermission('reports', 'read'), reportController.getCallCenterAttemptReport);
 router.get('/reports/call-center-supervisor', rbac.requirePermission('reports', 'read'), reportController.getCallCenterSupervisorSummary);

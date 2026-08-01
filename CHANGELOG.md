@@ -7,6 +7,20 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+## [4.0.0-next.50] - 2026-07-31
+
+### Added
+
+- Added a Back Office cleanup tool for Delivery Log Archives (Reports archive records), including age-based purging and explicit confirmation safeguards.
+
+### Changed
+
+- Added master-admin archive maintenance endpoints for listing, single-item deletion, and age-based retention cleanup of delivery-log archives.
+
+### Safety
+
+- No schema change, no database migration, and no business-data rewrite.
+
 ## [4.0.0-next.49] - 2026-07-31
 
 ### Added

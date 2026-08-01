@@ -726,6 +726,28 @@
                 <button class="btn-bo btn-bo-primary" id="createBackupBtn" onclick="createBackup()"><i class="fas fa-save me-1"></i>Create Backup Now</button>
             </div>
         </div>
+        <div class="schema-card" style="padding:1rem;border-color:rgba(245,158,11,0.35);background:rgba(245,158,11,0.03);margin-bottom:1rem">
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.75rem;margin-bottom:0.75rem">
+                <div>
+                    <div style="font-size:0.98rem;font-weight:700;color:#fbbf24">Delivery Log Archive Cleanup</div>
+                    <div id="dlArchiveStats" style="font-size:0.72rem;color:var(--text-muted);margin-top:0.2rem">Loading status...</div>
+                </div>
+                <button class="btn-bo btn-bo-outline" onclick="loadDeliveryLogArchiveStats()" style="font-size:0.78rem"><i class="fas fa-sync-alt me-1"></i>Refresh</button>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:0.65rem;align-items:end">
+                <div>
+                    <label style="font-size:0.72rem;color:var(--text-muted);font-weight:700;text-transform:uppercase;letter-spacing:.06em">Older than (days)</label>
+                    <input type="number" id="dlArchivePurgeDays" class="schema-search" style="margin:0" min="1" max="3650" value="30">
+                </div>
+                <div>
+                    <label style="font-size:0.72rem;color:var(--text-muted);font-weight:700;text-transform:uppercase;letter-spacing:.06em">Type to confirm</label>
+                    <input type="text" id="dlArchivePurgeConfirm" class="schema-search" style="margin:0" placeholder='Type PURGE DELIVERY LOGS'>
+                </div>
+                <div>
+                    <button class="btn-bo btn-bo-danger" id="dlArchivePurgeBtn" onclick="purgeDeliveryLogArchives()"><i class="fas fa-trash-alt me-1"></i>Purge Old Archives</button>
+                </div>
+            </div>
+        </div>
         <div id="backupPath" style="font-size:0.72rem;color:var(--text-muted);margin-bottom:1rem;display:flex;align-items:center;gap:0.4rem"><i class="fas fa-folder-open"></i><span id="backupPathText">Loading...</span></div>
         <div id="backupList">
             <p style="text-align:center;padding:4rem;color:var(--text-muted)"><i class="fas fa-spinner fa-spin me-2"></i>Loading backups...</p>
