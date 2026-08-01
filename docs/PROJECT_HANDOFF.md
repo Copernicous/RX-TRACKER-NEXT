@@ -1,12 +1,17 @@
 # RX Tracker NEXT project handoff
 
-Last updated: 2026-07-30
+Last updated: 2026-08-01
 
 This file is the sanitized continuity record for a future administrator or
 Codex session. It intentionally contains no credentials, `.env` values,
 patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
+
+- Build-output policy (important for release operations):
+  - `dist/` is ignored by git and is local build output only.
+  - Official release artifacts are produced in GitHub Actions from the tagged commit (`v*`) by `npm run build:exe` and are uploaded from CI, never from a developer machine.
+  - We do not track or ship release `.zip` files from the repository working tree; `dist/` cleanup before release work is expected to avoid stale artifacts.
 
 - Official **v4.0.0-next.47** was published on 2026-07-30 from `main` commit `50cc26d445d9687796c5a9ad3a29952693add80d` after the PostgreSQL lifecycle CI, application regressions, restricted-role runtime verification, RX Softphone build, CodeQL, and tagged compiled-release workflow passed. It updates the Backups-page **How to Restore / Move to Another Server** guide to use the official compiled portable installer and guarded Project Control option 25 workflow instead of the retired Node/npm, PM2, `setup.bat`, development-database, and default-password procedure. Official releases now publish and checksum the portable `RX-Tracker-NEXT-New-Server-<version>.zip` already produced by the build. The manual and `.env.example` document `BACKUP_RETAIN` (database dump count, default 10) and `SITE_BACKUP_RETAIN` (full-site ZIP count, default 5), both applied after Project Control option 11 restart, and distinguish them from the separate Backoffice retention-days setting. No database migration or business-data change. Published SHA-256 values: `server-update-4.0.0-next.47.zip` `91eb90879072164e2ed764199297e980cc9f9a60ba6fb9c4d40720f022fad729`, `RX-Tracker-NEXT-New-Server-4.0.0-next.47.zip` `91eb90879072164e2ed764199297e980cc9f9a60ba6fb9c4d40720f022fad729`, `server.exe` `1b0de1302aec36f2f37ffb29c77de970588689ea3d411f9f5e7afcd3d45bb3ba`, and `rx-db.exe` `f10db497b65c76ff988438c4d468878c95af27b2889ca641315e13d4febeaa17`.
 
