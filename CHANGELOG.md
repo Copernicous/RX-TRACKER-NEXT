@@ -7,6 +7,21 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+## [4.0.0-next.52]
+
+### Added
+
+- Added a Back Office Routine Database Checks tool on the Health tab with one-click execution and on-screen findings for maintenance-risk areas.
+
+### Changed
+
+- Added routine check coverage for SQL-backed risk categories used for ops review: slow query patterns, missing/excessive index candidates, dead-row growth, oversized text/json/bytea columns, and backup status health.
+- Added per-check severity summaries (ok/warning/critical) and a concise last-run dashboard for ongoing routine inspection.
+
+### Safety
+
+- No schema change, no migration, and no business-data rewrite.
+
 ## [4.0.0-next.51]
 
 ### Added

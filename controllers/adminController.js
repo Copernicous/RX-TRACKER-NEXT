@@ -8,6 +8,7 @@ const bcrypt    = require('bcryptjs');
 const { parseDate } = require('../utils/dateUtils');
 const fileSettings = require('../utils/globalSettings');
 const logDashboardService = require('../services/logDashboardService');
+const backupService = require('../services/backupService');
 const {
     recordPatientServiceDateChange
 } = require('../services/patientServiceDateHistoryService');
@@ -515,6 +516,25 @@ exports.downloadBackupFile = (req, res) => {
 // ══════════════════════════════════════════════════════════════════════════
 // SYSTEM HEALTH
 // ══════════════════════════════════════════════════════════════════════════
+function formatRoutineStatus(itemCount, risk) {
+    if (risk) return 'warning';
+    return itemCount > 0 ? 'warning' : 'ok';
+}
+
+function countCheckStatus(items) {
+    var hasCritical = items.some(function(i) { return i.severity === 'critical'; });
+    var hasWarning = items.some(function(i) { return i.severity === 'warning'; });
+    return hasCritical ? 'critical' : (hasWarning ? 'warning' : 'ok');
+}
+
+function addCheckSummary(checks, key, items, description) {
+    checks[key] = {
+        description: description,
+        status: countCheckStatus(items),
+        items: items
+    };
+}
+
 exports.getHealth = async (req, res) => {
     try {
         const tableStats = await db.sequelize.query(`
@@ -554,6 +574,254 @@ exports.getHealth = async (req, res) => {
 };
 
 // ══════════════════════════════════════════════════════════════════════════
+exports.getRoutineDbChecks = async (req, res) => {
+    try {
+        const checks = {};
+
+        const slowQueries = [];
+        try {
+            const [extStat] = await db.sequelize.query(
+                `SELECT EXISTS(SELECT 1 FROM pg_extension WHERE extname = 'pg_stat_statements') AS "available"`,
+                { type: QueryTypes.SELECT }
+            );
+            if (extStat && extStat.available) {
+                const rows = await db.sequelize.query(
+                    `SELECT calls, total_exec_time, mean_exec_time, rows,
+                            (shared_blks_hit + shared_blks_read) AS "sharedBlks",
+                            left(regexp_replace(query, E'[\\t\\n\\r]+', ' ', 'g'), 220) AS "query"
+                     FROM pg_stat_statements
+                     WHERE calls >= 5
+                     ORDER BY mean_exec_time DESC
+                     LIMIT 30`,
+                    { type: QueryTypes.SELECT }
+                );
+                rows.forEach(function(r) {
+                    const mean = Number(r.mean_exec_time || 0);
+                    const total = Number(r.total_exec_time || 0);
+                    if (mean >= 250 || total >= 3000) {
+                        slowQueries.push({
+                            severity: 'warning',
+                            area: 'A05',
+                            finding: 'Slow-running statement',
+                            value: {
+                                calls: Number(r.calls || 0),
+                                meanExecMs: Math.round(mean),
+                                totalExecMs: Math.round(total),
+                                rows: Number(r.rows || 0),
+                                sharedBlks: Number(r.sharedBlks || 0),
+                                query: r.query || ''
+                            }
+                        });
+                    }
+                });
+            } else {
+                slowQueries.push({
+                    severity: 'info',
+                    area: 'A05',
+                    finding: 'pg_stat_statements not enabled',
+                    value: 'Enable pg_stat_statements for slow query capture.'
+                });
+            }
+        } catch (e) {
+            slowQueries.push({
+                severity: 'warning',
+                area: 'A05',
+                finding: 'Unable to evaluate slow queries',
+                value: e.message
+            });
+        }
+        addCheckSummary(checks, 'slowQueries', slowQueries, 'Long-running and repeatedly expensive statements');
+
+        const indexChecks = [];
+        try {
+            const idxNeed = await db.sequelize.query(
+                `SELECT schemaname AS "schema", relname AS "table",
+                        seq_scan AS "seqScan", idx_scan AS "idxScan", n_live_tup AS "liveRows"
+                 FROM pg_stat_user_tables
+                 WHERE n_live_tup > 500
+                   AND (idx_scan IS NULL OR idx_scan = 0 OR seq_scan > (idx_scan * 3))
+                 ORDER BY seq_scan DESC NULLS LAST
+                 LIMIT 20`,
+                { type: QueryTypes.SELECT }
+            );
+            idxNeed.forEach(function(r) {
+                const seqScan = Number(r.seqScan || 0);
+                const idxScan = Number(r.idxScan || 0);
+                indexChecks.push({
+                    severity: idxScan === 0 ? 'critical' : 'warning',
+                    area: 'A02',
+                    finding: 'Potential missing index (high seq-scan pattern)',
+                    value: {
+                        table: r.table,
+                        schema: r.schema,
+                        seqScan: seqScan,
+                        idxScan: idxScan,
+                        liveRows: Number(r.liveRows || 0)
+                    }
+                });
+            });
+
+            const idxUnused = await db.sequelize.query(
+                `SELECT ui.schemaname AS "schema", ui.relname AS "table", i.relname AS "index",
+                        ui.idx_scan AS "idxScan", pg_size_pretty(pg_relation_size(ui.indexrelid)) AS "size"
+                 FROM pg_stat_user_indexes ui
+                 JOIN pg_class i ON i.oid = ui.indexrelid
+                 JOIN pg_index ix ON ix.indexrelid = ui.indexrelid
+                 WHERE ui.idx_scan = 0
+                   AND NOT ix.indisunique
+                   AND NOT ix.indisprimary
+                 ORDER BY pg_relation_size(ui.indexrelid) DESC NULLS LAST
+                 LIMIT 20`,
+                { type: QueryTypes.SELECT }
+            );
+            idxUnused.forEach(function(r) {
+                indexChecks.push({
+                    severity: 'warning',
+                    area: 'A02',
+                    finding: 'Potentially excessive/unused index',
+                    value: {
+                        table: r.table,
+                        schema: r.schema,
+                        index: r.index,
+                        size: r.size || '0 B',
+                        idxScan: Number(r.idxScan || 0)
+                    }
+                });
+            });
+        } catch (e) {
+            indexChecks.push({
+                severity: 'warning',
+                area: 'A02',
+                finding: 'Unable to evaluate index health',
+                value: e.message
+            });
+        }
+        addCheckSummary(checks, 'indexChecks', indexChecks, 'Index coverage and excessive index candidates');
+
+        const deadRows = [];
+        try {
+            const rows = await db.sequelize.query(
+                `SELECT relname AS "table", n_live_tup AS "liveRows", n_dead_tup AS "deadRows"
+                 FROM pg_stat_user_tables
+                 WHERE n_dead_tup > 0
+                 ORDER BY n_dead_tup DESC NULLS LAST
+                 LIMIT 25`,
+                { type: QueryTypes.SELECT }
+            );
+            rows.forEach(function(r) {
+                const dead = Number(r.deadRows || 0);
+                const live = Number(r.liveRows || 0);
+                const ratio = live ? (dead / Math.max(live, 1)) : (dead ? 1 : 0);
+                deadRows.push({
+                    severity: ratio > 0.2 ? 'critical' : (ratio > 0.05 ? 'warning' : 'ok'),
+                    area: 'A05',
+                    finding: 'Dead tuple ratio',
+                    value: {
+                        table: r.table,
+                        deadRows: dead,
+                        liveRows: live,
+                        deadRatio: Math.round(ratio * 1000) / 10
+                    }
+                });
+            });
+        } catch (e) {
+            deadRows.push({ severity: 'warning', area: 'A05', finding: 'Unable to evaluate dead tuples', value: e.message });
+        }
+        addCheckSummary(checks, 'deadRows', deadRows, 'Dead rows and possible table bloat risk');
+
+        const largeColumns = [];
+        try {
+            const cols = await db.sequelize.query(
+                `SELECT table_schema AS "schema", table_name AS "table", column_name AS "column",
+                        data_type AS "dataType", avg_width AS "avgWidth", null_frac AS "nullFrac"
+                 FROM pg_stats
+                 WHERE table_schema = 'public'
+                   AND data_type IN ('text', 'json', 'jsonb', 'bytea')
+                   AND avg_width >= 1024
+                 ORDER BY avg_width DESC
+                 LIMIT 50`,
+                { type: QueryTypes.SELECT }
+            );
+            cols.forEach(function(r) {
+                const avgWidth = Number(r.avgWidth || 0);
+                largeColumns.push({
+                    severity: avgWidth > 8192 ? 'warning' : 'ok',
+                    area: 'A04',
+                    finding: 'Large text/json/bytea column',
+                    value: {
+                        table: r.schema + '.' + r.table,
+                        column: r.column,
+                        dataType: r.dataType,
+                        avgWidth: avgWidth,
+                        nullFrac: Number(r.nullFrac || 0).toFixed(2)
+                    }
+                });
+            });
+        } catch (e) {
+            largeColumns.push({ severity: 'warning', area: 'A04', finding: 'Unable to evaluate large columns', value: e.message });
+        }
+        addCheckSummary(checks, 'largeColumns', largeColumns, 'Potentially oversized JSON/text/bytea columns');
+
+        const backupRows = [];
+        try {
+            const backupStatus = backupService.getStatus ? backupService.getStatus() : null;
+            const recent = Array.isArray(backupStatus && backupStatus.recentBackups)
+                ? backupStatus.recentBackups.slice(0, 15)
+                : [];
+            const failed = recent.filter(function(r) { return r && r.status === 'failed'; }).length;
+            backupRows.push({
+                severity: failed ? 'warning' : 'ok',
+                area: 'A10',
+                finding: 'Backup recent execution status',
+                value: {
+                    schedule: backupStatus && backupStatus.schedule ? backupStatus.schedule : 'unknown',
+                    maxBackups: backupStatus && backupStatus.maxBackups ? backupStatus.maxBackups : 0,
+                    recentCount: recent.length,
+                    failed
+                }
+            });
+            recent.forEach(function(r) {
+                backupRows.push({
+                    severity: r && r.status === 'failed' ? 'critical' : 'ok',
+                    area: 'A10',
+                    finding: 'Recent backup run',
+                    value: {
+                        filename: r.filename || '',
+                        status: r.status || 'unknown',
+                        triggeredBy: r.triggeredBy || '',
+                        timestamp: r.timestamp || r.date || null,
+                        size: r.size || 0
+                    }
+                });
+            });
+        } catch (e) {
+            backupRows.push({ severity: 'warning', area: 'A10', finding: 'Unable to read backup status', value: e.message });
+        }
+        addCheckSummary(checks, 'backupHealth', backupRows, 'Backup success and retention checks');
+
+        const summary = {
+            generatedAt: new Date().toISOString(),
+            overall: 'ok',
+            totals: { ok: 0, warning: 0, critical: 0 },
+            checks
+        };
+
+        Object.keys(checks).forEach(function(key) {
+            checks[key].items.forEach(function(item) {
+                if (item.severity === 'critical') summary.totals.critical += 1;
+                else if (item.severity === 'warning') summary.totals.warning += 1;
+                else if (item.severity === 'ok') summary.totals.ok += 1;
+            });
+            if (checks[key].status === 'critical') summary.overall = 'critical';
+            if (checks[key].status === 'warning' && summary.overall === 'ok') summary.overall = 'warning';
+        });
+
+        res.json(summary);
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+};
+
 exports.getLogDashboard = async (req, res) => {
     try {
         const summary = await logDashboardService.buildLogDashboardSummary(req.query || {});
@@ -1834,3 +2102,5 @@ exports.purgeErrorLogs = async (req, res) => {
         res.json({ success: true, deleted });
     } catch (e) { res.status(500).json({ error: e.message }); }
 };
+
+

@@ -664,6 +664,7 @@ function switchTab(tab) {
     if (tab === 'backups'   && !backupsLoaded)   loadBackups();
     if (tab === 'backups')                        loadDeliveryLogArchiveManager();
     if (tab === 'health'    && !healthLoaded)    loadHealth();
+    if (tab === 'health')                          loadRoutineDbChecks();
     if (tab === 'locks'     && !locksLoaded)     loadLocks();
     if (tab === 'users'     && !usersLoaded)     loadUsers();
     if (tab === 'apikeys'   && !boApiKeysLoaded) boLoadApiKeys();

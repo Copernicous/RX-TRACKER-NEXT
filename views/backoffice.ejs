@@ -787,6 +787,7 @@
                 <!-- BO-04: Countdown badge -->
                 <span id="healthCountdown" style="font-size:0.72rem;color:var(--text-muted);display:none"><i class="fas fa-clock me-1"></i><span id="healthCountdownNum">30</span>s</span>
                 <button class="btn-bo btn-bo-outline" onclick="manualHealthRefresh()"><i class="fas fa-sync-alt me-1"></i>Refresh</button>
+                <button class="btn-bo btn-bo-outline" onclick="loadRoutineDbChecks()" id="routineChecksRunBtn"><i class="fas fa-clipboard-check me-1"></i>Run Routine Checks</button>
                 <!-- BO-03: Health export button -->
                 <button class="btn-bo btn-bo-outline" id="healthExportBtn" onclick="exportHealthCSV()" style="display:none;font-size:0.78rem"><i class="fas fa-file-csv me-1"></i>Export CSV</button>
             </div>
@@ -794,6 +795,15 @@
         <div id="healthCards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:0.875rem;margin-bottom:1.25rem"></div>
         <div style="font-size:0.8rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:0.5rem">Table Sizes</div>
         <div id="healthTables"><p style="text-align:center;padding:3rem;color:var(--text-muted)"><i class="fas fa-spinner fa-spin me-2"></i>Loading...</p></div>
+
+        <div style="margin-top:1.25rem">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;margin-bottom:0.5rem">
+                <div style="font-size:0.9rem;font-weight:700">Routine Database Checks</div>
+                <span id="routineChecksOverall" class="schema-pill" style="display:none;padding:0.2rem 0.6rem;border-radius:999px;font-size:0.72rem"></span>
+            </div>
+            <div id="routineChecksSummary" style="font-size:0.78rem;color:var(--text-muted);margin-bottom:0.7rem">Click “Run Routine Checks” to perform the latest maintenance-risk review.</div>
+            <div id="routineChecksList"><p style="text-align:center;padding:2rem;color:var(--text-muted)"><i class="fas fa-search me-2"></i>No checks loaded.</p></div>
+        </div>
     </div>
 
     <!-- ══ Lock Manager Panel ══ -->

@@ -514,6 +514,35 @@ var healthLoaded = false;
 /* BO-04: Auto-refresh timer */
 var _healthTimer     = null;
 var _healthCountSecs = 30;
+var routineChecksLoaded = false;
+var _routineChecksData = null;
+
+function _routineEsc(v) {
+    if (typeof escHtml === 'function') return escHtml(v);
+    return String(v === null || v === undefined ? '' : v)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function _routineStatusBadge(level) {
+    var txt = String(level || '').toLowerCase();
+    var bg = 'rgba(148,163,184,.18)';
+    var color = '#94a3b8';
+    var border = 'rgba(148,163,184,.35)';
+    if (txt === 'warning') {
+        bg = 'rgba(245,158,11,.16)';
+        color = '#fdba74';
+        border = 'rgba(245,158,11,.35)';
+    } else if (txt === 'critical') {
+        bg = 'rgba(239,68,68,.16)';
+        color = '#fca5a5';
+        border = 'rgba(239,68,68,.35)';
+    }
+    return '<span style="background:' + bg + ';color:' + color + ';border:1px solid ' + border + ';padding:0.12rem 0.5rem;border-radius:999px;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.04em">' + txt + '</span>';
+}
 
 function startHealthCountdown() {
     stopHealthCountdown();
@@ -541,6 +570,129 @@ function stopHealthCountdown() {
 function manualHealthRefresh() {
     stopHealthCountdown();
     loadHealth();
+}
+
+function loadRoutineDbChecks() {
+    var btn = document.getElementById('routineChecksRunBtn');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Running...';
+    }
+
+    var summaryEl = document.getElementById('routineChecksSummary');
+    var overallEl = document.getElementById('routineChecksOverall');
+    var listEl = document.getElementById('routineChecksList');
+
+    if (summaryEl) summaryEl.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Running routine checks...';
+    if (overallEl) overallEl.style.display = 'none';
+    if (listEl) listEl.innerHTML = '<p style="text-align:center;padding:2rem;color:var(--text-muted)"><i class="fas fa-spinner fa-spin me-2"></i>Running...</p>';
+
+    apiFetch('/api/admin/routine-db-checks')
+        .then(function(res) {
+            return res.json().then(function(data) {
+                if (!res.ok) throw new Error(data && data.error ? data.error : 'Failed');
+                return data;
+            });
+        })
+        .then(function(data) {
+            routineChecksLoaded = true;
+            _routineChecksData = data || {};
+            var checks = data && data.checks ? data.checks : {};
+            var keys = Object.keys(checks);
+            var totalItems = 0;
+            var critical = 0;
+            var warning = 0;
+            var ok = 0;
+            var overall = data && data.overall ? data.overall : 'ok';
+
+            keys.forEach(function(key) {
+                (checks[key].items || []).forEach(function(item) {
+                    totalItems += 1;
+                    if (item.severity === 'critical') critical += 1;
+                    else if (item.severity === 'warning') warning += 1;
+                    else if (item.severity === 'ok') ok += 1;
+                });
+            });
+
+            if (summaryEl) {
+                summaryEl.textContent = 'Last run: ' + new Date(data.generatedAt || Date.now()).toLocaleString() + ' • ' + totalItems + ' finding(s) (' + critical + ' critical, ' + warning + ' warning, ' + ok + ' ok).';
+            }
+
+            if (overallEl) {
+                overallEl.style.display = '';
+                if (overall === 'critical') {
+                    overallEl.style.background = 'rgba(239,68,68,.14)';
+                    overallEl.style.color = '#fca5a5';
+                    overallEl.style.border = '1px solid rgba(239,68,68,.35)';
+                } else if (overall === 'warning') {
+                    overallEl.style.background = 'rgba(245,158,11,.14)';
+                    overallEl.style.color = '#fdba74';
+                    overallEl.style.border = '1px solid rgba(245,158,11,.35)';
+                } else {
+                    overallEl.style.background = 'rgba(16,185,129,.14)';
+                    overallEl.style.color = '#86efac';
+                    overallEl.style.border = '1px solid rgba(16,185,129,.35)';
+                }
+                overallEl.textContent = String(overall).toUpperCase();
+            }
+
+            if (!keys.length) {
+                if (listEl) listEl.innerHTML = '<p style="text-align:center;padding:2rem;color:var(--text-muted)">No checks returned.</p>';
+                return;
+            }
+
+            var html = '';
+            keys.forEach(function(key) {
+                var c = checks[key] || {};
+                var items = c.items || [];
+                var status = c.status || 'ok';
+                html +=
+                    '<div class="schema-card" style="padding:0.9rem 1rem;margin-bottom:0.75rem">' +
+                        '<div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;margin-bottom:0.4rem">' +
+                            '<div style="font-weight:700;font-size:0.82rem"> ' + _routineEsc(key) + '</div>' +
+                            _routineStatusBadge(status) +
+                        '</div>' +
+                        '<div style="font-size:0.74rem;color:var(--text-muted);margin-bottom:0.5rem;min-height:1.25rem">' + _routineEsc(c.description || '') + '</div>' +
+                        '<div style="overflow:auto">';
+
+                if (!items.length) {
+                    html += '<div style="font-size:0.75rem;color:var(--text-muted)">No items.</div>';
+                } else {
+                    html +=
+                        '<table style="width:100%;border-collapse:collapse;font-size:0.73rem">' +
+                            '<tbody>';
+                    items.forEach(function(item, idx) {
+                        if (idx > 25) return;
+                        var rowVal = '';
+                        if (item.value !== undefined && item.value !== null) {
+                            if (typeof item.value === 'string') rowVal = item.value;
+                            else rowVal = JSON.stringify(item.value);
+                        }
+                        html +=
+                            '<tr style="border-top:1px solid rgba(255,255,255,.06)">' +
+                                '<td style="padding:0.4rem 0.4rem 0.4rem 0;min-width:80px;color:#a5b4fc;text-transform:uppercase;font-size:0.68rem">' + _routineEsc(item.severity || 'ok') + '</td>' +
+                                '<td style="padding:0.4rem 0 0.4rem 0.6rem;color:#94a3b8;font-size:0.69rem;text-transform:uppercase;min-width:40px">' + _routineEsc(item.area || '') + '</td>' +
+                                '<td style="padding:0.4rem 0.4rem 0.4rem 0.6rem">' + _routineEsc(item.finding || '') + '</td>' +
+                                '<td style="padding:0.4rem 0 0.4rem 0.6rem;color:#e5e7eb;font-family:monospace;word-break:break-all">' + _routineEsc(rowVal) + '</td>' +
+                            '</tr>';
+                    });
+                    html += '</tbody></table>';
+                }
+                html += '</div></div>';
+            });
+            if (listEl) listEl.innerHTML = html;
+        })
+        .catch(function(e) {
+            if (summaryEl) summaryEl.textContent = 'Unable to run routine checks: ' + e.message;
+            if (listEl) listEl.innerHTML = '<p style="color:#fca5a5;padding:2rem">' + e.message + '</p>';
+            if (overallEl) overallEl.style.display = 'none';
+        })
+        .finally(function() {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class=\"fas fa-clipboard-check me-1\"></i>Run Routine Checks';
+            }
+        });
 }
 
 async function loadHealth() {

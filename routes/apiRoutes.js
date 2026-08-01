@@ -733,6 +733,7 @@ router.delete('/admin/backups/:name',   masterOnly, requireStagingDestructiveCon
 router.get('/admin/backups/:name/:file',masterOnly, adminController.downloadBackupFile);
 // System Health
 router.get('/admin/health',             masterOnly, adminController.getHealth);
+router.get('/admin/routine-db-checks',   masterOnly, adminController.getRoutineDbChecks);
 router.get('/admin/log-dashboard',      masterOnly, adminController.getLogDashboard);
 // Lock Manager
 router.get('/admin/locks',              masterOnly, adminController.getLocks);
