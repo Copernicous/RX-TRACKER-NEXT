@@ -8,13 +8,17 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
 
-- **v4.0.0-next.61** is the release candidate for pharmacy-scoped Delivery Log
+- Official **v4.0.0-next.61** was published on 2026-08-01 from `main` commit
+  `32d46c89379b295c597482419c5bed24b02ac798` for pharmacy-scoped Delivery Log
   references. New controlled copies receive a durable, never-reused sequence
   per pharmacy and no longer expose the combined batch RX count or a
   cross-pharmacy `P01`/`P02` ordinal. Reprints retain the original reference;
   cleanup cannot rewind the protected local counter ledger. Existing archives,
   schema, business data, RX Actions, and proxy/security configuration are
-  unchanged. Official publication and test-server validation are pending.
+  unchanged. The PostgreSQL lifecycle, CodeQL, and compiled release workflows
+  passed. Both official server ZIP names have SHA-256
+  `3e1cec4853e1f1277db2637c2dc8db8fc81f4d2f38250115b6dfa0d500d2e9a8`.
+  Testing-server and production installation are pending.
 
 - Official **v4.0.0-next.60** was published on 2026-08-01 from `main` commit
   `f0218f0b2618b858dfec28d5c041478a5ae94d04`, correcting the remaining Project
