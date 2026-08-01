@@ -619,6 +619,60 @@ function _routineDetail(label, value, monospace) {
     '</div>';
 }
 
+function _routineBriefInterpretation(key, check) {
+    var items = Array.isArray(check && check.items) ? check.items : [];
+    var text = items.map(function(item) {
+        return [item.finding, item.reason, item.recommendedAction].filter(Boolean).join(' ');
+    }).join(' ').toLowerCase();
+    var checkerError = items.some(function(item) { return item.resultType === 'checkerError'; });
+    if (checkerError) return { meaning: 'The checker could not complete.', action: 'Review the checker error before trusting this section.' };
+    if (key === 'slowQueries') {
+        if (text.indexOf('not enabled') >= 0) return { meaning: 'Slow-query statistics are unavailable.', action: 'Enable pg_stat_statements through approved maintenance.' };
+        if (text.indexOf('no actionable') >= 0 || String(check.status) === 'ok') return { meaning: 'No captured query exceeded the configured limits.', action: 'No action; continue collecting normal workload.' };
+        return { meaning: 'One or more captured query patterns need review.', action: 'Review evidence before tuning SQL or indexes.' };
+    }
+    if (key === 'indexChecks') {
+        if (text.indexOf('inconclusive') >= 0 || text.indexOf('observation') >= 0) return { meaning: 'There is not enough mature workload history for an index decision.', action: 'Wait for the stated observation window; do not change indexes yet.' };
+        if (String(check.status) === 'ok') return { meaning: 'No supported index candidate was identified.', action: 'No action.' };
+        return { meaning: 'An evidence-backed index candidate needs validation.', action: 'Require EXPLAIN validation and human approval.' };
+    }
+    if (key === 'deadRows') {
+        if (String(check.status) !== 'critical') return { meaning: 'Routine tuple turnover is monitored; no substantial physical bloat is demonstrated.', action: 'No immediate action; monitor autovacuum.' };
+        return { meaning: 'Dead-row growth requires investigation.', action: 'Review physical-bloat evidence before maintenance.' };
+    }
+    if (key === 'largeColumns') {
+        if (String(check.status) === 'ok') return { meaning: 'No measured column exceeded the review thresholds.', action: 'No action.' };
+        return { meaning: 'History, audit, text, or JSON storage crossed a review threshold.', action: 'Monitor growth and retention; do not delete or rewrite automatically.' };
+    }
+    if (key === 'backupHealth') {
+        if (text.indexOf('identity is missing') >= 0 || text.indexOf('does not match') >= 0) return { meaning: 'No recent successful backup is bound to the current database identity.', action: 'Create a fresh backup for the currently connected database.' };
+        if (text.indexOf('not independently validated') >= 0) return { meaning: 'Backup creation may be current, but recoverability has not been proven.', action: 'Optionally validate it through an isolated restore.' };
+        if (String(check.status) === 'ok') return { meaning: 'Recent backup creation is recognized for this database.', action: 'Continue the backup schedule.' };
+    }
+    return { meaning: check && check.description ? check.description : 'Review the detailed findings below.', action: String(check && check.status) === 'ok' ? 'No action.' : 'Review the detailed evidence.' };
+}
+
+function _routineBriefTable(checks, keys) {
+    var labels = { slowQueries: 'Slow queries', indexChecks: 'Indexes', deadRows: 'Dead rows', largeColumns: 'Large columns', backupHealth: 'Backups' };
+    var rows = keys.map(function(key) {
+        var check = checks[key] || {};
+        var brief = _routineBriefInterpretation(key, check);
+        return '<tr style="border-top:1px solid rgba(255,255,255,.07)">' +
+            '<td style="padding:.55rem .6rem;font-weight:700;white-space:nowrap">' + _routineEsc(labels[key] || key) + '</td>' +
+            '<td style="padding:.55rem .6rem">' + _routineStatusBadge(check.status || 'ok') + '</td>' +
+            '<td style="padding:.55rem .6rem;min-width:240px">' + _routineEsc(brief.meaning) + '</td>' +
+            '<td style="padding:.55rem .6rem;min-width:220px">' + _routineEsc(brief.action) + '</td>' +
+        '</tr>';
+    }).join('');
+    return '<div class="schema-card" style="padding:.8rem 1rem">' +
+        '<div style="font-size:.78rem;font-weight:700;margin-bottom:.55rem">Results at a glance</div>' +
+        '<div style="overflow:auto"><table style="width:100%;border-collapse:collapse;font-size:.73rem">' +
+            '<thead><tr style="color:var(--text-muted);text-align:left;text-transform:uppercase;font-size:.66rem">' +
+                '<th style="padding:.35rem .6rem">Area</th><th style="padding:.35rem .6rem">Status</th>' +
+                '<th style="padding:.35rem .6rem">What it means</th><th style="padding:.35rem .6rem">What to do</th>' +
+            '</tr></thead><tbody>' + rows + '</tbody></table></div></div>';
+}
+
 function startHealthCountdown() {
     stopHealthCountdown();
     _healthCountSecs = 30;
@@ -656,10 +710,12 @@ function loadRoutineDbChecks() {
 
     var summaryEl = document.getElementById('routineChecksSummary');
     var overallEl = document.getElementById('routineChecksOverall');
+    var briefEl = document.getElementById('routineChecksBrief');
     var listEl = document.getElementById('routineChecksList');
 
     if (summaryEl) summaryEl.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Running routine checks...';
     if (overallEl) overallEl.style.display = 'none';
+    if (briefEl) briefEl.style.display = 'none';
     if (listEl) listEl.innerHTML = '<p style="text-align:center;padding:2rem;color:var(--text-muted)"><i class="fas fa-spinner fa-spin me-2"></i>Running...</p>';
 
     apiFetch('/api/admin/routine-db-checks')
@@ -730,8 +786,14 @@ function loadRoutineDbChecks() {
             }
 
             if (!keys.length) {
+                if (briefEl) briefEl.style.display = 'none';
                 if (listEl) listEl.innerHTML = '<p style="text-align:center;padding:2rem;color:var(--text-muted)">No checks returned.</p>';
                 return;
+            }
+
+            if (briefEl) {
+                briefEl.innerHTML = _routineBriefTable(checks, keys);
+                briefEl.style.display = '';
             }
 
             var html = '';
@@ -783,6 +845,7 @@ function loadRoutineDbChecks() {
             if (summaryEl) summaryEl.textContent = 'Unable to run routine checks: ' + e.message;
             if (listEl) listEl.innerHTML = '<p style="color:#fca5a5;padding:2rem">' + e.message + '</p>';
             if (overallEl) overallEl.style.display = 'none';
+            if (briefEl) briefEl.style.display = 'none';
         })
         .finally(function() {
             if (btn) {

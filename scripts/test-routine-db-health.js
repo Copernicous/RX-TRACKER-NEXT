@@ -351,6 +351,15 @@ async function main() {
     ['Reason', 'Evidence', 'Confidence', 'Recommended action', 'Human approval'].forEach(label => {
         assert.ok(uiSource.includes(`_routineDetail('${label}'`), `routine UI must show ${label}`);
     });
+    const backofficeView = fs.readFileSync(path.join(__dirname, '..', 'views', 'backoffice.ejs'), 'utf8');
+    assert.ok(backofficeView.includes('id="routineChecksBrief"'), 'routine UI must reserve a brief-results region above details');
+    assert.ok(uiSource.includes('function _routineBriefInterpretation') && uiSource.includes('function _routineBriefTable'),
+        'routine UI must render plain-language section interpretations');
+    ['Slow queries', 'Indexes', 'Dead rows', 'Large columns', 'Backups', 'What it means', 'What to do'].forEach(label => {
+        assert.ok(uiSource.includes(label), `routine brief table must include ${label}`);
+    });
+    assert.ok(uiSource.indexOf("briefEl.innerHTML = _routineBriefTable") < uiSource.indexOf("var html = ''"),
+        'routine brief table must be rendered before detailed findings');
 
     console.log('Routine database-health controller tests passed.');
 }

@@ -7,6 +7,20 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+## [4.0.0-next.62]
+
+### Added
+
+- Added a compact **Results at a glance** table above Routine Database Checks.
+  Each database-health section now shows its status, a plain-language meaning,
+  and the immediate action or waiting period before the full technical evidence.
+
+### Safety
+
+- The summary interprets the existing read-only results only. It does not alter
+  database-health queries, thresholds, severities, recommendations, PostgreSQL
+  configuration, schema, business data, or backup behavior.
+
 ## [4.0.0-next.61]
 
 ### Changed
