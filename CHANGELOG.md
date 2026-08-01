@@ -7,6 +7,18 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+## [4.0.0-next.54]
+
+### Fixed
+
+- Hardened Project Control option 25 default target naming by normalizing stacked restore/test/copy suffixes from `DB_NAME` before appending `_restore_test`, preventing repeated restore suffix stacking after multiple test-copy operations.
+- Added a normalization regression self-test in Project Control restore helper so this behavior remains protected.
+- Preserved the same fallback uniqueness behavior when the normalized base still resolves to the active database.
+
+### Safety
+
+- No schema changes, database migrations, or business-data rewrites.
+
 ## [4.0.0-next.53]
 
 ### Fixed
