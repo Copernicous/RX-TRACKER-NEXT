@@ -747,6 +747,31 @@
                     <button class="btn-bo btn-bo-danger" id="dlArchivePurgeBtn" onclick="purgeDeliveryLogArchives()"><i class="fas fa-trash-alt me-1"></i>Purge Old Archives</button>
                 </div>
             </div>
+            <div style="margin-top:.75rem;padding-top:.75rem;border-top:1px dashed rgba(148,163,184,0.2)">
+                <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.75rem;margin-bottom:.6rem">
+                    <div id="dlArchiveSelectionSummary" style="font-size:0.74rem;color:var(--text-muted)">No archives loaded</div>
+                    <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+                        <button id="dlArchiveRefreshBtn" class="btn-bo btn-bo-outline" onclick="loadDeliveryLogArchiveManager()" style="font-size:.78rem"><i class="fas fa-sync-alt me-1"></i>Refresh Archives</button>
+                        <button id="dlArchiveDeleteSelectedBtn" class="btn-bo btn-bo-danger" onclick="deleteSelectedDeliveryLogArchives()" disabled style="font-size:.78rem"><i class="fas fa-trash-alt me-1"></i>Delete Selected</button>
+                    </div>
+                </div>
+                <div style="overflow:auto">
+                    <table class="bo-table" style="width:100%;border-collapse:collapse;font-size:.73rem">
+                        <thead>
+                            <tr style="background:var(--surface-2)">
+                                <th style="width:34px;text-align:center"><input type="checkbox" id="dlArchiveSelectAll" onchange="toggleDlArchiveSelectAll(this.checked)"></th>
+                                <th style="text-align:left">Reference</th>
+                                <th style="text-align:left">Verification</th>
+                                <th style="text-align:left">Generated</th>
+                                <th style="text-align:right">Rows</th>
+                                <th style="text-align:left">Created</th>
+                                <th style="width:120px;text-align:center">Action</th>
+                            </tr>
+                        </thead>
+                    </table>
+                </div>
+                <div id="dlArchiveList" style="margin-top:.35rem">Loading delivery log archives...</div>
+            </div>
         </div>
         <div id="backupPath" style="font-size:0.72rem;color:var(--text-muted);margin-bottom:1rem;display:flex;align-items:center;gap:0.4rem"><i class="fas fa-folder-open"></i><span id="backupPathText">Loading...</span></div>
         <div id="backupList">

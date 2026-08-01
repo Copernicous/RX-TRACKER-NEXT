@@ -662,7 +662,7 @@ function switchTab(tab) {
     if (tab === 'cccleanup')                     loadCcCleanupPreview();
     if (tab === 'settings'  && !settingsLoaded)  loadSettings();
     if (tab === 'backups'   && !backupsLoaded)   loadBackups();
-    if (tab === 'backups')                        loadDeliveryLogArchiveStats();
+    if (tab === 'backups')                        loadDeliveryLogArchiveManager();
     if (tab === 'health'    && !healthLoaded)    loadHealth();
     if (tab === 'locks'     && !locksLoaded)     loadLocks();
     if (tab === 'users'     && !usersLoaded)     loadUsers();

@@ -164,6 +164,48 @@ async function saveSettings(e) {
 // BACKUP MANAGER JS
 // ══════════════════════════════════════════════════════════════════════════
 var backupsLoaded = false;
+var _deliveryLogArchiveData = [];
+var _deliveryLogArchiveSelections = {};
+
+function _dlArchiveEsc(v) {
+    if (typeof _logdashEsc === 'function') return _logdashEsc(v);
+    return String(v === null || v === undefined ? '' : v)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function _dlArchiveSelectCount() {
+    var _n = 0;
+    var _k;
+    for (_k in _deliveryLogArchiveSelections) {
+        if (_deliveryLogArchiveSelections.hasOwnProperty(_k)) _n += 1;
+    }
+    return _n;
+}
+
+function _renderDeliveryLogArchiveSummary() {
+    var _sumEl = document.getElementById('dlArchiveSelectionSummary');
+    var _btn = document.getElementById('dlArchiveDeleteSelectedBtn');
+    var _total = _deliveryLogArchiveData.length;
+    var _sel = _dlArchiveSelectCount();
+    if (_sumEl) {
+        if (!_total) {
+            _sumEl.textContent = 'No archives found.';
+        } else {
+            _sumEl.textContent = _sel + ' of ' + _total + ' archive(s) selected.';
+        }
+    }
+    if (_btn) _btn.disabled = !_sel;
+}
+
+function _updateDlArchiveSelectAllCheckbox() {
+    var _all = document.getElementById('dlArchiveSelectAll');
+    var _sel = _dlArchiveSelectCount();
+    if (_all) _all.checked = _sel > 0 && _sel >= _deliveryLogArchiveData.length;
+}
 
 async function loadBackups() {
     backupsLoaded = false;
@@ -236,6 +278,174 @@ async function loadDeliveryLogArchiveStats() {
     }
 }
 
+async function loadDeliveryLogArchiveList() {
+    var listEl = document.getElementById('dlArchiveList');
+    if (listEl) {
+        listEl.innerHTML = '<p style="text-align:center;padding:2rem;color:var(--text-muted)"><i class="fas fa-spinner fa-spin me-2"></i>Loading delivery log archives...</p>';
+    }
+
+    var existing = _deliveryLogArchiveSelections;
+    try {
+        var res = await apiFetch('/api/admin/delivery-log-archives');
+        var data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Failed');
+        _deliveryLogArchiveData = Array.isArray(data) ? data : [];
+
+        if (!_deliveryLogArchiveData.length) {
+            _deliveryLogArchiveSelections = {};
+            if (listEl) {
+                listEl.innerHTML = '<p style="text-align:center;padding:2rem;color:var(--text-muted)">No delivery log archive files available.</p>';
+            }
+            _renderDeliveryLogArchiveSummary();
+            _updateDlArchiveSelectAllCheckbox();
+            return;
+        }
+
+        var rows = '';
+        var nextSelections = {};
+        _deliveryLogArchiveData.forEach(function(a) {
+            var id = String(a.id || '').trim();
+            var isChecked = !!(existing && existing[id]);
+            if (isChecked) nextSelections[id] = true;
+
+            rows +=
+                '<tr style="border-top:1px solid var(--border)">' +
+                    '<td style="text-align:center"><input type="checkbox" class="dlArchiveChk" data-id="' + _dlArchiveEsc(id) + '" ' + (isChecked ? 'checked' : '') + ' onchange="onDlArchiveSelectRow(this)"></td>' +
+                    '<td>' + _dlArchiveEsc(a.reference || '—') + '</td>' +
+                    '<td>' + _dlArchiveEsc(a.verification || '—') + '</td>' +
+                    '<td>' + _dlArchiveEsc(a.generated || '—') + '</td>' +
+                    '<td style="text-align:right">' + Number(a.total || 0).toLocaleString() + '</td>' +
+                    '<td>' + (a.createdAt ? _dlArchiveEsc(new Date(a.createdAt).toLocaleString()) : 'Unknown') + '</td>' +
+                    '<td style="text-align:center">' +
+                        '<button class="btn-bo btn-bo-danger" style="padding:.24rem .45rem;font-size:.66rem" onclick="deleteDeliveryLogArchive(\'' + _dlArchiveEsc(id) + '\',this)"><i class="fas fa-trash-alt"></i></button>' +
+                    '</td>' +
+                '</tr>';
+        });
+        _deliveryLogArchiveSelections = nextSelections;
+
+        if (listEl) {
+            listEl.innerHTML =
+                '<div style="overflow:auto"><table class="bo-table" style="width:100%;border-collapse:collapse;font-size:.73rem">' +
+                    '<tbody>' + rows + '</tbody>' +
+                '</table></div>';
+        }
+        _renderDeliveryLogArchiveSummary();
+        _updateDlArchiveSelectAllCheckbox();
+    } catch(e) {
+        if (listEl) listEl.innerHTML = '<p style="color:#fca5a5;padding:2rem">' + e.message + '</p>';
+        _deliveryLogArchiveData = [];
+        _deliveryLogArchiveSelections = {};
+        _renderDeliveryLogArchiveSummary();
+        _updateDlArchiveSelectAllCheckbox();
+    }
+}
+
+function loadDeliveryLogArchiveManager() {
+    loadDeliveryLogArchiveStats();
+    loadDeliveryLogArchiveList();
+}
+
+function toggleDlArchiveSelectAll(checked) {
+    var checks = document.querySelectorAll('.dlArchiveChk');
+    var i;
+    if (!checked) {
+        _deliveryLogArchiveSelections = {};
+        for (i = 0; i < checks.length; i++) {
+            checks[i].checked = false;
+        }
+        _renderDeliveryLogArchiveSummary();
+        _updateDlArchiveSelectAllCheckbox();
+        return;
+    }
+    _deliveryLogArchiveSelections = {};
+    for (i = 0; i < checks.length; i++) {
+        var chk = checks[i];
+        var id = chk.getAttribute('data-id');
+        chk.checked = true;
+        if (id) _deliveryLogArchiveSelections[id] = true;
+    }
+    _renderDeliveryLogArchiveSummary();
+    _updateDlArchiveSelectAllCheckbox();
+}
+
+function onDlArchiveSelectRow(chk) {
+    var id = chk.getAttribute('data-id');
+    if (!id) return;
+    if (chk.checked) _deliveryLogArchiveSelections[id] = true;
+    else delete _deliveryLogArchiveSelections[id];
+    _renderDeliveryLogArchiveSummary();
+    _updateDlArchiveSelectAllCheckbox();
+}
+
+async function deleteSelectedDeliveryLogArchives() {
+    var ids = [];
+    var key;
+    for (key in _deliveryLogArchiveSelections) {
+        if (_deliveryLogArchiveSelections.hasOwnProperty(key)) ids.push(key);
+    }
+    if (!ids.length) return toast('Select archive files first.', 'info');
+    if (!confirm('Permanently delete ' + ids.length + ' selected delivery log archive(s)?')) return;
+
+    var btn = document.getElementById('dlArchiveDeleteSelectedBtn');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Deleting...';
+    }
+
+    var deleted = 0;
+    var failed = [];
+    for (var i = 0; i < ids.length; i++) {
+        var id = ids[i];
+        try {
+            var res = await apiFetch('/api/admin/delivery-log-archives/' + encodeURIComponent(id), { method: 'DELETE' });
+            var d = await res.json();
+            if (!res.ok) throw new Error(d.error || 'Delete failed');
+            delete _deliveryLogArchiveSelections[id];
+            deleted += 1;
+        } catch (_e) {
+            failed.push(id);
+        }
+    }
+    if (failed.length) {
+        toast('Deleted ' + deleted + ' archive(s). Failed: ' + failed.length + '.', 'danger');
+    } else {
+        toast('\u2713 Deleted ' + deleted + ' archive(s).', 'success');
+    }
+    await loadDeliveryLogArchiveManager();
+
+    if (btn) {
+        btn.innerHTML = '<i class="fas fa-trash-alt me-1"></i>Delete Selected';
+        btn.disabled = true;
+    }
+}
+
+async function deleteDeliveryLogArchive(id, btn) {
+    if (!id) return;
+    if (!confirm('Permanently delete delivery log archive ' + id + '?')) return;
+
+    var label;
+    if (btn) {
+        label = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    }
+    try {
+        var res = await apiFetch('/api/admin/delivery-log-archives/' + encodeURIComponent(id), { method: 'DELETE' });
+        var data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Delete failed');
+        delete _deliveryLogArchiveSelections[id];
+        toast('\u2713 Deleted archive ' + id, 'success');
+        await loadDeliveryLogArchiveManager();
+    } catch (e) {
+        toast('Delete failed: ' + e.message, 'danger');
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = label || '<i class="fas fa-trash-alt"></i>';
+        }
+    }
+}
+
 async function purgeDeliveryLogArchives() {
     var days = parseInt(document.getElementById('dlArchivePurgeDays').value, 10);
     var confirmText = document.getElementById('dlArchivePurgeConfirm').value.trim();
@@ -263,7 +473,7 @@ async function purgeDeliveryLogArchives() {
         var data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Purge failed');
         toast('\u2713 Purged ' + data.deleted + ' delivery log archive(s).', 'success');
-        await loadDeliveryLogArchiveStats();
+        await loadDeliveryLogArchiveManager();
     } catch(e) {
         toast('Purge failed: ' + e.message, 'danger');
     } finally {

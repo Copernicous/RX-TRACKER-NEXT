@@ -7,6 +7,23 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+## [4.0.0-next.51]
+
+### Added
+
+- Added per-archive deletion in Back Office: Delivery Log Archive list now supports
+  row selection, "Select All", and "Delete Selected" actions in addition to
+  existing single-file deletes.
+
+### Changed
+
+- Delivery Log Archive cleanup in Back Office now shows selectable archive rows so
+  administrators can remove only unwanted logs while preserving others.
+
+### Safety
+
+- No schema change, no migration, and no business-data rewrite.
+
 ## [4.0.0-next.50] - 2026-07-31
 
 ### Added
