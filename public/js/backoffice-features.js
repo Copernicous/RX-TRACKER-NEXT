@@ -289,6 +289,8 @@ async function loadDeliveryLogArchiveStats() {
 }
 
 function _dlArchiveCode(record) {
+    var copyReferences = Array.isArray(record && record.copyReferences) ? record.copyReferences : [];
+    if (copyReferences.length) return copyReferences.join(', ');
     var id = String(record && record.id || '').replace(/[^0-9a-z]/gi, '').toUpperCase();
     return id ? 'Archive ' + id.slice(0, 12) : 'Archive unavailable';
 }

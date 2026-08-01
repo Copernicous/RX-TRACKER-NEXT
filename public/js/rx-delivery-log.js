@@ -120,8 +120,8 @@
     }
     function pharmacyMetadata(baseMetadata, pharmacyName, groupIndex) {
         return {
-            reference: baseMetadata.reference + '-P' + String(groupIndex + 1).padStart(2, '0'),
-            verification: baseMetadata.verification + '-P' + String(groupIndex + 1).padStart(2, '0'),
+            reference: baseMetadata.reference,
+            verification: baseMetadata.verification,
             generated: baseMetadata.generated,
             period: baseMetadata.period,
             filters: baseMetadata.filters,
@@ -162,10 +162,10 @@
         var dateFrom = document.getElementById('rxFilterDateFrom');
         var dateTo = document.getElementById('rxFilterDateTo');
         var dateToken = formatLocalDateToken(now);
-        var reference = 'LOG-' + dateToken + '-' + String(total).padStart(4, '0');
+        var reference = 'DRAFT-' + dateToken;
         return {
             reference: reference,
-            verification: dateToken.slice(-4) + '-' + String(total).padStart(4, '0'),
+            verification: 'Assigned when archived',
             generated: now.toLocaleString(),
             generatedAtEpoch: now.getTime(),
             timezoneOffsetMinutes: now.getTimezoneOffset(),

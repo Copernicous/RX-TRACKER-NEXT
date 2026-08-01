@@ -7,6 +7,7 @@ const { resolveWritablePath } = require('../utils/runtimePaths');
 
 const ARCHIVE_DIR = resolveWritablePath('administration', 'delivery-log-archives');
 const ARCHIVE_EXT = '.json';
+const SEQUENCE_LEDGER_PATH = path.join(ARCHIVE_DIR, '.pharmacy-sequences.ledger');
 const FORMAT_VERSION = 2;
 const RENDERER_VERSION = 'delivery-log-archive-v2';
 const ARCHIVE_STYLESHEET_PATH = path.join(__dirname, '..', 'public', 'css', 'rx-delivery-log-archive-v2.css');
@@ -37,6 +38,7 @@ const MAX_ARCHIVE_TOTAL_BYTES = configuredPositiveInteger(
 );
 const printAuthorizations = new Map();
 const activeStagedPaths = new Set();
+let sequenceAllocationQueue = Promise.resolve();
 
 function ensureArchiveDirectory() {
     fs.mkdirSync(ARCHIVE_DIR, { recursive: true });
@@ -63,6 +65,61 @@ function archivePath(id) {
     const safeId = sanitizeArchiveId(String(id || ''));
     if (!safeId || safeId !== String(id || '')) throw requestError('Invalid archive id.', 400, 'INVALID_ARCHIVE_ID');
     return path.join(ARCHIVE_DIR, safeId + ARCHIVE_EXT);
+}
+
+function sequenceScope(group) {
+    const pharmacyId = toPositiveInteger(group && group.pharmacyId);
+    return pharmacyId ? 'pharmacy:' + pharmacyId : 'unassigned';
+}
+
+async function readSequenceLedger() {
+    try {
+        const parsed = JSON.parse(await fs.promises.readFile(SEQUENCE_LEDGER_PATH, 'utf8'));
+        if (!isPlainObject(parsed) || parsed.version !== 1 || !isPlainObject(parsed.scopes)) {
+            throw new Error('unsupported ledger structure');
+        }
+        for (const [scope, value] of Object.entries(parsed.scopes)) {
+            if (!/^(?:pharmacy:[1-9]\d*|unassigned)$/.test(scope) || !Number.isSafeInteger(value) || value < 0) {
+                throw new Error('invalid ledger entry');
+            }
+        }
+        return parsed;
+    } catch (error) {
+        if (error.code === 'ENOENT') return { version: 1, scopes: {} };
+        throw requestError('Delivery-log sequence ledger is unreadable; printing was blocked to prevent number reuse.', 503, 'SEQUENCE_LEDGER_INVALID');
+    }
+}
+
+async function allocatePharmacyReferences(groups, generatedAtEpoch, timezoneOffsetMinutes) {
+    const allocate = async () => {
+        ensureArchiveDirectory();
+        const ledger = await readSequenceLedger();
+        const references = [];
+        const dateToken = localDateToken(generatedAtEpoch, timezoneOffsetMinutes);
+        for (const group of groups) {
+            const scope = sequenceScope(group);
+            const next = Number(ledger.scopes[scope] || 0) + 1;
+            if (!Number.isSafeInteger(next)) {
+                throw requestError('Delivery-log sequence capacity is exhausted.', 507, 'SEQUENCE_EXHAUSTED');
+            }
+            ledger.scopes[scope] = next;
+            references.push({ sequence: next, reference: 'LOG-' + dateToken + '-' + String(next).padStart(4, '0') });
+        }
+        const stagedPath = SEQUENCE_LEDGER_PATH + '.tmp-' + sanitizeArchiveId(
+            crypto.randomUUID ? crypto.randomUUID() : String(Date.now())
+        );
+        await fs.promises.writeFile(stagedPath, JSON.stringify(ledger, null, 2), { encoding: 'utf8', flag: 'wx', mode: 0o600 });
+        try {
+            await fs.promises.rename(stagedPath, SEQUENCE_LEDGER_PATH);
+        } catch (error) {
+            await fs.promises.unlink(stagedPath).catch(() => {});
+            throw error;
+        }
+        return references;
+    };
+    const result = sequenceAllocationQueue.then(allocate, allocate);
+    sequenceAllocationQueue = result.then(() => undefined, () => undefined);
+    return result;
 }
 
 function requestError(message, status, code) {
@@ -477,6 +534,14 @@ function buildArchiveRecord(input, groups, user, options) {
     const context = canonicalReportContext(groups);
     const uniqueToken = id.toUpperCase();
     const cssBytes = stylesheetBytes();
+    const groupReferences = Array.isArray(settings.groupReferences) ? settings.groupReferences : [];
+    const archivedGroups = groups.map((group, index) => ({
+        ...group,
+        ...(groupReferences[index] ? {
+            deliveryLogSequence: groupReferences[index].sequence,
+            deliveryLogReference: groupReferences[index].reference
+        } : {})
+    }));
     const record = {
         formatVersion: FORMAT_VERSION,
         rendererVersion: RENDERER_VERSION,
@@ -495,7 +560,7 @@ function buildArchiveRecord(input, groups, user, options) {
         createdBy: cleanUser(user),
         createdAt: new Date(now).toISOString(),
         createdAtEpoch: now,
-        pharmacyGroups: groups
+        pharmacyGroups: archivedGroups
     };
     record.contentHash = hashRecord(record);
     record.verification = 'SHA256-' + record.contentHash;
@@ -700,7 +765,7 @@ function renderArchiveHtml(record) {
             .concat(group.rows.filter(row => row.status === 'RETURNED'));
         const paginated = paginateRows(rows);
         const metadata = {
-            reference: record.reference + '-P' + String(groupIndex + 1).padStart(2, '0'),
+            reference: group.deliveryLogReference || record.reference + '-P' + String(groupIndex + 1).padStart(2, '0'),
             verification: record.verification,
             generated: record.generated,
             period: record.period
@@ -729,7 +794,10 @@ function summary(record) {
         generated: record.generated || '',
         filters: record.filters || '',
         period: record.period || '',
-        formatVersion: record.formatVersion || 1
+        formatVersion: record.formatVersion || 1,
+        copyReferences: Array.isArray(record.pharmacyGroups)
+            ? record.pharmacyGroups.map(group => group && group.deliveryLogReference).filter(Boolean)
+            : []
     };
 }
 
@@ -911,7 +979,12 @@ exports.create = async (req, res) => {
             }
         }
         const groups = await loadCanonicalGroups(input);
-        const record = buildArchiveRecord(input, groups, req.user);
+        const groupReferences = await allocatePharmacyReferences(
+            groups,
+            input.generatedAtEpoch,
+            input.timezoneOffsetMinutes
+        );
+        const record = buildArchiveRecord(input, groups, req.user, { groupReferences });
         const serializedRecord = JSON.stringify(record, null, 2);
         const recordBytes = Buffer.byteLength(serializedRecord, 'utf8');
         if (recordBytes > MAX_ARCHIVE_BYTES) {
@@ -1128,5 +1201,6 @@ exports._test = {
     formatDatabaseDate,
     formatLocalTimestamp,
     localDateToken,
-    requestArchiveId
+    requestArchiveId,
+    allocatePharmacyReferences
 };

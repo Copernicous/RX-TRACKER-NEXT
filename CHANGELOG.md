@@ -7,6 +7,34 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+## [4.0.0-next.61]
+
+### Changed
+
+- New Delivery Log controlled copies use a durable, never-reused incremental
+  reference scoped independently to each pharmacy, such as
+  `LOG-20260801-0007`. Deleting an archive does not rewind its counter, and
+  reprints retain the originally assigned reference.
+- Reports and Backoffice archive lists show the scoped copy references while
+  retaining the opaque internal archive ID and SHA-256 evidence.
+- Browser previews use an explicit `DRAFT-YYYYMMDD` label until the server
+  archives the document and assigns its controlled-copy reference.
+
+### Security
+
+- Removed the combined RX count and cross-pharmacy `P01`/`P02` group ordinal
+  from new company-facing references. One pharmacy can no longer infer the
+  size or position of other pharmacies in the same print batch.
+- Sequence allocation fails closed if its protected local ledger is unreadable.
+  Existing archive integrity, audit, idempotency, and authorization controls
+  remain enforced.
+
+### Safety
+
+- Existing archived records and their integrity hashes are unchanged. There is
+  no schema migration, business-data rewrite, configured RX Action change, or
+  proxy, Kasm, Cloudflare, CORS, cookie, or HTTPS configuration change.
+
 ## [4.0.0-next.60]
 
 ### Fixed

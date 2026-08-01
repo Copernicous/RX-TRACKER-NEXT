@@ -358,6 +358,13 @@ async function run() {
         assert.match(createResponse.body.reference, /^LOG-\d{8}-[A-F0-9-]+$/);
         const stored = JSON.parse(fs.readFileSync(path.join(archiveDirectory, createResponse.body.id + '.json'), 'utf8'));
         assert.strictEqual(stored.pharmacyGroups[0].rows[0].patient, 'Database Patient', 'Archive rows must be derived from PostgreSQL.');
+        assert.strictEqual(stored.pharmacyGroups[0].deliveryLogSequence, 1,
+            'The first archived log for a pharmacy must receive its first scoped sequence.');
+        assert.match(stored.pharmacyGroups[0].deliveryLogReference, /^LOG-\d{8}-0001$/);
+        assert.deepStrictEqual(createResponse.body.copyReferences, [stored.pharmacyGroups[0].deliveryLogReference]);
+        assert(stored.documentHtml.includes(stored.pharmacyGroups[0].deliveryLogReference),
+            'The pharmacy-scoped reference must appear in the frozen printed artifact.');
+        assert(!stored.documentHtml.includes('-P01'), 'New pharmacy copies must not expose a global group ordinal.');
         assert.strictEqual(stored.period, 'No completed delivery dates', 'Printed period evidence must be derived from canonical rows.');
         assert(stored.filters.includes('server-verified open RX record'), 'Printed selection evidence must be server-derived.');
         assert(stored.documentHtml.includes('Database Patient'), 'Archive must store its exact server-rendered carbon copy.');
@@ -379,6 +386,13 @@ async function run() {
             ['Create Prepared', 'Create for Print', 'Create Print Reauthorized'],
             'Every fresh print authorization must have its own audit event.'
         );
+
+        fs.unlinkSync(path.join(archiveDirectory, createResponse.body.id + '.json'));
+        const afterDeletion = await archiveTest.allocatePharmacyReferences(
+            canonicalGroups('Next Patient'), now, 240
+        );
+        assert.strictEqual(afterDeletion[0].sequence, 2,
+            'Deleting an archive must never rewind or reuse a pharmacy sequence.');
     } finally {
         db.WorkflowAction.findAll = originalWorkflowFindAll;
         db.RXRecord.findAll = originalRxFindAll;
@@ -446,6 +460,10 @@ async function run() {
     }
 
     const clientSource = fs.readFileSync(path.resolve(__dirname, '..', 'public', 'js', 'rx-delivery-log.js'), 'utf8');
+    assert(clientSource.includes("var reference = 'DRAFT-' + dateToken"),
+        'The browser preview must use a draft label until the server assigns scoped references.');
+    assert(!clientSource.includes("String(total).padStart(4, '0')"),
+        'Browser-visible references must not disclose the combined RX count.');
     const hooks = {};
     let fetchResponses = [];
     const browserWindow = {

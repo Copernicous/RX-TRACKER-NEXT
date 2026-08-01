@@ -8,6 +8,14 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
 
+- **v4.0.0-next.61** is the release candidate for pharmacy-scoped Delivery Log
+  references. New controlled copies receive a durable, never-reused sequence
+  per pharmacy and no longer expose the combined batch RX count or a
+  cross-pharmacy `P01`/`P02` ordinal. Reprints retain the original reference;
+  cleanup cannot rewind the protected local counter ledger. Existing archives,
+  schema, business data, RX Actions, and proxy/security configuration are
+  unchanged. Official publication and test-server validation are pending.
+
 - Official **v4.0.0-next.60** was published on 2026-08-01 from `main` commit
   `f0218f0b2618b858dfec28d5c041478a5ae94d04`, correcting the remaining Project
   Control option 25 activation failure observed on the `.59` testing server.

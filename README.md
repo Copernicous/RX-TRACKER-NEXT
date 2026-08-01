@@ -10,7 +10,7 @@ frozen 3.3.1 repository, its production database, or the RX Softphone source.
 
 ## Current status
 
-Version: `4.0.0-next.60` official release
+Version: `4.0.0-next.61` release candidate
 
 | Area | NEXT behavior |
 |---|---|
@@ -24,6 +24,12 @@ Version: `4.0.0-next.60` official release
 | CSV review snapshots | Exports every public database table, including empty-table headers; sensitive review artifact only, not a PostgreSQL restore backup |
 | Test-copy restore | Project Control 2.2.2 option 25 verifies the exact service process, executable, listener, and database before optional activation |
 | RX Softphone | Version 0.6.0 runs as a tray application with its own Windows control window and per-user automatic startup, supports optional PBX Authentication ID, and is published as a separate, checksummed workstation ZIP |
+
+Version `next.61` assigns new Delivery Log copies a durable incremental
+reference scoped independently to each pharmacy. Printed references no longer
+contain the combined RX count or cross-pharmacy group position. Reprints retain
+their assigned reference, deletion cannot reuse a number, and existing archives
+remain unchanged.
 
 Version `next.60` makes Project Control option 25 store and verify NSSM's
 multi-value service environment through its native Windows `REG_MULTI_SZ`
@@ -51,7 +57,7 @@ as primary row content. It includes no schema migration, configured RX Action
 change, business-data rewrite, or Kasm, Cloudflare, CORS, cookie, HTTPS,
 trust-proxy, or reverse-proxy behavior change.
 
-Production installation of `next.60` is not approved. The official compiled
+Production installation of `next.61` is not approved. The official compiled
 GitHub release must pass testing-server validation before a separately approved
 Project Control production update.
 The frozen application remains an emergency rollback option. New NEXT changes
