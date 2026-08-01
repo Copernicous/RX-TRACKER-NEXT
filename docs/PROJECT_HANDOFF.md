@@ -8,8 +8,11 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
 
-- Candidate **v4.0.0-next.57** is prepared for CI and testing-server validation;
-  publication and production installation are not yet confirmed. It hardens
+- Official **v4.0.0-next.57** was published on 2026-08-01 from `main` commit
+  `71d2c15d452b86aefb38a8fd2c4447c778ea5154` after the PostgreSQL lifecycle
+  CI, application regressions, isolated restore validation, restricted-role
+  runtime verification, CodeQL, and tagged compiled-release workflow passed.
+  Testing-server and production installation are not yet confirmed. It hardens
   server-canonical Delivery Log carbon-copy archives and audited cleanup,
   preserves local PC/browser time-zone and DST consistency, makes Backoffice
   database health strictly read-only and evidence-based, makes CSV review
@@ -21,7 +24,14 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
   a successful PostgreSQL lifecycle push run for the exact tagged `main`
   commit. There is no schema migration, configured RX Action change,
   business-data rewrite, or Kasm, Cloudflare, FortiGate/reverse-proxy behavior
-  change. Test the official compiled release first; production updates remain
+  change. Published SHA-256 values: `server-update-4.0.0-next.57.zip` and
+  `RX-Tracker-NEXT-New-Server-4.0.0-next.57.zip`
+  `a968549a3cd9212d7cc85e5c310e5f69d12739449bdcdc7b56f9fa5deb7dd778`,
+  `RxSoftphone-0.6.0-win-x64.zip`
+  `4c1d33ac9a77607baf69dfcbe4d9bec72854b5dfed48641594e2b604d0932070`,
+  `server.exe` `4686e0695e8931a6889d5de7887296c9652b843ef6fe67e100448f28f8d7d3e7`,
+  and `rx-db.exe` `fc986c7f73c60813e765a9d4221811e50407b5ecad742519170bccc549e4cb6a`.
+  Test the official compiled release first; production updates remain
   separately approved and use Project Control only.
   Optional recoverability evidence is produced outside Backoffice with guarded
   `rx-db validate-backup-recoverability`; it requires exact database
@@ -29,6 +39,13 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
   temporary database privileges. Backup creation and validation evidence are
   source-bound to the current configured and actual PostgreSQL database
   identity, so records from a prior test-copy target remain inconclusive.
+
+- The manually launched local development listener on port 3000 was confirmed
+  after publication to still run `v4.0.0-next.49` from an older checkout. The
+  authoritative repository contains `.57`, but its local runtime is stopped.
+  Do not copy release files into the older checkout or run both versions against
+  the same database. Verify the intended development database with `rx-db`
+  before stopping the old process and launching the authoritative checkout.
 
 - Build-output policy (important for release operations):
   - `dist/` is ignored by git and is local build output only.
