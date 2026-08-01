@@ -275,6 +275,8 @@ function Set-ServiceEnvironment([string]$ExpectedDatabase, [string]$Verification
     $pairs = @(Get-EnvironmentPairs $script:EnvPath | Where-Object { $_ -notmatch '(?i)^RX_LOCAL_HEALTH_TOKEN=' })
     if ($VerificationToken) { $pairs += "RX_LOCAL_HEALTH_TOKEN=$VerificationToken" }
     if (-not $pairs.Count) { Fail 'The application .env contains no service settings.' }
+    & $nssm reset $ServiceName AppEnvironmentExtra | Out-Null
+    if ($LASTEXITCODE -ne 0) { Fail 'Could not clear the previous Windows service environment.' }
     & $nssm set $ServiceName AppEnvironmentExtra $pairs | Out-Null
     if ($LASTEXITCODE -ne 0) { Fail 'Could not synchronize the Windows service environment.' }
     Assert-ServiceEnvironmentTargetsDatabase $ExpectedDatabase $VerificationToken

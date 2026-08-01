@@ -10,7 +10,7 @@ frozen 3.3.1 repository, its production database, or the RX Softphone source.
 
 ## Current status
 
-Version: `4.0.0-next.58` official release
+Version: `4.0.0-next.59` release candidate
 
 | Area | NEXT behavior |
 |---|---|
@@ -25,7 +25,15 @@ Version: `4.0.0-next.58` official release
 | Test-copy restore | Project Control 2.2.2 option 25 verifies the exact service process, executable, listener, and database before optional activation |
 | RX Softphone | Version 0.6.0 runs as a tray application with its own Windows control window and per-user automatic startup, supports optional PBX Authentication ID, and is published as a separate, checksummed workstation ZIP |
 
-Version `next.58` corrects Delivery Log archive creation, reprint, and cleanup
+Version `next.59` corrects Project Control option 25 activation and automatic
+recovery when NSSM retains an older test-copy database in its multi-value
+service environment. The workflow clears the stale environment block before
+writing and verifying the exact `.env` snapshot and one-time health token.
+The isolated restored database and all existing activation identity checks are
+preserved. There is no schema migration, business-data rewrite, production GUI
+restore change, or proxy/security configuration change.
+
+Version `next.58` corrected Delivery Log archive creation, reprint, and cleanup
 requests so the strict validators accept the browser's middleware-owned
 top-level CSRF transport field without storing it. CSRF enforcement and the
 rejection of unknown or nested input remain unchanged. Controlled-copy print
@@ -35,7 +43,7 @@ as primary row content. It includes no schema migration, configured RX Action
 change, business-data rewrite, or Kasm, Cloudflare, CORS, cookie, HTTPS,
 trust-proxy, or reverse-proxy behavior change.
 
-Production installation of `next.58` is not confirmed. The official compiled
+Production installation of `next.59` is not confirmed. The official compiled
 GitHub release must pass testing-server validation before a separately approved
 Project Control production update.
 The frozen application remains an emergency rollback option. New NEXT changes

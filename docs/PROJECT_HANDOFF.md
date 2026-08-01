@@ -8,6 +8,18 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
 
+- Candidate **v4.0.0-next.59** fixes Project Control option 25 activation and
+  automatic recovery after a verified isolated restore when NSSM retains an
+  older test-copy `DB_NAME` in its multi-value `AppEnvironmentExtra` block.
+  The workflow now resets that block before writing and verifying the exact
+  `.env` snapshot and one-time health token, preventing duplicate old/new
+  database values. The restore, migrations, checksum ledger, runtime role, and
+  business fingerprint in the reported `.58` test all passed; only service
+  activation and recovery failed. This correction does not modify that
+  restored database, the production GUI restore workflow, schema, business
+  data, or proxy/security configuration. Publication and testing-server retry
+  are not yet confirmed.
+
 - Official **v4.0.0-next.58** was published on 2026-08-01 from `main` commit
   `bcb69aca29a05c8c8735f39e3dfa3bf1e4c99650` after the PostgreSQL lifecycle
   CI, application regressions, updater self-test, browser rendering checks,

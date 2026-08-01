@@ -7,6 +7,25 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+## [4.0.0-next.59]
+
+### Fixed
+
+- Fixed Project Control option 25 activation and automatic recovery when NSSM
+  already contains an older test-copy database in `AppEnvironmentExtra`.
+  The guarded workflow now clears the stale multi-value environment block
+  before writing and verifying the exact `.env` snapshot and one-time health
+  token, preventing duplicate old/new `DB_NAME` entries.
+
+### Safety
+
+- The restored isolated database is unchanged by this correction. Exact
+  database, service executable, process, listener, runtime-role, migration,
+  checksum-ledger, and one-time local health verification remain required.
+- No schema migration, business-data rewrite, production GUI restore change,
+  or Kasm, Cloudflare, CORS, cookie, HTTPS, trust-proxy, or reverse-proxy
+  change.
+
 ## [4.0.0-next.58]
 
 ### Fixed

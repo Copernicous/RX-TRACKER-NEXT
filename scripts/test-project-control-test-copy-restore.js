@@ -72,6 +72,10 @@ assert(restore.includes('Assert-ServiceTargetsApp') &&
 assert(restore.includes('Assert-ServiceEnvironmentTargetsDatabase') &&
   restore.includes("get $ServiceName AppEnvironmentExtra"),
   'Activation must verify the exact NSSM DB_NAME environment value.');
+const resetEnvironmentIndex = restore.indexOf('& $nssm reset $ServiceName AppEnvironmentExtra');
+const setEnvironmentIndex = restore.indexOf('& $nssm set $ServiceName AppEnvironmentExtra $pairs');
+assert(resetEnvironmentIndex >= 0 && setEnvironmentIndex > resetEnvironmentIndex,
+  'Activation and recovery must clear stale NSSM environment values before writing the exact snapshot.');
 const dotEnvFallbackCalls = restore.match(
   /Assert-ServiceEnvironmentTargetsDatabase[^\r\n]*-AllowDotEnvFallback/g
 ) || [];

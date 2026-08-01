@@ -23,7 +23,8 @@ replacing the currently active database.
 9. Choose whether to activate the verified copy for the Windows service.
 
 When activation is selected, Project Control backs up `.env`, changes only
-`DB_NAME`, synchronizes the NSSM service environment, restarts RX Tracker, and
+`DB_NAME`, clears any stale NSSM multi-value environment entries, writes the
+exact `.env` snapshot, restarts RX Tracker, and
 requires exact-version/database health. Activation also verifies the exact
 NSSM `server.exe` path and service `DB_NAME`, then uses an unguessable one-time
 loopback token to confirm the actual PostgreSQL database and running executable.
