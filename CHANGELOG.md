@@ -13,6 +13,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 - Fixed Project Control option 25 (restore verified dump into isolated test copy) default naming so repeated restores no longer generate stacked names like `restore_restore_test`.
 - Maintained an automatic escape hatch to a unique test database name when deduplication still resolves to the active database.
+- Updated embedded Project Control version marker to `2.2.1` for release attribution in Project Control status screens.
 
 ## [4.0.0-next.52]
 
