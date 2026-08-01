@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: write
+  actions: read
 
 jobs:
   publish-release:
@@ -14,6 +15,32 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+
+      - name: Verify release version and passed lifecycle gate
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = $env:GITHUB_REF_NAME
+          $packageVersion = (Get-Content -LiteralPath package.json -Raw | ConvertFrom-Json).version
+          if ($tag -ne "v$packageVersion") {
+            throw "Release tag $tag does not match package version v$packageVersion."
+          }
+
+          $sha = (git rev-parse HEAD).Trim()
+          $endpoint = "repos/$env:GITHUB_REPOSITORY/actions/workflows/database-lifecycle-ci.yml/runs?head_sha=$sha&status=success&event=push&per_page=100"
+          $runs = gh api $endpoint | ConvertFrom-Json
+          $passedMainRun = $runs.workflow_runs |
+            Where-Object {
+              $_.head_sha -eq $sha -and
+              $_.head_branch -eq 'main' -and
+              $_.conclusion -eq 'success'
+            } |
+            Select-Object -First 1
+          if (-not $passedMainRun) {
+            throw "No successful NEXT database lifecycle CI push run exists for main commit $sha. Push main, wait for lifecycle CI to pass, then create the release tag."
+          }
+          Write-Host "Lifecycle gate passed: $($passedMainRun.html_url)"
 
       - name: Use Node.js 22
         uses: actions/setup-node@v6
@@ -63,20 +90,14 @@ jobs:
         shell: pwsh
         run: |
           $tagNotes = ".github/releases/$env:GITHUB_REF_NAME.md"
-          $defaultNotes = '.github/RELEASE_NOTES.md'
-          if (Test-Path -LiteralPath $tagNotes) {
-            $bodyFile = $tagNotes
-          } elseif (Test-Path -LiteralPath $defaultNotes) {
-            $bodyFile = $defaultNotes
-          } else {
-            $bodyFile = Join-Path $env:RUNNER_TEMP 'release-notes.md'
-            @(
-              '## Release Notes',
-              'Auto-generated release body unavailable. Add notes at `.github/releases/<tag>.md`',
-              'or update `.github/RELEASE_NOTES.md`.'
-            ) | Set-Content -LiteralPath $bodyFile -Encoding utf8
+          if (-not (Test-Path -LiteralPath $tagNotes)) {
+            throw "Missing required version-specific release notes: $tagNotes"
           }
-          "body_file=$bodyFile" | Add-Content -LiteralPath $env:GITHUB_OUTPUT -Encoding utf8
+          $notes = Get-Content -LiteralPath $tagNotes -Raw
+          if ($notes -notmatch [regex]::Escape($env:GITHUB_REF_NAME.TrimStart('v'))) {
+            throw "Release notes do not identify version $env:GITHUB_REF_NAME."
+          }
+          "body_file=$tagNotes" | Add-Content -LiteralPath $env:GITHUB_OUTPUT -Encoding utf8
 
       - name: Publish release
         uses: softprops/action-gh-release@v3

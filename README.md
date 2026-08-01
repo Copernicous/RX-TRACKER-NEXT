@@ -10,7 +10,7 @@ frozen 3.3.1 repository, its production database, or the RX Softphone source.
 
 ## Current status
 
-Version: `4.0.0-next.51` restore-manual and portable-installer release
+Version: `4.0.0-next.57` release candidate
 
 | Area | NEXT behavior |
 |---|---|
@@ -19,19 +19,23 @@ Version: `4.0.0-next.51` restore-manual and portable-installer release
 | Fresh database | Explicit `rx-db provision`, followed by one-time administrator bootstrap |
 | 3.3.1 database | Restore to an isolated copy, adopt the verified legacy schema, migrate, and compare |
 | Test data | Explicit sanitizer removes identities, credentials, tokens, pairings, document pointers, and free text |
+| Delivery Log archive | Saves a bounded, server-canonical, integrity-bound local carbon-copy record only when Print is requested; controlled reprints and cleanup are audited |
+| Database health | Backoffice analysis is read-only and reports evidence, confidence, checker errors, and backup creation separately from verified recoverability |
+| CSV review snapshots | Exports every public database table, including empty-table headers; sensitive review artifact only, not a PostgreSQL restore backup |
+| Test-copy restore | Project Control 2.2.2 option 25 verifies the exact service process, executable, listener, and database before optional activation |
 | RX Softphone | Version 0.6.0 runs as a tray application with its own Windows control window and per-user automatic startup, supports optional PBX Authentication ID, and is published as a separate, checksummed workstation ZIP |
 
-Version `next.35` made the Dashboard RX Workflow Pipeline use the same **Current
-Stage** definition as RX Records and Reports. The `next.36` candidate also makes
-the summary cards use the same four mutually exclusive **Workflow Status**
-groups as RX Records: Not Started, In Progress, Expired, and Completed. The
-The `next.38` candidate adds a pharmacy-separated Print & Delivery Log in PDF
-and preformatted Excel, selectable all-fields RX and Patient CSV exports,
-multi-select RX workflow filters, and an explicit Delivered / Returned to
-Pharmacy outcome. The Dashboard Pending card and charts remain **All
-Incomplete**, including Expired.
+Version `next.57` hardens Delivery Log carbon-copy archives, makes their local
+PC time-zone and daylight-saving behavior consistent, refines read-only
+database-health evidence, and strengthens Project Control's isolated test-copy
+identity proof. Release publication is also gated on the exact tagged `main`
+commit passing PostgreSQL lifecycle CI. It includes no schema migration,
+configured RX Action change, business-data rewrite, or Kasm, Cloudflare, or
+FortiGate/reverse-proxy behavior change.
 
-Version `next.47` replaces the obsolete source/PM2 restore instructions with the official portable installer plus guarded Project Control option 25 workflow, publishes the portable New Server ZIP as an official release asset, and documents the database/full-site backup file-count settings. Version `next.46` remains the RX Profile Sync displayed-export and 100-row selection release. No migration or business-data change is included.
+Production installation of `next.57` is not confirmed. The compiled GitHub
+release must pass testing-server validation before a separately approved
+Project Control production update.
 The frozen application remains an emergency rollback option. New NEXT changes
 must pass staging and development validation before a separately approved,
 checksummed production release.

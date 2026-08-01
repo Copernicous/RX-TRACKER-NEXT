@@ -1,5 +1,8 @@
 'use strict';
 
+process.env.BACKUP_SCHEDULER_ENABLED = 'false';
+process.env.SITE_BACKUP_SCHEDULER_ENABLED = 'false';
+
 const assert = require('assert');
 const fs = require('fs');
 const os = require('os');

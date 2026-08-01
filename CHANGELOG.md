@@ -7,6 +7,70 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+## [4.0.0-next.57]
+
+### Added
+
+- Added server-canonical Delivery Log carbon-copy archives that re-read the
+  selected RX records, pharmacies, patients, and workflow state before saving
+  an integrity-bound local JSON record and exact server-rendered artifact.
+  Reprints verify that stored artifact against the frozen renderer instead of
+  trusting browser HTML.
+- Added bounded archive capacity controls and recovery-aware, audited cleanup
+  for individual, selected, and retention-based archive removal.
+- Added Project Control `2.2.2` verification for option 25 that proves the
+  exact NSSM application, configured database, PostgreSQL `current_database()`,
+  listener PID, executable path, and service parent before accepting or
+  activating an isolated test copy.
+- Added catalog-driven Backoffice CSV Review Snapshots for every public
+  PostgreSQL base table, including header-only files for empty tables, with a
+  manifest that identifies the sensitive export as non-restorable.
+- Added guarded `rx-db validate-backup-recoverability` maintenance command for
+  optional isolated restore validation outside the read-only Backoffice UI.
+
+### Changed
+
+- Delivery Log archives are created only when Print is requested. Creation,
+  reprint, delete, and purge operations fail closed when persistence,
+  integrity, authorization, or audit requirements are not satisfied.
+- Delivery Log generation and reprint stamps now use the local PC/browser
+  event time, while named browser time-zone evidence keeps historical dates
+  consistent across local date boundaries and daylight-saving changes.
+- Backoffice Routine Database Checks are read-only and evidence-based. Index
+  recommendations require representative statistics and query evidence,
+  large-column checks report bounded storage metrics, checker failures remain
+  checker errors, and backup creation is reported separately from persisted
+  isolated restore-validation evidence.
+- Database backup creation, missing-backup monitoring, and recoverability
+  evidence now require the current configured and actual PostgreSQL database
+  identity; legacy or other-database records cannot satisfy current coverage.
+- Backup schedulers can be disabled explicitly for tests or externally managed
+  schedules without leaving cron handles running in application regressions.
+- Backoffice now labels its 16-table destructive whitelist as Managed Tables;
+  schema and review-snapshot coverage remain catalog-driven across all tables.
+- Tagged release publication now requires a successful PostgreSQL lifecycle
+  push run for the exact tagged `main` commit and matching version-specific
+  release notes.
+- PostgreSQL lifecycle CI now exercises the full isolated backup restore,
+  fingerprint verification, evidence persistence, and temporary cleanup path.
+
+### Security
+
+- Delivery Log archive input is bounded and server-authoritative; arbitrary
+  client-supplied printable HTML is neither trusted nor stored in the generic
+  audit log.
+- Project Control's detailed local health proof uses a retry-safe, one-time
+  loopback verification token that is removed from the service environment
+  after validation. The public health response remains unchanged.
+
+### Safety
+
+- No schema migration, configured RX Action change, business-data rewrite, or
+  Kasm, Cloudflare, FortiGate/reverse-proxy behavior change.
+- Production deployment is unconfirmed. Validate the official compiled release
+  on the testing server before using Project Control for a separately approved
+  production update.
+
 ## [4.0.0-next.56]
 
 ### Fixed

@@ -359,19 +359,14 @@ diagnosing issues that users encounter without needing to reproduce them locally
 
 ---
 
-## 7. Building the Executable
+## 7. Official Executable Build
 
-### Prerequisites
-- Node.js 22+ installed on the BUILD machine (not needed on production)
-- All npm packages installed: `npm install`
-- PostgreSQL accessible for dev testing
+Official executables, ZIPs, and checksums are built only by GitHub Actions from
+an approved release tag after the exact `main` commit passes lifecycle CI. Do
+not build or deploy a local production package. For a correction, publish and
+install a new official patch release.
 
-### Build command
-```bash
-npm run build:exe
-```
-
-Which runs:
+The GitHub Actions implementation uses:
 ```
 npx @yao-pkg/pkg@6.20.0 app.js --target node22-win-x64 --output dist/server.exe
 ```
@@ -781,9 +776,9 @@ Tokens obtained from `POST /api/auth/login`.
 - Check port is free: `netstat -ano | findstr :3000`
 
 ### Login page shows {"error":"Internal server error"}
-- If using server.exe: likely wrong build tool used. Rebuild with `npm run build:exe`
+- If using server.exe: verify it came from the official checksummed GitHub release
 - Signs: `Cannot find module 'ejs'` or `Failed to lookup view "login"` in logs
-- Fix: recompile using `@yao-pkg/pkg` (not vercel `pkg`)
+- Fix: install a corrected official patch release; do not recompile on the server
 
 ### "Network error" when completing a workflow step
 - Check that the user's role has permission for that workflow action
@@ -857,7 +852,7 @@ node app.js --reset-password admin YourNewPassword
   JWT attachment, 401 auto-redirect, and 403 silent handling
 
 ### Compilation
-- ALWAYS use `npm run build:exe` (uses @yao-pkg/pkg)
+- Official production packages are built only by GitHub Actions from a release tag
 - NEVER use plain `npx pkg` (vercel pkg v5) — breaks EJS and views
 - Arrow functions (=>) are fine
 - The `.env` file is NEVER bundled — must be placed manually next to server.exe
@@ -1238,19 +1233,14 @@ Then in `models/index.js`, set `logging: process.env.DB_LOGGING === 'true'`.
 
 ---
 
-## 7. Building the Executable
+## 7. Official Executable Build
 
-### Prerequisites
-- Node.js 22+ installed on the BUILD machine (not needed on production)
-- All npm packages installed: `npm install`
-- PostgreSQL accessible for dev testing
+Official executables, ZIPs, and checksums are built only by GitHub Actions from
+an approved release tag after the exact `main` commit passes lifecycle CI. Do
+not build or deploy a local production package. For a correction, publish and
+install a new official patch release.
 
-### Build command
-```bash
-npm run build:exe
-```
-
-Which runs:
+The GitHub Actions implementation uses:
 ```
 npx --yes @yao-pkg/pkg app.js --target node22-win-x64 --output dist/server.exe --compress GZip
 ```
@@ -1461,14 +1451,14 @@ Tokens obtained from `POST /api/auth/login`.
 - Check port is free: `netstat -ano | findstr :3000`
 
 ### Login page shows {"error":"Internal server error"}
-- If using server.exe: likely wrong build tool used. Rebuild with `npm run build:exe`
+- If using server.exe: verify it came from the official checksummed GitHub release
 - Signs: `Cannot find module 'ejs'` or `Failed to lookup view "login"` in logs
-- Fix: recompile using `@yao-pkg/pkg` (not vercel `pkg`)
+- Fix: install a corrected official patch release; do not recompile on the server
 
 ### Unicode characters in app.js break compilation
 - The @yao-pkg/pkg tool handles UTF-8 correctly
 - The old vercel pkg v5 did NOT — caused "Internal server error" on all page loads
-- Solution: always use `npm run build:exe` which uses @yao-pkg/pkg
+- Solution: correct the source and publish a new GitHub Actions-built patch release
 
 ### Audit log not recording deletes
 - Route must return `res.json()` not `res.status(204).send()`
@@ -1502,7 +1492,7 @@ Tokens obtained from `POST /api/auth/login`.
 - CSS: some properties may be stripped by FortiGate content inspection
 
 ### Compilation
-- ALWAYS use `npm run build:exe` (uses @yao-pkg/pkg)
+- Official production packages are built only by GitHub Actions from a release tag
 - NEVER use plain `npx pkg` (vercel pkg v5) — breaks EJS and views
 - Unicode characters in console.log strings inside app.js CAN cause issues
   with some pkg versions — use ASCII only in log output

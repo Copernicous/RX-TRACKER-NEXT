@@ -217,16 +217,26 @@ async function loadBackups() {
         backupsLoaded = true;
         document.getElementById('backupPathText').textContent = data.backupPath || '\u2014';
         if (!data.backups.length) {
-            document.getElementById('backupList').innerHTML = '<p style="text-align:center;padding:4rem;color:var(--text-muted)"><i class="fas fa-archive" style="display:block;font-size:2rem;opacity:.3;margin-bottom:1rem"></i>No backups yet. Click \u201cCreate Backup Now\u201d.</p>';
+            document.getElementById('backupList').innerHTML = '<p style="text-align:center;padding:4rem;color:var(--text-muted)"><i class="fas fa-file-csv" style="display:block;font-size:2rem;opacity:.3;margin-bottom:1rem"></i>No review snapshots yet. Click \u201cCreate Review Snapshot\u201d.</p>';
             return;
         }
         var fmtSz = function(b) { return b < 1024 ? b + ' B' : b < 1048576 ? (b/1024).toFixed(1) + ' KB' : (b/1048576).toFixed(1) + ' MB'; };
+        var backupEsc = function(value) {
+            return String(value === null || value === undefined ? '' : value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        };
         var _bHtml = '';
         data.backups.forEach(function(bk) {
             var _dlLinks = '';
             (bk.tables || []).forEach(function(t) {
-                if (t.rows > 0) {
-                    _dlLinks += '<a href="/api/admin/backups/' + bk.name + '/' + t.table + '.csv" class="btn-bo btn-bo-outline" style="padding:0.25rem 0.5rem;font-size:0.68rem" download><i class="fas fa-download me-1"></i>' + t.table + '</a>';
+                var fileName = t.file || (t.rows > 0 ? t.table + '.csv' : '');
+                if (fileName) {
+                    var rowLabel = Number(t.rows) === 0 ? ' (empty)' : '';
+                    _dlLinks += '<a href="/api/admin/backups/' + encodeURIComponent(bk.name) + '/' + encodeURIComponent(fileName) + '" class="btn-bo btn-bo-outline" style="padding:0.25rem 0.5rem;font-size:0.68rem" download><i class="fas fa-download me-1"></i>' + backupEsc(t.table) + rowLabel + '</a>';
                 }
             });
             _bHtml +=
@@ -235,8 +245,8 @@ async function loadBackups() {
                         '<div style="display:flex;align-items:center;gap:0.75rem">' +
                             '<i class="fas fa-archive" style="color:#6366f1;font-size:1.1rem"></i>' +
                             '<div>' +
-                                '<div style="font-weight:600;font-size:0.85rem;font-family:monospace">' + bk.name + '</div>' +
-                                '<div style="font-size:0.7rem;color:var(--text-muted)">' + new Date(bk.createdAt).toLocaleString() + ' &bull; ' + bk.fileCount + ' tables &bull; ' + fmtSz(bk.sizeBytes) + '</div>' +
+                                '<div style="font-weight:600;font-size:0.85rem;font-family:monospace">' + backupEsc(bk.name) + '</div>' +
+                                '<div style="font-size:0.7rem;color:var(--text-muted)">' + new Date(bk.createdAt).toLocaleString() + ' &bull; ' + bk.fileCount + ' table CSVs &bull; ' + fmtSz(bk.sizeBytes) + ' &bull; review only, not restorable</div>' +
                             '</div>' +
                         '</div>' +
                         '<div style="display:flex;gap:0.4rem;flex-wrap:wrap">' +
@@ -490,10 +500,10 @@ async function createBackup() {
         var data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Failed');
         var rows = data.files.reduce(function(s,f){ return s+(f.rows||0); }, 0);
-        toast('\u2713 Backup created: ' + data.backupDir + ' (' + rows.toLocaleString() + ' rows, ' + data.files.length + ' tables)', 'success');
+        toast('\u2713 Review snapshot created: ' + data.backupDir + ' (' + rows.toLocaleString() + ' rows, ' + data.files.length + ' table CSVs)', 'success');
         await loadBackups();
-    } catch(e) { toast('Backup failed: ' + e.message, 'danger'); }
-    finally { btn.disabled=false; btn.innerHTML='<i class="fas fa-save me-1"></i>Create Backup Now'; }
+    } catch(e) { toast('Review snapshot failed: ' + e.message, 'danger'); }
+    finally { btn.disabled=false; btn.innerHTML='<i class="fas fa-file-csv me-1"></i>Create Review Snapshot'; }
 }
 
 async function deleteBackup(name, btn) {
@@ -536,12 +546,31 @@ function _routineStatusBadge(level) {
         bg = 'rgba(245,158,11,.16)';
         color = '#fdba74';
         border = 'rgba(245,158,11,.35)';
-    } else if (txt === 'critical') {
+    } else if (txt === 'critical' || txt === 'error') {
         bg = 'rgba(239,68,68,.16)';
         color = '#fca5a5';
         border = 'rgba(239,68,68,.35)';
+    } else if (txt === 'info') {
+        bg = 'rgba(14,165,233,.14)';
+        color = '#7dd3fc';
+        border = 'rgba(14,165,233,.32)';
     }
-    return '<span style="background:' + bg + ';color:' + color + ';border:1px solid ' + border + ';padding:0.12rem 0.5rem;border-radius:999px;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.04em">' + txt + '</span>';
+    return '<span style="background:' + bg + ';color:' + color + ';border:1px solid ' + border + ';padding:0.12rem 0.5rem;border-radius:999px;font-size:0.7rem;text-transform:uppercase">' + txt + '</span>';
+}
+
+function _routineJson(value) {
+    if (value === undefined || value === null) return '';
+    if (typeof value === 'string') return value;
+    try { return JSON.stringify(value, null, 2); }
+    catch (e) { return String(value); }
+}
+
+function _routineDetail(label, value, monospace) {
+    if (value === undefined || value === null || value === '') return '';
+    return '<div style="display:grid;grid-template-columns:minmax(120px,170px) minmax(0,1fr);gap:0.5rem;padding:0.2rem 0">' +
+        '<div style="color:#94a3b8;font-size:0.68rem;text-transform:uppercase">' + _routineEsc(label) + '</div>' +
+        '<div style="color:#e5e7eb;white-space:pre-wrap;overflow-wrap:anywhere;' + (monospace ? 'font-family:monospace;' : '') + '">' + _routineEsc(value) + '</div>' +
+    '</div>';
 }
 
 function startHealthCountdown() {
@@ -604,10 +633,15 @@ function loadRoutineDbChecks() {
             var warning = 0;
             var info = 0;
             var ok = 0;
+            var checkerErrors = 0;
             var overall = data && data.overall ? data.overall : 'ok';
 
             keys.forEach(function(key) {
                 (checks[key].items || []).forEach(function(item) {
+                    if (item.resultType === 'checkerError') {
+                        checkerErrors += 1;
+                        return;
+                    }
                     totalItems += 1;
                     if (item.severity === 'critical') critical += 1;
                     else if (item.severity === 'warning') warning += 1;
@@ -616,13 +650,24 @@ function loadRoutineDbChecks() {
                 });
             });
 
+            if (data && data.totals) {
+                critical = Number(data.totals.critical || 0);
+                warning = Number(data.totals.warning || 0);
+                info = Number(data.totals.info || 0);
+                ok = Number(data.totals.ok || 0);
+                checkerErrors = Number(data.totals.checkerErrors || 0);
+                totalItems = critical + warning + info + ok;
+            }
+
             if (summaryEl) {
-                summaryEl.textContent = 'Last run: ' + new Date(data.generatedAt || Date.now()).toLocaleString() + ' • ' + totalItems + ' finding(s) (' + critical + ' critical, ' + warning + ' warning, ' + info + ' info, ' + ok + ' ok).';
+                summaryEl.textContent = 'Last run: ' + new Date(data.generatedAt || Date.now()).toLocaleString() +
+                    ' | ' + totalItems + ' database result(s) (' + critical + ' critical, ' + warning + ' warning, ' + info + ' info, ' + ok + ' ok)' +
+                    ' | ' + checkerErrors + ' checker error(s).';
             }
 
             if (overallEl) {
                 overallEl.style.display = '';
-                if (overall === 'critical') {
+                if (checkerErrors > 0 || overall === 'critical') {
                     overallEl.style.background = 'rgba(239,68,68,.14)';
                     overallEl.style.color = '#fca5a5';
                     overallEl.style.border = '1px solid rgba(239,68,68,.35)';
@@ -635,7 +680,7 @@ function loadRoutineDbChecks() {
                     overallEl.style.color = '#86efac';
                     overallEl.style.border = '1px solid rgba(16,185,129,.35)';
                 }
-                overallEl.textContent = String(overall).toUpperCase();
+                overallEl.textContent = 'DATABASE ' + String(overall).toUpperCase() + (checkerErrors > 0 ? ' | CHECKER ERROR' : '');
             }
 
             if (!keys.length) {
@@ -663,19 +708,23 @@ function loadRoutineDbChecks() {
                     html +=
                         '<table style="width:100%;border-collapse:collapse;font-size:0.73rem">' +
                             '<tbody>';
-                    items.forEach(function(item, idx) {
-                        if (idx > 25) return;
-                        var rowVal = '';
-                        if (item.value !== undefined && item.value !== null) {
-                            if (typeof item.value === 'string') rowVal = item.value;
-                            else rowVal = JSON.stringify(item.value);
-                        }
+                    items.forEach(function(item) {
+                        var itemType = item.resultType === 'checkerError' ? 'Checker error' : 'Database result';
+                        var approval = item.requiresHumanApproval ? 'Required' : 'Not required';
                         html +=
                             '<tr style="border-top:1px solid rgba(255,255,255,.06)">' +
-                                '<td style="padding:0.4rem 0.4rem 0.4rem 0;min-width:80px;color:#a5b4fc;text-transform:uppercase;font-size:0.68rem">' + _routineEsc(item.severity || 'ok') + '</td>' +
-                                '<td style="padding:0.4rem 0 0.4rem 0.6rem;color:#94a3b8;font-size:0.69rem;text-transform:uppercase;min-width:40px">' + _routineEsc(item.area || '') + '</td>' +
-                                '<td style="padding:0.4rem 0.4rem 0.4rem 0.6rem">' + _routineEsc(item.finding || '') + '</td>' +
-                                '<td style="padding:0.4rem 0 0.4rem 0.6rem;color:#e5e7eb;font-family:monospace;word-break:break-all">' + _routineEsc(rowVal) + '</td>' +
+                                '<td style="padding:0.55rem 0.5rem 0.55rem 0;vertical-align:top;min-width:88px">' + _routineStatusBadge(item.severity || 'ok') + '</td>' +
+                                '<td style="padding:0.55rem 0.4rem;vertical-align:top;color:#94a3b8;font-size:0.69rem;text-transform:uppercase;min-width:48px">' + _routineEsc(item.area || '') + '</td>' +
+                                '<td style="padding:0.55rem 0 0.65rem 0.6rem;vertical-align:top">' +
+                                    '<div style="font-weight:700;margin-bottom:0.35rem">' + _routineEsc(item.finding || '') + '</div>' +
+                                    _routineDetail('Result type', itemType, false) +
+                                    _routineDetail('Reason', item.reason || 'Not provided', false) +
+                                    _routineDetail('Confidence', item.confidence || 'Not provided', false) +
+                                    _routineDetail('Human approval', approval, false) +
+                                    _routineDetail('Recommended action', item.recommendedAction || 'Not provided', false) +
+                                    _routineDetail('Evidence', _routineJson(item.evidence), true) +
+                                    _routineDetail('Additional value', _routineJson(item.value), true) +
+                                '</td>' +
                             '</tr>';
                     });
                     html += '</tbody></table>';

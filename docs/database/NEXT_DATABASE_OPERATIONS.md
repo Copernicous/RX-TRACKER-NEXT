@@ -1,6 +1,6 @@
 # RX Tracker NEXT database operations
 
-This runbook applies to RX Tracker NEXT `4.0.0-next.13`. The central rule is
+This runbook applies to RX Tracker NEXT `4.0.0-next.57`. The central rule is
 simple: the web server validates the database, while `rx-db` changes it.
 
 ## Command forms
@@ -15,6 +15,7 @@ use `rx-db.exe <command>`. Both execute the same static migration manifest.
 | Verify schema | `npm run db:verify` | `.\rx-db.exe verify` |
 | Fresh provision | `npm run db:provision` | `.\rx-db.exe provision` |
 | Seed reference data | `npm run db:seed:reference` | `.\rx-db.exe seed-reference` |
+| Validate newest backup recoverability | `npm run db:backup:validate-recoverability -- --confirm-database <exact-name> --acknowledge-isolated-maintenance` | `.\rx-db.exe validate-backup-recoverability --confirm-database <exact-name> --acknowledge-isolated-maintenance` |
 | First administrator | `npm run db:bootstrap-admin -- --username <name> --master` | `.\rx-db.exe bootstrap-admin --username <name> --master` |
 
 By default, commands read the same `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASS`,
@@ -54,6 +55,32 @@ removes schema-creation rights, and makes `SequelizeMeta` read-only. It refuses
 to repurpose a role that has memberships or owns database objects. Run this
 first against a disposable restored database and never place the maintenance
 password in `.env`.
+
+## Backup recoverability validation
+
+Backoffice Routine Database Checks only read previously recorded evidence; the
+web request never performs a restore. During an approved isolated maintenance
+window, a database administrator may validate the newest successful custom dump
+with:
+
+```powershell
+.\rx-db.exe validate-backup-recoverability `
+  --confirm-database <exact-configured-database-name> `
+  --acknowledge-isolated-maintenance `
+  --require-fresh-hours 48
+```
+
+Use a temporary maintenance identity with `CREATEDB` or superuser capability.
+The command forces both in-process backup schedulers off for its own execution;
+do not edit the production `.env` to run it. The job creates only a newly
+generated `rx_health_validate_*` database, verifies dump
+identity, migrations, schema, and basic row fingerprints, then removes that
+temporary database. It refuses to overwrite the configured database and fails
+unless cleanup succeeds. Successful evidence is written beside database backups
+as `recoverability-validation.json`; a successful dump creation without this
+matching evidence is not reported as verified recoverability. Backup and
+validation records from a different database name, server identity, or database
+OID are ignored until a new backup is created for the current database.
 
 ## Fresh database
 

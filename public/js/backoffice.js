@@ -109,9 +109,9 @@ function renderStatsRow() {
     var nonEmpty = 0;
     Object.keys(tableCounts).forEach(function(k) { total += tableCounts[k]; if (tableCounts[k] > 0) nonEmpty++; });
     document.getElementById('statsRow').innerHTML =
-        '<div class="stat-pill"><div class="num" style="color:#6366f1">' + tableMeta.length + '</div><div class="lbl">Tables</div></div>' +
-        '<div class="stat-pill"><div class="num" style="color:#ef4444">' + total.toLocaleString() + '</div><div class="lbl">Total Records</div></div>' +
-        '<div class="stat-pill"><div class="num" style="color:#10b981">' + nonEmpty + '</div><div class="lbl">With Data</div></div>' +
+        '<div class="stat-pill"><div class="num" style="color:#6366f1">' + tableMeta.length + '</div><div class="lbl">Managed Tables</div></div>' +
+        '<div class="stat-pill"><div class="num" style="color:#ef4444">' + total.toLocaleString() + '</div><div class="lbl">Managed Records</div></div>' +
+        '<div class="stat-pill"><div class="num" style="color:#10b981">' + nonEmpty + '</div><div class="lbl">Nonempty Managed</div></div>' +
         '<div class="stat-pill"><div class="num" style="color:#f59e0b">' + selected.size + '</div><div class="lbl">Selected</div></div>';
 }
 

@@ -102,6 +102,11 @@ jobs:
           npm run test:new-server-installer
           npm run test:project-control-test-copy
           npm run test:report-view-render
+          npm run test:delivery-log-archive
+          npm run test:delivery-log-archive-client
+          npm run test:routine-db-health
+          npm run test:backup-scheduler-disable
+          npm run test:backoffice-backup-snapshot
           npm run test:i18n-branding
 
       - name: Provision and verify a fresh database
@@ -110,6 +115,9 @@ jobs:
           npm run db:status
           npm run db:verify
           npm run db:migrate
+
+      - name: Validate newest backup through an isolated restore
+        run: BACKUP_RECOVERABILITY_REAL_DB=true npm run test:backup-recoverability-integration
 
       - name: Verify migration checksum drift protection
         run: |
@@ -137,21 +145,21 @@ jobs:
         run: |
           createdb -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -T rx_next_ci_base_test rx_next_ci_regression_test
           export DB_NAME=rx_next_ci_regression_test
-          npm run test:call-center-queue-reopen
-          npm run test:call-center-phone-client
-          npm run test:call-center-shared-state
-          SOFTPHONE_SETUP_TEST_DB_NAME=rx_next_ci_regression_test npm run test:softphone-self-setup
-          CALL_ATTEMPT_TEST_DB_NAME=rx_next_ci_regression_test npm run test:call-center-call-attempts
-          CALL_CENTER_PAGINATION_TEST_DB_NAME=rx_next_ci_regression_test npm run test:call-center-pagination
-          PATIENT_PAGINATION_TEST_DB_NAME=rx_next_ci_regression_test PATIENT_PAGINATION_TEST_CONFIRM_DB_NAME=rx_next_ci_regression_test npm run test:patient-pagination
-          REPORT_FILTER_TEST_DB_NAME=rx_next_ci_regression_test npm run test:report-filter-parity
-          DASHBOARD_ANALYTICS_TEST_DB_NAME=rx_next_ci_regression_test DASHBOARD_ANALYTICS_TEST_CONFIRM_DB_NAME=rx_next_ci_regression_test npm run test:dashboard-analytics
-          RX_PIPELINE_FILTER_TEST_DB_NAME=rx_next_ci_regression_test RX_PIPELINE_FILTER_TEST_CONFIRM_DB_NAME=rx_next_ci_regression_test npm run test:rx-pipeline-filter-parity
-          npm run test:patient-double-update
-          QA_DB_NAME=rx_next_ci_regression_test npm run test:rx-override
-          npm run test:workflow-date
-          npm run test:backoffice-patient-delete
-          npm run test:service-window
+          timeout --foreground 180s npm run test:call-center-queue-reopen
+          timeout --foreground 180s npm run test:call-center-phone-client
+          timeout --foreground 180s npm run test:call-center-shared-state
+          SOFTPHONE_SETUP_TEST_DB_NAME=rx_next_ci_regression_test timeout --foreground 180s npm run test:softphone-self-setup
+          CALL_ATTEMPT_TEST_DB_NAME=rx_next_ci_regression_test timeout --foreground 180s npm run test:call-center-call-attempts
+          CALL_CENTER_PAGINATION_TEST_DB_NAME=rx_next_ci_regression_test timeout --foreground 180s npm run test:call-center-pagination
+          PATIENT_PAGINATION_TEST_DB_NAME=rx_next_ci_regression_test PATIENT_PAGINATION_TEST_CONFIRM_DB_NAME=rx_next_ci_regression_test timeout --foreground 180s npm run test:patient-pagination
+          REPORT_FILTER_TEST_DB_NAME=rx_next_ci_regression_test timeout --foreground 180s npm run test:report-filter-parity
+          DASHBOARD_ANALYTICS_TEST_DB_NAME=rx_next_ci_regression_test DASHBOARD_ANALYTICS_TEST_CONFIRM_DB_NAME=rx_next_ci_regression_test timeout --foreground 180s npm run test:dashboard-analytics
+          RX_PIPELINE_FILTER_TEST_DB_NAME=rx_next_ci_regression_test RX_PIPELINE_FILTER_TEST_CONFIRM_DB_NAME=rx_next_ci_regression_test timeout --foreground 180s npm run test:rx-pipeline-filter-parity
+          timeout --foreground 180s npm run test:patient-double-update
+          QA_DB_NAME=rx_next_ci_regression_test timeout --foreground 180s npm run test:rx-override
+          timeout --foreground 180s npm run test:workflow-date
+          timeout --foreground 180s npm run test:backoffice-patient-delete
+          timeout --foreground 180s npm run test:service-window
 
       - name: Run managed RX Softphone relay integration
         shell: bash
@@ -183,6 +191,7 @@ jobs:
           npm run db:runtime-role:configure -- --role rxnext_runtime_ci --confirm-database rx_next_ci_base_test
           npm run db:runtime-role:inspect -- --role rxnext_runtime_ci
           npm run db:runtime-role:verify -- --role rxnext_runtime_ci
+          ROUTINE_DB_HEALTH_REAL_DB=true DB_NAME=rx_next_ci_base_test DB_USER=rxnext_runtime_ci DB_PASS="$RX_RUNTIME_DB_PASSWORD" timeout --foreground 180s npm run test:routine-db-health
 
           DB_NAME=rx_next_ci_base_test DB_USER=rxnext_runtime_ci DB_PASS="$RX_RUNTIME_DB_PASSWORD" PORT=3211 node app.js > /tmp/rx-next-server.log 2>&1 &
           server_pid=$!

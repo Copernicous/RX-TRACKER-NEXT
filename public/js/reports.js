@@ -170,6 +170,125 @@
         return fetchReportJson('/api/reports/delivery-log-archives');
     }
 
+    function deliveryLogTimezoneName() {
+        try {
+            return String(Intl.DateTimeFormat().resolvedOptions().timeZone || '');
+        } catch (_error) {
+            return '';
+        }
+    }
+
+    function requestDeliveryLogReprint(recordId) {
+        var now = new Date();
+        return fetchWithAuth(window.rxUrl('/api/reports/delivery-log-archives/' + encodeURIComponent(recordId) + '/reprint'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                reprintedAtEpoch: now.getTime(),
+                timezoneOffsetMinutes: now.getTimezoneOffset(),
+                timezoneName: deliveryLogTimezoneName()
+            })
+        }).then(function(response) {
+            if (!response) throw new Error('Archive API authentication failed');
+            return response.json().catch(function() { return {}; }).then(function(data) {
+                if (!response.ok) throw new Error(data.error || 'Archive reprint audit failed (' + response.status + ')');
+                if (!data || !data.printUrl) throw new Error('Archive reprint API returned an incomplete response');
+                return data;
+            });
+        });
+    }
+
+    function fetchDeliveryLogPrintHtml(printUrl) {
+        return fetchWithAuth(window.rxUrl(printUrl), { cache: 'no-store' }).then(function(response) {
+            if (!response) throw new Error('Archive API authentication failed');
+            if (!response.ok) throw new Error('Archive print request failed (' + response.status + ')');
+            return response.text();
+        }).then(function(html) {
+            if (!html) throw new Error('Archived log is empty');
+            return html;
+        });
+    }
+
+    function stampDeliveryLogReprint(win, label) {
+        Array.prototype.slice.call(win.document.querySelectorAll('.audit-strip')).forEach(function(auditStrip) {
+            var reprintLine = auditStrip.querySelector('.reprint-stamp');
+            if (!reprintLine) {
+                reprintLine = win.document.createElement('span');
+                reprintLine.className = 'reprint-stamp';
+                auditStrip.appendChild(reprintLine);
+            }
+            reprintLine.textContent = 'Reprinted: ' + String(label || '');
+        });
+    }
+
+    function printAuthorizedDeliveryLogArchive(win) {
+        var body = win.document.body;
+        if (!body) throw new Error('Archived delivery log is not ready to print');
+        var timerApi = typeof win.setTimeout === 'function' ? win : window;
+        var cleanupTimer = null;
+        var cleanedUp = false;
+
+        function clearAuthorization() {
+            if (cleanedUp) return;
+            cleanedUp = true;
+            body.classList.remove('print-authorized');
+            if (cleanupTimer !== null && typeof timerApi.clearTimeout === 'function') timerApi.clearTimeout(cleanupTimer);
+            if (typeof win.removeEventListener === 'function') win.removeEventListener('afterprint', clearAuthorization);
+        }
+
+        win.focus();
+        body.classList.add('delivery-log-archive');
+        body.classList.add('print-authorized');
+        if (typeof win.addEventListener === 'function') win.addEventListener('afterprint', clearAuthorization);
+        cleanupTimer = timerApi.setTimeout(clearAuthorization, 60000);
+        try {
+            win.print();
+        } catch (error) {
+            clearAuthorization();
+            throw error;
+        }
+    }
+
+    function bindDeliveryLogArchiveActions(win, recordId) {
+        var printButton = win.document.getElementById('printReportBtn');
+        var closeButton = win.document.getElementById('closeReportBtn');
+        if (closeButton) closeButton.addEventListener('click', function() { win.close(); });
+        if (printButton) {
+            printButton.addEventListener('click', function() {
+                runDeliveryLogReprint(win, recordId, printButton);
+            });
+        }
+    }
+
+    function runDeliveryLogReprint(win, recordId, triggerButton) {
+        if (triggerButton && triggerButton.disabled) return Promise.resolve();
+        var originalLabel = triggerButton ? triggerButton.textContent : '';
+        if (triggerButton) {
+            triggerButton.disabled = true;
+            triggerButton.textContent = 'Preparing audited reprint...';
+        }
+        return requestDeliveryLogReprint(recordId).then(function(data) {
+            return fetchDeliveryLogPrintHtml(data.printUrl).then(function(html) {
+                win.document.open();
+                win.document.write(html);
+                win.document.close();
+                win.document.title = 'Delivery Log Archive';
+                win.document.body.classList.add('delivery-log-archive');
+                stampDeliveryLogReprint(win, data.reprinted);
+                bindDeliveryLogArchiveActions(win, recordId);
+                printAuthorizedDeliveryLogArchive(win);
+            });
+        }).catch(function(error) {
+            if (!triggerButton) win.close();
+            showToast((error.message || 'Could not audit archived delivery log reprint.') + ' Printing was blocked.', 'danger');
+        }).finally(function() {
+            if (triggerButton) {
+                triggerButton.disabled = false;
+                triggerButton.textContent = originalLabel;
+            }
+        });
+    }
+
     async function renderDeliveryLogArchiveRecords() {
         const tbody = document.getElementById('deliveryLogArchiveBody');
         if (!tbody) return Promise.resolve();
@@ -221,46 +340,16 @@
             showToast('Popup blocked. Allow popups to open the archived delivery log.', 'warning');
             return;
         }
-        var reprintTimestamp = new Date();
-        var reprintLabel = reprintTimestamp.toLocaleString([], {
-            month: '2-digit',
-            day: '2-digit',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit'
-        });
         win.document.write('<!doctype html><html><head><meta charset="UTF-8"><title>Delivery Log Archive</title></head><body>Loading...</body></html>');
         win.document.close();
+        runDeliveryLogReprint(win, recordId, null);
+    }
 
-        fetchWithAuth(window.rxUrl('/api/reports/delivery-log-archives/' + encodeURIComponent(recordId) + '/print'))
-            .then(function(res) {
-                if (!res) throw new Error('Archive API authentication failed');
-                if (!res.ok) throw new Error('Archive print request failed (' + res.status + ')');
-                return res.text();
-            })
-            .then(function(html) {
-                if (!html) throw new Error('Archived log is empty');
-                win.document.open();
-                win.document.write(html);
-                win.document.close();
-                win.document.title = 'Delivery Log Archive';
-                var auditStrip = win.document.querySelector('.audit-strip');
-                var reprintLine;
-                if (auditStrip) {
-                    reprintLine = win.document.createElement('span');
-                    reprintLine.textContent = 'Reprinted: ' + reprintLabel;
-                    auditStrip.appendChild(reprintLine);
-                } else {
-                    reprintLine = win.document.createElement('div');
-                    reprintLine.textContent = 'Reprinted: ' + reprintLabel;
-                    win.document.body && win.document.body.appendChild(reprintLine);
-                }
-            })
-            .catch(function(error) {
-                win.close();
-                showToast(error.message || 'Could not open archived delivery log.', 'danger');
-            });
+    if (window.__RX_REPORTS_TEST_HOOKS__) {
+        window.__RX_REPORTS_TEST_HOOKS__.requestDeliveryLogReprint = requestDeliveryLogReprint;
+        window.__RX_REPORTS_TEST_HOOKS__.runDeliveryLogReprint = runDeliveryLogReprint;
+        window.__RX_REPORTS_TEST_HOOKS__.stampDeliveryLogReprint = stampDeliveryLogReprint;
+        window.__RX_REPORTS_TEST_HOOKS__.printAuthorizedDeliveryLogArchive = printAuthorizedDeliveryLogArchive;
     }
 
     function buildPatientReportParams(options) {

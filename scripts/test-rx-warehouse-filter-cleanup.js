@@ -9,6 +9,8 @@ const {
 const config = readConfig();
 assertQaDatabase(config);
 applyRuntimeEnv(config);
+process.env.BACKUP_SCHEDULER_ENABLED = 'false';
+process.env.SITE_BACKUP_SCHEDULER_ENABLED = 'false';
 
 const db = require('../models');
 const rxController = require('../controllers/rxController');

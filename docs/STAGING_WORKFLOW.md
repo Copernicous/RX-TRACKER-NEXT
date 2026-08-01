@@ -34,9 +34,13 @@ git merge --no-ff staging
 # after final dev polish and tests
 git checkout main
 git merge --no-ff develop
-npm run build:exe
-git tag vX.Y.Z
-git push origin main develop staging --tags
+git push origin main develop staging
+
+# after the exact main commit passes PostgreSQL lifecycle CI and CodeQL
+git tag -a vX.Y.Z -m "RX Tracker NEXT X.Y.Z"
+git push origin vX.Y.Z
+
+# GitHub Actions builds and publishes the official executables, ZIPs, and checksums
 ```
 
 ## Folder And File Map

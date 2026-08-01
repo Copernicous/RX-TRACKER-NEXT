@@ -34,6 +34,14 @@ const softphoneRelayPairLimiter = rateLimit({
     legacyHeaders: false,
     message: { error: 'Too many softphone pairing attempts. Try again in 15 minutes.' }
 });
+const deliveryLogArchiveCreateLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 30,
+    standardHeaders: true,
+    legacyHeaders: false,
+    keyGenerator: req => 'delivery-log-user-' + String(req.user && req.user.id || 'anonymous'),
+    message: { error: 'Too many delivery-log archive requests. Try again in 15 minutes.' }
+});
 
 function getCookie(cookieHeader, name) {
     if (!cookieHeader) return null;
@@ -181,6 +189,25 @@ function restrictCallCenterApi(req, res, next) {
         reason: 'call_center_url_injection'
     });
     return res.status(403).json({ message: 'Call Center users can only access the Call Center workspace.' });
+}
+
+async function requireDeliveryLogPrintPermission(req, res, next) {
+    try {
+        if (!req.user) return res.status(401).json({ message: 'Unauthorized' });
+        const rxPermission = await rbac.getRequestPermission(req, 'rx_records');
+        if (rxPermission.visible && rxPermission.canPrint) return next();
+        const reportsPermission = await rbac.getRequestPermission(req, 'reports');
+        if (reportsPermission.visible && reportsPermission.canPrint) return next();
+        recordPermissionDenied(req, {
+            moduleKey: 'rx_records|reports',
+            requiredAction: 'print',
+            reason: 'missing_delivery_log_print'
+        });
+        return res.status(403).json({ message: 'Access denied: delivery-log print permission is required.' });
+    } catch (error) {
+        console.error('[delivery-log permissions] error:', error.message);
+        return res.status(500).json({ error: 'Could not evaluate delivery-log print permission.' });
+    }
 }
 
 // â”€â”€ Public routes (no auth required) â€” must be declared BEFORE router.use(auth) â”€â”€
@@ -373,10 +400,11 @@ router.get('/reports/patient-rx-detail', rbac.requirePermission('reports', 'expo
 router.get('/reports/rx-receipts', rbac.requirePermission('reports', 'read'), reportController.getRXReceiptReport);
 router.get('/reports/rx-actions', rbac.requirePermission('reports', 'read'), reportController.getRXActionReport);
 router.get('/reports/rx-delivery-log-interactive.pdf', rbac.requirePermission('reports', 'export'), deliveryLogPdfController.download);
-router.get('/reports/delivery-log-archives',       rbac.requirePermission('reports', 'export'), deliveryLogArchiveController.list);
-router.post('/reports/delivery-log-archives',      rbac.requirePermission('reports', 'export'), auditLogger('Delivery Log Archive'), deliveryLogArchiveController.create);
-router.get('/reports/delivery-log-archives/:id',    rbac.requirePermission('reports', 'read'),  deliveryLogArchiveController.get);
-router.get('/reports/delivery-log-archives/:id/print', rbac.requirePermission('reports', 'read'), deliveryLogArchiveController.print);
+router.get('/reports/delivery-log-archives',       rbac.requirePermission('reports', 'print'), deliveryLogArchiveController.list);
+router.post('/reports/delivery-log-archives',      rbac.requirePermission('rx_records', 'print'), deliveryLogArchiveCreateLimiter, deliveryLogArchiveController.create);
+router.get('/reports/delivery-log-archives/:id',   rbac.requirePermission('reports', 'print'), deliveryLogArchiveController.get);
+router.get('/reports/delivery-log-archives/:id/print', requireDeliveryLogPrintPermission, deliveryLogArchiveController.print);
+router.post('/reports/delivery-log-archives/:id/reprint', requireDeliveryLogPrintPermission, deliveryLogArchiveController.reprint);
 router.get('/admin/delivery-log-archives', masterOnly, deliveryLogArchiveController.list);
 router.delete('/admin/delivery-log-archives/:id', masterOnly, requireStagingDestructiveConfirmation, deliveryLogArchiveController.delete);
 router.delete('/admin/delivery-log-archives', masterOnly, requireStagingDestructiveConfirmation, deliveryLogArchiveController.purge);

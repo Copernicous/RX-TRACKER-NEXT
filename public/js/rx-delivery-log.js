@@ -66,6 +66,8 @@
                 ? 'RETURNED'
                 : receiptTracking && receiptTracking.completionDate ? 'RECEIVED' : 'PENDING';
             return {
+                rxId: Number(rx.id),
+                pharmacyId: rx.Pharmacy && Number(rx.Pharmacy.id) > 0 ? Number(rx.Pharmacy.id) : null,
                 number: index + 1,
                 receivedDate: formatDate(returnedToPharmacy ? rx.deliveryOutcomeDate : (receiptTracking && receiptTracking.completionDate), false),
                 receivedAt: formatDate(returnedToPharmacy ? rx.deliveryOutcomeDate : (receiptTracking && receiptTracking.completionDate), true),
@@ -84,15 +86,17 @@
     }
 
     function groupRowsByPharmacy(rows) {
-        var groupsByName = {};
+        var groupsByKey = {};
         rows.forEach(function (row) {
             var pharmacyName = row.pharmacy || 'Unassigned Pharmacy';
-            if (!groupsByName[pharmacyName]) groupsByName[pharmacyName] = [];
-            groupsByName[pharmacyName].push(row);
+            var pharmacyKey = row.pharmacyId ? 'pharmacy-' + row.pharmacyId : 'unassigned';
+            if (!groupsByKey[pharmacyKey]) {
+                groupsByKey[pharmacyKey] = { pharmacyId: row.pharmacyId || null, pharmacy: pharmacyName, rows: [] };
+            }
+            groupsByKey[pharmacyKey].rows.push(row);
         });
-        return Object.keys(groupsByName).sort().map(function (pharmacyName) {
-            return { pharmacy: pharmacyName, rows: groupsByName[pharmacyName] };
-        });
+        return Object.keys(groupsByKey).map(function (key) { return groupsByKey[key]; })
+            .sort(function (a, b) { return a.pharmacy.localeCompare(b.pharmacy); });
     }
 
     function paginatePharmacyRows(rows) {
@@ -121,7 +125,8 @@
             generated: baseMetadata.generated,
             period: baseMetadata.period,
             filters: baseMetadata.filters,
-            location: pharmacyName
+            location: pharmacyName,
+            groupIndex: groupIndex
         };
     }
 
@@ -162,6 +167,8 @@
             reference: reference,
             verification: dateToken.slice(-4) + '-' + String(total).padStart(4, '0'),
             generated: now.toLocaleString(),
+            generatedAtEpoch: now.getTime(),
+            timezoneOffsetMinutes: now.getTimezoneOffset(),
             period: (dateFrom && dateFrom.value ? formatDate(dateFrom.value, false) : 'All dates') +
                 ' - ' + (dateTo && dateTo.value ? formatDate(dateTo.value, false) : 'Current'),
             filters: filterSummary()
@@ -237,7 +244,7 @@
         return '<article class="report-page">' +
             '<div class="company-masthead">RB &amp; DC SOLUTIONS LLC - ORIGINAL RECEIPTS DELIVERY LOG</div>' +
             '<header class="report-header">' +
-                '<div class="title-block"><h1>Print &amp; Delivery Log</h1><label class="driver-header">Driver: <input class="driver-header-field" type="text" aria-label="Driver for pharmacy"></label></div>' +
+                '<div class="title-block"><h1>Print &amp; Delivery Log</h1><label class="driver-header">Driver: <input class="driver-header-field" data-pharmacy-group-index="' + Number(metadata.groupIndex || 0) + '" type="text" maxlength="160" aria-label="Driver for pharmacy"></label></div>' +
                 '<dl>' +
                     '<dt>Report Reference:</dt><dd>' + escapeHtml(metadata.reference) + '</dd>' +
                     '<dt>Reporting Period:</dt><dd>' + escapeHtml(metadata.period) + '</dd>' +
@@ -321,24 +328,201 @@
             });
     }
 
+    function responseError(res, data, fallback) {
+        var detail = data && typeof data.error === 'string' ? data.error : '';
+        return new Error(detail || fallback + (res && res.status ? ' (' + res.status + ')' : ''));
+    }
+
+    function browserTimezoneName() {
+        try {
+            return String(Intl.DateTimeFormat().resolvedOptions().timeZone || '');
+        } catch (_error) {
+            return '';
+        }
+    }
+
+    function createArchiveRequestId() {
+        var cryptoApi = window.crypto;
+        if (cryptoApi && typeof cryptoApi.randomUUID === 'function') {
+            return cryptoApi.randomUUID();
+        }
+        if (!cryptoApi || typeof cryptoApi.getRandomValues !== 'function') {
+            throw new Error('Secure browser randomness is unavailable. The delivery log cannot be archived.');
+        }
+        var bytes = new Uint8Array(16);
+        cryptoApi.getRandomValues(bytes);
+        bytes[6] = (bytes[6] & 15) | 64;
+        bytes[8] = (bytes[8] & 63) | 128;
+        var hex = Array.prototype.map.call(bytes, function (value) {
+            return value.toString(16).padStart(2, '0');
+        }).join('');
+        return hex.slice(0, 8) + '-' + hex.slice(8, 12) + '-' + hex.slice(12, 16) + '-' + hex.slice(16, 20) + '-' + hex.slice(20);
+    }
+
+    function createArchiveDraftState() {
+        return {
+            requestId: createArchiveRequestId(),
+            archiveRecord: null
+        };
+    }
+
+    function persistDeliveryLogArchive(payload) {
+        return window.fetchWithAuth(window.rxUrl('/api/reports/delivery-log-archives'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        }).then(function (res) {
+            if (!res) throw new Error('Archive API authentication failed.');
+            return res.json().catch(function () { return {}; }).then(function (data) {
+                if (!res.ok) throw responseError(res, data, 'Delivery-log archive save failed');
+                if (!data || !data.id || !data.printUrl) throw new Error('Archive API returned an incomplete response.');
+                return data;
+            });
+        });
+    }
+
+    function fetchDeliveryLogArchiveHtml(printUrl) {
+        return window.fetchWithAuth(window.rxUrl(printUrl), { cache: 'no-store' }).then(function (res) {
+            if (!res) throw new Error('Archive API authentication failed.');
+            if (!res.ok) throw new Error('Archived delivery log could not be loaded (' + res.status + ').');
+            return res.text();
+        }).then(function (html) {
+            if (!html) throw new Error('Archived delivery log is empty.');
+            return html;
+        });
+    }
+
+    function withPersistedDeliveryLogArchive(archivePromise, onReady) {
+        return archivePromise.then(function (saved) {
+            return fetchDeliveryLogArchiveHtml(saved.printUrl).then(function (html) {
+                return onReady(saved, html);
+            });
+        });
+    }
+
+    function auditDeliveryLogReprint(archiveId) {
+        var now = new Date();
+        return window.fetchWithAuth(window.rxUrl('/api/reports/delivery-log-archives/' + encodeURIComponent(archiveId) + '/reprint'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                reprintedAtEpoch: now.getTime(),
+                timezoneOffsetMinutes: now.getTimezoneOffset(),
+                timezoneName: browserTimezoneName()
+            })
+        }).then(function (res) {
+            if (!res) throw new Error('Archive API authentication failed.');
+            return res.json().catch(function () { return {}; }).then(function (data) {
+                if (!res.ok) throw responseError(res, data, 'Delivery-log reprint audit failed');
+                if (!data || !data.printUrl) throw new Error('Delivery-log reprint API returned an incomplete response.');
+                return data;
+            });
+        });
+    }
+
+    function setReprintLabel(reportWindow, label) {
+        var auditStrips = Array.prototype.slice.call(reportWindow.document.querySelectorAll('.audit-strip'));
+        auditStrips.forEach(function (auditStrip) {
+            var stamp = auditStrip.querySelector('.reprint-stamp');
+            if (!stamp) {
+                stamp = reportWindow.document.createElement('span');
+                stamp.className = 'reprint-stamp';
+                auditStrip.appendChild(stamp);
+            }
+            stamp.textContent = 'Reprinted: ' + String(label || '');
+        });
+    }
+
+    function renderArchivedReport(reportWindow, archiveId, html, reprintLabel) {
+        reportWindow.onload = null;
+        reportWindow.document.open();
+        reportWindow.document.write(html);
+        reportWindow.document.close();
+        reportWindow.document.body.classList.add('delivery-log-archive');
+        if (reprintLabel) setReprintLabel(reportWindow, reprintLabel);
+        bindArchivedReportActions(reportWindow, archiveId);
+    }
+
+    function printAuthorizedArchivedReport(reportWindow) {
+        var body = reportWindow.document.body;
+        if (!body) throw new Error('Archived delivery log is not ready to print.');
+        var timerApi = typeof reportWindow.setTimeout === 'function' ? reportWindow : window;
+        var cleanupTimer = null;
+        var cleanedUp = false;
+
+        function clearAuthorization() {
+            if (cleanedUp) return;
+            cleanedUp = true;
+            body.classList.remove('print-authorized');
+            if (cleanupTimer !== null && typeof timerApi.clearTimeout === 'function') timerApi.clearTimeout(cleanupTimer);
+            if (typeof reportWindow.removeEventListener === 'function') reportWindow.removeEventListener('afterprint', clearAuthorization);
+        }
+
+        reportWindow.focus();
+        body.classList.add('delivery-log-archive');
+        body.classList.add('print-authorized');
+        if (typeof reportWindow.addEventListener === 'function') reportWindow.addEventListener('afterprint', clearAuthorization);
+        cleanupTimer = timerApi.setTimeout(clearAuthorization, 60000);
+        try {
+            reportWindow.print();
+        } catch (error) {
+            clearAuthorization();
+            throw error;
+        }
+    }
+
+    function bindArchivedReportActions(reportWindow, archiveId) {
+        var printButton = reportWindow.document.getElementById('printReportBtn');
+        var closeButton = reportWindow.document.getElementById('closeReportBtn');
+        if (printButton) {
+            printButton.addEventListener('click', function () {
+                if (printButton.disabled) return;
+                printButton.disabled = true;
+                var originalLabel = printButton.textContent;
+                printButton.textContent = 'Preparing audited reprint...';
+                auditDeliveryLogReprint(archiveId).then(function (result) {
+                    return fetchDeliveryLogArchiveHtml(result.printUrl).then(function (html) {
+                        renderArchivedReport(reportWindow, archiveId, html, result.reprinted);
+                        printAuthorizedArchivedReport(reportWindow);
+                    });
+                }).catch(function (error) {
+                    window.showToast(error.message || 'Reprint audit failed. Printing was blocked.', 'danger');
+                }).finally(function () {
+                    printButton.disabled = false;
+                    printButton.textContent = originalLabel;
+                });
+            });
+        }
+        if (closeButton) closeButton.addEventListener('click', function () { reportWindow.close(); });
+    }
+
+    function bindDraftDriverFields(reportWindow) {
+        var fields = Array.prototype.slice.call(reportWindow.document.querySelectorAll('.driver-header-field'));
+        fields.forEach(function (field) {
+            field.addEventListener('input', function () {
+                var groupIndex = field.getAttribute('data-pharmacy-group-index');
+                fields.forEach(function (other) {
+                    if (other !== field && other.getAttribute('data-pharmacy-group-index') === groupIndex) other.value = field.value;
+                });
+            });
+        });
+    }
+
+    function captureDrivers(reportWindow, pharmacyGroups) {
+        return pharmacyGroups.map(function (group, groupIndex) {
+            var field = reportWindow.document.querySelector('.driver-header-field[data-pharmacy-group-index="' + groupIndex + '"]');
+            return {
+                pharmacyId: group.pharmacyId || null,
+                driver: field ? String(field.value || '').trim() : ''
+            };
+        });
+    }
+
     function openPdfReport() {
         var reportWindow = window.open('', '_blank', 'width=1200,height=850');
         if (!reportWindow) {
             window.showToast('Popup blocked. Allow popups to create the delivery log PDF.', 'warning');
             return;
-        }
-
-        function persistDeliveryLogArchive(payload) {
-            return window.fetchWithAuth(window.rxUrl('/api/reports/delivery-log-archives'), {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            }).then(function (res) {
-                if (!res || !res.ok) return null;
-                return res.json();
-            }).catch(function () {
-                return null;
-            });
         }
 
         fetchRows().then(function (records) {
@@ -364,22 +548,9 @@
                 });
             });
             var metadata = baseMetadata;
-            var documentHtml = '<!doctype html><html><head><meta charset="UTF-8"><title>' + escapeHtml(metadata.reference) + '</title><link rel="stylesheet" href="/css/rx-delivery-log.css?v=20260730-5"></head><body>' + pages + '<div class="report-actions"><button id="printReportBtn" type="button">Print / Save PDF</button><button id="closeReportBtn" class="report-close-btn" type="button">Close</button></div></body></html>';
-            var archivePayload = {
-                reference: baseMetadata.reference,
-                verification: baseMetadata.verification,
-                generated: baseMetadata.generated,
-                period: baseMetadata.period,
-                filters: baseMetadata.filters,
-                total: rows.length,
-                counts: reportCounts(rows),
-                rows: rows,
-                pharmacyGroups: pharmacyGroups.map(function (group) {
-                    return { pharmacy: group.pharmacy, rows: group.rows };
-                }),
-                documentHtml: documentHtml
-            };
-            persistDeliveryLogArchive(archivePayload);
+            var archiveState = createArchiveDraftState();
+            var draftPrintGuard = '<style>@media print{body.delivery-log-draft>*{display:none!important}}</style>';
+            var documentHtml = '<!doctype html><html><head><meta charset="UTF-8"><title>' + escapeHtml(metadata.reference) + '</title><link rel="stylesheet" href="/css/rx-delivery-log.css?v=20260730-5">' + draftPrintGuard + '</head><body class="delivery-log-draft">' + pages + '<div class="report-actions"><button id="printReportBtn" type="button">Print / Save PDF</button><button id="closeReportBtn" class="report-close-btn" type="button">Close</button></div></body></html>';
             reportWindow.document.open();
             reportWindow.document.write(documentHtml);
             reportWindow.document.close();
@@ -389,7 +560,34 @@
             function bindReportActions() {
                 var printButton = reportWindow.document.getElementById('printReportBtn');
                 var closeButton = reportWindow.document.getElementById('closeReportBtn');
-                if (printButton) printButton.addEventListener('click', function () { reportWindow.focus(); reportWindow.print(); });
+                bindDraftDriverFields(reportWindow);
+                if (printButton) printButton.addEventListener('click', function () {
+                    if (printButton.disabled) return;
+                    printButton.disabled = true;
+                    printButton.textContent = archiveState.archiveRecord ? 'Loading archived copy...' : 'Saving secure archive...';
+                    var archivePromise = archiveState.archiveRecord ? Promise.resolve(archiveState.archiveRecord) : persistDeliveryLogArchive({
+                        requestId: archiveState.requestId,
+                        rxRecordIds: rows.map(function (row) { return row.rxId; }),
+                        drivers: captureDrivers(reportWindow, pharmacyGroups),
+                        generatedAtEpoch: baseMetadata.generatedAtEpoch,
+                        timezoneOffsetMinutes: baseMetadata.timezoneOffsetMinutes,
+                        timezoneName: browserTimezoneName(),
+                        period: baseMetadata.period,
+                        filters: baseMetadata.filters
+                    }).then(function (saved) {
+                        archiveState.archiveRecord = saved;
+                        return saved;
+                    });
+                    withPersistedDeliveryLogArchive(archivePromise, function (saved, html) {
+                        renderArchivedReport(reportWindow, saved.id, html, '');
+                        printAuthorizedArchivedReport(reportWindow);
+                    }).catch(function (error) {
+                        archiveState.archiveRecord = null;
+                        printButton.disabled = false;
+                        printButton.textContent = 'Print / Save PDF';
+                        window.showToast((error.message || 'Archive save failed.') + ' Printing was blocked.', 'danger');
+                    });
+                });
                 if (closeButton) closeButton.addEventListener('click', function () { reportWindow.close(); });
             }
             reportWindow.onload = bindReportActions;
@@ -398,6 +596,16 @@
             reportWindow.close();
             window.showToast(error.message || 'Could not generate delivery log.', 'danger');
         });
+    }
+
+    if (window.__RX_DELIVERY_LOG_TEST_HOOKS__) {
+        window.__RX_DELIVERY_LOG_TEST_HOOKS__.persistDeliveryLogArchive = persistDeliveryLogArchive;
+        window.__RX_DELIVERY_LOG_TEST_HOOKS__.withPersistedDeliveryLogArchive = withPersistedDeliveryLogArchive;
+        window.__RX_DELIVERY_LOG_TEST_HOOKS__.auditDeliveryLogReprint = auditDeliveryLogReprint;
+        window.__RX_DELIVERY_LOG_TEST_HOOKS__.setReprintLabel = setReprintLabel;
+        window.__RX_DELIVERY_LOG_TEST_HOOKS__.createArchiveRequestId = createArchiveRequestId;
+        window.__RX_DELIVERY_LOG_TEST_HOOKS__.createArchiveDraftState = createArchiveDraftState;
+        window.__RX_DELIVERY_LOG_TEST_HOOKS__.printAuthorizedArchivedReport = printAuthorizedArchivedReport;
     }
 
     function xmlCell(value, style) {

@@ -8,6 +8,28 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
 
+- Candidate **v4.0.0-next.57** is prepared for CI and testing-server validation;
+  publication and production installation are not yet confirmed. It hardens
+  server-canonical Delivery Log carbon-copy archives and audited cleanup,
+  preserves local PC/browser time-zone and DST consistency, makes Backoffice
+  database health strictly read-only and evidence-based, makes CSV review
+  snapshots catalog-driven across every public table while preserving the
+  curated destructive whitelist, and updates Project Control to `2.2.2` so
+  option 25 proves the exact service process, executable,
+  listener, and PostgreSQL database through a retry-safe one-time loopback
+  token before optional test-copy activation. Tagged publication now requires
+  a successful PostgreSQL lifecycle push run for the exact tagged `main`
+  commit. There is no schema migration, configured RX Action change,
+  business-data rewrite, or Kasm, Cloudflare, FortiGate/reverse-proxy behavior
+  change. Test the official compiled release first; production updates remain
+  separately approved and use Project Control only.
+  Optional recoverability evidence is produced outside Backoffice with guarded
+  `rx-db validate-backup-recoverability`; it requires exact database
+  confirmation, explicit isolated-maintenance acknowledgement, and elevated
+  temporary database privileges. Backup creation and validation evidence are
+  source-bound to the current configured and actual PostgreSQL database
+  identity, so records from a prior test-copy target remain inconclusive.
+
 - Build-output policy (important for release operations):
   - `dist/` is ignored by git and is local build output only.
   - Official release artifacts are produced in GitHub Actions from the tagged commit (`v*`) by `npm run build:exe` and are uploaded from CI, never from a developer machine.
@@ -122,8 +144,10 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 - Windows service ID: `PatientRXSystem`
 - Production HTTP port: `3000`
 - NEXT database name at the completed cutover: `patient_rx_next_cutover_copy`
-- Project Control version: `2.2.0`
-- Latest official release: `v4.0.0-next.35`. Version `next.31` made
+- Candidate Project Control version: `2.2.2`; installed production version is
+  unconfirmed and must be checked through Project Control before an update.
+- Latest official release: `v4.0.0-next.56`; installation remains unconfirmed.
+  Version `next.31` made
   **Current Stage** the primary RX Records workflow filter, kept **Next Action
   Required** under Advanced filters, and exported both meanings explicitly.
   Version `next.32` applies the same clarity to **Reports â†’ RX Actions**:
@@ -554,7 +578,8 @@ C:\RX-Tracker\deployment-state
 
 1. Work only in the NEXT repository and inspect the existing worktree first.
 2. Update code, tests, changelog, version, and version-specific release notes.
-3. Run relevant local checks and build/test the Windows package.
+3. Run relevant source-level local checks. Do not build official executables or
+   release ZIPs locally; GitHub Actions builds them from the approved tag.
 4. Commit and push `main`.
 5. Wait for the full PostgreSQL lifecycle CI to pass.
 6. Create and push a new annotated `v<version>` tag.

@@ -1,6 +1,6 @@
 {
   "name": "patient-rx-system",
-  "version": "4.0.0-next.56",
+  "version": "4.0.0-next.57",
   "description": "Patient RX Delivery Management System - NEXT database lifecycle preview",
   "main": "app.js",
   "scripts": {
@@ -36,6 +36,12 @@
     "test:patient-pagination": "node scripts/test-patient-server-pagination.js",
     "test:report-filter-parity": "node scripts/test-report-filter-parity.js",
     "test:report-view-render": "node scripts/test-report-view-render.js",
+    "test:delivery-log-archive": "node scripts/test-delivery-log-archive.js",
+    "test:delivery-log-archive-client": "node scripts/test-delivery-log-archive-client.js",
+    "test:routine-db-health": "node scripts/test-routine-db-health.js",
+    "test:backup-scheduler-disable": "node scripts/test-backup-scheduler-disable.js",
+    "test:backup-recoverability-integration": "node scripts/test-backup-recoverability-integration.js",
+    "test:backoffice-backup-snapshot": "node scripts/test-backoffice-backup-snapshot.js",
     "test:dashboard-analytics": "node scripts/test-dashboard-persisted-analytics.js",
     "test:rx-pipeline-filter-parity": "node scripts/test-rx-pipeline-filter-parity.js",
     "test:patient-double-update": "node scripts/test-patient-service-date-double-update.js",
@@ -65,6 +71,7 @@
     "db:runtime-role:configure": "node scripts/db-lifecycle.js configure-runtime-role",
     "db:runtime-role:inspect": "node scripts/db-lifecycle.js inspect-runtime-role",
     "db:runtime-role:verify": "node scripts/db-lifecycle.js verify-runtime-role",
+    "db:backup:validate-recoverability": "node scripts/db-lifecycle.js validate-backup-recoverability",
     "db:bootstrap-admin": "node scripts/db-lifecycle.js bootstrap-admin",
     "db:provision": "node scripts/db-lifecycle.js provision",
     "db:restore:copy": "node scripts/db-lifecycle.js restore-copy",

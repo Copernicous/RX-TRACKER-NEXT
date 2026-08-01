@@ -388,7 +388,7 @@
 <div class="main-wrap" id="mainWrap" style="display:none">
     <div class="warning-banner">
         <i class="fas fa-exclamation-triangle"></i>
-        <p><strong>Danger Zone.</strong> Deletions are <strong>permanent and irreversible</strong>. Use <strong>View</strong> to inspect data and <strong>Export CSV</strong> to back up before purging.</p>
+        <p><strong>Danger Zone.</strong> Deletions are <strong>permanent and irreversible</strong>. Use <strong>View</strong> and <strong>Export CSV</strong> for inspection, and confirm a recoverable PostgreSQL backup through the protected backup workflow before purging.</p>
     </div>
 
     <!-- BO-10: Maintenance Mode Banner (shown when active) -->
@@ -410,7 +410,7 @@
 
     <!-- Tab Navigation -->
     <div class="tab-nav">
-        <button class="tab-btn active" id="tabTables" onclick="switchTab('tables')"><i class="fas fa-table"></i>Tables &amp; Data</button>
+        <button class="tab-btn active" id="tabTables" onclick="switchTab('tables')"><i class="fas fa-table"></i>Managed Tables</button>
         <button class="tab-btn" id="tabSchema" onclick="switchTab('schema')"><i class="fas fa-project-diagram"></i>Schema</button>
         <button class="tab-btn" id="tabOrphans" onclick="switchTab('orphans')"><i class="fas fa-unlink"></i>Orphans</button>
         <button class="tab-btn" id="tabDupes" onclick="switchTab('dupes')"><i class="fas fa-users"></i>Duplicates</button>
@@ -418,7 +418,7 @@
         <button class="tab-btn" id="tabAudit" onclick="switchTab('audit')"><i class="fas fa-history"></i>Audit Log</button>
         <button class="tab-btn" id="tabCcCleanup" onclick="switchTab('cccleanup')"><i class="fas fa-headset"></i>Call Center Cleanup</button>
         <button class="tab-btn" id="tabSettings" onclick="switchTab('settings')"><i class="fas fa-cog"></i>Settings</button>
-        <button class="tab-btn" id="tabBackups" onclick="switchTab('backups')"><i class="fas fa-save"></i>Backups</button>
+        <button class="tab-btn" id="tabBackups" onclick="switchTab('backups')"><i class="fas fa-file-csv"></i>CSV Snapshots</button>
         <button class="tab-btn" id="tabHealth" onclick="switchTab('health')"><i class="fas fa-heartbeat"></i>Health</button>
         <button class="tab-btn" id="tabLocks" onclick="switchTab('locks')"><i class="fas fa-lock"></i>Locks</button>
         <button class="tab-btn" id="tabUsers" onclick="switchTab('users')"><i class="fas fa-user-shield"></i>Users</button>
@@ -429,14 +429,14 @@
     </div>
 
     <!-- Stats Overview -->
-    <div class="section-title"><span><i class="fas fa-chart-bar me-1"></i>Database Overview</span><span id="lastRefresh" style="font-size:0.67rem;font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-muted)"></span></div>
+    <div class="section-title"><span><i class="fas fa-chart-bar me-1"></i>Managed Deletion Overview</span><span id="lastRefresh" style="font-size:0.67rem;font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-muted)"></span></div>
     <div class="stats-row" id="statsRow"></div>
 
     <!-- Tables tab content -->
     <div id="tablesContent">
         <!-- Table Grid -->
         <div class="section-title mt-1">
-            <span><i class="fas fa-table me-1"></i>Tables</span>
+            <span><i class="fas fa-table me-1"></i>Managed Tables <small style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-muted)">&mdash; curated deletion controls, not every database table</small></span>
             <div style="display:flex;gap:0.4rem">
                 <button class="btn-bo btn-bo-outline" onclick="selectAll(true)"  style="padding:0.22rem 0.55rem;font-size:0.7rem"><i class="fas fa-check-double me-1"></i>Select All</button>
                 <button class="btn-bo btn-bo-outline" onclick="selectAll(false)" style="padding:0.22rem 0.55rem;font-size:0.7rem"><i class="fas fa-times me-1"></i>None</button>
@@ -718,13 +718,16 @@
     <div id="backupsContent" class="schema-wrap">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:0.75rem">
             <div>
-                <div style="font-size:1rem;font-weight:700">Backup Manager</div>
-                <div style="font-size:0.75rem;color:var(--text-muted)">CSV export backups of all database tables</div>
+                <div style="font-size:1rem;font-weight:700">Database CSV Review Snapshots</div>
+                <div style="font-size:0.75rem;color:var(--text-muted)">One review CSV for every public PostgreSQL base table, including empty tables</div>
             </div>
             <div style="display:flex;gap:0.5rem">
                 <button class="btn-bo btn-bo-outline" onclick="loadBackups()"><i class="fas fa-sync-alt me-1"></i>Refresh</button>
-                <button class="btn-bo btn-bo-primary" id="createBackupBtn" onclick="createBackup()"><i class="fas fa-save me-1"></i>Create Backup Now</button>
+                <button class="btn-bo btn-bo-primary" id="createBackupBtn" onclick="createBackup()"><i class="fas fa-file-csv me-1"></i>Create Review Snapshot</button>
             </div>
+        </div>
+        <div style="font-size:0.74rem;color:var(--text-muted);margin-bottom:1rem;padding:0.7rem 0.85rem;border-left:3px solid #f59e0b;background:rgba(245,158,11,0.05)">
+            These CSV files are for inspection and controlled export only and can contain sensitive application data. They do not preserve PostgreSQL schema, constraints, sequences, ownership, or settings and cannot be used as a database restore. Use the PostgreSQL backup workflow for recoverable backups.
         </div>
         <div class="schema-card" style="padding:1rem;border-color:rgba(245,158,11,0.35);background:rgba(245,158,11,0.03);margin-bottom:1rem">
             <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.75rem;margin-bottom:0.75rem">
