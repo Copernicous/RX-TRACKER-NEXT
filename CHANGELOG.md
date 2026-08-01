@@ -7,6 +7,24 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+## [4.0.0-next.60]
+
+### Fixed
+
+- Fixed Project Control option 25 activation on NSSM installations where the
+  command-line representation of `AppEnvironmentExtra` did not round-trip as
+  exact independent environment entries. The guarded workflow now writes and
+  verifies the service's native `REG_MULTI_SZ` registry value directly after
+  clearing stale values.
+
+### Safety
+
+- Existing dump verification, isolated database naming, restricted runtime
+  role, migration ledger, business fingerprint, one-time health token,
+  executable, process, listener, and exact database checks remain enforced.
+- No database migration, business-data rewrite, production GUI restore change,
+  or Kasm, Cloudflare, CORS, HTTPS, or reverse-proxy change.
+
 ## [4.0.0-next.59]
 
 ### Fixed

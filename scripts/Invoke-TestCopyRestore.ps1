@@ -186,9 +186,16 @@ function Select-FirstNativeValue([object[]]$OutputLines) {
 }
 
 function Get-NssmEnvironmentPairs {
-    $nssm = Find-Nssm
-    $output = @(& $nssm get $ServiceName AppEnvironmentExtra 2>$null)
-    if ($LASTEXITCODE -ne 0) { Fail 'Could not read the NSSM service environment.' }
+    $parametersPath = "Registry::HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\$ServiceName\Parameters"
+    try {
+        $output = @((Get-ItemProperty -LiteralPath $parametersPath -Name AppEnvironmentExtra `
+            -ErrorAction Stop).AppEnvironmentExtra)
+    } catch {
+        if ($_.Exception.Message -match '(?i)property AppEnvironmentExtra does not exist|cannot find path') {
+            return @()
+        }
+        Fail 'Could not read the NSSM service environment from the service registry.'
+    }
     $pairs = @()
     foreach ($line in $output) {
         $expanded = ([string]$line).Replace([string][char]0, "`n")
@@ -277,8 +284,13 @@ function Set-ServiceEnvironment([string]$ExpectedDatabase, [string]$Verification
     if (-not $pairs.Count) { Fail 'The application .env contains no service settings.' }
     & $nssm reset $ServiceName AppEnvironmentExtra | Out-Null
     if ($LASTEXITCODE -ne 0) { Fail 'Could not clear the previous Windows service environment.' }
-    & $nssm set $ServiceName AppEnvironmentExtra $pairs | Out-Null
-    if ($LASTEXITCODE -ne 0) { Fail 'Could not synchronize the Windows service environment.' }
+    $parametersPath = "Registry::HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\$ServiceName\Parameters"
+    try {
+        New-ItemProperty -LiteralPath $parametersPath -Name AppEnvironmentExtra `
+            -PropertyType MultiString -Value ([string[]]$pairs) -Force -ErrorAction Stop | Out-Null
+    } catch {
+        Fail "Could not synchronize the Windows service environment registry: $($_.Exception.Message)"
+    }
     Assert-ServiceEnvironmentTargetsDatabase $ExpectedDatabase $VerificationToken
 }
 

@@ -70,12 +70,14 @@ assert(restore.includes('Assert-ServiceTargetsApp') &&
   restore.includes("Join-Path $script:AppPath 'server.exe'"),
   'Activation must reuse the guarded NSSM executable-path verification pattern.');
 assert(restore.includes('Assert-ServiceEnvironmentTargetsDatabase') &&
-  restore.includes("get $ServiceName AppEnvironmentExtra"),
+  restore.includes('Get-ItemProperty -LiteralPath $parametersPath -Name AppEnvironmentExtra'),
   'Activation must verify the exact NSSM DB_NAME environment value.');
 const resetEnvironmentIndex = restore.indexOf('& $nssm reset $ServiceName AppEnvironmentExtra');
-const setEnvironmentIndex = restore.indexOf('& $nssm set $ServiceName AppEnvironmentExtra $pairs');
+const setEnvironmentIndex = restore.indexOf('New-ItemProperty -LiteralPath $parametersPath -Name AppEnvironmentExtra');
 assert(resetEnvironmentIndex >= 0 && setEnvironmentIndex > resetEnvironmentIndex,
-  'Activation and recovery must clear stale NSSM environment values before writing the exact snapshot.');
+  'Activation and recovery must clear stale NSSM values before writing an exact REG_MULTI_SZ snapshot.');
+assert(restore.includes('-PropertyType MultiString -Value ([string[]]$pairs)'),
+  'NSSM environment synchronization must preserve each setting as an independent REG_MULTI_SZ entry.');
 const dotEnvFallbackCalls = restore.match(
   /Assert-ServiceEnvironmentTargetsDatabase[^\r\n]*-AllowDotEnvFallback/g
 ) || [];
