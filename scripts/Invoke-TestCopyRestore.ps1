@@ -191,6 +191,11 @@ function Set-ServiceEnvironment {
     if ($LASTEXITCODE -ne 0) { Fail 'Could not synchronize the Windows service environment.' }
 }
 
+function Get-TestCopyBaseDatabase([string]$DatabaseName) {
+    $pattern = '(?i)(?:_(?:restore(?:_(?:test|[0-9]+))?|fresh|test|copy|sandbox|rehearsal|scratch))+(?:_[0-9]+)?$'
+    return [regex]::Replace([string]$DatabaseName, $pattern, '')
+}
+
 function Wait-ForHealth([string]$ExpectedVersion, [int]$TimeoutSeconds = 60) {
     $config = Read-DotEnv $script:EnvPath
     $port = if ($config['PORT']) { [int]$config['PORT'] } else { 3000 }
@@ -237,6 +242,12 @@ function Save-Receipt([hashtable]$Values) {
 function Invoke-SelfTest {
     Assert-SafeTarget 'patient_rx_restore_test' 'patient_rx_next'
     Assert-SafeTarget 'patient_rx_rehearsal_20260726' 'patient_rx_next'
+    if ((Get-TestCopyBaseDatabase 'patient_rx_restore_restore_test') -ne 'patient_rx') {
+        Fail 'Restore base database normalization failed for stacked suffixes.'
+    }
+    if ((Get-TestCopyBaseDatabase 'patient_rx_restore_3_restore') -ne 'patient_rx') {
+        Fail 'Restore base database normalization failed for mixed restore suffixes.'
+    }
     $failed = $false
     try { Assert-SafeTarget 'patient_rx_next' 'patient_rx_next' } catch { $failed = $true }
     if (-not $failed) { Fail 'Self-test failed to reject the active database.' }
@@ -267,9 +278,8 @@ function Invoke-Interactive {
         $dumpPath = [IO.Path]::GetFullPath($dumpInput.Trim().Trim('"'))
         if (-not (Test-Path -LiteralPath $dumpPath -PathType Leaf)) { Fail "Dump file not found: $dumpPath" }
 
-        $defaultTarget = if ($previousDatabase -match '(?i)(_restore|_fresh|_test|_copy|_sandbox|_rehearsal|_scratch)$') {
-            ($previousDatabase -replace '(?i)(_restore(?:_test|_\d+)?|_fresh|_test|_copy|_sandbox|_rehearsal|_scratch)$', '') + '_restore_test'
-        } else { $previousDatabase + '_restore_test' }
+        $baseDatabase = Get-TestCopyBaseDatabase $previousDatabase
+        $defaultTarget = "${baseDatabase}_restore_test"
         if ($defaultTarget -ieq $previousDatabase) { $defaultTarget = "${defaultTarget}_2" }
         $targetInput = Read-Host "Isolated target database [$defaultTarget]"
         $target = if ([string]::IsNullOrWhiteSpace($targetInput)) { $defaultTarget } else { $targetInput.Trim() }
