@@ -8,6 +8,25 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
 
+- Candidate **v4.0.0-next.58** fixes a `.57` Delivery Log regression where the
+  strict archive create validator rejected the legitimate top-level `_csrf`
+  field added by the authenticated browser fetch helper, blocking both archive
+  persistence and printing. The correction also covers audited reprints and
+  Backoffice archive purges. Controlled-copy printing now waits for its frozen,
+  proxy-aware stylesheet, fonts, and browser paint and fails closed if styling
+  cannot be verified. The affected RX Records and Reports scripts use the
+  existing per-process build token to prevent stale proxy-cached code. Reports
+  and Backoffice show compact archive rows while
+  retaining full technical evidence under an expandable control. Stored
+  archives and hashes are unchanged. CSRF remains enforced before the
+  controller; the token is not archived or audited, and unknown or nested
+  fields remain rejected. Focused server, browser-CSRF integration,
+  stylesheet-readiness, client-print, report-render, and public JavaScript
+  regressions pass locally. Publication and compiled testing-server
+  installation are not yet confirmed. There is no migration, business-data
+  rewrite, RX Action change, or Kasm, Cloudflare, CORS, cookie, HTTPS,
+  trust-proxy, or reverse-proxy behavior change.
+
 - Official **v4.0.0-next.57** was published on 2026-08-01 from `main` commit
   `71d2c15d452b86aefb38a8fd2c4447c778ea5154` after the PostgreSQL lifecycle
   CI, application regressions, isolated restore validation, restricted-role
@@ -42,7 +61,7 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 
 - The manually launched local development listener on port 3000 was
   consolidated on 2026-08-01 onto the authoritative repository at
-  `v4.0.0-next.57`, using the verified `patient_rx_dev` development database.
+  `v4.0.0-next.58`, using the verified `patient_rx_dev` development database.
   The older `.49` nodemon process was stopped, and the stale generated `.55`
   `dist` folder and its empty update lock were removed. The development
   database reports 39 applied migrations, zero pending migrations, and a
@@ -166,7 +185,7 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 - NEXT database name at the completed cutover: `patient_rx_next_cutover_copy`
 - Candidate Project Control version: `2.2.2`; installed production version is
   unconfirmed and must be checked through Project Control before an update.
-- Latest official release: `v4.0.0-next.56`; installation remains unconfirmed.
+- Latest official release: `v4.0.0-next.57`; installation remains unconfirmed.
   Version `next.31` made
   **Current Stage** the primary RX Records workflow filter, kept **Next Action
   Required** under Advanced filters, and exported both meanings explicitly.

@@ -166,6 +166,49 @@
         });
     }
 
+    function deliveryLogArchiveCode(record) {
+        var id = String(record && record.id || '').replace(/[^0-9a-z]/gi, '').toUpperCase();
+        return id ? 'Archive ' + id.slice(0, 12) : 'Archive unavailable';
+    }
+
+    function deliveryLogArchiveContents(record) {
+        var counts = record && record.counts && typeof record.counts === 'object' ? record.counts : {};
+        var parts = [String(Number(record && record.total || 0)) + ' RX'];
+        [['received', 'received'], ['returned', 'returned'], ['pending', 'pending']].forEach(function(entry) {
+            var count = Number(counts[entry[0]] || 0);
+            if (count > 0) parts.push(String(count) + ' ' + entry[1]);
+        });
+        return parts.join(' / ');
+    }
+
+    function deliveryLogArchiveIntegrity(record) {
+        var reference = String(record && record.reference || '');
+        var verification = String(record && record.verification || '');
+        if (/corrupt|unsupported/i.test(reference) || /unavailable/i.test(verification)) {
+            return { label: 'Unavailable', className: 'text-bg-danger', printable: false };
+        }
+        if (Number(record && record.formatVersion || 1) >= 2 && /^SHA256-[a-f0-9]{64}$/i.test(verification)) {
+            return { label: 'Verified', className: 'text-bg-success', printable: true };
+        }
+        return { label: 'Legacy', className: 'text-bg-secondary', printable: true };
+    }
+
+    function deliveryLogArchiveEvidence(record) {
+        var evidence = [
+            ['Reference', record && record.reference],
+            ['Verification', record && record.verification],
+            ['Artifact hash', record && record.artifactHash],
+            ['Selection evidence', record && record.filters],
+            ['Format version', record && record.formatVersion]
+        ].filter(function(entry) { return entry[1] !== undefined && entry[1] !== null && String(entry[1]) !== ''; });
+        return '<details class="mt-1"><summary class="small text-muted" style="cursor:pointer">Evidence</summary>' +
+            '<div class="small mt-2 text-break" style="min-width:16rem;max-width:30rem">' +
+            evidence.map(function(entry) {
+                return '<div class="mb-1"><strong>' + escHtml(entry[0]) + ':</strong> <code>' + escHtml(String(entry[1])) + '</code></div>';
+            }).join('') +
+            '</div></details>';
+    }
+
     function fetchDeliveryLogArchives() {
         return fetchReportJson('/api/reports/delivery-log-archives');
     }
@@ -276,7 +319,12 @@
                 win.document.body.classList.add('delivery-log-archive');
                 stampDeliveryLogReprint(win, data.reprinted);
                 bindDeliveryLogArchiveActions(win, recordId);
-                printAuthorizedDeliveryLogArchive(win);
+                if (typeof window.rxWaitForDeliveryLogArchivePrintReady !== 'function') {
+                    throw new Error('Archived delivery log print preparation is unavailable. Refresh and try again.');
+                }
+                return window.rxWaitForDeliveryLogArchivePrintReady(win).then(function() {
+                    printAuthorizedDeliveryLogArchive(win);
+                });
             });
         }).catch(function(error) {
             if (!triggerButton) win.close();
@@ -292,29 +340,30 @@
     async function renderDeliveryLogArchiveRecords() {
         const tbody = document.getElementById('deliveryLogArchiveBody');
         if (!tbody) return Promise.resolve();
-        tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin me-2"></i>Loading...</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin me-2"></i>Loading...</td></tr>';
 
         try {
             const records = await fetchDeliveryLogArchives();
             allDeliveryLogArchives = Array.isArray(records) ? records : [];
             if (!allDeliveryLogArchives.length) {
-                tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">No archived delivery logs yet</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4">No archived delivery logs yet</td></tr>';
                 return;
             }
 
             tbody.innerHTML = allDeliveryLogArchives.map(function(record) {
                 const encodedId = encodeURIComponent(record.id || '');
                 const createdAt = record.createdAt ? formatArchiveDate(record.createdAt) : '';
+                const integrity = deliveryLogArchiveIntegrity(record);
                 return '<tr>' +
-                    '<td>' + escHtml(record.reference || '') + '</td>' +
-                    '<td>' + escHtml(record.verification || '') + '</td>' +
-                    '<td>' + escHtml(createdAt || '') + '</td>' +
-                    '<td>' + escHtml(String(record.total || 0)) + '</td>' +
-                    '<td>' + escHtml(record.generated || '') + '</td>' +
+                    '<td><div class="fw-semibold">' + escHtml(record.generated || createdAt || 'Unknown time') + '</div>' +
+                        '<div class="small text-muted">' + escHtml(deliveryLogArchiveCode(record)) + '</div>' +
+                        '<div class="small text-muted">Saved ' + escHtml(createdAt || 'Unknown') + '</div></td>' +
+                    '<td>' + escHtml(deliveryLogArchiveContents(record)) + '</td>' +
                     '<td>' + escHtml(record.period || 'All dates') + '</td>' +
-                    '<td>' + escHtml(record.filters || 'All visible RX records') + '</td>' +
-                    '<td>' +
-                        '<button class="btn btn-sm btn-outline-primary delivery-log-reprint-btn" type="button" data-record-id="' + escHtml(encodedId) + '">' +
+                    '<td><span class="badge ' + integrity.className + '">' + escHtml(integrity.label) + '</span>' + deliveryLogArchiveEvidence(record) + '</td>' +
+                    '<td class="text-nowrap">' +
+                        '<button class="btn btn-sm btn-outline-primary delivery-log-reprint-btn" type="button" data-record-id="' + escHtml(encodedId) + '" ' +
+                            (integrity.printable ? '' : 'disabled title="This archive cannot be verified."') + '>' +
                             '<i class="fas fa-print me-1"></i>Reprint' +
                         '</button>' +
                     '</td>' +
@@ -330,7 +379,7 @@
             });
         } catch (_err) {
             allDeliveryLogArchives = [];
-            tbody.innerHTML = '<tr><td colspan="8" class="text-center text-danger py-4">Could not load archive history.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center text-danger py-4">Could not load archive history.</td></tr>';
         }
     }
 
@@ -350,6 +399,10 @@
         window.__RX_REPORTS_TEST_HOOKS__.runDeliveryLogReprint = runDeliveryLogReprint;
         window.__RX_REPORTS_TEST_HOOKS__.stampDeliveryLogReprint = stampDeliveryLogReprint;
         window.__RX_REPORTS_TEST_HOOKS__.printAuthorizedDeliveryLogArchive = printAuthorizedDeliveryLogArchive;
+        window.__RX_REPORTS_TEST_HOOKS__.deliveryLogArchiveCode = deliveryLogArchiveCode;
+        window.__RX_REPORTS_TEST_HOOKS__.deliveryLogArchiveContents = deliveryLogArchiveContents;
+        window.__RX_REPORTS_TEST_HOOKS__.deliveryLogArchiveIntegrity = deliveryLogArchiveIntegrity;
+        window.__RX_REPORTS_TEST_HOOKS__.deliveryLogArchiveEvidence = deliveryLogArchiveEvidence;
     }
 
     function buildPatientReportParams(options) {

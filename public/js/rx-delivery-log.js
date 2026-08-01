@@ -441,6 +441,10 @@
         reportWindow.document.body.classList.add('delivery-log-archive');
         if (reprintLabel) setReprintLabel(reportWindow, reprintLabel);
         bindArchivedReportActions(reportWindow, archiveId);
+        if (typeof window.rxWaitForDeliveryLogArchivePrintReady !== 'function') {
+            return Promise.reject(new Error('Archived delivery log print preparation is unavailable. Refresh and try again.'));
+        }
+        return window.rxWaitForDeliveryLogArchivePrintReady(reportWindow);
     }
 
     function printAuthorizedArchivedReport(reportWindow) {
@@ -482,8 +486,9 @@
                 printButton.textContent = 'Preparing audited reprint...';
                 auditDeliveryLogReprint(archiveId).then(function (result) {
                     return fetchDeliveryLogArchiveHtml(result.printUrl).then(function (html) {
-                        renderArchivedReport(reportWindow, archiveId, html, result.reprinted);
-                        printAuthorizedArchivedReport(reportWindow);
+                        return renderArchivedReport(reportWindow, archiveId, html, result.reprinted).then(function() {
+                            printAuthorizedArchivedReport(reportWindow);
+                        });
                     });
                 }).catch(function (error) {
                     window.showToast(error.message || 'Reprint audit failed. Printing was blocked.', 'danger');
@@ -579,8 +584,9 @@
                         return saved;
                     });
                     withPersistedDeliveryLogArchive(archivePromise, function (saved, html) {
-                        renderArchivedReport(reportWindow, saved.id, html, '');
-                        printAuthorizedArchivedReport(reportWindow);
+                        return renderArchivedReport(reportWindow, saved.id, html, '').then(function() {
+                            printAuthorizedArchivedReport(reportWindow);
+                        });
                     }).catch(function (error) {
                         archiveState.archiveRecord = null;
                         printButton.disabled = false;

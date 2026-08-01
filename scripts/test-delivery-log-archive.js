@@ -73,12 +73,149 @@ async function run() {
         filters: 'Pharmacy: Test Pharmacy'
     };
 
+    const baseSource = fs.readFileSync(path.resolve(__dirname, '..', 'public', 'js', 'base.js'), 'utf8');
+    const csrfWindow = {
+        location: {
+            href: 'https://portal.example/proxy/session/http/192.168.15.87:3000/rx-records',
+            pathname: '/proxy/session/http/192.168.15.87:3000/rx-records'
+        },
+        fetch: () => Promise.resolve({ status: 200 }),
+        addEventListener() {},
+        prompt() { return ''; },
+        __RX_AUTH_USER: null
+    };
+    const csrfDocument = {
+        cookie: '',
+        title: 'RX Records',
+        getElementById() { return null; },
+        querySelector(selector) {
+            return selector === 'meta[name="rx-csrf-token"]'
+                ? { content: 'middleware-validated-token' }
+                : null;
+        }
+    };
+    vm.runInNewContext(baseSource, {
+        window: csrfWindow,
+        document: csrfDocument,
+        Headers,
+        Request,
+        FormData,
+        Promise,
+        Date,
+        String,
+        Number,
+        Array,
+        Object,
+        Error,
+        console,
+        setInterval() { return 1; }
+    }, { filename: 'base.js' });
+    const csrfRequest = csrfWindow.rxApplyCsrf('/api/reports/delivery-log-archives', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(validRequest)
+    });
+    assert.strictEqual(JSON.parse(csrfRequest.body)._csrf, 'middleware-validated-token',
+        'The real browser CSRF helper must add its transport field to archive JSON.');
+
+    let stylesheetLoad;
+    let stylesheetError;
+    let readinessResolved = false;
+    const stylesheetLink = {
+        href: 'https://portal.example/css/rx-delivery-log-archive-v2.css',
+        sheet: null,
+        addEventListener(name, callback) {
+            if (name === 'load') stylesheetLoad = callback;
+            if (name === 'error') stylesheetError = callback;
+        },
+        removeEventListener() {}
+    };
+    const archiveWindow = {
+        document: {
+            querySelectorAll() { return [stylesheetLink]; },
+            fonts: { ready: Promise.resolve() }
+        },
+        setTimeout() { return 1; },
+        clearTimeout() {},
+        requestAnimationFrame(callback) { callback(); }
+    };
+    const readiness = csrfWindow.rxWaitForDeliveryLogArchivePrintReady(archiveWindow).then(function() {
+        readinessResolved = true;
+    });
+    await Promise.resolve();
+    assert.strictEqual(readinessResolved, false, 'Printing must wait while the archive stylesheet is loading.');
+    assert.strictEqual(
+        stylesheetLink.href,
+        'https://portal.example/proxy/session/http/192.168.15.87:3000/css/rx-delivery-log-archive-v2.css',
+        'The archive stylesheet must retain the public proxy path.'
+    );
+    assert.strictEqual(typeof stylesheetLoad, 'function');
+    assert.strictEqual(typeof stylesheetError, 'function');
+    stylesheetLoad();
+    await readiness;
+    assert.strictEqual(readinessResolved, true, 'Printing may continue after stylesheet, fonts, and paint readiness.');
+
+    let failedStylesheet;
+    const failedLink = {
+        href: stylesheetLink.href,
+        sheet: null,
+        addEventListener(name, callback) { if (name === 'error') failedStylesheet = callback; },
+        removeEventListener() {}
+    };
+    const failedReadiness = csrfWindow.rxWaitForDeliveryLogArchivePrintReady({
+        document: { querySelectorAll() { return [failedLink]; } },
+        setTimeout() { return 1; },
+        clearTimeout() {}
+    });
+    assert.strictEqual(typeof failedStylesheet, 'function');
+    failedStylesheet();
+    await assert.rejects(failedReadiness, /stylesheet could not be loaded/,
+        'A failed stylesheet must block the controlled print.');
+
     const validated = archiveTest.validateCreateRequest(validRequest, now);
     assert.deepStrictEqual(validated.rxRecordIds, [101]);
     assert.strictEqual(validated.drivers.get(7), 'Local Driver');
+    const csrfValidated = archiveTest.validateCreateRequest({ ...validRequest, _csrf: 'middleware-validated-token' }, now);
+    assert.strictEqual(Object.prototype.hasOwnProperty.call(csrfValidated, '_csrf'), false,
+        'The middleware-owned CSRF field must not enter the stored archive input.');
+    assert.deepStrictEqual(
+        archiveTest.validateCreateRequest(JSON.parse(csrfRequest.body), now).rxRecordIds,
+        [101],
+        'The server validator must accept the actual browser-mutated archive request.'
+    );
+    const csrfReprint = archiveTest.validateReprintRequest({
+        reprintedAtEpoch: now,
+        timezoneOffsetMinutes: 240,
+        timezoneName: 'America/New_York',
+        _csrf: 'middleware-validated-token'
+    }, now);
+    assert.strictEqual(Object.prototype.hasOwnProperty.call(csrfReprint, '_csrf'), false,
+        'The middleware-owned CSRF field must not enter reprint audit data.');
+    const csrfPurge = archiveTest.validatePurgeRequest({
+        olderThanDays: 30,
+        confirm: 'PURGE DELIVERY LOGS',
+        _csrf: 'middleware-validated-token'
+    });
+    assert.deepStrictEqual(csrfPurge, { olderThanDays: 30 },
+        'The middleware-owned CSRF field must not enter archive cleanup data.');
     expectRequestFailure(
         () => archiveTest.validateCreateRequest({ ...validRequest, documentHtml: '<script>bad()</script>' }, now),
         /unsupported fields: documentHtml/
+    );
+    expectRequestFailure(
+        () => archiveTest.validateCreateRequest({
+            ...validRequest,
+            drivers: [{ pharmacyId: 7, driver: 'Local Driver', _csrf: 'nested-token' }]
+        }, now),
+        /drivers\[0\] contains unsupported fields: _csrf/
+    );
+    expectRequestFailure(
+        () => archiveTest.validatePurgeRequest({
+            olderThanDays: 30,
+            confirm: 'PURGE DELIVERY LOGS',
+            unexpected: true
+        }),
+        /Purge request contains unsupported fields: unexpected/
     );
     expectRequestFailure(
         () => archiveTest.validateCreateRequest({ ...validRequest, rxRecordIds: Array.from({ length: archiveTest.MAX_ROWS + 1 }, (_, i) => i + 1) }, now),

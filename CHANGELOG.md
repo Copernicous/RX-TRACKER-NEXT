@@ -7,6 +7,40 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+## [4.0.0-next.58]
+
+### Fixed
+
+- Fixed Delivery Log printing so the strict server archive validator accepts
+  the top-level `_csrf` transport field added by the authenticated browser
+  fetch helper. Archive creation now completes before printing instead of
+  failing with an unsupported-field error.
+- Applied the same compatibility correction to audited archive reprints and
+  Backoffice retention cleanup.
+- Delayed controlled-copy printing until the frozen archive stylesheet, fonts,
+  and browser paint are ready. A missing or failed stylesheet now blocks
+  printing instead of producing an unformatted spreadsheet-like copy, and the
+  stylesheet URL remains correct through path-prefixed proxy access.
+- Added the existing per-process build token to the affected RX Records and
+  Reports scripts so proxied browsers do not reuse the pre-fix print code.
+- Simplified Delivery Log archive lists in Reports and Backoffice. Collapsed
+  rows now show a short archive code, useful timestamps and RX counts, period,
+  and integrity status; full references, hashes, and selection evidence remain
+  available under an expandable Evidence control.
+
+### Security
+
+- CSRF verification remains enforced by the existing middleware. Only the
+  recognized top-level transport field is accepted; it is excluded from
+  archive and audit data, while unknown and nested fields remain rejected.
+- Stored archive records and their integrity-bound carbon-copy artifacts are
+  unchanged; compact archive labels are presentation-only.
+
+### Safety
+
+- No schema migration, configured RX Action change, business-data rewrite, or
+  Kasm, Cloudflare, CORS, cookie, HTTPS, trust-proxy, or reverse-proxy change.
+
 ## [4.0.0-next.57]
 
 ### Added

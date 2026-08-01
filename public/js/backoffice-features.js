@@ -288,10 +288,55 @@ async function loadDeliveryLogArchiveStats() {
     }
 }
 
+function _dlArchiveCode(record) {
+    var id = String(record && record.id || '').replace(/[^0-9a-z]/gi, '').toUpperCase();
+    return id ? 'Archive ' + id.slice(0, 12) : 'Archive unavailable';
+}
+
+function _dlArchiveContents(record) {
+    var counts = record && record.counts && typeof record.counts === 'object' ? record.counts : {};
+    var parts = [String(Number(record && record.total || 0)) + ' RX'];
+    var entries = [['received', 'received'], ['returned', 'returned'], ['pending', 'pending']];
+    for (var i = 0; i < entries.length; i++) {
+        var count = Number(counts[entries[i][0]] || 0);
+        if (count > 0) parts.push(String(count) + ' ' + entries[i][1]);
+    }
+    return parts.join(' / ');
+}
+
+function _dlArchiveIntegrity(record) {
+    var reference = String(record && record.reference || '');
+    var verification = String(record && record.verification || '');
+    if (/corrupt|unsupported/i.test(reference) || /unavailable/i.test(verification)) {
+        return { label: 'Unavailable', color: '#fca5a5' };
+    }
+    if (Number(record && record.formatVersion || 1) >= 2 && /^SHA256-[a-f0-9]{64}$/i.test(verification)) {
+        return { label: 'Verified', color: '#86efac' };
+    }
+    return { label: 'Legacy', color: '#cbd5e1' };
+}
+
+function _dlArchiveEvidence(record) {
+    var evidence = [
+        ['Reference', record && record.reference],
+        ['Verification', record && record.verification],
+        ['Artifact hash', record && record.artifactHash],
+        ['Selection evidence', record && record.filters],
+        ['Format version', record && record.formatVersion]
+    ];
+    var rows = '';
+    for (var i = 0; i < evidence.length; i++) {
+        if (evidence[i][1] === undefined || evidence[i][1] === null || String(evidence[i][1]) === '') continue;
+        rows += '<div style="margin-top:.25rem"><strong>' + _dlArchiveEsc(evidence[i][0]) + ':</strong> <code>' + _dlArchiveEsc(String(evidence[i][1])) + '</code></div>';
+    }
+    return '<details style="margin-top:.25rem"><summary style="cursor:pointer;color:var(--text-muted)">Evidence</summary>' +
+        '<div style="min-width:15rem;max-width:28rem;overflow-wrap:anywhere">' + rows + '</div></details>';
+}
+
 async function loadDeliveryLogArchiveList() {
     var listEl = document.getElementById('dlArchiveList');
     if (listEl) {
-        listEl.innerHTML = '<p style="text-align:center;padding:2rem;color:var(--text-muted)"><i class="fas fa-spinner fa-spin me-2"></i>Loading delivery log archives...</p>';
+        listEl.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--text-muted)"><i class="fas fa-spinner fa-spin me-2"></i>Loading delivery log archives...</td></tr>';
     }
 
     var existing = _deliveryLogArchiveSelections;
@@ -304,7 +349,7 @@ async function loadDeliveryLogArchiveList() {
         if (!_deliveryLogArchiveData.length) {
             _deliveryLogArchiveSelections = {};
             if (listEl) {
-                listEl.innerHTML = '<p style="text-align:center;padding:2rem;color:var(--text-muted)">No delivery log archive files available.</p>';
+                listEl.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--text-muted)">No delivery log archive files available.</td></tr>';
             }
             _renderDeliveryLogArchiveSummary();
             _updateDlArchiveSelectAllCheckbox();
@@ -316,16 +361,18 @@ async function loadDeliveryLogArchiveList() {
         _deliveryLogArchiveData.forEach(function(a) {
             var id = String(a.id || '').trim();
             var isChecked = !!(existing && existing[id]);
+            var integrity = _dlArchiveIntegrity(a);
+            var createdAt = a.createdAt ? new Date(a.createdAt).toLocaleString() : 'Unknown';
             if (isChecked) nextSelections[id] = true;
 
             rows +=
                 '<tr style="border-top:1px solid var(--border)">' +
                     '<td style="text-align:center"><input type="checkbox" class="dlArchiveChk" data-id="' + _dlArchiveEsc(id) + '" ' + (isChecked ? 'checked' : '') + ' onchange="onDlArchiveSelectRow(this)"></td>' +
-                    '<td>' + _dlArchiveEsc(a.reference || '—') + '</td>' +
-                    '<td>' + _dlArchiveEsc(a.verification || '—') + '</td>' +
-                    '<td>' + _dlArchiveEsc(a.generated || '—') + '</td>' +
-                    '<td style="text-align:right">' + Number(a.total || 0).toLocaleString() + '</td>' +
-                    '<td>' + (a.createdAt ? _dlArchiveEsc(new Date(a.createdAt).toLocaleString()) : 'Unknown') + '</td>' +
+                    '<td><div style="font-weight:600">' + _dlArchiveEsc(a.generated || createdAt) + '</div><div style="color:var(--text-muted)">' + _dlArchiveEsc(_dlArchiveCode(a)) + '</div></td>' +
+                    '<td>' + _dlArchiveEsc(_dlArchiveContents(a)) + '</td>' +
+                    '<td>' + _dlArchiveEsc(a.period || 'All dates') + '</td>' +
+                    '<td><span style="color:' + integrity.color + ';font-weight:700">' + _dlArchiveEsc(integrity.label) + '</span>' + _dlArchiveEvidence(a) + '</td>' +
+                    '<td>' + _dlArchiveEsc(createdAt) + '</td>' +
                     '<td style="text-align:center">' +
                         '<button class="btn-bo btn-bo-danger" style="padding:.24rem .45rem;font-size:.66rem" onclick="deleteDeliveryLogArchive(\'' + _dlArchiveEsc(id) + '\',this)"><i class="fas fa-trash-alt"></i></button>' +
                     '</td>' +
@@ -334,15 +381,12 @@ async function loadDeliveryLogArchiveList() {
         _deliveryLogArchiveSelections = nextSelections;
 
         if (listEl) {
-            listEl.innerHTML =
-                '<div style="overflow:auto"><table class="bo-table" style="width:100%;border-collapse:collapse;font-size:.73rem">' +
-                    '<tbody>' + rows + '</tbody>' +
-                '</table></div>';
+            listEl.innerHTML = rows;
         }
         _renderDeliveryLogArchiveSummary();
         _updateDlArchiveSelectAllCheckbox();
     } catch(e) {
-        if (listEl) listEl.innerHTML = '<p style="color:#fca5a5;padding:2rem">' + e.message + '</p>';
+        if (listEl) listEl.innerHTML = '<tr><td colspan="7" style="color:#fca5a5;padding:2rem">' + _dlArchiveEsc(e.message) + '</td></tr>';
         _deliveryLogArchiveData = [];
         _deliveryLogArchiveSelections = {};
         _renderDeliveryLogArchiveSummary();

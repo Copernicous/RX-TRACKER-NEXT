@@ -524,7 +524,7 @@
 <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index:1100"></div>
 <script src="/assets/bootstrap.bundle.min.js"></script>
 <a id="xa-base" href="/login" style="display:none"></a>
-<script src="/js/base.js"></script>
+<script src="/js/base.js?v=<%= encodeURIComponent(String(locals.appBuild || 'dev')) %>"></script>
 <script src="/js/app.js?v=<%= encodeURIComponent(String(locals.appBuild || 'dev')) %>"></script>
 <script src="/js/help.js"></script>
 <script src="/js/documents.js"></script>
@@ -3229,6 +3229,6 @@
     });
 
 </script>
-<script src="/js/rx-delivery-log.js?v=20260730-43"></script>
+<script src="/js/rx-delivery-log.js?v=<%= encodeURIComponent(String(locals.appBuild || 'dev')) %>"></script>
 </body>
 </html>

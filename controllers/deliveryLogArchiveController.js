@@ -214,7 +214,7 @@ function validateCreateRequest(body, now) {
     }
     assertAllowedKeys(body, [
         'rxRecordIds', 'drivers', 'generatedAtEpoch', 'timezoneOffsetMinutes', 'timezoneName',
-        'requestId', 'period', 'filters'
+        'requestId', 'period', 'filters', '_csrf'
     ], 'Delivery-log archive request');
 
     if (!Array.isArray(body.rxRecordIds) || !body.rxRecordIds.length) {
@@ -261,7 +261,7 @@ function validateCreateRequest(body, now) {
 function validateReprintRequest(body, now) {
     const serialized = JSON.stringify(body || {});
     if (Buffer.byteLength(serialized, 'utf8') > 1024) throw requestError('Reprint request is too large.', 413, 'REQUEST_TOO_LARGE');
-    assertAllowedKeys(body, ['reprintedAtEpoch', 'timezoneOffsetMinutes', 'timezoneName'], 'Reprint request');
+    assertAllowedKeys(body, ['reprintedAtEpoch', 'timezoneOffsetMinutes', 'timezoneName', '_csrf'], 'Reprint request');
     const clock = parseBrowserClock(body, 'reprinted', now);
     return {
         reprintedAtEpoch: clock.epoch,
@@ -269,6 +269,15 @@ function validateReprintRequest(body, now) {
         timezoneName: clock.timezoneName,
         reprinted: formatLocalTimestamp(clock.epoch, clock.offset)
     };
+}
+
+function validatePurgeRequest(body) {
+    assertAllowedKeys(body, ['olderThanDays', 'confirm', '_csrf'], 'Purge request');
+    const olderThanDays = toPositiveInteger(body.olderThanDays);
+    const confirm = boundedText(body.confirm, 40, 'confirm');
+    if (confirm !== 'PURGE DELIVERY LOGS') throw requestError('Type "PURGE DELIVERY LOGS" to confirm this cleanup.');
+    if (!olderThanDays || olderThanDays > 3650) throw requestError('olderThanDays is required and must be between 1 and 3650.');
+    return { olderThanDays };
 }
 
 function findReceiptAction(actions) {
@@ -1046,11 +1055,7 @@ exports.delete = async (req, res) => {
 
 exports.purge = async (req, res) => {
     try {
-        assertAllowedKeys(req && req.body, ['olderThanDays', 'confirm'], 'Purge request');
-        const olderThanDays = toPositiveInteger(req.body.olderThanDays);
-        const confirm = boundedText(req.body.confirm, 40, 'confirm');
-        if (confirm !== 'PURGE DELIVERY LOGS') throw requestError('Type "PURGE DELIVERY LOGS" to confirm this cleanup.');
-        if (!olderThanDays || olderThanDays > 3650) throw requestError('olderThanDays is required and must be between 1 and 3650.');
+        const { olderThanDays } = validatePurgeRequest(req && req.body);
 
         const cutoff = Date.now() - (olderThanDays * 24 * 60 * 60 * 1000);
         await recoverStagedArchives();
@@ -1114,6 +1119,7 @@ exports._test = {
     MAX_ROWS,
     validateCreateRequest,
     validateReprintRequest,
+    validatePurgeRequest,
     buildArchiveRecord,
     assertRecordIntegrity,
     normalizeLegacyRecord,

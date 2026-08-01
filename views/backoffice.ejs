@@ -763,17 +763,19 @@
                         <thead>
                             <tr style="background:var(--surface-2)">
                                 <th style="width:34px;text-align:center"><input type="checkbox" id="dlArchiveSelectAll" onchange="toggleDlArchiveSelectAll(this.checked)"></th>
-                                <th style="text-align:left">Reference</th>
-                                <th style="text-align:left">Verification</th>
-                                <th style="text-align:left">Generated</th>
-                                <th style="text-align:right">Rows</th>
-                                <th style="text-align:left">Created</th>
+                                <th style="text-align:left">Archive</th>
+                                <th style="text-align:left">Contents</th>
+                                <th style="text-align:left">Period</th>
+                                <th style="text-align:left">Integrity</th>
+                                <th style="text-align:left">Saved</th>
                                 <th style="width:120px;text-align:center">Action</th>
                             </tr>
                         </thead>
+                        <tbody id="dlArchiveList">
+                            <tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--text-muted)">Loading delivery log archives...</td></tr>
+                        </tbody>
                     </table>
                 </div>
-                <div id="dlArchiveList" style="margin-top:.35rem">Loading delivery log archives...</div>
             </div>
         </div>
         <div id="backupPath" style="font-size:0.72rem;color:var(--text-muted);margin-bottom:1rem;display:flex;align-items:center;gap:0.4rem"><i class="fas fa-folder-open"></i><span id="backupPathText">Loading...</span></div>

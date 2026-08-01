@@ -8,6 +8,10 @@ const vm = require('vm');
 const root = path.resolve(__dirname, '..');
 const rxSource = fs.readFileSync(path.join(root, 'public', 'js', 'rx-delivery-log.js'), 'utf8');
 const reportsSource = fs.readFileSync(path.join(root, 'public', 'js', 'reports.js'), 'utf8');
+const backofficeSource = fs.readFileSync(path.join(root, 'public', 'js', 'backoffice-features.js'), 'utf8');
+const rxViewSource = fs.readFileSync(path.join(root, 'views', 'rx-records.ejs'), 'utf8');
+const reportsViewSource = fs.readFileSync(path.join(root, 'views', 'reports.ejs'), 'utf8');
+const backofficeViewSource = fs.readFileSync(path.join(root, 'views', 'backoffice.ejs'), 'utf8');
 const archiveCss = fs.readFileSync(path.join(root, 'public', 'css', 'rx-delivery-log-archive-v2.css'), 'utf8');
 
 function timezoneIntl() {
@@ -111,6 +115,17 @@ function printWindow(strips, printAssertion) {
 }
 
 async function run() {
+    assert.match(rxViewSource, /\/js\/base\.js\?v=<%= encodeURIComponent\(String\(locals\.appBuild \|\| 'dev'\)\) %>/,
+        'RX Records must cache-bust the shared print-readiness helper.');
+    assert.match(rxViewSource, /\/js\/rx-delivery-log\.js\?v=<%= encodeURIComponent\(String\(locals\.appBuild \|\| 'dev'\)\) %>/,
+        'RX Records must cache-bust the delivery-log print flow.');
+    assert.match(reportsViewSource, /\/js\/base\.js\?v=<%= encodeURIComponent\(String\(locals\.appBuild \|\| 'dev'\)\) %>/,
+        'Reports must cache-bust the shared print-readiness helper.');
+    assert.match(backofficeViewSource, /<tbody id="dlArchiveList">[\s\S]*?<\/tbody>/,
+        'Backoffice archive headers and rows must share one table.');
+    assert.match(backofficeViewSource, /<th[^>]*>Period<\/th>/,
+        'Backoffice cleanup must show the archive period.');
+
     let randomUuidCalls = 0;
     const fixedRequestId = '11111111-1111-4111-8111-111111111111';
     const rx = loadRxClient({
@@ -175,6 +190,7 @@ async function run() {
     const reportWindow = {
         __RX_REPORTS_TEST_HOOKS__: reportHooks,
         rxUrl: value => value,
+        rxWaitForDeliveryLogArchivePrintReady: () => Promise.resolve(),
         setTimeout,
         clearTimeout
     };
@@ -200,6 +216,55 @@ async function run() {
         setTimeout,
         clearTimeout
     }, { filename: 'reports.js' });
+
+    const archiveSummary = {
+        id: '1243d668b99ee70dabc4dfcf599d94ed',
+        reference: 'LOG-20260801-1243D668B99EE70DABC4DFCF599D94ED',
+        verification: 'SHA256-' + '6'.repeat(64),
+        artifactHash: '7'.repeat(64),
+        total: 10,
+        counts: { received: 10, returned: 0, pending: 0 },
+        generated: '08/01/2026, 11:49:45 AM',
+        createdAt: '2026-08-01T15:49:45.000Z',
+        period: '07/31/2026',
+        filters: '10 server-verified <open> RX records',
+        formatVersion: 2
+    };
+    assert.strictEqual(reportHooks.deliveryLogArchiveCode(archiveSummary), 'Archive 1243D668B99E');
+    assert.strictEqual(reportHooks.deliveryLogArchiveContents(archiveSummary), '10 RX / 10 received');
+    assert.strictEqual(reportHooks.deliveryLogArchiveIntegrity(archiveSummary).label, 'Verified');
+    assert.strictEqual(reportHooks.deliveryLogArchiveIntegrity({
+        reference: '(corrupt or unsupported record)',
+        verification: 'unavailable'
+    }).printable, false);
+    const reportEvidence = reportHooks.deliveryLogArchiveEvidence(archiveSummary);
+    assert(reportEvidence.includes(archiveSummary.reference), 'Full reference must remain available under Evidence.');
+    assert(reportEvidence.includes(archiveSummary.verification), 'Full verification must remain available under Evidence.');
+    assert(reportEvidence.includes('&lt;open&gt;'), 'Archive evidence must escape server selection text.');
+
+    const backofficeContext = {};
+    vm.runInNewContext(backofficeSource, backofficeContext, { filename: 'backoffice-features.js' });
+    assert.strictEqual(backofficeContext._dlArchiveCode(archiveSummary), 'Archive 1243D668B99E');
+    assert.strictEqual(backofficeContext._dlArchiveContents(archiveSummary), '10 RX / 10 received');
+    assert.strictEqual(backofficeContext._dlArchiveIntegrity(archiveSummary).label, 'Verified');
+    const backofficeEvidence = backofficeContext._dlArchiveEvidence(archiveSummary);
+    assert(backofficeEvidence.includes(archiveSummary.reference));
+    assert(backofficeEvidence.includes('&lt;open&gt;'));
+
+    const archiveListElement = { innerHTML: '' };
+    backofficeContext.document = {
+        getElementById(id) { return id === 'dlArchiveList' ? archiveListElement : null; }
+    };
+    backofficeContext.apiFetch = async () => ({
+        ok: true,
+        json: async () => [archiveSummary]
+    });
+    await backofficeContext.loadDeliveryLogArchiveList();
+    assert(archiveListElement.innerHTML.includes('07/31/2026'),
+        'Backoffice archive rows must include the period used to identify duplicates.');
+    assert(archiveListElement.innerHTML.includes('Archive 1243D668B99E'));
+    assert(!archiveListElement.innerHTML.includes('<table'),
+        'Backoffice must insert rows into the view-owned table instead of nesting a second table.');
 
     let reportPrintCalls = 0;
     const reportStrips = [auditStrip(), auditStrip()];
