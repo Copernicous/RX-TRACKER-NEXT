@@ -524,7 +524,9 @@ function formatRoutineStatus(itemCount, risk) {
 function countCheckStatus(items) {
     var hasCritical = items.some(function(i) { return i.severity === 'critical'; });
     var hasWarning = items.some(function(i) { return i.severity === 'warning'; });
-    return hasCritical ? 'critical' : (hasWarning ? 'warning' : 'ok');
+    if (hasCritical) return 'critical';
+    if (hasWarning) return 'warning';
+    return items.some(function(i) { return i.severity === 'info'; }) ? 'info' : 'ok';
 }
 
 function addCheckSummary(checks, key, items, description) {
@@ -533,6 +535,161 @@ function addCheckSummary(checks, key, items, description) {
         status: countCheckStatus(items),
         items: items
     };
+}
+
+function parseIntSetting(rawValue, fallback, minimum, maximum) {
+    var n = Number.parseInt(rawValue, 10);
+    if (!Number.isFinite(n) || Number.isNaN(n)) return fallback;
+    if (Number.isInteger(minimum) && n < minimum) return minimum;
+    if (Number.isInteger(maximum) && n > maximum) return maximum;
+    return n;
+}
+
+function parseBoolSetting(rawValue, fallback) {
+    if (rawValue === undefined || rawValue === null) return fallback;
+    return ['1', 'true', 'yes', 'on', 'y'].includes(String(rawValue).trim().toLowerCase());
+}
+
+function getRoutineHealthConfig() {
+    return {
+        slowQueries: {
+            minCalls: parseIntSetting(process.env.DB_HEALTH_SLOW_QUERY_MIN_CALLS, 10, 5, 1000000),
+            meanMsWarn: parseIntSetting(process.env.DB_HEALTH_SLOW_QUERY_MEAN_MS_WARNING, 250, 20, 60000),
+            totalMsWarn: parseIntSetting(process.env.DB_HEALTH_SLOW_QUERY_TOTAL_MS_WARNING, 5000, 500, 6000000)
+        },
+        missingIndex: {
+            minRows: parseIntSetting(process.env.DB_HEALTH_MISSING_INDEX_MIN_ROWS, 5000, 100, 2000000000),
+            minSizeMb: parseIntSetting(process.env.DB_HEALTH_MISSING_INDEX_MIN_TABLE_MB, 8, 1, 2048),
+            minCalls: parseIntSetting(process.env.DB_HEALTH_MISSING_INDEX_MIN_CALLS, 20, 3, 1000000),
+            minMeanMs: parseIntSetting(process.env.DB_HEALTH_MISSING_INDEX_MIN_MEAN_MS, 120, 10, 60000),
+            minEvidenceCalls: parseIntSetting(process.env.DB_HEALTH_MISSING_INDEX_MIN_EVIDENCE_CALLS, 20, 3, 1000000),
+            seqToIdxRatioWarn: parseIntSetting(process.env.DB_HEALTH_MISSING_INDEX_SEQ_IDX_RATIO, 20, 2, 2000),
+            statsFreshnessHours: parseIntSetting(process.env.DB_HEALTH_MISSING_INDEX_STATS_HOURS, 24, 1, 4320),
+            topTables: parseIntSetting(process.env.DB_HEALTH_MISSING_INDEX_TOP_TABLES, 20, 5, 200),
+            confidenceScore: {
+                missing: parseIntSetting(process.env.DB_HEALTH_MISSING_INDEX_CONF_SCORE_WARN, 70, 40, 99)
+            }
+        },
+        unusedIndex: {
+            candidateSizeMb: parseIntSetting(process.env.DB_HEALTH_UNUSED_INDEX_MIN_MB, 10, 1, 4096),
+            observationDays: parseIntSetting(process.env.DB_HEALTH_INDEX_OBSERVATION_DAYS, 30, 30, 365),
+            warningWriteRows: parseIntSetting(process.env.DB_HEALTH_UNUSED_INDEX_WARNING_WRITES, 2500, 10, 100000000),
+            ignoreNameLike: String(process.env.DB_HEALTH_UNUSED_INDEX_IGNORE_LIKE || 'cleanup, %_fk_%, %_cleanup_%').split(',')
+        },
+        largeColumn: {
+            minAvgBytes: parseIntSetting(process.env.DB_HEALTH_LARGE_COLUMN_MIN_AVG_BYTES, 1024, 64, 10485760),
+            minVarcharLength: parseIntSetting(process.env.DB_HEALTH_LARGE_VARCHAR_MIN_LENGTH, 1024, 16, 1000000),
+            minColumnBytes: parseIntSetting(process.env.DB_HEALTH_LARGE_COLUMN_REPORTED_SIZE_MB, 1, 1, 1024),
+            topColumnCandidates: parseIntSetting(process.env.DB_HEALTH_LARGE_COLUMN_TOPN, 60, 10, 500),
+            topSampleRows: parseIntSetting(process.env.DB_HEALTH_LARGE_COLUMN_SAMPLE_ROWS, 120, 10, 5000),
+        },
+        deadRows: {
+            warningRatio: parseIntSetting(process.env.DB_HEALTH_DEADROW_WARNING_RATIO_PCT, 12, 1, 100),
+            criticalRatio: parseIntSetting(process.env.DB_HEALTH_DEADROW_CRITICAL_RATIO_PCT, 30, 1, 100),
+            smallTableRows: parseIntSetting(process.env.DB_HEALTH_SMALL_TABLE_ROWS, 4000, 0, 200000),
+            minRowsForVacuumFull: parseIntSetting(process.env.DB_HEALTH_DEADROW_MIN_ROWS_FOR_VACUUM_FULL, 10000, 1, 1000000000),
+            vacuumFullReclaimMb: parseIntSetting(process.env.DB_HEALTH_DEADROW_RECLAIM_MB, 128, 16, 10000),
+            vacuumFullRatioPct: parseIntSetting(process.env.DB_HEALTH_DEADROW_VACUUM_FULL_RATIO_PCT, 55, 20, 99)
+        },
+        backup: {
+            restoreValidationEnabled: parseBoolSetting(process.env.DB_HEALTH_RESTORE_VALIDATE, false),
+            requiredHoursSinceLastSuccessful: parseIntSetting(process.env.DB_HEALTH_BACKUP_RECENT_HOURS, 24, 1, 1680),
+            maxValidationAgeHours: parseIntSetting(process.env.DB_HEALTH_BACKUP_VALIDATION_MAX_AGE_HOURS, 48, 2, 720)
+        }
+    };
+}
+
+function quoteIdent(v) {
+    return '"' + String(v).replace(/"/g, '""') + '"';
+}
+
+function severityFromConfidence(confidence) {
+    if (confidence === 'high') return 'warning';
+    if (confidence === 'medium') return 'info';
+    return 'info';
+}
+
+function buildFindingsEnvelope(options) {
+    var confidence = options.confidence || 'medium';
+    var severity = options.severity || severityFromConfidence(confidence);
+    var evidence = options.evidence !== undefined ? options.evidence : null;
+    var recommendedAction = options.recommendedAction || 'Review this finding in context before changing production configuration.';
+    var requiresHumanApproval = options.requiresHumanApproval !== undefined ? options.requiresHumanApproval : true;
+    return {
+        severity: severity,
+        area: options.area || 'A02',
+        finding: options.finding || 'Health check finding',
+        reason: options.reason || '',
+        evidence: evidence,
+        confidence: confidence,
+        recommendedAction: recommendedAction,
+        requiresHumanApproval: requiresHumanApproval,
+        value: options.value || null
+    };
+}
+
+function extractColumnsFromQuery(queryText) {
+    if (!queryText) return [];
+    var normalized = String(queryText).toLowerCase().replace(/\\s+/g, ' ');
+    var candidates = [];
+    var re = /(?:where|join|on|group by|order by)\\s+[^\\)]*?([a-zA-Z_][\\w\\.]*?)\\s*(=|<>|<=|>=|<|>|like|ilike|in|is|between)/g;
+    var m;
+    while ((m = re.exec(normalized)) !== null) {
+        var token = m[1];
+        if (!token) continue;
+        if (token.indexOf('.') !== -1) token = token.split('.').pop();
+        if (token.length < 2) continue;
+        if (!/^[a-z][a-z0-9_]*$/.test(token)) continue;
+        if (candidates.indexOf(token) === -1) candidates.push(token);
+        if (candidates.length >= 12) break;
+    }
+    return candidates;
+}
+
+function detectCheckerError(items, checkKey, check) {
+    items.push(buildFindingsEnvelope({
+        area: check.area,
+        finding: check.finding,
+        reason: check.errorReason || 'Query execution failed',
+        evidence: { query: check.errorQuery || null, error: check.error },
+        confidence: 'low',
+        severity: 'critical',
+        recommendedAction: check.recommendation || 'Fix query permissions/schema and rerun database health checks.',
+        requiresHumanApproval: true
+    }));
+}
+
+function normalizeIdentifierPatterns(rawPatterns) {
+    return String(rawPatterns || '')
+        .split(',')
+        .map(function(item) { return String(item || '').trim().toLowerCase(); })
+        .filter(Boolean);
+}
+
+function queryReferencesTable(queryText, schema, table) {
+    var q = String(queryText || '').toLowerCase();
+    var s = String(schema || '').toLowerCase();
+    var t = String(table || '').toLowerCase();
+    if (!q || !t) return false;
+    if (s) {
+        if (q.indexOf('"' + s + '"."' + t + '"') !== -1) return true;
+        if (q.indexOf('"' + s + '"."' + t + '.' + '"') !== -1) return true;
+        if (q.indexOf(s + '."' + t + '"') !== -1) return true;
+    }
+    var tQuoted = '"' + t + '"';
+    if (q.indexOf(tQuoted) !== -1) return true;
+    if (q.indexOf(' ' + t + ' ') !== -1) return true;
+    if (q.indexOf(' ' + t + '.') !== -1) return true;
+    if (q.indexOf(' ' + t + ',') !== -1) return true;
+    if (q.indexOf(' ' + t + ')') !== -1) return true;
+    return false;
+}
+
+function confidenceFromEvidence(options) {
+    var score = Number(options.score || 0);
+    if (score >= 70) return 'high';
+    if (score >= 40) return 'medium';
+    return 'low';
 }
 
 exports.getHealth = async (req, res) => {
@@ -551,7 +708,14 @@ exports.getHealth = async (req, res) => {
         const [dbInfo] = await db.sequelize.query(
             `SELECT pg_size_pretty(pg_database_size(current_database())) AS "size",
                     pg_database_size(current_database()) AS "sizeBytes",
-                    current_database() AS "name", version() AS "version"`,
+                    current_database() AS "name",
+                    current_user AS "currentUser",
+                    inet_server_addr()::text AS "serverAddr",
+                    inet_server_port()::text AS "serverPort",
+                    inet_client_addr()::text AS "clientAddr",
+                    inet_client_port()::text AS "clientPort",
+                    current_setting('application_name', true) AS "applicationName",
+                    version() AS "version"`,
             { type: QueryTypes.SELECT }
         );
 
@@ -569,240 +733,842 @@ exports.getHealth = async (req, res) => {
             freeMemBytes: os.freemem(), totalMemBytes: os.totalmem()
         };
 
-        res.json({ tableStats, db: dbInfo, connections: parseInt(conn.active, 10), node });
+        const dbName = dbInfo && dbInfo.name ? dbInfo.name : (process.env.DB_NAME || 'unknown');
+        const dbConnection = {
+            name: dbName,
+            currentUser: dbInfo && dbInfo.currentUser ? dbInfo.currentUser : 'unknown',
+            serverHost: dbInfo && dbInfo.serverAddr ? dbInfo.serverAddr : (process.env.DB_HOST || 'localhost'),
+            serverPort: dbInfo && dbInfo.serverPort ? dbInfo.serverPort : (process.env.DB_PORT || '5432'),
+            clientHost: dbInfo && dbInfo.clientAddr ? dbInfo.clientAddr : null,
+            clientPort: dbInfo && dbInfo.clientPort ? dbInfo.clientPort : null,
+            applicationName: dbInfo && dbInfo.applicationName ? dbInfo.applicationName : null
+        };
+
+        res.json({
+            tableStats,
+            db: {
+                size: dbInfo ? dbInfo.size : null,
+                sizeBytes: dbInfo ? dbInfo.sizeBytes : 0,
+                version: dbInfo ? dbInfo.version : 'unknown',
+                name: dbName,
+                currentUser: dbConnection.currentUser,
+                connection: dbConnection
+            },
+            connections: parseInt(conn.active, 10),
+            node
+        });
     } catch (e) { res.status(500).json({ error: e.message }); }
 };
 
 // ══════════════════════════════════════════════════════════════════════════
 exports.getRoutineDbChecks = async (req, res) => {
-    try {
-        const checks = {};
-
-        const slowQueries = [];
         try {
+        const checks = {};
+        const config = getRoutineHealthConfig();
+        const ignoreIndexesByName = normalizeIdentifierPatterns(config.unusedIndex.ignoreNameLike);
+
+        function makeNamePatternMatcher(patterns) {
+            return function(name) {
+                if (!name) return false;
+                var lower = String(name).toLowerCase();
+                return patterns.some(function(p) {
+                    if (!p) return false;
+                    if (p.indexOf('%') === -1 && p.indexOf('_') === -1) return lower === p;
+                    var re = new RegExp(
+                        '^' + p.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/%/g, '.*').replace(/_/g, '.') + '$',
+                        'i'
+                    );
+                    return re.test(lower);
+                });
+            };
+        }
+
+        const ignoreIndexByPattern = makeNamePatternMatcher(ignoreIndexesByName);
+
+        async function fetchSlowQueryTop() {
             const [extStat] = await db.sequelize.query(
                 `SELECT EXISTS(SELECT 1 FROM pg_extension WHERE extname = 'pg_stat_statements') AS "available"`,
                 { type: QueryTypes.SELECT }
             );
-            if (extStat && extStat.available) {
-                const rows = await db.sequelize.query(
-                    `SELECT calls, total_exec_time, mean_exec_time, rows,
-                            (shared_blks_hit + shared_blks_read) AS "sharedBlks",
-                            left(regexp_replace(query, E'[\\t\\n\\r]+', ' ', 'g'), 220) AS "query"
-                     FROM pg_stat_statements
-                     WHERE calls >= 5
-                     ORDER BY mean_exec_time DESC
-                     LIMIT 30`,
-                    { type: QueryTypes.SELECT }
-                );
-                rows.forEach(function(r) {
-                    const mean = Number(r.mean_exec_time || 0);
-                    const total = Number(r.total_exec_time || 0);
-                    if (mean >= 250 || total >= 3000) {
-                        slowQueries.push({
-                            severity: 'warning',
-                            area: 'A05',
-                            finding: 'Slow-running statement',
-                            value: {
-                                calls: Number(r.calls || 0),
-                                meanExecMs: Math.round(mean),
-                                totalExecMs: Math.round(total),
-                                rows: Number(r.rows || 0),
-                                sharedBlks: Number(r.sharedBlks || 0),
-                                query: r.query || ''
-                            }
-                        });
+            if (!extStat || !extStat.available) return [];
+
+            return db.sequelize.query(
+                `SELECT calls, total_exec_time, mean_exec_time, rows,
+                        (shared_blks_hit + shared_blks_read) AS "sharedBlks",
+                        left(regexp_replace(query, E'[\\t\\n\\r]+', ' ', 'g'), 260) AS "query"
+                 FROM pg_stat_statements
+                 WHERE calls >= :minCalls
+                 ORDER BY total_exec_time DESC NULLS LAST
+                 LIMIT :sampleSize`,
+                {
+                    type: QueryTypes.SELECT,
+                    replacements: {
+                        minCalls: config.slowQueries.minCalls,
+                        sampleSize: 80
                     }
-                });
-            } else {
-                slowQueries.push({
-                    severity: 'info',
-                    area: 'A05',
-                    finding: 'pg_stat_statements not enabled',
-                    value: 'Enable pg_stat_statements for slow query capture.'
-                });
-            }
-        } catch (e) {
-            slowQueries.push({
-                severity: 'warning',
-                area: 'A05',
-                finding: 'Unable to evaluate slow queries',
-                value: e.message
+                }
+            );
+        }
+
+        function buildQueryEvidence(statRows, limit, tableInfo) {
+            if (!Array.isArray(statRows) || !statRows.length || !tableInfo) return [];
+            return statRows.filter(function(r) {
+                return queryReferencesTable(r.query || '', tableInfo.schema, tableInfo.table);
+            }).slice(0, limit || 8).map(function(row) {
+                return {
+                    calls: Number(row.calls || 0),
+                    meanMs: Number(row.mean_exec_time || 0),
+                    totalMs: Number(row.total_exec_time || 0),
+                    rows: Number(row.rows || 0),
+                    sharedBlks: Number(row.sharedBlks || 0),
+                    query: String(row.query || '').replace(/\\s+/g, ' ').slice(0, 240),
+                    columns: extractColumnsFromQuery(row.query || '')
+                };
             });
         }
-        addCheckSummary(checks, 'slowQueries', slowQueries, 'Long-running and repeatedly expensive statements');
+
+        const slowQueries = [];
+        try {
+            const statementRows = await fetchSlowQueryTop();
+            if (!statementRows.length) {
+                slowQueries.push(buildFindingsEnvelope({
+                    area: 'A05',
+                    finding: 'pg_stat_statements sample not available',
+                    reason: 'pg_stat_statements is enabled, but no statements met the configured threshold.',
+                    evidence: {
+                        minCalls: config.slowQueries.minCalls,
+                        sampleRows: 0
+                    },
+                    confidence: 'low',
+                    severity: 'info',
+                    recommendedAction: 'Increase workload and rerun checks during business hours.',
+                    requiresHumanApproval: false
+                }));
+            } else {
+                statementRows.forEach(function(r) {
+                    const mean = Number(r.mean_exec_time || 0);
+                    const total = Number(r.total_exec_time || 0);
+                    const calls = Number(r.calls || 0);
+                    if (mean < config.slowQueries.meanMsWarn && total < config.slowQueries.totalMsWarn) return;
+
+                    var score = 0;
+                    if (mean >= config.slowQueries.meanMsWarn) score += 38;
+                    if (total >= config.slowQueries.totalMsWarn) score += 25;
+                    if (calls >= config.slowQueries.minCalls * 3) score += 25;
+                    if (Number(r.rows || 0) > 0) score += 12;
+                    const confidence = score > 100 ? 'high' : score >= 60 ? 'medium' : 'low';
+
+                    slowQueries.push(buildFindingsEnvelope({
+                        area: 'A05',
+                        finding: 'High-latency SQL statement',
+                        reason: 'Statement exceeds configured latency thresholds and may delay request paths under load.',
+                        evidence: {
+                            calls: calls,
+                            meanMs: Math.round(mean),
+                            totalMs: Math.round(total),
+                            rows: Number(r.rows || 0),
+                            sharedBlks: Number(r.sharedBlks || 0),
+                            statement: String(r.query || '')
+                        },
+                        confidence: confidence,
+                        recommendedAction: 'Review query execution plan and indexes, then measure after applying any SQL or schema changes.',
+                        requiresHumanApproval: true,
+                        value: {
+                            category: 'A05'
+                        }
+                    }));
+                });
+
+                if (!slowQueries.length) {
+                    slowQueries.push(buildFindingsEnvelope({
+                        area: 'A05',
+                        finding: 'No actionable slow-query pattern',
+                        reason: 'Captured statements did not breach slow-query thresholds.',
+                        evidence: {
+                            sampleRows: statementRows.length,
+                            minCallThreshold: config.slowQueries.minCalls,
+                            meanWarnMs: config.slowQueries.meanMsWarn,
+                            totalWarnMs: config.slowQueries.totalMsWarn
+                        },
+                        confidence: 'high',
+                        severity: 'ok',
+                        recommendedAction: 'No action needed.',
+                        requiresHumanApproval: false,
+                        value: {
+                            statementCount: statementRows.length
+                        }
+                    }));
+                }
+            }
+        } catch (e) {
+            detectCheckerError(slowQueries, 'slowQueries', {
+                area: 'A05',
+                finding: 'Unable to evaluate slow queries',
+                error: e.message,
+                errorQuery: 'pg_stat_statements query'
+            });
+        }
+        addCheckSummary(checks, 'slowQueries', slowQueries, 'Long-running SQL statements and execution hotspots');
+
+            const statementEvidenceRows = [];
+        try {
+            const stmtRows = await fetchSlowQueryTop();
+            statementEvidenceRows.push.apply(statementEvidenceRows, Array.isArray(stmtRows) ? stmtRows : []);
+        } catch (e) {
+            // ignore. Missing statement evidence lowers confidence in index analysis but never blocks checks.
+        }
 
         const indexChecks = [];
         try {
-            const idxNeed = await db.sequelize.query(
-                `SELECT schemaname AS "schema", relname AS "table",
-                        seq_scan AS "seqScan", idx_scan AS "idxScan", n_live_tup AS "liveRows"
-                 FROM pg_stat_user_tables
-                 WHERE n_live_tup > 500
-                   AND (idx_scan IS NULL OR idx_scan = 0 OR seq_scan > (idx_scan * 3))
-                 ORDER BY seq_scan DESC NULLS LAST
-                 LIMIT 20`,
-                { type: QueryTypes.SELECT }
+            const missingIndexRows = await db.sequelize.query(
+                `SELECT n.nspname AS "schema", c.relname AS "table",
+                        COALESCE(s.seq_scan, 0) AS "seqScan",
+                        COALESCE(s.idx_scan, 0) AS "idxScan",
+                        COALESCE(s.n_live_tup, 0) AS "liveRows",
+                        COALESCE(pg_relation_size(c.oid), 0) AS "sizeBytes",
+                        COALESCE(s.n_tup_ins, 0) AS "inserts",
+                        COALESCE(s.n_tup_upd, 0) AS "updates",
+                        COALESCE(s.n_tup_del, 0) AS "deletes",
+                        COALESCE(s.n_mod_since_analyze, 0) AS "modSinceAnalyze",
+                        EXTRACT(EPOCH FROM (NOW() - COALESCE(s.stats_reset, NOW() - INTERVAL '10 years')))/3600 AS "statsAgeHours"
+                 FROM pg_class c
+                 JOIN pg_namespace n ON n.oid = c.relnamespace
+                 LEFT JOIN pg_stat_user_tables s
+                   ON s.schemaname = n.nspname AND s.relname = c.relname
+                 WHERE n.nspname = 'public'
+                    AND c.relkind = 'r'
+                    AND COALESCE(s.n_live_tup,0) >= :minRows
+                    AND COALESCE(pg_relation_size(c.oid), 0) >= :minSizeBytes
+                    AND (s.stats_reset IS NULL OR COALESCE(EXTRACT(EPOCH FROM (NOW() - s.stats_reset))/3600, 999999) >= :statsAgeHours)
+                    AND COALESCE(s.seq_scan, 0) >= :minSeqScans
+                    AND (COALESCE(s.seq_scan,0) >= (COALESCE(s.idx_scan,0) * :seqToIdxRatioWarn))
+                  ORDER BY (COALESCE(s.seq_scan,0) / NULLIF(COALESCE(s.idx_scan,0),0)) DESC NULLS LAST
+                  LIMIT :limit`,
+                {
+                    type: QueryTypes.SELECT,
+                    replacements: {
+                        minRows: config.missingIndex.minRows,
+                        minSizeBytes: Math.max(config.missingIndex.minSizeMb, 1) * 1024 * 1024,
+                        statsAgeHours: config.missingIndex.statsFreshnessHours,
+                        minSeqScans: Math.max(config.missingIndex.minCalls, 1),
+                        seqToIdxRatioWarn: config.missingIndex.seqToIdxRatioWarn,
+                        limit: config.missingIndex.topTables
+                    }
+                }
             );
-            idxNeed.forEach(function(r) {
+
+            missingIndexRows.forEach(function(r) {
+                var tableInfo = {
+                    schema: r.schema,
+                    table: r.table
+                };
                 const seqScan = Number(r.seqScan || 0);
                 const idxScan = Number(r.idxScan || 0);
-                indexChecks.push({
-                    severity: idxScan === 0 ? 'critical' : 'warning',
+                const liveRows = Number(r.liveRows || 0);
+                const sizeBytes = Number(r.sizeBytes || 0);
+                const statsAge = Number(r.statsAgeHours || 0);
+                const writes = Number(r.inserts || 0) + Number(r.updates || 0) + Number(r.deletes || 0);
+                const ratio = idxScan ? seqScan / Math.max(idxScan, 1) : 999;
+                if (idxScan > 0 && ratio < config.missingIndex.seqToIdxRatioWarn) return;
+                if (idxScan === 0 && liveRows < config.missingIndex.minRows * 3) return;
+                if (statsAge < config.missingIndex.statsFreshnessHours) return;
+
+                const evidenceStatements = buildQueryEvidence(statementEvidenceRows, 6, tableInfo);
+                const queryPatterns = evidenceStatements.map(function(row) { return row.query; }).filter(Boolean);
+                if (!queryPatterns.length) return;
+
+                const evidenceCalls = evidenceStatements.reduce(function(sum, row) { return sum + Number(row.calls || 0); }, 0);
+                const evidenceLatencyMs = evidenceStatements.reduce(function(max, row) {
+                    return Math.max(max, Number(row.meanMs || 0));
+                }, 0);
+                const evidenceHasStrongSignal =
+                    evidenceCalls >= config.missingIndex.minEvidenceCalls &&
+                    evidenceLatencyMs >= config.missingIndex.minMeanMs;
+                if (!evidenceHasStrongSignal && idxScan === 0 && ratio < config.missingIndex.seqToIdxRatioWarn * 2) return;
+
+                const columns = [];
+                evidenceStatements.forEach(function(item) {
+                    (item.columns || []).forEach(function(col) {
+                        if (columns.indexOf(col) === -1) columns.push(col);
+                    });
+                });
+
+                var score = 20;
+                if (ratio >= config.missingIndex.seqToIdxRatioWarn * 2) score += 30;
+                if (idxScan === 0) score += 30;
+                if (sizeBytes >= 1024 * 1024 * 64) score += 10;
+                if (liveRows >= Math.max(config.missingIndex.minRows, 50000)) score += 10;
+                if (writes >= config.missingIndex.minCalls * 10) score += 10;
+                if (evidenceStatements.length > 0) score += Math.min(20, evidenceStatements.length * 5);
+                if (evidenceStatements.some(function(item) { return Number(item.meanMs || 0) >= config.missingIndex.minMeanMs; })) score += 12;
+                if (statsAge < config.missingIndex.statsFreshnessHours * 2) score += 5;
+                if (statsAge <= config.missingIndex.statsFreshnessHours) score -= 5;
+
+                const confidence = confidenceFromEvidence({ score: score });
+                const evidenceScore = evidenceHasStrongSignal ? 25 : 5;
+                const shouldWarn = score >= config.missingIndex.confidenceScore.missing || ratio > config.missingIndex.seqToIdxRatioWarn * 1.75 || evidenceScore >= 25;
+
+                indexChecks.push(buildFindingsEnvelope({
                     area: 'A02',
-                    finding: 'Potential missing index (high seq-scan pattern)',
-                    value: {
-                        table: r.table,
-                        schema: r.schema,
+                    finding: 'Potential missing index candidate',
+                    reason: 'Table scan dominates observed access patterns while index scan coverage is low/absent after a stable statistics window.',
+                    evidence: {
+                        table: tableInfo.schema + '.' + tableInfo.table,
+                        sizeBytes: sizeBytes,
+                        liveRows: liveRows,
                         seqScan: seqScan,
                         idxScan: idxScan,
-                        liveRows: Number(r.liveRows || 0)
+                        seqToIdxRatio: Math.round(ratio * 100) / 100,
+                        statsAgeHours: Math.round(statsAge * 10) / 10,
+                        writesObserved: writes,
+                        queryEvidence: evidenceStatements.slice(0, 6),
+                        queryPatterns: queryPatterns.slice(0, 3),
+                        queryCallsWindow: evidenceCalls,
+                        queryMaxMeanMs: Math.round(evidenceLatencyMs)
+                    },
+                    confidence: confidence,
+                    severity: shouldWarn ? 'warning' : severityFromConfidence(confidence),
+                    recommendedAction: idxScan === 0 || shouldWarn
+                        ? 'Collect EXPLAIN (ANALYZE, BUFFERS) for at least one referenced query pattern before any index change.'
+                        : 'Keep as informational review signal until additional evidence is captured.',
+                    requiresHumanApproval: true,
+                    value: {
+                        recommendedNextAction: shouldWarn ? 'Explain-validate' : 'Track-evidence',
+                        table: tableInfo.table,
+                        schema: tableInfo.schema,
+                        queryPatterns: queryPatterns.slice(0, 3)
                     }
-                });
+                }));
             });
 
-            const idxUnused = await db.sequelize.query(
-                `SELECT ui.schemaname AS "schema", ui.relname AS "table", i.relname AS "index",
-                        ui.idx_scan AS "idxScan", pg_size_pretty(pg_relation_size(ui.indexrelid)) AS "size"
-                 FROM pg_stat_user_indexes ui
-                 JOIN pg_class i ON i.oid = ui.indexrelid
-                 JOIN pg_index ix ON ix.indexrelid = ui.indexrelid
-                 WHERE ui.idx_scan = 0
-                   AND NOT ix.indisunique
-                   AND NOT ix.indisprimary
-                 ORDER BY pg_relation_size(ui.indexrelid) DESC NULLS LAST
-                 LIMIT 20`,
-                { type: QueryTypes.SELECT }
-            );
-            idxUnused.forEach(function(r) {
-                indexChecks.push({
-                    severity: 'warning',
+            if (!indexChecks.length) {
+                indexChecks.push(buildFindingsEnvelope({
                     area: 'A02',
-                    finding: 'Potentially excessive/unused index',
+                    finding: 'Missing-index candidates not identified',
+                    reason: 'No table met the stronger evidence threshold for missing-index candidates.',
+                    evidence: {
+                        sampleRows: missingIndexRows.length,
+                        minRows: config.missingIndex.minRows,
+                        minSizeMb: config.missingIndex.minSizeMb,
+                        seqToIdxRatio: config.missingIndex.seqToIdxRatioWarn,
+                        statsFreshnessHours: config.missingIndex.statsFreshnessHours
+                    },
+                    confidence: 'high',
+                    severity: 'ok',
+                    recommendedAction: 'No action required.',
+                    requiresHumanApproval: false,
                     value: {
-                        table: r.table,
-                        schema: r.schema,
-                        index: r.index,
-                        size: r.size || '0 B',
-                        idxScan: Number(r.idxScan || 0)
+                        candidateCount: missingIndexRows.length
                     }
-                });
-            });
+                }));
+            }
         } catch (e) {
-            indexChecks.push({
-                severity: 'warning',
+            detectCheckerError(indexChecks, 'indexChecks', {
                 area: 'A02',
-                finding: 'Unable to evaluate index health',
-                value: e.message
+                finding: 'Unable to evaluate missing-index candidates',
+                error: e.message,
+                errorQuery: 'missing-index candidate query'
             });
         }
-        addCheckSummary(checks, 'indexChecks', indexChecks, 'Index coverage and excessive index candidates');
+
+        try {
+            const unusedRows = await db.sequelize.query(
+                `SELECT n.nspname AS "schema", rel.relname AS "table", idx.relname AS "index",
+                        COALESCE(ui.idx_scan, 0) AS "idxScan",
+                        COALESCE(pg_relation_size(idx.oid), 0) AS "sizeBytes",
+                        pg_size_pretty(pg_relation_size(idx.oid)) AS "size",
+                        COALESCE(tbl.n_live_tup, 0) AS "liveRows",
+                        COALESCE(tbl.n_tup_ins, 0) + COALESCE(tbl.n_tup_upd, 0) + COALESCE(tbl.n_tup_del, 0) AS "writeRows",
+                        EXTRACT(EPOCH FROM (NOW() - COALESCE(tbl.stats_reset, NOW() - INTERVAL '10 years')))/3600 AS "statsAgeHours",
+                        con.conname AS "constraintName",
+                        con.contype AS "constraintType"
+                 FROM pg_class idx
+                 JOIN pg_index ix ON ix.indexrelid = idx.oid
+                 JOIN pg_class rel ON rel.oid = ix.indrelid
+                 JOIN pg_namespace n ON n.oid = idx.relnamespace
+                 LEFT JOIN pg_stat_user_indexes ui ON ui.indexrelid = idx.oid
+                 LEFT JOIN pg_stat_user_tables tbl ON tbl.schemaname = n.nspname AND tbl.relname = rel.relname
+                 LEFT JOIN pg_constraint con ON con.conindid = idx.oid
+                 WHERE n.nspname = 'public'
+                   AND idx.relkind = 'i'
+                   AND COALESCE(ui.idx_scan, 0) = 0
+                   AND NOT ix.indisprimary
+                   AND NOT ix.indisunique
+                   AND tbl.stats_reset IS NOT NULL
+                   AND COALESCE(EXTRACT(EPOCH FROM (NOW() - tbl.stats_reset))/3600, 999999) >= :statsAgeHours
+                   AND COALESCE(pg_relation_size(idx.oid), 0) >= :minIndexSizeBytes
+                 ORDER BY COALESCE(pg_relation_size(idx.oid), 0) DESC NULLS LAST`,
+                {
+                    type: QueryTypes.SELECT,
+                    replacements: {
+                        minIndexSizeBytes: Math.max(config.unusedIndex.candidateSizeMb, 1) * 1024 * 1024,
+                        statsAgeHours: config.unusedIndex.observationDays * 24
+                    }
+                }
+            );
+
+            const filteredUnused = unusedRows.filter(function(r) {
+                if (ignoreIndexByPattern(r.index) || ignoreIndexByPattern(r.table)) return false;
+                if (r.constraintType === 'f') return false;
+                if (r.constraintType && r.constraintName) return false;
+                var ageHours = Number(r.statsAgeHours || 0);
+                var minAge = config.unusedIndex.observationDays * 24;
+                if (ageHours < minAge) return false;
+                return true;
+            });
+
+            const finalLimit = Math.min(filteredUnused.length, 60);
+            if (!filteredUnused.length) {
+                indexChecks.push(buildFindingsEnvelope({
+                    area: 'A02',
+                    finding: 'No unused-index candidates found',
+                    reason: 'Indexes with stable zero-usage signals and sufficient observation age were not identified.',
+                    evidence: {
+                        configuredMinIndexMb: config.unusedIndex.candidateSizeMb,
+                        observationDays: config.unusedIndex.observationDays,
+                        totalZeroScanCandidates: unusedRows.length
+                    },
+                    confidence: 'high',
+                    severity: 'ok',
+                    recommendedAction: 'No action required.',
+                    requiresHumanApproval: false,
+                    value: {
+                        filteredCandidates: 0
+                    }
+                }));
+            } else {
+                filteredUnused.slice(0, finalLimit).forEach(function(r) {
+                    const sizeBytes = Number(r.sizeBytes || 0);
+                    const writeRows = Number(r.writeRows || 0);
+                    const liveRows = Number(r.liveRows || 0);
+                    const statsAge = Number(r.statsAgeHours || 0);
+                    const idxScan = Number(r.idxScan || 0);
+                    var score = 25;
+                    if (sizeBytes >= config.unusedIndex.candidateSizeMb * 1024 * 1024 * 4) score += 35;
+                    if (writeRows >= config.unusedIndex.warningWriteRows) score += 25;
+                    if (writeRows > 0) score += 15;
+                    if (liveRows > config.missingIndex.minRows) score += 15;
+                    if (statsAge < config.unusedIndex.observationDays * 24) score -= 30;
+                    const confidence = confidenceFromEvidence({ score: score });
+                    const isWarning = writeRows >= config.unusedIndex.warningWriteRows || sizeBytes >= config.unusedIndex.candidateSizeMb * 1024 * 1024 * 4;
+                    indexChecks.push(buildFindingsEnvelope({
+                        area: 'A02',
+                        finding: 'Potentially unused/over-maintained index',
+                        reason: 'Observed no index scans across a sustained sample window; verify migration/cleanup usage and foreign-key ownership before any action.',
+                        evidence: {
+                            index: r.schema + '.' + r.table + '.' + r.index,
+                            sizeBytes: sizeBytes,
+                            tableLiveRows: liveRows,
+                            writesObserved: writeRows,
+                            statsAgeHours: Math.round(statsAge * 10) / 10,
+                            idxScan: idxScan,
+                            constraintName: r.constraintName || null,
+                            constraintType: r.constraintType || null
+                        },
+                        confidence: isWarning ? 'medium' : confidence,
+                        severity: isWarning ? 'warning' : 'info',
+                        recommendedAction: isWarning
+                            ? 'Review write workload and index size. Consider monitoring one more cycle before dropping any index.'
+                            : 'Keep as informational evidence; monitor workload trends and only plan cleanup with stronger write/storage signal.',
+                        requiresHumanApproval: true,
+                        value: {
+                            indexTable: r.table,
+                            indexName: r.index,
+                            candidateSizeBytes: sizeBytes
+                        }
+                    }));
+                });
+            }
+        } catch (e) {
+            detectCheckerError(indexChecks, 'indexChecks', {
+                area: 'A02',
+                finding: 'Unable to evaluate unused-index candidates',
+                error: e.message,
+                errorQuery: 'unused-index candidate query'
+            });
+        }
+        addCheckSummary(checks, 'indexChecks', indexChecks, 'Index coverage and maintenance candidates');
 
         const deadRows = [];
         try {
             const rows = await db.sequelize.query(
-                `SELECT relname AS "table", n_live_tup AS "liveRows", n_dead_tup AS "deadRows"
+                `SELECT schemaname AS "schema", relname AS "table",
+                        COALESCE(n_live_tup, 0) AS "liveRows",
+                        COALESCE(n_dead_tup, 0) AS "deadRows",
+                        CASE WHEN n_live_tup > 0 THEN (COALESCE(n_dead_tup,0)::float / n_live_tup) ELSE NULL END AS "deadRatio",
+                        COALESCE(pg_total_relation_size(format('%I.%I', schemaname, relname)), 0) AS "tableSizeBytes",
+                        COALESCE(last_vacuum::text, 'never') AS "lastVacuum",
+                        COALESCE(last_autovacuum::text, 'never') AS "lastAutovacuum",
+                        COALESCE(last_analyze::text, 'never') AS "lastAnalyze",
+                        COALESCE(last_autoanalyze::text, 'never') AS "lastAutoanalyze",
+                        COALESCE(n_tup_ins, 0) + COALESCE(n_tup_upd, 0) + COALESCE(n_tup_del, 0) AS "writeRows"
                  FROM pg_stat_user_tables
-                 WHERE n_dead_tup > 0
-                 ORDER BY n_dead_tup DESC NULLS LAST
-                 LIMIT 25`,
+                 ORDER BY COALESCE(CASE WHEN n_live_tup > 0 THEN COALESCE(n_dead_tup,0)::float / n_live_tup ELSE 0 END, 0) DESC
+                 LIMIT 40`,
                 { type: QueryTypes.SELECT }
             );
             rows.forEach(function(r) {
-                const dead = Number(r.deadRows || 0);
-                const live = Number(r.liveRows || 0);
-                const ratio = live ? (dead / Math.max(live, 1)) : (dead ? 1 : 0);
-                deadRows.push({
-                    severity: ratio > 0.2 ? 'critical' : (ratio > 0.05 ? 'warning' : 'ok'),
+                var liveRows = Number(r.liveRows || 0);
+                var deadRowsCount = Number(r.deadRows || 0);
+                var ratio = r.deadRatio;
+                if (!Number.isFinite(ratio)) ratio = 0;
+                var tableSizeBytes = Number(r.tableSizeBytes || 0);
+                var estimatedReclaimBytes = Math.round(tableSizeBytes * ratio);
+                var reclaimNeedMb = config.deadRows.vacuumFullReclaimMb;
+                var vacuumFullRatio = (config.deadRows.vacuumFullRatioPct || 55) / 100;
+
+                var severity = 'ok';
+                if (liveRows > config.deadRows.smallTableRows && ratio >= (config.deadRows.criticalRatio / 100)) {
+                    severity = 'warning';
+                }
+                if (liveRows <= config.deadRows.smallTableRows && ratio > 0.35) {
+                    severity = 'info';
+                }
+                if (liveRows > config.deadRows.smallTableRows && ratio >= 0.5) {
+                    severity = 'warning';
+                }
+                if (liveRows > config.deadRows.smallTableRows && ratio >= (config.deadRows.criticalRatio / 100)) {
+                    severity = 'warning';
+                }
+
+                const recommendVacuumFull = severity === 'warning'
+                    && liveRows >= config.deadRows.minRowsForVacuumFull
+                    && deadRowsCount > 0
+                    && ratio >= vacuumFullRatio
+                    && estimatedReclaimBytes >= reclaimNeedMb * 1024 * 1024;
+                deadRows.push(buildFindingsEnvelope({
                     area: 'A05',
                     finding: 'Dead tuple ratio',
+                    reason: 'Autovacuum/autoanalyze cadence and dead/live ratio trend are being monitored.',
+                    evidence: {
+                        table: r.schema + '.' + r.table,
+                        liveRows: liveRows,
+                        deadRows: deadRowsCount,
+                        deadRatio: Math.round(Number(ratio || 0) * 1000) / 10,
+                        tableSizeBytes: tableSizeBytes,
+                        estimatedReclaimBytes: estimatedReclaimBytes,
+                        writeRows: Number(r.writeRows || 0),
+                        lastVacuum: r.lastVacuum,
+                        lastAutovacuum: r.lastAutovacuum,
+                        lastAnalyze: r.lastAnalyze,
+                        lastAutoanalyze: r.lastAutoanalyze
+                    },
+                    confidence: severity === 'ok' ? 'high' : 'medium',
+                    severity: severity,
+                    recommendedAction: recommendVacuumFull
+                        ? 'Investigate bloat with EXPLAIN/pg_stat_progress_vacuum and apply VACUUM FULL only if physical reclaim is required.'
+                        : 'Use routine VACUUM/ANALYZE window and monitor after next maintenance cycle.',
+                    requiresHumanApproval: true,
                     value: {
-                        table: r.table,
-                        deadRows: dead,
-                        liveRows: live,
-                        deadRatio: Math.round(ratio * 1000) / 10
+                        recommendationRequiresWindow: recommendVacuumFull
                     }
-                });
+                }));
             });
         } catch (e) {
-            deadRows.push({ severity: 'warning', area: 'A05', finding: 'Unable to evaluate dead tuples', value: e.message });
+            detectCheckerError(deadRows, 'deadRows', {
+                area: 'A05',
+                finding: 'Unable to evaluate dead tuples',
+                error: e.message,
+                errorQuery: 'pg_stat_user_tables dead tuple query'
+            });
         }
-        addCheckSummary(checks, 'deadRows', deadRows, 'Dead rows and possible table bloat risk');
+        addCheckSummary(checks, 'deadRows', deadRows, 'Dead rows, vacuum timing, and bloat risk signals');
 
         const largeColumns = [];
         try {
-            const cols = await db.sequelize.query(
-                `SELECT table_schema AS "schema", table_name AS "table", column_name AS "column",
-                        data_type AS "dataType", avg_width AS "avgWidth", null_frac AS "nullFrac"
-                 FROM pg_stats
-                 WHERE table_schema = 'public'
-                   AND data_type IN ('text', 'json', 'jsonb', 'bytea')
-                   AND avg_width >= 1024
-                 ORDER BY avg_width DESC
-                 LIMIT 50`,
-                { type: QueryTypes.SELECT }
-            );
-            cols.forEach(function(r) {
-                const avgWidth = Number(r.avgWidth || 0);
-                largeColumns.push({
-                    severity: avgWidth > 8192 ? 'warning' : 'ok',
-                    area: 'A04',
-                    finding: 'Large text/json/bytea column',
-                    value: {
-                        table: r.schema + '.' + r.table,
-                        column: r.column,
-                        dataType: r.dataType,
-                        avgWidth: avgWidth,
-                        nullFrac: Number(r.nullFrac || 0).toFixed(2)
+            const candidateColumns = await db.sequelize.query(
+                `SELECT c.table_schema AS "schemaName", c.table_name AS "tableName", c.column_name AS "columnName",
+                        c.data_type AS "dataType", c.character_maximum_length AS "varcharLength",
+                        COALESCE(ps.avg_width, 0) AS "avgWidth"
+                 FROM information_schema.columns c
+                 JOIN pg_namespace n ON n.nspname = c.table_schema
+                 JOIN pg_class t ON t.relnamespace = n.oid AND t.relname = c.table_name AND t.relkind = 'r'
+                 LEFT JOIN pg_stats ps
+                   ON ps.schemaname = c.table_schema
+                  AND ps.tablename  = c.table_name
+                  AND ps.attname    = c.column_name
+                 WHERE c.table_schema = 'public'
+                   AND (
+                        c.data_type IN ('text', 'json', 'jsonb', 'bytea')
+                        OR (c.data_type = 'character varying' AND COALESCE(c.character_maximum_length, 0) >= :minVarcharLength)
+                   )
+                   AND COALESCE(ps.avg_width, 0) >= :minAvgBytes
+                 ORDER BY COALESCE(ps.avg_width, 0) DESC
+                 LIMIT :candidateColumns`,
+                {
+                    type: QueryTypes.SELECT,
+                    replacements: {
+                        minVarcharLength: config.largeColumn.minVarcharLength,
+                        minAvgBytes: config.largeColumn.minAvgBytes,
+                        candidateColumns: config.largeColumn.topColumnCandidates
                     }
-                });
-            });
+                }
+            );
+
+            if (!candidateColumns.length) {
+                largeColumns.push(buildFindingsEnvelope({
+                    area: 'A04',
+                    finding: 'Large-column candidates not identified',
+                    reason: 'No information_schema candidate passed configured byte/length thresholds.',
+                    evidence: {
+                        minAvgBytes: config.largeColumn.minAvgBytes,
+                        minVarcharLength: config.largeColumn.minVarcharLength,
+                        topColumnCandidates: config.largeColumn.topColumnCandidates
+                    },
+                    confidence: 'high',
+                    severity: 'ok',
+                    recommendedAction: 'No action required.',
+                    requiresHumanApproval: false,
+                    value: {
+                        candidateColumns: 0
+                    }
+                }));
+            } else {
+                for (var i = 0; i < Math.min(candidateColumns.length, config.largeColumn.topColumnCandidates); i++) {
+                    const c = candidateColumns[i];
+                    const schema = String(c.schemaName || '').trim();
+                    const table = String(c.tableName || '').trim();
+                    const column = String(c.columnName || '').trim();
+                    if (!schema || !table || !column) continue;
+
+                    // Validate catalog-backed existence before dynamic size query.
+                    const exists = await db.sequelize.query(
+                        `SELECT COUNT(*)::int AS "count"
+                         FROM pg_attribute a
+                         JOIN pg_class t ON t.oid = a.attrelid AND t.relkind = 'r'
+                         JOIN pg_namespace n ON n.oid = t.relnamespace
+                         WHERE n.nspname = :schema
+                           AND t.relname = :table
+                           AND a.attname = :column
+                           AND a.attnum > 0
+                           AND NOT a.attisdropped`,
+                        {
+                            type: QueryTypes.SELECT,
+                            replacements: {
+                                schema: schema,
+                                table: table,
+                                column: column
+                            }
+                        }
+                    );
+                    if (!exists[0] || Number(exists[0].count) < 1) continue;
+
+                    const qSchema = quoteIdent(schema);
+                    const qTable = quoteIdent(table);
+                    const qColumn = quoteIdent(column);
+                    const q = `${qSchema}.${qTable}`;
+                    const quotedCol = `${q}.${qColumn}`;
+                    const sizeRows = await db.sequelize.query(
+                        `SELECT COUNT(*)::bigint AS "rowCount",
+                                COALESCE(SUM(pg_column_size(${quotedCol}), 0)::bigint, 0) AS "totalBytes",
+                                COALESCE(AVG(pg_column_size(${quotedCol}), 0)::float, 0) AS "avgBytes",
+                                COALESCE(MAX(pg_column_size(${quotedCol}), 0)::bigint, 0) AS "maxBytes",
+                                SUM(CASE WHEN ${quotedCol} IS NULL THEN 1 ELSE 0 END)::bigint AS "nullCount"
+                         FROM ${q}`,
+                        { type: QueryTypes.SELECT }
+                    );
+                    if (!sizeRows || !sizeRows[0]) continue;
+                    const sizeStat = sizeRows[0];
+                    const rowCount = Number(sizeStat.rowCount || 0);
+                    const totalBytes = Number(sizeStat.totalBytes || 0);
+                    const avgBytes = Number(sizeStat.avgBytes || 0);
+                    const maxBytes = Number(sizeStat.maxBytes || 0);
+                    const nullRows = Number(sizeStat.nullCount || 0);
+                    if (rowCount <= 0) continue;
+
+                    const nullPercent = Math.round((nullRows / Math.max(rowCount, 1)) * 10000) / 100;
+                    const meetsThreshold = totalBytes >= (config.largeColumn.minColumnBytes * 1024 * 1024)
+                        || avgBytes >= config.largeColumn.minAvgBytes
+                        || maxBytes >= config.largeColumn.minVarcharLength;
+
+                    if (!meetsThreshold) continue;
+                    const severity = (totalBytes >= (config.largeColumn.minColumnBytes * 1024 * 1024 * 2))
+                        ? 'warning'
+                        : 'info';
+                    const confidence = confidenceFromEvidence({
+                        score: totalBytes > (config.largeColumn.minColumnBytes * 1024 * 1024) ? 70 : 45
+                    });
+                    largeColumns.push(buildFindingsEnvelope({
+                        area: 'A04',
+                        finding: 'Large stored column footprint',
+                        reason: 'Column storage profile exceeds baseline thresholds and should be reviewed for JSON/text payload growth.',
+                        evidence: {
+                            table: schema + '.' + table,
+                            column: column,
+                            dataType: c.dataType,
+                            rowCount: rowCount,
+                            totalBytes: totalBytes,
+                            avgBytes: Math.round(avgBytes),
+                            maxBytes: maxBytes,
+                            nullPercent: nullPercent,
+                            varcharLength: Number(c.varcharLength || 0)
+                        },
+                        confidence: severity === 'warning' ? 'medium' : confidence,
+                        severity: severity,
+                        recommendedAction: 'Review payload schema, trim stored JSON/text blobs, or archive historical large fields into dedicated tables.',
+                        requiresHumanApproval: true,
+                        value: {
+                            sampleLimit: config.largeColumn.topSampleRows
+                        }
+                    }));
+                }
+            }
         } catch (e) {
-            largeColumns.push({ severity: 'warning', area: 'A04', finding: 'Unable to evaluate large columns', value: e.message });
+            detectCheckerError(largeColumns, 'largeColumns', {
+                area: 'A04',
+                finding: 'Unable to evaluate large-column footprint',
+                error: e.message,
+                errorQuery: 'information_schema / pg_column_size query'
+            });
         }
-        addCheckSummary(checks, 'largeColumns', largeColumns, 'Potentially oversized JSON/text/bytea columns');
+        if (!largeColumns.length) {
+            largeColumns.push(buildFindingsEnvelope({
+                area: 'A04',
+                finding: 'Large-column candidates below threshold',
+                reason: 'Validated columns were below alert thresholds.',
+                evidence: {
+                    minColumnBytes: config.largeColumn.minColumnBytes,
+                    minVarcharLength: config.largeColumn.minVarcharLength,
+                    minAvgBytes: config.largeColumn.minAvgBytes
+                },
+                confidence: 'high',
+                severity: 'ok',
+                recommendedAction: 'No action required.',
+                requiresHumanApproval: false,
+                value: {
+                    evaluated: config.largeColumn.topColumnCandidates
+                }
+            }));
+        }
+        addCheckSummary(checks, 'largeColumns', largeColumns, 'Potentially oversized JSON/text/bytea/varchar columns');
 
         const backupRows = [];
         try {
             const backupStatus = backupService.getStatus ? backupService.getStatus() : null;
             const recent = Array.isArray(backupStatus && backupStatus.recentBackups)
-                ? backupStatus.recentBackups.slice(0, 15)
+                ? backupStatus.recentBackups.slice(0, 30)
                 : [];
-            const failed = recent.filter(function(r) { return r && r.status === 'failed'; }).length;
-            backupRows.push({
-                severity: failed ? 'warning' : 'ok',
+            const failedRecent = recent.filter(function(r) { return r && r.status === 'failed'; }).length;
+            const latest = (() => {
+                var newest = null;
+                if (Array.isArray(recent)) {
+                    for (var i = 0; i < recent.length; i++) {
+                        const row = recent[i];
+                        if (!row || row.status !== 'success') continue;
+                        if (!newest || (new Date(row.timestamp) > new Date(newest.timestamp))) newest = row;
+                    }
+                }
+                return newest;
+            })();
+            const latestAgeHours = latest && latest.timestamp
+                ? Math.max(0, (Date.now() - new Date(latest.timestamp).getTime()) / (1000 * 60 * 60))
+                : null;
+            const creationStatus = !latest
+                ? 'critical'
+                : (latestAgeHours > config.backup.requiredHoursSinceLastSuccessful
+                    ? 'warning'
+                    : 'ok');
+
+            backupRows.push(buildFindingsEnvelope({
                 area: 'A10',
-                finding: 'Backup recent execution status',
-                value: {
+                finding: 'Database backup creation recency',
+                reason: latest
+                    ? 'Recent successful backup availability is used for recovery readiness review.'
+                    : 'No recent successful backups found to establish creation coverage.',
+                evidence: {
                     schedule: backupStatus && backupStatus.schedule ? backupStatus.schedule : 'unknown',
                     maxBackups: backupStatus && backupStatus.maxBackups ? backupStatus.maxBackups : 0,
                     recentCount: recent.length,
-                    failed
+                    failedRecent: failedRecent,
+                    latestBackupFile: latest ? latest.filename : null,
+                    latestBackupAt: latest ? latest.timestamp : null,
+                    latestAgeHours: latestAgeHours === null ? null : Math.round(latestAgeHours * 10) / 10,
+                    requiredWindowHours: config.backup.requiredHoursSinceLastSuccessful
+                },
+                confidence: latest ? 'high' : 'low',
+                severity: creationStatus,
+                recommendedAction: latest
+                    ? (creationStatus === 'warning'
+                        ? 'Run backup and verify schedule alignment before high-risk operations.'
+                        : 'No action required.')
+                    : 'Run backup schedule or restore validation cannot proceed without a successful dump.',
+                requiresHumanApproval: latest ? false : true,
+                value: {
+                    kind: 'db-backup-creation',
+                    schedule: backupStatus && backupStatus.schedule ? backupStatus.schedule : 'unknown'
                 }
-            });
+            }));
+
             recent.forEach(function(r) {
-                backupRows.push({
-                    severity: r && r.status === 'failed' ? 'critical' : 'ok',
+                backupRows.push(buildFindingsEnvelope({
                     area: 'A10',
                     finding: 'Recent backup run',
-                    value: {
+                    reason: 'Recent run status is reported for audit context, not operational recommendation.',
+                    evidence: {
                         filename: r.filename || '',
                         status: r.status || 'unknown',
                         triggeredBy: r.triggeredBy || '',
                         timestamp: r.timestamp || r.date || null,
                         size: r.size || 0
+                    },
+                    confidence: 'high',
+                    severity: r && r.status === 'failed' ? 'warning' : 'ok',
+                    recommendedAction: r && r.status === 'failed'
+                        ? 'Re-run failed backup manually or verify environment disk and DB privileges.'
+                        : 'No action needed.',
+                    requiresHumanApproval: r && r.status === 'failed',
+                    value: {
+                        kind: 'db-backup-recent-run'
                     }
-                });
+                }));
             });
+
+            if (config.backup.restoreValidationEnabled && latest) {
+                const validationResult = await backupService.validateLatestBackupRecoverability({
+                    requireFreshBackupHours: config.backup.maxValidationAgeHours,
+                    minSchemaTables: 1,
+                    sampleTableRows: Math.max(1, Math.min(config.largeColumn.topSampleRows, 50))
+                });
+                const validationSeverity = validationResult && validationResult.status === 'passed'
+                    ? 'ok'
+                    : validationResult && validationResult.status === 'skipped' ? 'info' : 'warning';
+                const validationConfidence = validationResult && validationResult.status === 'passed' ? 'high' : 'low';
+                backupRows.push(buildFindingsEnvelope({
+                    area: 'A10',
+                    finding: validationResult && validationResult.status === 'passed'
+                        ? 'Database recoverability validated in isolation'
+                        : 'Database recoverability validation failed',
+                    reason: validationResult && validationResult.message
+                        ? validationResult.message
+                        : 'Isolated restore validation returned with non-success result.',
+                    evidence: validationResult || { error: 'No recoverability details available' },
+                    confidence: validationConfidence,
+                    severity: validationSeverity,
+                    recommendedAction: validationResult && validationResult.status === 'passed'
+                        ? 'No action required.'
+                        : 'Run isolated restore validation from operations window and review restore output.',
+                    requiresHumanApproval: validationResult && validationResult.status === 'passed' ? false : true,
+                    value: {
+                        validationStatus: validationResult && validationResult.status ? validationResult.status : 'unknown',
+                        tempDbName: validationResult ? validationResult.tempDatabase : null,
+                        ageHoursFromBackup: latestAgeHours === null ? null : Math.round(latestAgeHours * 10) / 10
+                    }
+                }));
+            }
         } catch (e) {
-            backupRows.push({ severity: 'warning', area: 'A10', finding: 'Unable to read backup status', value: e.message });
+            detectCheckerError(backupRows, 'backupHealth', {
+                area: 'A10',
+                finding: 'Unable to evaluate backup health',
+                error: e.message,
+                errorQuery: 'backup health + optional recoverability check'
+            });
         }
-        addCheckSummary(checks, 'backupHealth', backupRows, 'Backup success and retention checks');
+        addCheckSummary(checks, 'backupHealth', backupRows, 'Backup creation and recoverability checks');
 
         const summary = {
             generatedAt: new Date().toISOString(),
             overall: 'ok',
-            totals: { ok: 0, warning: 0, critical: 0 },
+            totals: { ok: 0, info: 0, warning: 0, critical: 0 },
             checks
         };
 
@@ -810,6 +1576,7 @@ exports.getRoutineDbChecks = async (req, res) => {
             checks[key].items.forEach(function(item) {
                 if (item.severity === 'critical') summary.totals.critical += 1;
                 else if (item.severity === 'warning') summary.totals.warning += 1;
+                else if (item.severity === 'info') summary.totals.info += 1;
                 else if (item.severity === 'ok') summary.totals.ok += 1;
             });
             if (checks[key].status === 'critical') summary.overall = 'critical';

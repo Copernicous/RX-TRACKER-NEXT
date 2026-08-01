@@ -602,6 +602,7 @@ function loadRoutineDbChecks() {
             var totalItems = 0;
             var critical = 0;
             var warning = 0;
+            var info = 0;
             var ok = 0;
             var overall = data && data.overall ? data.overall : 'ok';
 
@@ -610,12 +611,13 @@ function loadRoutineDbChecks() {
                     totalItems += 1;
                     if (item.severity === 'critical') critical += 1;
                     else if (item.severity === 'warning') warning += 1;
+                    else if (item.severity === 'info') info += 1;
                     else if (item.severity === 'ok') ok += 1;
                 });
             });
 
             if (summaryEl) {
-                summaryEl.textContent = 'Last run: ' + new Date(data.generatedAt || Date.now()).toLocaleString() + ' • ' + totalItems + ' finding(s) (' + critical + ' critical, ' + warning + ' warning, ' + ok + ' ok).';
+                summaryEl.textContent = 'Last run: ' + new Date(data.generatedAt || Date.now()).toLocaleString() + ' • ' + totalItems + ' finding(s) (' + critical + ' critical, ' + warning + ' warning, ' + info + ' info, ' + ok + ' ok).';
             }
 
             if (overallEl) {
@@ -710,8 +712,18 @@ async function loadHealth() {
         var n=data.node, d=data.db;
         var heapPct = Math.round((n.heapUsed/n.heapTotal)*100);
         var memPct  = Math.round(((n.totalMemBytes-n.freeMemBytes)/n.totalMemBytes)*100);
+        var dbLabel = (d && d.name) || '\u2014';
+        var dbConn = (d && d.connection) || {};
+        var dbServer = [dbConn.serverHost, dbConn.serverPort].filter(Boolean).join(':');
+        var dbLines = [
+            'Database: ' + dbLabel,
+            'Postgres: ' + (dbServer || 'localhost:5432'),
+            'User: ' + ((d && d.currentUser) || dbConn.currentUser || '\u2014'),
+            (d&&d.size)||'\u2014',
+            data.connections+' active connections'
+        ];
         var cards = [
-            {icon:'fa-database', color:'#6366f1', label:'Database',    lines:[(d&&d.name)||'\u2014', (d&&d.size)||'\u2014', data.connections+' active connections']},
+            {icon:'fa-database', color:'#6366f1', label:'Database',    lines:dbLines},
             {icon:'fa-server',   color:'#10b981', label:'Node.js',     lines:[n.version, n.platform+' ('+n.arch+')', 'Uptime: '+fmtUp(n.uptime)]},
             {icon:'fa-memory',   color:'#f59e0b', label:'Heap Memory', lines:[fmtB(n.heapUsed)+' used', fmtB(n.heapTotal)+' total', heapPct+'% heap used']},
             {icon:'fa-microchip',color:'#06b6d4', label:'System RAM',  lines:[fmtB(n.totalMemBytes-n.freeMemBytes)+' used', fmtB(n.totalMemBytes)+' total', memPct+'% utilization']},

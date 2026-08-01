@@ -587,6 +587,257 @@ function latestSuccessfulBackup(entries) {
         .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))[0] || null;
 }
 
+function _pgIdentifier(value) {
+    return String(value || '').replace(/[^a-zA-Z0-9_]/g, '_').toLowerCase();
+}
+function _safeTempDbName(prefix) {
+    var safePrefix = _pgIdentifier(prefix || 'rx_health_validate');
+    if (!safePrefix) safePrefix = 'rx_health_validate';
+    var suffix = (Date.now() + Math.floor(Math.random() * 1e6)).toString(36);
+    var candidate = (safePrefix + '_' + suffix).slice(0, 45);
+    if (candidate.length < 5) candidate = 'rx_health_validate_' + suffix;
+    if (candidate.length > 45) candidate = candidate.slice(0, 45);
+    return candidate.replace(/_+$/g, '');
+}
+
+function _runToolCommand(toolName, args, toolEnv) {
+    return new Promise(function(resolve) {
+        var env = toolEnv || process.env;
+        var child;
+        var stdout = '';
+        var stderr = '';
+        try {
+            child = spawn(toolName, args, { env: env });
+        } catch (err) {
+            return resolve({ status: 'failed', code: -1, stdout: '', stderr: err.message });
+        }
+
+        child.stdout.on('data', function(d) { stdout += d.toString(); });
+        child.stderr.on('data', function(d) { stderr += d.toString(); });
+        child.on('error', function(err) {
+            resolve({ status: 'failed', code: -1, stdout: '', stderr: err.message });
+        });
+        child.on('close', function(code) {
+            resolve({ status: code === 0 ? 'success' : 'failed', code: code, stdout: stdout.trim(), stderr: stderr.trim() });
+        });
+    });
+}
+
+function _runPsqlSql(databaseName, sql) {
+    return new Promise(function(resolve, reject) {
+        var env = process.env;
+        var pgEnv = Object.assign({}, process.env, {
+            PGPASSWORD: env.DB_PASS || '',
+            PGOPTIONS: env.PGOPTIONS || ''
+        });
+        var psqlTool = findPgTool('psql');
+        var args = [
+            '-h', env.DB_HOST || '127.0.0.1',
+            '-p', env.DB_PORT || '5432',
+            '-U', env.DB_USER || 'postgres',
+            '-d', databaseName,
+            '-t', '-A', '-F', '|',
+            '-c', sql
+        ];
+        _runToolCommand(psqlTool, args, pgEnv).then(function(result) {
+            if (result.status !== 'success') {
+                return reject(new Error(result.stderr || ('psql failed: exit ' + result.code)));
+            }
+            resolve(result.stdout);
+        }).catch(function(err) {
+            reject(err);
+        });
+    });
+}
+
+function _parsePsqlRows(raw) {
+    return String(raw || '')
+        .split(/\r?\n/)
+        .map(function(line) { return String(line || '').trim(); })
+        .filter(function(line) { return line.length > 0; });
+}
+
+function _dropAndCreateDatabase(dbName) {
+    return _runPsqlSql('postgres', 'DROP DATABASE IF EXISTS ' + sqlIdentifier(dbName) + '; CREATE DATABASE ' + sqlIdentifier(dbName) + ' TEMPLATE template0;');
+}
+
+function _queryRecoverabilitySnapshot(dbName) {
+    var sql = `
+        WITH s AS (
+            SELECT schemaname, relname, COALESCE(n_live_tup,0) AS n_live_tup
+            FROM pg_stat_user_tables
+        )
+        SELECT row_to_json(r)::text AS json_row FROM (
+            SELECT
+                (SELECT COUNT(*)::int FROM information_schema.tables WHERE table_schema = 'public' AND table_type='BASE TABLE') AS public_table_count,
+                (SELECT COUNT(*)::int FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname='public' AND c.relkind='r') AS schema_table_count,
+                (SELECT COALESCE(SUM(n_live_tup),0)::bigint FROM s) AS estimated_live_rows,
+                (SELECT COALESCE(MAX(n_live_tup),0)::bigint FROM s) AS max_table_live_rows,
+                (SELECT json_agg(row_to_json(t) ORDER BY t.n_live_tup DESC) FROM (
+                    SELECT schemaname, relname, n_live_tup
+                    FROM s
+                    ORDER BY n_live_tup DESC
+                    LIMIT 3
+                ) t) AS sample_table_rows
+        ) r;`;
+    return _runPsqlSql(dbName, sql).then(function(stdout) {
+        var rows = _parsePsqlRows(stdout);
+        if (!rows.length) throw new Error('Recoverability validation returned no snapshot rows.');
+        return JSON.parse(rows[0]);
+    });
+}
+
+function _restoreIntoDatabase(dumpFilePath, dbName) {
+    var env = process.env;
+    var args = [
+        '-h', env.DB_HOST || '127.0.0.1',
+        '-p', env.DB_PORT || '5432',
+        '-U', env.DB_USER || 'postgres',
+        '-d', dbName,
+        '-F', 'c',
+        '--no-owner', '--no-privileges',
+        dumpFilePath
+    ];
+    return _runToolCommand(findPgTool('pg_restore'), args, Object.assign({}, process.env, { PGPASSWORD: env.DB_PASS || '' }));
+}
+
+function validateLatestBackupRecoverability(options) {
+    options = options || {};
+    var requireFreshHours = Number(options.requireFreshBackupHours);
+    if (!Number.isFinite(requireFreshHours) || requireFreshHours <= 0) requireFreshHours = 48;
+    var minSchemaTables = Number(options.minSchemaTables);
+    if (!Number.isFinite(minSchemaTables) || minSchemaTables <= 0) minSchemaTables = 1;
+    var sampleTableRows = Number(options.sampleTableRows);
+    if (!Number.isFinite(sampleTableRows) || sampleTableRows <= 0) sampleTableRows = 5;
+
+    return new Promise(function(resolve) {
+        var start = Date.now();
+        var env = process.env;
+        var dbName = env.DB_NAME || 'patient_rx_dev';
+        var backupEntries = syncLogWithDisk();
+        var latest = latestSuccessfulBackup(backupEntries);
+        if (!latest || !latest.timestamp) {
+            return resolve({
+                status: 'skipped',
+                tempDatabase: null,
+                message: 'No successful backup found to validate recoverability.',
+                durationMs: Date.now() - start
+            });
+        }
+
+        var dumpPath = latest.filepath || (latest.filename ? path.join(getDbBackupDir(), latest.filename) : null);
+        if (!dumpPath || !fs.existsSync(dumpPath)) {
+            return resolve({
+                status: 'failed',
+                tempDatabase: null,
+                message: 'Latest successful backup dump file is missing on disk.',
+                durationMs: Date.now() - start
+            });
+        }
+
+        var ageHours = Math.max(0, (Date.now() - new Date(latest.timestamp).getTime()) / (1000 * 60 * 60));
+        if (!Number.isFinite(ageHours)) ageHours = 0;
+        if (ageHours > requireFreshHours) {
+            return resolve({
+                status: 'failed',
+                tempDatabase: null,
+                message: 'Latest backup is older than configured recoverability freshness window.',
+                latestBackupAgeHours: Math.round(ageHours * 10) / 10,
+                requireFreshBackupHours: requireFreshHours,
+                durationMs: Date.now() - start
+            });
+        }
+
+        var tempDb = _safeTempDbName('rx_health_validate');
+        var result = {
+            status: 'failed',
+            tempDatabase: tempDb,
+            backupFile: latest.filename || path.basename(dumpPath),
+            latestBackupAt: latest.timestamp,
+            latestBackupAgeHours: Math.round(ageHours * 10) / 10,
+            tableCount: 0,
+            estimatedLiveRows: 0,
+            maxTableRows: 0,
+            sampleTables: [],
+            pgVersion: null
+        };
+
+        var restoreResult;
+
+        _runPsqlSql('postgres', 'SELECT version() AS "version"')
+            .then(function(versionOut) {
+                var v = _parsePsqlRows(versionOut);
+                result.pgVersion = (v[0] || 'unknown');
+                return _runToolCommand(findPgTool('pg_restore'), ['--list', dumpPath], Object.assign({}, process.env, { PGPASSWORD: env.DB_PASS || '' }));
+            })
+            .then(function(listResult) {
+                if (listResult.status !== 'success') {
+                    throw new Error('Backup archive validation failed: ' + (listResult.stderr || ('exit ' + listResult.code)));
+                }
+                return _dropAndCreateDatabase(tempDb);
+            })
+            .then(function() {
+                return _restoreIntoDatabase(dumpPath, tempDb);
+            })
+            .then(function(restoreRun) {
+                restoreResult = restoreRun;
+                if (restoreRun.status !== 'success') {
+                    throw new Error('Restore to temporary database failed: ' + (restoreRun.stderr || ('exit ' + restoreRun.code)));
+                }
+                return _queryRecoverabilitySnapshot(tempDb);
+            })
+            .then(function(snapshot) {
+                result.status = 'passed';
+                result.tableCount = Number(snapshot.public_table_count || snapshot.schema_table_count || 0);
+                result.estimatedLiveRows = Number(snapshot.estimated_live_rows || 0);
+                result.maxTableRows = Number(snapshot.max_table_rows || 0);
+                result.sampleTables = [];
+                if (Array.isArray(snapshot.sample_table_rows)) {
+                    snapshot.sample_table_rows.slice(0, sampleTableRows).forEach(function(item) {
+                        if (!item) return;
+                        if (!item.n_live_rows && item.n_live_tup) item.n_live_rows = item.n_live_tup;
+                        result.sampleTables.push({
+                            schema: item.schemaname || item.schema || '',
+                            table: item.relname || item.table || '',
+                            liveRows: Number(item.n_live_rows || 0)
+                        });
+                    });
+                }
+                if (result.tableCount < minSchemaTables) {
+                    throw new Error('Recovered schema table count below minimum threshold.');
+                }
+                return null;
+            })
+            .then(function() {
+                if (Number.isInteger(sampleTableRows) && sampleTableRows > 0) {
+                    return _runPsqlSql(tempDb, 'SELECT 1;');
+                }
+                return null;
+            })
+            .then(function() {
+                return _runPsqlSql('postgres', 'DROP DATABASE IF EXISTS ' + sqlIdentifier(tempDb) + ';');
+            })
+            .then(function() {
+                result.durationMs = Date.now() - start;
+                result.status = 'passed';
+                result.message = 'Backup recoverability verified in isolated temporary database.';
+                resolve(result);
+            })
+            .catch(function(err) {
+                result.status = result.status === 'passed' ? 'warning' : 'failed';
+                result.durationMs = Date.now() - start;
+                result.message = err && err.message ? err.message : String(err || 'Unknown restore-validation error');
+                if (restoreResult && restoreResult.status === 'success' && restoreResult.stderr) {
+                    result.restoreStderr = restoreResult.stderr;
+                }
+                // cleanup temporary database when restore path was attempted.
+                _runPsqlSql('postgres', 'DROP DATABASE IF EXISTS ' + sqlIdentifier(tempDb) + ';')
+                    .catch(function() {})
+                    .then(function() { resolve(result); });
+            });
+    });
+}
+
 function maybeAlertMissingBackup(kind, schedule, entries, expectedWindowHours) {
     if (!isBackupScheduleEnabled(schedule)) return;
     const latest = latestSuccessfulBackup(entries);
@@ -824,5 +1075,6 @@ module.exports = {
         backupDir:     getSiteBackupDir(),
         maxBackups:    MAX_SITE_BACKUPS,
         recentBackups: syncSiteLogWithDisk().slice(0, 10)
-    })
+    }),
+    validateLatestBackupRecoverability
 };
