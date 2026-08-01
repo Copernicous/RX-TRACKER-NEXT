@@ -8,13 +8,16 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
 
-- **v4.0.0-next.62** is the release candidate adding a compact
+- Official **v4.0.0-next.62** was published on 2026-08-01 from `main` commit
+  `6e01fa10fecd97bba75af4f6b05f2372d23a10c4`, adding a compact
   **Results at a glance** interpretation table above Backoffice Routine
   Database Checks. It summarizes status, meaning, and next action for each
   existing read-only section while preserving all detailed evidence. It makes
   no database query, threshold, PostgreSQL configuration, schema, business
-  data, backup, or proxy/security change. Publication and validation are
-  pending.
+  data, backup, or proxy/security change. PostgreSQL lifecycle, CodeQL, and
+  compiled release workflows passed. Both official server ZIP names have
+  SHA-256 `26ec79e85aaa9766821a032a4a8ab2158860287f17a291fd28961763fa95f103`.
+  Production installation is pending.
 
 - Official **v4.0.0-next.61** was published on 2026-08-01 from `main` commit
   `32d46c89379b295c597482419c5bed24b02ac798` for pharmacy-scoped Delivery Log
