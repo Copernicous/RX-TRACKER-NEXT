@@ -692,6 +692,37 @@ function confidenceFromEvidence(options) {
     return 'low';
 }
 
+function normalizeErrorMessage(error) {
+    if (!error) return '';
+    if (typeof error === 'string') return error;
+    if (error.message) return error.message;
+    try { return JSON.stringify(error); } catch { return String(error); }
+}
+
+async function runHealthQuery(primary, fallback, contextLabel) {
+    try {
+        return { source: 'primary', rows: await db.sequelize.query(primary.sql, primary.options) };
+    } catch (primaryError) {
+        const primaryErr = normalizeErrorMessage(primaryError);
+        if (!fallback) {
+            const err = new Error(primaryErr + ' | ' + (contextLabel || 'primary query failed'));
+            err.name = 'HealthQueryError';
+            throw err;
+        }
+        try {
+            const rows = await db.sequelize.query(fallback.sql, fallback.options);
+            return { source: 'fallback', rows: rows, primaryError: primaryErr };
+        } catch (fallbackError) {
+            const fallbackErr = normalizeErrorMessage(fallbackError);
+            const err = new Error('Primary query failed: ' + primaryErr + ' | Fallback query failed: ' + fallbackErr + ' | ' + (contextLabel || 'health query'));
+            err.name = 'HealthQueryError';
+            err.primaryError = primaryErr;
+            err.fallbackError = fallbackErr;
+            throw err;
+        }
+    }
+}
+
 exports.getHealth = async (req, res) => {
     try {
         const tableStats = await db.sequelize.query(`
@@ -920,42 +951,82 @@ exports.getRoutineDbChecks = async (req, res) => {
 
         const indexChecks = [];
         try {
-            const missingIndexRows = await db.sequelize.query(
-                `SELECT n.nspname AS "schema", c.relname AS "table",
-                        COALESCE(s.seq_scan, 0) AS "seqScan",
-                        COALESCE(s.idx_scan, 0) AS "idxScan",
-                        COALESCE(s.n_live_tup, 0) AS "liveRows",
-                        COALESCE(pg_relation_size(c.oid), 0) AS "sizeBytes",
-                        COALESCE(s.n_tup_ins, 0) AS "inserts",
-                        COALESCE(s.n_tup_upd, 0) AS "updates",
-                        COALESCE(s.n_tup_del, 0) AS "deletes",
-                        COALESCE(s.n_mod_since_analyze, 0) AS "modSinceAnalyze",
-                        EXTRACT(EPOCH FROM (NOW() - COALESCE(s.stats_reset, NOW() - INTERVAL '10 years')))/3600 AS "statsAgeHours"
-                 FROM pg_class c
-                 JOIN pg_namespace n ON n.oid = c.relnamespace
-                 LEFT JOIN pg_stat_user_tables s
-                   ON s.schemaname = n.nspname AND s.relname = c.relname
-                 WHERE n.nspname = 'public'
-                    AND c.relkind = 'r'
-                    AND COALESCE(s.n_live_tup,0) >= :minRows
-                    AND COALESCE(pg_relation_size(c.oid), 0) >= :minSizeBytes
-                    AND (s.stats_reset IS NULL OR COALESCE(EXTRACT(EPOCH FROM (NOW() - s.stats_reset))/3600, 999999) >= :statsAgeHours)
-                    AND COALESCE(s.seq_scan, 0) >= :minSeqScans
-                    AND (COALESCE(s.seq_scan,0) >= (COALESCE(s.idx_scan,0) * :seqToIdxRatioWarn))
-                  ORDER BY (COALESCE(s.seq_scan,0) / NULLIF(COALESCE(s.idx_scan,0),0)) DESC NULLS LAST
-                  LIMIT :limit`,
+            const missingQueryResult = await runHealthQuery(
                 {
-                    type: QueryTypes.SELECT,
-                    replacements: {
-                        minRows: config.missingIndex.minRows,
-                        minSizeBytes: Math.max(config.missingIndex.minSizeMb, 1) * 1024 * 1024,
-                        statsAgeHours: config.missingIndex.statsFreshnessHours,
-                        minSeqScans: Math.max(config.missingIndex.minCalls, 1),
-                        seqToIdxRatioWarn: config.missingIndex.seqToIdxRatioWarn,
-                        limit: config.missingIndex.topTables
+                    sql: `SELECT n.nspname AS "schema", c.relname AS "table",
+                            COALESCE(s.seq_scan, 0) AS "seqScan",
+                            COALESCE(s.idx_scan, 0) AS "idxScan",
+                            COALESCE(s.n_live_tup, 0) AS "liveRows",
+                            COALESCE(pg_relation_size(c.oid), 0) AS "sizeBytes",
+                            COALESCE(s.n_tup_ins, 0) AS "inserts",
+                            COALESCE(s.n_tup_upd, 0) AS "updates",
+                            COALESCE(s.n_tup_del, 0) AS "deletes",
+                            COALESCE(s.n_mod_since_analyze, 0) AS "modSinceAnalyze",
+                            COALESCE(EXTRACT(EPOCH FROM (NOW() - COALESCE(s.last_autovacuum, s.last_analyze)))/3600, 999999) AS "statsAgeHours"
+                         FROM pg_class c
+                         JOIN pg_namespace n ON n.oid = c.relnamespace
+                         LEFT JOIN pg_stat_user_tables s
+                           ON s.schemaname = n.nspname AND s.relname = c.relname
+                         WHERE n.nspname = 'public'
+                           AND c.relkind = 'r'
+                           AND COALESCE(s.n_live_tup, 0) >= :minRows
+                           AND COALESCE(pg_relation_size(c.oid), 0) >= :minSizeBytes
+                           AND COALESCE(EXTRACT(EPOCH FROM (NOW() - COALESCE(s.last_autovacuum, s.last_analyze)))/3600, 999999) >= :statsAgeHours
+                           AND COALESCE(s.seq_scan, 0) >= :minSeqScans
+                           AND (COALESCE(s.seq_scan,0) >= (COALESCE(s.idx_scan,0) * :seqToIdxRatioWarn))
+                         ORDER BY (COALESCE(s.seq_scan,0) / NULLIF(COALESCE(s.idx_scan,0),0)) DESC NULLS LAST
+                         LIMIT :limit`,
+                    options: {
+                        type: QueryTypes.SELECT,
+                        replacements: {
+                            minRows: config.missingIndex.minRows,
+                            minSizeBytes: Math.max(config.missingIndex.minSizeMb, 1) * 1024 * 1024,
+                            statsAgeHours: config.missingIndex.statsFreshnessHours,
+                            minSeqScans: Math.max(config.missingIndex.minCalls, 1),
+                            seqToIdxRatioWarn: config.missingIndex.seqToIdxRatioWarn,
+                            limit: config.missingIndex.topTables
+                        }
                     }
-                }
+                },
+                {
+                    sql: `SELECT n.nspname AS "schema", c.relname AS "table",
+                            COALESCE(s.seq_scan, 0) AS "seqScan",
+                            COALESCE(s.idx_scan, 0) AS "idxScan",
+                            COALESCE(s.n_live_tup, 0) AS "liveRows",
+                            COALESCE(pg_relation_size(c.oid), 0) AS "sizeBytes",
+                            COALESCE(s.n_tup_ins, 0) AS "inserts",
+                            COALESCE(s.n_tup_upd, 0) AS "updates",
+                            COALESCE(s.n_tup_del, 0) AS "deletes",
+                            COALESCE(s.n_mod_since_analyze, 0) AS "modSinceAnalyze",
+                            COALESCE(EXTRACT(EPOCH FROM (NOW() - COALESCE(s.last_autovacuum, s.last_analyze)))/3600, 999999) AS "statsAgeHours"
+                         FROM pg_class c
+                         JOIN pg_namespace n ON n.oid = c.relnamespace
+                         LEFT JOIN pg_stat_all_tables s
+                           ON s.schemaname = n.nspname AND s.relname = c.relname
+                         WHERE n.nspname = 'public'
+                           AND c.relkind = 'r'
+                           AND COALESCE(s.n_live_tup,0) >= :minRows
+                           AND COALESCE(pg_relation_size(c.oid), 0) >= :minSizeBytes
+                           AND COALESCE(EXTRACT(EPOCH FROM (NOW() - COALESCE(s.last_autovacuum, s.last_analyze)))/3600, 999999) >= :statsAgeHours
+                           AND COALESCE(s.seq_scan, 0) >= :minSeqScans
+                           AND (COALESCE(s.seq_scan,0) >= (COALESCE(s.idx_scan,0) * :seqToIdxRatioWarn))
+                         ORDER BY (COALESCE(s.seq_scan,0) / NULLIF(COALESCE(s.idx_scan,0),0)) DESC NULLS LAST
+                         LIMIT :limit`,
+                    options: {
+                        type: QueryTypes.SELECT,
+                        replacements: {
+                            minRows: config.missingIndex.minRows,
+                            minSizeBytes: Math.max(config.missingIndex.minSizeMb, 1) * 1024 * 1024,
+                            statsAgeHours: config.missingIndex.statsFreshnessHours,
+                            minSeqScans: Math.max(config.missingIndex.minCalls, 1),
+                            seqToIdxRatioWarn: config.missingIndex.seqToIdxRatioWarn,
+                            limit: config.missingIndex.topTables
+                        }
+                    }
+                },
+                'missing-index candidate query'
             );
+            const missingIndexRows = missingQueryResult && missingQueryResult.rows ? missingQueryResult.rows : [];
 
             missingIndexRows.forEach(function(r) {
                 var tableInfo = {
@@ -1063,6 +1134,7 @@ exports.getRoutineDbChecks = async (req, res) => {
                 }));
             }
         } catch (e) {
+            // Keep the check output actionable when one query path fails.
             detectCheckerError(indexChecks, 'indexChecks', {
                 area: 'A02',
                 finding: 'Unable to evaluate missing-index candidates',
@@ -1072,14 +1144,15 @@ exports.getRoutineDbChecks = async (req, res) => {
         }
 
         try {
-            const unusedRows = await db.sequelize.query(
-                `SELECT n.nspname AS "schema", rel.relname AS "table", idx.relname AS "index",
+            const unusedRowsResult = await runHealthQuery(
+                {
+                    sql: `SELECT n.nspname AS "schema", rel.relname AS "table", idx.relname AS "index",
                         COALESCE(ui.idx_scan, 0) AS "idxScan",
                         COALESCE(pg_relation_size(idx.oid), 0) AS "sizeBytes",
                         pg_size_pretty(pg_relation_size(idx.oid)) AS "size",
                         COALESCE(tbl.n_live_tup, 0) AS "liveRows",
                         COALESCE(tbl.n_tup_ins, 0) + COALESCE(tbl.n_tup_upd, 0) + COALESCE(tbl.n_tup_del, 0) AS "writeRows",
-                        EXTRACT(EPOCH FROM (NOW() - COALESCE(tbl.stats_reset, NOW() - INTERVAL '10 years')))/3600 AS "statsAgeHours",
+                        COALESCE(EXTRACT(EPOCH FROM (NOW() - COALESCE(tbl.last_autovacuum, tbl.last_analyze)))/3600, 999999) AS "statsAgeHours",
                         con.conname AS "constraintName",
                         con.contype AS "constraintType"
                  FROM pg_class idx
@@ -1094,18 +1167,52 @@ exports.getRoutineDbChecks = async (req, res) => {
                    AND COALESCE(ui.idx_scan, 0) = 0
                    AND NOT ix.indisprimary
                    AND NOT ix.indisunique
-                   AND tbl.stats_reset IS NOT NULL
-                   AND COALESCE(EXTRACT(EPOCH FROM (NOW() - tbl.stats_reset))/3600, 999999) >= :statsAgeHours
+                   AND COALESCE(EXTRACT(EPOCH FROM (NOW() - COALESCE(tbl.last_autovacuum, tbl.last_analyze)))/3600, 999999) >= :statsAgeHours
                    AND COALESCE(pg_relation_size(idx.oid), 0) >= :minIndexSizeBytes
                  ORDER BY COALESCE(pg_relation_size(idx.oid), 0) DESC NULLS LAST`,
+                    options: {
+                        type: QueryTypes.SELECT,
+                        replacements: {
+                            minIndexSizeBytes: Math.max(config.unusedIndex.candidateSizeMb, 1) * 1024 * 1024,
+                            statsAgeHours: config.unusedIndex.observationDays * 24
+                        }
+                    }
+                },
                 {
-                    type: QueryTypes.SELECT,
-                    replacements: {
-                        minIndexSizeBytes: Math.max(config.unusedIndex.candidateSizeMb, 1) * 1024 * 1024,
-                        statsAgeHours: config.unusedIndex.observationDays * 24
+                    sql: `SELECT n.nspname AS "schema", rel.relname AS "table", idx.relname AS "index",
+                        COALESCE(ui.idx_scan, 0) AS "idxScan",
+                        COALESCE(pg_relation_size(idx.oid), 0) AS "sizeBytes",
+                        pg_size_pretty(pg_relation_size(idx.oid)) AS "size",
+                        COALESCE(tbl.n_live_tup, 0) AS "liveRows",
+                        COALESCE(tbl.n_tup_ins, 0) + COALESCE(tbl.n_tup_upd, 0) + COALESCE(tbl.n_tup_del, 0) AS "writeRows",
+                        COALESCE(EXTRACT(EPOCH FROM (NOW() - COALESCE(tbl.last_autovacuum, tbl.last_analyze)))/3600, 999999) AS "statsAgeHours",
+                        con.conname AS "constraintName",
+                        con.contype AS "constraintType"
+                     FROM pg_class idx
+                     JOIN pg_index ix ON ix.indexrelid = idx.oid
+                     JOIN pg_class rel ON rel.oid = ix.indrelid
+                     JOIN pg_namespace n ON n.oid = idx.relnamespace
+                     LEFT JOIN pg_stat_all_indexes ui ON ui.indexrelid = idx.oid
+                     LEFT JOIN pg_stat_all_tables tbl ON tbl.schemaname = n.nspname AND tbl.relname = rel.relname
+                     LEFT JOIN pg_constraint con ON con.conindid = idx.oid
+                     WHERE n.nspname = 'public'
+                       AND idx.relkind = 'i'
+                       AND COALESCE(ui.idx_scan, 0) = 0
+                       AND NOT ix.indisprimary
+                       AND NOT ix.indisunique
+                       AND COALESCE(EXTRACT(EPOCH FROM (NOW() - COALESCE(tbl.last_autovacuum, tbl.last_analyze)))/3600, 999999) >= :statsAgeHours
+                       AND COALESCE(pg_relation_size(idx.oid), 0) >= :minIndexSizeBytes
+                     ORDER BY COALESCE(pg_relation_size(idx.oid), 0) DESC NULLS LAST`,
+                    options: {
+                        type: QueryTypes.SELECT,
+                        replacements: {
+                            minIndexSizeBytes: Math.max(config.unusedIndex.candidateSizeMb, 1) * 1024 * 1024,
+                            statsAgeHours: config.unusedIndex.observationDays * 24
+                        }
                     }
                 }
             );
+            const unusedRows = unusedRowsResult && unusedRowsResult.rows ? unusedRowsResult.rows : [];
 
             const filteredUnused = unusedRows.filter(function(r) {
                 if (ignoreIndexByPattern(r.index) || ignoreIndexByPattern(r.table)) return false;
@@ -1276,34 +1383,59 @@ exports.getRoutineDbChecks = async (req, res) => {
 
         const largeColumns = [];
         try {
-            const candidateColumns = await db.sequelize.query(
-                `SELECT c.table_schema AS "schemaName", c.table_name AS "tableName", c.column_name AS "columnName",
-                        c.data_type AS "dataType", c.character_maximum_length AS "varcharLength",
-                        COALESCE(ps.avg_width, 0) AS "avgWidth"
-                 FROM information_schema.columns c
-                 JOIN pg_namespace n ON n.nspname = c.table_schema
-                 JOIN pg_class t ON t.relnamespace = n.oid AND t.relname = c.table_name AND t.relkind = 'r'
-                 LEFT JOIN pg_stats ps
-                   ON ps.schemaname = c.table_schema
-                  AND ps.tablename  = c.table_name
-                  AND ps.attname    = c.column_name
-                 WHERE c.table_schema = 'public'
-                   AND (
-                        c.data_type IN ('text', 'json', 'jsonb', 'bytea')
-                        OR (c.data_type = 'character varying' AND COALESCE(c.character_maximum_length, 0) >= :minVarcharLength)
-                   )
-                   AND COALESCE(ps.avg_width, 0) >= :minAvgBytes
-                 ORDER BY COALESCE(ps.avg_width, 0) DESC
-                 LIMIT :candidateColumns`,
+            const candidateColumnsResult = await runHealthQuery(
                 {
-                    type: QueryTypes.SELECT,
-                    replacements: {
-                        minVarcharLength: config.largeColumn.minVarcharLength,
-                        minAvgBytes: config.largeColumn.minAvgBytes,
-                        candidateColumns: config.largeColumn.topColumnCandidates
+                    sql: `SELECT c.table_schema AS "schemaName", c.table_name AS "tableName", c.column_name AS "columnName",
+                            c.data_type AS "dataType", c.character_maximum_length AS "varcharLength",
+                            COALESCE(ps.avg_width, 0) AS "avgWidth"
+                         FROM information_schema.columns c
+                         JOIN pg_namespace n ON n.nspname = c.table_schema
+                         JOIN pg_class t ON t.relnamespace = n.oid AND t.relname = c.table_name AND t.relkind = 'r'
+                         LEFT JOIN pg_stats ps
+                           ON ps.schemaname = c.table_schema
+                          AND ps.tablename  = c.table_name
+                          AND ps.attname    = c.column_name
+                         WHERE c.table_schema = 'public'
+                           AND (
+                                c.data_type IN ('text', 'json', 'jsonb', 'bytea')
+                                OR (c.data_type = 'character varying' AND COALESCE(c.character_maximum_length, 0) >= :minVarcharLength)
+                           )
+                           AND COALESCE(ps.avg_width, 0) >= :minAvgBytes
+                         ORDER BY COALESCE(ps.avg_width, 0) DESC
+                         LIMIT :candidateColumns`,
+                    options: {
+                        type: QueryTypes.SELECT,
+                        replacements: {
+                            minVarcharLength: config.largeColumn.minVarcharLength,
+                            minAvgBytes: config.largeColumn.minAvgBytes,
+                            candidateColumns: config.largeColumn.topColumnCandidates
+                        }
                     }
-                }
+                },
+                {
+                    sql: `SELECT c.table_schema AS "schemaName", c.table_name AS "tableName", c.column_name AS "columnName",
+                            c.data_type AS "dataType", c.character_maximum_length AS "varcharLength"
+                         FROM information_schema.columns c
+                         JOIN pg_namespace n ON n.nspname = c.table_schema
+                         JOIN pg_class t ON t.relnamespace = n.oid AND t.relname = c.table_name AND t.relkind = 'r'
+                         WHERE c.table_schema = 'public'
+                           AND (
+                                c.data_type IN ('text', 'json', 'jsonb', 'bytea')
+                                OR (c.data_type = 'character varying' AND COALESCE(c.character_maximum_length, 0) >= :minVarcharLength)
+                           )
+                         ORDER BY c.table_schema, c.table_name, c.column_name
+                         LIMIT :candidateColumns`,
+                    options: {
+                        type: QueryTypes.SELECT,
+                        replacements: {
+                            minVarcharLength: config.largeColumn.minVarcharLength,
+                            candidateColumns: config.largeColumn.topColumnCandidates
+                        }
+                    }
+                },
+                'large-column candidate query'
             );
+            const candidateColumns = candidateColumnsResult && candidateColumnsResult.rows ? candidateColumnsResult.rows : [];
 
             if (!candidateColumns.length) {
                 largeColumns.push(buildFindingsEnvelope({
@@ -1324,6 +1456,7 @@ exports.getRoutineDbChecks = async (req, res) => {
                     }
                 }));
             } else {
+                const sizeFailures = [];
                 for (var i = 0; i < Math.min(candidateColumns.length, config.largeColumn.topColumnCandidates); i++) {
                     const c = candidateColumns[i];
                     const schema = String(c.schemaName || '').trim();
@@ -1352,21 +1485,29 @@ exports.getRoutineDbChecks = async (req, res) => {
                         }
                     );
                     if (!exists[0] || Number(exists[0].count) < 1) continue;
-
-                    const qSchema = quoteIdent(schema);
-                    const qTable = quoteIdent(table);
-                    const qColumn = quoteIdent(column);
-                    const q = `${qSchema}.${qTable}`;
-                    const quotedCol = `${q}.${qColumn}`;
-                    const sizeRows = await db.sequelize.query(
-                        `SELECT COUNT(*)::bigint AS "rowCount",
-                                COALESCE(SUM(pg_column_size(${quotedCol}), 0)::bigint, 0) AS "totalBytes",
-                                COALESCE(AVG(pg_column_size(${quotedCol}), 0)::float, 0) AS "avgBytes",
-                                COALESCE(MAX(pg_column_size(${quotedCol}), 0)::bigint, 0) AS "maxBytes",
-                                SUM(CASE WHEN ${quotedCol} IS NULL THEN 1 ELSE 0 END)::bigint AS "nullCount"
-                         FROM ${q}`,
-                        { type: QueryTypes.SELECT }
-                    );
+                    let sizeRows = [];
+                    try {
+                        const qSchema = quoteIdent(schema);
+                        const qTable = quoteIdent(table);
+                        const qColumn = quoteIdent(column);
+                        const q = `${qSchema}.${qTable}`;
+                        const quotedCol = `${q}.${qColumn}`;
+                        const sizeQuery = `SELECT COUNT(*)::bigint AS "rowCount",
+                                        COALESCE(SUM(pg_column_size(${quotedCol}))::bigint, 0) AS "totalBytes",
+                                        COALESCE(AVG(pg_column_size(${quotedCol}))::float, 0) AS "avgBytes",
+                                        COALESCE(MAX(pg_column_size(${quotedCol}))::bigint, 0) AS "maxBytes",
+                                        SUM(CASE WHEN ${quotedCol} IS NULL THEN 1 ELSE 0 END)::bigint AS "nullCount"
+                                 FROM ${q}`;
+                        sizeRows = await db.sequelize.query(sizeQuery, { type: QueryTypes.SELECT });
+                    } catch (sizeError) {
+                        sizeFailures.push({
+                            schema: schema,
+                            table: table,
+                            column: column,
+                            error: normalizeErrorMessage(sizeError)
+                        });
+                        continue;
+                    }
                     if (!sizeRows || !sizeRows[0]) continue;
                     const sizeStat = sizeRows[0];
                     const rowCount = Number(sizeStat.rowCount || 0);
@@ -1409,6 +1550,25 @@ exports.getRoutineDbChecks = async (req, res) => {
                         requiresHumanApproval: true,
                         value: {
                             sampleLimit: config.largeColumn.topSampleRows
+                        }
+                    }));
+                }
+                if (sizeFailures.length && !largeColumns.length) {
+                    largeColumns.push(buildFindingsEnvelope({
+                        area: 'A04',
+                        finding: 'Large-column size evaluation incomplete',
+                        reason: 'At least one candidate column could not be measured for storage profile.',
+                        evidence: {
+                            sampleFailures: sizeFailures.slice(0, 5),
+                            failureCount: sizeFailures.length
+                        },
+                        confidence: 'low',
+                        severity: 'warning',
+                        recommendedAction: 'Re-run checks after resolving lock/load pressure on the affected tables and collect a targeted row sample if needed.',
+                        requiresHumanApproval: true,
+                        value: {
+                            errorCount: sizeFailures.length,
+                            candidatesChecked: candidateColumns.length
                         }
                     }));
                 }

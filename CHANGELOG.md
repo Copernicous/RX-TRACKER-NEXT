@@ -7,6 +7,18 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+## [4.0.0-next.56]
+
+### Fixed
+
+- Fixed routine database-health routine checks for PostgreSQL catalog compatibility by removing reliance on `stats_reset` in `pg_stat_*` checks (older PG catalogs still expose valid lifecycle timing from vacuum/analyze fields).
+- Fixed oversized-column sizing diagnostics so per-column `pg_column_size` aggregates are computed with valid PostgreSQL aggregate syntax.
+- Hardened routine check resilience for catalog-query edge cases by adding per-column sizing failure handling and avoiding hard failure of entire large-column scans.
+
+### Safety
+
+- No schema migrations, constrained roles, or business-data rewrites.
+
 ## [4.0.0-next.55]
 
 ### Added
