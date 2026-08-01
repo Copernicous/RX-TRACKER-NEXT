@@ -8,7 +8,11 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
 
-- Candidate **v4.0.0-next.59** fixes Project Control option 25 activation and
+- Official **v4.0.0-next.59** was published on 2026-08-01 from `main` commit
+  `112fe22f549b9f6a1540346d11b5792b5770e403` after the PostgreSQL lifecycle
+  CI, Project Control and backup regressions, updater self-test, CodeQL, and
+  tagged compiled-release workflow passed. It fixes Project Control option 25
+  activation and
   automatic recovery after a verified isolated restore when NSSM retains an
   older test-copy `DB_NAME` in its multi-value `AppEnvironmentExtra` block.
   The workflow now resets that block before writing and verifying the exact
@@ -20,8 +24,15 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
   business fingerprint in the reported `.58` test all passed; only service
   activation and recovery failed. This correction does not modify that
   restored database, the production GUI restore workflow, schema, business
-  data, or proxy/security configuration. Publication and testing-server retry
-  are not yet confirmed.
+  data, or proxy/security configuration. Published SHA-256 values:
+  `server-update-4.0.0-next.59.zip` and
+  `RX-Tracker-NEXT-New-Server-4.0.0-next.59.zip`
+  `b258e71367397813953f9af19d9c2f270908c24f32802d5e421b4e3feb8ba468`,
+  `RxSoftphone-0.6.0-win-x64.zip`
+  `4e263e71c52f275f54c186bafe53719ad7b84463672809de77828fd1d906b9de`,
+  `server.exe` `090de37b384e8d847fd99a8d8202534c22b8715b7db6562345750d20130afa57`,
+  and `rx-db.exe` `e37b62887f0093012c51b2539d07dc79f94ddc5fefd85c1a4cfa2def3babcdaf`.
+  Testing-server retry and production installation are not yet confirmed.
 
 - Official **v4.0.0-next.58** was published on 2026-08-01 from `main` commit
   `bcb69aca29a05c8c8735f39e3dfa3bf1e4c99650` after the PostgreSQL lifecycle
@@ -212,7 +223,7 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 - NEXT database name at the completed cutover: `patient_rx_next_cutover_copy`
 - Candidate Project Control version: `2.2.2`; installed production version is
   unconfirmed and must be checked through Project Control before an update.
-- Latest official release: `v4.0.0-next.58`; installation remains unconfirmed.
+- Latest official release: `v4.0.0-next.59`; installation remains unconfirmed.
   Version `next.31` made
   **Current Stage** the primary RX Records workflow filter, kept **Next Action
   Required** under Advanced filters, and exported both meanings explicitly.
