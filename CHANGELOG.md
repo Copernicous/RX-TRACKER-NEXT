@@ -7,6 +7,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+## [4.0.0-next.53]
+
+### Fixed
+
+- Fixed Project Control option 25 (restore verified dump into isolated test copy) default naming so repeated restores no longer generate stacked names like `restore_restore_test`.
+- Maintained an automatic escape hatch to a unique test database name when deduplication still resolves to the active database.
+
 ## [4.0.0-next.52]
 
 ### Added

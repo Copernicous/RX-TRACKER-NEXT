@@ -267,9 +267,10 @@ function Invoke-Interactive {
         $dumpPath = [IO.Path]::GetFullPath($dumpInput.Trim().Trim('"'))
         if (-not (Test-Path -LiteralPath $dumpPath -PathType Leaf)) { Fail "Dump file not found: $dumpPath" }
 
-        $defaultTarget = if ($previousDatabase -match '(?i)(_fresh|_test|_copy|_sandbox|_rehearsal|_scratch)$') {
-            ($previousDatabase -replace '(?i)(_fresh|_test|_copy|_sandbox|_rehearsal|_scratch)$', '') + '_restore_test'
+        $defaultTarget = if ($previousDatabase -match '(?i)(_restore|_fresh|_test|_copy|_sandbox|_rehearsal|_scratch)$') {
+            ($previousDatabase -replace '(?i)(_restore(?:_test|_\d+)?|_fresh|_test|_copy|_sandbox|_rehearsal|_scratch)$', '') + '_restore_test'
         } else { $previousDatabase + '_restore_test' }
+        if ($defaultTarget -ieq $previousDatabase) { $defaultTarget = "${defaultTarget}_2" }
         $targetInput = Read-Host "Isolated target database [$defaultTarget]"
         $target = if ([string]::IsNullOrWhiteSpace($targetInput)) { $defaultTarget } else { $targetInput.Trim() }
         Assert-SafeTarget $target $previousDatabase
