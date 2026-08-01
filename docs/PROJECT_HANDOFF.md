@@ -8,15 +8,18 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
 
-- **v4.0.0-next.60** is the release candidate correcting the remaining Project
+- Official **v4.0.0-next.60** was published on 2026-08-01 from `main` commit
+  `f0218f0b2618b858dfec28d5c041478a5ae94d04`, correcting the remaining Project
   Control option 25 activation failure observed on the `.59` testing server.
   The isolated restore, migrations, runtime-role verification, checksum ledger,
   and business fingerprint passed; only NSSM activation failed. The workflow
   now writes and verifies `AppEnvironmentExtra` as the native Windows
   `REG_MULTI_SZ` registry value instead of depending on NSSM command-line
   serialization. No database, production GUI restore, or proxy/security
-  configuration is changed. Official publication and testing-server retry are
-  pending.
+  configuration is changed. The PostgreSQL lifecycle CI and compiled release
+  workflow passed. Both official server ZIP names have SHA-256
+  `ce290ca1fe6631b84cfa9e81fcde0b35c52ab190566c420b234c9e4d778ce5ee`.
+  Testing-server retry and production installation are pending.
 
 - Official **v4.0.0-next.59** was published on 2026-08-01 from `main` commit
   `112fe22f549b9f6a1540346d11b5792b5770e403` after the PostgreSQL lifecycle
