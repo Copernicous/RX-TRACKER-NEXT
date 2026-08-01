@@ -16,6 +16,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
   The guarded workflow now clears the stale multi-value environment block
   before writing and verifying the exact `.env` snapshot and one-time health
   token, preventing duplicate old/new `DB_NAME` entries.
+- Fixed the Backups-page GUI restore safety backup on Windows when `DB_PORT`
+  is absent from the service environment. Database identity resolution no
+  longer treats the case-insensitive HTTP `PORT=3000` value as PostgreSQL's
+  port; PostgreSQL correctly defaults to `5432` unless `DB_PORT` is explicit.
 
 ### Safety
 

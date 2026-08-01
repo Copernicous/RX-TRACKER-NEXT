@@ -13,7 +13,10 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
   older test-copy `DB_NAME` in its multi-value `AppEnvironmentExtra` block.
   The workflow now resets that block before writing and verifying the exact
   `.env` snapshot and one-time health token, preventing duplicate old/new
-  database values. The restore, migrations, checksum ledger, runtime role, and
+  database values. It also fixes the Backups-page GUI restore safety backup on
+  Windows so a missing `DB_PORT` cannot case-insensitively resolve the HTTP
+  `PORT=3000`; PostgreSQL defaults to `5432` unless `DB_PORT` is explicit.
+  The restore, migrations, checksum ledger, runtime role, and
   business fingerprint in the reported `.58` test all passed; only service
   activation and recovery failed. This correction does not modify that
   restored database, the production GUI restore workflow, schema, business

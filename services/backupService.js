@@ -795,13 +795,22 @@ function normalizePort(value, fallback) {
     return String(fallback || '').trim();
 }
 
+function exactEnvironmentValue(env, name) {
+    const key = Object.keys(env || {}).find(candidate => String(candidate).toUpperCase() === name);
+    return key ? env[key] : '';
+}
+
 function getDatabaseIdentity(envInput, runtimeInput) {
     const env = envInput || process.env;
     const runtime = runtimeInput || {};
+    const usesDatabaseEnvironment = env === process.env || Object.keys(env).some(key => /^DB_(?:HOST|PORT|NAME)$/i.test(key));
+    const configuredHost = usesDatabaseEnvironment ? exactEnvironmentValue(env, 'DB_HOST') : (env.DB_HOST || env.host);
+    const configuredPort = usesDatabaseEnvironment ? exactEnvironmentValue(env, 'DB_PORT') : (env.DB_PORT || env.port);
+    const configuredDatabase = usesDatabaseEnvironment ? exactEnvironmentValue(env, 'DB_NAME') : (env.DB_NAME || env.databaseName);
     return {
-        host: String(env.DB_HOST || env.host || '127.0.0.1').trim().toLowerCase(),
-        port: normalizePort(env.DB_PORT || env.port, '5432'),
-        databaseName: String(env.DB_NAME || env.databaseName || 'patient_rx_dev').trim(),
+        host: String(configuredHost || '127.0.0.1').trim().toLowerCase(),
+        port: normalizePort(configuredPort, '5432'),
+        databaseName: String(configuredDatabase || 'patient_rx_dev').trim(),
         actualDatabaseName: String(runtime.databaseName || runtime.database_name || '').trim(),
         serverAddress: String(runtime.serverAddress || runtime.server_address || '').trim().toLowerCase(),
         serverPort: normalizePort(runtime.serverPort || runtime.server_port, ''),

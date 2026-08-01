@@ -109,6 +109,16 @@ try {
         const path = require('path');
         const service = require(${JSON.stringify(servicePath)});
         const backupDir = service.getDbBackupDir();
+        const httpPortOnlyIdentity = service.getDatabaseIdentity({
+            DB_HOST: '127.0.0.1', DB_NAME: 'rx_identity_test', port: '3000'
+        });
+        assert.strictEqual(httpPortOnlyIdentity.port, '5432',
+            'DB-style configuration must not treat lowercase/Windows HTTP PORT as PostgreSQL DB_PORT.');
+        const storedIdentity = service.getDatabaseIdentity({
+            host: 'db.internal', port: '5544', databaseName: 'rx_identity_test'
+        });
+        assert.strictEqual(storedIdentity.port, '5544',
+            'Persisted database identity records must retain lowercase port compatibility.');
         fs.mkdirSync(backupDir, { recursive: true });
         const dumpName = 'backup-test.dump';
         const dumpBytes = Buffer.from('bound dump fixture');

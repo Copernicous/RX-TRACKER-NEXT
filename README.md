@@ -29,6 +29,9 @@ Version `next.59` corrects Project Control option 25 activation and automatic
 recovery when NSSM retains an older test-copy database in its multi-value
 service environment. The workflow clears the stale environment block before
 writing and verifying the exact `.env` snapshot and one-time health token.
+It also prevents the Windows GUI restore safety backup from confusing HTTP
+`PORT=3000` with PostgreSQL `DB_PORT`; PostgreSQL defaults to `5432` when its
+dedicated port is absent.
 The isolated restored database and all existing activation identity checks are
 preserved. There is no schema migration, business-data rewrite, production GUI
 restore change, or proxy/security configuration change.
