@@ -124,7 +124,6 @@ function initApp() {
     checkAuth();
     setupLogout();
     setupSessionTimeout();
-    setupGlobalSearch();
     setupNotifications();
     observeAndApplyRestrictions();
     setupNavDate();

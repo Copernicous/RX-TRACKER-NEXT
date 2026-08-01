@@ -7,6 +7,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+### Removed
+
+- Removed the limited global search control and its `Ctrl+K` shortcut from the
+  application header. Dedicated searches within Patients, RX Records,
+  Backoffice, and other modules remain available.
+
 ## [4.0.0-next.62]
 
 ### Added
