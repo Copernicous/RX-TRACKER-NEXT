@@ -8,6 +8,13 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
 
+- **Future optional improvement (customer-requested only):** Do not add a
+  Non-Company visual marker by default. If a customer explicitly requests it,
+  consider a Backoffice-controlled badge beside flagged patient names in
+  Patient/RX reports and newly created Delivery Log controlled copies. The
+  control should affect presentation only, remain off unless requested, and
+  must not change classification, filtering, exports, or existing archives.
+
 - Official **v4.0.0-next.62** was published on 2026-08-01 from `main` commit
   `6e01fa10fecd97bba75af4f6b05f2372d23a10c4`, adding a compact
   **Results at a glance** interpretation table above Backoffice Routine
