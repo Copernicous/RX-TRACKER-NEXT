@@ -10,7 +10,7 @@ frozen 3.3.1 repository, its production database, or the RX Softphone source.
 
 ## Current status
 
-Version: `4.0.0-next.37` staging test candidate
+Version: `4.0.0-next.49` restore-manual and portable-installer release
 
 | Area | NEXT behavior |
 |---|---|
@@ -25,11 +25,13 @@ Version `next.35` made the Dashboard RX Workflow Pipeline use the same **Current
 Stage** definition as RX Records and Reports. The `next.36` candidate also makes
 the summary cards use the same four mutually exclusive **Workflow Status**
 groups as RX Records: Not Started, In Progress, Expired, and Completed. The
-`next.37` staging candidate adds inclusive RX Records **Current Stage Date
-From/To** filters and CSV output based on the completion timestamp of that same
-actual Current Stage. The Dashboard Pending card and charts remain **All
+The `next.38` candidate adds a pharmacy-separated Print & Delivery Log in PDF
+and preformatted Excel, selectable all-fields RX and Patient CSV exports,
+multi-select RX workflow filters, and an explicit Delivered / Returned to
+Pharmacy outcome. The Dashboard Pending card and charts remain **All
 Incomplete**, including Expired.
 
+Version `next.47` replaces the obsolete source/PM2 restore instructions with the official portable installer plus guarded Project Control option 25 workflow, publishes the portable New Server ZIP as an official release asset, and documents the database/full-site backup file-count settings. Version `next.46` remains the RX Profile Sync displayed-export and 100-row selection release. No migration or business-data change is included.
 The frozen application remains an emergency rollback option. New NEXT changes
 must pass staging and development validation before a separately approved,
 checksummed production release.
