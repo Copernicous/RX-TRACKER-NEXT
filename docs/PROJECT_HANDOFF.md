@@ -40,12 +40,15 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
   source-bound to the current configured and actual PostgreSQL database
   identity, so records from a prior test-copy target remain inconclusive.
 
-- The manually launched local development listener on port 3000 was confirmed
-  after publication to still run `v4.0.0-next.49` from an older checkout. The
-  authoritative repository contains `.57`, but its local runtime is stopped.
-  Do not copy release files into the older checkout or run both versions against
-  the same database. Verify the intended development database with `rx-db`
-  before stopping the old process and launching the authoritative checkout.
+- The manually launched local development listener on port 3000 was
+  consolidated on 2026-08-01 onto the authoritative repository at
+  `v4.0.0-next.57`, using the verified `patient_rx_dev` development database.
+  The older `.49` nodemon process was stopped, and the stale generated `.55`
+  `dist` folder and its empty update lock were removed. The development
+  database reports 39 applied migrations, zero pending migrations, and a
+  verified checksum ledger. Local development remains source-managed; Project
+  Control is reserved for compiled server installations. Kasm, Cloudflare,
+  CORS, and reverse-proxy settings were not changed.
 
 - Build-output policy (important for release operations):
   - `dist/` is ignored by git and is local build output only.
