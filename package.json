@@ -1,6 +1,6 @@
 {
   "name": "patient-rx-system",
-  "version": "4.0.0-next.37",
+  "version": "4.0.0-next.49",
   "description": "Patient RX Delivery Management System - NEXT database lifecycle preview",
   "main": "app.js",
   "scripts": {
@@ -41,6 +41,7 @@
     "test:patient-double-update": "node scripts/test-patient-service-date-double-update.js",
     "test:rx-override": "node scripts/test-rx-override-permissions.js",
     "test:rx-warehouse-filter-cleanup": "node scripts/test-rx-warehouse-filter-cleanup.js",
+    "test:rx-profile-sync": "node scripts/test-rx-profile-sync.js",
     "test:workflow-date": "node scripts/test-workflow-date-timezone.js",
     "test:backoffice-patient-delete": "node scripts/test-backoffice-patient-delete.js",
     "test:service-window": "node scripts/test-configurable-service-window.js",
@@ -158,6 +159,7 @@
     "node-cron": "^4.4.1",
     "node-windows": "^1.0.0-beta.8",
     "nodemailer": "^9.0.1",
+    "pdf-lib": "^1.17.1",
     "pg": "^8.22.0",
     "pg-hstore": "^2.3.4",
     "qrcode": "^1.5.4",

@@ -7,6 +7,151 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+## [4.0.0-next.49] - 2026-07-31
+
+### Added
+
+- Updated RX Records to include a patient-type filter (`Company` / `Non-Company`) in both client and query layers, and removed the previous workflow-stage filter from this view.
+
+### Changed
+
+- RX Records filtering no longer supports the old "Next Action Required" workflow-stage selection; patient-type filtering is now the equivalent UI path for scope selection.
+
+### Safety
+
+- No schema change, no business-data migration, and no workflow-action configuration changes.
+
+## [4.0.0-next.48] - 2026-08-01
+
+### Added
+
+- Added Delivery Log Archive persistence and reprint workflow:
+  - Delivery log PDF generation now saves a local JSON archive per print (reference, verification, filters, totals, rows, rendered HTML) under `administration/delivery-log-archives`.
+  - Added a new Reports tab to list archived delivery logs, with refresh and reprint actions and local-time created-at display.
+  - Reprint opens archived HTML and appends a local-time `Reprinted: <timestamp>` marker.
+
+### Changed
+
+- Switched delivery-log archive metadata display and naming to local-time values to avoid UTC rendering in the reporting path.
+
+## [4.0.0-next.47] - 2026-07-30
+
+### Fixed
+
+- Replaced the obsolete in-program new-server restore guide (Node/npm, PM2, `setup.bat`, development database name, and default-password instructions) with the official compiled portable installer plus guarded Project Control option 25 workflow.
+- Official tagged releases now publish and checksum the already-built `RX-Tracker-NEXT-New-Server-<version>.zip` asset referenced by the operator manual.
+- Documented `BACKUP_RETAIN` and `SITE_BACKUP_RETAIN` as restart-required file-count settings and distinguished them from Backoffice Backup Retention (Days).
+
+### Safety
+
+- No database migration or business-data change. Restore remains explicit, isolated, validation-gated, and optionally activated only after operator confirmation.
+
+## [4.0.0-next.46] - 2026-07-30
+
+### Added
+
+- RX Profile Sync can export the currently displayed scan as CSV, preserving each RX and Patient Pharmacy/Transport value, match status, and remaining difference fields independently from the completed-sync audit history export.
+- The RX Profile Sync header checkbox selects at most the first 100 eligible displayed RX records, matching the audited batch limit and allowing quick successive batches without an over-limit selection.
+
+### Safety
+
+- No database migration, workflow-action configuration, automatic synchronization, or business-data rewrite. The displayed export is read-only; synchronization remains explicit, master-only, limited to 100 RX records per batch, and audited per changed RX.
+
+## [4.0.0-next.45] - 2026-07-30
+
+### Fixed
+
+- RX Details now loads Patient Transport and Pharmacy Transport associations through the same canonical include set used by the RX list, so transport values synchronized from the Patient profile display correctly when the RX record is opened.
+
+### Safety
+
+- No database migration, workflow-action configuration, automatic synchronization, or business-data rewrite. The correction changes only the read response for a single RX record.
+
+## [4.0.0-next.44] - 2026-07-30
+
+### Added
+
+- RX Profile Sync now supports selecting multiple RX rows and synchronizing up to 100 selected records in one confirmed batch. Each RX remains an independent transaction with its own RX History and Audit Log entry.
+- Added a master-administrator **Export Sync History** CSV containing the audit timestamp, user, RX and Patient references, corrected field, and before/after IDs.
+
+### Fixed
+
+- Patient Transport and Pharmacy Transport corrections now use explicit transport-field persistence and are re-read before success is returned. Pharmacy synchronization retains its existing update path.
+- Empty field selections and blank Patient profile assignments make no changes. Re-scanning after Patient profile corrections shows only remaining RX differences.
+
+### Safety
+
+- No database migration, workflow-action configuration, automatic background synchronization, or business-data rewrite. Bulk sync is master-only, explicitly selected, limited to 100 RX records, and audited per RX.
+## [4.0.0-next.43] - 2026-07-30
+
+### Fixed
+
+- RX Records multi-select filter controls now keep selected text inside the button. Multiple selections use a compact selected-count label, and a single long label truncates safely.
+
+### Safety
+
+- No database migration, workflow-action configuration, or business-data change.
+
+## [4.0.0-next.42] - 2026-07-30
+
+### Added
+
+- Added a master-administrator RX Profile Sync Back Office tool for selecting a specific active RX record and copying selected Pharmacy, Patient Transport, and Pharmacy Transport values from the linked Patient profile.
+- RX Profile Sync supports RX number, Patient ID/code, and patient-name searches; it excludes deleted records and writes RX History and Audit Log entries for each applied update.
+
+### Safety
+
+- No database migration, workflow-action configuration, or automatic bulk synchronization. Empty field selections make no changes.
+
+## [4.0.0-next.41] - 2026-07-30
+
+### Fixed
+
+- Delivery Log PDF preview now provides a Close button next to Print / Save PDF.
+- Delivery Log PDF and Excel exclude RX records whose active workflow is fully completed/archived.
+- Delivery Log pagination reserves final-page acknowledgement space so patient rows do not overlap signatures.
+
+### Safety
+
+- No database migration, workflow-action configuration, or business-data change.
+
+## [4.0.0-next.40] - 2026-07-30
+
+### Added
+
+- Added a browser **Save As** destination picker for Patient CSV, RX Records CSV, and Delivery Log Excel exports when the browser supports the secure File System Access API. Unsupported browsers and insecure HTTP origins retain the normal browser-download fallback.
+
+### Changed
+
+- Simplified the Print & Delivery Log audit strip to **Export Format: PDF** and its verification reference only.
+- Shortened the Delivery Log reference prefix from `RX-LOG-` to `LOG-` across PDF, Excel, and controlled-copy footer output.
+- Gives the browser PDF preview a same-origin preview address instead of the visible `about:blank` address; the validated report content and fixed page footer layout are unchanged.
+
+**Database impact:** No migration, workflow configuration, or business-data change.
+## [4.0.0-next.39] - 2026-07-30
+
+### Fixed
+
+- Corrected the **Delivery Log Excel** browser download name. It now retains the readable report-reference `.xls` filename instead of a generated UUID.
+- Restored the UTF-8 BOM required for reliable Excel workbook recognition and retains the temporary browser download link until the download has started.
+
+**Database impact:** No migration and no business-data change.
+## [4.0.0-next.38] - 2026-07-29
+
+### Added
+
+- Added professional **Print & Delivery Log** PDF and Excel actions to RX Records. Each pharmacy is rendered as a separate PDF page set and a separate preformatted Excel worksheet.
+- The portrait PDF preserves the validated controlled-copy layout, pharmacy header, driver line, summary totals, patient rows, chain-of-custody and receipt acknowledgment fields, footer metadata, and page numbering. Returned packages are visibly identified without mixing pharmacy sets.
+- Added a Delivered / Returned to Pharmacy delivery outcome at the configured workflow step. Returned-to-pharmacy is distinct from the pre-existing Returned to Warehouse audit flag, supports the normal print-log, signature, and archive flow, and is included in the Dashboard, RX filters, CSV, PDF, and Excel reporting.
+- Added searchable multiple-selection filters for RX **Workflow Status**, **Current Stage**, Pharmacy, and Clinic; Patient filters use the same checkbox-based reference picker.
+- Added selectable all-fields CSV export dialogs for both Patients and RX Records, including Pharmacy and Clinic.
+
+### Fixed
+
+- Corrected print-log pagination so patient rows use available space before the final-page signature blocks. Signature and controlled-copy footer areas remain on the last page of each pharmacy set.
+- Corrected external stylesheet/font access for configured LAN and reverse-proxy origins through CORS configuration; no proxy or source-path change is required by this release.
+
+**Database impact:** Two additive audited migrations only. They add the `WorkflowActions.deliveryOutcomeMode` configuration field and `RXRecords.deliveryOutcome`, outcome date, outcome note, and index. They do not reseed, rename, reorder, or rewrite configured workflow actions or business data.
 ## [4.0.0-next.37] - 2026-07-28
 
 ### Added
