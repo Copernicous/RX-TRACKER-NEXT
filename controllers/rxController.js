@@ -159,6 +159,7 @@ function buildRxWhere(query) {
     const rxId = cleanString(query.id);
     const pharmacyIds = parseSelectedIds(query.pharmacyIds || query.pharmacyId);
     const clinicIds = parseSelectedIds(query.clinicIds);
+    const patientType = cleanString(query.patientType);
     const patientId = cleanString(query.patientId);
     const patientTransportId = cleanString(query.patientTransportId);
     const pharmacyTransportId = cleanString(query.pharmacyTransportId);
@@ -177,6 +178,16 @@ function buildRxWhere(query) {
         where[Op.and] = (where[Op.and] || []).concat({
             [Op.or]: [{ returnedToWarehouse: false }, { returnedToWarehouse: null }]
         });
+    }
+    if (patientType === 'company') {
+        where[Op.and] = (where[Op.and] || []).concat({
+            [Op.or]: [
+                { '$Patient.isNonCompanyPatient$': false },
+                { '$Patient.isNonCompanyPatient$': null }
+            ]
+        });
+    } else if (patientType === 'non_company') {
+        where['$Patient.isNonCompanyPatient$'] = true;
     }
     if (from || to) {
         where.serviceDate = {};
@@ -198,6 +209,7 @@ function addRxPageFilters(query, replacements, totalSteps) {
     const patientTransportId = cleanString(query.patientTransportId);
     const pharmacyTransportId = cleanString(query.pharmacyTransportId);
     const warehouseStatus = cleanString(query.warehouseStatus);
+    const patientType = cleanString(query.patientType);
     const workflowStatus = String(query.workflowStatus || '').split(',').map(cleanString).filter(Boolean);
     const workflowStage = cleanString(query.workflowStage);
     const currentWorkflowStage = String(query.currentWorkflowStage || '').split(',').map(cleanString).filter(Boolean);
@@ -241,6 +253,11 @@ function addRxPageFilters(query, replacements, totalSteps) {
         whereSql.push('r."returnedToWarehouse" = TRUE');
     } else if (warehouseStatus === 'not-returned') {
         whereSql.push('(r."returnedToWarehouse" = FALSE OR r."returnedToWarehouse" IS NULL)');
+    }
+    if (patientType === 'company') {
+        whereSql.push('(p."isNonCompanyPatient" = FALSE OR p."isNonCompanyPatient" IS NULL)');
+    } else if (patientType === 'non_company') {
+        whereSql.push('p."isNonCompanyPatient" = TRUE');
     }
     if (from) {
         replacements.serviceFrom = from;

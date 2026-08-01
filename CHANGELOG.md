@@ -7,6 +7,20 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+## [4.0.0-next.49] - 2026-07-31
+
+### Added
+
+- Updated RX Records to include a patient-type filter (`Company` / `Non-Company`) in both client and query layers, and removed the previous workflow-stage filter from this view.
+
+### Changed
+
+- RX Records filtering no longer supports the old "Next Action Required" workflow-stage selection; patient-type filtering is now the equivalent UI path for scope selection.
+
+### Safety
+
+- No schema change, no business-data migration, and no workflow-action configuration changes.
+
 ## [4.0.0-next.48] - 2026-08-01
 
 ### Added
