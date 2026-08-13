@@ -100,6 +100,12 @@ function parseSelectedIds(value) {
         .filter(function (item) { return Number.isInteger(item) && item > 0; })));
 }
 
+function exactPositiveId(rawValue) {
+    const value = cleanString(rawValue);
+    if (!value) return null;
+    return /^\d+$/.test(value) && Number(value) > 0 ? Number(value) : false;
+}
+
 function parsePositiveInt(value, fallback, min, max) {
     const parsed = parseInt(value, 10);
     if (isNaN(parsed)) return fallback;
@@ -214,6 +220,12 @@ function addRxPageFilters(query, replacements, totalSteps) {
     const workflowStage = cleanString(query.workflowStage);
     const currentWorkflowStage = String(query.currentWorkflowStage || '').split(',').map(cleanString).filter(Boolean);
     const deliveryOutcome = cleanString(query.deliveryOutcome);
+    const completedStageId = exactPositiveId(query.completedStageId);
+    const completedStageRequested = Boolean(
+        cleanString(query.completedStageId) || cleanString(query.stageFrom) || cleanString(query.stageTo)
+    );
+    const stageFrom = localDayBoundaryIso(query.stageFrom, 0);
+    const stageToExclusive = localDayBoundaryIso(query.stageTo, 1);
     const currentStageDateFrom = localDayBoundaryIso(query.currentStageDateFrom, 0);
     const currentStageDateToExclusive = localDayBoundaryIso(query.currentStageDateTo, 1);
     const from = maxDateOnly([query.dateFrom, query.serviceFrom]);
@@ -314,6 +326,34 @@ function addRxPageFilters(query, replacements, totalSteps) {
     if (currentStageDateToExclusive) {
         replacements.currentStageDateToExclusive = currentStageDateToExclusive;
         whereSql.push('wc.current_stage_at < CAST(:currentStageDateToExclusive AS TIMESTAMPTZ)');
+    }
+    if (completedStageRequested) {
+        if (!Number.isInteger(completedStageId)) {
+            // Dates without a selected valid stage must not turn into an any-stage search.
+            whereSql.push('FALSE');
+        } else {
+            replacements.completedStageId = completedStageId;
+            const stageActivityWhere = [
+                'stage_activity."rxRecordId" = r.id',
+                'stage_activity."workflowActionId" = :completedStageId'
+            ];
+            if (stageFrom) {
+                replacements.stageFrom = stageFrom;
+                stageActivityWhere.push('stage_activity."completionDate" >= CAST(:stageFrom AS TIMESTAMPTZ)');
+            }
+            if (stageToExclusive) {
+                replacements.stageToExclusive = stageToExclusive;
+                stageActivityWhere.push('stage_activity."completionDate" < CAST(:stageToExclusive AS TIMESTAMPTZ)');
+            }
+            whereSql.push(`EXISTS (
+                SELECT 1
+                FROM "RXWorkflowTrackings" stage_activity
+                INNER JOIN "WorkflowActions" completed_stage_action
+                    ON completed_stage_action.id = stage_activity."workflowActionId"
+                   AND completed_stage_action."isActive" = TRUE
+                WHERE ${stageActivityWhere.join(' AND ')}
+            )`);
+        }
     }
 
     return whereSql;
@@ -593,7 +633,7 @@ exports.create = async (req, res) => {
         }
 
         await saveHistory(rx.id, req.user?.id, 'Create', rx.toJSON(), null,
-            `Record created${step1 ? ' ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â auto-completed: ' + step1.name : ''}`, transaction);
+            `Record created${step1 ? ' - auto-completed: ' + step1.name : ''}`, transaction);
 
         await transaction.commit();
         res.status(201).json(rx);
@@ -894,7 +934,7 @@ exports.updateWorkflowDate = async (req, res) => {
                 return res.status(400).json({
                     code: 'RX_WORKFLOW_DATE_WINDOW_LOCKED',
                     windowExpiry: expiryDay.toISOString().slice(0, 10),
-                    error: `Date must be within ${getServiceWindowDays()} days of service date (${svcDay.toLocaleDateString()} ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œ ${expiryDay.toLocaleDateString()}).`
+                    error: `Date must be within ${getServiceWindowDays()} days of service date (${svcDay.toLocaleDateString()} - ${expiryDay.toLocaleDateString()}).`
                 });
             }
             if (!canEditWorkflowDate && canOverrideExpired && todayDay <= expiryDay) {
@@ -1075,7 +1115,7 @@ exports.returnToWarehouse = async (req, res) => {
         }, { transaction });
 
         await saveHistory(rxId, req.user?.id, 'Workflow', rx.toJSON(), null,
-            `Returned to Warehouse${note ? ': ' + note : ''}${step1 ? ' ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â reset to Step 1: ' + step1.name : ''}`);
+            `Returned to Warehouse${note ? ': ' + note : ''}${step1 ? ' - reset to Step 1: ' + step1.name : ''}`);
 
         await transaction.commit();
         res.status(200).json({ message: 'Returned to warehouse. Workflow reset to Step 1.' });

@@ -1,12 +1,26 @@
 # RX Tracker NEXT project handoff
 
-Last updated: 2026-08-01
+Last updated: 2026-08-12
 
 This file is the sanitized continuity record for a future administrator or
 Codex session. It intentionally contains no credentials, `.env` values,
 patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
+
+- Release candidate **v4.0.0-next.63** is prepared on `main` for the compact
+  RX Records **Stage Completion** filter, affected display-text encoding
+  corrections, and removal of the unused header global search. Stage
+  Completion uses the selected active workflow action and the completion date
+  on the same historical tracking row, so a date from another stage cannot
+  qualify a record; a record that is now at a later Current Stage still matches
+  its selected prior stage. Current Stage remains the primary filter and its
+  prior date controls are retained under **More date filters**. No migration,
+  schema change, business-data rewrite, configured RX Action change, or
+  proxy/security change is included. Focused source checks pass; the configured
+  safe local staging PostgreSQL endpoint is unavailable, so the required
+  isolated PostgreSQL lifecycle CI, tagged release publication, asset checksum
+  verification, and production installation remain pending.
 
 - **Future optional improvement (customer-requested only):** Do not add a
   Non-Company visual marker by default. If a customer explicitly requests it,

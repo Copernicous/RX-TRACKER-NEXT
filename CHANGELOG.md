@@ -7,11 +7,38 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+## [4.0.0-next.63]
+
+### Added
+
+- Added a compact **Stage Completion** filter to RX Records. It matches the
+  selected historical workflow action and its own completion date range on the
+  same tracking record, so a date from another stage cannot qualify a result.
+  Records that have since progressed to a later Current Stage remain included
+  when their selected historical stage matches.
+- Kept **Current Stage** as the primary filter and retained its existing date
+  range under **More date filters (Current Stage Date)**. The two concepts can
+  be combined and must both match.
+
+### Fixed
+
+- Corrected affected pharmacy and clinic name-plus-address selector labels and
+  several patient display, print-card, RX-history, and API fallback strings
+  that could render mojibake characters instead of their intended separators
+  or labels.
+
 ### Removed
 
 - Removed the limited global search control and its `Ctrl+K` shortcut from the
   application header. Dedicated searches within Patients, RX Records,
   Backoffice, and other modules remain available.
+
+### Safety
+
+- No database migration, schema change, business-data rewrite, configured RX
+  Action change, or proxy/security configuration change is included. The new
+  historical filter uses existing workflow-tracking history and active action
+  records only.
 
 ## [4.0.0-next.62]
 

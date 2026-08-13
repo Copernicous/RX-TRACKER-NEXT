@@ -66,6 +66,8 @@ var HELP_SECTIONS = [
         a:'Every RX record has an <b>"Undo Last Step"</b> button that becomes active after at least one step has been completed. Clicking it reverses only the most recently completed step — it does not undo all steps. This is designed for simple corrections, like accidentally clicking the wrong step. The undo action is also logged in the Audit Log.' },
       { q:'Filtering by Current Stage completion date',
         a:'Open Advanced in RX Records and use Current Stage Date From and Current Stage Date To. The range is inclusive in the configured application timezone and uses the completion timestamp of the RX record\'s actual Current Stage. It is independent from Service Date and Next Action Required. Not Started records have no Current Stage date and are excluded when either date filter is used.' },
+      { q:'Filtering by historical Stage Completion',
+        a:'Open Advanced in RX Records and choose a Completed Stage before setting Stage Activity From and Stage Activity To. The selected stage and range are linked: a date recorded on another stage does not qualify. This can find an RX that is now at a later Current Stage. The range is inclusive in the configured application timezone.' },
       { q:'RX record history — field-level change tracking',
         a:'Click the <b>History icon 🕐</b> on any RX record row. This opens the full change history for that specific RX: every save, every field that was edited, every workflow step completion, all with timestamps and user names. Click the <b>bold action word</b> on any history row to see the exact before and after values for that change.' },
       { q:'Medications — adding and editing',

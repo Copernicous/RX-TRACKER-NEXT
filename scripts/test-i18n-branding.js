@@ -105,6 +105,14 @@ assert(dashboardView.includes('workflowStatus=expired'), 'Dashboard Expired card
 assert(rxRecordsView.includes("{ id: 'incomplete', name: 'All Incomplete' }"), 'RX Records All Incomplete filter is missing from the multi-select picker');
 assert(rxRecordsView.includes('id="rxFilterCurrentStageDateFrom"'), 'RX Records Current Stage Date From filter is missing');
 assert(rxRecordsView.includes('id="rxFilterCurrentStageDateTo"'), 'RX Records Current Stage Date To filter is missing');
+assert(rxRecordsView.includes('id="rxFilterCompletedStageId"'), 'RX Records Completed Stage filter is missing');
+assert(rxRecordsView.includes('id="rxFilterStageFrom"'), 'RX Records Stage Activity From filter is missing');
+assert(rxRecordsView.includes('id="rxFilterStageTo"'), 'RX Records Stage Activity To filter is missing');
+assert(rxRecordsView.includes('syncRxCompletedStageDateState'), 'RX Records does not link Stage Activity dates to Completed Stage');
+assert(rxRecordsView.includes("'completedStageId'"), 'RX Records does not send the selected Completed Stage');
+assert(rxRecordsView.includes("'stageFrom'"), 'RX Records does not send Stage Activity From');
+assert(rxRecordsView.includes("'stageTo'"), 'RX Records does not send Stage Activity To');
+assert(rxRecordsView.includes('More date filters (Current Stage Date)'), 'RX Records must retain Current Stage Date under More date filters');
 assert(rxRecordsView.includes("'currentStageDateFrom'"), 'RX Records does not send Current Stage Date From');
 assert(rxRecordsView.includes("'currentStageDateTo'"), 'RX Records does not send Current Stage Date To');
 assert(rxRecordsView.includes("'Current Stage Date'"), 'RX Records CSV is missing Current Stage Date');
@@ -121,11 +129,14 @@ assert(
 );
 assert(i18nSource.includes("'Current Stage Date From': 'Fecha de la etapa actual desde'"), 'Spanish Current Stage Date From translation is missing');
 assert(i18nSource.includes("'Current Stage Date To': 'Fecha de la etapa actual hasta'"), 'Spanish Current Stage Date To translation is missing');
+assert(i18nSource.includes("'Stage Completion': 'Finalización de etapa'"), 'Spanish Stage Completion translation is missing');
+assert(i18nSource.includes("'Completed Stage': 'Etapa completada'"), 'Spanish Completed Stage translation is missing');
 assert(helpClient.includes('highest active workflow step completed'), 'Dashboard pipeline help still describes Next Action semantics');
 assert(helpClient.includes('including expired cycles'), 'Dashboard Pending help must disclose expired-cycle inclusion');
 assert(helpClient.includes('mutually exclusive Workflow Status groups'), 'Dashboard pipeline help must explain the four status groups');
 assert(helpClient.includes('Expired RX remain included in their actual Current Stage'), 'Dashboard help must preserve Expired Current Stage semantics');
 assert(helpClient.includes('Filtering by Current Stage completion date'), 'RX help must explain Current Stage Date filtering');
+assert(helpClient.includes('Filtering by historical Stage Completion'), 'RX help must explain historical Stage Completion filtering');
 assert(helpClient.includes('Not Started records have no Current Stage date'), 'RX help must explain null Current Stage dates');
 assert(helpClient.includes('configured application timezone'), 'RX help must explain the configured-timezone date boundary');
 
@@ -144,6 +155,14 @@ assert(
 assert(
     glossary.includes('| Current Stage Date To | Fecha de la etapa actual hasta |'),
     'Generated glossary is missing Current Stage Date To'
+);
+assert(
+    glossary.includes('| Stage Completion | Finalización de etapa |'),
+    'Generated glossary is missing Stage Completion'
+);
+assert(
+    glossary.includes('| Completed Stage | Etapa completada |'),
+    'Generated glossary is missing Completed Stage'
 );
 assert(
     glossary.includes('| Open Advanced in RX Records and use Current Stage Date From and Current Stage Date To.'),
@@ -191,6 +210,14 @@ assert.strictEqual(
 assert.strictEqual(
     sandbox.window.RXI18n.translate('Current Stage Date To'),
     'Fecha de la etapa actual hasta'
+);
+assert.strictEqual(
+    sandbox.window.RXI18n.translate('Stage Completion'),
+    'Finalización de etapa'
+);
+assert.strictEqual(
+    sandbox.window.RXI18n.translate('Completed Stage'),
+    'Etapa completada'
 );
 const currentStageDateHelp = 'Open Advanced in RX Records and use Current Stage Date From and Current Stage Date To. The range is inclusive in the configured application timezone and uses the completion timestamp of the RX record\'s actual Current Stage. It is independent from Service Date and Next Action Required. Not Started records have no Current Stage date and are excluded when either date filter is used.';
 assert.strictEqual(

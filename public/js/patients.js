@@ -759,7 +759,7 @@ var allPatients = [];
                 clinicOptions = [];
                 const clSel = document.getElementById('pClinicId');
                 cl.forEach(c => {
-                    const label = c.name + (c.address ? ' â€“ ' + c.address : '');
+                    const label = c.name + (c.address ? ' - ' + c.address : '');
                     clinicOptions.push({ id: String(c.id), label: c.name });
                     clSel.innerHTML   += '<option value="' + c.id + '">' + label + '</option>';
                 });
@@ -771,7 +771,7 @@ var allPatients = [];
                 const phSel = document.getElementById('pPharmacyId');
                 ph.forEach(p => {
                     pharmacyOptions.push({ id: String(p.id), label: p.name });
-                    phSel.innerHTML += '<option value="' + p.id + '">' + p.name + (p.address ? ' â€“ ' + p.address : '') + '</option>';
+                    phSel.innerHTML += '<option value="' + p.id + '">' + p.name + (p.address ? ' - ' + p.address : '') + '</option>';
                 });
             }
             refreshPatientMultiFilters();
@@ -1345,7 +1345,7 @@ var allPatients = [];
                 nonCompanyBadge.className = 'patient-non-company-badge';
                 nonCompanyBadge.title = 'Excluded from the Call Center queue';
                 nonCompanyBadge.innerHTML = '<i class="fas fa-user-slash" aria-hidden="true"></i>';
-                nonCompanyBadge.appendChild(document.createTextNode('Non-Company Â· No Call Center'));
+                nonCompanyBadge.appendChild(document.createTextNode('Non-Company - No Call Center'));
                 tdName.appendChild(nonCompanyBadge);
             }
             tr.appendChild(tdName);
@@ -1399,7 +1399,7 @@ var allPatients = [];
                 var _es   = _exp.toLocaleDateString();
                 if (_dl < 0) {
                     // Past 90 days â€” ELIGIBLE for new service
-                    tdNext.innerHTML = '<span class="badge" style="background:#198754;font-size:.72rem" title="Eligible since ' + _es + ' (' + Math.abs(_dl) + 'd ago)"><i class="fas fa-check-circle me-1"></i>Eligible âœ“</span><small class="d-block text-muted" style="font-size:.68rem">Since ' + _es + '</small>';
+                    tdNext.innerHTML = '<span class="badge" style="background:#198754;font-size:.72rem" title="Eligible since ' + _es + ' (' + Math.abs(_dl) + 'd ago)"><i class="fas fa-check-circle me-1"></i>Eligible</span><small class="d-block text-muted" style="font-size:.68rem">Since ' + _es + '</small>';
                 } else if (_dl <= 7) {
                     tdNext.innerHTML = '<span class="badge bg-danger" style="font-size:.72rem" title="Eligible in ' + _dl + ' days"><i class="fas fa-hourglass-half me-1"></i>' + _dl + 'd left</span><small class="d-block text-muted" style="font-size:.68rem">' + _es + '</small>';
                 } else if (_dl <= 14) {
@@ -1408,7 +1408,7 @@ var allPatients = [];
                     tdNext.innerHTML = '<span style="font-size:.87rem;color:var(--text-muted,#6c757d)">' + _es + '</span>';
                 }
             } else {
-                tdNext.innerHTML = '<span class="text-muted">â€”</span>';
+                tdNext.innerHTML = '<span class="text-muted">-</span>';
             }
             tr.appendChild(tdNext);
 
@@ -2055,7 +2055,7 @@ var allPatients = [];
                         var pillClr = done ? '#0a5c36' : '#888';
                         html += '<span style="background:' + pillBg + ';color:' + pillClr + ';border-radius:20px;padding:2px 10px;font-size:.72rem;font-weight:' + (done ? '600' : '400') + '">';
                         html += (done ? '\u2713 ' : '\u25cb ') + wa.name;
-                        if (dateStr) html += ' <span style="opacity:.75;font-size:.65rem">Â· ' + dateStr + '</span>';
+                        if (dateStr) html += ' <span style="opacity:.75;font-size:.65rem">- ' + dateStr + '</span>';
                         html += '</span>';
                     });
                     html += '</div>';
@@ -2210,16 +2210,16 @@ var allPatients = [];
                     _voBanner = document.createElement('div');
                     _voBanner.id = 'patientViewOnlyBanner';
                     _voBanner.className = 'alert alert-info d-flex align-items-center py-2 mb-3';
-                    _voBanner.innerHTML = '<i class="fas fa-eye me-2"></i><span>View Only â€” you do not have permission to edit patient records.</span>';
+                    _voBanner.innerHTML = '<i class="fas fa-eye me-2"></i><span>View Only - you do not have permission to edit patient records.</span>';
                     var _mBody = _patModal.querySelector('.modal-body');
                     if (_mBody) _mBody.insertBefore(_voBanner, _mBody.firstChild);
                 }
                 if (_isOverrideOnly) {
                     _voBanner.className = 'alert alert-warning d-flex align-items-center py-2 mb-3';
-                    _voBanner.innerHTML = '<i class="fas fa-key me-2"></i><span>Override Only â€” you can update the Service Date for this patient, but other patient fields remain locked.</span>';
+                    _voBanner.innerHTML = '<i class="fas fa-key me-2"></i><span>Override Only - you can update the Service Date for this patient, but other patient fields remain locked.</span>';
                 } else {
                     _voBanner.className = 'alert alert-info d-flex align-items-center py-2 mb-3';
-                    _voBanner.innerHTML = '<i class="fas fa-eye me-2"></i><span>View Only â€” you do not have permission to edit patient records.</span>';
+                    _voBanner.innerHTML = '<i class="fas fa-eye me-2"></i><span>View Only - you do not have permission to edit patient records.</span>';
                 }
                 const _hidePermissionBanner = _isEditable && !_isOverrideOnly;
                 _voBanner.classList.toggle('d-none', _hidePermissionBanner);
@@ -2706,13 +2706,13 @@ var allPatients = [];
             '</div>' +
             '<div style="text-align:right">' +
               '<div style="font-size:1.2rem;font-weight:700;font-family:monospace">' + (p.patientCode||'\u2014') + '</div>' +
-              '<div style="margin-top:6px"><span style="background:' + (isActive?'#198754':'#6c757d') + ';color:#fff;padding:3px 12px;border-radius:20px;font-size:.78rem;font-weight:600">' + (isActive?'â— Active':'â—‹ Inactive') + '</span></div>' +
+              '<div style="margin-top:6px"><span style="background:' + (isActive?'#198754':'#6c757d') + ';color:#fff;padding:3px 12px;border-radius:20px;font-size:.78rem;font-weight:600">' + (isActive?'Active':'Inactive') + '</span></div>' +
             '</div>' +
           '</div>' +
           '<div style="padding:24px 28px;display:grid;grid-template-columns:1fr 1fr;gap:14px 32px;border-bottom:1px solid #e9ecef">' +
-(function(){ var _fd=''; var _farr=[['ðŸ“… Date of Birth',(p.dob?window.fmtDate(p.dob):'\u2014')],['ðŸ“ž Phone',p.phone||'\u2014'],['ðŸ“… Service Date',(p.serviceDate?window.fmtDate(p.serviceDate):'\u2014')],['ðŸ¥ Clinic',clinic],['ðŸ  Address',p.address||'\u2014'],['ðŸš Patient Transport',ptComp],['ðŸ’Š Pharmacy Transport',phComp]]; for(var _fi=0;_fi<_farr.length;_fi++){ var r=_farr[_fi]; _fd+='<div><div style="font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#888;margin-bottom:3px">'+r[0]+'</div><div style="font-size:.88rem">'+r[1]+'</div></div>'; } return _fd;})() +
+(function(){ var _fd=''; var _farr=[['Date of Birth',(p.dob?window.fmtDate(p.dob):'\u2014')],['Phone',p.phone||'\u2014'],['Service Date',(p.serviceDate?window.fmtDate(p.serviceDate):'\u2014')],['Clinic',clinic],['Address',p.address||'\u2014'],['Patient Transport',ptComp],['Pharmacy Transport',phComp]]; for(var _fi=0;_fi<_farr.length;_fi++){ var r=_farr[_fi]; _fd+='<div><div style="font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#888;margin-bottom:3px">'+r[0]+'</div><div style="font-size:.88rem">'+r[1]+'</div></div>'; } return _fd;})() +
           '</div>' +
-          (p.notes ? '<div style="margin:16px 28px;padding:12px 16px;background:#fffbea;border-left:4px solid #f5a623;border-radius:4px;font-size:.85rem;color:#7a5800"><strong>ðŸ“ Notes:</strong><br>' + p.notes.replace(/\n/g,'<br>') + '</div>' : '') +
+          (p.notes ? '<div style="margin:16px 28px;padding:12px 16px;background:#fffbea;border-left:4px solid #f5a623;border-radius:4px;font-size:.85rem;color:#7a5800"><strong>Notes:</strong><br>' + p.notes.replace(/\n/g,'<br>') + '</div>' : '') +
           '<div style="padding:0 28px 28px">' +
             '<div style="font-size:.8rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#888;margin:20px 0 12px">RX Records (' + patientRx.length + ')</div>' +
             (patientRx.length ? (function(){var _rx=''; patientRx.forEach(function(rx){_rx+=buildRxBlock(rx,'card');}); return _rx;})() : '<p style="color:#888;font-size:.85rem">No RX records found.</p>') +
@@ -2761,7 +2761,7 @@ var allPatients = [];
             win.document.write('<!DOCTYPE html><html><head>' +
                 '<meta charset="UTF-8">' +
                 '<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">' +
-                '<title>Patient Record â€” ' + (p.firstName||'') + ' ' + (p.lastName||'') + '</title>' +
+                '<title>Patient Record - ' + (p.firstName||'') + ' ' + (p.lastName||'') + '</title>' +
                 '<style>' +
                     '@import url("/assets/inter.css");' +
                     '* { box-sizing:border-box; margin:0; padding:0; }' +
@@ -2781,7 +2781,7 @@ var allPatients = [];
             win.document.write('<!DOCTYPE html><html><head>' +
                 '<meta charset="UTF-8">' +
                 '<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">' +
-                '<title>Patient Record â€” ' + (p.firstName||'') + ' ' + (p.lastName||'') + '</title>' +
+                '<title>Patient Record - ' + (p.firstName||'') + ' ' + (p.lastName||'') + '</title>' +
                 '<style>' +
                     '@import url("/assets/inter.css");' +
                     'body { font-family:Inter,Arial,sans-serif; color:#1a2234; padding:32px; max-width:860px; margin:0 auto; }' +

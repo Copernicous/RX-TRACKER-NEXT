@@ -458,7 +458,7 @@ router.post('/session/activity', auth, (req, res) => {
 router.post('/heartbeat', auth, (req, res) => {
     const { currentPage, currentUrl } = req.body || {};
     // Capture real IP â€” x-forwarded-for first (FortiGate/proxy), then direct
-    const ip = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.ip || 'â€”';
+    const ip = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.ip || '-';
     sessionTracker.upsert(req.user.id, {
         username:    req.user.username,
         firstName:   req.user.firstName  || '',
@@ -795,7 +795,7 @@ router.get('/git-log', auth, adminOnly, (req, res) => {
 
     // git is only available in dev mode (not inside server.exe snapshot)
     if (IS_PKG) {
-        return res.json({ available: false, commits: [], reason: 'Running as compiled exe â€” git log not available' });
+        return res.json({ available: false, commits: [], reason: 'Running as compiled exe - git log not available' });
     }
 
     try {

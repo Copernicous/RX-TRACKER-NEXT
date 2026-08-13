@@ -1,6 +1,6 @@
 # RX Tracker Next English-Spanish UI Translation Glossary
 
-Generated from `public/js/i18n.js`. Entries: **772**.
+Generated from `public/js/i18n.js`. Entries: **779**.
 
 English is the default UI language. Spanish affects interface text only. Patient names, notes, clinics, pharmacies, medications, addresses, documents, and other user-entered or stored business data are never translated.
 
@@ -195,6 +195,7 @@ To correct or add a translation:
 | Completed | Completado |
 | Completed By | Completado por |
 | Completed Date | Fecha de finalización |
+| Completed Stage | Etapa completada |
 | Configure system-wide preferences. Changes take effect immediately. | Configure las preferencias generales del sistema. Los cambios se aplican inmediatamente. |
 | Confirm | Confirmar |
 | Confirm Delete | Confirmar eliminación |
@@ -315,6 +316,7 @@ To correct or add a translation:
 | Field | Campo |
 | Fields below are auto-filled from the patient record | Los campos siguientes se completan automáticamente con el registro del paciente |
 | Filtering by Current Stage completion date | Filtrar por fecha de finalización de la etapa actual |
+| Filtering by historical Stage Completion | Filtrar por finalización histórica de etapa |
 | First | Nombre |
 | First name | Nombre |
 | First Name | Nombre |
@@ -397,6 +399,7 @@ To correct or add a translation:
 | Manage devices | Administrar dispositivos |
 | Manual | Manual |
 | Manual entry key | Clave de entrada manual |
+| Matches this exact stage only; dates on other stages do not count. | Coincide solo con esta etapa exacta; las fechas de otras etapas no cuentan. |
 | Max Failed Logins | Máximo de intentos fallidos |
 | Medical Transport | Transporte médico |
 | Medication | Medicamento |
@@ -416,6 +419,7 @@ To correct or add a translation:
 | Missing Pharmacy | Falta farmacia |
 | Missing Pharmacy Transport | Falta transporte de farmacia |
 | Module | Módulo |
+| More date filters (Current Stage Date) | Más filtros de fecha (fecha de etapa actual) |
 | Multi-User / Concurrent Access | Acceso multiusuario / simultáneo |
 | My Account | Mi cuenta |
 | My Account / 2FA | Mi cuenta / 2FA |
@@ -473,6 +477,7 @@ To correct or add a translation:
 | Only Administrators can manage system settings. | Solo los administradores pueden gestionar la configuración del sistema. |
 | Only records matching your current search & filters will be exported. | Solo se exportarán los registros que coincidan con la búsqueda y los filtros actuales. |
 | Open — Not Completed | Abierto: no completado |
+| Open Advanced in RX Records and choose a Completed Stage before setting Stage Activity From and Stage Activity To. The selected stage and range are linked: a date recorded on another stage does not qualify. This can find an RX that is now at a later Current Stage. The range is inclusive in the configured application timezone. | Abra Avanzado en Registros RX y seleccione una Etapa completada antes de establecer Actividad de etapa desde y Actividad de etapa hasta. La etapa seleccionada y el rango están vinculados: una fecha registrada en otra etapa no califica. Esto puede encontrar un RX que ahora está en una Etapa actual posterior. El rango es inclusivo en la zona horaria configurada de la aplicación. |
 | Open Advanced in RX Records and use Current Stage Date From and Current Stage Date To. The range is inclusive in the configured application timezone and uses the completion timestamp of the RX record's actual Current Stage. It is independent from Service Date and Next Action Required. Not Started records have no Current Stage date and are excluded when either date filter is used. | Abra Avanzado en Registros RX y use Fecha de la etapa actual desde y Fecha de la etapa actual hasta. El rango es inclusivo en la zona horaria configurada de la aplicación y usa la fecha y hora de finalización de la etapa actual real del registro RX. Es independiente de Fecha de servicio y Próxima acción requerida. Los registros No iniciados no tienen una fecha de etapa actual y se excluyen cuando se usa cualquiera de los filtros de fecha. |
 | Open in RX Records | Abrir en Registros RX |
 | Open Only | Solo abiertos |
@@ -639,6 +644,7 @@ To correct or add a translation:
 | Select a CSV File | Seleccione un archivo CSV |
 | Select all on this page | Seleccionar todos en esta página |
 | Select Called, add a note, or enter a new service date. | Seleccione Llamado, agregue una nota o ingrese una nueva fecha de servicio. |
+| Select completed stage | Seleccione una etapa completada |
 | Select Language | Seleccionar idioma |
 | Select Timezone | Seleccionar zona horaria |
 | Send Report | Enviar informe |
@@ -678,6 +684,7 @@ To correct or add a translation:
 | Source: | Origen: |
 | Stage Activity From | Actividad de etapa desde |
 | Stage Activity To | Actividad de etapa hasta |
+| Stage Completion | Finalización de etapa |
 | Stage History | Historial de etapas |
 | Start Date | Fecha inicial |
 | Status | Estado |
