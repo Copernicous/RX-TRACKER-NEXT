@@ -8,21 +8,31 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
 
-- Release candidate **v4.0.0-next.63** is prepared on `main` for the compact
-  RX Records **Stage Completion** filter, affected display-text encoding
-  corrections, and removal of the unused header global search. Stage
-  Completion uses the selected active workflow action and the completion date
-  on the same historical tracking row, so a date from another stage cannot
-  qualify a record; a record that is now at a later Current Stage still matches
-  its selected prior stage. Current Stage remains the primary filter and its
-  prior date controls are retained under **More date filters**. No migration,
-  schema change, business-data rewrite, configured RX Action change, or
-  proxy/security change is included. The release lockfile also pins patched
-  transitive `brace-expansion` and `ip-address` releases required by the CI
-  audit gate. Focused source checks pass; the configured safe local staging
-  PostgreSQL endpoint is unavailable, so the required isolated PostgreSQL
-  lifecycle CI, tagged release publication, asset checksum verification, and
-  production installation remain pending.
+- Official **v4.0.0-next.63** was published on 2026-08-12 from `main` commit
+  `bd21613d8ed04d5989827a9c09841e6c304ce03d`. The exact PostgreSQL lifecycle
+  CI, RX Softphone build, CodeQL, and tagged compiled-release workflow passed.
+  It adds the compact RX Records **Stage Completion** filter, corrects affected
+  display-text encoding, and removes the unused header global search. Stage
+  Completion binds the selected active workflow action and its completion date
+  to the same historical tracking row, so a date from another stage cannot
+  qualify a record; a record now at a later Current Stage still matches its
+  selected prior stage. Current Stage remains primary and its prior date
+  controls are retained under **More date filters**. The release lockfile pins
+  patched transitive `brace-expansion` and `ip-address` packages required by
+  the CI audit gate. There is no migration, schema change, business-data
+  rewrite, configured RX Action change, or proxy/security change. Verified
+  SHA-256 values: `server-update-4.0.0-next.63.zip` and
+  `RX-Tracker-NEXT-New-Server-4.0.0-next.63.zip`
+  `097ac1685df20f3eb78a68bfc4fd1a5837cdbf5d363109add195faf004967bec`,
+  `RxSoftphone-0.6.0-win-x64.zip`
+  `07ca58ec7da429b00731e29ad16bc75bd1169fd8b8443d320f950a1634202558`,
+  `server.exe` `4c50d910deaa05fc17ea8aef57de22e0b2ef414f20787199ea6f24cc6e86570e`,
+  and `rx-db.exe` `415a61a75dd1288b771119d995096cf6d4b072b1385130ae6b3d6043a06ad69e`.
+  Downloaded assets and embedded executables were verified; `server.exe --v`
+  reports `4.0.0-next.63` and `rx-db.exe help` succeeds. Production
+  installation and its currently installed version remain unconfirmed. Before
+  a separately authorized production update, use Project Control option **4**
+  to record the live version, then option **8**, then option **15** only.
 
 - **Future optional improvement (customer-requested only):** Do not add a
   Non-Company visual marker by default. If a customer explicitly requests it,

@@ -10,7 +10,7 @@ frozen 3.3.1 repository, its production database, or the RX Softphone source.
 
 ## Current status
 
-Version: `4.0.0-next.63` release candidate
+Version: `4.0.0-next.63` official release
 
 | Area | NEXT behavior |
 |---|---|
@@ -30,7 +30,7 @@ matches the selected historical stage and that stage's own date range, so dates
 from another stage do not count. A record can be at a later Current Stage and
 still appear when it completed the selected historical stage during the range.
 Current Stage remains the primary filter; its existing date range is available
-under **More date filters**. This candidate also corrects affected display-text
+under **More date filters**. This release also corrects affected display-text
 encoding and removes the unused header search control.
 
 No migration, schema change, business-data rewrite, configured RX Action
@@ -73,10 +73,11 @@ as primary row content. It includes no schema migration, configured RX Action
 change, business-data rewrite, or Kasm, Cloudflare, CORS, cookie, HTTPS,
 trust-proxy, or reverse-proxy behavior change.
 
-Candidate `next.63` must first pass the exact PostgreSQL lifecycle CI and the
-compiled-release workflow before it becomes an official GitHub release. After
-separate testing-server approval, production updates use Project Control only:
-record the installed version with option **4**, then use **8** and **15**.
+Official `next.63` passed the exact PostgreSQL lifecycle CI, CodeQL, and
+compiled-release workflow. Production installation remains separately pending.
+Use Project Control only: record the installed version with option **4**, then
+use **8** and **15**; do not manually extract files, run migrations, or alter
+production `.env`.
 The frozen application remains an emergency rollback option. New NEXT changes
 must pass staging and development validation before a separately approved,
 checksummed production release.
