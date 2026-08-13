@@ -26,6 +26,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
   several patient display, print-card, RX-history, and API fallback strings
   that could render mojibake characters instead of their intended separators
   or labels.
+- Updated the lockfile-only transitive `brace-expansion` and `ip-address`
+  packages to their patched releases required by the release audit gate.
 
 ### Removed
 

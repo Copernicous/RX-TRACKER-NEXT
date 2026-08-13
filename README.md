@@ -34,7 +34,8 @@ under **More date filters**. This candidate also corrects affected display-text
 encoding and removes the unused header search control.
 
 No migration, schema change, business-data rewrite, configured RX Action
-change, or proxy/security change is included.
+change, or proxy/security change is included. The lockfile also pins patched
+transitive `brace-expansion` and `ip-address` releases required by CI.
 
 Version `next.62` adds a compact plain-language interpretation table above the
 detailed Backoffice Routine Database Checks. It uses the existing read-only

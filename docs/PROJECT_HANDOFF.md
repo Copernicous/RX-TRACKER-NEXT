@@ -17,10 +17,12 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
   its selected prior stage. Current Stage remains the primary filter and its
   prior date controls are retained under **More date filters**. No migration,
   schema change, business-data rewrite, configured RX Action change, or
-  proxy/security change is included. Focused source checks pass; the configured
-  safe local staging PostgreSQL endpoint is unavailable, so the required
-  isolated PostgreSQL lifecycle CI, tagged release publication, asset checksum
-  verification, and production installation remain pending.
+  proxy/security change is included. The release lockfile also pins patched
+  transitive `brace-expansion` and `ip-address` releases required by the CI
+  audit gate. Focused source checks pass; the configured safe local staging
+  PostgreSQL endpoint is unavailable, so the required isolated PostgreSQL
+  lifecycle CI, tagged release publication, asset checksum verification, and
+  production installation remain pending.
 
 - **Future optional improvement (customer-requested only):** Do not add a
   Non-Company visual marker by default. If a customer explicitly requests it,
