@@ -1,12 +1,21 @@
 # RX Tracker NEXT project handoff
 
-Last updated: 2026-08-12
+Last updated: 2026-08-17
 
 This file is the sanitized continuity record for a future administrator or
 Codex session. It intentionally contains no credentials, `.env` values,
 patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
+
+- **Release candidate v4.0.0-next.64:** Backoffice RX Profile Sync no longer silently stops after
+  the first 1,000 oldest active RX records. The scan now supports selectable
+  page sizes and Previous / Next navigation through every active record,
+  continuing past matches when the default differences-only view is selected;
+  Export All Scan creates a complete CSV. The existing audited
+  maximum of 100 RX records per synchronization batch is unchanged. No
+  migration, business-data change, or RX Action configuration change is
+  included.
 
 - Official **v4.0.0-next.63** was published on 2026-08-12 from `main` commit
   `bd21613d8ed04d5989827a9c09841e6c304ce03d`. The exact PostgreSQL lifecycle

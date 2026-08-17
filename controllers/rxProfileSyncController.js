@@ -49,6 +49,22 @@ function profileSearchCondition(value) {
     return { [Op.or]: conditions };
 }
 
+function decodeCursor(value) {
+    if (!value || typeof value !== 'string') return null;
+    try {
+        const parsed = JSON.parse(Buffer.from(value, 'base64url').toString('utf8'));
+        const id = positiveId(parsed && parsed.id);
+        const createdAt = parsed && new Date(parsed.createdAt);
+        return id && createdAt && !Number.isNaN(createdAt.getTime()) ? { id, createdAt } : null;
+    } catch {
+        return null;
+    }
+}
+
+function encodeCursor(record) {
+    return Buffer.from(JSON.stringify({ id: record.id, createdAt: record.createdAt })).toString('base64url');
+}
+
 function auditValues(record) {
     return {
         pharmacyId: fieldValue(record, 'pharmacyId'),
@@ -104,42 +120,65 @@ exports.list = async (req, res) => {
     try {
         const search = String(req.query.search || '').trim();
         const showAll = String(req.query.showAll || '') === 'true';
+        const pageSize = Math.min(Math.max(Number.parseInt(req.query.pageSize, 10) || 100, 1), 250);
+        const cursor = decodeCursor(req.query.cursor);
         const searchCondition = profileSearchCondition(search);
         const recordConditions = [activeRecordCondition()];
         if (searchCondition) recordConditions.push(searchCondition);
-        const records = await db.RXRecord.findAll({
-            where: { [Op.and]: recordConditions },
-            attributes: ['id', 'patientId', 'arrivalDate', 'serviceDate', 'pharmacyId', 'patientTransportCompanyId', 'pharmacyTransportCompanyId', 'createdAt'],
-            include: [{
-                model: db.Patient,
-                required: true,
-                attributes: ['id', 'patientCode', 'firstName', 'lastName', 'clinicId', 'pharmacyId', 'patientTransportCompanyId', 'pharmacyTransportCompanyId', 'isDeleted'],
-                where: activeRecordCondition()
-            }],
-            order: [['createdAt', 'ASC'], ['id', 'ASC']],
-            limit: 1000
-        });
         const lookups = await loadLookups();
         const labels = fieldLabels(lookups);
-        const rows = records.map(record => {
-            const rx = record.get({ plain: true });
-            const patient = rx.Patient;
-            const differences = fieldsToSync(rx, patient);
-            return {
-                rxId: rx.id,
-                patientId: patient.id,
-                patientName: `${patient.firstName || ''} ${patient.lastName || ''}`.trim() || `Patient #${patient.id}`,
-                patientCode: patient.patientCode || '',
-                arrivalDate: rx.arrivalDate || null,
-                serviceDate: rx.serviceDate || null,
-                clinicId: patient.clinicId || null,
-                clinicLabel: patient.clinicId ? 'Inherited from Patient profile' : 'Not set on Patient profile',
-                differences,
-                patientValues: valuesWithLabels(auditValues(patient), labels),
-                rxValues: valuesWithLabels(auditValues(rx), labels)
-            };
-        }).filter(row => showAll || row.differences.length > 0);
-        res.json({ rows, limited: records.length === 1000, total: rows.length });
+        const candidates = [];
+        let scanCursor = cursor;
+        let reachedEnd = false;
+        while (candidates.length <= pageSize && !reachedEnd) {
+            const conditions = [...recordConditions];
+            if (scanCursor) {
+                conditions.push({ [Op.or]: [
+                    { createdAt: { [Op.gt]: scanCursor.createdAt } },
+                    { [Op.and]: [{ createdAt: scanCursor.createdAt }, { id: { [Op.gt]: scanCursor.id } }] }
+                ] });
+            }
+            const records = await db.RXRecord.findAll({
+                where: { [Op.and]: conditions },
+                attributes: ['id', 'patientId', 'arrivalDate', 'serviceDate', 'pharmacyId', 'patientTransportCompanyId', 'pharmacyTransportCompanyId', 'createdAt'],
+                include: [{
+                    model: db.Patient,
+                    required: true,
+                    attributes: ['id', 'patientCode', 'firstName', 'lastName', 'clinicId', 'pharmacyId', 'patientTransportCompanyId', 'pharmacyTransportCompanyId', 'isDeleted'],
+                    where: activeRecordCondition()
+                }],
+                order: [['createdAt', 'ASC'], ['id', 'ASC']],
+                limit: 250
+            });
+            if (!records.length) {
+                reachedEnd = true;
+                break;
+            }
+            for (const record of records) {
+                const rx = record.get({ plain: true });
+                const patient = rx.Patient;
+                const differences = fieldsToSync(rx, patient);
+                if (showAll || differences.length) {
+                    candidates.push({
+                        cursor: encodeCursor(rx),
+                        row: {
+                            rxId: rx.id, patientId: patient.id,
+                            patientName: `${patient.firstName || ''} ${patient.lastName || ''}`.trim() || `Patient #${patient.id}`,
+                            patientCode: patient.patientCode || '', arrivalDate: rx.arrivalDate || null, serviceDate: rx.serviceDate || null,
+                            clinicId: patient.clinicId || null, clinicLabel: patient.clinicId ? 'Inherited from Patient profile' : 'Not set on Patient profile',
+                            differences, patientValues: valuesWithLabels(auditValues(patient), labels), rxValues: valuesWithLabels(auditValues(rx), labels)
+                        }
+                    });
+                    if (candidates.length > pageSize) break;
+                }
+            }
+            const last = records[records.length - 1].get({ plain: true });
+            scanCursor = { id: last.id, createdAt: last.createdAt };
+            reachedEnd = records.length < 250;
+        }
+        const hasMore = candidates.length > pageSize;
+        const displayed = candidates.slice(0, pageSize);
+        res.json({ rows: displayed.map(candidate => candidate.row), total: displayed.length, hasMore, nextCursor: hasMore ? displayed[displayed.length - 1].cursor : null });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }

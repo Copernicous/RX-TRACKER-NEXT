@@ -7,6 +7,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixed Backoffice **RX Profile Sync** scans stopping after the oldest 1,000
+  active RX records. Results now support selectable page sizes and Previous /
+  Next navigation through the complete active RX set, plus a complete-scan CSV
+  export; synchronization remains limited to 100 selected RX records per
+  audited batch.
+
 ## [4.0.0-next.63]
 
 ### Added

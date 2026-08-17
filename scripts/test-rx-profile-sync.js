@@ -265,9 +265,13 @@ async function main() {
     const rxControllerSource = fs.readFileSync(path.join(__dirname, '..', 'controllers', 'rxController.js'), 'utf8');
     assert.match(viewSource, /id="rxSyncBulkBtn"/);
     assert.match(viewSource, /Export Displayed Scan/);
+    assert.match(viewSource, /Export All Scan/);
+    assert.match(viewSource, /rxSyncPageSize/);
     assert.match(viewSource, /Export Sync History/);
     assert.match(browserSource, /function bulkSyncRxProfiles\(\)/);
     assert.match(browserSource, /function exportRxProfileSyncDisplay\(\)/);
+    assert.match(browserSource, /function exportAllRxProfileSync\(\)/);
+    assert.match(browserSource, /function nextRxProfileSyncPage\(\)/);
     assert.match(browserSource, /RX Patient Transport/);
     assert.match(browserSource, /Matches Patient profile/);
     assert.match(browserSource, /index < 100/);
