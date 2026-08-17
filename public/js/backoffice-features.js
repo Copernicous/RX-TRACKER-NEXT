@@ -3074,6 +3074,17 @@ function rxProfileSyncQuery(cursor) {
     return '/api/admin/rx-profile-sync?search=' + encodeURIComponent(search) + '&showAll=' + showAll + '&pageSize=' + encodeURIComponent(pageSize) + (cursor ? '&cursor=' + encodeURIComponent(cursor) : '');
 }
 
+function sortRxProfileSyncRows() {
+    var order = document.getElementById('rxSyncHistoryOrder');
+    var direction = order && order.value === 'newest' ? -1 : 1;
+    rxProfileSyncRows.sort(function(a, b) {
+        var dateA = a.rxCreatedAt ? new Date(a.rxCreatedAt).getTime() : 0;
+        var dateB = b.rxCreatedAt ? new Date(b.rxCreatedAt).getTime() : 0;
+        return direction * (dateA - dateB || Number(a.rxId) - Number(b.rxId));
+    });
+    renderRxProfileSyncRows();
+}
+
 async function loadRxProfileSync(cursor) {
     var list = document.getElementById('rxSyncList');
     var status = document.getElementById('rxSyncStatus');
@@ -3102,20 +3113,26 @@ async function loadRxProfileSync(cursor) {
             list.innerHTML = '<p style="text-align:center;padding:3rem;color:var(--text-muted)"><i class="fas fa-check-circle" style="color:#34d399"></i> No RX records match this scan.</p>';
             return;
         }
-        list.innerHTML = '<div style="overflow:auto"><table class="bo-table"><thead><tr><th style="width:38px;text-align:center"><input type="checkbox" aria-label="Select up to 100 visible RX records" title="Select the first 100 RX records with differences" onchange="toggleRxProfileSyncRows(this)"></th><th>Patient / RX</th><th>Dates</th><th>Clinic</th><th>Differences</th><th>Action</th></tr></thead><tbody>' + rxProfileSyncRows.map(function(row) {
+        renderRxProfileSyncRows();
+    } catch (error) {
+        list.innerHTML = '<p style="padding:2rem;color:#fca5a5">' + rxSyncEsc(error.message) + '</p>';
+        if (status) status.textContent = '';
+        toast('RX profile sync scan failed: ' + error.message, 'danger');
+    }
+}
+
+function renderRxProfileSyncRows() {
+    var list = document.getElementById('rxSyncList');
+    if (!list) return;
+    list.innerHTML = '<div style="overflow:auto"><table class="bo-table"><thead><tr><th style="width:38px;text-align:center"><input type="checkbox" aria-label="Select up to 100 visible RX records" title="Select the first 100 RX records with differences" onchange="toggleRxProfileSyncRows(this)"></th><th>Patient / RX</th><th>Dates</th><th>Clinic</th><th>Differences</th><th>Action</th></tr></thead><tbody>' + rxProfileSyncRows.map(function(row) {
             var diffs = row.differences.length ? row.differences.map(function(field) {
                 var patient = rxSyncValue(row, 'patient', field);
                 var rx = rxSyncValue(row, 'rx', field);
                 return '<label style="display:block;margin:.22rem 0"><input type="checkbox" data-rx-sync-field="' + rxSyncEsc(field) + '" checked> <strong>' + rxSyncEsc(rxSyncFieldLabel(field)) + '</strong>: <span style="color:#fca5a5">' + rxSyncEsc(rx.label) + '</span> → <span style="color:#6ee7b7">' + rxSyncEsc(patient.label) + '</span></label>';
             }).join('') : '<span style="color:#6ee7b7">Already matches Patient profile</span>';
             return '<tr data-rx-sync-id="' + row.rxId + '"><td style="text-align:center"><input type="checkbox" data-rx-sync-select aria-label="Select RX #' + row.rxId + '" ' + (row.differences.length ? 'onchange="updateRxSyncBulkSelection()"' : 'disabled') + '></td><td><strong>' + rxSyncEsc(row.patientName) + '</strong><br><small style="color:var(--text-muted)">Patient ' + rxSyncEsc(row.patientCode || ('#' + row.patientId)) + ' · RX #' + row.rxId + '</small></td><td><small>Arrival: ' + rxSyncDate(row.arrivalDate) + '<br>Service: ' + rxSyncDate(row.serviceDate) + '</small></td><td><small>' + rxSyncEsc(row.clinicLabel) + '</small></td><td>' + diffs + '</td><td><button class="btn-bo btn-bo-primary" style="padding:.35rem .6rem;font-size:.72rem" ' + (row.differences.length ? '' : 'disabled') + ' onclick="syncRxProfile(' + row.rxId + ', this)"><i class="fas fa-arrows-rotate me-1"></i>Sync selected</button></td></tr>';
-        }).join('') + '</tbody></table></div><div style="display:flex;justify-content:flex-end;gap:.5rem;margin-top:.75rem"><button class="btn-bo btn-bo-outline" ' + (rxProfileSyncCursorHistory.length ? '' : 'disabled') + ' onclick="previousRxProfileSyncPage()">Previous</button><button class="btn-bo btn-bo-outline" ' + (rxProfileSyncNextCursor ? '' : 'disabled') + ' onclick="nextRxProfileSyncPage()">Next</button></div>';
-        updateRxSyncBulkSelection();
-    } catch (error) {
-        list.innerHTML = '<p style="padding:2rem;color:#fca5a5">' + rxSyncEsc(error.message) + '</p>';
-        if (status) status.textContent = '';
-        toast('RX profile sync scan failed: ' + error.message, 'danger');
-    }
+    }).join('') + '</tbody></table></div><div style="display:flex;justify-content:flex-end;gap:.5rem;margin-top:.75rem"><button class="btn-bo btn-bo-outline" ' + (rxProfileSyncCursorHistory.length ? '' : 'disabled') + ' onclick="previousRxProfileSyncPage()">Previous</button><button class="btn-bo btn-bo-outline" ' + (rxProfileSyncNextCursor ? '' : 'disabled') + ' onclick="nextRxProfileSyncPage()">Next</button></div>';
+    updateRxSyncBulkSelection();
 }
 
 function nextRxProfileSyncPage() {

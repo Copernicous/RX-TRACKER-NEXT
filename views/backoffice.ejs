@@ -549,9 +549,10 @@
                 <input id="rxSyncSearch" class="schema-search" style="margin:0;min-width:260px;flex:1" placeholder="Search patient, RX #, Pharmacy/Transport, or Not set" onkeydown="if(event.key==='Enter')loadRxProfileSync()">
                 <label style="font-size:.75rem;display:flex;gap:.4rem;align-items:center"><input id="rxSyncShowAll" type="checkbox" onchange="loadRxProfileSync()"> Show matching records too</label>
                 <label style="font-size:.75rem;display:flex;gap:.4rem;align-items:center">Rows per page <select id="rxSyncPageSize" onchange="loadRxProfileSync()"><option value="50">50</option><option value="100" selected>100</option><option value="250">250</option></select></label>
+                <label style="font-size:.75rem;display:flex;gap:.4rem;align-items:center">History order <select id="rxSyncHistoryOrder" onchange="sortRxProfileSyncRows()"><option value="oldest">Oldest first</option><option value="newest">Newest first</option></select></label>
             </div>
             <div style="margin-top:.7rem;padding:.65rem .8rem;border:1px solid rgba(59,130,246,.25);background:rgba(59,130,246,.07);border-radius:7px;font-size:.74rem;color:var(--text-muted)">
-                <strong style="color:#bfdbfe">Clinic is inherited from the Patient profile</strong>; it is shown for reference and does not need an RX update. Use Previous/Next to review every result beyond the first 1,000, choose the rows shown per page, or use <strong style="color:#bfdbfe">Export All Scan</strong> for one complete CSV. Each sync writes RX History and Audit Log entries with the selected fields and before/after values.
+                <strong style="color:#bfdbfe">Clinic is inherited from the Patient profile</strong>; it is shown for reference and does not need an RX update. Search a patient to review all of that patient's pending RX records, choose historical order, then select only the RX records to sync. Each sync writes RX History and Audit Log entries with the selected fields and before/after values.
             </div>
         </div>
         <div id="rxSyncStatus" style="margin:.8rem 0;font-size:.78rem;color:var(--text-muted)"></div>

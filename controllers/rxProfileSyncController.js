@@ -187,7 +187,7 @@ exports.list = async (req, res) => {
                         row: {
                             rxId: rx.id, patientId: patient.id,
                             patientName: `${patient.firstName || ''} ${patient.lastName || ''}`.trim() || `Patient #${patient.id}`,
-                            patientCode: patient.patientCode || '', arrivalDate: rx.arrivalDate || null, serviceDate: rx.serviceDate || null,
+                            patientCode: patient.patientCode || '', rxCreatedAt: rx.createdAt || null, arrivalDate: rx.arrivalDate || null, serviceDate: rx.serviceDate || null,
                             clinicId: patient.clinicId || null, clinicLabel: patient.clinicId ? 'Inherited from Patient profile' : 'Not set on Patient profile',
                             differences, patientValues, rxValues
                         }

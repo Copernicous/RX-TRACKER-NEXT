@@ -28,6 +28,8 @@ Version: `4.0.0-next.65` release candidate
 Version `next.65` adds difference-aware Backoffice **RX Profile Sync** search.
 Search now matches Pharmacy/Transport field names, displayed source/target
 values, and `Not set` / `not-set` alongside Patient and RX identifiers.
+Results can be ordered oldest-first or newest-first before selecting the exact
+historical RX records to synchronize.
 
 Version `next.64` fixes Backoffice **RX Profile Sync** scans so pending
 Pharmacy/Transport differences are not silently limited to the first 1,000

@@ -11,7 +11,9 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 - **Release candidate v4.0.0-next.65:** Backoffice RX Profile Sync search now
   matches difference field names, displayed Pharmacy/Transport values, and
   `Not set` / `not-set`, in addition to Patient and RX identifiers. It has no
-  migration, business-data change, or RX Action configuration change.
+  migration, business-data change, or RX Action configuration change. Results
+  can be ordered oldest-first or newest-first before selecting the exact
+  historical RX records to synchronize.
 
 - Official **v4.0.0-next.64** was published on 2026-08-17 from `main` commit
   `18190d4866cdf17e0d09b8eb8fe19eb9169cc32d`. PostgreSQL lifecycle CI,
