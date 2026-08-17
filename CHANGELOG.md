@@ -7,6 +7,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+## [4.0.0-next.68]
+
+### Added
+
+- Added a Backoffice RX Profile Sync Patient RX history filter for all patients,
+  patients with exactly one active RX record, or patients with two or more
+  active RX records.
+
 ## [4.0.0-next.67]
 
 ### Added

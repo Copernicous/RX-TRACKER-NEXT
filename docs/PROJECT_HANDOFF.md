@@ -8,6 +8,10 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
 
+- **Release candidate v4.0.0-next.68:** RX Profile Sync can filter by the
+  patient's total active RX history: all, exactly one active RX, or two or
+  more active RX records. No migration or business-data change is included.
+
 - **Release candidate v4.0.0-next.67:** RX Profile Sync groups displayed
   pending records by patient and labels the patient's total active RX count,
   warning when multiple historical RX records require review. No migration or

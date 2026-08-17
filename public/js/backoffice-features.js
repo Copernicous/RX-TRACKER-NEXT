@@ -3072,7 +3072,8 @@ function rxProfileSyncQuery(cursor) {
     var showAll = document.getElementById('rxSyncShowAll').checked;
     var pageSize = document.getElementById('rxSyncPageSize').value || '100';
     var differenceField = document.getElementById('rxSyncDifferenceFilter').value || '';
-    return '/api/admin/rx-profile-sync?search=' + encodeURIComponent(search) + '&showAll=' + showAll + '&differenceFields=' + encodeURIComponent(differenceField) + '&pageSize=' + encodeURIComponent(pageSize) + (cursor ? '&cursor=' + encodeURIComponent(cursor) : '');
+    var historyScope = document.getElementById('rxSyncHistoryScope').value || 'all';
+    return '/api/admin/rx-profile-sync?search=' + encodeURIComponent(search) + '&showAll=' + showAll + '&differenceFields=' + encodeURIComponent(differenceField) + '&rxHistoryScope=' + encodeURIComponent(historyScope) + '&pageSize=' + encodeURIComponent(pageSize) + (cursor ? '&cursor=' + encodeURIComponent(cursor) : '');
 }
 
 function sortRxProfileSyncRows() {

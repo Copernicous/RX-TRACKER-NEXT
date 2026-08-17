@@ -140,6 +140,7 @@ exports.list = async (req, res) => {
         const search = String(req.query.search || '').trim();
         const showAll = String(req.query.showAll || '') === 'true';
         const requestedDifferenceFields = new Set(String(req.query.differenceFields || '').split(',').filter(field => SYNC_FIELDS.includes(field)));
+        const rxHistoryScope = ['single', 'multi'].includes(req.query.rxHistoryScope) ? req.query.rxHistoryScope : 'all';
         const pageSize = Math.min(Math.max(Number.parseInt(req.query.pageSize, 10) || 100, 1), 250);
         const cursor = decodeCursor(req.query.cursor);
         const recordConditions = [activeRecordCondition()];
@@ -182,7 +183,8 @@ exports.list = async (req, res) => {
                 const rx = record.get({ plain: true });
                 const patient = rx.Patient;
                 const differences = fieldsToSync(rx, patient);
-                    if ((showAll || differences.length) && (!requestedDifferenceFields.size || differences.some(field => requestedDifferenceFields.has(field))) && rowMatchesProfileSearch({
+                const patientRxCount = patientRxCounts.get(Number(patient.id)) || 0;
+                    if ((showAll || differences.length) && (!requestedDifferenceFields.size || differences.some(field => requestedDifferenceFields.has(field))) && (rxHistoryScope === 'all' || (rxHistoryScope === 'single' && patientRxCount === 1) || (rxHistoryScope === 'multi' && patientRxCount > 1)) && rowMatchesProfileSearch({
                         patientName: `${patient.firstName || ''} ${patient.lastName || ''}`.trim() || `Patient #${patient.id}`,
                         patientCode: patient.patientCode || '', patientId: patient.id, rxId: rx.id,
                         differences, patientValues: valuesWithLabels(auditValues(patient), labels), rxValues: valuesWithLabels(auditValues(rx), labels)
@@ -192,7 +194,7 @@ exports.list = async (req, res) => {
                         candidates.push({
                         cursor: encodeCursor(rx),
                         row: {
-                            rxId: rx.id, patientId: patient.id, patientRxCount: patientRxCounts.get(Number(patient.id)) || 0,
+                            rxId: rx.id, patientId: patient.id, patientRxCount,
                             patientName: `${patient.firstName || ''} ${patient.lastName || ''}`.trim() || `Patient #${patient.id}`,
                             patientCode: patient.patientCode || '', rxCreatedAt: rx.createdAt || null, arrivalDate: rx.arrivalDate || null, serviceDate: rx.serviceDate || null,
                             clinicId: patient.clinicId || null, clinicLabel: patient.clinicId ? 'Inherited from Patient profile' : 'Not set on Patient profile',
