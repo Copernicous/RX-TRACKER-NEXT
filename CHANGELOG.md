@@ -7,6 +7,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+## [4.0.0-next.69]
+
+### Fixed
+
+- Multi-RX patient review in Backoffice RX Profile Sync now displays every
+  active historical RX record in each patient card, including rows that already
+  match the Patient profile. Only differing rows remain selectable for sync.
+
 ## [4.0.0-next.68]
 
 ### Added

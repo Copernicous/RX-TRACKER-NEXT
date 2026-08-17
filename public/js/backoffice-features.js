@@ -3112,7 +3112,7 @@ async function loadRxProfileSync(cursor) {
         rxProfileSyncRows = Array.isArray(data.rows) ? data.rows : [];
         updateRxSyncDisplayExport();
         rxProfileSyncNextCursor = data.nextCursor || null;
-        status.textContent = 'Page ' + (rxProfileSyncCursorHistory.length + 1) + ': ' + rxProfileSyncRows.length.toLocaleString() + (showAll ? ' RX records shown.' : ' RX records with profile differences.') + (data.hasMore ? ' More results are available.' : '');
+        status.textContent = 'Page ' + (rxProfileSyncCursorHistory.length + 1) + ': ' + rxProfileSyncRows.length.toLocaleString() + (data.includesMatchingHistory ? ' RX records shown for history review.' : ' RX records with profile differences.') + (data.hasMore ? ' More results are available.' : '');
         if (!rxProfileSyncRows.length) {
             list.innerHTML = '<p style="text-align:center;padding:3rem;color:var(--text-muted)"><i class="fas fa-check-circle" style="color:#34d399"></i> No RX records match this scan.</p>';
             return;
