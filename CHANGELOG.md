@@ -7,6 +7,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+## [4.0.0-next.66]
+
+### Added
+
+- Added a Backoffice RX Profile Sync Difference filter for Pharmacy, Patient
+  Transport, or Pharmacy Transport pending changes.
+
 ## [4.0.0-next.65]
 
 ### Added

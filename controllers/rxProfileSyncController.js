@@ -139,6 +139,7 @@ exports.list = async (req, res) => {
     try {
         const search = String(req.query.search || '').trim();
         const showAll = String(req.query.showAll || '') === 'true';
+        const requestedDifferenceFields = new Set(String(req.query.differenceFields || '').split(',').filter(field => SYNC_FIELDS.includes(field)));
         const pageSize = Math.min(Math.max(Number.parseInt(req.query.pageSize, 10) || 100, 1), 250);
         const cursor = decodeCursor(req.query.cursor);
         const recordConditions = [activeRecordCondition()];
@@ -175,7 +176,7 @@ exports.list = async (req, res) => {
                 const rx = record.get({ plain: true });
                 const patient = rx.Patient;
                 const differences = fieldsToSync(rx, patient);
-                    if ((showAll || differences.length) && rowMatchesProfileSearch({
+                    if ((showAll || differences.length) && (!requestedDifferenceFields.size || differences.some(field => requestedDifferenceFields.has(field))) && rowMatchesProfileSearch({
                         patientName: `${patient.firstName || ''} ${patient.lastName || ''}`.trim() || `Patient #${patient.id}`,
                         patientCode: patient.patientCode || '', patientId: patient.id, rxId: rx.id,
                         differences, patientValues: valuesWithLabels(auditValues(patient), labels), rxValues: valuesWithLabels(auditValues(rx), labels)

@@ -3071,7 +3071,8 @@ function rxProfileSyncQuery(cursor) {
     var search = document.getElementById('rxSyncSearch').value || '';
     var showAll = document.getElementById('rxSyncShowAll').checked;
     var pageSize = document.getElementById('rxSyncPageSize').value || '100';
-    return '/api/admin/rx-profile-sync?search=' + encodeURIComponent(search) + '&showAll=' + showAll + '&pageSize=' + encodeURIComponent(pageSize) + (cursor ? '&cursor=' + encodeURIComponent(cursor) : '');
+    var differenceField = document.getElementById('rxSyncDifferenceFilter').value || '';
+    return '/api/admin/rx-profile-sync?search=' + encodeURIComponent(search) + '&showAll=' + showAll + '&differenceFields=' + encodeURIComponent(differenceField) + '&pageSize=' + encodeURIComponent(pageSize) + (cursor ? '&cursor=' + encodeURIComponent(cursor) : '');
 }
 
 function sortRxProfileSyncRows() {
