@@ -546,7 +546,7 @@
                 </div>
             </div>
             <div style="display:flex;gap:.6rem;flex-wrap:wrap;margin-top:1rem">
-                <input id="rxSyncSearch" class="schema-search" style="margin:0;min-width:260px;flex:1" placeholder="Search patient name, Patient ID, or RX #" onkeydown="if(event.key==='Enter')loadRxProfileSync()">
+                <input id="rxSyncSearch" class="schema-search" style="margin:0;min-width:260px;flex:1" placeholder="Search patient, RX #, Pharmacy/Transport, or Not set" onkeydown="if(event.key==='Enter')loadRxProfileSync()">
                 <label style="font-size:.75rem;display:flex;gap:.4rem;align-items:center"><input id="rxSyncShowAll" type="checkbox" onchange="loadRxProfileSync()"> Show matching records too</label>
                 <label style="font-size:.75rem;display:flex;gap:.4rem;align-items:center">Rows per page <select id="rxSyncPageSize" onchange="loadRxProfileSync()"><option value="50">50</option><option value="100" selected>100</option><option value="250">250</option></select></label>
             </div>

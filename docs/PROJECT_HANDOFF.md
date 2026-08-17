@@ -8,7 +8,20 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
 
-- **Release candidate v4.0.0-next.64:** Backoffice RX Profile Sync no longer silently stops after
+- **Release candidate v4.0.0-next.65:** Backoffice RX Profile Sync search now
+  matches difference field names, displayed Pharmacy/Transport values, and
+  `Not set` / `not-set`, in addition to Patient and RX identifiers. It has no
+  migration, business-data change, or RX Action configuration change.
+
+- Official **v4.0.0-next.64** was published on 2026-08-17 from `main` commit
+  `18190d4866cdf17e0d09b8eb8fe19eb9169cc32d`. PostgreSQL lifecycle CI,
+  CodeQL, and the tagged compiled-release workflow passed; published assets
+  were verified against `SHA256SUMS.txt`. It fixes RX Profile Sync scanning
+  beyond the oldest 1,000 active RX records and adds page-size selection,
+  Previous/Next navigation, and complete-scan CSV export. Production
+  installation remains separately approved.
+
+- **Historical candidate v4.0.0-next.64:** Backoffice RX Profile Sync no longer silently stops after
   the first 1,000 oldest active RX records. The scan now supports selectable
   page sizes and Previous / Next navigation through every active record,
   continuing past matches when the default differences-only view is selected;

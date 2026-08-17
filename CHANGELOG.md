@@ -7,6 +7,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+## [4.0.0-next.65]
+
+### Added
+
+- Backoffice **RX Profile Sync** search now matches pending-difference field
+  names, displayed Pharmacy and Transport values, and `Not set` / `not-set`,
+  in addition to Patient and RX identifiers.
+
+## [4.0.0-next.64]
+
 ### Fixed
 
 - Fixed Backoffice **RX Profile Sync** scans stopping after the oldest 1,000

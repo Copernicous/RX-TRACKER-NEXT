@@ -49,6 +49,25 @@ function profileSearchCondition(value) {
     return { [Op.or]: conditions };
 }
 
+function normalizedSearchText(value) {
+    return String(value || '').toLocaleLowerCase().replace(/[-_]+/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function rowMatchesProfileSearch(row, search) {
+    const terms = normalizedSearchText(search).split(' ').filter(Boolean);
+    if (!terms.length) return true;
+    const values = [
+        row.patientName, row.patientCode, row.patientId, row.rxId,
+        `patient ${row.patientId}`, `rx ${row.rxId}`,
+        ...row.differences.map(field => SYNC_FIELD_LABELS[field] || field),
+        row.patientValues.pharmacy.label, row.rxValues.pharmacy.label,
+        row.patientValues.patientTransport.label, row.rxValues.patientTransport.label,
+        row.patientValues.pharmacyTransport.label, row.rxValues.pharmacyTransport.label
+    ];
+    const searchable = normalizedSearchText(values.join(' '));
+    return terms.every(term => searchable.includes(term));
+}
+
 function decodeCursor(value) {
     if (!value || typeof value !== 'string') return null;
     try {
@@ -122,9 +141,7 @@ exports.list = async (req, res) => {
         const showAll = String(req.query.showAll || '') === 'true';
         const pageSize = Math.min(Math.max(Number.parseInt(req.query.pageSize, 10) || 100, 1), 250);
         const cursor = decodeCursor(req.query.cursor);
-        const searchCondition = profileSearchCondition(search);
         const recordConditions = [activeRecordCondition()];
-        if (searchCondition) recordConditions.push(searchCondition);
         const lookups = await loadLookups();
         const labels = fieldLabels(lookups);
         const candidates = [];
@@ -158,15 +175,21 @@ exports.list = async (req, res) => {
                 const rx = record.get({ plain: true });
                 const patient = rx.Patient;
                 const differences = fieldsToSync(rx, patient);
-                if (showAll || differences.length) {
-                    candidates.push({
+                    if ((showAll || differences.length) && rowMatchesProfileSearch({
+                        patientName: `${patient.firstName || ''} ${patient.lastName || ''}`.trim() || `Patient #${patient.id}`,
+                        patientCode: patient.patientCode || '', patientId: patient.id, rxId: rx.id,
+                        differences, patientValues: valuesWithLabels(auditValues(patient), labels), rxValues: valuesWithLabels(auditValues(rx), labels)
+                    }, search)) {
+                        const patientValues = valuesWithLabels(auditValues(patient), labels);
+                        const rxValues = valuesWithLabels(auditValues(rx), labels);
+                        candidates.push({
                         cursor: encodeCursor(rx),
                         row: {
                             rxId: rx.id, patientId: patient.id,
                             patientName: `${patient.firstName || ''} ${patient.lastName || ''}`.trim() || `Patient #${patient.id}`,
                             patientCode: patient.patientCode || '', arrivalDate: rx.arrivalDate || null, serviceDate: rx.serviceDate || null,
                             clinicId: patient.clinicId || null, clinicLabel: patient.clinicId ? 'Inherited from Patient profile' : 'Not set on Patient profile',
-                            differences, patientValues: valuesWithLabels(auditValues(patient), labels), rxValues: valuesWithLabels(auditValues(rx), labels)
+                            differences, patientValues, rxValues
                         }
                     });
                     if (candidates.length > pageSize) break;

@@ -10,7 +10,7 @@ frozen 3.3.1 repository, its production database, or the RX Softphone source.
 
 ## Current status
 
-Version: `4.0.0-next.64` release candidate
+Version: `4.0.0-next.65` release candidate
 
 | Area | NEXT behavior |
 |---|---|
@@ -24,6 +24,10 @@ Version: `4.0.0-next.64` release candidate
 | CSV review snapshots | Exports every public database table, including empty-table headers; sensitive review artifact only, not a PostgreSQL restore backup |
 | Test-copy restore | Project Control 2.2.2 option 25 verifies the exact service process, executable, listener, and database before optional activation |
 | RX Softphone | Version 0.6.0 runs as a tray application with its own Windows control window and per-user automatic startup, supports optional PBX Authentication ID, and is published as a separate, checksummed workstation ZIP |
+
+Version `next.65` adds difference-aware Backoffice **RX Profile Sync** search.
+Search now matches Pharmacy/Transport field names, displayed source/target
+values, and `Not set` / `not-set` alongside Patient and RX identifiers.
 
 Version `next.64` fixes Backoffice **RX Profile Sync** scans so pending
 Pharmacy/Transport differences are not silently limited to the first 1,000
