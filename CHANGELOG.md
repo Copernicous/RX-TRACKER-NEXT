@@ -7,6 +7,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+## [4.0.0-next.67]
+
+### Added
+
+- Grouped Backoffice RX Profile Sync rows by patient with a visible card header
+  showing the patient's total active RX-record count and a historical-review
+  warning for patients with multiple active RX records.
+
 ## [4.0.0-next.66]
 
 ### Added

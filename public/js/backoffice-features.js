@@ -3079,6 +3079,8 @@ function sortRxProfileSyncRows() {
     var order = document.getElementById('rxSyncHistoryOrder');
     var direction = order && order.value === 'newest' ? -1 : 1;
     rxProfileSyncRows.sort(function(a, b) {
+        var patientOrder = String(a.patientName || '').localeCompare(String(b.patientName || ''), undefined, { sensitivity: 'base' });
+        if (patientOrder) return patientOrder;
         var dateA = a.rxCreatedAt ? new Date(a.rxCreatedAt).getTime() : 0;
         var dateB = b.rxCreatedAt ? new Date(b.rxCreatedAt).getTime() : 0;
         return direction * (dateA - dateB || Number(a.rxId) - Number(b.rxId));
@@ -3133,6 +3135,15 @@ function renderRxProfileSyncRows() {
             }).join('') : '<span style="color:#6ee7b7">Already matches Patient profile</span>';
             return '<tr data-rx-sync-id="' + row.rxId + '"><td style="text-align:center"><input type="checkbox" data-rx-sync-select aria-label="Select RX #' + row.rxId + '" ' + (row.differences.length ? 'onchange="updateRxSyncBulkSelection()"' : 'disabled') + '></td><td><strong>' + rxSyncEsc(row.patientName) + '</strong><br><small style="color:var(--text-muted)">Patient ' + rxSyncEsc(row.patientCode || ('#' + row.patientId)) + ' · RX #' + row.rxId + '</small></td><td><small>Arrival: ' + rxSyncDate(row.arrivalDate) + '<br>Service: ' + rxSyncDate(row.serviceDate) + '</small></td><td><small>' + rxSyncEsc(row.clinicLabel) + '</small></td><td>' + diffs + '</td><td><button class="btn-bo btn-bo-primary" style="padding:.35rem .6rem;font-size:.72rem" ' + (row.differences.length ? '' : 'disabled') + ' onclick="syncRxProfile(' + row.rxId + ', this)"><i class="fas fa-arrows-rotate me-1"></i>Sync selected</button></td></tr>';
     }).join('') + '</tbody></table></div><div style="display:flex;justify-content:flex-end;gap:.5rem;margin-top:.75rem"><button class="btn-bo btn-bo-outline" ' + (rxProfileSyncCursorHistory.length ? '' : 'disabled') + ' onclick="previousRxProfileSyncPage()">Previous</button><button class="btn-bo btn-bo-outline" ' + (rxProfileSyncNextCursor ? '' : 'disabled') + ' onclick="nextRxProfileSyncPage()">Next</button></div>';
+    var tableBody = list.querySelector('tbody');
+    var renderedRows = tableBody ? tableBody.querySelectorAll('[data-rx-sync-id]') : [];
+    rxProfileSyncRows.forEach(function(row, index) {
+        if (index && rxProfileSyncRows[index - 1].patientId === row.patientId) return;
+        var header = document.createElement('tr');
+        var count = Number(row.patientRxCount) || 0;
+        header.innerHTML = '<td colspan="6" style="padding:.65rem .85rem;background:rgba(99,102,241,.16);border-top:3px solid #6366f1"><strong>' + rxSyncEsc(row.patientName) + '</strong><span style="margin-left:.65rem;color:#c7d2fe;font-size:.78rem">' + count + ' active RX record' + (count === 1 ? '' : 's') + (count > 1 ? ' — review historical RX before syncing' : '') + '</span></td>';
+        tableBody.insertBefore(header, renderedRows[index]);
+    });
     updateRxSyncBulkSelection();
 }
 

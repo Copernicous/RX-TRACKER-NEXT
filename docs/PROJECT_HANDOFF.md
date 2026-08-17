@@ -8,6 +8,11 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
 
+- **Release candidate v4.0.0-next.67:** RX Profile Sync groups displayed
+  pending records by patient and labels the patient's total active RX count,
+  warning when multiple historical RX records require review. No migration or
+  business-data change is included.
+
 - **Release candidate v4.0.0-next.65:** Backoffice RX Profile Sync search now
   matches difference field names, displayed Pharmacy/Transport values, and
   `Not set` / `not-set`, in addition to Patient and RX identifiers. It has no

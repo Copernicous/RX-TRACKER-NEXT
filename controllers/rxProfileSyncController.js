@@ -172,6 +172,12 @@ exports.list = async (req, res) => {
                 reachedEnd = true;
                 break;
             }
+            const patientIds = [...new Set(records.map(record => Number(record.patientId)).filter(Number.isInteger))];
+            const patientRxCounts = new Map((await db.RXRecord.findAll({
+                where: { [Op.and]: [activeRecordCondition(), { patientId: { [Op.in]: patientIds } }] },
+                attributes: ['patientId', [db.sequelize.fn('COUNT', db.sequelize.col('id')), 'count']],
+                group: ['patientId'], raw: true
+            })).map(row => [Number(row.patientId), Number(row.count)]));
             for (const record of records) {
                 const rx = record.get({ plain: true });
                 const patient = rx.Patient;
@@ -186,7 +192,7 @@ exports.list = async (req, res) => {
                         candidates.push({
                         cursor: encodeCursor(rx),
                         row: {
-                            rxId: rx.id, patientId: patient.id,
+                            rxId: rx.id, patientId: patient.id, patientRxCount: patientRxCounts.get(Number(patient.id)) || 0,
                             patientName: `${patient.firstName || ''} ${patient.lastName || ''}`.trim() || `Patient #${patient.id}`,
                             patientCode: patient.patientCode || '', rxCreatedAt: rx.createdAt || null, arrivalDate: rx.arrivalDate || null, serviceDate: rx.serviceDate || null,
                             clinicId: patient.clinicId || null, clinicLabel: patient.clinicId ? 'Inherited from Patient profile' : 'Not set on Patient profile',
