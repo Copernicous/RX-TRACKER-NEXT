@@ -7,6 +7,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+### Fixed
+
+- Made the wide role-permission matrix discoverable with a wider editor,
+  persistent horizontal scrollbar, explicit left/right controls, and a visible
+  hint identifying the driver-permission columns beyond Override.
+
 ## [4.0.0-next.73]
 
 ### Added

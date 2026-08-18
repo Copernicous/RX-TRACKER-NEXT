@@ -34,9 +34,36 @@ var roleDefaults = {};
 document.addEventListener('DOMContentLoaded', function() {
     if (typeof initApp === 'function') initApp();
     initRoleModalCleanup();
+    initPermissionMatrixScroller();
     loadRoles();
     loadDefaults();
 });
+
+function initPermissionMatrixScroller() {
+    var scroller = document.getElementById('permEditorScroll');
+    var topScroller = document.getElementById('permEditorTopScroll');
+    var leftButton = document.getElementById('permScrollLeft');
+    var rightButton = document.getElementById('permScrollRight');
+    if (!scroller) return;
+
+    var syncingScroll = false;
+    function syncScroll(source, target) {
+        if (!target || syncingScroll) return;
+        syncingScroll = true;
+        target.scrollLeft = source.scrollLeft;
+        syncingScroll = false;
+    }
+
+    scroller.addEventListener('scroll', function() { syncScroll(scroller, topScroller); });
+    if (topScroller) topScroller.addEventListener('scroll', function() { syncScroll(topScroller, scroller); });
+
+    if (leftButton) leftButton.addEventListener('click', function() {
+        scroller.scrollBy({ left: -600, behavior: 'smooth' });
+    });
+    if (rightButton) rightButton.addEventListener('click', function() {
+        scroller.scrollBy({ left: 600, behavior: 'smooth' });
+    });
+}
 
 function cleanupOrphanedRoleBackdrops() {
     if (document.querySelector('.modal.show')) return;
@@ -267,6 +294,8 @@ function applyTemplate(roleName) {
 
 function buildPermEditor(perms) {
     var tbody = document.getElementById('permEditorBody');
+    var scroller = document.getElementById('permEditorScroll');
+    var topScroller = document.getElementById('permEditorTopScroll');
     var lastGroup = '';
     var _mHtml = '';
     var dash = '<span class="text-muted">\u2014</span>';
@@ -343,6 +372,8 @@ function buildPermEditor(perms) {
             '</tr>';
     }
     tbody.innerHTML = _mHtml;
+    if (scroller) scroller.scrollLeft = 0;
+    if (topScroller) topScroller.scrollLeft = 0;
 }
 
 function readPermEditor() {
