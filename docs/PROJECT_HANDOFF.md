@@ -8,12 +8,24 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
 
-- **Release candidate v4.0.0-next.73:** Staging and development operator
-  validation passed for RX driver evolution and RX Profile Sync review state.
-  The development database is verified at 41/41 migrations. The candidate is
-  being prepared for the required `main` lifecycle CI and compiled release;
-  production remains unchanged until a verified release is installed through
-  Project Control.
+- **Official v4.0.0-next.73** was published on 2026-08-18 from `main` commit
+  `af2926f8d41740be8b476e078d1cda79b9bb9840` after staging and development
+  operator validation of RX driver evolution and RX Profile Sync review state.
+  PostgreSQL lifecycle CI run `32174775523`, CodeQL run `32174775522`, and
+  tagged compiled-release run `32175152976` passed. The downloaded official
+  assets and embedded executables were verified against `SHA256SUMS.txt`:
+  both server ZIP names
+  `98f51ae12bba6d685b4c6bd81b842d21865a6d843bc401aad61ce209efc7e48b`,
+  RX Softphone ZIP
+  `8b3a13a2633fecc77bec44d47802e73c4b89ed7a7296808da271d8d197043b9d`,
+  `server.exe`
+  `648e18ab65232f05b2fd95c5e85c138647ce13704e646592b1f3f0677d15801b`,
+  and `rx-db.exe`
+  `35ea86695bf9996564dae63f1671704af91bf4fd526ba30df23df0a85be29d43`.
+  The official server reports `4.0.0-next.73`, and `rx-db.exe help` succeeds.
+  Production installation remains pending and must use Project Control so the
+  paired application/database rollback and guarded migration process are
+  preserved.
 
 - **Unreleased staging candidate — RX Profile Sync review state:** Backoffice
   RX Profile Sync now defaults to Pending and supports Reviewed and All
