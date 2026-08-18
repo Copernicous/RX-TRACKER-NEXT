@@ -3048,6 +3048,7 @@ var rxProfileSyncRows = [];
 var rxProfileSyncCursor = null;
 var rxProfileSyncNextCursor = null;
 var rxProfileSyncCursorHistory = [];
+var rxProfileSyncIncludesMatchingHistory = false;
 function rxSyncEsc(value) {
     return String(value === undefined || value === null ? '' : value)
         .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -3101,6 +3102,7 @@ async function loadRxProfileSync(cursor) {
         rxProfileSyncCursor = cursor || null;
     }
     rxProfileSyncRows = [];
+    rxProfileSyncIncludesMatchingHistory = false;
     updateRxSyncDisplayExport();
     list.innerHTML = '<p style="text-align:center;padding:2rem;color:var(--text-muted)"><i class="fas fa-spinner fa-spin me-2"></i>Scanning RX records...</p>';
     updateRxSyncBulkSelection();
@@ -3110,6 +3112,7 @@ async function loadRxProfileSync(cursor) {
         var data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Scan failed');
         rxProfileSyncRows = Array.isArray(data.rows) ? data.rows : [];
+        rxProfileSyncIncludesMatchingHistory = !!data.includesMatchingHistory;
         updateRxSyncDisplayExport();
         rxProfileSyncNextCursor = data.nextCursor || null;
         status.textContent = 'Page ' + (rxProfileSyncCursorHistory.length + 1) + ': ' + rxProfileSyncRows.length.toLocaleString() + (data.includesMatchingHistory ? ' RX records shown for history review.' : ' RX records with profile differences.') + (data.hasMore ? ' More results are available.' : '');
@@ -3143,6 +3146,12 @@ function renderRxProfileSyncRows() {
         var header = document.createElement('tr');
         var count = Number(row.patientRxCount) || 0;
         header.innerHTML = '<td colspan="6" style="padding:.65rem .85rem;background:rgba(99,102,241,.16);border-top:3px solid #6366f1"><strong>' + rxSyncEsc(row.patientName) + '</strong><span style="margin-left:.65rem;color:#c7d2fe;font-size:.78rem">' + count + ' active RX record' + (count === 1 ? '' : 's') + (count > 1 ? ' — review historical RX before syncing' : '') + '</span></td>';
+        var pending = Number(row.patientPendingRxCount);
+        if (!Number.isFinite(pending)) pending = count;
+        var matching = Math.max(0, count - pending);
+        var summary = count + ' active RX record' + (count === 1 ? '' : 's') + ' · ' + pending + ' need sync';
+        if (matching) summary += ' · ' + matching + (rxProfileSyncIncludesMatchingHistory ? ' already matches' : ' matching hidden');
+        header.querySelector('span').textContent = summary + (count > 1 ? ' — review historical RX before syncing' : '');
         tableBody.insertBefore(header, renderedRows[index]);
     });
     updateRxSyncBulkSelection();

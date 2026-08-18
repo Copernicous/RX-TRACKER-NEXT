@@ -8,6 +8,12 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
 
+- **Release candidate v4.0.0-next.72:** Multi-RX RX Profile Sync now returns
+  complete patient history cards. A qualifying multi-RX patient cannot have
+  active RX rows split across page boundaries; history-review mode shows every
+  active RX row together and the card header distinguishes pending changes from
+  matching records. No migration or business-data change.
+
 - **Release candidate v4.0.0-next.71:** Multi-RX RX Profile Sync hides
   already-matching historical rows by default; they appear only through the
   explicit history-review checkbox. No migration or business-data change.

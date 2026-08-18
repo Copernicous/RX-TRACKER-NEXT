@@ -7,6 +7,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+## [4.0.0-next.72]
+
+### Fixed
+
+- Multi-RX RX Profile Sync now treats each patient as one complete history
+  card. In history-review mode, every active RX record for a qualifying
+  multi-RX patient appears together, including matching rows; a patient card
+  cannot be split by row pagination or a difference filter.
+- Patient-card headers now state the total active RX count, the number that
+  need synchronization, and whether matching history is shown or hidden.
+
 ## [4.0.0-next.71]
 
 ### Changed

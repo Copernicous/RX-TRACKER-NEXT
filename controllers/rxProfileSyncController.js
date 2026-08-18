@@ -147,6 +147,54 @@ exports.list = async (req, res) => {
         const recordConditions = [activeRecordCondition()];
         const lookups = await loadLookups();
         const labels = fieldLabels(lookups);
+        if (rxHistoryScope === 'multi') {
+            const records = await db.RXRecord.findAll({
+                where: { [Op.and]: recordConditions },
+                attributes: ['id', 'patientId', 'arrivalDate', 'serviceDate', 'pharmacyId', 'patientTransportCompanyId', 'pharmacyTransportCompanyId', 'createdAt'],
+                include: [{
+                    model: db.Patient,
+                    required: true,
+                    attributes: ['id', 'patientCode', 'firstName', 'lastName', 'clinicId', 'pharmacyId', 'patientTransportCompanyId', 'pharmacyTransportCompanyId', 'isDeleted'],
+                    where: activeRecordCondition()
+                }],
+                order: [['patientId', 'ASC'], ['createdAt', 'ASC'], ['id', 'ASC']]
+            });
+            const groups = new Map();
+            records.forEach(record => {
+                const rx = record.get({ plain: true });
+                const patient = rx.Patient;
+                const differences = fieldsToSync(rx, patient);
+                const row = {
+                    rxId: rx.id, patientId: patient.id,
+                    patientName: `${patient.firstName || ''} ${patient.lastName || ''}`.trim() || `Patient #${patient.id}`,
+                    patientCode: patient.patientCode || '', rxCreatedAt: rx.createdAt || null, arrivalDate: rx.arrivalDate || null, serviceDate: rx.serviceDate || null,
+                    clinicId: patient.clinicId || null, clinicLabel: patient.clinicId ? 'Inherited from Patient profile' : 'Not set on Patient profile',
+                    differences, patientValues: valuesWithLabels(auditValues(patient), labels), rxValues: valuesWithLabels(auditValues(rx), labels)
+                };
+                const group = groups.get(patient.id) || [];
+                group.push(row);
+                groups.set(patient.id, group);
+            });
+            const rows = [];
+            [...groups.values()].forEach(group => {
+                if (group.length < 2) return;
+                const qualifyingRows = group.filter(row => {
+                    const differenceMatch = !requestedDifferenceFields.size || row.differences.some(field => requestedDifferenceFields.has(field));
+                    return row.differences.length && differenceMatch && rowMatchesProfileSearch(row, search);
+                });
+                if (!qualifyingRows.length) return;
+                // A multi-RX result is a patient history card. Once a card
+                // qualifies, history-review mode includes every active RX.
+                const rowsForCard = showAll ? group : qualifyingRows;
+                rowsForCard.forEach(row => {
+                    row.patientRxCount = group.length;
+                    row.patientPendingRxCount = group.filter(item => item.differences.length > 0).length;
+                    rows.push(row);
+                });
+            });
+            rows.sort((left, right) => left.patientName.localeCompare(right.patientName) || new Date(left.rxCreatedAt || 0) - new Date(right.rxCreatedAt || 0) || left.rxId - right.rxId);
+            return res.json({ rows, total: rows.length, includesMatchingHistory: showAll, hasMore: false, nextCursor: null, patientCardPaging: true });
+        }
         const candidates = [];
         let scanCursor = cursor;
         let reachedEnd = false;

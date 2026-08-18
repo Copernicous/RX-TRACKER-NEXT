@@ -277,8 +277,15 @@ async function main() {
     assert.match(browserSource, /index < 100/);
     assert.match(browserSource, /Selected the first 100 RX records/);
     assert.match(browserSource, /function exportRxProfileSyncHistory\(\)/);
+    assert.match(browserSource, /rxProfileSyncIncludesMatchingHistory/);
+    assert.match(browserSource, /matching hidden/);
+    assert.match(browserSource, /patientOrder/);
     assert.match(routeSource, /rx-profile-sync\/bulk/);
     assert.match(routeSource, /rx-profile-sync\/export/);
+    const profileSyncControllerSource = fs.readFileSync(path.join(__dirname, '..', 'controllers', 'rxProfileSyncController.js'), 'utf8');
+    assert.match(profileSyncControllerSource, /rxHistoryScope === 'multi'/);
+    assert.match(profileSyncControllerSource, /const rowsForCard = showAll \? group : qualifyingRows/);
+    assert.match(profileSyncControllerSource, /patientCardPaging: true/);
     assert.match(
         rxControllerSource,
         /exports\.getOne[\s\S]*?RXRecord\.findByPk\(req\.params\.id,\s*\{\s*include:\s*rxInclude\(\)/,
