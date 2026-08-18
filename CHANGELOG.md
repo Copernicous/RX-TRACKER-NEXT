@@ -7,6 +7,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+## [4.0.0-next.70]
+
+### Fixed
+
+- Fixed an RX Profile Sync scan error in `next.69` caused by a mismatched
+  multi-RX history response field name.
+
 ## [4.0.0-next.69]
 
 ### Fixed

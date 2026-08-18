@@ -211,7 +211,7 @@ exports.list = async (req, res) => {
         }
         const hasMore = candidates.length > pageSize;
         const displayed = candidates.slice(0, pageSize);
-        res.json({ rows: displayed.map(candidate => candidate.row), total: displayed.length, includesMatchingHistory, hasMore, nextCursor: hasMore ? displayed[displayed.length - 1].cursor : null });
+        res.json({ rows: displayed.map(candidate => candidate.row), total: displayed.length, includesMatchingHistory: includeMatchingHistory, hasMore, nextCursor: hasMore ? displayed[displayed.length - 1].cursor : null });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
