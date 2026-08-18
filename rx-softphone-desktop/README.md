@@ -85,13 +85,13 @@ The browser sends only an authenticated server command. The Windows app continue
 - SIP/UDP and ordinary RTP are not encrypted. This matches the requested LAN test architecture but should be reviewed before use across untrusted networks.
 - Rotate any password that has previously been shared in chat or another non-secret channel.
 
-## Build a Windows release
+## Developer test build
 
 ```powershell
 .\build-release.ps1
 ```
 
-The script requires .NET SDK `10.0.302` or a compatible later patch, publishes a self-contained `win-x64` build, and creates `release\RxSoftphone-<version>-win-x64.zip`. Generated releases, local pairing state, and SDK files are intentionally excluded from Git. Attach the ZIP to the matching RX Tracker GitHub release or copy it to the approved internal software share.
+The script requires .NET SDK `10.0.302` or a compatible later patch, publishes a self-contained `win-x64` build, and creates `release\RxSoftphone-<version>-win-x64.zip`. This local output is for developer testing only. Generated releases, local pairing state, and SDK files are intentionally excluded from Git. Official RX Softphone ZIPs and checksums are built and attached to the matching RX Tracker release by GitHub Actions; never publish or deploy the local test ZIP as an official asset.
 
 Version: `0.6.0` (application-owned Windows control window, tray status/controls, per-user automatic startup, single-instance activation, managed workstation controls, separate SIP Authentication ID, stable authenticated outbound calls, bounded relay recovery, and Administrator revocation).
 

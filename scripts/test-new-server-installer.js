@@ -9,11 +9,15 @@ const installerPath = path.join(root, 'scripts', 'Install-NewServer.ps1');
 const launcherPath = path.join(root, 'INSTALL-NEW-SERVER.bat');
 const documentationPath = path.join(root, 'docs', 'NEW_SERVER_PORTABLE_INSTALLER.md');
 const postBuildPath = path.join(root, 'scripts', 'post-build.js');
+const releaseWorkflowPath = path.join(root, '.github', 'workflows', 'release-notes-from-file.yml');
+const backupsViewPath = path.join(root, 'views', 'backups.ejs');
 
 const installer = fs.readFileSync(installerPath, 'utf8');
 const launcher = fs.readFileSync(launcherPath, 'utf8');
 const documentation = fs.readFileSync(documentationPath, 'utf8');
 const postBuild = fs.readFileSync(postBuildPath, 'utf8');
+const releaseWorkflow = fs.readFileSync(releaseWorkflowPath, 'utf8');
+const backupsView = fs.readFileSync(backupsViewPath, 'utf8');
 
 assert(installer.includes("'ValidatePackage'"), 'Installer must expose a non-mutating package validation action.');
 assert(installer.includes("foreach ($forbidden in @('.env', '.env.staging'))"), 'Installer must reject reusable environment secret files.');
@@ -50,4 +54,9 @@ assert(postBuild.includes("path.join('scripts', 'Install-NewServer.ps1')"), 'Rel
 assert(postBuild.includes("path.join('docs', 'NEW_SERVER_PORTABLE_INSTALLER.md')"), 'Release packaging must include the installer guide.');
 assert(postBuild.includes("'RX-Tracker-NEXT-New-Server-' + packageInfo.version + '.zip'"), 'Release build must create a named portable new-server ZIP.');
 
+assert(releaseWorkflow.includes('dist/RX-Tracker-NEXT-New-Server-*.zip'), 'Official releases must publish the portable new-server ZIP.');
+assert(releaseWorkflow.includes('dist\\RX-Tracker-NEXT-New-Server-*.zip'), 'Official checksums must include the portable new-server ZIP.');
+assert(backupsView.includes('25. Restore verified dump into isolated test copy'), 'Embedded restore guide must use the guarded Project Control restore.');
+assert(backupsView.includes('BACKUP_RETAIN') && backupsView.includes('SITE_BACKUP_RETAIN'), 'Embedded restore guide must explain both backup file-count settings.');
+assert(!backupsView.includes('setup.bat restore') && !backupsView.includes('pm2 start'), 'Embedded restore guide must not recommend the retired source/PM2 workflow.');
 console.log('PASS portable new-server installer safety, secret generation, restricted runtime role, health gate, documentation, and packaging regression.');

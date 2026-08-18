@@ -547,6 +547,114 @@ async function main() {
         'RX exportAll must preserve the Current Stage Date filters'
     );
 
+    const firstCompletedStageDate = await getRxPage(patient.id, {
+        completedStageId: String(actions[0].id),
+        stageFrom: selectedStageDate,
+        stageTo: selectedStageDate
+    });
+    assert.deepStrictEqual(
+        sortedIds(firstCompletedStageDate.rows),
+        [firstStageRx.id, secondStageRx.id, duplicateStageRx.id, completedRx.id].sort((a, b) => a - b),
+        'Completed Stage must include a later-current-stage RX when the selected historical stage was completed in range'
+    );
+    assert.strictEqual(firstCompletedStageDate.total, 4, 'Completed Stage date total is incorrect');
+
+    const secondCompletedStageDate = await getRxPage(patient.id, {
+        completedStageId: String(actions[1].id),
+        stageFrom: selectedStageDate,
+        stageTo: selectedStageDate
+    });
+    assert.deepStrictEqual(
+        sortedIds(secondCompletedStageDate.rows),
+        [completedRx.id],
+        'A date on a different stage must not qualify the selected Completed Stage'
+    );
+
+    const secondCompletedStageOutsideDate = await getRxPage(patient.id, {
+        completedStageId: String(actions[1].id),
+        stageFrom: outsideStageDate,
+        stageTo: outsideStageDate
+    });
+    assert.deepStrictEqual(
+        sortedIds(secondCompletedStageOutsideDate.rows),
+        [secondStageRx.id, expiredCompletedRx.id].sort((a, b) => a - b),
+        'Completed Stage must use the completion timestamp of the same selected stage'
+    );
+
+    const currentAndCompletedStage = await getRxPage(patient.id, {
+        currentWorkflowStage: String(actions[1].sequenceNumber),
+        completedStageId: String(actions[0].id),
+        stageFrom: selectedStageDate,
+        stageTo: selectedStageDate
+    });
+    assert.deepStrictEqual(
+        sortedIds(currentAndCompletedStage.rows),
+        [secondStageRx.id],
+        'Current Stage and Completed Stage must intersect without discarding prior completed-stage history'
+    );
+
+    const finalCompletedStageDate = await getRxPage(patient.id, {
+        completedStageId: String(actions[actions.length - 1].id),
+        stageFrom: selectedStageDate,
+        stageTo: selectedStageDate
+    });
+    assert.deepStrictEqual(
+        sortedIds(finalCompletedStageDate.rows),
+        [completedRx.id],
+        'Completed Stage dates must include both local-day boundary timestamps'
+    );
+
+    const reversedCompletedStageDate = await getRxPage(patient.id, {
+        completedStageId: String(actions[0].id),
+        stageFrom: outsideStageDate,
+        stageTo: selectedStageDate
+    });
+    assert.strictEqual(reversedCompletedStageDate.total, 0, 'Reversed Completed Stage range must return zero records');
+
+    const datesWithoutCompletedStage = await getRxPage(patient.id, {
+        stageFrom: selectedStageDate,
+        stageTo: selectedStageDate
+    });
+    assert.strictEqual(datesWithoutCompletedStage.total, 0, 'Completed Stage dates without a selected stage must fail closed');
+
+    const invalidCompletedStage = await getRxPage(patient.id, {
+        completedStageId: 'not-an-action',
+        stageFrom: selectedStageDate,
+        stageTo: selectedStageDate
+    });
+    assert.strictEqual(invalidCompletedStage.total, 0, 'Invalid Completed Stage must fail closed');
+
+    const inactiveCompletedStage = await getRxPage(patient.id, {
+        completedStageId: String(inactiveAction.id),
+        stageFrom: outsideStageDate,
+        stageTo: outsideStageDate
+    });
+    assert.strictEqual(inactiveCompletedStage.total, 0, 'Retired workflow actions must not match Completed Stage history');
+
+    const hiddenCompletedStage = await getRxPage(patient.id, {
+        includeDeleted: 'true',
+        completedStageId: String(actions[0].id),
+        stageFrom: selectedStageDate,
+        stageTo: selectedStageDate
+    });
+    assert.deepStrictEqual(
+        sortedIds(hiddenCompletedStage.rows),
+        [hiddenFirstStageRx.id],
+        'Completed Stage must retain the existing Show Hidden Records behavior'
+    );
+
+    const exportedCompletedStage = await getRxPage(patient.id, {
+        exportAll: 'true',
+        completedStageId: String(actions[0].id),
+        stageFrom: selectedStageDate,
+        stageTo: selectedStageDate
+    });
+    assert.deepStrictEqual(
+        sortedIds(exportedCompletedStage.rows),
+        [firstStageRx.id, secondStageRx.id, duplicateStageRx.id, completedRx.id].sort((a, b) => a - b),
+        'RX exportAll must preserve the linked Completed Stage filters'
+    );
+
     const nextActionOne = await getRxPage(patient.id, { workflowStage: '1' });
     assert.deepStrictEqual(
         sortedIds(nextActionOne.rows),
@@ -582,6 +690,8 @@ async function main() {
     console.log('PASS: Current Stage remains distinct from Next Action and excludes hidden RX records');
     console.log('PASS: Current Stage Date uses inclusive app-local boundaries and ignores inactive history');
     console.log('PASS: Current Stage Date filter parity is preserved in exportAll and combined filters');
+    console.log('PASS: Completed Stage dates match the selected history row, including later current stages only when that stage matches');
+    console.log('PASS: Completed Stage filtering fails closed without an active selected stage and is preserved in exportAll');
     console.log('PASS: Dashboard All Incomplete includes expired RX while operational Pending remains distinct');
 }
 

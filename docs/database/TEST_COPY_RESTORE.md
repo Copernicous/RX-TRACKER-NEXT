@@ -11,7 +11,9 @@ replacing the currently active database.
 3. Select **25. Restore verified dump into isolated test copy**.
 4. Enter the full `.dump` path.
 5. Accept the suggested database name or enter another name containing
-   `test`, `copy`, `sandbox`, `rehearsal`, or `scratch`.
+   `test`, `copy`, `sandbox`, `rehearsal`, or `scratch` as an
+   underscore-delimited token. Names containing a `prod`, `production`, or
+   `live` token are refused.
 6. Enter the PostgreSQL maintenance username and password when prompted.
 7. If the test database already exists, the program creates and validates a
    replacement backup before accepting the exact `REPLACE:<database>` phrase.
@@ -21,14 +23,24 @@ replacing the currently active database.
 9. Choose whether to activate the verified copy for the Windows service.
 
 When activation is selected, Project Control backs up `.env`, changes only
-`DB_NAME`, synchronizes the NSSM service environment, restarts RX Tracker, and
-requires exact-version/database health. A failed health check restores the
-previous `.env` and service configuration automatically.
+`DB_NAME`, clears any stale NSSM multi-value environment entries, writes the
+exact `.env` snapshot, restarts RX Tracker, and
+requires exact-version/database health. Activation also verifies the exact
+NSSM `server.exe` path and service `DB_NAME`, then uses an unguessable one-time
+loopback token to confirm the actual PostgreSQL database and running executable.
+The responding process must own the configured port and be the NSSM service
+child. The token is consumed by that verification and removed from the stored
+NSSM environment. Ordinary proxied and public health responses never include
+the database name or executable path. A failed check restores the previous
+`.env` and service configuration automatically and proves the recovered target
+the same way.
 
 ## Safety properties
 
 - The source dump is validated before any database is created or replaced.
 - The target must be separately named and visibly marked as non-production.
+- Non-production markers must be complete underscore-delimited tokens; a word
+  such as `contest` or `copycat` does not satisfy the guard.
 - The currently configured database can never be selected as the target.
 - Existing test copies are backed up and checksummed before replacement.
 - PostgreSQL maintenance credentials stay in process memory only and are not

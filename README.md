@@ -10,7 +10,7 @@ frozen 3.3.1 repository, its production database, or the RX Softphone source.
 
 ## Current status
 
-Version: `4.0.0-next.49` restore-manual and portable-installer release
+Version: `4.0.0-next.72` official release
 
 | Area | NEXT behavior |
 |---|---|
@@ -19,19 +19,86 @@ Version: `4.0.0-next.49` restore-manual and portable-installer release
 | Fresh database | Explicit `rx-db provision`, followed by one-time administrator bootstrap |
 | 3.3.1 database | Restore to an isolated copy, adopt the verified legacy schema, migrate, and compare |
 | Test data | Explicit sanitizer removes identities, credentials, tokens, pairings, document pointers, and free text |
+| Delivery Log archive | Saves a bounded, server-canonical, integrity-bound local carbon-copy record only when Print is requested; controlled reprints and cleanup are audited |
+| Database health | Backoffice analysis is read-only and reports evidence, confidence, checker errors, and backup creation separately from verified recoverability |
+| CSV review snapshots | Exports every public database table, including empty-table headers; sensitive review artifact only, not a PostgreSQL restore backup |
+| Test-copy restore | Project Control 2.2.2 option 25 verifies the exact service process, executable, listener, and database before optional activation |
 | RX Softphone | Version 0.6.0 runs as a tray application with its own Windows control window and per-user automatic startup, supports optional PBX Authentication ID, and is published as a separate, checksummed workstation ZIP |
 
-Version `next.35` made the Dashboard RX Workflow Pipeline use the same **Current
-Stage** definition as RX Records and Reports. The `next.36` candidate also makes
-the summary cards use the same four mutually exclusive **Workflow Status**
-groups as RX Records: Not Started, In Progress, Expired, and Completed. The
-The `next.38` candidate adds a pharmacy-separated Print & Delivery Log in PDF
-and preformatted Excel, selectable all-fields RX and Patient CSV exports,
-multi-select RX workflow filters, and an explicit Delivered / Returned to
-Pharmacy outcome. The Dashboard Pending card and charts remain **All
-Incomplete**, including Expired.
+Version `next.72` makes the Backoffice **RX Profile Sync** multi-RX review a
+complete patient-history card: each qualifying patient shows every active RX
+record together when **Show matching records too (history review)** is enabled.
+The card header distinguishes the total active history, pending changes, and
+matching records that are currently hidden or shown. No migration,
+business-data rewrite, or configured RX Action change is included.
 
-Version `next.47` replaces the obsolete source/PM2 restore instructions with the official portable installer plus guarded Project Control option 25 workflow, publishes the portable New Server ZIP as an official release asset, and documents the database/full-site backup file-count settings. Version `next.46` remains the RX Profile Sync displayed-export and 100-row selection release. No migration or business-data change is included.
+Version `next.65` adds difference-aware Backoffice **RX Profile Sync** search.
+Search now matches Pharmacy/Transport field names, displayed source/target
+values, and `Not set` / `not-set` alongside Patient and RX identifiers.
+Results can be ordered oldest-first or newest-first before selecting the exact
+historical RX records to synchronize.
+
+Version `next.64` fixes Backoffice **RX Profile Sync** scans so pending
+Pharmacy/Transport differences are not silently limited to the first 1,000
+oldest active RX records. Results support 50, 100, or 250 rows per page,
+Previous/Next navigation through every result, and a complete filtered CSV via
+**Export All Scan**. Synchronization remains manual, audited, and limited to
+100 selected RX records per batch. No migration, business-data rewrite,
+configured RX Action, or proxy/security change is included.
+
+Version `next.63` adds the compact RX Records **Stage Completion** filter. It
+matches the selected historical stage and that stage's own date range, so dates
+from another stage do not count. A record can be at a later Current Stage and
+still appear when it completed the selected historical stage during the range.
+Current Stage remains the primary filter; its existing date range is available
+under **More date filters**. This release also corrects affected display-text
+encoding and removes the unused header search control.
+
+No migration, schema change, business-data rewrite, configured RX Action
+change, or proxy/security change is included. The lockfile also pins patched
+transitive `brace-expansion` and `ip-address` releases required by CI.
+
+Version `next.62` adds a compact plain-language interpretation table above the
+detailed Backoffice Routine Database Checks. It uses the existing read-only
+results and does not change database checks, thresholds, or recommendations.
+
+Version `next.61` assigns new Delivery Log copies a durable incremental
+reference scoped independently to each pharmacy. Printed references no longer
+contain the combined RX count or cross-pharmacy group position. Reprints retain
+their assigned reference, deletion cannot reuse a number, and existing archives
+remain unchanged.
+
+Version `next.60` makes Project Control option 25 store and verify NSSM's
+multi-value service environment through its native Windows `REG_MULTI_SZ`
+registry value. This avoids command-line serialization differences observed on
+the testing server while preserving all activation identity and health checks.
+
+Version `next.59` corrects Project Control option 25 activation and automatic
+recovery when NSSM retains an older test-copy database in its multi-value
+service environment. The workflow clears the stale environment block before
+writing and verifying the exact `.env` snapshot and one-time health token.
+It also prevents the Windows GUI restore safety backup from confusing HTTP
+`PORT=3000` with PostgreSQL `DB_PORT`; PostgreSQL defaults to `5432` when its
+dedicated port is absent.
+The isolated restored database and all existing activation identity checks are
+preserved. There is no schema migration, business-data rewrite, production GUI
+restore change, or proxy/security configuration change.
+
+Version `next.58` corrected Delivery Log archive creation, reprint, and cleanup
+requests so the strict validators accept the browser's middleware-owned
+top-level CSRF transport field without storing it. CSRF enforcement and the
+rejection of unknown or nested input remain unchanged. Controlled-copy print
+now waits for its frozen stylesheet and browser paint, and archive lists keep
+full technical evidence under an expandable control instead of displaying it
+as primary row content. It includes no schema migration, configured RX Action
+change, business-data rewrite, or Kasm, Cloudflare, CORS, cookie, HTTPS,
+trust-proxy, or reverse-proxy behavior change.
+
+Official `next.63` passed the exact PostgreSQL lifecycle CI, CodeQL, and
+compiled-release workflow. Production installation remains separately pending.
+Use Project Control only: record the installed version with option **4**, then
+use **8** and **15**; do not manually extract files, run migrations, or alter
+production `.env`.
 The frozen application remains an emergency rollback option. New NEXT changes
 must pass staging and development validation before a separately approved,
 checksummed production release.

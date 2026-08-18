@@ -56,6 +56,9 @@
             opacity: 0.95;
         }
         .rx-filter-multiselect .dropdown-menu { width:100%; min-width:260px; padding:.5rem; color:var(--text); }
+        .rx-filter-multiselect { width:100%; }
+        .rx-filter-multiselect > .dropdown-toggle { display:flex; align-items:center; min-width:0; }
+        .rx-filter-multiselect > .dropdown-toggle > span { flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
         .rx-filter-multiselect-search { margin-bottom:.4rem; }
         .rx-filter-multiselect-options { max-height:185px; overflow-y:auto; }
         .rx-filter-multiselect-option { display:flex; align-items:center; gap:.45rem; padding:.25rem .1rem; font-size:.82rem; color:var(--text); cursor:pointer; }
@@ -64,6 +67,64 @@
         [data-theme="dark"] .rx-filter-multiselect .dropdown-menu { background:#1f2937 !important; border-color:#4b5563 !important; }
         [data-theme="dark"] .rx-filter-multiselect-option { color:#f8fafc !important; }
         [data-theme="dark"] .rx-filter-multiselect-search { background:#111827 !important; border-color:#4b5563 !important; color:#f8fafc !important; }
+        .rx-stage-completion-filter {
+            height: 100%;
+            padding: .38rem .48rem .34rem;
+            border: 1px solid var(--border-color, #dee2e6);
+            border-radius: .375rem;
+            background: rgba(74, 144, 226, .035);
+        }
+        .rx-stage-completion-title {
+            margin-bottom: .28rem;
+            color: var(--text-muted, #6c757d);
+            font-size: .72rem;
+            font-weight: 700;
+            letter-spacing: .04em;
+            line-height: 1;
+            text-transform: uppercase;
+        }
+        .rx-stage-completion-fields {
+            display: grid;
+            grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr) minmax(0, 1fr);
+            gap: .35rem;
+        }
+        .rx-stage-completion-fields .form-label {
+            display: block;
+            margin: 0 0 .14rem;
+            color: var(--text-muted, #6c757d);
+            font-size: .65rem;
+            font-weight: 700;
+            line-height: 1.1;
+            text-transform: uppercase;
+        }
+        .rx-stage-completion-hint {
+            margin-top: .28rem;
+            color: var(--text-muted, #6c757d);
+            font-size: .67rem;
+            line-height: 1.18;
+        }
+        .rx-more-workflow-dates { margin-top: .48rem; }
+        .rx-more-workflow-dates > summary {
+            width: max-content;
+            max-width: 100%;
+            color: var(--text-muted, #6c757d);
+            cursor: pointer;
+            font-size: .72rem;
+            list-style: none;
+        }
+        .rx-more-workflow-dates > summary::-webkit-details-marker { display: none; }
+        .rx-more-workflow-dates > summary::before {
+            content: '\25B8';
+            display: inline-block;
+            margin-right: .32rem;
+            transition: transform .15s ease;
+        }
+        .rx-more-workflow-dates[open] > summary::before { transform: rotate(90deg); }
+        .rx-more-workflow-dates-body { margin-top: .42rem; }
+        [data-theme="dark"] .rx-stage-completion-filter { background: rgba(74, 144, 226, .09); }
+        @media (max-width: 767.98px) {
+            .rx-stage-completion-fields { grid-template-columns: 1fr; }
+        }
     </style>
 </head>
 <body>
@@ -182,13 +243,27 @@
                                 <option value="not-returned">Not Returned</option>
                             </select>
                         </div>
-                        <div class="col-md-2">
-                            <label class="form-label small fw-bold"><i class="fas fa-calendar-alt me-1"></i>Current Stage Date From</label>
-                            <input type="date" class="form-control form-control-sm" id="rxFilterCurrentStageDateFrom" title="Date the actual Current Stage was completed">
-                        </div>
-                        <div class="col-md-2">
-                            <label class="form-label small fw-bold"><i class="fas fa-calendar-alt me-1"></i>Current Stage Date To</label>
-                            <input type="date" class="form-control form-control-sm" id="rxFilterCurrentStageDateTo" title="Date the actual Current Stage was completed">
+                        <div class="col-md-4">
+                            <div class="rx-stage-completion-filter" role="group" aria-labelledby="rxStageCompletionLabel">
+                                <div class="rx-stage-completion-title" id="rxStageCompletionLabel"><i class="fas fa-history me-1"></i>Stage Completion</div>
+                                <div class="rx-stage-completion-fields">
+                                    <div>
+                                        <label class="form-label" for="rxFilterCompletedStageId">Completed Stage</label>
+                                        <select class="form-select form-select-sm" id="rxFilterCompletedStageId">
+                                            <option value="">Select completed stage</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="form-label" for="rxFilterStageFrom">Stage Activity From</label>
+                                        <input type="date" class="form-control form-control-sm" id="rxFilterStageFrom" disabled>
+                                    </div>
+                                    <div>
+                                        <label class="form-label" for="rxFilterStageTo">Stage Activity To</label>
+                                        <input type="date" class="form-control form-control-sm" id="rxFilterStageTo" disabled>
+                                    </div>
+                                </div>
+                                <div class="rx-stage-completion-hint"><i class="fas fa-info-circle me-1"></i>Matches this exact stage only; dates on other stages do not count.</div>
+                            </div>
                         </div>
                         <div class="col-md-2">
                             <label class="form-label small fw-bold"><i class="fas fa-building me-1"></i>Patient Type</label>
@@ -205,6 +280,19 @@
                             </div>
                         </div>
                     </div>
+                    <details class="rx-more-workflow-dates" id="rxCurrentStageDateDetails">
+                        <summary><i class="fas fa-calendar-alt me-1"></i>More date filters (Current Stage Date)</summary>
+                        <div class="row g-2 align-items-end rx-more-workflow-dates-body">
+                            <div class="col-md-2">
+                                <label class="form-label small fw-bold"><i class="fas fa-calendar-alt me-1"></i>Current Stage Date From</label>
+                                <input type="date" class="form-control form-control-sm" id="rxFilterCurrentStageDateFrom" title="Date the actual Current Stage was completed">
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label small fw-bold"><i class="fas fa-calendar-alt me-1"></i>Current Stage Date To</label>
+                                <input type="date" class="form-control form-control-sm" id="rxFilterCurrentStageDateTo" title="Date the actual Current Stage was completed">
+                            </div>
+                        </div>
+                    </details>
                 </div>
             </div>
 
@@ -521,8 +609,8 @@
 <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index:1100"></div>
 <script src="/assets/bootstrap.bundle.min.js"></script>
 <a id="xa-base" href="/login" style="display:none"></a>
-<script src="/js/base.js"></script>
-<script src="/js/app.js"></script>
+<script src="/js/base.js?v=<%= encodeURIComponent(String(locals.appBuild || 'dev')) %>"></script>
+<script src="/js/app.js?v=<%= encodeURIComponent(String(locals.appBuild || 'dev')) %>"></script>
 <script src="/js/help.js"></script>
 <script src="/js/documents.js"></script>
 <script>
@@ -936,7 +1024,7 @@
         var search = picker.querySelector('.rx-filter-multiselect-search');
         var refreshLabel = function() {
             var names = items.filter(function(item) { return selectedSet.has(String(item.id)); }).map(itemLabel);
-            var label = !names.length ? emptyLabel : (names.length <= 2 ? names.join(', ') : names.length + ' selected');
+            var label = !names.length ? emptyLabel : (names.length === 1 ? names[0] : names.length + ' selected');
             buttonLabel.textContent = label;
             hidden.dataset.filterSummary = label;
         };
@@ -976,8 +1064,40 @@
         populateRxMultiFilter('rxFilterCurrentWorkflowStage', 'rxFilterCurrentWorkflowStagePicker', stages, function(item) { return item.name; }, 'All Current Stages');
     }
 
+    function syncRxCompletedStageDateState() {
+        var stage = document.getElementById('rxFilterCompletedStageId');
+        var enabled = Boolean(stage && stage.value);
+        ['rxFilterStageFrom', 'rxFilterStageTo'].forEach(function(id) {
+            var input = document.getElementById(id);
+            if (!input) return;
+            input.disabled = !enabled;
+            if (!enabled) input.value = '';
+        });
+    }
+
+    function populateRxCompletedStageFilter() {
+        var stage = document.getElementById('rxFilterCompletedStageId');
+        if (!stage) return;
+        var selected = stage.value;
+        stage.innerHTML = '';
+        var placeholder = document.createElement('option');
+        placeholder.value = '';
+        placeholder.textContent = 'Select completed stage';
+        stage.appendChild(placeholder);
+        allWorkflowActions.forEach(function(action, index) {
+            var option = document.createElement('option');
+            option.value = String(action.id);
+            option.textContent = action.name || ('Workflow action ' + (index + 1));
+            option.setAttribute('data-i18n-skip', '');
+            stage.appendChild(option);
+        });
+        if (selected) stage.value = selected;
+        syncRxCompletedStageDateState();
+    }
+
     function populateRxFilterSelects() {
         refreshRxMultiFilters();
+        populateRxCompletedStageFilter();
         var ptSel = document.getElementById('rxFilterPatientTransport');
         if (ptSel) {
             var ptCurrent = ptSel.value;
@@ -1036,7 +1156,7 @@
         function rxCsvSetAll(value){rxCsvColumns().forEach(function(c){rxCsvSelected[c.key]=value;var box=document.getElementById('rxEc_'+c.key);if(box)box.checked=value;rxCsvPaint(c.key);});}
         function openRxExportModal(){var count=rxServerPaging?rxTotalCount:filteredRx.length;if(!count){showToast('No RX records to export. Adjust filters first.','warning');return;}document.getElementById('rxExportModalCount').textContent='Exporting '+count+' record'+(count===1?'':'s')+' matching current filters';var html='';rxCsvColumns().forEach(function(c){if(rxCsvSelected[c.key]===undefined)rxCsvSelected[c.key]=true;html+='<div class="col-md-6"><label class="d-flex align-items-center gap-2 p-2 rounded" style="border:1px solid var(--border-color,#dee2e6);cursor:pointer" id="rxEcWrap_'+c.key+'"><input type="checkbox" class="form-check-input mt-0 rx-ec-col-checkbox" id="rxEc_'+c.key+'" data-col-key="'+c.key+'" '+(rxCsvSelected[c.key]?'checked':'')+'><span class="small">'+c.label+'</span></label></div>';});var list=document.getElementById('rxExportColList');list.innerHTML=html;list.querySelectorAll('.rx-ec-col-checkbox').forEach(function(box){box.addEventListener('change',function(){var key=this.getAttribute('data-col-key');rxCsvSelected[key]=this.checked;rxCsvPaint(key);});});rxCsvColumns().forEach(function(c){rxCsvPaint(c.key);});bootstrap.Modal.getOrCreateInstance(document.getElementById('rxExportColumnsModal')).show();}
         function rxCsvRows(){if(!rxServerPaging)return Promise.resolve(filteredRx);var params=buildRxQueryParams({exportAll:true});return fetchWithAuth(window.rxUrl('/api/rx-records')+'?'+params.toString()).then(function(res){if(!res||!res.ok)throw Error('Could not load RX records for export.');return res.json();}).then(function(data){return data&&Array.isArray(data.rows)?data.rows:[];});}
-        document.getElementById('exportRxListCsvBtn').addEventListener('click',openRxExportModal);document.getElementById('rxExportSelectAllBtn').addEventListener('click',function(){rxCsvSetAll(true);});document.getElementById('rxExportSelectNoneBtn').addEventListener('click',function(){rxCsvSetAll(false);});document.getElementById('doRxExportBtn').addEventListener('click',function(){var selected=rxCsvColumns().filter(function(c){return rxCsvSelected[c.key];});if(!selected.length){showToast('Select at least one column.','warning');return;}rxCsvRows().then(function(records){if(!records.length){showToast('No RX records to export.','warning');return;}var rows=records.map(function(record){var info=rxCsvStageInfo(record);return selected.map(function(c){return c.fn(record,info);});});exportToCsv('rx_records_'+new Date().toISOString().slice(0,10)+'.csv',selected.map(function(c){return c.label;}),rows);bootstrap.Modal.getInstance(document.getElementById('rxExportColumnsModal')).hide();showToast('Exported '+records.length+' records ('+selected.length+' columns).','success');}).catch(function(error){showToast((error&&error.message)||'Could not export RX records.','danger');});});
+        document.getElementById('exportRxListCsvBtn').addEventListener('click',openRxExportModal);document.getElementById('rxExportSelectAllBtn').addEventListener('click',function(){rxCsvSetAll(true);});document.getElementById('rxExportSelectNoneBtn').addEventListener('click',function(){rxCsvSetAll(false);});document.getElementById('doRxExportBtn').addEventListener('click',function(){var selected=rxCsvColumns().filter(function(c){return rxCsvSelected[c.key];});if(!selected.length){showToast('Select at least one column.','warning');return;}var saveDestinationPromise=window.prepareExportDestination?window.prepareExportDestination('rx_records_'+new Date().toISOString().slice(0,10)+'.csv',{description:'CSV Files',accept:{'text/csv':['.csv']}}):Promise.resolve(null);rxCsvRows().then(function(records){if(!records.length){showToast('No RX records to export.','warning');return;}var rows=records.map(function(record){var info=rxCsvStageInfo(record);return selected.map(function(c){return c.fn(record,info);});});saveDestinationPromise.then(function(destination){if(destination&&destination.cancelled)return;return exportToCsv('rx_records_'+new Date().toISOString().slice(0,10)+'.csv',selected.map(function(c){return c.label;}),rows,destination);});bootstrap.Modal.getInstance(document.getElementById('rxExportColumnsModal')).hide();showToast('Exported '+records.length+' records ('+selected.length+' columns).','success');}).catch(function(error){showToast((error&&error.message)||'Could not export RX records.','danger');});});
 
         var urlParams = new URLSearchParams(window.location.search);
         var patientId   = urlParams.get('patient');
@@ -1088,11 +1208,15 @@
             if (currentStageFilterEl) currentStageFilterEl.value = currentStageParam;
         }
 
+        var completedStageFilter = document.getElementById('rxFilterCompletedStageId');
+        if (completedStageFilter) completedStageFilter.addEventListener('change', syncRxCompletedStageDateState);
+
         // Filter bar listeners
         var _filterIds = ['rxFilterPatient','rxFilterId','rxFilterPharmacy','rxFilterClinic','rxFilterPatientCode',
                           'rxFilterDateFrom','rxFilterDateTo','rxFilterSvcFrom','rxFilterSvcTo',
                           'rxFilterPatientTransport','rxFilterPharmacyTransport','rxFilterWarehouseStatus',
                           'rxFilterPatientType',
+                          'rxFilterCompletedStageId','rxFilterStageFrom','rxFilterStageTo',
                           'rxFilterCurrentStageDateFrom','rxFilterCurrentStageDateTo',
                           'rxFilterWorkflowStatus','rxFilterCurrentWorkflowStage'];
         for (var _fi = 0; _fi < _filterIds.length; _fi++) {
@@ -1119,6 +1243,7 @@
             var sdEl = document.getElementById('rxShowDeleted'); if (sdEl) sdEl.checked = false;
             window._rxPrefilterPatientId = null;
             window._rxPrefilterCurrentWorkflowStage = null;
+            syncRxCompletedStageDateState();
             refreshRxMultiFilters();
             rxPage = 1; loadRxRecords();
         });
@@ -1236,6 +1361,12 @@
         setRxParam(params, 'workflowStatus', document.getElementById('rxFilterWorkflowStatus')?.value || '');
         setRxParam(params, 'patientType', document.getElementById('rxFilterPatientType')?.value || '');
         setRxParam(params, 'currentWorkflowStage', document.getElementById('rxFilterCurrentWorkflowStage')?.value || '');
+        var completedStageId = document.getElementById('rxFilterCompletedStageId')?.value || '';
+        if (completedStageId) {
+            setRxParam(params, 'completedStageId', completedStageId);
+            setRxParam(params, 'stageFrom', document.getElementById('rxFilterStageFrom')?.value || '');
+            setRxParam(params, 'stageTo', document.getElementById('rxFilterStageTo')?.value || '');
+        }
         setRxParam(params, 'currentStageDateFrom', document.getElementById('rxFilterCurrentStageDateFrom')?.value || '');
         setRxParam(params, 'currentStageDateTo', document.getElementById('rxFilterCurrentStageDateTo')?.value || '');
         setRxParam(params, 'patientId', window._rxPrefilterPatientId || '');
@@ -1439,6 +1570,20 @@
                 (actionName.indexOf('print log') >= 0 || actionName === 'driver receipt obtained');
         });
     }
+
+    function rxHasCompletedStageInDateRange(rx, stageId, stageFrom, stageTo) {
+        if (!stageId || !allWorkflowActions.some(function(action) { return String(action.id) === String(stageId); })) return false;
+        var trackings = rx && Array.isArray(rx.RXWorkflowTrackings) ? rx.RXWorkflowTrackings : [];
+        return trackings.some(function(tracking) {
+            if (String(tracking.workflowActionId) !== String(stageId)) return false;
+            if (!stageFrom && !stageTo) return true;
+            var completionDate = getRxLocalDateKey(tracking.completionDate);
+            if (!completionDate) return false;
+            return (!stageFrom || completionDate >= stageFrom)
+                && (!stageTo || completionDate <= stageTo);
+        });
+    }
+
     function applyRxFilter() {
         if (rxServerPaging) {
             return loadRxRecords();
@@ -1469,6 +1614,12 @@
         var currentStageDateFrom = _currentStageFromEl ? _currentStageFromEl.value : '';
         var _currentStageToEl = document.getElementById('rxFilterCurrentStageDateTo');
         var currentStageDateTo = _currentStageToEl ? _currentStageToEl.value : '';
+        var _completedStageEl = document.getElementById('rxFilterCompletedStageId');
+        var completedStageId = _completedStageEl ? _completedStageEl.value : '';
+        var _stageFromEl = document.getElementById('rxFilterStageFrom');
+        var stageFrom = _stageFromEl ? _stageFromEl.value : '';
+        var _stageToEl = document.getElementById('rxFilterStageTo');
+        var stageTo = _stageToEl ? _stageToEl.value : '';
         var preId = window._rxPrefilterPatientId;
 
         filteredRx = allRx.filter(function(r) {
@@ -1510,6 +1661,8 @@
             })) return false;
             if (currentStageDateFrom && (!currentStageDateKey || currentStageDateKey < currentStageDateFrom)) return false;
             if (currentStageDateTo && (!currentStageDateKey || currentStageDateKey > currentStageDateTo)) return false;
+            if (!completedStageId && (stageFrom || stageTo)) return false;
+            if (completedStageId && !rxHasCompletedStageInDateRange(r, completedStageId, stageFrom, stageTo)) return false;
             return true;
         });
         renderRxSorted();
@@ -3226,6 +3379,6 @@
     });
 
 </script>
-<script src="/js/rx-delivery-log.js?v=20260729-40"></script>
+<script src="/js/rx-delivery-log.js?v=<%= encodeURIComponent(String(locals.appBuild || 'dev')) %>"></script>
 </body>
 </html>
