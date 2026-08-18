@@ -41,6 +41,8 @@ const modelFiles = [
   require('./pharmacytransportcompany.js'),
   require('./role.js'),
   require('./rxrecord.js'),
+  require('./rxdriverassignmenthistory.js'),
+  require('./rxprofilesyncreviewevent.js'),
   require('./rxworkflowtracking.js'),
   require('./softphonerelaycommand.js'),
   require('./softphonerelaydevice.js'),

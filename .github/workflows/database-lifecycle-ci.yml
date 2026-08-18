@@ -161,6 +161,11 @@ jobs:
           timeout --foreground 180s npm run test:backoffice-patient-delete
           timeout --foreground 180s npm run test:service-window
 
+      - name: Run RX driver-history regression
+        run: |
+          createdb -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -T rx_next_ci_base_test rx_next_ci_driver_test
+          QA_DB_NAME=rx_next_ci_driver_test timeout --foreground 180s npm run test:rx-driver-tracking
+
       - name: Run managed RX Softphone relay integration
         shell: bash
         run: |

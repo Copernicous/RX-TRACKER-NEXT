@@ -44,7 +44,9 @@ const created = {
     users: [],
     patients: [],
     clinics: [],
+    pharmacies: [],
     patientTransports: [],
+    pharmacyTransports: [],
     workflowActions: []
 };
 
@@ -1017,7 +1019,28 @@ async function runAdminDashboardAndReports(fixtures) {
     );
     await page.locator('#rxDetailModal .btn-close').click();
     await page.locator('#rxDetailModal').waitFor({ state: 'hidden', timeout: 10000 });
-    const quickRxCsv = await downloadText(page, '#exportRxListCsvBtn', 'Filtered RX warehouse CSV export');
+    await returnedRow.locator('button[title="Workflow"]').click();
+    await page.locator('#workflowModal').waitFor({ state: 'visible', timeout: 10000 });
+    const disabledWorkflowRow = page.locator(
+        '#workflowBody [data-disabled-workflow-action="1"]'
+    ).filter({ hasText: inactiveWorkflowAction.name }).first();
+    await disabledWorkflowRow.waitFor({ state: 'visible', timeout: 10000 });
+    assert(
+        (await disabledWorkflowRow.innerText()).includes(inactiveWorkflowAction.name),
+        'Workflow modal must retain the historical name for a completed disabled action.'
+    );
+    assert.strictEqual(
+        await disabledWorkflowRow.locator('button[title="Correct driver for this completed stage"]').count(),
+        1,
+        'Completed disabled workflow stages must retain the granular driver-correction action.'
+    );
+    await page.locator('#workflowModal .btn-close').click();
+    await page.locator('#workflowModal').waitFor({ state: 'hidden', timeout: 10000 });
+    pass('Completed disabled workflow stages remain visible and driver-correctable');
+    await page.locator('#exportRxListCsvBtn').click();
+    await page.locator('#rxExportColumnsModal').waitFor({ state: 'visible', timeout: 10000 });
+    const quickRxCsv = await downloadText(page, '#doRxExportBtn', 'Filtered RX warehouse CSV export');
+    await page.locator('#rxExportColumnsModal').waitFor({ state: 'hidden', timeout: 10000 });
     const quickRxRecord = csvRecordByRxId(quickRxCsv, returnedRx.id);
     assert.strictEqual(
         quickRxRecord['Completed Steps'],
@@ -1175,13 +1198,16 @@ async function runAdminDashboardAndReports(fixtures) {
         && response.status() === 200,
         { timeout: 15000 }
     );
+    await page.locator('#exportRxListCsvBtn').click();
+    await page.locator('#rxExportColumnsModal').waitFor({ state: 'visible', timeout: 10000 });
     const filteredStageCsvPromise = downloadText(
         page,
-        '#exportRxListCsvBtn',
+        '#doRxExportBtn',
         'Filtered RX Current Stage Date CSV export'
     );
     await filteredCsvResponse;
     const filteredStageCsv = await filteredStageCsvPromise;
+    await page.locator('#rxExportColumnsModal').waitFor({ state: 'hidden', timeout: 10000 });
     const filteredStageRecord = csvRecordByRxId(filteredStageCsv, returnedRx.id);
     assert.strictEqual(filteredStageRecord['Current Stage'], firstWorkflowAction.name);
     assert.strictEqual(
@@ -1417,6 +1443,61 @@ async function runAdminDashboardAndReports(fixtures) {
     pass('Administrator Live RX Phones presence board');
 
     assertNoBrowserErrors('admin dashboard/report flow');
+    await context.close();
+}
+
+async function runRxProfileReviewWorkspace(fixtures) {
+    const pharmacyBefore = await db.Pharmacy.create({ name: 'Smoke Review Before ' + runId, isActive: true });
+    const pharmacyAfter = await db.Pharmacy.create({ name: 'Smoke Review After ' + runId, isActive: true });
+    const pharmacyChanged = await db.Pharmacy.create({ name: 'Smoke Review Changed ' + runId, isActive: true });
+    created.pharmacies.push(pharmacyBefore, pharmacyAfter, pharmacyChanged);
+    await fixtures.metricPatient.update({ pharmacyId: pharmacyAfter.id });
+    const reviewRx = await db.RXRecord.create({
+        patientId: fixtures.metricPatient.id,
+        arrivalDate: todayIso(),
+        serviceDate: todayIso(),
+        pharmacyId: pharmacyBefore.id,
+        patientTransportCompanyId: fixtures.patientTransport.id
+    });
+
+    const { context, page } = await newContext();
+    await login(page, fixtures.adminUser.username, '/dashboard');
+    await page.goto(route('/backoffice'), { waitUntil: 'domcontentloaded' });
+    await page.locator('#tabRxSync').click();
+    await expectVisible(page, '#rxSyncReviewStatus', 'RX Profile Sync review-state filter visible');
+    assert.deepStrictEqual(await page.locator('#rxSyncReviewStatus option').allTextContents(), ['Pending', 'Reviewed', 'All']);
+    await page.locator('#rxSyncSearch').fill(String(reviewRx.id));
+    await page.locator('button[onclick="loadRxProfileSync()"]').click();
+    const reviewRow = page.locator('tr[data-rx-sync-id="' + reviewRx.id + '"]');
+    await reviewRow.waitFor({ state: 'visible', timeout: 15000 });
+    await reviewRow.getByText('Pending', { exact: true }).waitFor({ state: 'visible' });
+    await reviewRow.getByRole('button', { name: 'Mark reviewed' }).waitFor({ state: 'visible' });
+
+    page.once('dialog', dialog => dialog.accept('Checked during browser smoke'));
+    await reviewRow.getByRole('button', { name: 'Mark reviewed' }).click();
+    await page.waitForFunction((rxId) => !document.querySelector('tr[data-rx-sync-id="' + rxId + '"]'), String(reviewRx.id), { timeout: 15000 });
+
+    await page.locator('#rxSyncReviewStatus').selectOption('reviewed');
+    const reviewedRow = page.locator('tr[data-rx-sync-id="' + reviewRx.id + '"]');
+    await reviewedRow.waitFor({ state: 'visible', timeout: 15000 });
+    await reviewedRow.getByText('Reviewed', { exact: true }).waitFor({ state: 'visible' });
+    page.once('dialog', dialog => dialog.accept('Needs another look'));
+    await reviewedRow.getByRole('button', { name: 'Reopen' }).click();
+    await page.waitForFunction((rxId) => !document.querySelector('tr[data-rx-sync-id="' + rxId + '"]'), String(reviewRx.id), { timeout: 15000 });
+
+    await page.locator('#rxSyncReviewStatus').selectOption('pending');
+    await page.locator('tr[data-rx-sync-id="' + reviewRx.id + '"]').waitFor({ state: 'visible', timeout: 15000 });
+    page.once('dialog', dialog => dialog.accept('Reviewed again'));
+    await page.locator('tr[data-rx-sync-id="' + reviewRx.id + '"]').getByRole('button', { name: 'Mark reviewed' }).click();
+    await fixtures.metricPatient.update({ pharmacyId: pharmacyChanged.id });
+    await page.locator('button[onclick="loadRxProfileSync()"]').click();
+    const changedRow = page.locator('tr[data-rx-sync-id="' + reviewRx.id + '"]');
+    await changedRow.waitFor({ state: 'visible', timeout: 15000 });
+    await changedRow.getByText('Pending', { exact: true }).waitFor({ state: 'visible' });
+    assert((await changedRow.innerText()).includes(pharmacyChanged.name), 'Changed Patient value must create a new pending fingerprint.');
+    assert.strictEqual(await db.RXProfileSyncReviewEvent.count({ where: { rxRecordId: reviewRx.id } }), 3, 'Review history must remain append-only.');
+    pass('RX Profile Sync pending/reviewed/reopen and changed-value reset');
+    assertNoBrowserErrors('RX Profile Sync review flow');
     await context.close();
 }
 
@@ -1837,6 +1918,7 @@ async function cleanup() {
     const patientIds = created.patients.map(row => row.id);
     const userIds = created.users.map(row => row.id);
     const clinicIds = created.clinics.map(row => row.id);
+    const pharmacyIds = created.pharmacies.map(row => row.id);
     const patientTransportIds = created.patientTransports.map(row => row.id);
     const roleIds = created.roles.map(row => row.id);
     await new Promise(resolve => setTimeout(resolve, 500));
@@ -1876,6 +1958,9 @@ async function cleanup() {
     if (clinicIds.length) {
         await db.Clinic.destroy({ where: { id: { [Op.in]: clinicIds } } }).catch(() => {});
     }
+    if (pharmacyIds.length) {
+        await db.Pharmacy.destroy({ where: { id: { [Op.in]: pharmacyIds } } }).catch(() => {});
+    }
     if (patientTransportIds.length) {
         await db.PatientTransportCompany.destroy({ where: { id: { [Op.in]: patientTransportIds } } }).catch(() => {});
     }
@@ -1907,6 +1992,7 @@ async function main() {
     });
 
     await runAdminDashboardAndReports(fixtures);
+    await runRxProfileReviewWorkspace(fixtures);
     await runSpanishPermissionWorkspace(fixtures);
     await runCallCenterWorkspace(fixtures);
     console.log('All staging UI click smoke checks passed.');

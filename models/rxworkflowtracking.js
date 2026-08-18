@@ -13,13 +13,16 @@ module.exports = (sequelize, DataTypes) => {
       RXWorkflowTracking.belongsTo(models.RXRecord, { foreignKey: 'rxRecordId' });
       RXWorkflowTracking.belongsTo(models.WorkflowAction, { foreignKey: 'workflowActionId' });
       RXWorkflowTracking.belongsTo(models.User, { foreignKey: 'userId' });
+      RXWorkflowTracking.belongsTo(models.PharmacyTransportCompany, { foreignKey: 'driverId', as: 'Driver' });
     }
   }
   RXWorkflowTracking.init({
     rxRecordId: DataTypes.INTEGER,
     workflowActionId: DataTypes.INTEGER,
     completionDate: DataTypes.DATE,
-    userId: DataTypes.INTEGER
+    userId: DataTypes.INTEGER,
+    driverId: DataTypes.INTEGER,
+    driverNameSnapshot: DataTypes.STRING(160)
   }, {
     sequelize,
     modelName: 'RXWorkflowTracking',

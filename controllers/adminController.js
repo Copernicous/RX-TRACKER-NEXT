@@ -23,6 +23,22 @@ function readSettings() {
 // ── Table definitions with deletion order (dependencies first) ────────────────
 const TABLE_META = [
     {
+        key: 'RXProfileSyncReviewEvents',
+        label: 'RX Profile Sync Review Events',
+        icon: 'fas fa-list-check',
+        color: '#0369a1',
+        description: 'Append-only reviewed and reopened RX profile differences',
+        dependsOn: ['RXRecords']
+    },
+    {
+        key: 'RXDriverAssignmentHistories',
+        label: 'RX Driver Assignment Histories',
+        icon: 'fas fa-route',
+        color: '#0f766e',
+        description: 'Append-only current and per-stage driver assignment ledger',
+        dependsOn: ['RXRecords', 'RXWorkflowTrackings']
+    },
+    {
         key: 'RXWorkflowTrackings',
         label: 'RX Workflow Trackings',
         icon: 'fas fa-project-diagram',
@@ -258,6 +274,9 @@ exports.purge = async (req, res) => {
         if (tables.includes('PharmacyTransportCompanies')) {
             await db.sequelize.query('UPDATE "RXRecords" SET "pharmacyTransportCompanyId" = NULL WHERE "pharmacyTransportCompanyId" IS NOT NULL', { transaction: t });
             await db.sequelize.query('UPDATE "Patients"  SET "pharmacyTransportCompanyId" = NULL WHERE "pharmacyTransportCompanyId" IS NOT NULL', { transaction: t });
+            await db.sequelize.query('UPDATE "RXWorkflowTrackings" SET "driverId" = NULL WHERE "driverId" IS NOT NULL', { transaction: t });
+            await db.sequelize.query('UPDATE "RXDriverAssignmentHistories" SET "previousDriverId" = NULL WHERE "previousDriverId" IS NOT NULL', { transaction: t });
+            await db.sequelize.query('UPDATE "RXDriverAssignmentHistories" SET "driverId" = NULL WHERE "driverId" IS NOT NULL', { transaction: t });
         }
         if (tables.includes('PatientTransportCompanies')) {
             await db.sequelize.query('UPDATE "RXRecords" SET "patientTransportCompanyId" = NULL WHERE "patientTransportCompanyId" IS NOT NULL', { transaction: t });
@@ -276,6 +295,9 @@ exports.purge = async (req, res) => {
             }
             if (!tables.includes('RXHistories')) {
                 await db.sequelize.query('DELETE FROM "RXHistories" WHERE "rxRecordId" IN (SELECT id FROM "RXRecords")', { transaction: t });
+            }
+            if (!tables.includes('RXDriverAssignmentHistories')) {
+                await db.sequelize.query('DELETE FROM "RXDriverAssignmentHistories" WHERE "rxRecordId" IN (SELECT id FROM "RXRecords")', { transaction: t });
             }
         }
         if (tables.includes('Patients')) {
@@ -2906,6 +2928,15 @@ exports.adminResetPassword = async (req, res) => {
 const FK_PAIRS = [
     ['RXRecords',           'patientId',                  'Patients',                 'id'],
     ['RXWorkflowTrackings', 'rxRecordId',                 'RXRecords',                'id'],
+    ['RXWorkflowTrackings', 'driverId',                   'PharmacyTransportCompanies', 'id'],
+    ['RXDriverAssignmentHistories', 'rxRecordId',         'RXRecords',                'id'],
+    ['RXDriverAssignmentHistories', 'workflowTrackingId', 'RXWorkflowTrackings',      'id'],
+    ['RXDriverAssignmentHistories', 'workflowActionId',   'WorkflowActions',          'id'],
+    ['RXDriverAssignmentHistories', 'previousDriverId',   'PharmacyTransportCompanies', 'id'],
+    ['RXDriverAssignmentHistories', 'driverId',           'PharmacyTransportCompanies', 'id'],
+    ['RXDriverAssignmentHistories', 'userId',             'Users',                    'id'],
+    ['RXProfileSyncReviewEvents', 'rxRecordId',            'RXRecords',                'id'],
+    ['RXProfileSyncReviewEvents', 'userId',                'Users',                    'id'],
     ['Medications',         'rxRecordId',                 'RXRecords',                'id'],
     ['RXHistories',         'rxRecordId',                 'RXRecords',                'id'],
     ['PatientNotes',        'patientId',                  'Patients',                 'id'],
@@ -3128,6 +3159,8 @@ const FK_CHILDREN = {
         { table: 'DocumentAttachments', col: 'rxRecordId', action: 'cascade', via: 'RXRecords' },
         { table: 'DocumentAttachments', col: 'patientId',  action: 'cascade', impactExcludeVia: { col: 'rxRecordId', via: 'RXRecords' } },
         // Grandchildren of RXRecords must be cleaned BEFORE RXRecords is deleted
+        { table: 'RXProfileSyncReviewEvents', col: 'rxRecordId', action: 'cascade', via: 'RXRecords' },
+        { table: 'RXDriverAssignmentHistories', col: 'rxRecordId', action: 'cascade', via: 'RXRecords' },
         { table: 'RXHistories',          col: 'rxRecordId',  action: 'cascade', via: 'RXRecords' },
         { table: 'RXWorkflowTrackings',  col: 'rxRecordId',  action: 'cascade', via: 'RXRecords' },
         { table: 'Medications',          col: 'rxRecordId',  action: 'cascade', via: 'RXRecords' },
@@ -3141,9 +3174,14 @@ const FK_CHILDREN = {
     ],
     RXRecords: [
         // Children of RXRecords — delete in safe order
+        { table: 'RXProfileSyncReviewEvents', col: 'rxRecordId', action: 'cascade' },
+        { table: 'RXDriverAssignmentHistories', col: 'rxRecordId', action: 'cascade' },
         { table: 'RXHistories',          col: 'rxRecordId',  action: 'cascade' },
         { table: 'RXWorkflowTrackings',  col: 'rxRecordId',  action: 'cascade' },
         { table: 'Medications',          col: 'rxRecordId',  action: 'cascade' },
+    ],
+    RXWorkflowTrackings: [
+        { table: 'RXDriverAssignmentHistories', col: 'workflowTrackingId', action: 'null' },
     ],
     Pharmacies: [
         { table: 'RXRecords',            col: 'pharmacyId',                 action: 'null' },
@@ -3152,6 +3190,9 @@ const FK_CHILDREN = {
     PharmacyTransportCompanies: [
         { table: 'RXRecords',            col: 'pharmacyTransportCompanyId', action: 'null' },
         { table: 'Patients',             col: 'pharmacyTransportCompanyId', action: 'null' },
+        { table: 'RXWorkflowTrackings',  col: 'driverId',                   action: 'null' },
+        { table: 'RXDriverAssignmentHistories', col: 'previousDriverId',    action: 'null' },
+        { table: 'RXDriverAssignmentHistories', col: 'driverId',            action: 'null' },
     ],
     PatientTransportCompanies: [
         { table: 'RXRecords',            col: 'patientTransportCompanyId',  action: 'null' },
@@ -3162,10 +3203,13 @@ const FK_CHILDREN = {
     ],
     WorkflowActions: [
         { table: 'RXWorkflowTrackings',  col: 'workflowActionId',           action: 'null' },
+        { table: 'RXDriverAssignmentHistories', col: 'workflowActionId',    action: 'null' },
     ],
     Users: [
         // AuditLogs and RXHistories reference userId — SET NULL to allow user deletion
         { table: 'RXHistories',          col: 'userId',                     action: 'null' },
+        { table: 'RXDriverAssignmentHistories', col: 'userId',              action: 'null' },
+        { table: 'RXProfileSyncReviewEvents', col: 'userId',                 action: 'null' },
         { table: 'PatientServiceDateHistories', col: 'changedByUserId',     action: 'null' },
         { table: 'AuditLogs',            col: 'userId',                     action: 'null' },
     ],

@@ -2,6 +2,7 @@
 
 const db = require('../models');
 const { Op } = require('sequelize');
+const crypto = require('crypto');
 
 const SYNC_FIELDS = [
     'pharmacyId',
@@ -99,6 +100,62 @@ function fieldValue(record, field) {
     return positiveId(value);
 }
 
+function reviewFingerprint(rxId, field, rxValueId, patientValueId) {
+    return crypto.createHash('sha256')
+        .update([rxId, field, rxValueId || '', patientValueId || ''].join('|'))
+        .digest('hex');
+}
+
+async function applyReviewState(rows, reviewStatus, transaction) {
+    const rxIds = [...new Set(rows.map(row => positiveId(row.rxId)).filter(Boolean))];
+    const events = rxIds.length ? await db.RXProfileSyncReviewEvent.findAll({
+        where: { rxRecordId: { [Op.in]: rxIds } },
+        order: [['createdAt', 'DESC'], ['id', 'DESC']],
+        transaction
+    }) : [];
+    const latest = new Map();
+    events.forEach(event => {
+        if (!latest.has(event.fingerprint)) latest.set(event.fingerprint, event);
+    });
+    rows.forEach(row => {
+        const allDifferences = [...row.differences];
+        const reviews = {};
+        const reviewedDifferences = [];
+        const pendingDifferences = [];
+        allDifferences.forEach(field => {
+            const rxValue = fieldValue(row.rxValues[field === 'pharmacyId' ? 'pharmacy' : field === 'patientTransportCompanyId' ? 'patientTransport' : 'pharmacyTransport'], 'id');
+            const patientValue = fieldValue(row.patientValues[field === 'pharmacyId' ? 'pharmacy' : field === 'patientTransportCompanyId' ? 'patientTransport' : 'pharmacyTransport'], 'id');
+            const fingerprint = reviewFingerprint(row.rxId, field, rxValue, patientValue);
+            const event = latest.get(fingerprint);
+            const reviewed = !!(event && event.action === 'reviewed');
+            reviews[field] = event ? {
+                fingerprint,
+                reviewed,
+                action: event.action,
+                reason: event.reason || '',
+                userId: event.userId || null,
+                createdAt: event.createdAt || null
+            } : { fingerprint, reviewed: false };
+            (reviewed ? reviewedDifferences : pendingDifferences).push(field);
+        });
+        row.allDifferences = allDifferences;
+        row.reviewedDifferences = reviewedDifferences;
+        row.pendingDifferences = pendingDifferences;
+        row.differenceReviews = reviews;
+        row.reviewStatus = pendingDifferences.length ? 'pending' : reviewedDifferences.length ? 'reviewed' : 'matching';
+        row.differences = reviewStatus === 'reviewed'
+            ? reviewedDifferences
+            : reviewStatus === 'all' ? allDifferences : pendingDifferences;
+    });
+    return rows;
+}
+
+function matchesReviewStatus(row, reviewStatus, showAll) {
+    if (reviewStatus === 'reviewed') return row.reviewedDifferences.length > 0;
+    if (reviewStatus === 'all') return row.allDifferences.length > 0 || showAll;
+    return row.pendingDifferences.length > 0;
+}
+
 function fieldsToSync(rx, patient, requestedFields) {
     const requested = Array.isArray(requestedFields)
         ? [...new Set(requestedFields.filter(field => SYNC_FIELDS.includes(field)))]
@@ -141,6 +198,7 @@ exports.list = async (req, res) => {
         const showAll = String(req.query.showAll || '') === 'true';
         const requestedDifferenceFields = new Set(String(req.query.differenceFields || '').split(',').filter(field => SYNC_FIELDS.includes(field)));
         const rxHistoryScope = ['single', 'multi'].includes(req.query.rxHistoryScope) ? req.query.rxHistoryScope : 'all';
+        const reviewStatus = ['pending', 'reviewed', 'all'].includes(req.query.reviewStatus) ? req.query.reviewStatus : 'pending';
         const includeMatchingHistory = showAll;
         const pageSize = Math.min(Math.max(Number.parseInt(req.query.pageSize, 10) || 100, 1), 250);
         const cursor = decodeCursor(req.query.cursor);
@@ -178,9 +236,21 @@ exports.list = async (req, res) => {
             const rows = [];
             [...groups.values()].forEach(group => {
                 if (group.length < 2) return;
+                group.forEach(row => { row.patientRxCount = group.length; });
+                rows.push(...group);
+            });
+            await applyReviewState(rows, reviewStatus);
+            const displayedRows = [];
+            const reviewedGroups = new Map();
+            rows.forEach(row => {
+                const group = reviewedGroups.get(row.patientId) || [];
+                group.push(row);
+                reviewedGroups.set(row.patientId, group);
+            });
+            [...reviewedGroups.values()].forEach(group => {
                 const qualifyingRows = group.filter(row => {
                     const differenceMatch = !requestedDifferenceFields.size || row.differences.some(field => requestedDifferenceFields.has(field));
-                    return row.differences.length && differenceMatch && rowMatchesProfileSearch(row, search);
+                    return matchesReviewStatus(row, reviewStatus, showAll) && differenceMatch && rowMatchesProfileSearch(row, search);
                 });
                 if (!qualifyingRows.length) return;
                 // A multi-RX result is a patient history card. Once a card
@@ -188,12 +258,13 @@ exports.list = async (req, res) => {
                 const rowsForCard = showAll ? group : qualifyingRows;
                 rowsForCard.forEach(row => {
                     row.patientRxCount = group.length;
-                    row.patientPendingRxCount = group.filter(item => item.differences.length > 0).length;
-                    rows.push(row);
+                    row.patientPendingRxCount = group.filter(item => item.pendingDifferences.length > 0).length;
+                    row.patientReviewedRxCount = group.filter(item => item.reviewedDifferences.length > 0).length;
+                    displayedRows.push(row);
                 });
             });
-            rows.sort((left, right) => left.patientName.localeCompare(right.patientName) || new Date(left.rxCreatedAt || 0) - new Date(right.rxCreatedAt || 0) || left.rxId - right.rxId);
-            return res.json({ rows, total: rows.length, includesMatchingHistory: showAll, hasMore: false, nextCursor: null, patientCardPaging: true });
+            displayedRows.sort((left, right) => left.patientName.localeCompare(right.patientName) || new Date(left.rxCreatedAt || 0) - new Date(right.rxCreatedAt || 0) || left.rxId - right.rxId);
+            return res.json({ rows: displayedRows, total: displayedRows.length, reviewStatus, includesMatchingHistory: showAll, hasMore: false, nextCursor: null, patientCardPaging: true });
         }
         const candidates = [];
         let scanCursor = cursor;
@@ -228,28 +299,33 @@ exports.list = async (req, res) => {
                 attributes: ['patientId', [db.sequelize.fn('COUNT', db.sequelize.col('id')), 'count']],
                 group: ['patientId'], raw: true
             })).map(row => [Number(row.patientId), Number(row.count)]));
-            for (const record of records) {
+            const preparedRows = records.map(record => {
                 const rx = record.get({ plain: true });
                 const patient = rx.Patient;
                 const differences = fieldsToSync(rx, patient);
                 const patientRxCount = patientRxCounts.get(Number(patient.id)) || 0;
-                    if ((includeMatchingHistory || differences.length) && (!requestedDifferenceFields.size || differences.some(field => requestedDifferenceFields.has(field))) && (rxHistoryScope === 'all' || (rxHistoryScope === 'single' && patientRxCount === 1) || (rxHistoryScope === 'multi' && patientRxCount > 1)) && rowMatchesProfileSearch({
+                return {
+                    cursor: encodeCursor(rx),
+                    row: {
+                        rxId: rx.id, patientId: patient.id, patientRxCount,
                         patientName: `${patient.firstName || ''} ${patient.lastName || ''}`.trim() || `Patient #${patient.id}`,
-                        patientCode: patient.patientCode || '', patientId: patient.id, rxId: rx.id,
-                        differences, patientValues: valuesWithLabels(auditValues(patient), labels), rxValues: valuesWithLabels(auditValues(rx), labels)
-                    }, search)) {
-                        const patientValues = valuesWithLabels(auditValues(patient), labels);
-                        const rxValues = valuesWithLabels(auditValues(rx), labels);
+                        patientCode: patient.patientCode || '', rxCreatedAt: rx.createdAt || null, arrivalDate: rx.arrivalDate || null, serviceDate: rx.serviceDate || null,
+                        clinicId: patient.clinicId || null, clinicLabel: patient.clinicId ? 'Inherited from Patient profile' : 'Not set on Patient profile',
+                        differences,
+                        patientValues: valuesWithLabels(auditValues(patient), labels),
+                        rxValues: valuesWithLabels(auditValues(rx), labels)
+                    }
+                };
+            });
+            await applyReviewState(preparedRows.map(candidate => candidate.row), reviewStatus);
+            for (const prepared of preparedRows) {
+                const row = prepared.row;
+                const patientRxCount = row.patientRxCount;
+                    if (matchesReviewStatus(row, reviewStatus, includeMatchingHistory) && (!requestedDifferenceFields.size || row.differences.some(field => requestedDifferenceFields.has(field))) && (rxHistoryScope === 'all' || (rxHistoryScope === 'single' && patientRxCount === 1) || (rxHistoryScope === 'multi' && patientRxCount > 1)) && rowMatchesProfileSearch(row, search)) {
                         candidates.push({
-                        cursor: encodeCursor(rx),
-                        row: {
-                            rxId: rx.id, patientId: patient.id, patientRxCount,
-                            patientName: `${patient.firstName || ''} ${patient.lastName || ''}`.trim() || `Patient #${patient.id}`,
-                            patientCode: patient.patientCode || '', rxCreatedAt: rx.createdAt || null, arrivalDate: rx.arrivalDate || null, serviceDate: rx.serviceDate || null,
-                            clinicId: patient.clinicId || null, clinicLabel: patient.clinicId ? 'Inherited from Patient profile' : 'Not set on Patient profile',
-                            differences, patientValues, rxValues
-                        }
-                    });
+                            cursor: prepared.cursor,
+                            row
+                        });
                     if (candidates.length > pageSize) break;
                 }
             }
@@ -259,7 +335,7 @@ exports.list = async (req, res) => {
         }
         const hasMore = candidates.length > pageSize;
         const displayed = candidates.slice(0, pageSize);
-        res.json({ rows: displayed.map(candidate => candidate.row), total: displayed.length, includesMatchingHistory: includeMatchingHistory, hasMore, nextCursor: hasMore ? displayed[displayed.length - 1].cursor : null });
+        res.json({ rows: displayed.map(candidate => candidate.row), total: displayed.length, reviewStatus, includesMatchingHistory: includeMatchingHistory, hasMore, nextCursor: hasMore ? displayed[displayed.length - 1].cursor : null });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
@@ -345,6 +421,115 @@ async function syncRxRecord({ rxId, requestedFields, user, ipAddress }) {
     });
 }
 
+async function changeReviewState({ rxId, requestedFields, action, reason, user, ipAddress }) {
+    return db.sequelize.transaction(async transaction => {
+        const rx = await db.RXRecord.findOne({
+            where: { id: rxId, [Op.and]: [activeRecordCondition()] },
+            transaction,
+            lock: transaction.LOCK.UPDATE
+        });
+        if (!rx) throw new Error('RX record was not found or is deleted.');
+        const patient = await db.Patient.findOne({
+            where: { id: rx.patientId, [Op.and]: [activeRecordCondition()] },
+            transaction,
+            lock: transaction.LOCK.UPDATE
+        });
+        if (!patient) throw new Error('The linked Patient profile was not found or is deleted.');
+        const fields = fieldsToSync(rx, patient, requestedFields);
+        if (!fields.length) return { changed: false, rxId, fields: [] };
+
+        const comparisons = fields.map(field => {
+            const rxValueId = fieldValue(rx, field);
+            const patientValueId = fieldValue(patient, field);
+            return {
+                field,
+                rxValueId,
+                patientValueId,
+                fingerprint: reviewFingerprint(rx.id, field, rxValueId, patientValueId)
+            };
+        });
+        const existingEvents = await db.RXProfileSyncReviewEvent.findAll({
+            where: { fingerprint: { [Op.in]: comparisons.map(item => item.fingerprint) } },
+            order: [['createdAt', 'DESC'], ['id', 'DESC']],
+            transaction
+        });
+        const latest = new Map();
+        existingEvents.forEach(event => {
+            if (!latest.has(event.fingerprint)) latest.set(event.fingerprint, event);
+        });
+        const desiredAction = action === 'reopened' ? 'reopened' : 'reviewed';
+        const changes = comparisons.filter(item => {
+            const current = latest.get(item.fingerprint);
+            return desiredAction === 'reopened'
+                ? !!(current && current.action === 'reviewed')
+                : !current || current.action !== 'reviewed';
+        });
+        if (!changes.length) return { changed: false, rxId, fields: [] };
+
+        await db.RXProfileSyncReviewEvent.bulkCreate(changes.map(item => ({
+            rxRecordId: rx.id,
+            fieldName: item.field,
+            rxValueId: item.rxValueId,
+            patientValueId: item.patientValueId,
+            fingerprint: item.fingerprint,
+            action: desiredAction,
+            reason: reason || null,
+            userId: user ? user.id : null
+        })), { transaction });
+
+        const patientName = `${patient.firstName || ''} ${patient.lastName || ''}`.trim();
+        await db.AuditLog.create({
+            userId: user ? user.id : null,
+            date: new Date().toISOString().slice(0, 10),
+            time: new Date().toTimeString().slice(0, 8),
+            module: 'RX Profile Sync',
+            action: desiredAction === 'reviewed' ? 'Review' : 'Reopen',
+            recordId: rx.id,
+            previousValue: {
+                rxId: rx.id,
+                patientId: patient.id,
+                patientCode: patient.patientCode || '',
+                patientName,
+                fields: changes.map(item => ({ field: item.field, rxValueId: item.rxValueId, patientValueId: item.patientValueId }))
+            },
+            newValue: {
+                reviewState: desiredAction,
+                reason: reason || '',
+                fields: changes.map(item => ({ field: item.field, fingerprint: item.fingerprint }))
+            },
+            ipAddress: ipAddress || 'unknown'
+        }, { transaction });
+        return { changed: true, rxId, action: desiredAction, fields: changes.map(item => item.field) };
+    });
+}
+
+async function handleReviewState(req, res, action) {
+    const rxId = positiveId(req.params.rxId);
+    if (!rxId) return res.status(400).json({ error: 'A valid RX record is required.' });
+    const fields = req.body && Array.isArray(req.body.fields)
+        ? [...new Set(req.body.fields.filter(field => SYNC_FIELDS.includes(field)))]
+        : [];
+    if (!fields.length) return res.status(400).json({ error: 'Select at least one profile difference.' });
+    const reason = String(req.body && req.body.reason || '').trim();
+    if (reason.length > 2000) return res.status(400).json({ error: 'Review reason cannot exceed 2000 characters.' });
+    try {
+        const result = await changeReviewState({
+            rxId,
+            requestedFields: fields,
+            action,
+            reason,
+            user: req.user,
+            ipAddress: req.ip || req.socket?.remoteAddress || 'unknown'
+        });
+        res.json(result);
+    } catch (error) {
+        res.status(400).json({ error: error.message });
+    }
+}
+
+exports.review = (req, res) => handleReviewState(req, res, 'reviewed');
+exports.reopenReview = (req, res) => handleReviewState(req, res, 'reopened');
+
 exports.sync = async (req, res) => {
     const rxId = positiveId(req.params.rxId);
     if (!rxId) return res.status(400).json({ error: 'A valid RX record is required.' });
@@ -404,7 +589,7 @@ exports.bulkSync = async (req, res) => {
 
 function csvCell(value) {
     const text = value === null || value === undefined ? '' : String(value);
-    const safe = /^[=+\-@]/.test(text) ? `'${text}` : text;
+    const safe = /^\s*[=+\-@]/.test(text) ? `'${text}` : text;
     return /[",\r\n]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
 }
 
@@ -417,14 +602,14 @@ function auditObject(value) {
 exports.exportHistory = async (req, res) => {
     try {
         const logs = await db.AuditLog.findAll({
-            where: { module: 'RX Profile Sync', action: 'Sync' },
+            where: { module: 'RX Profile Sync', action: { [Op.in]: ['Sync', 'Review', 'Reopen'] } },
             include: [{ model: db.User, attributes: ['id', 'username', 'firstName', 'lastName'], required: false }],
             order: [['createdAt', 'ASC'], ['id', 'ASC']]
         });
         const columns = [
-            'Audit Log ID', 'Timestamp', 'User ID', 'Username', 'RX Record ID',
+            'Audit Log ID', 'Timestamp', 'Activity', 'User ID', 'Username', 'RX Record ID',
             'Patient ID', 'Patient Code', 'Patient Name', 'Field', 'Field Key',
-            'Previous ID', 'New ID', 'Source', 'IP Address'
+            'Previous ID', 'New ID', 'Review State', 'Reason', 'Source', 'IP Address'
         ];
         const rows = [];
         logs.forEach(logRecord => {
@@ -434,10 +619,12 @@ exports.exportHistory = async (req, res) => {
             const previousFields = new Map((previous.fields || []).map(field => [field.field, field.value]));
             const nextFields = Array.isArray(next.fields) ? next.fields : [];
             const user = log.User || {};
-            nextFields.forEach(field => {
+            const outputFields = log.action === 'Sync' ? nextFields : (Array.isArray(previous.fields) ? previous.fields : []);
+            outputFields.forEach(field => {
                 rows.push([
                     log.id,
                     log.createdAt ? new Date(log.createdAt).toISOString() : `${log.date || ''} ${log.time || ''}`.trim(),
+                    log.action || '',
                     log.userId || user.id || '',
                     user.username || '',
                     next.rxId || previous.rxId || log.recordId || '',
@@ -446,9 +633,11 @@ exports.exportHistory = async (req, res) => {
                     next.patientName || previous.patientName || '',
                     SYNC_FIELD_LABELS[field.field] || field.field || '',
                     field.field || '',
-                    previousFields.get(field.field) || '',
-                    field.value || '',
-                    next.source || 'Patient profile',
+                    log.action === 'Sync' ? (previousFields.get(field.field) || '') : (field.rxValueId || ''),
+                    log.action === 'Sync' ? (field.value || '') : (field.patientValueId || ''),
+                    next.reviewState || '',
+                    next.reason || '',
+                    next.source || (log.action === 'Sync' ? 'Patient profile' : 'Manual review'),
                     log.ipAddress || ''
                 ]);
             });

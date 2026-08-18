@@ -111,6 +111,43 @@ async function runExport(logs) {
         db.AuditLog.findAll = original;
     }
 }
+
+async function runReview(rx, action, fields, existingEvents = []) {
+    const reviewRows = [];
+    const auditRows = [];
+    const original = {
+        transaction: db.sequelize.transaction,
+        rxFindOne: db.RXRecord.findOne,
+        patientFindOne: db.Patient.findOne,
+        reviewFindAll: db.RXProfileSyncReviewEvent.findAll,
+        reviewBulkCreate: db.RXProfileSyncReviewEvent.bulkCreate,
+        auditCreate: db.AuditLog.create
+    };
+    db.sequelize.transaction = callback => callback({ LOCK: { UPDATE: 'UPDATE' } });
+    db.RXRecord.findOne = async () => rx;
+    db.Patient.findOne = async () => rx.Patient;
+    db.RXProfileSyncReviewEvent.findAll = async () => existingEvents;
+    db.RXProfileSyncReviewEvent.bulkCreate = async rows => { reviewRows.push(...rows); return rows; };
+    db.AuditLog.create = async row => { auditRows.push(row); return row; };
+    try {
+        let result;
+        const res = {
+            statusCode: 200,
+            status(code) { this.statusCode = code; return this; },
+            json(payload) { result = { status: this.statusCode, payload }; }
+        };
+        const handler = action === 'reopen' ? controller.reopenReview : controller.review;
+        await handler({ params: { rxId: String(rx.id) }, body: { fields, reason: 'Checked manually' }, user: { id: 93 }, ip: '127.0.0.3' }, res);
+        return { result, reviewRows, auditRows };
+    } finally {
+        db.sequelize.transaction = original.transaction;
+        db.RXRecord.findOne = original.rxFindOne;
+        db.Patient.findOne = original.patientFindOne;
+        db.RXProfileSyncReviewEvent.findAll = original.reviewFindAll;
+        db.RXProfileSyncReviewEvent.bulkCreate = original.reviewBulkCreate;
+        db.AuditLog.create = original.auditCreate;
+    }
+}
 function fakeRx(rxValues, patientValues, options = {}) {
     const state = {
         id: options.id || 501,
@@ -134,6 +171,7 @@ function fakeRx(rxValues, patientValues, options = {}) {
     const pending = {};
     return {
         id: state.id,
+        patientId: state.patientId,
         Patient: patient,
         pharmacyUpdates: [],
         transportSaves: [],
@@ -230,6 +268,28 @@ async function main() {
     assert.strictEqual(bulk.historyRows.length, 2);
     assert.strictEqual(bulk.auditRows.length, 2);
 
+    const reviewRx = fakeRx(
+        { pharmacyId: 1, patientTransportCompanyId: 2, pharmacyTransportCompanyId: 3 },
+        { pharmacyId: 11, patientTransportCompanyId: 12, pharmacyTransportCompanyId: 13 },
+        { id: 703, patientId: 803, patientCode: 'PT-803' }
+    );
+    const reviewed = await runReview(reviewRx, 'review', ['pharmacyId']);
+    assert.strictEqual(reviewed.result.status, 200);
+    assert.strictEqual(reviewed.result.payload.changed, true);
+    assert.strictEqual(reviewed.reviewRows.length, 1);
+    assert.strictEqual(reviewed.reviewRows[0].action, 'reviewed');
+    assert.strictEqual(reviewed.reviewRows[0].reason, 'Checked manually');
+    assert.strictEqual(reviewed.auditRows[0].action, 'Review');
+    const reopened = await runReview(reviewRx, 'reopen', ['pharmacyId'], [{
+        fingerprint: reviewed.reviewRows[0].fingerprint,
+        action: 'reviewed',
+        createdAt: new Date(),
+        id: 1
+    }]);
+    assert.strictEqual(reopened.result.payload.changed, true);
+    assert.strictEqual(reopened.reviewRows[0].action, 'reopened');
+    assert.strictEqual(reopened.auditRows[0].action, 'Reopen');
+
     const exported = await runExport([{
         get() {
             return {
@@ -237,17 +297,33 @@ async function main() {
                 createdAt: new Date('2026-07-30T14:00:00.000Z'),
                 userId: 92,
                 recordId: 701,
+                action: 'Sync',
                 previousValue: { rxId: 701, patientId: 801, patientCode: 'PT-801', patientName: 'QA Patient', fields: [{ field: 'patientTransportCompanyId', value: 2 }] },
                 newValue: { rxId: 701, patientId: 801, patientCode: 'PT-801', patientName: 'QA Patient', source: 'Patient profile', fields: [{ field: 'patientTransportCompanyId', value: 22 }] },
                 ipAddress: '127.0.0.2',
                 User: { id: 92, username: 'qa_master' }
             };
         }
+    }, {
+        get() {
+            return {
+                id: 902,
+                createdAt: new Date('2026-07-30T14:05:00.000Z'),
+                userId: 93,
+                recordId: 703,
+                action: 'Review',
+                previousValue: { rxId: 703, patientId: 803, patientCode: 'PT-803', patientName: 'QA Patient', fields: [{ field: 'pharmacyId', rxValueId: 1, patientValueId: 11 }] },
+                newValue: { reviewState: 'reviewed', reason: ' =unsafe formula', fields: [{ field: 'pharmacyId', fingerprint: 'abc' }] },
+                ipAddress: '127.0.0.3',
+                User: { id: 93, username: 'qa_reviewer' }
+            };
+        }
     }]);
     assert.strictEqual(exported.status, 200);
     assert.match(exported.headers['Content-Disposition'], /rx-profile-sync-history-/);
     assert.ok(exported.payload.startsWith('\uFEFFAudit Log ID,'));
-    assert.match(exported.payload, /qa_master,701,801,PT-801,QA Patient,Patient Transport,patientTransportCompanyId,2,22/);
+    assert.match(exported.payload, /Sync,92,qa_master,701,801,PT-801,QA Patient,Patient Transport,patientTransportCompanyId,2,22/);
+    assert.match(exported.payload, /Review,93,qa_reviewer,703,803,PT-803,QA Patient,Pharmacy,pharmacyId,1,11,reviewed,' =unsafe formula,Manual review/);
     const failed = fakeRx(
         { pharmacyId: 1, patientTransportCompanyId: 2, pharmacyTransportCompanyId: 3 },
         { pharmacyId: 11, patientTransportCompanyId: 12, pharmacyTransportCompanyId: 13 },
@@ -267,7 +343,8 @@ async function main() {
     assert.match(viewSource, /Export Displayed Scan/);
     assert.match(viewSource, /Export All Scan/);
     assert.match(viewSource, /rxSyncPageSize/);
-    assert.match(viewSource, /Export Sync History/);
+    assert.match(viewSource, /Export Activity History/);
+    assert.match(viewSource, /id="rxSyncReviewStatus"/);
     assert.match(browserSource, /function bulkSyncRxProfiles\(\)/);
     assert.match(browserSource, /function exportRxProfileSyncDisplay\(\)/);
     assert.match(browserSource, /function exportAllRxProfileSync\(\)/);
@@ -277,22 +354,27 @@ async function main() {
     assert.match(browserSource, /index < 100/);
     assert.match(browserSource, /Selected the first 100 RX records/);
     assert.match(browserSource, /function exportRxProfileSyncHistory\(\)/);
+    assert.match(browserSource, /function changeRxProfileReview\(/);
+    assert.match(browserSource, /Mark reviewed/);
+    assert.match(browserSource, /Reopen/);
     assert.match(browserSource, /rxProfileSyncIncludesMatchingHistory/);
     assert.match(browserSource, /matching hidden/);
     assert.match(browserSource, /patientOrder/);
     assert.match(routeSource, /rx-profile-sync\/bulk/);
     assert.match(routeSource, /rx-profile-sync\/export/);
+    assert.match(routeSource, /rx-profile-sync\/:rxId\/review/);
+    assert.match(routeSource, /rx-profile-sync\/:rxId\/reopen/);
     const profileSyncControllerSource = fs.readFileSync(path.join(__dirname, '..', 'controllers', 'rxProfileSyncController.js'), 'utf8');
     assert.match(profileSyncControllerSource, /rxHistoryScope === 'multi'/);
     assert.match(profileSyncControllerSource, /const rowsForCard = showAll \? group : qualifyingRows/);
     assert.match(profileSyncControllerSource, /patientCardPaging: true/);
     assert.match(
         rxControllerSource,
-        /exports\.getOne[\s\S]*?RXRecord\.findByPk\(req\.params\.id,\s*\{\s*include:\s*rxInclude\(\)/,
+        /exports\.getOne[\s\S]*?RXRecord\.findByPk\(req\.params\.id,\s*\{\s*include:\s*rxInclude\(includeStageDriverDetails\)/,
         'The RX Details endpoint must include the same transport associations as the RX list.'
     );
 
-    console.log('PASS: RX Profile Sync persists profile fields, re-scans changed Patient data, exports displayed before/after values and audited history, rejects partial saves, and exposes synced transports in RX Details.');
+    console.log('PASS: RX Profile Sync persists profile fields, records append-only reviewed/reopened states, filters review controls, exports activity, rejects partial saves, and exposes synced transports in RX Details.');
 }
 
 main().catch(error => {

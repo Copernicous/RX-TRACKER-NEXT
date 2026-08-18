@@ -12,6 +12,8 @@ module.exports = (sequelize, DataTypes) => {
     static associate(models) {
       PharmacyTransportCompany.hasMany(models.Patient, { foreignKey: 'pharmacyTransportCompanyId' });
       PharmacyTransportCompany.hasMany(models.RXRecord, { foreignKey: 'pharmacyTransportCompanyId' });
+      PharmacyTransportCompany.hasMany(models.RXRecord, { foreignKey: 'pharmacyTransportCompanyId', as: 'CurrentDriverRXRecords' });
+      PharmacyTransportCompany.hasMany(models.RXWorkflowTracking, { foreignKey: 'driverId', as: 'DriverWorkflowTrackings' });
     }
   }
   PharmacyTransportCompany.init({

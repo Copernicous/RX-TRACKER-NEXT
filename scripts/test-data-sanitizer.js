@@ -68,6 +68,40 @@ async function main() {
     pharmacyId: pharmacy.id, patientTransportCompanyId: patientTransport.id,
     pharmacyTransportCompanyId: pharmacyTransport.id
   });
+  const driver = pharmacyTransport;
+  const workflowAction = await db.WorkflowAction.findOne({ order: [['sequenceNumber', 'ASC'], ['id', 'ASC']] });
+  assert(workflowAction, 'Reference seeding must provide at least one workflow action.');
+  const driverTracking = await db.RXWorkflowTracking.create({
+    rxRecordId: rx.id,
+    workflowActionId: workflowAction.id,
+    completionDate: new Date(),
+    userId: user.id,
+    driverId: driver.id,
+    driverNameSnapshot: 'Sensitive Driver Snapshot'
+  });
+  const driverHistory = await db.RXDriverAssignmentHistory.create({
+    rxRecordId: rx.id,
+    workflowTrackingId: driverTracking.id,
+    workflowActionId: workflowAction.id,
+    workflowActionName: workflowAction.name,
+    previousDriverId: null,
+    previousDriverName: 'Sensitive Previous Driver',
+    driverId: driver.id,
+    driverName: 'Sensitive Driver Snapshot',
+    changeType: 'correction',
+    reason: 'Private driver correction reason',
+    userId: user.id
+  });
+  const profileReview = await db.RXProfileSyncReviewEvent.create({
+    rxRecordId: rx.id,
+    fieldName: 'pharmacyId',
+    rxValueId: pharmacy.id,
+    patientValueId: pharmacy.id,
+    fingerprint: crypto.createHash('sha256').update(`${rx.id}|pharmacyId|${pharmacy.id}|${pharmacy.id}`).digest('hex'),
+    action: 'reviewed',
+    reason: 'Private RX profile review note',
+    userId: user.id
+  });
   await db.Medication.create({ rxRecordId: rx.id, name: 'Sensitive Medication', quantity: 30, notes: 'Private medication note' });
   await db.PatientNote.create({ patientId: patient.id, userId: user.id, note: 'Sensitive patient note body', source: 'Patient' });
   const audit = await db.AuditLog.create({
@@ -88,6 +122,12 @@ async function main() {
     ipAddress: '203.0.113.12', userAgent: 'private agent', referrer: 'https://example.invalid'
   });
   const dialedAt = new Date();
+  const readOnlyViewTimestamp = new Date('2031-04-05T06:07:08.000Z');
+  await db.sequelize.query(`
+    CREATE OR REPLACE VIEW "SanitizerReadOnlyTemporalView" AS
+    SELECT MAX(fixture."observedAt") AS "observedAt"
+      FROM (VALUES (TIMESTAMPTZ '2031-04-05 06:07:08+00')) AS fixture("observedAt")
+  `);
   const attempt = await db.CallCenterCallAttempt.create({
     patientId: patient.id, userId: user.id, calledAuditLogId: audit.id,
     correlationId: crypto.randomUUID(), phoneClient: 'rx_softphone', direction: 'outbound',
@@ -138,9 +178,21 @@ async function main() {
 
   const sanitizedPatient = await db.Patient.findByPk(patient.id);
   const sanitizedAttempt = await db.CallCenterCallAttempt.findByPk(attempt.id);
+  const sanitizedDriver = await db.PharmacyTransportCompany.findByPk(driver.id);
+  const sanitizedDriverTracking = await db.RXWorkflowTracking.findByPk(driverTracking.id);
+  const sanitizedDriverHistory = await db.RXDriverAssignmentHistory.findByPk(driverHistory.id);
+  const sanitizedProfileReview = await db.RXProfileSyncReviewEvent.findByPk(profileReview.id);
   assert.strictEqual(sanitizedPatient.firstName, 'Test');
   assert.match(sanitizedPatient.patientCode, /^SAN-[0-9]{8}$/);
   assert.match(sanitizedPatient.phone, /^20255501[0-9]{2}$/);
+  assert.strictEqual(sanitizedDriver.companyName, `Pharmacy Transport ${driver.id}`);
+  assert.match(sanitizedDriver.phone, /^20255501[0-9]{2}$/);
+  assert.strictEqual(sanitizedDriver.notes, null);
+  assert.strictEqual(sanitizedDriverTracking.driverNameSnapshot, `Pharmacy Transport ${driver.id}`);
+  assert.strictEqual(sanitizedDriverHistory.previousDriverName, 'Driver Snapshot');
+  assert.strictEqual(sanitizedDriverHistory.driverName, `Pharmacy Transport ${driver.id}`);
+  assert.strictEqual(sanitizedDriverHistory.reason, 'Sanitized driver assignment history');
+  assert.strictEqual(sanitizedProfileReview.reason, 'Sanitized RX profile review reason');
   const shiftedDays = Math.round((sanitizedAttempt.dialedAt.getTime() - dialedAt.getTime()) / 86400000);
   assert(shiftedDays <= -180 && shiftedDays >= -730, 'Exact event timestamps must receive the randomized privacy offset.');
   assert.strictEqual(sanitizedAttempt.ringDurationSeconds, 3);
@@ -150,6 +202,14 @@ async function main() {
     10000,
     'Timestamp shifting must preserve call duration.'
   );
+  const [readOnlyViewRows] = await db.sequelize.query(
+    'SELECT "observedAt" FROM "SanitizerReadOnlyTemporalView"'
+  );
+  assert.strictEqual(
+    new Date(readOnlyViewRows[0].observedAt).getTime(),
+    readOnlyViewTimestamp.getTime(),
+    'Read-only public views with temporal columns must not be selected for destructive shifting.'
+  );
 
   await createSanitizedAdmin(db, {
     confirmDatabase: database,
@@ -157,6 +217,7 @@ async function main() {
   });
   const finalValidation = await validateSanitizedDatabase(db);
   assert.strictEqual(finalValidation.ok, true);
+  await db.sequelize.query('DROP VIEW "SanitizerReadOnlyTemporalView"');
 
   console.log('PASS database sanitization removes credentials and PHI snapshots while retaining relational analytics.');
   console.log(JSON.stringify({ patients: patientsBefore, callAttempts: attemptsBefore, violations: finalValidation.violations.length }));

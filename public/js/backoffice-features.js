@@ -3074,7 +3074,8 @@ function rxProfileSyncQuery(cursor) {
     var pageSize = document.getElementById('rxSyncPageSize').value || '100';
     var differenceField = document.getElementById('rxSyncDifferenceFilter').value || '';
     var historyScope = document.getElementById('rxSyncHistoryScope').value || 'all';
-    return '/api/admin/rx-profile-sync?search=' + encodeURIComponent(search) + '&showAll=' + showAll + '&differenceFields=' + encodeURIComponent(differenceField) + '&rxHistoryScope=' + encodeURIComponent(historyScope) + '&pageSize=' + encodeURIComponent(pageSize) + (cursor ? '&cursor=' + encodeURIComponent(cursor) : '');
+    var reviewStatus = document.getElementById('rxSyncReviewStatus').value || 'pending';
+    return '/api/admin/rx-profile-sync?search=' + encodeURIComponent(search) + '&showAll=' + showAll + '&differenceFields=' + encodeURIComponent(differenceField) + '&reviewStatus=' + encodeURIComponent(reviewStatus) + '&rxHistoryScope=' + encodeURIComponent(historyScope) + '&pageSize=' + encodeURIComponent(pageSize) + (cursor ? '&cursor=' + encodeURIComponent(cursor) : '');
 }
 
 function sortRxProfileSyncRows() {
@@ -3157,6 +3158,58 @@ function renderRxProfileSyncRows() {
     updateRxSyncBulkSelection();
 }
 
+// Review-aware renderer intentionally supersedes the original renderer above.
+renderRxProfileSyncRows = function() {
+    var list = document.getElementById('rxSyncList');
+    if (!list) return;
+    var body = rxProfileSyncRows.map(function(row) {
+        var pendingCount = Array.isArray(row.pendingDifferences) ? row.pendingDifferences.length : 0;
+        var reviewedCount = Array.isArray(row.reviewedDifferences) ? row.reviewedDifferences.length : 0;
+        var diffs = row.differences.length ? row.differences.map(function(field) {
+            var patient = rxSyncValue(row, 'patient', field);
+            var rx = rxSyncValue(row, 'rx', field);
+            var reviewed = !!(row.differenceReviews && row.differenceReviews[field] && row.differenceReviews[field].reviewed);
+            var badge = reviewed
+                ? '<span style="margin-left:.35rem;padding:.08rem .35rem;border-radius:999px;background:rgba(56,189,248,.16);color:#7dd3fc;font-size:.68rem">Reviewed</span>'
+                : '<span style="margin-left:.35rem;padding:.08rem .35rem;border-radius:999px;background:rgba(251,191,36,.16);color:#fcd34d;font-size:.68rem">Pending</span>';
+            return '<label style="display:block;margin:.3rem 0"><input type="checkbox" data-rx-sync-field="' + rxSyncEsc(field) + '" data-review-state="' + (reviewed ? 'reviewed' : 'pending') + '" checked> <strong>' + rxSyncEsc(rxSyncFieldLabel(field)) + '</strong>' + badge + ': <span style="color:#fca5a5">' + rxSyncEsc(rx.label) + '</span> &rarr; <span style="color:#6ee7b7">' + rxSyncEsc(patient.label) + '</span></label>';
+        }).join('') : (Array.isArray(row.allDifferences) && row.allDifferences.length
+            ? '<span style="color:var(--text-muted)">No differences in the selected review-state filter</span>'
+            : '<span style="color:#6ee7b7">Already matches Patient profile</span>');
+        var actions = '';
+        if (pendingCount) {
+            actions += '<button class="btn-bo btn-bo-primary" style="padding:.35rem .6rem;font-size:.72rem;margin:.15rem" onclick="syncRxProfile(' + row.rxId + ', this)"><i class="fas fa-arrows-rotate me-1"></i>Sync selected</button>';
+            actions += '<button class="btn-bo btn-bo-outline" style="padding:.35rem .6rem;font-size:.72rem;margin:.15rem" onclick="changeRxProfileReview(' + row.rxId + ', \'review\', this)"><i class="fas fa-check me-1"></i>Mark reviewed</button>';
+        }
+        if (reviewedCount) actions += '<button class="btn-bo btn-bo-outline" style="padding:.35rem .6rem;font-size:.72rem;margin:.15rem" onclick="changeRxProfileReview(' + row.rxId + ', \'reopen\', this)"><i class="fas fa-rotate-left me-1"></i>Reopen</button>';
+        if (!actions) actions = '<span style="color:var(--text-muted);font-size:.75rem">No action needed</span>';
+        return '<tr data-rx-sync-id="' + row.rxId + '"><td style="text-align:center"><input type="checkbox" data-rx-sync-select aria-label="Select RX #' + row.rxId + '" ' + (pendingCount ? 'onchange="updateRxSyncBulkSelection()"' : 'disabled') + '></td><td><strong>' + rxSyncEsc(row.patientName) + '</strong><br><small style="color:var(--text-muted)">Patient ' + rxSyncEsc(row.patientCode || ('#' + row.patientId)) + ' &middot; RX #' + row.rxId + '</small></td><td><small>Arrival: ' + rxSyncDate(row.arrivalDate) + '<br>Service: ' + rxSyncDate(row.serviceDate) + '</small></td><td><small>' + rxSyncEsc(row.clinicLabel) + '</small></td><td>' + diffs + '</td><td>' + actions + '</td></tr>';
+    }).join('');
+    list.innerHTML = '<div style="overflow:auto"><table class="bo-table"><thead><tr><th style="width:38px;text-align:center"><input type="checkbox" aria-label="Select up to 100 visible pending RX records" title="Select the first 100 pending RX records" onchange="toggleRxProfileSyncRows(this)"></th><th>Patient / RX</th><th>Dates</th><th>Clinic</th><th>Differences</th><th>Action</th></tr></thead><tbody>' + body + '</tbody></table></div><div style="display:flex;justify-content:flex-end;gap:.5rem;margin-top:.75rem"><button class="btn-bo btn-bo-outline" ' + (rxProfileSyncCursorHistory.length ? '' : 'disabled') + ' onclick="previousRxProfileSyncPage()">Previous</button><button class="btn-bo btn-bo-outline" ' + (rxProfileSyncNextCursor ? '' : 'disabled') + ' onclick="nextRxProfileSyncPage()">Next</button></div>';
+    var tableBody = list.querySelector('tbody');
+    var renderedRows = tableBody ? tableBody.querySelectorAll('[data-rx-sync-id]') : [];
+    rxProfileSyncRows.forEach(function(row, index) {
+        if (index && rxProfileSyncRows[index - 1].patientId === row.patientId) return;
+        var header = document.createElement('tr');
+        var count = Number(row.patientRxCount) || 0;
+        var pending = Number(row.patientPendingRxCount);
+        var reviewed = Number(row.patientReviewedRxCount);
+        var hasPatientStateCounts = Number.isFinite(pending) && Number.isFinite(reviewed);
+        var summary = count + ' active RX record' + (count === 1 ? '' : 's');
+        if (hasPatientStateCounts) {
+            var matching = Math.max(0, count - pending - reviewed);
+            summary += ' / ' + pending + ' pending';
+            if (reviewed) summary += ' / ' + reviewed + ' reviewed';
+            if (matching) summary += ' / ' + matching + (rxProfileSyncIncludesMatchingHistory ? ' already matches' : ' matching hidden');
+        } else {
+            summary += ' / displayed RX is ' + (row.reviewStatus || 'matching');
+        }
+        header.innerHTML = '<td colspan="6" style="padding:.65rem .85rem;background:rgba(99,102,241,.16);border-top:3px solid #6366f1"><strong>' + rxSyncEsc(row.patientName) + '</strong><span style="margin-left:.65rem;color:#c7d2fe;font-size:.78rem">' + rxSyncEsc(summary + (count > 1 ? ' - review historical RX before syncing' : '')) + '</span></td>';
+        tableBody.insertBefore(header, renderedRows[index]);
+    });
+    updateRxSyncBulkSelection();
+};
+
 function nextRxProfileSyncPage() {
     if (!rxProfileSyncNextCursor) return;
     rxProfileSyncCursorHistory.push(rxProfileSyncCursor);
@@ -3175,16 +3228,16 @@ function updateRxSyncDisplayExport() {
 
 function rxSyncCsvCell(value) {
     var text = value === undefined || value === null ? '' : String(value);
-    var safe = /^[=+\-@]/.test(text) ? '\'' + text : text;
+    var safe = /^\s*[=+\-@]/.test(text) ? '\'' + text : text;
     return /[",\r\n]/.test(safe) ? '"' + safe.replace(/"/g, '""') + '"' : safe;
 }
 
 function exportRxProfileSyncDisplay() {
     if (!rxProfileSyncRows.length) { toast('Run a scan with matching records before exporting.', 'info'); return; }
-    var columns = ['RX Record ID', 'Patient Record ID', 'Patient ID', 'Patient Name', 'Arrival Date', 'Service Date', 'Clinic', 'Match Status', 'Difference Fields', 'RX Pharmacy', 'Patient Pharmacy', 'RX Patient Transport', 'Patient Patient Transport', 'RX Pharmacy Transport', 'Patient Pharmacy Transport'];
+    var columns = ['RX Record ID', 'Patient Record ID', 'Patient ID', 'Patient Name', 'Arrival Date', 'Service Date', 'Clinic', 'Review State', 'Match Status', 'Displayed Difference Fields', 'RX Pharmacy', 'Patient Pharmacy', 'RX Patient Transport', 'Patient Patient Transport', 'RX Pharmacy Transport', 'Patient Pharmacy Transport'];
     var rows = rxProfileSyncRows.map(function(row) {
         return [
-            row.rxId, row.patientId, row.patientCode || '', row.patientName || '', row.arrivalDate || '', row.serviceDate || '', row.clinicLabel || '',
+            row.rxId, row.patientId, row.patientCode || '', row.patientName || '', row.arrivalDate || '', row.serviceDate || '', row.clinicLabel || '', row.reviewStatus || '',
             row.differences.length ? 'Differences found' : 'Matches Patient profile',
             row.differences.map(rxSyncFieldLabel).join('; '),
             rxSyncValue(row, 'rx', 'pharmacyId').label, rxSyncValue(row, 'patient', 'pharmacyId').label,
@@ -3255,7 +3308,7 @@ async function bulkSyncRxProfiles() {
         var row = input.closest('tr');
         return {
             rxId: row.getAttribute('data-rx-sync-id'),
-            fields: Array.prototype.slice.call(row.querySelectorAll('[data-rx-sync-field]:checked')).map(function(fieldInput) {
+            fields: Array.prototype.slice.call(row.querySelectorAll('[data-rx-sync-field][data-review-state="pending"]:checked')).map(function(fieldInput) {
                 return fieldInput.getAttribute('data-rx-sync-field');
             })
         };
@@ -3314,7 +3367,7 @@ async function exportRxProfileSyncHistory() {
 }
 async function syncRxProfile(rxId, button) {
     var row = button.closest('tr');
-    var fields = Array.prototype.slice.call(row.querySelectorAll('[data-rx-sync-field]:checked')).map(function(input) { return input.getAttribute('data-rx-sync-field'); });
+    var fields = Array.prototype.slice.call(row.querySelectorAll('[data-rx-sync-field][data-review-state="pending"]:checked')).map(function(input) { return input.getAttribute('data-rx-sync-field'); });
     if (!fields.length) { toast('Select at least one differing field.', 'info'); return; }
     if (!confirm('Sync the selected RX fields from the current Patient profile? This will be recorded in RX History and Audit Log.')) return;
     button.disabled = true;
@@ -3326,6 +3379,36 @@ async function syncRxProfile(rxId, button) {
         await loadRxProfileSync();
     } catch (error) {
         toast('RX profile sync failed: ' + error.message, 'danger');
+        button.disabled = false;
+    }
+}
+
+async function changeRxProfileReview(rxId, action, button) {
+    var row = button.closest('tr');
+    var desiredState = action === 'reopen' ? 'reviewed' : 'pending';
+    var fields = Array.prototype.slice.call(row.querySelectorAll('[data-rx-sync-field][data-review-state="' + desiredState + '"]:checked')).map(function(input) {
+        return input.getAttribute('data-rx-sync-field');
+    });
+    if (!fields.length) {
+        toast(action === 'reopen' ? 'Select at least one reviewed difference to reopen.' : 'Select at least one pending difference to mark reviewed.', 'info');
+        return;
+    }
+    var reason = window.prompt(action === 'reopen' ? 'Optional reason for reopening:' : 'Optional review note:', '');
+    if (reason === null) return;
+    if (reason.length > 2000) { toast('Review note cannot exceed 2000 characters.', 'warning'); return; }
+    button.disabled = true;
+    try {
+        var res = await apiFetch('/api/admin/rx-profile-sync/' + encodeURIComponent(rxId) + '/' + action, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ fields: fields, reason: reason })
+        });
+        var data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Review update failed');
+        toast(data.changed ? (action === 'reopen' ? 'Difference reopened and returned to Pending.' : 'Difference marked reviewed.') : 'The review state was already current.', 'success');
+        await loadRxProfileSync();
+    } catch (error) {
+        toast('RX profile review update failed: ' + error.message, 'danger');
         button.disabled = false;
     }
 }
