@@ -8,11 +8,15 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
 
-- **Release candidate v4.0.0-next.72:** Multi-RX RX Profile Sync now returns
-  complete patient history cards. A qualifying multi-RX patient cannot have
-  active RX rows split across page boundaries; history-review mode shows every
-  active RX row together and the card header distinguishes pending changes from
-  matching records. No migration or business-data change.
+- **Official v4.0.0-next.72** was published on 2026-08-17 from `main` commit
+  `a53f4833820e47136352ae1c0bb415151beacf8d`. PostgreSQL lifecycle CI, CodeQL,
+  and the tagged compiled-release workflow passed. The published server ZIP
+  names, RX Softphone ZIP, and `SHA256SUMS.txt` assets are present. Multi-RX
+  RX Profile Sync now returns complete patient-history cards: a qualifying
+  multi-RX patient cannot have active RX rows split across page boundaries;
+  history-review mode shows every active RX row together and the card header
+  distinguishes pending changes from matching records. No migration or
+  business-data change. Production installation remains separately approved.
 
 - **Release candidate v4.0.0-next.71:** Multi-RX RX Profile Sync hides
   already-matching historical rows by default; they appear only through the
