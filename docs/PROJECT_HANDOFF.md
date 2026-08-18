@@ -1,12 +1,77 @@
 # RX Tracker NEXT project handoff
 
-Last updated: 2026-08-17
+Last updated: 2026-08-18
 
 This file is the sanitized continuity record for a future administrator or
 Codex session. It intentionally contains no credentials, `.env` values,
 patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
+
+- **Release candidate v4.0.0-next.73:** Staging and development operator
+  validation passed for RX driver evolution and RX Profile Sync review state.
+  The development database is verified at 41/41 migrations. The candidate is
+  being prepared for the required `main` lifecycle CI and compiled release;
+  production remains unchanged until a verified release is installed through
+  Project Control.
+
+- **Unreleased staging candidate — RX Profile Sync review state:** Backoffice
+  RX Profile Sync now defaults to Pending and supports Reviewed and All
+  filters. Each displayed Pharmacy/Transport difference can be marked reviewed
+  without changing RX data, later reopened, and exported with Sync/Review/
+  Reopen activity. The append-only review fingerprint includes the RX, field,
+  stored RX value, and current Patient value; if either value changes, the new
+  comparison is Pending automatically while the old review remains historical.
+  Migration `20260818120000-add-rx-profile-sync-review-events` is applied to the
+  sanitized staging production-copy and verified at 41/41 migrations. Focused
+  controller tests, sanitizer regression, and isolated Chrome Pending →
+  Reviewed → Reopen → Pending/change-reset coverage pass. The staging preview
+  is healthy on port 3100. After operator staging approval, the exact validated
+  changes were merged and pushed to `develop` on 2026-08-18. The development
+  database is verified at 41/41 migrations and the preview is healthy on port
+  3000; development operator testing passed on 2026-08-18.
+
+- **Unreleased staging candidate — RX driver evolution:** The `staging` branch
+  was aligned with `main`/`next.72` before the driver implementation was
+  promoted through operator-approved staging and development testing. The
+  current driver comes from
+  the RX's existing Pharmacy Transportation assignment. For future workflow
+  completions, every completed stage keeps its captured
+  driver, and an authorized historical correction changes only the selected
+  stage. The complete requested example is covered: Stage 1 Driver A, current
+  changed to B, Stage 2 captured B, Stage 1 corrected to C, and subsequent
+  stages continue with B. A strict append-only ledger records assignments,
+  snapshots, corrections, sync, undo, and reset events.
+- The staging candidate adds four independent RX permissions: view driver
+  history, assign current driver, correct a completed stage, and synchronize
+  the RX driver history. Pharmacy Transportation directory access remains
+  governed by its existing module permissions; no separate Driver directory is
+  added.
+- The candidate includes migration
+  `20260818000000-add-rx-driver-tracking`. It is transactional,
+  checksum-registered, fingerprinted, and covered by staging-copy
+  sanitization. The original local staging database was preserved after its
+  historical checksum drift was detected; validation uses a separate staging
+  clone reconciled through the current audited migrations. The development
+  database is migrated and verified at 41/41; production remains unchanged.
+- A user-supplied production dump was restored only into a separately named
+  test copy, migrated to 41 applied migrations with zero pending and a verified
+  checksum ledger, sanitized with zero validation violations, and activated
+  only for the local staging preview. Production credentials are intentionally
+  disabled in the sanitized copy; use the separately issued test-only account.
+  The source dump, original staging database, development database, and
+  production database remain unchanged. The sanitizer now restricts temporal
+  shifting to writable PostgreSQL base/partitioned tables and has regression
+  coverage for public extension views.
+- The focused isolated-database driver regression passes, including stale
+  update rejection, permission redaction, inactive-action rejection,
+  historical correction, whole-track sync, disabled-history-safe undo, and
+  ledger survival after warehouse reset. The complete staging API/database/
+  security/report/relay suite and isolated browser-click suite pass on
+  2026-08-18. The local staging preview is healthy on port 3100 with its visible
+  staging marker and sanitized production-scale data. The candidate was
+  promoted to `develop` after operator approval, and development testing passed.
+  Production still requires the exact `main` CI and compiled release gates.
 
 - **Official v4.0.0-next.72** was published on 2026-08-17 from `main` commit
   `a53f4833820e47136352ae1c0bb415151beacf8d`. PostgreSQL lifecycle CI, CodeQL,

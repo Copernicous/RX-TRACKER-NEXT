@@ -62,6 +62,36 @@ async function sanitizeDatabase(db, options = {}) {
     await pseudonymizeReferenceTable(sequelize, transaction, 'PharmacyTransportCompanies', 'companyName', 'Pharmacy Transport');
 
     await execute(sequelize, `
+      UPDATE "RXWorkflowTrackings"
+         SET "driverNameSnapshot" = CASE
+               WHEN "driverNameSnapshot" IS NULL THEN NULL
+               WHEN "driverId" IS NULL THEN 'Driver Snapshot'
+               ELSE 'Pharmacy Transport ' || "driverId"
+             END,
+             "updatedAt" = NOW()
+    `, transaction);
+
+    await execute(sequelize, `
+      UPDATE "RXDriverAssignmentHistories"
+         SET "previousDriverName" = CASE
+               WHEN "previousDriverName" IS NULL THEN NULL
+               WHEN "previousDriverId" IS NULL THEN 'Driver Snapshot'
+               ELSE 'Pharmacy Transport ' || "previousDriverId"
+             END,
+             "driverName" = CASE
+               WHEN "driverName" IS NULL THEN NULL
+               WHEN "driverId" IS NULL THEN 'Driver Snapshot'
+               ELSE 'Pharmacy Transport ' || "driverId"
+             END,
+             "reason" = 'Sanitized driver assignment history'
+    `, transaction);
+
+    await execute(sequelize, `
+      UPDATE "RXProfileSyncReviewEvents"
+         SET "reason" = CASE WHEN "reason" IS NULL THEN NULL ELSE 'Sanitized RX profile review reason' END
+    `, transaction);
+
+    await execute(sequelize, `
       UPDATE "PatientNotes"
          SET "note" = 'Sanitized patient note',
              "updatedAt" = NOW()
@@ -189,6 +219,9 @@ async function validateSanitizedDatabase(db, options = {}) {
     ['pharmacy_identity', `SELECT COUNT(*)::integer AS count FROM "Pharmacies" WHERE "name" !~ '^Pharmacy [0-9]+$' OR ("address" IS NOT NULL AND "address" !~ '^[0-9]+ Example Way$') OR ("phone" IS NOT NULL AND "phone" !~ '^20255501[0-9]{2}$') OR ("contactPerson" IS NOT NULL AND "contactPerson" !~ '^Test Contact [0-9]+$') OR "notes" IS NOT NULL`],
     ['patient_transport_identity', `SELECT COUNT(*)::integer AS count FROM "PatientTransportCompanies" WHERE "companyName" !~ '^Patient Transport [0-9]+$' OR ("phone" IS NOT NULL AND "phone" !~ '^20255501[0-9]{2}$') OR ("contactPerson" IS NOT NULL AND "contactPerson" !~ '^Test Contact [0-9]+$') OR "notes" IS NOT NULL`],
     ['pharmacy_transport_identity', `SELECT COUNT(*)::integer AS count FROM "PharmacyTransportCompanies" WHERE "companyName" !~ '^Pharmacy Transport [0-9]+$' OR ("phone" IS NOT NULL AND "phone" !~ '^20255501[0-9]{2}$') OR ("contactPerson" IS NOT NULL AND "contactPerson" !~ '^Test Contact [0-9]+$') OR "notes" IS NOT NULL`],
+    ['workflow_driver_snapshots', `SELECT COUNT(*)::integer AS count FROM "RXWorkflowTrackings" WHERE "driverNameSnapshot" IS NOT NULL AND (("driverId" IS NULL AND "driverNameSnapshot" <> 'Driver Snapshot') OR ("driverId" IS NOT NULL AND "driverNameSnapshot" <> 'Pharmacy Transport ' || "driverId"))`],
+    ['driver_history_payloads', `SELECT COUNT(*)::integer AS count FROM "RXDriverAssignmentHistories" WHERE ("previousDriverName" IS NOT NULL AND (("previousDriverId" IS NULL AND "previousDriverName" <> 'Driver Snapshot') OR ("previousDriverId" IS NOT NULL AND "previousDriverName" <> 'Pharmacy Transport ' || "previousDriverId"))) OR ("driverName" IS NOT NULL AND (("driverId" IS NULL AND "driverName" <> 'Driver Snapshot') OR ("driverId" IS NOT NULL AND "driverName" <> 'Pharmacy Transport ' || "driverId"))) OR "reason" IS DISTINCT FROM 'Sanitized driver assignment history'`],
+    ['rx_profile_review_payloads', `SELECT COUNT(*)::integer AS count FROM "RXProfileSyncReviewEvents" WHERE "reason" IS NOT NULL AND "reason" <> 'Sanitized RX profile review reason'`],
     ['patient_notes', `SELECT COUNT(*)::integer AS count FROM "PatientNotes" WHERE "note" <> 'Sanitized patient note'`],
     ['medications', `SELECT COUNT(*)::integer AS count FROM "Medications" WHERE "name" !~ '^Medication [0-9]+$' OR "notes" IS NOT NULL`],
     ['audit_payloads', `SELECT COUNT(*)::integer AS count FROM "AuditLogs" WHERE ("previousValue" IS NOT NULL AND "previousValue"::jsonb <> '{"sanitized":true}'::jsonb) OR ("newValue" IS NOT NULL AND "newValue"::jsonb <> '{"sanitized":true}'::jsonb) OR "ipAddress" IS NOT NULL`],
@@ -299,15 +332,27 @@ async function execute(sequelize, sql, transaction, replacements = {}) {
 
 async function shiftAllTemporalColumns(sequelize, transaction, dateShiftDays) {
   const [columns] = await sequelize.query(`
-    SELECT table_name, column_name, data_type
-      FROM information_schema.columns
-     WHERE table_schema = 'public'
-       AND data_type IN ('date', 'timestamp without time zone', 'timestamp with time zone')
-     ORDER BY table_name, ordinal_position
+    SELECT relation.relname AS table_name,
+           attribute.attname AS column_name,
+           column_type.typname AS data_type
+      FROM pg_catalog.pg_attribute AS attribute
+      JOIN pg_catalog.pg_class AS relation
+        ON relation.oid = attribute.attrelid
+      JOIN pg_catalog.pg_namespace AS namespace
+        ON namespace.oid = relation.relnamespace
+      JOIN pg_catalog.pg_type AS column_type
+        ON column_type.oid = attribute.atttypid
+     WHERE namespace.nspname = 'public'
+       AND relation.relkind IN ('r', 'p')
+       AND relation.relispartition = FALSE
+       AND attribute.attnum > 0
+       AND attribute.attisdropped = FALSE
+       AND column_type.typname IN ('date', 'timestamp', 'timestamptz')
+     ORDER BY relation.relname, attribute.attnum
   `, { transaction });
 
   for (const column of columns) {
-    const tableName = quoteIdentifier(column.table_name);
+    const tableName = `${quoteIdentifier('public')}.${quoteIdentifier(column.table_name)}`;
     const columnName = quoteIdentifier(column.column_name);
     const expression = column.data_type === 'date'
       ? `${columnName} + :dateShiftDays`

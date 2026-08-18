@@ -898,11 +898,13 @@ function showToast(message, type) {
     if (!container) return;
     const id = 'toast-' + Date.now();
     const icons = { success: 'fa-check-circle', danger: 'fa-times-circle', warning: 'fa-exclamation-circle', info: 'fa-info-circle' };
+    if (!icons[type]) type = 'info';
     const icon = icons[type] || 'fa-info-circle';
+    const safeMessage = crudEscapeHtml(message);
     const html = '<div id="' + id + '" class="toast align-items-center border-0 show mb-2" role="alert">' +
         '<div class="d-flex alert alert-' + type + ' mb-0 w-100">' +
         '<i class="fas ' + icon + ' me-2 mt-1"></i>' +
-        '<div class="toast-body p-0 flex-grow-1">' + message + '</div>' +
+        '<div class="toast-body p-0 flex-grow-1">' + safeMessage + '</div>' +
         '<button type="button" class="btn-close ms-2" onclick="document.getElementById(\'' + id + '\').remove()"></button>' +
         '</div></div>';
     container.insertAdjacentHTML('beforeend', html);
@@ -1120,7 +1122,7 @@ async function refreshTable() {
 // Permissions helper — returns current-page perms
 // =============================================
 function getFullPageAccess() {
-    return { visible: true, canAdd: true, canEdit: true, canDelete: true, canExport: true, canPrint: true, canCopy: true, canUndo: true, canWarehouse: true, canOverrideExpired: true };
+    return { visible: true, canAdd: true, canEdit: true, canDelete: true, canExport: true, canPrint: true, canCopy: true, canUndo: true, canWarehouse: true, canOverrideExpired: true, canViewDriverHistory: true, canAssignDriver: true, canCorrectDriver: true, canSyncDriverHistory: true };
 }
 
 function decodeJwtPayload(token) {
@@ -1206,7 +1208,11 @@ function getPagePerms() {
             canCopy:      p.canCopy      !== undefined ? !!p.canCopy      : true,
             canUndo:      p.canUndo      !== undefined ? !!p.canUndo      : false,
             canWarehouse: p.canWarehouse !== undefined ? !!p.canWarehouse : !!p.canEdit,  // fallback for old data
-            canOverrideExpired: p.canOverrideExpired !== undefined ? !!p.canOverrideExpired : false
+            canOverrideExpired: p.canOverrideExpired !== undefined ? !!p.canOverrideExpired : false,
+            canViewDriverHistory: p.canViewDriverHistory !== undefined ? !!p.canViewDriverHistory : false,
+            canAssignDriver: p.canAssignDriver !== undefined ? !!p.canAssignDriver : false,
+            canCorrectDriver: p.canCorrectDriver !== undefined ? !!p.canCorrectDriver : false,
+            canSyncDriverHistory: p.canSyncDriverHistory !== undefined ? !!p.canSyncDriverHistory : false
         };
     } catch (e) { return fullAccess; }
 }
@@ -1306,6 +1312,18 @@ function setScreenCopyProtection(disabled, message) {
     document.body.classList.toggle('rx-copy-disabled', rxCopyProtection.enabled);
 }
 
+function crudEscapeHtml(value) {
+    return String(value === null || value === undefined ? '' : value).replace(/[&<>"']/g, function(character) {
+        return {
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#39;'
+        }[character];
+    });
+}
+
 function renderTable() {
     var config = crudState.config;
     var data = crudState.filtered;
@@ -1356,7 +1374,7 @@ function renderTable() {
                     var phoneStatusClass = phoneStatus === 'Configured'
                         ? 'bg-success'
                         : (phoneStatus === 'Setup available' ? 'bg-warning text-dark' : 'bg-secondary');
-                    return '<td><span class="badge ' + phoneStatusClass + '">' + phoneStatus + '</span></td>';
+                    return '<td><span class="badge ' + phoneStatusClass + '">' + crudEscapeHtml(phoneStatus) + '</span></td>';
                 }
                 if (val === true) return '<td><span class="badge bg-success">Yes</span></td>';
                 if (val === false) return '<td><span class="badge bg-secondary">No</span></td>';
@@ -1364,9 +1382,9 @@ function renderTable() {
                 // BUG-07 FIX: Show ellipsis + tooltip when value is truncated
                 var strVal = String(val);
                 if (strVal.length > 60) {
-                    return '<td title="' + strVal.replace(/"/g, '&quot;') + '">' + strVal.substring(0, 60) + '\u2026</td>';
+                    return '<td title="' + crudEscapeHtml(strVal) + '">' + crudEscapeHtml(strVal.substring(0, 60)) + '\u2026</td>';
                 }
-                return '<td>' + strVal + '</td>';
+                return '<td>' + crudEscapeHtml(strVal) + '</td>';
             })(); } var cells=_cells;
             var actionCell = '';
             var phoneSetupAction = '';

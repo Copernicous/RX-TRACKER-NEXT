@@ -15,9 +15,11 @@ module.exports = (sequelize, DataTypes) => {
       RXRecord.belongsTo(models.Pharmacy, { foreignKey: 'pharmacyId' });
       RXRecord.belongsTo(models.PatientTransportCompany, { foreignKey: 'patientTransportCompanyId' });
       RXRecord.belongsTo(models.PharmacyTransportCompany, { foreignKey: 'pharmacyTransportCompanyId' });
+      RXRecord.belongsTo(models.PharmacyTransportCompany, { foreignKey: 'pharmacyTransportCompanyId', as: 'CurrentDriver' });
       RXRecord.hasMany(models.Medication, { foreignKey: 'rxRecordId' });
       RXRecord.hasMany(models.RXWorkflowTracking, { foreignKey: 'rxRecordId' });
       RXRecord.hasMany(models.RXHistory, { foreignKey: 'rxRecordId' });
+      RXRecord.hasMany(models.RXProfileSyncReviewEvent, { foreignKey: 'rxRecordId' });
       RXRecord.hasMany(models.DocumentAttachment, { foreignKey: 'rxRecordId' });
     }
   }

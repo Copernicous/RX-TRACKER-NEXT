@@ -7,6 +7,76 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+## [4.0.0-next.73]
+
+### Added
+
+- Added append-only RX Profile Sync review events. An administrator can mark an
+  exact Pharmacy or Transport difference as reviewed without synchronizing it,
+  filter the scan by Pending, Reviewed, or All, and reopen a reviewed item.
+  Review state is bound to the compared RX and Patient values, so a later value
+  change automatically creates a new Pending difference without erasing the
+  earlier review history.
+- Added RX-level current-driver tracking backed by the existing Pharmacy
+  Transportation assignment. Each newly completed workflow stage captures an immutable driver snapshot,
+  while an authorized historical correction changes only the selected stage.
+- Added append-only driver history for current assignments, stage snapshots,
+  historical corrections, synchronization, undo, and warehouse-reset events.
+  A guarded whole-RX synchronization remains available for recovery.
+- Added separate RX permissions to view driver history, assign the current
+  driver, correct a completed stage, and synchronize the full RX history.
+
+### Changed
+
+- Future stages inherit the latest current driver without rewriting completed
+  stages. Correcting an earlier stage does not change the current driver or any
+  later completed stage.
+- Driver assignment, workflow completion, corrections, synchronization, undo,
+  and reset use transactional locking and stale-value conflict checks.
+
+### Security
+
+- Driver history is withheld from generic RX history when the viewer lacks the
+  dedicated permission, and driver/history values are escaped in operator,
+  reference-data, and audit-log views.
+- Completed-stage driver snapshots are redacted from ordinary RX payloads
+  unless the viewer can view, correct, or synchronize driver history. Generic
+  workflow audits and unrelated dashboard, timeline, and report payloads do
+  not expose the new driver fields.
+- Audit CSV exports neutralize spreadsheet formulas, and inactive workflow
+  actions cannot be newly completed or interfere with active-stage undo.
+
+### Database
+
+- Added the audited `20260818120000-add-rx-profile-sync-review-events`
+  migration for the append-only difference review ledger. The new table is
+  included in business fingerprints, relational checks, purge dependencies,
+  and sanitized-copy validation.
+- Added the audited `20260818000000-add-rx-driver-tracking` migration for
+  Pharmacy Transportation workflow snapshots and the
+  append-only assignment-history ledger. The migration is transactional,
+  retry-safe, checksum-registered, and preserves history when a workflow row is
+  undone or reset.
+- Extended staging-copy sanitization and business-data fingerprints for the new
+  driver-history data.
+- Restricted timestamp shifting during sanitization to actual PostgreSQL base
+  and partitioned tables so extension views in the public schema are never
+  treated as writable business tables.
+
+### Testing
+
+- Added controller and isolated Chrome coverage for Pending, Mark reviewed,
+  Reviewed filtering, Reopen, automatic changed-value reset to Pending, and
+  append-only event retention.
+- Added a dedicated isolated-database regression covering the A → B current
+  assignment flow, an A → C historical correction that leaves Stage 2 and
+  the current driver at B, future-stage inheritance, stale updates, inactive
+  historical drivers, synchronization, undo, and warehouse reset.
+- Added permission-boundary, disabled-action, audit-redaction, serializer, and
+  public-view sanitizer regressions. The complete staging API/database/security/
+  report/relay suite and isolated browser-click suite pass against a sanitized
+  production-copy configuration.
+
 ## [4.0.0-next.72]
 
 ### Fixed

@@ -198,7 +198,10 @@ exports.getPendingRx = async (req, res) => {
             include: [
                 { model: db.Patient,  attributes: ['firstName', 'lastName', 'patientCode'] },
                 { model: db.Pharmacy, attributes: ['name'] },
-                { model: db.RXWorkflowTracking }
+                {
+                    model: db.RXWorkflowTracking,
+                    attributes: ['id', 'rxRecordId', 'workflowActionId', 'completionDate', 'userId', 'createdAt', 'updatedAt']
+                }
             ],
             order: [['serviceDate', 'DESC']]
         });
@@ -226,7 +229,10 @@ exports.getTotalRx = async (req, res) => {
             include: [
                 { model: db.Patient,  attributes: ['firstName', 'lastName', 'patientCode'] },
                 { model: db.Pharmacy, attributes: ['name'] },
-                { model: db.RXWorkflowTracking }
+                {
+                    model: db.RXWorkflowTracking,
+                    attributes: ['id', 'rxRecordId', 'workflowActionId', 'completionDate', 'userId', 'createdAt', 'updatedAt']
+                }
             ],
             order: [['serviceDate', 'DESC']]
         });

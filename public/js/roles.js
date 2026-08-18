@@ -148,7 +148,11 @@ function renderMatrix() {
         actionBadges += badge(perm.canCopy !== undefined ? perm.canCopy : true, 'copy', 'warning');
         actionBadges +=
             (perm.canUndo ? badge(true,'undo','warning') : '') +
-            (perm.canOverrideExpired ? badge(true,'unlock-alt','dark') : '');
+            (perm.canOverrideExpired ? badge(true,'unlock-alt','dark') : '') +
+            (perm.canViewDriverHistory ? badge(true,'history','info') : '') +
+            (perm.canAssignDriver ? badge(true,'id-card','success') : '') +
+            (perm.canCorrectDriver ? badge(true,'user-edit','primary') : '') +
+            (perm.canSyncDriverHistory ? badge(true,'sync','warning') : '');
         return '<td class="text-center" style="background:rgba(25,135,84,.05)">' + actionBadges + '</td>';
     }
 
@@ -194,6 +198,10 @@ function renderMatrix() {
         '<span>' + badge(true,'copy','warning') + ' Copy</span>' +
         '<span>' + badge(true,'undo','warning') + ' Undo</span>' +
         '<span>' + badge(true,'unlock-alt','dark') + ' Override 90-Day</span>' +
+        '<span>' + badge(true,'history','info') + ' Driver History</span>' +
+        '<span>' + badge(true,'id-card','success') + ' Assign Driver</span>' +
+        '<span>' + badge(true,'user-edit','primary') + ' Correct Driver</span>' +
+        '<span>' + badge(true,'sync','warning') + ' Sync Drivers</span>' +
         '<span><span class="badge bg-danger" style="font-size:.62rem"><i class="fas fa-eye-slash"></i></span> Hidden</span>' +
         '<span><span class="badge bg-secondary opacity-25" style="font-size:.62rem"><i class="fas fa-plus-circle"></i></span> Off</span>' +
         '</div>';
@@ -263,21 +271,26 @@ function buildPermEditor(perms) {
     var _mHtml = '';
     var dash = '<span class="text-muted">\u2014</span>';
     var dashCell = '<td class="text-center">' + dash + '</td>';
+    var driverDashCells = dashCell + dashCell + dashCell + dashCell;
     var rxAddDashCell = '<td class="text-center" title="RX Records uses Add RX / Complete instead of a separate Add New checkbox"><span class="badge bg-info" style="font-size:.58rem">See Add RX / Complete</span></td>';
 
     for (var _mi2 = 0; _mi2 < MODULE_DEFS.length; _mi2++) {
         var m = MODULE_DEFS[_mi2];
-        var p = perms[m.key] || { visible: false, canAdd: false, canEdit: false, canDelete: false, canExport: false, canPrint: false, canCopy: true, canUndo: false, canWarehouse: false, canOverrideExpired: false };
+        var p = perms[m.key] || { visible: false, canAdd: false, canEdit: false, canDelete: false, canExport: false, canPrint: false, canCopy: true, canUndo: false, canWarehouse: false, canOverrideExpired: false, canViewDriverHistory: false, canAssignDriver: false, canCorrectDriver: false, canSyncDriverHistory: false };
         if (p.canAdd === undefined) p.canAdd = p.canEdit;
         if (p.canPrint === undefined) p.canPrint = p.canExport;
         if (p.canCopy === undefined) p.canCopy = true;
         if (p.canWarehouse === undefined) p.canWarehouse = p.canEdit;
         if (p.canOverrideExpired === undefined) p.canOverrideExpired = false;
+        if (p.canViewDriverHistory === undefined) p.canViewDriverHistory = false;
+        if (p.canAssignDriver === undefined) p.canAssignDriver = false;
+        if (p.canCorrectDriver === undefined) p.canCorrectDriver = false;
+        if (p.canSyncDriverHistory === undefined) p.canSyncDriverHistory = false;
 
         var groupRow = '';
         if (m.group !== lastGroup) {
             lastGroup = m.group;
-            groupRow = '<tr style="background:rgba(255,255,255,.02)"><td colspan="12" class="fw-bold py-1 px-2" style="font-size:.7rem;text-transform:uppercase;color:' + (GROUP_COLORS[m.group] || '#aaa') + '">' + m.group + '</td></tr>';
+            groupRow = '<tr style="background:rgba(255,255,255,.02)"><td colspan="16" class="fw-bold py-1 px-2" style="font-size:.7rem;text-transform:uppercase;color:' + (GROUP_COLORS[m.group] || '#aaa') + '">' + m.group + '</td></tr>';
         }
         var copyCell = '<td class="text-center" title="Can select and copy visible screen data"><input type="checkbox" class="form-check-input perm-cancopy" ' + (p.canCopy ? 'checked' : '') + '></td>';
 
@@ -285,15 +298,15 @@ function buildPermEditor(perms) {
             var exportPrintCells = m.noExportPrint
                 ? dashCell + dashCell
                 : '<td class="text-center"><input type="checkbox" class="form-check-input perm-canexport" ' + (p.canExport ? 'checked' : '') + '></td><td class="text-center"><input type="checkbox" class="form-check-input perm-canprint" ' + (p.canPrint ? 'checked' : '') + '></td>';
-            _mHtml += groupRow + '<tr data-module="' + m.key + '"><td class="ps-3 fw-semibold">' + m.label + ' <span class="badge bg-secondary ms-1" style="font-size:.6rem">Always On</span></td><td class="text-center"><input type="checkbox" class="form-check-input perm-visible" checked disabled></td>' + dashCell + dashCell + dashCell + exportPrintCells + copyCell + dashCell + dashCell + dashCell + dashCell + '</tr>';
+            _mHtml += groupRow + '<tr data-module="' + m.key + '"><td class="ps-3 fw-semibold">' + m.label + ' <span class="badge bg-secondary ms-1" style="font-size:.6rem">Always On</span></td><td class="text-center"><input type="checkbox" class="form-check-input perm-visible" checked disabled></td>' + dashCell + dashCell + dashCell + exportPrintCells + copyCell + dashCell + dashCell + dashCell + dashCell + driverDashCells + '</tr>';
             continue;
         }
         if (m.visibleOnly) {
-            _mHtml += groupRow + '<tr data-module="' + m.key + '"><td class="ps-3 fw-semibold">' + m.label + ' <span class="badge bg-info ms-1" style="font-size:.6rem">View only</span></td><td class="text-center"><input type="checkbox" class="form-check-input perm-visible" ' + (p.visible ? 'checked' : '') + '></td>' + dashCell + dashCell + dashCell + '<td class="text-center"><input type="checkbox" class="form-check-input perm-canexport" ' + (p.canExport ? 'checked' : '') + '></td><td class="text-center"><input type="checkbox" class="form-check-input perm-canprint" ' + (p.canPrint ? 'checked' : '') + '></td>' + copyCell + dashCell + dashCell + dashCell + dashCell + '</tr>';
+            _mHtml += groupRow + '<tr data-module="' + m.key + '"><td class="ps-3 fw-semibold">' + m.label + ' <span class="badge bg-info ms-1" style="font-size:.6rem">View only</span></td><td class="text-center"><input type="checkbox" class="form-check-input perm-visible" ' + (p.visible ? 'checked' : '') + '></td>' + dashCell + dashCell + dashCell + '<td class="text-center"><input type="checkbox" class="form-check-input perm-canexport" ' + (p.canExport ? 'checked' : '') + '></td><td class="text-center"><input type="checkbox" class="form-check-input perm-canprint" ' + (p.canPrint ? 'checked' : '') + '></td>' + copyCell + dashCell + dashCell + dashCell + dashCell + driverDashCells + '</tr>';
             continue;
         }
         if (m.notesOnly) {
-            _mHtml += groupRow + '<tr data-module="' + m.key + '" style="background:rgba(255,193,7,.04)"><td class="ps-3 fw-semibold">' + m.label + ' <span class="badge bg-warning text-dark ms-1" style="font-size:.6rem">Per-patient</span></td><td class="text-center"><span class="text-muted" title="Always visible">\u2014</span></td><td class="text-center" title="Can add new notes"><input type="checkbox" class="form-check-input perm-canadd" ' + (p.canAdd ? 'checked' : '') + '></td><td class="text-center" title="Cannot edit existing notes (immutable)"><span class="text-muted">\u2014</span></td><td class="text-center" title="Can delete notes"><input type="checkbox" class="form-check-input perm-candelete" ' + (p.canDelete ? 'checked' : '') + '></td>' + dashCell + dashCell + copyCell + dashCell + dashCell + dashCell + dashCell + '</tr>';
+            _mHtml += groupRow + '<tr data-module="' + m.key + '" style="background:rgba(255,193,7,.04)"><td class="ps-3 fw-semibold">' + m.label + ' <span class="badge bg-warning text-dark ms-1" style="font-size:.6rem">Per-patient</span></td><td class="text-center"><span class="text-muted" title="Always visible">\u2014</span></td><td class="text-center" title="Can add new notes"><input type="checkbox" class="form-check-input perm-canadd" ' + (p.canAdd ? 'checked' : '') + '></td><td class="text-center" title="Cannot edit existing notes (immutable)"><span class="text-muted">\u2014</span></td><td class="text-center" title="Can delete notes"><input type="checkbox" class="form-check-input perm-candelete" ' + (p.canDelete ? 'checked' : '') + '></td>' + dashCell + dashCell + copyCell + dashCell + dashCell + dashCell + dashCell + driverDashCells + '</tr>';
             continue;
         }
 
@@ -307,6 +320,12 @@ function buildPermEditor(perms) {
         var overrideCell = m.hasOverrideExpired
             ? '<td class="text-center" title="Can override 90-day expired locks"><input type="checkbox" class="form-check-input perm-canoverrideexpired" ' + (p.canOverrideExpired ? 'checked' : '') + '></td>'
             : dashCell;
+        var driverCells = m.hasWorkflow
+            ? '<td class="text-center" title="Can view driver assignment history"><input type="checkbox" class="form-check-input perm-canviewdriverhistory" ' + (p.canViewDriverHistory ? 'checked' : '') + '></td>' +
+              '<td class="text-center" title="Can change current driver"><input type="checkbox" class="form-check-input perm-canassigndriver" ' + (p.canAssignDriver ? 'checked' : '') + '></td>' +
+              '<td class="text-center" title="Can correct a completed stage driver"><input type="checkbox" class="form-check-input perm-cancorrectdriver" ' + (p.canCorrectDriver ? 'checked' : '') + '></td>' +
+              '<td class="text-center" title="Can synchronize all completed stages"><input type="checkbox" class="form-check-input perm-cansyncdriverhistory" ' + (p.canSyncDriverHistory ? 'checked' : '') + '></td>'
+            : driverDashCells;
 
         _mHtml += groupRow +
             '<tr data-module="' + m.key + '">' +
@@ -320,6 +339,7 @@ function buildPermEditor(perms) {
                 copyCell +
                 workflowCells +
                 overrideCell +
+                driverCells +
             '</tr>';
     }
     tbody.innerHTML = _mHtml;
@@ -340,7 +360,11 @@ function readPermEditor() {
             canCopy:      cb('.perm-cancopy'),
             canUndo:      cb('.perm-canundo'),
             canWarehouse: cb('.perm-canwarehouse'),
-            canOverrideExpired: cb('.perm-canoverrideexpired')
+            canOverrideExpired: cb('.perm-canoverrideexpired'),
+            canViewDriverHistory: cb('.perm-canviewdriverhistory'),
+            canAssignDriver: cb('.perm-canassigndriver'),
+            canCorrectDriver: cb('.perm-cancorrectdriver'),
+            canSyncDriverHistory: cb('.perm-cansyncdriverhistory')
         };
     });
     if (perms.dashboard)    { perms.dashboard.visible = true; perms.dashboard.canAdd = false; perms.dashboard.canEdit = false; perms.dashboard.canDelete = false; perms.dashboard.canExport = false; perms.dashboard.canPrint = false; }

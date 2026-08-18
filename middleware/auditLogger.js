@@ -34,6 +34,8 @@ function extractLabel(moduleName, body, recordId) {
                 : body.workflowActionId
                     ? `Step #${body.workflowActionId}` + (body.rxRecordId ? ` on RX #${body.rxRecordId}` : '')
                     : recordId ? `RX #${recordId}` : null;
+        case 'RX Driver':
+            return recordId ? `RX #${recordId}` : null;
         default:
             return recordId ? `#${recordId}` : null;
     }
@@ -55,11 +57,24 @@ async function snapshotWorkflow(rxId) {
     try {
         const trackings = await db.RXWorkflowTracking.findAll({
             where: { rxRecordId: rxId },
-            include: [{ model: db.WorkflowAction }],
+            attributes: [
+                'id',
+                'rxRecordId',
+                'workflowActionId',
+                'completionDate',
+                'userId',
+                'createdAt',
+                'updatedAt'
+            ],
+            include: [{
+                model: db.WorkflowAction,
+                attributes: ['id', 'name', 'sequenceNumber']
+            }],
             order: [['createdAt', 'ASC']]
         });
         if (!trackings.length) return { steps: [], summary: 'No steps completed' };
         const steps = trackings.map(t => ({
+            trackingId: t.id,
             stepId: t.workflowActionId,
             stepName: t.WorkflowAction ? t.WorkflowAction.name : `Step #${t.workflowActionId}`,
             sequence: t.WorkflowAction ? t.WorkflowAction.sequenceNumber : null,
@@ -88,20 +103,20 @@ exports.auditLog = (moduleName) => {
         res.json = function (body) {
             res.json = originalJson;
 
-            if (['POST', 'PUT', 'DELETE'].includes(req.method) && res.statusCode >= 200 && res.statusCode < 300) {
+            if (!req.skipAuditLog && ['POST', 'PUT', 'DELETE'].includes(req.method) && res.statusCode >= 200 && res.statusCode < 300) {
                 let action = 'Create';
                 if (req.method === 'PUT') action = 'Update';
                 else if (req.method === 'DELETE') action = 'Delete';
                 action = detectAction(req, action);
 
-                const recordId = req.params.id ? parseInt(req.params.id) : null;
+                const recordId = req.auditRecordId || (req.params.id ? parseInt(req.params.id) : null);
                 const label = extractLabel(moduleName, req.body, recordId);
 
                 // Strip sensitive fields
                 const { password, passwordHash, ...safeBody } = req.body || {};
 
                 let newValue;
-                let previousValue = null;
+                let previousValue = req.auditPreviousValue || null;
 
                 if (isWorkflowMutation) {
                     const rxId = req.body.rxId;
@@ -115,13 +130,19 @@ exports.auditLog = (moduleName) => {
                     // newValue = description of what the operation did
                     if (action === 'Undo') {
                         const undoneStep = previousWorkflowSnapshot && previousWorkflowSnapshot.steps.length > 0
-                            ? previousWorkflowSnapshot.steps[previousWorkflowSnapshot.steps.length - 1]
+                            ? previousWorkflowSnapshot.steps.find(step => Number(step.trackingId) === Number(req.auditUndoneTrackingId))
                             : null;
+                        const remainingSteps = previousWorkflowSnapshot && undoneStep
+                            ? previousWorkflowSnapshot.steps.filter(step => Number(step.trackingId) !== Number(undoneStep.trackingId))
+                            : [];
+                        if (previousWorkflowSnapshot && undoneStep) {
+                            previousWorkflowSnapshot.steps = remainingSteps.concat([undoneStep]);
+                        }
                         newValue = {
                             _label: `RX #${rxId}`,
                             action: 'Undo Last Step',
                             undoneStep: undoneStep ? `Step ${undoneStep.sequence}: ${undoneStep.stepName}` : 'Unknown step',
-                            remainingSteps: (previousWorkflowSnapshot && previousWorkflowSnapshot.steps.length > 1)
+                            remainingSteps: remainingSteps.length
                                 ? previousWorkflowSnapshot.steps.slice(0, -1).map(s => `Step ${s.sequence}: ${s.stepName}`).join(' → ')
                                 : 'None'
                         };
@@ -136,9 +157,9 @@ exports.auditLog = (moduleName) => {
                     }
                 } else {
                     // Standard create/update/delete
-                    newValue = req.method !== 'DELETE'
+                    newValue = req.auditNewValue || (req.method !== 'DELETE'
                         ? { ...safeBody, _label: label }
-                        : (label ? { _label: label } : null);
+                        : (label ? { _label: label } : null));
                 }
 
                 db.AuditLog.create({

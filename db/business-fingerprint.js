@@ -6,6 +6,8 @@ const BUSINESS_TABLES = [
   'Patients',
   'RXRecords',
   'RXWorkflowTrackings',
+  'RXDriverAssignmentHistories',
+  'RXProfileSyncReviewEvents',
   'Users',
   'PatientNotes',
   'PatientServiceDateHistories',

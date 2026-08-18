@@ -1,5 +1,25 @@
 const db = require('../models');
 const { Op } = require('sequelize');
+const { getRequestPermission } = require('../middleware/rbac');
+
+const RX_DRIVER_AUDIT_MODULE_PATTERN = 'RX Driver%';
+
+async function applyDriverHistoryVisibility(req, where) {
+    const permission = await getRequestPermission(req, 'rx_records');
+    if (permission.visible && permission.canViewDriverHistory) return where;
+
+    const existingAnd = where[Op.and];
+    where[Op.and] = [
+        ...(Array.isArray(existingAnd) ? existingAnd : (existingAnd ? [existingAnd] : [])),
+        {
+            [Op.or]: [
+                { module: { [Op.is]: null } },
+                { module: { [Op.notILike]: RX_DRIVER_AUDIT_MODULE_PATTERN } }
+            ]
+        }
+    ];
+    return where;
+}
 
 // GET /api/audit-logs — with optional filters
 exports.getAll = async (req, res) => {
@@ -26,6 +46,7 @@ exports.getAll = async (req, res) => {
                 { ipAddress: { [Op.like]: `%${search}%` } }
             ];
         }
+        await applyDriverHistoryVisibility(req, where);
 
         const total = await db.AuditLog.count({ where });
 
@@ -48,9 +69,11 @@ exports.getAll = async (req, res) => {
 // GET /api/audit-logs/users — distinct users who have log entries
 exports.getUsers = async (req, res) => {
     try {
+        const where = { userId: { [Op.ne]: null } };
+        await applyDriverHistoryVisibility(req, where);
         const rows = await db.AuditLog.findAll({
             attributes: [[db.sequelize.fn('DISTINCT', db.sequelize.col('userId')), 'userId']],
-            where: { userId: { [Op.ne]: null } },
+            where,
             raw: true
         });
         const ids = rows.map(r => r.userId).filter(Boolean);
@@ -65,8 +88,11 @@ exports.getUsers = async (req, res) => {
 // GET /api/audit-logs/modules — distinct modules
 exports.getModules = async (req, res) => {
     try {
+        const where = {};
+        await applyDriverHistoryVisibility(req, where);
         const rows = await db.AuditLog.findAll({
             attributes: [[db.sequelize.fn('DISTINCT', db.sequelize.col('module')), 'module']],
+            where,
             raw: true
         });
         res.json(rows.map(r => r.module).filter(Boolean).sort());
@@ -76,8 +102,11 @@ exports.getModules = async (req, res) => {
 // GET /api/audit-logs/actions — distinct actions
 exports.getActions = async (req, res) => {
     try {
+        const where = {};
+        await applyDriverHistoryVisibility(req, where);
         const rows = await db.AuditLog.findAll({
             attributes: [[db.sequelize.fn('DISTINCT', db.sequelize.col('action')), 'action']],
+            where,
             raw: true
         });
         res.json(rows.map(r => r.action).filter(Boolean).sort());
