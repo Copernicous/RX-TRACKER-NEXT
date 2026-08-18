@@ -19,7 +19,10 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
   sanitized staging production-copy and verified at 41/41 migrations. Focused
   controller tests, sanitizer regression, and isolated Chrome Pending →
   Reviewed → Reopen → Pending/change-reset coverage pass. The staging preview
-  is healthy on port 3100 and awaits operator review before promotion.
+  is healthy on port 3100. After operator staging approval, the exact validated
+  changes were merged and pushed to `develop` on 2026-08-18. The development
+  database is verified at 41/41 migrations and the preview is healthy on port
+  3000; development operator testing is now pending before any `main` promotion.
 
 - **Unreleased staging candidate — RX driver evolution:** The `staging` branch
   is aligned with current `main`/`next.72` and contains an unpromoted driver
@@ -58,8 +61,9 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
   ledger survival after warehouse reset. The complete staging API/database/
   security/report/relay suite and isolated browser-click suite pass on
   2026-08-18. The local staging preview is healthy on port 3100 with its visible
-  staging marker and sanitized production-scale data. Do not promote this
-  candidate to `develop` until operator approval.
+  staging marker and sanitized production-scale data. The candidate was
+  promoted to `develop` after operator approval; do not promote it to `main`
+  until development testing is approved.
 
 - **Official v4.0.0-next.72** was published on 2026-08-17 from `main` commit
   `a53f4833820e47136352ae1c0bb415151beacf8d`. PostgreSQL lifecycle CI, CodeQL,
