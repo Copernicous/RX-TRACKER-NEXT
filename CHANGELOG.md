@@ -7,6 +7,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+## [4.0.0-next.71]
+
+### Changed
+
+- Multi-RX RX Profile Sync cards now hide already-matching historical rows by
+  default; administrators can enable **Show matching records too (history
+  review)** when a complete historical comparison is needed.
+
 ## [4.0.0-next.70]
 
 ### Fixed

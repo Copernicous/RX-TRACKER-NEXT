@@ -141,7 +141,7 @@ exports.list = async (req, res) => {
         const showAll = String(req.query.showAll || '') === 'true';
         const requestedDifferenceFields = new Set(String(req.query.differenceFields || '').split(',').filter(field => SYNC_FIELDS.includes(field)));
         const rxHistoryScope = ['single', 'multi'].includes(req.query.rxHistoryScope) ? req.query.rxHistoryScope : 'all';
-        const includeMatchingHistory = showAll || rxHistoryScope === 'multi';
+        const includeMatchingHistory = showAll;
         const pageSize = Math.min(Math.max(Number.parseInt(req.query.pageSize, 10) || 100, 1), 250);
         const cursor = decodeCursor(req.query.cursor);
         const recordConditions = [activeRecordCondition()];
@@ -185,7 +185,7 @@ exports.list = async (req, res) => {
                 const patient = rx.Patient;
                 const differences = fieldsToSync(rx, patient);
                 const patientRxCount = patientRxCounts.get(Number(patient.id)) || 0;
-                    if ((includeMatchingHistory || differences.length) && (!requestedDifferenceFields.size || differences.some(field => requestedDifferenceFields.has(field)) || (rxHistoryScope === 'multi' && !differences.length)) && (rxHistoryScope === 'all' || (rxHistoryScope === 'single' && patientRxCount === 1) || (rxHistoryScope === 'multi' && patientRxCount > 1)) && rowMatchesProfileSearch({
+                    if ((includeMatchingHistory || differences.length) && (!requestedDifferenceFields.size || differences.some(field => requestedDifferenceFields.has(field))) && (rxHistoryScope === 'all' || (rxHistoryScope === 'single' && patientRxCount === 1) || (rxHistoryScope === 'multi' && patientRxCount > 1)) && rowMatchesProfileSearch({
                         patientName: `${patient.firstName || ''} ${patient.lastName || ''}`.trim() || `Patient #${patient.id}`,
                         patientCode: patient.patientCode || '', patientId: patient.id, rxId: rx.id,
                         differences, patientValues: valuesWithLabels(auditValues(patient), labels), rxValues: valuesWithLabels(auditValues(rx), labels)
