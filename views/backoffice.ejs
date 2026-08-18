@@ -215,7 +215,7 @@
         @keyframes spin { to { transform: rotate(360deg); } }
 
         /* ── Tab Nav ── */
-        .tab-nav { display:grid; grid-template-columns:repeat(15,minmax(0,1fr)); gap:0.25rem; margin-bottom:1.5rem; background:var(--surface-2); border:1px solid var(--border); border-radius:10px; padding:0.3rem; }
+        .tab-nav { display:grid; grid-template-columns:repeat(16,minmax(0,1fr)); gap:0.25rem; margin-bottom:1.5rem; background:var(--surface-2); border:1px solid var(--border); border-radius:10px; padding:0.3rem; }
         .tab-btn { min-width:0; border:none; border-radius:7px; padding:0.55rem 0.15rem; font-size:0.8rem; line-height:1.25; overflow-wrap:normal; word-break:normal; font-weight:600; cursor:pointer; transition:all 0.2s; color:var(--text-muted); background:transparent; }
         .tab-btn.active { background:var(--surface); color:var(--text); box-shadow:0 1px 8px rgba(0,0,0,0.3); }
         .tab-btn i { margin-right:0.4rem; }
@@ -388,7 +388,7 @@
 <div class="main-wrap" id="mainWrap" style="display:none">
     <div class="warning-banner">
         <i class="fas fa-exclamation-triangle"></i>
-        <p><strong>Danger Zone.</strong> Deletions are <strong>permanent and irreversible</strong>. Use <strong>View</strong> to inspect data and <strong>Export CSV</strong> to back up before purging.</p>
+        <p><strong>Danger Zone.</strong> Deletions are <strong>permanent and irreversible</strong>. Use <strong>View</strong> and <strong>Export CSV</strong> for inspection, and confirm a recoverable PostgreSQL backup through the protected backup workflow before purging.</p>
     </div>
 
     <!-- BO-10: Maintenance Mode Banner (shown when active) -->
@@ -410,14 +410,15 @@
 
     <!-- Tab Navigation -->
     <div class="tab-nav">
-        <button class="tab-btn active" id="tabTables" onclick="switchTab('tables')"><i class="fas fa-table"></i>Tables &amp; Data</button>
+        <button class="tab-btn active" id="tabTables" onclick="switchTab('tables')"><i class="fas fa-table"></i>Managed Tables</button>
         <button class="tab-btn" id="tabSchema" onclick="switchTab('schema')"><i class="fas fa-project-diagram"></i>Schema</button>
         <button class="tab-btn" id="tabOrphans" onclick="switchTab('orphans')"><i class="fas fa-unlink"></i>Orphans</button>
         <button class="tab-btn" id="tabDupes" onclick="switchTab('dupes')"><i class="fas fa-users"></i>Duplicates</button>
+        <button class="tab-btn" id="tabRxSync" onclick="switchTab('rxsync')"><i class="fas fa-arrows-rotate"></i>RX Profile Sync</button>
         <button class="tab-btn" id="tabAudit" onclick="switchTab('audit')"><i class="fas fa-history"></i>Audit Log</button>
         <button class="tab-btn" id="tabCcCleanup" onclick="switchTab('cccleanup')"><i class="fas fa-headset"></i>Call Center Cleanup</button>
         <button class="tab-btn" id="tabSettings" onclick="switchTab('settings')"><i class="fas fa-cog"></i>Settings</button>
-        <button class="tab-btn" id="tabBackups" onclick="switchTab('backups')"><i class="fas fa-save"></i>Backups</button>
+        <button class="tab-btn" id="tabBackups" onclick="switchTab('backups')"><i class="fas fa-file-csv"></i>CSV Snapshots</button>
         <button class="tab-btn" id="tabHealth" onclick="switchTab('health')"><i class="fas fa-heartbeat"></i>Health</button>
         <button class="tab-btn" id="tabLocks" onclick="switchTab('locks')"><i class="fas fa-lock"></i>Locks</button>
         <button class="tab-btn" id="tabUsers" onclick="switchTab('users')"><i class="fas fa-user-shield"></i>Users</button>
@@ -428,14 +429,14 @@
     </div>
 
     <!-- Stats Overview -->
-    <div class="section-title"><span><i class="fas fa-chart-bar me-1"></i>Database Overview</span><span id="lastRefresh" style="font-size:0.67rem;font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-muted)"></span></div>
+    <div class="section-title"><span><i class="fas fa-chart-bar me-1"></i>Managed Deletion Overview</span><span id="lastRefresh" style="font-size:0.67rem;font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-muted)"></span></div>
     <div class="stats-row" id="statsRow"></div>
 
     <!-- Tables tab content -->
     <div id="tablesContent">
         <!-- Table Grid -->
         <div class="section-title mt-1">
-            <span><i class="fas fa-table me-1"></i>Tables</span>
+            <span><i class="fas fa-table me-1"></i>Managed Tables <small style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-muted)">&mdash; curated deletion controls, not every database table</small></span>
             <div style="display:flex;gap:0.4rem">
                 <button class="btn-bo btn-bo-outline" onclick="selectAll(true)"  style="padding:0.22rem 0.55rem;font-size:0.7rem"><i class="fas fa-check-double me-1"></i>Select All</button>
                 <button class="btn-bo btn-bo-outline" onclick="selectAll(false)" style="padding:0.22rem 0.55rem;font-size:0.7rem"><i class="fas fa-times me-1"></i>None</button>
@@ -528,6 +529,37 @@
         </div>
     </div>
 
+    <!-- ══ RX Profile Sync Panel ══ -->
+    <div id="rxsyncContent" class="schema-wrap">
+        <div class="schema-card" style="padding:1rem">
+            <div style="display:flex;justify-content:space-between;gap:1rem;align-items:flex-start;flex-wrap:wrap">
+                <div>
+                    <div style="font-size:1rem;font-weight:700"><i class="fas fa-arrows-rotate me-1" style="color:#a5b4fc"></i>RX Profile Sync</div>
+                    <div style="font-size:.75rem;color:var(--text-muted);margin-top:.25rem">Select any RX record and copy Pharmacy or Transport values from its current Patient profile. This never changes the Patient profile, workflow, or future RX records.</div>
+                </div>
+                <div style="display:flex;gap:.45rem;flex-wrap:wrap;justify-content:flex-end">
+                    <button class="btn-bo btn-bo-primary" id="rxSyncBulkBtn" disabled onclick="bulkSyncRxProfiles()"><i class="fas fa-check-double me-1"></i>Sync checked RX</button>
+                    <button class="btn-bo btn-bo-outline" id="rxSyncDisplayExportBtn" disabled onclick="exportRxProfileSyncDisplay()"><i class="fas fa-table me-1"></i>Export Displayed Scan</button>
+                    <button class="btn-bo btn-bo-outline" id="rxSyncAllExportBtn" onclick="exportAllRxProfileSync()"><i class="fas fa-file-csv me-1"></i>Export All Scan</button>
+                    <button class="btn-bo btn-bo-outline" onclick="exportRxProfileSyncHistory()"><i class="fas fa-file-csv me-1"></i>Export Sync History</button>
+                    <button class="btn-bo btn-bo-outline" onclick="loadRxProfileSync()"><i class="fas fa-sync-alt me-1"></i>Scan</button>
+                </div>
+            </div>
+            <div style="display:flex;gap:.6rem;flex-wrap:wrap;margin-top:1rem">
+                <input id="rxSyncSearch" class="schema-search" style="margin:0;min-width:260px;flex:1" placeholder="Search patient, RX #, Pharmacy/Transport, or Not set" onkeydown="if(event.key==='Enter')loadRxProfileSync()">
+                <label style="font-size:.75rem;display:flex;gap:.4rem;align-items:center"><input id="rxSyncShowAll" type="checkbox" onchange="loadRxProfileSync()"> Show matching records too (history review)</label>
+                <label style="font-size:.75rem;display:flex;gap:.4rem;align-items:center">Rows per page <select id="rxSyncPageSize" onchange="loadRxProfileSync()"><option value="50">50</option><option value="100" selected>100</option><option value="250">250</option></select></label>
+                <label style="font-size:.75rem;display:flex;gap:.3rem;align-items:center">Difference <select id="rxSyncDifferenceFilter" onchange="loadRxProfileSync()"><option value="">All types</option><option value="pharmacyId">Pharmacy</option><option value="patientTransportCompanyId">Patient Transport</option><option value="pharmacyTransportCompanyId">Pharmacy Transport</option></select></label>
+                <label style="font-size:.75rem;display:flex;gap:.3rem;align-items:center">Patient RX history <select id="rxSyncHistoryScope" onchange="loadRxProfileSync()"><option value="all">All patients</option><option value="single">1 active RX only</option><option value="multi">2+ active RX only</option></select></label>
+                <label style="font-size:.75rem;display:flex;gap:.4rem;align-items:center">History order <select id="rxSyncHistoryOrder" onchange="sortRxProfileSyncRows()"><option value="oldest">Oldest first</option><option value="newest">Newest first</option></select></label>
+            </div>
+            <div style="margin-top:.7rem;padding:.65rem .8rem;border:1px solid rgba(59,130,246,.25);background:rgba(59,130,246,.07);border-radius:7px;font-size:.74rem;color:var(--text-muted)">
+                <strong style="color:#bfdbfe">Clinic is inherited from the Patient profile</strong>; it is shown for reference and does not need an RX update. Search a patient to review all of that patient's pending RX records, choose historical order, then select only the RX records to sync. Each sync writes RX History and Audit Log entries with the selected fields and before/after values.
+            </div>
+        </div>
+        <div id="rxSyncStatus" style="margin:.8rem 0;font-size:.78rem;color:var(--text-muted)"></div>
+        <div id="rxSyncList"><p style="text-align:center;padding:3rem;color:var(--text-muted)">Click <strong>Scan</strong> to find RX records that differ from their Patient profile.</p></div>
+    </div>
     <!-- ══ Audit Log Panel ══ -->
     <div id="auditContent" class="schema-wrap">
         <!-- Filters -->
@@ -691,12 +723,64 @@
     <div id="backupsContent" class="schema-wrap">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:0.75rem">
             <div>
-                <div style="font-size:1rem;font-weight:700">Backup Manager</div>
-                <div style="font-size:0.75rem;color:var(--text-muted)">CSV export backups of all database tables</div>
+                <div style="font-size:1rem;font-weight:700">Database CSV Review Snapshots</div>
+                <div style="font-size:0.75rem;color:var(--text-muted)">One review CSV for every public PostgreSQL base table, including empty tables</div>
             </div>
             <div style="display:flex;gap:0.5rem">
                 <button class="btn-bo btn-bo-outline" onclick="loadBackups()"><i class="fas fa-sync-alt me-1"></i>Refresh</button>
-                <button class="btn-bo btn-bo-primary" id="createBackupBtn" onclick="createBackup()"><i class="fas fa-save me-1"></i>Create Backup Now</button>
+                <button class="btn-bo btn-bo-primary" id="createBackupBtn" onclick="createBackup()"><i class="fas fa-file-csv me-1"></i>Create Review Snapshot</button>
+            </div>
+        </div>
+        <div style="font-size:0.74rem;color:var(--text-muted);margin-bottom:1rem;padding:0.7rem 0.85rem;border-left:3px solid #f59e0b;background:rgba(245,158,11,0.05)">
+            These CSV files are for inspection and controlled export only and can contain sensitive application data. They do not preserve PostgreSQL schema, constraints, sequences, ownership, or settings and cannot be used as a database restore. Use the PostgreSQL backup workflow for recoverable backups.
+        </div>
+        <div class="schema-card" style="padding:1rem;border-color:rgba(245,158,11,0.35);background:rgba(245,158,11,0.03);margin-bottom:1rem">
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.75rem;margin-bottom:0.75rem">
+                <div>
+                    <div style="font-size:0.98rem;font-weight:700;color:#fbbf24">Delivery Log Archive Cleanup</div>
+                    <div id="dlArchiveStats" style="font-size:0.72rem;color:var(--text-muted);margin-top:0.2rem">Loading status...</div>
+                </div>
+                <button class="btn-bo btn-bo-outline" onclick="loadDeliveryLogArchiveStats()" style="font-size:0.78rem"><i class="fas fa-sync-alt me-1"></i>Refresh</button>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:0.65rem;align-items:end">
+                <div>
+                    <label style="font-size:0.72rem;color:var(--text-muted);font-weight:700;text-transform:uppercase;letter-spacing:.06em">Older than (days)</label>
+                    <input type="number" id="dlArchivePurgeDays" class="schema-search" style="margin:0" min="1" max="3650" value="30">
+                </div>
+                <div>
+                    <label style="font-size:0.72rem;color:var(--text-muted);font-weight:700;text-transform:uppercase;letter-spacing:.06em">Type to confirm</label>
+                    <input type="text" id="dlArchivePurgeConfirm" class="schema-search" style="margin:0" placeholder='Type PURGE DELIVERY LOGS'>
+                </div>
+                <div>
+                    <button class="btn-bo btn-bo-danger" id="dlArchivePurgeBtn" onclick="purgeDeliveryLogArchives()"><i class="fas fa-trash-alt me-1"></i>Purge Old Archives</button>
+                </div>
+            </div>
+            <div style="margin-top:.75rem;padding-top:.75rem;border-top:1px dashed rgba(148,163,184,0.2)">
+                <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.75rem;margin-bottom:.6rem">
+                    <div id="dlArchiveSelectionSummary" style="font-size:0.74rem;color:var(--text-muted)">No archives loaded</div>
+                    <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+                        <button id="dlArchiveRefreshBtn" class="btn-bo btn-bo-outline" onclick="loadDeliveryLogArchiveManager()" style="font-size:.78rem"><i class="fas fa-sync-alt me-1"></i>Refresh Archives</button>
+                        <button id="dlArchiveDeleteSelectedBtn" class="btn-bo btn-bo-danger" onclick="deleteSelectedDeliveryLogArchives()" disabled style="font-size:.78rem"><i class="fas fa-trash-alt me-1"></i>Delete Selected</button>
+                    </div>
+                </div>
+                <div style="overflow:auto">
+                    <table class="bo-table" style="width:100%;border-collapse:collapse;font-size:.73rem">
+                        <thead>
+                            <tr style="background:var(--surface-2)">
+                                <th style="width:34px;text-align:center"><input type="checkbox" id="dlArchiveSelectAll" onchange="toggleDlArchiveSelectAll(this.checked)"></th>
+                                <th style="text-align:left">Archive</th>
+                                <th style="text-align:left">Contents</th>
+                                <th style="text-align:left">Period</th>
+                                <th style="text-align:left">Integrity</th>
+                                <th style="text-align:left">Saved</th>
+                                <th style="width:120px;text-align:center">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="dlArchiveList">
+                            <tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--text-muted)">Loading delivery log archives...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
         <div id="backupPath" style="font-size:0.72rem;color:var(--text-muted);margin-bottom:1rem;display:flex;align-items:center;gap:0.4rem"><i class="fas fa-folder-open"></i><span id="backupPathText">Loading...</span></div>
@@ -713,6 +797,7 @@
                 <!-- BO-04: Countdown badge -->
                 <span id="healthCountdown" style="font-size:0.72rem;color:var(--text-muted);display:none"><i class="fas fa-clock me-1"></i><span id="healthCountdownNum">30</span>s</span>
                 <button class="btn-bo btn-bo-outline" onclick="manualHealthRefresh()"><i class="fas fa-sync-alt me-1"></i>Refresh</button>
+                <button class="btn-bo btn-bo-outline" onclick="loadRoutineDbChecks()" id="routineChecksRunBtn"><i class="fas fa-clipboard-check me-1"></i>Run Routine Checks</button>
                 <!-- BO-03: Health export button -->
                 <button class="btn-bo btn-bo-outline" id="healthExportBtn" onclick="exportHealthCSV()" style="display:none;font-size:0.78rem"><i class="fas fa-file-csv me-1"></i>Export CSV</button>
             </div>
@@ -720,6 +805,16 @@
         <div id="healthCards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:0.875rem;margin-bottom:1.25rem"></div>
         <div style="font-size:0.8rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:0.5rem">Table Sizes</div>
         <div id="healthTables"><p style="text-align:center;padding:3rem;color:var(--text-muted)"><i class="fas fa-spinner fa-spin me-2"></i>Loading...</p></div>
+
+        <div style="margin-top:1.25rem">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;margin-bottom:0.5rem">
+                <div style="font-size:0.9rem;font-weight:700">Routine Database Checks</div>
+                <span id="routineChecksOverall" class="schema-pill" style="display:none;padding:0.2rem 0.6rem;border-radius:999px;font-size:0.72rem"></span>
+            </div>
+            <div id="routineChecksSummary" style="font-size:0.78rem;color:var(--text-muted);margin-bottom:0.7rem">Click “Run Routine Checks” to perform the latest maintenance-risk review.</div>
+            <div id="routineChecksBrief" style="display:none;margin-bottom:0.85rem"></div>
+            <div id="routineChecksList"><p style="text-align:center;padding:2rem;color:var(--text-muted)"><i class="fas fa-search me-2"></i>No checks loaded.</p></div>
+        </div>
     </div>
 
     <!-- ══ Lock Manager Panel ══ -->

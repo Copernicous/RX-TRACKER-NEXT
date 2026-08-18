@@ -7,6 +7,399 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+## [4.0.0-next.72]
+
+### Fixed
+
+- Multi-RX RX Profile Sync now treats each patient as one complete history
+  card. In history-review mode, every active RX record for a qualifying
+  multi-RX patient appears together, including matching rows; a patient card
+  cannot be split by row pagination or a difference filter.
+- Patient-card headers now state the total active RX count, the number that
+  need synchronization, and whether matching history is shown or hidden.
+
+## [4.0.0-next.71]
+
+### Changed
+
+- Multi-RX RX Profile Sync cards now hide already-matching historical rows by
+  default; administrators can enable **Show matching records too (history
+  review)** when a complete historical comparison is needed.
+
+## [4.0.0-next.70]
+
+### Fixed
+
+- Fixed an RX Profile Sync scan error in `next.69` caused by a mismatched
+  multi-RX history response field name.
+
+## [4.0.0-next.69]
+
+### Fixed
+
+- Multi-RX patient review in Backoffice RX Profile Sync now displays every
+  active historical RX record in each patient card, including rows that already
+  match the Patient profile. Only differing rows remain selectable for sync.
+
+## [4.0.0-next.68]
+
+### Added
+
+- Added a Backoffice RX Profile Sync Patient RX history filter for all patients,
+  patients with exactly one active RX record, or patients with two or more
+  active RX records.
+
+## [4.0.0-next.67]
+
+### Added
+
+- Grouped Backoffice RX Profile Sync rows by patient with a visible card header
+  showing the patient's total active RX-record count and a historical-review
+  warning for patients with multiple active RX records.
+
+## [4.0.0-next.66]
+
+### Added
+
+- Added a Backoffice RX Profile Sync Difference filter for Pharmacy, Patient
+  Transport, or Pharmacy Transport pending changes.
+
+## [4.0.0-next.65]
+
+### Added
+
+- Backoffice **RX Profile Sync** search now matches pending-difference field
+  names, displayed Pharmacy and Transport values, and `Not set` / `not-set`,
+  in addition to Patient and RX identifiers.
+- RX Profile Sync results can be ordered oldest-first or newest-first so an
+  administrator can select the exact historical RX records to synchronize.
+
+## [4.0.0-next.64]
+
+### Fixed
+
+- Fixed Backoffice **RX Profile Sync** scans stopping after the oldest 1,000
+  active RX records. Results now support selectable page sizes and Previous /
+  Next navigation through the complete active RX set, plus a complete-scan CSV
+  export; synchronization remains limited to 100 selected RX records per
+  audited batch.
+
+## [4.0.0-next.63]
+
+### Added
+
+- Added a compact **Stage Completion** filter to RX Records. It matches the
+  selected historical workflow action and its own completion date range on the
+  same tracking record, so a date from another stage cannot qualify a result.
+  Records that have since progressed to a later Current Stage remain included
+  when their selected historical stage matches.
+- Kept **Current Stage** as the primary filter and retained its existing date
+  range under **More date filters (Current Stage Date)**. The two concepts can
+  be combined and must both match.
+
+### Fixed
+
+- Corrected affected pharmacy and clinic name-plus-address selector labels and
+  several patient display, print-card, RX-history, and API fallback strings
+  that could render mojibake characters instead of their intended separators
+  or labels.
+- Updated the lockfile-only transitive `brace-expansion` and `ip-address`
+  packages to their patched releases required by the release audit gate.
+
+### Removed
+
+- Removed the limited global search control and its `Ctrl+K` shortcut from the
+  application header. Dedicated searches within Patients, RX Records,
+  Backoffice, and other modules remain available.
+
+### Safety
+
+- No database migration, schema change, business-data rewrite, configured RX
+  Action change, or proxy/security configuration change is included. The new
+  historical filter uses existing workflow-tracking history and active action
+  records only.
+
+## [4.0.0-next.62]
+
+### Added
+
+- Added a compact **Results at a glance** table above Routine Database Checks.
+  Each database-health section now shows its status, a plain-language meaning,
+  and the immediate action or waiting period before the full technical evidence.
+
+### Safety
+
+- The summary interprets the existing read-only results only. It does not alter
+  database-health queries, thresholds, severities, recommendations, PostgreSQL
+  configuration, schema, business data, or backup behavior.
+
+## [4.0.0-next.61]
+
+### Changed
+
+- New Delivery Log controlled copies use a durable, never-reused incremental
+  reference scoped independently to each pharmacy, such as
+  `LOG-20260801-0007`. Deleting an archive does not rewind its counter, and
+  reprints retain the originally assigned reference.
+- Reports and Backoffice archive lists show the scoped copy references while
+  retaining the opaque internal archive ID and SHA-256 evidence.
+- Browser previews use an explicit `DRAFT-YYYYMMDD` label until the server
+  archives the document and assigns its controlled-copy reference.
+
+### Security
+
+- Removed the combined RX count and cross-pharmacy `P01`/`P02` group ordinal
+  from new company-facing references. One pharmacy can no longer infer the
+  size or position of other pharmacies in the same print batch.
+- Sequence allocation fails closed if its protected local ledger is unreadable.
+  Existing archive integrity, audit, idempotency, and authorization controls
+  remain enforced.
+
+### Safety
+
+- Existing archived records and their integrity hashes are unchanged. There is
+  no schema migration, business-data rewrite, configured RX Action change, or
+  proxy, Kasm, Cloudflare, CORS, cookie, or HTTPS configuration change.
+
+## [4.0.0-next.60]
+
+### Fixed
+
+- Fixed Project Control option 25 activation on NSSM installations where the
+  command-line representation of `AppEnvironmentExtra` did not round-trip as
+  exact independent environment entries. The guarded workflow now writes and
+  verifies the service's native `REG_MULTI_SZ` registry value directly after
+  clearing stale values.
+
+### Safety
+
+- Existing dump verification, isolated database naming, restricted runtime
+  role, migration ledger, business fingerprint, one-time health token,
+  executable, process, listener, and exact database checks remain enforced.
+- No database migration, business-data rewrite, production GUI restore change,
+  or Kasm, Cloudflare, CORS, HTTPS, or reverse-proxy change.
+
+## [4.0.0-next.59]
+
+### Fixed
+
+- Fixed Project Control option 25 activation and automatic recovery when NSSM
+  already contains an older test-copy database in `AppEnvironmentExtra`.
+  The guarded workflow now clears the stale multi-value environment block
+  before writing and verifying the exact `.env` snapshot and one-time health
+  token, preventing duplicate old/new `DB_NAME` entries.
+- Fixed the Backups-page GUI restore safety backup on Windows when `DB_PORT`
+  is absent from the service environment. Database identity resolution no
+  longer treats the case-insensitive HTTP `PORT=3000` value as PostgreSQL's
+  port; PostgreSQL correctly defaults to `5432` unless `DB_PORT` is explicit.
+
+### Safety
+
+- The restored isolated database is unchanged by this correction. Exact
+  database, service executable, process, listener, runtime-role, migration,
+  checksum-ledger, and one-time local health verification remain required.
+- No schema migration, business-data rewrite, production GUI restore change,
+  or Kasm, Cloudflare, CORS, cookie, HTTPS, trust-proxy, or reverse-proxy
+  change.
+
+## [4.0.0-next.58]
+
+### Fixed
+
+- Fixed Delivery Log printing so the strict server archive validator accepts
+  the top-level `_csrf` transport field added by the authenticated browser
+  fetch helper. Archive creation now completes before printing instead of
+  failing with an unsupported-field error.
+- Applied the same compatibility correction to audited archive reprints and
+  Backoffice retention cleanup.
+- Delayed controlled-copy printing until the frozen archive stylesheet, fonts,
+  and browser paint are ready. A missing or failed stylesheet now blocks
+  printing instead of producing an unformatted spreadsheet-like copy, and the
+  stylesheet URL remains correct through path-prefixed proxy access.
+- Added the existing per-process build token to the affected RX Records and
+  Reports scripts so proxied browsers do not reuse the pre-fix print code.
+- Simplified Delivery Log archive lists in Reports and Backoffice. Collapsed
+  rows now show a short archive code, useful timestamps and RX counts, period,
+  and integrity status; full references, hashes, and selection evidence remain
+  available under an expandable Evidence control.
+
+### Security
+
+- CSRF verification remains enforced by the existing middleware. Only the
+  recognized top-level transport field is accepted; it is excluded from
+  archive and audit data, while unknown and nested fields remain rejected.
+- Stored archive records and their integrity-bound carbon-copy artifacts are
+  unchanged; compact archive labels are presentation-only.
+
+### Safety
+
+- No schema migration, configured RX Action change, business-data rewrite, or
+  Kasm, Cloudflare, CORS, cookie, HTTPS, trust-proxy, or reverse-proxy change.
+
+## [4.0.0-next.57]
+
+### Added
+
+- Added server-canonical Delivery Log carbon-copy archives that re-read the
+  selected RX records, pharmacies, patients, and workflow state before saving
+  an integrity-bound local JSON record and exact server-rendered artifact.
+  Reprints verify that stored artifact against the frozen renderer instead of
+  trusting browser HTML.
+- Added bounded archive capacity controls and recovery-aware, audited cleanup
+  for individual, selected, and retention-based archive removal.
+- Added Project Control `2.2.2` verification for option 25 that proves the
+  exact NSSM application, configured database, PostgreSQL `current_database()`,
+  listener PID, executable path, and service parent before accepting or
+  activating an isolated test copy.
+- Added catalog-driven Backoffice CSV Review Snapshots for every public
+  PostgreSQL base table, including header-only files for empty tables, with a
+  manifest that identifies the sensitive export as non-restorable.
+- Added guarded `rx-db validate-backup-recoverability` maintenance command for
+  optional isolated restore validation outside the read-only Backoffice UI.
+
+### Changed
+
+- Delivery Log archives are created only when Print is requested. Creation,
+  reprint, delete, and purge operations fail closed when persistence,
+  integrity, authorization, or audit requirements are not satisfied.
+- Delivery Log generation and reprint stamps now use the local PC/browser
+  event time, while named browser time-zone evidence keeps historical dates
+  consistent across local date boundaries and daylight-saving changes.
+- Backoffice Routine Database Checks are read-only and evidence-based. Index
+  recommendations require representative statistics and query evidence,
+  large-column checks report bounded storage metrics, checker failures remain
+  checker errors, and backup creation is reported separately from persisted
+  isolated restore-validation evidence.
+- Database backup creation, missing-backup monitoring, and recoverability
+  evidence now require the current configured and actual PostgreSQL database
+  identity; legacy or other-database records cannot satisfy current coverage.
+- Backup schedulers can be disabled explicitly for tests or externally managed
+  schedules without leaving cron handles running in application regressions.
+- Backoffice now labels its 16-table destructive whitelist as Managed Tables;
+  schema and review-snapshot coverage remain catalog-driven across all tables.
+- Tagged release publication now requires a successful PostgreSQL lifecycle
+  push run for the exact tagged `main` commit and matching version-specific
+  release notes.
+- PostgreSQL lifecycle CI now exercises the full isolated backup restore,
+  fingerprint verification, evidence persistence, and temporary cleanup path.
+
+### Security
+
+- Delivery Log archive input is bounded and server-authoritative; arbitrary
+  client-supplied printable HTML is neither trusted nor stored in the generic
+  audit log.
+- Project Control's detailed local health proof uses a retry-safe, one-time
+  loopback verification token that is removed from the service environment
+  after validation. The public health response remains unchanged.
+
+### Safety
+
+- No schema migration, configured RX Action change, business-data rewrite, or
+  Kasm, Cloudflare, FortiGate/reverse-proxy behavior change.
+- Production deployment is unconfirmed. Validate the official compiled release
+  on the testing server before using Project Control for a separately approved
+  production update.
+
+## [4.0.0-next.56]
+
+### Fixed
+
+- Fixed routine database-health routine checks for PostgreSQL catalog compatibility by removing reliance on `stats_reset` in `pg_stat_*` checks (older PG catalogs still expose valid lifecycle timing from vacuum/analyze fields).
+- Fixed oversized-column sizing diagnostics so per-column `pg_column_size` aggregates are computed with valid PostgreSQL aggregate syntax.
+- Hardened routine check resilience for catalog-query edge cases by adding per-column sizing failure handling and avoiding hard failure of entire large-column scans.
+
+### Safety
+
+- No schema migrations, constrained roles, or business-data rewrites.
+
+## [4.0.0-next.55]
+
+### Added
+
+- Added resilient routine database checks for production-grade evidence:
+  - configurable thresholds via environment variables (for slow queries, missing/unused indexes, large columns, dead tuples, and backup recency),
+  - confidence-based severity with explicit evidence and required human-approval flags,
+  - informational findings for low-risk observations (including small-table dead-tuples).
+
+### Changed
+
+- Improved missing-index candidate logic to use query evidence, table size/age/context signals, and stronger filtering before recommendation.
+- Improved unused-index detection to ignore constrained/system-owned patterns, honor observation windows, and suppress tiny candidate indexes by size.
+- Hardened oversized-column inspection with schema/table/column-safe metadata checks and row/byte/null metrics per candidate.
+- Added explicit failure-path reporting for routine check query errors (checker errors instead of non-actionable warnings).
+- Added optional backup recoverability validation against a temporary restore DB (schema row counts and basic connectivity validation), with cleanup safeguards.
+- Enhanced health endpoint output with active database connection details and runtime context.
+
+### Safety
+
+- No schema migrations or business-data rewrite in this patch.
+
+## [4.0.0-next.54]
+
+### Fixed
+
+- Hardened Project Control option 25 default target naming by normalizing stacked restore/test/copy suffixes from `DB_NAME` before appending `_restore_test`, preventing repeated restore suffix stacking after multiple test-copy operations.
+- Added a normalization regression self-test in Project Control restore helper so this behavior remains protected.
+- Preserved the same fallback uniqueness behavior when the normalized base still resolves to the active database.
+
+### Safety
+
+- No schema changes, database migrations, or business-data rewrites.
+
+## [4.0.0-next.53]
+
+### Fixed
+
+- Fixed Project Control option 25 (restore verified dump into isolated test copy) default naming so repeated restores no longer generate stacked names like `restore_restore_test`.
+- Maintained an automatic escape hatch to a unique test database name when deduplication still resolves to the active database.
+- Updated embedded Project Control version marker to `2.2.1` for release attribution in Project Control status screens.
+
+## [4.0.0-next.52]
+
+### Added
+
+- Added a Back Office Routine Database Checks tool on the Health tab with one-click execution and on-screen findings for maintenance-risk areas.
+
+### Changed
+
+- Added routine check coverage for SQL-backed risk categories used for ops review: slow query patterns, missing/excessive index candidates, dead-row growth, oversized text/json/bytea columns, and backup status health.
+- Added per-check severity summaries (ok/warning/critical) and a concise last-run dashboard for ongoing routine inspection.
+
+### Safety
+
+- No schema change, no migration, and no business-data rewrite.
+
+## [4.0.0-next.51]
+
+### Added
+
+- Added per-archive deletion in Back Office: Delivery Log Archive list now supports
+  row selection, "Select All", and "Delete Selected" actions in addition to
+  existing single-file deletes.
+
+### Changed
+
+- Delivery Log Archive cleanup in Back Office now shows selectable archive rows so
+  administrators can remove only unwanted logs while preserving others.
+
+### Safety
+
+- No schema change, no migration, and no business-data rewrite.
+
+## [4.0.0-next.50] - 2026-07-31
+
+### Added
+
+- Added a Back Office cleanup tool for Delivery Log Archives (Reports archive records), including age-based purging and explicit confirmation safeguards.
+
+### Changed
+
+- Added master-admin archive maintenance endpoints for listing, single-item deletion, and age-based retention cleanup of delivery-log archives.
+
+### Safety
+
+- No schema change, no database migration, and no business-data rewrite.
+
 ## [4.0.0-next.49] - 2026-07-31
 
 ### Added

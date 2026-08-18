@@ -130,6 +130,38 @@ async function main(argv = process.argv.slice(2)) {
         break;
       }
 
+      case 'validate-backup-recoverability': {
+        process.env.BACKUP_SCHEDULER_ENABLED = 'false';
+        process.env.SITE_BACKUP_SCHEDULER_ENABLED = 'false';
+        const database = String(process.env.DB_NAME || '').trim();
+        if (!database || options.confirmDatabase !== database) {
+          throw new Error(`Refusing recoverability validation: --confirm-database must exactly match DB_NAME (${database || 'unset'}).`);
+        }
+        if (options.acknowledgeIsolatedMaintenance !== true) {
+          throw new Error('Refusing recoverability validation without --acknowledge-isolated-maintenance.');
+        }
+
+        printTarget();
+        console.log('[DB] Both application backup schedulers are forced off for this isolated maintenance process.');
+        console.log('[DB] The source database will remain untouched; restore validation uses a generated temporary database only.');
+        const backupService = require('../services/backupService');
+        const result = await backupService.validateLatestBackupRecoverability({
+          elevatedIsolatedOperation: true,
+          confirmDatabase: database,
+          requireFreshBackupHours: options.requireFreshHours
+        });
+        if (result.status === 'passed'
+            && (!/^rx_health_validate_[a-z0-9_]+$/.test(String(result.tempDatabase || ''))
+              || result.tempDatabase === database)) {
+          throw new Error('Recoverability validation returned an unsafe temporary database target; refusing to accept evidence.');
+        }
+        console.log(`[DB] Recoverability validation: ${result.status}.`);
+        console.log(`[DB] Backup=${result.backupFile || 'none'} temporaryDatabase=${result.tempDatabase || 'none'}.`);
+        console.log(`[DB] ${result.message || 'No validation detail returned.'}`);
+        if (result.status !== 'passed' || result.evidencePersisted !== true || result.cleanupSucceeded !== true) exitCode = 2;
+        break;
+      }
+
       case 'bootstrap-admin': {
         printTarget();
         await assertDatabaseReady(db);
@@ -281,8 +313,9 @@ function parseOptions(args) {
   const options = {};
   for (let i = 0; i < args.length; i += 1) {
     const arg = args[i];
-    if (arg === '--master') {
-      options.master = true;
+    if (arg === '--master' || arg === '--acknowledge-isolated-maintenance') {
+      const key = arg.slice(2).replace(/-([a-z])/g, (_, letter) => letter.toUpperCase());
+      options[key] = true;
       continue;
     }
     if (!arg.startsWith('--')) throw new Error(`Unexpected argument: ${arg}`);
@@ -341,6 +374,7 @@ RX Tracker NEXT database lifecycle
   rx-db configure-runtime-role --role <name> --confirm-database <exact DB_NAME>
   rx-db inspect-runtime-role --role <name>
   rx-db verify-runtime-role --role <name>
+  rx-db validate-backup-recoverability --confirm-database <exact DB_NAME> --acknowledge-isolated-maintenance [--require-fresh-hours <hours>]
   rx-db bootstrap-admin --username <name> [--email <address>] [--master]
   rx-db provision
   rx-db restore-copy --dump <path> --confirm-database <exact DB_NAME>
@@ -352,6 +386,8 @@ RX Tracker NEXT database lifecycle
 
 bootstrap-admin reads the password from RX_BOOTSTRAP_ADMIN_PASSWORD by default.
 Use --password-env <VARIABLE_NAME> to select a different environment variable.
+Backup recoverability validation requires temporary DB_USER/DB_PASS credentials with CREATEDB or superuser privilege.
+It forces both schedulers off, restores only to a generated temporary database, persists bound evidence, and never overwrites DB_NAME.
 No command prints database, administrator, SIP, relay, or encryption secrets.
 `);
 }

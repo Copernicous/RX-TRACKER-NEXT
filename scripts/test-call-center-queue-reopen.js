@@ -1,6 +1,8 @@
 if (!process.env.DB_NAME) {
     require('dotenv').config({ override: true });
 }
+process.env.BACKUP_SCHEDULER_ENABLED = 'false';
+process.env.SITE_BACKUP_SCHEDULER_ENABLED = 'false';
 
 const assert = require('assert');
 const { Op } = require('sequelize');

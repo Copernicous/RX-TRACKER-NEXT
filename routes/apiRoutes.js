@@ -15,7 +15,9 @@ const sessionIdleService = require('../services/sessionIdleService');
 const { getWritableRoot } = require('../utils/runtimePaths');
 const { spawn } = require('child_process');
 const rateLimit = require('express-rate-limit');
+const deliveryLogPdfController = require('../controllers/deliveryLogPdfController');
 const deliveryOutcomeController = require('../controllers/deliveryOutcomeController');
+const deliveryLogArchiveController = require('../controllers/deliveryLogArchiveController');
 
 const phoneAccountSaveLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
@@ -31,6 +33,14 @@ const softphoneRelayPairLimiter = rateLimit({
     standardHeaders: true,
     legacyHeaders: false,
     message: { error: 'Too many softphone pairing attempts. Try again in 15 minutes.' }
+});
+const deliveryLogArchiveCreateLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 30,
+    standardHeaders: true,
+    legacyHeaders: false,
+    keyGenerator: req => 'delivery-log-user-' + String(req.user && req.user.id || 'anonymous'),
+    message: { error: 'Too many delivery-log archive requests. Try again in 15 minutes.' }
 });
 
 function getCookie(cookieHeader, name) {
@@ -63,6 +73,7 @@ const emailReportController  = require('../controllers/emailReportController');
 const patientLockController  = require('../controllers/patientLockController');
 const medicationCatalogController = require('../controllers/medicationCatalogController');
 const adminController = require('../controllers/adminController');
+const rxProfileSyncController = require('../controllers/rxProfileSyncController');
 const snapshotController = require('../controllers/snapshotController');
 const roleController = require('../controllers/roleController');
 const documentController = require('../controllers/documentController');
@@ -178,6 +189,25 @@ function restrictCallCenterApi(req, res, next) {
         reason: 'call_center_url_injection'
     });
     return res.status(403).json({ message: 'Call Center users can only access the Call Center workspace.' });
+}
+
+async function requireDeliveryLogPrintPermission(req, res, next) {
+    try {
+        if (!req.user) return res.status(401).json({ message: 'Unauthorized' });
+        const rxPermission = await rbac.getRequestPermission(req, 'rx_records');
+        if (rxPermission.visible && rxPermission.canPrint) return next();
+        const reportsPermission = await rbac.getRequestPermission(req, 'reports');
+        if (reportsPermission.visible && reportsPermission.canPrint) return next();
+        recordPermissionDenied(req, {
+            moduleKey: 'rx_records|reports',
+            requiredAction: 'print',
+            reason: 'missing_delivery_log_print'
+        });
+        return res.status(403).json({ message: 'Access denied: delivery-log print permission is required.' });
+    } catch (error) {
+        console.error('[delivery-log permissions] error:', error.message);
+        return res.status(500).json({ error: 'Could not evaluate delivery-log print permission.' });
+    }
 }
 
 // â”€â”€ Public routes (no auth required) â€” must be declared BEFORE router.use(auth) â”€â”€
@@ -369,6 +399,15 @@ router.get('/reports/patients', rbac.requirePermission('reports', 'read'), repor
 router.get('/reports/patient-rx-detail', rbac.requirePermission('reports', 'export'), reportController.getPatientRxDetailReport);
 router.get('/reports/rx-receipts', rbac.requirePermission('reports', 'read'), reportController.getRXReceiptReport);
 router.get('/reports/rx-actions', rbac.requirePermission('reports', 'read'), reportController.getRXActionReport);
+router.get('/reports/rx-delivery-log-interactive.pdf', rbac.requirePermission('reports', 'export'), deliveryLogPdfController.download);
+router.get('/reports/delivery-log-archives',       rbac.requirePermission('reports', 'print'), deliveryLogArchiveController.list);
+router.post('/reports/delivery-log-archives',      rbac.requirePermission('rx_records', 'print'), deliveryLogArchiveCreateLimiter, deliveryLogArchiveController.create);
+router.get('/reports/delivery-log-archives/:id',   rbac.requirePermission('reports', 'print'), deliveryLogArchiveController.get);
+router.get('/reports/delivery-log-archives/:id/print', requireDeliveryLogPrintPermission, deliveryLogArchiveController.print);
+router.post('/reports/delivery-log-archives/:id/reprint', requireDeliveryLogPrintPermission, deliveryLogArchiveController.reprint);
+router.get('/admin/delivery-log-archives', masterOnly, deliveryLogArchiveController.list);
+router.delete('/admin/delivery-log-archives/:id', masterOnly, requireStagingDestructiveConfirmation, deliveryLogArchiveController.delete);
+router.delete('/admin/delivery-log-archives', masterOnly, requireStagingDestructiveConfirmation, deliveryLogArchiveController.purge);
 router.get('/reports/call-center', rbac.requirePermission('reports', 'read'), reportController.getCallCenterReport);
 router.get('/reports/call-center-attempts', rbac.requirePermission('reports', 'read'), reportController.getCallCenterAttemptReport);
 router.get('/reports/call-center-supervisor', rbac.requirePermission('reports', 'read'), reportController.getCallCenterSupervisorSummary);
@@ -419,7 +458,7 @@ router.post('/session/activity', auth, (req, res) => {
 router.post('/heartbeat', auth, (req, res) => {
     const { currentPage, currentUrl } = req.body || {};
     // Capture real IP â€” x-forwarded-for first (FortiGate/proxy), then direct
-    const ip = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.ip || 'â€”';
+    const ip = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.ip || '-';
     sessionTracker.upsert(req.user.id, {
         username:    req.user.username,
         firstName:   req.user.firstName  || '',
@@ -706,6 +745,10 @@ router.get('/admin/orphans',            masterOnly, adminController.getOrphans);
 router.delete('/admin/orphans',         masterOnly, requireStagingDestructiveConfirmation, adminController.cleanOrphans);
 router.get('/admin/duplicates',         masterOnly, adminController.getDuplicates);
 router.get('/admin/audit-logs',         masterOnly, adminController.getAuditLogs);
+router.get('/admin/rx-profile-sync', masterOnly, rxProfileSyncController.list);
+router.get('/admin/rx-profile-sync/export', masterOnly, rxProfileSyncController.exportHistory);
+router.post('/admin/rx-profile-sync/bulk', masterOnly, rxProfileSyncController.bulkSync);
+router.post('/admin/rx-profile-sync/:rxId', masterOnly, rxProfileSyncController.sync);
 router.get('/admin/call-center-cleanup', masterOnly, adminController.getCallCenterCleanupPreview);
 router.delete('/admin/call-center-cleanup', masterOnly, requireStagingDestructiveConfirmation, adminController.purgeCallCenterCleanup);
 // System Settings
@@ -718,6 +761,7 @@ router.delete('/admin/backups/:name',   masterOnly, requireStagingDestructiveCon
 router.get('/admin/backups/:name/:file',masterOnly, adminController.downloadBackupFile);
 // System Health
 router.get('/admin/health',             masterOnly, adminController.getHealth);
+router.get('/admin/routine-db-checks',   masterOnly, adminController.getRoutineDbChecks);
 router.get('/admin/log-dashboard',      masterOnly, adminController.getLogDashboard);
 // Lock Manager
 router.get('/admin/locks',              masterOnly, adminController.getLocks);
@@ -751,7 +795,7 @@ router.get('/git-log', auth, adminOnly, (req, res) => {
 
     // git is only available in dev mode (not inside server.exe snapshot)
     if (IS_PKG) {
-        return res.json({ available: false, commits: [], reason: 'Running as compiled exe â€” git log not available' });
+        return res.json({ available: false, commits: [], reason: 'Running as compiled exe - git log not available' });
     }
 
     try {

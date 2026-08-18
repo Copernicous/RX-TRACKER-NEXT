@@ -28,12 +28,13 @@ function Initialize-Paths {
     $script:InstallPath = [IO.Path]::GetFullPath((Split-Path $script:AppPath -Parent))
     $script:EnvPath = Join-Path $script:AppPath '.env'
     $script:RxDbPath = Join-Path $script:AppPath 'rx-db.exe'
+    $script:ServerPath = [IO.Path]::GetFullPath((Join-Path $script:AppPath 'server.exe'))
     $script:StateRoot = Join-Path $script:InstallPath 'deployment-state'
     $script:BackupRoot = Join-Path $script:InstallPath 'backups\test-copy-restore'
     $script:LockPath = Join-Path $script:StateRoot 'test-copy-restore.lock'
     $script:ReceiptPath = Join-Path $script:StateRoot 'test-copy-restore.json'
 
-    foreach ($required in @($script:EnvPath, $script:RxDbPath)) {
+    foreach ($required in @($script:EnvPath, $script:RxDbPath, $script:ServerPath)) {
         if (-not (Test-Path -LiteralPath $required -PathType Leaf)) {
             Fail "Required compiled installation file not found: $required"
         }
@@ -95,8 +96,11 @@ function Assert-SafeTarget([string]$Target, [string]$Current) {
     if ($Target -notmatch '^[a-zA-Z0-9_]{1,63}$') {
         Fail 'The target database may contain only letters, numbers, and underscores.'
     }
-    if ($Target -notmatch '(?i)(test|copy|sandbox|rehearsal|scratch)') {
-        Fail 'The target database name must visibly contain test, copy, sandbox, rehearsal, or scratch.'
+    if ($Target -notmatch '(?i)(?:^|_)(?:test|copy|sandbox|rehearsal|scratch)(?:_|$)') {
+        Fail 'The target database name must contain a delimited test, copy, sandbox, rehearsal, or scratch token.'
+    }
+    if ($Target -match '(?i)(?:^|_)(?:prod|production|live)(?:_|$)') {
+        Fail 'The target database name must not contain a production or live token.'
     }
     if ($Target -eq $Current -or $Target -in @('postgres', 'template0', 'template1')) {
         Fail "Refusing unsafe restore target: $Target"
@@ -173,6 +177,95 @@ function Find-Nssm {
     return $found.FullName
 }
 
+function Select-FirstNativeValue([object[]]$OutputLines) {
+    foreach ($line in @($OutputLines)) {
+        $clean = ([string]$line).Replace([string][char]0, '').Trim().Trim('"').Trim()
+        if ($clean) { return $clean }
+    }
+    return $null
+}
+
+function Get-NssmEnvironmentPairs {
+    $parametersPath = "Registry::HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\$ServiceName\Parameters"
+    try {
+        $output = @((Get-ItemProperty -LiteralPath $parametersPath -Name AppEnvironmentExtra `
+            -ErrorAction Stop).AppEnvironmentExtra)
+    } catch {
+        if ($_.Exception.Message -match '(?i)property AppEnvironmentExtra does not exist|cannot find path') {
+            return @()
+        }
+        Fail 'Could not read the NSSM service environment from the service registry.'
+    }
+    $pairs = @()
+    foreach ($line in $output) {
+        $expanded = ([string]$line).Replace([string][char]0, "`n")
+        foreach ($entry in ($expanded -split "`r?`n")) {
+            $clean = $entry.Trim()
+            if ($clean) { $pairs += $clean }
+        }
+    }
+    return $pairs
+}
+
+function Assert-ServiceTargetsApp {
+    $service = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
+    if (-not $service) { Fail "Windows service $ServiceName was not found." }
+    $nssm = Find-Nssm
+    $configured = Select-FirstNativeValue @(& $nssm get $ServiceName Application 2>$null)
+    if ($LASTEXITCODE -ne 0 -or -not $configured) { Fail 'Could not read the NSSM service application.' }
+    if ([IO.Path]::GetFullPath($configured) -ine $script:ServerPath) {
+        Fail "Service points to $configured instead of $($script:ServerPath)."
+    }
+    return $service
+}
+
+function Get-ServiceEnvironmentValue([string[]]$Pairs, [string]$Name) {
+    $values = @()
+    foreach ($pair in $Pairs) {
+        if ($pair -match "(?i)^$([regex]::Escape($Name))=(.*)$") {
+            $value = $matches[1].Trim()
+            if (($value.StartsWith('"') -and $value.EndsWith('"')) -or
+                ($value.StartsWith("'") -and $value.EndsWith("'"))) {
+                if ($value.Length -ge 2) { $value = $value.Substring(1, $value.Length - 2) }
+            }
+            $values += $value
+        }
+    }
+    return $values
+}
+
+function Assert-ServiceEnvironmentPairValues(
+    [string[]]$Pairs,
+    [string]$ExpectedDatabase,
+    [string]$ExpectedToken = '',
+    [switch]$AllowDotEnvFallback
+) {
+    $databaseValues = @(Get-ServiceEnvironmentValue $Pairs 'DB_NAME')
+    $usesDotEnvFallback = $AllowDotEnvFallback -and -not $ExpectedToken -and $databaseValues.Count -eq 0
+    if (-not $usesDotEnvFallback -and
+        ($databaseValues.Count -ne 1 -or $databaseValues[0] -cne $ExpectedDatabase)) {
+        Fail "NSSM service environment does not target the exact database $ExpectedDatabase."
+    }
+    $tokenValues = @(Get-ServiceEnvironmentValue $pairs 'RX_LOCAL_HEALTH_TOKEN')
+    if ($ExpectedToken) {
+        if ($tokenValues.Count -ne 1 -or $tokenValues[0] -cne $ExpectedToken) {
+            Fail 'NSSM service environment does not contain the expected one-time health token.'
+        }
+    } elseif ($tokenValues.Count -ne 0) {
+        Fail 'NSSM service environment retained a local health token.'
+    }
+}
+
+function Assert-ServiceEnvironmentTargetsDatabase(
+    [string]$ExpectedDatabase,
+    [string]$ExpectedToken = '',
+    [switch]$AllowDotEnvFallback
+) {
+    $pairs = @(Get-NssmEnvironmentPairs)
+    Assert-ServiceEnvironmentPairValues $pairs $ExpectedDatabase $ExpectedToken `
+        -AllowDotEnvFallback:$AllowDotEnvFallback
+}
+
 function Get-EnvironmentPairs([string]$PathValue) {
     $pairs = @()
     foreach ($line in [IO.File]::ReadAllLines($PathValue)) {
@@ -183,34 +276,100 @@ function Get-EnvironmentPairs([string]$PathValue) {
     return $pairs
 }
 
-function Set-ServiceEnvironment {
+function Set-ServiceEnvironment([string]$ExpectedDatabase, [string]$VerificationToken = '') {
+    Assert-ServiceTargetsApp | Out-Null
     $nssm = Find-Nssm
-    $pairs = @(Get-EnvironmentPairs $script:EnvPath)
+    $pairs = @(Get-EnvironmentPairs $script:EnvPath | Where-Object { $_ -notmatch '(?i)^RX_LOCAL_HEALTH_TOKEN=' })
+    if ($VerificationToken) { $pairs += "RX_LOCAL_HEALTH_TOKEN=$VerificationToken" }
     if (-not $pairs.Count) { Fail 'The application .env contains no service settings.' }
-    & $nssm set $ServiceName AppEnvironmentExtra $pairs | Out-Null
-    if ($LASTEXITCODE -ne 0) { Fail 'Could not synchronize the Windows service environment.' }
+    & $nssm reset $ServiceName AppEnvironmentExtra | Out-Null
+    if ($LASTEXITCODE -ne 0) { Fail 'Could not clear the previous Windows service environment.' }
+    $parametersPath = "Registry::HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\$ServiceName\Parameters"
+    try {
+        New-ItemProperty -LiteralPath $parametersPath -Name AppEnvironmentExtra `
+            -PropertyType MultiString -Value ([string[]]$pairs) -Force -ErrorAction Stop | Out-Null
+    } catch {
+        Fail "Could not synchronize the Windows service environment registry: $($_.Exception.Message)"
+    }
+    Assert-ServiceEnvironmentTargetsDatabase $ExpectedDatabase $VerificationToken
 }
 
-function Wait-ForHealth([string]$ExpectedVersion, [int]$TimeoutSeconds = 60) {
+function Get-TestCopyBaseDatabase([string]$DatabaseName) {
+    $markers = 'restore|fresh|test|copy|sandbox|rehearsal|scratch'
+    $pattern = "(?i)_(?:$markers)(?:_(?:$markers|[0-9]+))*$"
+    return [regex]::Replace([string]$DatabaseName, $pattern, '')
+}
+
+function New-LocalHealthToken {
+    $bytes = New-Object byte[] 32
+    $generator = [Security.Cryptography.RandomNumberGenerator]::Create()
+    try { $generator.GetBytes($bytes) } finally { $generator.Dispose() }
+    return ([BitConverter]::ToString($bytes)).Replace('-', '').ToLowerInvariant()
+}
+
+function Assert-HealthProcessBinding([object]$Health, [int]$Port) {
+    $pidValue = 0
+    if (-not [int]::TryParse([string]$Health.pid, [ref]$pidValue) -or $pidValue -le 0) {
+        Fail 'Health response did not contain a valid process ID.'
+    }
+    $listener = Get-NetTCPConnection -State Listen -LocalPort $Port -ErrorAction SilentlyContinue |
+        Where-Object { [int]$_.OwningProcess -eq $pidValue } | Select-Object -First 1
+    if (-not $listener) { Fail "Health process $pidValue does not own listening port $Port." }
+
+    $process = Get-CimInstance Win32_Process -Filter "ProcessId = $pidValue" -ErrorAction Stop
+    if (-not $process -or -not $process.ExecutablePath -or
+        [IO.Path]::GetFullPath([string]$process.ExecutablePath) -ine $script:ServerPath) {
+        Fail "Health process $pidValue is not the intended executable $($script:ServerPath)."
+    }
+    $escapedServiceName = $ServiceName.Replace("'", "''")
+    $serviceInstance = Get-CimInstance Win32_Service -Filter "Name = '$escapedServiceName'" -ErrorAction Stop
+    if (-not $serviceInstance -or [int]$serviceInstance.ProcessId -le 0 -or
+        [int]$process.ParentProcessId -ne [int]$serviceInstance.ProcessId) {
+        Fail "Health process $pidValue is not the child of Windows service $ServiceName."
+    }
+}
+
+function Wait-ForHealth(
+    [string]$ExpectedVersion,
+    [string]$ExpectedDatabase = '',
+    [string]$VerificationToken = '',
+    [int]$TimeoutSeconds = 60
+) {
     $config = Read-DotEnv $script:EnvPath
     $port = if ($config['PORT']) { [int]$config['PORT'] } else { 3000 }
     $uri = "http://127.0.0.1:$port/api/healthz"
+    $headers = @{ 'X-Forwarded-Proto' = 'https' }
+    if ($VerificationToken) { $headers['X-RX-Local-Health-Token'] = $VerificationToken }
     $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
     do {
         Start-Sleep 1
-        try { $health = Invoke-RestMethod $uri -Headers @{ 'X-Forwarded-Proto' = 'https' } -TimeoutSec 5 }
+        try { $health = Invoke-RestMethod $uri -Headers $headers -TimeoutSec 5 }
         catch { $health = $null }
         if ($health -and $health.status -eq 'ok' -and $health.database -eq 'ok' -and
             [string]$health.version -eq $ExpectedVersion) {
+            if ($VerificationToken) {
+                if (-not $health.localVerification) {
+                    continue
+                }
+                if ([string]$health.localVerification.databaseName -cne $ExpectedDatabase) {
+                    Fail "Health verification did not confirm exact database $ExpectedDatabase."
+                }
+                $reportedExecutable = [string]$health.localVerification.executablePath
+                if (-not $reportedExecutable -or
+                    [IO.Path]::GetFullPath($reportedExecutable) -ine $script:ServerPath) {
+                    Fail 'Health verification did not confirm the intended server executable.'
+                }
+            }
+            Assert-HealthProcessBinding $health $port
             Write-Ok "Health check passed: version=$($health.version), database=ok, port=$port."
-            return
+            return $health
         }
     } while ((Get-Date) -lt $deadline)
     Fail "RX Tracker did not become healthy at $uri."
 }
 
 function Stop-ServiceSafe {
-    $service = Get-Service $ServiceName -ErrorAction Stop
+    $service = Assert-ServiceTargetsApp
     if ($service.Status -ne 'Stopped') {
         Stop-Service $ServiceName
         $service.WaitForStatus('Stopped', [TimeSpan]::FromSeconds(30))
@@ -218,11 +377,12 @@ function Stop-ServiceSafe {
 }
 
 function Start-ServiceSafe {
-    $service = Get-Service $ServiceName -ErrorAction Stop
+    $service = Assert-ServiceTargetsApp
     if ($service.Status -ne 'Running') {
         Start-Service $ServiceName
         $service.WaitForStatus('Running', [TimeSpan]::FromSeconds(30))
     }
+    Assert-ServiceTargetsApp | Out-Null
 }
 
 function Save-Receipt([hashtable]$Values) {
@@ -237,12 +397,50 @@ function Save-Receipt([hashtable]$Values) {
 function Invoke-SelfTest {
     Assert-SafeTarget 'patient_rx_restore_test' 'patient_rx_next'
     Assert-SafeTarget 'patient_rx_rehearsal_20260726' 'patient_rx_next'
-    $failed = $false
-    try { Assert-SafeTarget 'patient_rx_next' 'patient_rx_next' } catch { $failed = $true }
-    if (-not $failed) { Fail 'Self-test failed to reject the active database.' }
-    $failed = $false
-    try { Assert-SafeTarget 'patient_rx_archive' 'patient_rx_next' } catch { $failed = $true }
-    if (-not $failed) { Fail 'Self-test failed to reject an unmarked database name.' }
+    Assert-SafeTarget 'patient_rx_copy_2' 'patient_rx_next'
+    foreach ($case in @(
+        @{ Name = 'patient_rx_restore_restore_test'; Expected = 'patient_rx' },
+        @{ Name = 'patient_rx_restore_restore_restore_test'; Expected = 'patient_rx' },
+        @{ Name = 'patient_rx_restore_restore_test_2'; Expected = 'patient_rx' },
+        @{ Name = 'patient_rx_restore_3_restore'; Expected = 'patient_rx' },
+        @{ Name = 'patient_rx_restore_test_2_restore_test'; Expected = 'patient_rx' },
+        @{ Name = 'patient_rx_test_2_restore_3_copy_9'; Expected = 'patient_rx' },
+        @{ Name = 'patient_rx_2026_restore_test_2'; Expected = 'patient_rx_2026' },
+        @{ Name = 'patient_rx_contest_restore_test_2'; Expected = 'patient_rx_contest' },
+        @{ Name = 'patient_rx'; Expected = 'patient_rx' }
+    )) {
+        $actual = Get-TestCopyBaseDatabase $case.Name
+        if ($actual -cne $case.Expected) {
+            Fail "Restore base normalization failed for $($case.Name): expected $($case.Expected), received $actual."
+        }
+    }
+    foreach ($unsafe in @(
+        'patient_rx_next', 'patient_rx_archive', 'patient_rx_contest', 'patient_rx_copycat',
+        'patient_rx_testdata', 'patient_rx_sandboxed', 'patient_rx_scratchpad',
+        'patient_rx_rehearsal2', 'patient_rx_production_test', 'patient_rx_live_copy'
+    )) {
+        $failed = $false
+        try { Assert-SafeTarget $unsafe 'patient_rx_next' } catch { $failed = $true }
+        if (-not $failed) { Fail "Self-test failed to reject unsafe target $unsafe." }
+    }
+    $tokens = @($(New-LocalHealthToken), $(New-LocalHealthToken))
+    if ($tokens[0] -notmatch '^[a-f0-9]{64}$' -or $tokens[0] -ceq $tokens[1]) {
+        Fail 'One-time local health token generation failed.'
+    }
+    Assert-ServiceEnvironmentPairValues @() 'patient_rx_next' -AllowDotEnvFallback
+    foreach ($case in @(
+        @{ Pairs = @(); AllowFallback = $false },
+        @{ Pairs = @('DB_NAME=patient_rx_other'); AllowFallback = $true },
+        @{ Pairs = @('DB_NAME=patient_rx_next', 'DB_NAME=patient_rx_next'); AllowFallback = $true },
+        @{ Pairs = @('RX_LOCAL_HEALTH_TOKEN=stale'); AllowFallback = $true }
+    )) {
+        $failed = $false
+        try {
+            Assert-ServiceEnvironmentPairValues $case.Pairs 'patient_rx_next' '' `
+                -AllowDotEnvFallback:$case.AllowFallback
+        } catch { $failed = $true }
+        if (-not $failed) { Fail 'Service-environment fallback self-test accepted an unsafe database source.' }
+    }
     Write-Ok 'Test-copy restore safety self-test passed.'
 }
 
@@ -261,15 +459,17 @@ function Invoke-Interactive {
         }
         $previousDatabase = [string]$runtime['DB_NAME']
         $version = [string]((Get-Content (Join-Path $script:AppPath 'package.json') -Raw | ConvertFrom-Json).version)
-        Wait-ForHealth $version
+        Assert-ServiceTargetsApp | Out-Null
+        Assert-ServiceEnvironmentTargetsDatabase $previousDatabase -AllowDotEnvFallback
+        Wait-ForHealth $version | Out-Null
 
         $dumpInput = Read-Host 'Complete path to the PostgreSQL .dump file'
         $dumpPath = [IO.Path]::GetFullPath($dumpInput.Trim().Trim('"'))
         if (-not (Test-Path -LiteralPath $dumpPath -PathType Leaf)) { Fail "Dump file not found: $dumpPath" }
 
-        $defaultTarget = if ($previousDatabase -match '(?i)(_fresh|_test|_copy|_sandbox|_rehearsal|_scratch)$') {
-            ($previousDatabase -replace '(?i)(_fresh|_test|_copy|_sandbox|_rehearsal|_scratch)$', '') + '_restore_test'
-        } else { $previousDatabase + '_restore_test' }
+        $baseDatabase = Get-TestCopyBaseDatabase $previousDatabase
+        $defaultTarget = "${baseDatabase}_restore_test"
+        if ($defaultTarget -ieq $previousDatabase) { $defaultTarget = "${defaultTarget}_2" }
         $targetInput = Read-Host "Isolated target database [$defaultTarget]"
         $target = if ([string]::IsNullOrWhiteSpace($targetInput)) { $defaultTarget } else { $targetInput.Trim() }
         Assert-SafeTarget $target $previousDatabase
@@ -349,9 +549,11 @@ function Invoke-Interactive {
         Copy-Item $script:EnvPath $envBackup -Force
         Stop-ServiceSafe
         Set-DotEnvValue $script:EnvPath 'DB_NAME' $target
-        Set-ServiceEnvironment
+        $verificationToken = New-LocalHealthToken
+        Set-ServiceEnvironment $target $verificationToken
         Start-ServiceSafe
-        Wait-ForHealth $version
+        Set-ServiceEnvironment $target
+        Wait-ForHealth $version $target $verificationToken | Out-Null
         $activated = $true
         Save-Receipt @{ status = 'active'; at = (Get-Date).ToString('o')
             sourceDumpSha256 = (Get-FileHash $dumpPath -Algorithm SHA256).Hash
@@ -367,9 +569,11 @@ function Invoke-Interactive {
             try {
                 Stop-ServiceSafe
                 Copy-Item $envBackup $script:EnvPath -Force
-                Set-ServiceEnvironment
+                $recoveryToken = New-LocalHealthToken
+                Set-ServiceEnvironment $previousDatabase $recoveryToken
                 Start-ServiceSafe
-                if ($version) { Wait-ForHealth $version }
+                Set-ServiceEnvironment $previousDatabase
+                if ($version) { Wait-ForHealth $version $previousDatabase $recoveryToken | Out-Null }
                 Write-Ok "Recovered the prior service database configuration: $previousDatabase"
             } catch {
                 Write-Host "AUTOMATIC RECOVERY FAILED: $($_.Exception.Message)" -ForegroundColor Red

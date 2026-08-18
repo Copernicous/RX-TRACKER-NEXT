@@ -14,6 +14,7 @@
     var rrSortCol = 'id', rrSortDir = 'desc';
     var ccrSortCol = 'lastActionAt', ccrSortDir = 'desc';
     var ccaSortCol = 'dialedAt', ccaSortDir = 'desc';
+    var allDeliveryLogArchives = [];
     var prPage = 1, prPageSize = 10;
     var rrPage = 1, rrPageSize = 10;
     var ccrPage = 1, ccrPageSize = 10;
@@ -42,6 +43,10 @@
             const el = document.getElementById(id);
             if (el && typeof setRoleActionDisabled === 'function') setRoleActionDisabled(el, !reportPerms.canPrint, 'Print disabled for this role.');
         });
+        ['refreshDeliveryLogArchiveBtn'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el && typeof setRoleActionDisabled === 'function') setRoleActionDisabled(el, !reportPerms.canPrint, 'Print disabled for this role.');
+        });
     });
 
     // ─── Load Data ───────────────────────────────────────────────────────────────
@@ -50,7 +55,7 @@
             await loadReportLookups();
             setDefaultCallCenterDates();
             buildAutocompletes();
-            await Promise.all([renderPatientReport(), renderRxActionReport(), renderCallCenterReports()]);
+            await Promise.all([renderPatientReport(), renderRxActionReport(), renderCallCenterReports(), renderDeliveryLogArchiveRecords()]);
         } catch(e) {
             console.error('Report load error:', e);
         }
@@ -124,6 +129,282 @@
         if (!res) throw new Error('Report API authentication failed');
         if (!res.ok) throw new Error('Report API ' + res.status);
         return res.json();
+    }
+
+    function localDateToken(date) {
+        const d = date ? new Date(date) : new Date();
+        if (isNaN(d.getTime())) return 'invalid-date';
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+        return String(d.getFullYear()) + mm + dd;
+    }
+
+    function formatLocalDateTime(value) {
+        if (!value) return '';
+        const parsed = new Date(value);
+        if (isNaN(parsed.getTime())) return '';
+        return parsed.toLocaleString([], {
+            month: '2-digit',
+            day: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit'
+        });
+    }
+
+    function formatArchiveDate(value) {
+        if (!value) return '';
+        const parsed = new Date(value);
+        if (isNaN(parsed.getTime())) return '';
+        return parsed.toLocaleString([], {
+            month: '2-digit',
+            day: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    }
+
+    function deliveryLogArchiveCode(record) {
+        var copyReferences = Array.isArray(record && record.copyReferences) ? record.copyReferences : [];
+        if (copyReferences.length) return copyReferences.join(', ');
+        var id = String(record && record.id || '').replace(/[^0-9a-z]/gi, '').toUpperCase();
+        return id ? 'Archive ' + id.slice(0, 12) : 'Archive unavailable';
+    }
+
+    function deliveryLogArchiveContents(record) {
+        var counts = record && record.counts && typeof record.counts === 'object' ? record.counts : {};
+        var parts = [String(Number(record && record.total || 0)) + ' RX'];
+        [['received', 'received'], ['returned', 'returned'], ['pending', 'pending']].forEach(function(entry) {
+            var count = Number(counts[entry[0]] || 0);
+            if (count > 0) parts.push(String(count) + ' ' + entry[1]);
+        });
+        return parts.join(' / ');
+    }
+
+    function deliveryLogArchiveIntegrity(record) {
+        var reference = String(record && record.reference || '');
+        var verification = String(record && record.verification || '');
+        if (/corrupt|unsupported/i.test(reference) || /unavailable/i.test(verification)) {
+            return { label: 'Unavailable', className: 'text-bg-danger', printable: false };
+        }
+        if (Number(record && record.formatVersion || 1) >= 2 && /^SHA256-[a-f0-9]{64}$/i.test(verification)) {
+            return { label: 'Verified', className: 'text-bg-success', printable: true };
+        }
+        return { label: 'Legacy', className: 'text-bg-secondary', printable: true };
+    }
+
+    function deliveryLogArchiveEvidence(record) {
+        var evidence = [
+            ['Reference', record && record.reference],
+            ['Verification', record && record.verification],
+            ['Artifact hash', record && record.artifactHash],
+            ['Selection evidence', record && record.filters],
+            ['Format version', record && record.formatVersion]
+        ].filter(function(entry) { return entry[1] !== undefined && entry[1] !== null && String(entry[1]) !== ''; });
+        return '<details class="mt-1"><summary class="small text-muted" style="cursor:pointer">Evidence</summary>' +
+            '<div class="small mt-2 text-break" style="min-width:16rem;max-width:30rem">' +
+            evidence.map(function(entry) {
+                return '<div class="mb-1"><strong>' + escHtml(entry[0]) + ':</strong> <code>' + escHtml(String(entry[1])) + '</code></div>';
+            }).join('') +
+            '</div></details>';
+    }
+
+    function fetchDeliveryLogArchives() {
+        return fetchReportJson('/api/reports/delivery-log-archives');
+    }
+
+    function deliveryLogTimezoneName() {
+        try {
+            return String(Intl.DateTimeFormat().resolvedOptions().timeZone || '');
+        } catch (_error) {
+            return '';
+        }
+    }
+
+    function requestDeliveryLogReprint(recordId) {
+        var now = new Date();
+        return fetchWithAuth(window.rxUrl('/api/reports/delivery-log-archives/' + encodeURIComponent(recordId) + '/reprint'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                reprintedAtEpoch: now.getTime(),
+                timezoneOffsetMinutes: now.getTimezoneOffset(),
+                timezoneName: deliveryLogTimezoneName()
+            })
+        }).then(function(response) {
+            if (!response) throw new Error('Archive API authentication failed');
+            return response.json().catch(function() { return {}; }).then(function(data) {
+                if (!response.ok) throw new Error(data.error || 'Archive reprint audit failed (' + response.status + ')');
+                if (!data || !data.printUrl) throw new Error('Archive reprint API returned an incomplete response');
+                return data;
+            });
+        });
+    }
+
+    function fetchDeliveryLogPrintHtml(printUrl) {
+        return fetchWithAuth(window.rxUrl(printUrl), { cache: 'no-store' }).then(function(response) {
+            if (!response) throw new Error('Archive API authentication failed');
+            if (!response.ok) throw new Error('Archive print request failed (' + response.status + ')');
+            return response.text();
+        }).then(function(html) {
+            if (!html) throw new Error('Archived log is empty');
+            return html;
+        });
+    }
+
+    function stampDeliveryLogReprint(win, label) {
+        Array.prototype.slice.call(win.document.querySelectorAll('.audit-strip')).forEach(function(auditStrip) {
+            var reprintLine = auditStrip.querySelector('.reprint-stamp');
+            if (!reprintLine) {
+                reprintLine = win.document.createElement('span');
+                reprintLine.className = 'reprint-stamp';
+                auditStrip.appendChild(reprintLine);
+            }
+            reprintLine.textContent = 'Reprinted: ' + String(label || '');
+        });
+    }
+
+    function printAuthorizedDeliveryLogArchive(win) {
+        var body = win.document.body;
+        if (!body) throw new Error('Archived delivery log is not ready to print');
+        var timerApi = typeof win.setTimeout === 'function' ? win : window;
+        var cleanupTimer = null;
+        var cleanedUp = false;
+
+        function clearAuthorization() {
+            if (cleanedUp) return;
+            cleanedUp = true;
+            body.classList.remove('print-authorized');
+            if (cleanupTimer !== null && typeof timerApi.clearTimeout === 'function') timerApi.clearTimeout(cleanupTimer);
+            if (typeof win.removeEventListener === 'function') win.removeEventListener('afterprint', clearAuthorization);
+        }
+
+        win.focus();
+        body.classList.add('delivery-log-archive');
+        body.classList.add('print-authorized');
+        if (typeof win.addEventListener === 'function') win.addEventListener('afterprint', clearAuthorization);
+        cleanupTimer = timerApi.setTimeout(clearAuthorization, 60000);
+        try {
+            win.print();
+        } catch (error) {
+            clearAuthorization();
+            throw error;
+        }
+    }
+
+    function bindDeliveryLogArchiveActions(win, recordId) {
+        var printButton = win.document.getElementById('printReportBtn');
+        var closeButton = win.document.getElementById('closeReportBtn');
+        if (closeButton) closeButton.addEventListener('click', function() { win.close(); });
+        if (printButton) {
+            printButton.addEventListener('click', function() {
+                runDeliveryLogReprint(win, recordId, printButton);
+            });
+        }
+    }
+
+    function runDeliveryLogReprint(win, recordId, triggerButton) {
+        if (triggerButton && triggerButton.disabled) return Promise.resolve();
+        var originalLabel = triggerButton ? triggerButton.textContent : '';
+        if (triggerButton) {
+            triggerButton.disabled = true;
+            triggerButton.textContent = 'Preparing audited reprint...';
+        }
+        return requestDeliveryLogReprint(recordId).then(function(data) {
+            return fetchDeliveryLogPrintHtml(data.printUrl).then(function(html) {
+                win.document.open();
+                win.document.write(html);
+                win.document.close();
+                win.document.title = 'Delivery Log Archive';
+                win.document.body.classList.add('delivery-log-archive');
+                stampDeliveryLogReprint(win, data.reprinted);
+                bindDeliveryLogArchiveActions(win, recordId);
+                if (typeof window.rxWaitForDeliveryLogArchivePrintReady !== 'function') {
+                    throw new Error('Archived delivery log print preparation is unavailable. Refresh and try again.');
+                }
+                return window.rxWaitForDeliveryLogArchivePrintReady(win).then(function() {
+                    printAuthorizedDeliveryLogArchive(win);
+                });
+            });
+        }).catch(function(error) {
+            if (!triggerButton) win.close();
+            showToast((error.message || 'Could not audit archived delivery log reprint.') + ' Printing was blocked.', 'danger');
+        }).finally(function() {
+            if (triggerButton) {
+                triggerButton.disabled = false;
+                triggerButton.textContent = originalLabel;
+            }
+        });
+    }
+
+    async function renderDeliveryLogArchiveRecords() {
+        const tbody = document.getElementById('deliveryLogArchiveBody');
+        if (!tbody) return Promise.resolve();
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin me-2"></i>Loading...</td></tr>';
+
+        try {
+            const records = await fetchDeliveryLogArchives();
+            allDeliveryLogArchives = Array.isArray(records) ? records : [];
+            if (!allDeliveryLogArchives.length) {
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4">No archived delivery logs yet</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = allDeliveryLogArchives.map(function(record) {
+                const encodedId = encodeURIComponent(record.id || '');
+                const createdAt = record.createdAt ? formatArchiveDate(record.createdAt) : '';
+                const integrity = deliveryLogArchiveIntegrity(record);
+                return '<tr>' +
+                    '<td><div class="fw-semibold">' + escHtml(record.generated || createdAt || 'Unknown time') + '</div>' +
+                        '<div class="small text-muted">' + escHtml(deliveryLogArchiveCode(record)) + '</div>' +
+                        '<div class="small text-muted">Saved ' + escHtml(createdAt || 'Unknown') + '</div></td>' +
+                    '<td>' + escHtml(deliveryLogArchiveContents(record)) + '</td>' +
+                    '<td>' + escHtml(record.period || 'All dates') + '</td>' +
+                    '<td><span class="badge ' + integrity.className + '">' + escHtml(integrity.label) + '</span>' + deliveryLogArchiveEvidence(record) + '</td>' +
+                    '<td class="text-nowrap">' +
+                        '<button class="btn btn-sm btn-outline-primary delivery-log-reprint-btn" type="button" data-record-id="' + escHtml(encodedId) + '" ' +
+                            (integrity.printable ? '' : 'disabled title="This archive cannot be verified."') + '>' +
+                            '<i class="fas fa-print me-1"></i>Reprint' +
+                        '</button>' +
+                    '</td>' +
+                '</tr>';
+            }).join('');
+
+            tbody.querySelectorAll('.delivery-log-reprint-btn').forEach(function(button) {
+                button.addEventListener('click', function() {
+                    var recordId = button.getAttribute('data-record-id') || '';
+                    if (!recordId) return;
+                    openDeliveryLogArchivePrint(recordId);
+                });
+            });
+        } catch (_err) {
+            allDeliveryLogArchives = [];
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center text-danger py-4">Could not load archive history.</td></tr>';
+        }
+    }
+
+    function openDeliveryLogArchivePrint(recordId) {
+        var win = window.open('', '_blank');
+        if (!win) {
+            showToast('Popup blocked. Allow popups to open the archived delivery log.', 'warning');
+            return;
+        }
+        win.document.write('<!doctype html><html><head><meta charset="UTF-8"><title>Delivery Log Archive</title></head><body>Loading...</body></html>');
+        win.document.close();
+        runDeliveryLogReprint(win, recordId, null);
+    }
+
+    if (window.__RX_REPORTS_TEST_HOOKS__) {
+        window.__RX_REPORTS_TEST_HOOKS__.requestDeliveryLogReprint = requestDeliveryLogReprint;
+        window.__RX_REPORTS_TEST_HOOKS__.runDeliveryLogReprint = runDeliveryLogReprint;
+        window.__RX_REPORTS_TEST_HOOKS__.stampDeliveryLogReprint = stampDeliveryLogReprint;
+        window.__RX_REPORTS_TEST_HOOKS__.printAuthorizedDeliveryLogArchive = printAuthorizedDeliveryLogArchive;
+        window.__RX_REPORTS_TEST_HOOKS__.deliveryLogArchiveCode = deliveryLogArchiveCode;
+        window.__RX_REPORTS_TEST_HOOKS__.deliveryLogArchiveContents = deliveryLogArchiveContents;
+        window.__RX_REPORTS_TEST_HOOKS__.deliveryLogArchiveIntegrity = deliveryLogArchiveIntegrity;
+        window.__RX_REPORTS_TEST_HOOKS__.deliveryLogArchiveEvidence = deliveryLogArchiveEvidence;
     }
 
     function buildPatientReportParams(options) {
@@ -1426,6 +1707,13 @@
         if (attemptsPrint) attemptsPrint.addEventListener('click', function() { printReport('Automatic Call Attempts', 'ccAttemptReportTable'); });
         var supervisorPrint = document.getElementById('printCcSupervisorBtn');
         if (supervisorPrint) supervisorPrint.addEventListener('click', function() { printReport('Call Center Supervisor Summary', 'ccSupervisorPrintable'); });
+
+        var refreshArchive = document.getElementById('refreshDeliveryLogArchiveBtn');
+        if (refreshArchive) {
+            refreshArchive.addEventListener('click', function() {
+                renderDeliveryLogArchiveRecords();
+            });
+        }
     });
 
     function callCenterSupervisorExportRows(summary) {

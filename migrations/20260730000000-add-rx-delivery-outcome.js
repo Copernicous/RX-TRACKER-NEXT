@@ -22,9 +22,12 @@ module.exports = {
                 allowNull: true
             });
         }
-        await queryInterface.addIndex('RXRecords', ['deliveryOutcome'], {
-            name: 'rxrecords_delivery_outcome_idx'
-        });
+        const indexes = await queryInterface.showIndex('RXRecords');
+        if (!indexes.some(index => index.name === 'rxrecords_delivery_outcome_idx')) {
+            await queryInterface.addIndex('RXRecords', ['deliveryOutcome'], {
+                name: 'rxrecords_delivery_outcome_idx'
+            });
+        }
     },
 
     async down(queryInterface) {

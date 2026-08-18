@@ -179,6 +179,32 @@ const settingsService = require('./services/settingsService');
 
 const app = express();
 
+// Project Control may inject a one-use token into the NSSM process environment
+// while activating an isolated restore. It is consumed only by a direct
+// loopback health request and is removed from process.env immediately.
+let localHealthVerificationToken = String(process.env.RX_LOCAL_HEALTH_TOKEN || '');
+let localHealthVerificationInFlight = false;
+delete process.env.RX_LOCAL_HEALTH_TOKEN;
+
+function beginLocalHealthVerification(req) {
+    const remoteAddress = String(req.socket && req.socket.remoteAddress || '').toLowerCase();
+    const isLoopbackSocket = remoteAddress === '127.0.0.1'
+        || remoteAddress === '::1'
+        || remoteAddress === '::ffff:127.0.0.1';
+    if (!isLoopbackSocket || !requestSecurity.isLoopbackHost(req)
+        || !localHealthVerificationToken || localHealthVerificationInFlight) {
+        return false;
+    }
+
+    const supplied = Buffer.from(String(req.headers['x-rx-local-health-token'] || ''), 'utf8');
+    const expected = Buffer.from(localHealthVerificationToken, 'utf8');
+    const valid = supplied.length === expected.length
+        && supplied.length > 0
+        && crypto.timingSafeEqual(supplied, expected);
+    if (valid) localHealthVerificationInFlight = true;
+    return valid;
+}
+
 // [LOCK] Trust proxy -- 1st hop only (FortiGate). Prevents IP spoofing via forged X-Forwarded-For [LOCK]
 app.set('trust proxy', 1);
 
@@ -749,13 +775,43 @@ app.use('/api/import',  importRoutes);
 const PORT = process.env.PORT || 3000;
 app.get('/api/healthz', async (req, res) => {
     let database = 'ok';
-    try { await db.sequelize.authenticate(); } catch { database = 'unreachable'; }
-    res.status(database === 'ok' ? 200 : 503).json({
+    let localVerification = null;
+    const includeLocalVerification = beginLocalHealthVerification(req);
+    let localVerificationReady = false;
+    if (includeLocalVerification) {
+        res.once('finish', () => {
+            if (localVerificationReady) localHealthVerificationToken = '';
+            localHealthVerificationInFlight = false;
+        });
+        res.once('close', () => {
+            if (!res.writableFinished) localHealthVerificationInFlight = false;
+        });
+    }
+    try {
+        await db.sequelize.authenticate();
+        if (includeLocalVerification) {
+            const rows = await db.sequelize.query(
+                'SELECT current_database() AS "databaseName"',
+                { type: db.Sequelize.QueryTypes.SELECT }
+            );
+            localVerification = {
+                databaseName: rows[0] && rows[0].databaseName,
+                executablePath: process.execPath
+            };
+            localVerificationReady = true;
+        }
+    } catch {
+        database = 'unreachable';
+    }
+    if (res.destroyed) return;
+    const payload = {
         status: database === 'ok' ? 'ok' : 'degraded',
         project: 'RX-TRACKER', version: require('./package.json').version,
         pid: process.pid, uptimeMs: Math.round(process.uptime() * 1000),
         database, httpPort: Number(PORT)
-    });
+    };
+    if (localVerification) payload.localVerification = localVerification;
+    res.status(database === 'ok' ? 200 : 503).json(payload);
 });
 app.use('/api',         apiRoutes);
 app.use('/',            webAuth, userActivityLogger, webRoutes);   // webAuth decodes rxToken cookie -> res.locals.userPerms

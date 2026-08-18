@@ -1,6 +1,6 @@
 # RX Tracker NEXT project handoff
 
-Last updated: 2026-07-28
+Last updated: 2026-08-17
 
 This file is the sanitized continuity record for a future administrator or
 Codex session. It intentionally contains no credentials, `.env` values,
@@ -8,6 +8,292 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
 
+- **Official v4.0.0-next.72** was published on 2026-08-17 from `main` commit
+  `a53f4833820e47136352ae1c0bb415151beacf8d`. PostgreSQL lifecycle CI, CodeQL,
+  and the tagged compiled-release workflow passed. The published server ZIP
+  names, RX Softphone ZIP, and `SHA256SUMS.txt` assets are present. Multi-RX
+  RX Profile Sync now returns complete patient-history cards: a qualifying
+  multi-RX patient cannot have active RX rows split across page boundaries;
+  history-review mode shows every active RX row together and the card header
+  distinguishes pending changes from matching records. No migration or
+  business-data change. Production installation remains separately approved.
+
+- **Release candidate v4.0.0-next.71:** Multi-RX RX Profile Sync hides
+  already-matching historical rows by default; they appear only through the
+  explicit history-review checkbox. No migration or business-data change.
+
+- **Release candidate v4.0.0-next.70:** Restores RX Profile Sync scans broken
+  in `next.69` by correcting the multi-RX history response field name. No
+  migration or business-data change is included.
+
+- **Release candidate v4.0.0-next.69:** Multi-RX RX Profile Sync review now
+  shows every active historical RX record in each patient card, including
+  matching records, so the active-RX count and visible history agree. Matching
+  rows remain non-selectable. No migration or business-data change is included.
+
+- **Release candidate v4.0.0-next.68:** RX Profile Sync can filter by the
+  patient's total active RX history: all, exactly one active RX, or two or
+  more active RX records. No migration or business-data change is included.
+
+- **Release candidate v4.0.0-next.67:** RX Profile Sync groups displayed
+  pending records by patient and labels the patient's total active RX count,
+  warning when multiple historical RX records require review. No migration or
+  business-data change is included.
+
+- **Release candidate v4.0.0-next.65:** Backoffice RX Profile Sync search now
+  matches difference field names, displayed Pharmacy/Transport values, and
+  `Not set` / `not-set`, in addition to Patient and RX identifiers. It has no
+  migration, business-data change, or RX Action configuration change. Results
+  can be ordered oldest-first or newest-first before selecting the exact
+  historical RX records to synchronize.
+
+- Official **v4.0.0-next.64** was published on 2026-08-17 from `main` commit
+  `18190d4866cdf17e0d09b8eb8fe19eb9169cc32d`. PostgreSQL lifecycle CI,
+  CodeQL, and the tagged compiled-release workflow passed; published assets
+  were verified against `SHA256SUMS.txt`. It fixes RX Profile Sync scanning
+  beyond the oldest 1,000 active RX records and adds page-size selection,
+  Previous/Next navigation, and complete-scan CSV export. Production
+  installation remains separately approved.
+
+- **Historical candidate v4.0.0-next.64:** Backoffice RX Profile Sync no longer silently stops after
+  the first 1,000 oldest active RX records. The scan now supports selectable
+  page sizes and Previous / Next navigation through every active record,
+  continuing past matches when the default differences-only view is selected;
+  Export All Scan creates a complete CSV. The existing audited
+  maximum of 100 RX records per synchronization batch is unchanged. No
+  migration, business-data change, or RX Action configuration change is
+  included.
+
+- Official **v4.0.0-next.63** was published on 2026-08-12 from `main` commit
+  `bd21613d8ed04d5989827a9c09841e6c304ce03d`. The exact PostgreSQL lifecycle
+  CI, RX Softphone build, CodeQL, and tagged compiled-release workflow passed.
+  It adds the compact RX Records **Stage Completion** filter, corrects affected
+  display-text encoding, and removes the unused header global search. Stage
+  Completion binds the selected active workflow action and its completion date
+  to the same historical tracking row, so a date from another stage cannot
+  qualify a record; a record now at a later Current Stage still matches its
+  selected prior stage. Current Stage remains primary and its prior date
+  controls are retained under **More date filters**. The release lockfile pins
+  patched transitive `brace-expansion` and `ip-address` packages required by
+  the CI audit gate. There is no migration, schema change, business-data
+  rewrite, configured RX Action change, or proxy/security change. Verified
+  SHA-256 values: `server-update-4.0.0-next.63.zip` and
+  `RX-Tracker-NEXT-New-Server-4.0.0-next.63.zip`
+  `097ac1685df20f3eb78a68bfc4fd1a5837cdbf5d363109add195faf004967bec`,
+  `RxSoftphone-0.6.0-win-x64.zip`
+  `07ca58ec7da429b00731e29ad16bc75bd1169fd8b8443d320f950a1634202558`,
+  `server.exe` `4c50d910deaa05fc17ea8aef57de22e0b2ef414f20787199ea6f24cc6e86570e`,
+  and `rx-db.exe` `415a61a75dd1288b771119d995096cf6d4b072b1385130ae6b3d6043a06ad69e`.
+  Downloaded assets and embedded executables were verified; `server.exe --v`
+  reports `4.0.0-next.63` and `rx-db.exe help` succeeds. Production
+  installation and its currently installed version remain unconfirmed. Before
+  a separately authorized production update, use Project Control option **4**
+  to record the live version, then option **8**, then option **15** only.
+
+- **Future optional improvement (customer-requested only):** Do not add a
+  Non-Company visual marker by default. If a customer explicitly requests it,
+  consider a Backoffice-controlled badge beside flagged patient names in
+  Patient/RX reports and newly created Delivery Log controlled copies. The
+  control should affect presentation only, remain off unless requested, and
+  must not change classification, filtering, exports, or existing archives.
+
+- Official **v4.0.0-next.62** was published on 2026-08-01 from `main` commit
+  `6e01fa10fecd97bba75af4f6b05f2372d23a10c4`, adding a compact
+  **Results at a glance** interpretation table above Backoffice Routine
+  Database Checks. It summarizes status, meaning, and next action for each
+  existing read-only section while preserving all detailed evidence. It makes
+  no database query, threshold, PostgreSQL configuration, schema, business
+  data, backup, or proxy/security change. PostgreSQL lifecycle, CodeQL, and
+  compiled release workflows passed. Both official server ZIP names have
+  SHA-256 `26ec79e85aaa9766821a032a4a8ab2158860287f17a291fd28961763fa95f103`.
+  Production installation is pending.
+
+- Official **v4.0.0-next.61** was published on 2026-08-01 from `main` commit
+  `32d46c89379b295c597482419c5bed24b02ac798` for pharmacy-scoped Delivery Log
+  references. New controlled copies receive a durable, never-reused sequence
+  per pharmacy and no longer expose the combined batch RX count or a
+  cross-pharmacy `P01`/`P02` ordinal. Reprints retain the original reference;
+  cleanup cannot rewind the protected local counter ledger. Existing archives,
+  schema, business data, RX Actions, and proxy/security configuration are
+  unchanged. The PostgreSQL lifecycle, CodeQL, and compiled release workflows
+  passed. Both official server ZIP names have SHA-256
+  `3e1cec4853e1f1277db2637c2dc8db8fc81f4d2f38250115b6dfa0d500d2e9a8`.
+  Testing-server and production installation are pending.
+
+- Official **v4.0.0-next.60** was published on 2026-08-01 from `main` commit
+  `f0218f0b2618b858dfec28d5c041478a5ae94d04`, correcting the remaining Project
+  Control option 25 activation failure observed on the `.59` testing server.
+  The isolated restore, migrations, runtime-role verification, checksum ledger,
+  and business fingerprint passed; only NSSM activation failed. The workflow
+  now writes and verifies `AppEnvironmentExtra` as the native Windows
+  `REG_MULTI_SZ` registry value instead of depending on NSSM command-line
+  serialization. No database, production GUI restore, or proxy/security
+  configuration is changed. The PostgreSQL lifecycle CI and compiled release
+  workflow passed. Both official server ZIP names have SHA-256
+  `ce290ca1fe6631b84cfa9e81fcde0b35c52ab190566c420b234c9e4d778ce5ee`.
+  Testing-server retry and production installation are pending.
+
+- Official **v4.0.0-next.59** was published on 2026-08-01 from `main` commit
+  `112fe22f549b9f6a1540346d11b5792b5770e403` after the PostgreSQL lifecycle
+  CI, Project Control and backup regressions, updater self-test, CodeQL, and
+  tagged compiled-release workflow passed. It fixes Project Control option 25
+  activation and
+  automatic recovery after a verified isolated restore when NSSM retains an
+  older test-copy `DB_NAME` in its multi-value `AppEnvironmentExtra` block.
+  The workflow now resets that block before writing and verifying the exact
+  `.env` snapshot and one-time health token, preventing duplicate old/new
+  database values. It also fixes the Backups-page GUI restore safety backup on
+  Windows so a missing `DB_PORT` cannot case-insensitively resolve the HTTP
+  `PORT=3000`; PostgreSQL defaults to `5432` unless `DB_PORT` is explicit.
+  The restore, migrations, checksum ledger, runtime role, and
+  business fingerprint in the reported `.58` test all passed; only service
+  activation and recovery failed. This correction does not modify that
+  restored database, the production GUI restore workflow, schema, business
+  data, or proxy/security configuration. Published SHA-256 values:
+  `server-update-4.0.0-next.59.zip` and
+  `RX-Tracker-NEXT-New-Server-4.0.0-next.59.zip`
+  `b258e71367397813953f9af19d9c2f270908c24f32802d5e421b4e3feb8ba468`,
+  `RxSoftphone-0.6.0-win-x64.zip`
+  `4e263e71c52f275f54c186bafe53719ad7b84463672809de77828fd1d906b9de`,
+  `server.exe` `090de37b384e8d847fd99a8d8202534c22b8715b7db6562345750d20130afa57`,
+  and `rx-db.exe` `e37b62887f0093012c51b2539d07dc79f94ddc5fefd85c1a4cfa2def3babcdaf`.
+  Testing-server retry and production installation are not yet confirmed.
+
+- Official **v4.0.0-next.58** was published on 2026-08-01 from `main` commit
+  `bcb69aca29a05c8c8735f39e3dfa3bf1e4c99650` after the PostgreSQL lifecycle
+  CI, application regressions, updater self-test, browser rendering checks,
+  independent code review, CodeQL, and tagged compiled-release workflow
+  passed. It fixes a `.57` Delivery Log regression where the
+  strict archive create validator rejected the legitimate top-level `_csrf`
+  field added by the authenticated browser fetch helper, blocking both archive
+  persistence and printing. The correction also covers audited reprints and
+  Backoffice archive purges. Controlled-copy printing now waits for its frozen,
+  proxy-aware stylesheet, fonts, and browser paint and fails closed if styling
+  cannot be verified. The affected RX Records and Reports scripts use the
+  existing per-process build token to prevent stale proxy-cached code. Reports
+  and Backoffice show compact archive rows while
+  retaining full technical evidence under an expandable control. Stored
+  archives and hashes are unchanged. CSRF remains enforced before the
+  controller; the token is not archived or audited, and unknown or nested
+  fields remain rejected. Focused server, browser-CSRF integration,
+  stylesheet-readiness, client-print, report-render, and public JavaScript
+  regressions passed. Published SHA-256 values:
+  `server-update-4.0.0-next.58.zip` and
+  `RX-Tracker-NEXT-New-Server-4.0.0-next.58.zip`
+  `308dfeddcd4d19a4ecc6dd0b8de985a8fa75a95dcf043a69b5e3aec263adc4b4`,
+  `RxSoftphone-0.6.0-win-x64.zip`
+  `4616e563adea0c550995db0b1373ca35c5d0d8c8522beb4f5f3c640079248d42`,
+  `server.exe` `0e1d4db91131bb0825bd8a44c2a3b7ac721895d162be662f8a31abc35f9c210f`,
+  and `rx-db.exe` `a9af4023a0cfef5e88a58daa7b40042a8e20460c03d7ff1226d6bb1e797d947f`.
+  Compiled testing-server and production installation are not yet confirmed.
+  There is no migration, business-data
+  rewrite, RX Action change, or Kasm, Cloudflare, CORS, cookie, HTTPS,
+  trust-proxy, or reverse-proxy behavior change.
+
+- Official **v4.0.0-next.57** was published on 2026-08-01 from `main` commit
+  `71d2c15d452b86aefb38a8fd2c4447c778ea5154` after the PostgreSQL lifecycle
+  CI, application regressions, isolated restore validation, restricted-role
+  runtime verification, CodeQL, and tagged compiled-release workflow passed.
+  Testing-server and production installation are not yet confirmed. It hardens
+  server-canonical Delivery Log carbon-copy archives and audited cleanup,
+  preserves local PC/browser time-zone and DST consistency, makes Backoffice
+  database health strictly read-only and evidence-based, makes CSV review
+  snapshots catalog-driven across every public table while preserving the
+  curated destructive whitelist, and updates Project Control to `2.2.2` so
+  option 25 proves the exact service process, executable,
+  listener, and PostgreSQL database through a retry-safe one-time loopback
+  token before optional test-copy activation. Tagged publication now requires
+  a successful PostgreSQL lifecycle push run for the exact tagged `main`
+  commit. There is no schema migration, configured RX Action change,
+  business-data rewrite, or Kasm, Cloudflare, FortiGate/reverse-proxy behavior
+  change. Published SHA-256 values: `server-update-4.0.0-next.57.zip` and
+  `RX-Tracker-NEXT-New-Server-4.0.0-next.57.zip`
+  `a968549a3cd9212d7cc85e5c310e5f69d12739449bdcdc7b56f9fa5deb7dd778`,
+  `RxSoftphone-0.6.0-win-x64.zip`
+  `4c1d33ac9a77607baf69dfcbe4d9bec72854b5dfed48641594e2b604d0932070`,
+  `server.exe` `4686e0695e8931a6889d5de7887296c9652b843ef6fe67e100448f28f8d7d3e7`,
+  and `rx-db.exe` `fc986c7f73c60813e765a9d4221811e50407b5ecad742519170bccc549e4cb6a`.
+  Test the official compiled release first; production updates remain
+  separately approved and use Project Control only.
+  Optional recoverability evidence is produced outside Backoffice with guarded
+  `rx-db validate-backup-recoverability`; it requires exact database
+  confirmation, explicit isolated-maintenance acknowledgement, and elevated
+  temporary database privileges. Backup creation and validation evidence are
+  source-bound to the current configured and actual PostgreSQL database
+  identity, so records from a prior test-copy target remain inconclusive.
+
+- The manually launched local development listener on port 3000 was
+  consolidated on 2026-08-01 onto the authoritative repository at
+  `v4.0.0-next.58`, using the verified `patient_rx_dev` development database.
+  The older `.49` nodemon process was stopped, and the stale generated `.55`
+  `dist` folder and its empty update lock were removed. The development
+  database reports 39 applied migrations, zero pending migrations, and a
+  verified checksum ledger. Local development remains source-managed; Project
+  Control is reserved for compiled server installations. Kasm, Cloudflare,
+  CORS, and reverse-proxy settings were not changed.
+
+- Build-output policy (important for release operations):
+  - `dist/` is ignored by git and is local build output only.
+  - Official release artifacts are produced in GitHub Actions from the tagged commit (`v*`) by `npm run build:exe` and are uploaded from CI, never from a developer machine.
+  - We do not track or ship release `.zip` files from the repository working tree; `dist/` cleanup before release work is expected to avoid stale artifacts.
+
+- Official **v4.0.0-next.47** was published on 2026-07-30 from `main` commit `50cc26d445d9687796c5a9ad3a29952693add80d` after the PostgreSQL lifecycle CI, application regressions, restricted-role runtime verification, RX Softphone build, CodeQL, and tagged compiled-release workflow passed. It updates the Backups-page **How to Restore / Move to Another Server** guide to use the official compiled portable installer and guarded Project Control option 25 workflow instead of the retired Node/npm, PM2, `setup.bat`, development-database, and default-password procedure. Official releases now publish and checksum the portable `RX-Tracker-NEXT-New-Server-<version>.zip` already produced by the build. The manual and `.env.example` document `BACKUP_RETAIN` (database dump count, default 10) and `SITE_BACKUP_RETAIN` (full-site ZIP count, default 5), both applied after Project Control option 11 restart, and distinguish them from the separate Backoffice retention-days setting. No database migration or business-data change. Published SHA-256 values: `server-update-4.0.0-next.47.zip` `91eb90879072164e2ed764199297e980cc9f9a60ba6fb9c4d40720f022fad729`, `RX-Tracker-NEXT-New-Server-4.0.0-next.47.zip` `91eb90879072164e2ed764199297e980cc9f9a60ba6fb9c4d40720f022fad729`, `server.exe` `1b0de1302aec36f2f37ffb29c77de970588689ea3d411f9f5e7afcd3d45bb3ba`, and `rx-db.exe` `f10db497b65c76ff988438c4d468878c95af27b2889ca641315e13d4febeaa17`.
+
+- Official **v4.0.0-next.46** was published on 2026-07-30 from `main` commit `6fb523d3c11b48ce59aa31d2c5b69be6dd1e7f57` after the PostgreSQL lifecycle CI, application regressions, restricted-role runtime verification, RX Softphone build, CodeQL, and tagged compiled-release workflow passed. It adds a read-only **Export Displayed Scan** CSV to RX Profile Sync so administrators can retain the current RX-versus-Patient Pharmacy/Transport values, match status, and remaining differences before synchronizing. The header checkbox selects only the first 100 eligible displayed records, matching the existing audited batch ceiling and supporting successive scan/sync batches. Completed-sync audit-history export remains separate. Re-scanning remains difference-driven: synchronized rows disappear from the default differences view, can be shown with **Show matching records too**, and reappear if later Patient values differ. Blank Patient source assignments remain non-destructive and are ignored until populated. No migration, workflow-action configuration, automatic synchronization, or business-data rewrite is included. Published SHA-256 values: `server-update-4.0.0-next.46.zip` `29ee54f594ee7348ba9ed6124a92bf3ff2199c9341e7b4c2fafce306a7c0241f`, `server.exe` `51d3070d9156d4a0240695d59a76503d7db0701bd93433111d53f7c155b83db4`, and `rx-db.exe` `8009f2abeabeb5fc9dd834aa4d8e2ee0b000da4745b729fee6a7d70f1897c5b5`.
+
+- Official **v4.0.0-next.45** was published on 2026-07-30 from `main` commit `18ccd05e72519ded8ddcf1f85005f79ce735aa9d` after the PostgreSQL lifecycle CI, application regressions, restricted-role runtime verification, RX Softphone build, CodeQL, and tagged compiled-release workflow passed. It corrects the RX Details response so stored Patient Transport and Pharmacy Transport assignments are resolved and displayed after RX Profile Sync. Playwright verification against test-server `v4.0.0-next.44` confirmed RX #1296 stored the synchronized transport ID and the sync scanner reported no differences while the single-record API omitted both transport associations. No database migration, workflow-action configuration, synchronization behavior, or business-data change is included. Published SHA-256 values: `server-update-4.0.0-next.45.zip` `a6433828095ae0df0d38b429f2dc0c3fdf93bdae227889107e9ff76bcb2075e4`, `server.exe` `5d58e3abdb031c311ba26e5e56f72e4b471eb698a76c9ee3188f1087f6112fd1`, and `rx-db.exe` `e16e46a054b5c376b0fefbdd90663c78b7a45cf1c6fb18e68a26a5b5427e5508`.
+
+- Official **v4.0.0-next.44** was published on 2026-07-30 from `main` commit `f2a2e8752bc93a7d9895d5cf2319515809b79f7b` after the PostgreSQL lifecycle CI, CodeQL, and tagged compiled-release workflow passed. It strengthens RX Profile Sync transport persistence, adds master-only multi-RX selection (maximum 100 per batch), and exports completed sync audit history as CSV. Pharmacy synchronization retains its existing update path; blank Patient assignments do not erase RX values; and each changed RX receives independent RX History and Audit Log entries. No database migration, workflow-action configuration, automatic background sync, or business-data rewrite is included. It is ready for test-server validation before production. Published SHA-256 values: `server-update-4.0.0-next.44.zip` `683dd8439eb12dc4a500a145ec3361c85de552fedcb3ed6ba0105ab8cbb0b768`, `server.exe` `36fd22eba11161b0b3be5ecaf758b7ea4247b8000d52c709a9ab9ea037333842`, and `rx-db.exe` `5058a203b23225861ac2c3b3c5798bb77d1f13b0ffb1f1b328fa0a759f13edd1`.
+- Official **v4.0.0-next.43** was published on 2026-07-30 from `main` commit `d40bd5f93c2739e213e6fdfcae830087439d1c20` after the PostgreSQL lifecycle CI and tagged compiled-release workflow passed. It corrects RX Records multi-select filter layout: selected text remains inside the control, multiple selections use a compact count, and a single long selection truncates safely. No database migration, workflow-action configuration, or business-data change is included. It is ready for test-server validation before any production update. Published SHA-256 values: `server-update-4.0.0-next.43.zip` `83130a5d4d329a53699249776471cd95bddc6515266bf2094d7745225869ad9b`, `server.exe` `22c9cd2a52fb771c8c126d2a70238aaf6b694953caa4c9c256605330ddf0f492`, and `rx-db.exe` `6a9ceb92a3ff4251028479c3f6ed01362e707aceef595a66c2f3866e99648f65`.
+
+- Official **v4.0.0-next.42** was published on 2026-07-30 from `main` commit `dbe18da13fb2a34e8e7960021e64f7cbb898ffa1` after the PostgreSQL lifecycle CI and tagged compiled-release workflow passed. It adds a master-administrator RX Profile Sync screen that can search a specific active RX record, show Patient-to-RX Pharmacy/Transport differences, and apply only selected fields with RX History and Audit Log entries. It does not modify the Patient profile, workflow/delivery state, future RX creation, deleted records, or any RX record that the administrator did not select. No database migration or automatic bulk synchronization is included. It is ready for test-server validation before any production update. Published SHA-256 values: `server-update-4.0.0-next.42.zip` `0ca52e12d2d3f1f3e80f04427e50704317feeebf4cd9d91344a7d52fc521c4c5`, `server.exe` `49225f3655f14f2897734af8001c8beba56c6db3a7250d4b0542499a1a97398f`, and `rx-db.exe` `b908b8d34d7f863409dffe202f13874226604b9c68cdaa0713f47ab44371a91d`.
+
+- Official **v4.0.0-next.41** was published on 2026-07-30 from `main` commit `ac143a0776a30e9474875b823d680df1114a0216` after the PostgreSQL lifecycle CI and tagged compiled-release workflow passed. It fixes Delivery Log preview closing, excludes fully closed/archived RX workflows from PDF and Excel, and reserves acknowledgement space to prevent row/signature overlap. No database migration, workflow-action configuration, or business-data change is included. It is ready for test-server validation before any production update. Published SHA-256 values: `server-update-4.0.0-next.41.zip` `2de2eb0d3ba073d8113122372e41cb901e27b65876c98dce872464d8cec27e2b`, `server.exe` `20af7817c9456623aef2da3dd0cb9ded2d75889eb20fcb1162764139078d7dce`, and `rx-db.exe` `7681f60ff3a25bcd0832af80cba7258d5ebdc014b6c8237178e479bd0104d91a`.
+
+- Official **v4.0.0-next.40** was published on 2026-07-30 from `main` commit
+  `07a28abd0daf7beca34278a2df2c10c2fdcf6f59` after PostgreSQL lifecycle CI and
+  the tagged compiled-release workflow passed. It adds native browser Save As
+  selection for Patient CSV, RX Records CSV, and Delivery Log Excel exports on
+  secure browser origins, with the existing browser-download fallback otherwise.
+  It also simplifies the Delivery Log audit strip, changes report references
+  from `RX-LOG-...` to `LOG-...`, and replaces the PDF preview window address
+  from `about:blank` to a same-origin preview address without changing the
+  validated page footer layout. No database migration, workflow configuration,
+  or business-data change is included. Production remains on
+  **v4.0.0-next.35** until Project Control option **8** then **15** installs
+  this release. Published SHA-256 values: `server-update-4.0.0-next.40.zip`
+  `bac399de74e6221e222de43461b740fada42b342abe4c547acdfacb35af92d46`,
+  `server.exe` `e119844461ecb1c5771aec7316d5c5437765eb40c33e70e1916a7bcc9c64f8f2`,
+  and `rx-db.exe` `9bf8547f780c72c430af2f6d6bfe2bdcd91fffd58da02675de4e5b610cf32957`.
+
+- Official **v4.0.0-next.39** was published on 2026-07-30 from `main` commit
+  `a2f069c0e871e01157813326674894651038665c` after PostgreSQL lifecycle CI
+  and the tagged compiled-release workflow passed. It corrects only Delivery
+  Log Excel browser downloads: readable report-reference `.xls` filenames,
+  UTF-8 BOM, and delayed temporary-link cleanup. No database migration,
+  workflow configuration, PDF, CSV, or business-data behavior changed.
+  Production remains on **v4.0.0-next.35** until Project Control option **8**
+  then **15** installs this release. Published SHA-256 values:
+  `server-update-4.0.0-next.39.zip` `2ce75ce63a764b2a7aa81c6d45dba8b2a25471794eb4f9e6aa33f7a508d7a3d3`, `server.exe` `ede40e6869d9f36cf82e427d41c044021215d6913cca07b03b7a53ce64d56b92`,
+  and `rx-db.exe` `b11eb0ccd73ea7ca587150962d3e8f46529a6ea4c2d9f8995b35a777b65c8cb8`.
+- Official **v4.0.0-next.38** was published on 2026-07-30 from `main` commit
+  `d9d72af857f8343cab6e1cd61bff16672d6d07ea` after the required PostgreSQL
+  lifecycle CI passed and the tagged release workflow built, verified, and
+  published the compiled assets. The release is published but not installed:
+  production remains on **v4.0.0-next.35** until an operator runs Project
+  Control option **8** followed by option **15**. Published SHA-256 values:
+  `server-update-4.0.0-next.38.zip`
+  `44652df56c87ba17e737e78f9922df671ae8df16c2e3d347767feb68bcada5e3`,
+  `server.exe` `aaa2b623e2c40403709d6db0ab0d6cadbc749d0569824a349fe3b6d4d8e769ba`,
+  and `rx-db.exe` `dfcb88f314407a081bb7b8a49959fc84b39d8e5f4ae4f4392fa9a1f337ca9b0a`.
+  It contains two additive audited migrations:
+  `20260729233000-add-delivery-outcome-mode-to-workflow-actions.js` and
+  `20260730000000-add-rx-delivery-outcome.js`. The migrations add outcome
+  configuration/data fields and an index only; they do not reseed, rename,
+  enable, disable, or reorder existing configured RX Actions, and they do not
+  rewrite business data. Before option 15, verify the production reverse-proxy
+  origin is already included in the production CORS configuration through the
+  approved configuration process; do not overwrite production `.env`.
 - Staging has an unpromoted delivery-outcome correction: **Returned to Pharmacy** is now stored separately from the pre-existing **Returned to Warehouse** flag. The Dashboard tile and RX Records Current Stage filter count only the explicit pharmacy-return outcome; legacy warehouse returns are not auto-converted. A permission-controlled **Reopen Warehouse Return** action preserves the audit and Step 1, then allows the operator to continue the normal delivery outcome, print-log, signature, and archive flow. RX Records also supports searchable multi-select Pharmacy and Clinic filters. The audited migration `20260730000000-add-rx-delivery-outcome.js` adds outcome, date, and note fields only; it performs no business-data rewrite. Staging schema check and read-only parity verification passed on 2026-07-29 (`1` dashboard outcome record = `1` filtered record).
 - Staging is healthy on the `4.0.0-next.37` source candidate at port 3100. It
   adds inclusive RX Records **Current Stage Date From/To** filters and a
@@ -60,8 +346,10 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 - Windows service ID: `PatientRXSystem`
 - Production HTTP port: `3000`
 - NEXT database name at the completed cutover: `patient_rx_next_cutover_copy`
-- Project Control version: `2.2.0`
-- Latest official release: `v4.0.0-next.35`. Version `next.31` made
+- Candidate Project Control version: `2.2.2`; installed production version is
+  unconfirmed and must be checked through Project Control before an update.
+- Latest official release: `v4.0.0-next.59`; installation remains unconfirmed.
+  Version `next.31` made
   **Current Stage** the primary RX Records workflow filter, kept **Next Action
   Required** under Advanced filters, and exported both meanings explicitly.
   Version `next.32` applies the same clarity to **Reports â†’ RX Actions**:
@@ -492,7 +780,8 @@ C:\RX-Tracker\deployment-state
 
 1. Work only in the NEXT repository and inspect the existing worktree first.
 2. Update code, tests, changelog, version, and version-specific release notes.
-3. Run relevant local checks and build/test the Windows package.
+3. Run relevant source-level local checks. Do not build official executables or
+   release ZIPs locally; GitHub Actions builds them from the approved tag.
 4. Commit and push `main`.
 5. Wait for the full PostgreSQL lifecycle CI to pass.
 6. Create and push a new annotated `v<version>` tag.

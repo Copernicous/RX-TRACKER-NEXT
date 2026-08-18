@@ -164,6 +164,48 @@ async function saveSettings(e) {
 // BACKUP MANAGER JS
 // ══════════════════════════════════════════════════════════════════════════
 var backupsLoaded = false;
+var _deliveryLogArchiveData = [];
+var _deliveryLogArchiveSelections = {};
+
+function _dlArchiveEsc(v) {
+    if (typeof _logdashEsc === 'function') return _logdashEsc(v);
+    return String(v === null || v === undefined ? '' : v)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function _dlArchiveSelectCount() {
+    var _n = 0;
+    var _k;
+    for (_k in _deliveryLogArchiveSelections) {
+        if (_deliveryLogArchiveSelections.hasOwnProperty(_k)) _n += 1;
+    }
+    return _n;
+}
+
+function _renderDeliveryLogArchiveSummary() {
+    var _sumEl = document.getElementById('dlArchiveSelectionSummary');
+    var _btn = document.getElementById('dlArchiveDeleteSelectedBtn');
+    var _total = _deliveryLogArchiveData.length;
+    var _sel = _dlArchiveSelectCount();
+    if (_sumEl) {
+        if (!_total) {
+            _sumEl.textContent = 'No archives found.';
+        } else {
+            _sumEl.textContent = _sel + ' of ' + _total + ' archive(s) selected.';
+        }
+    }
+    if (_btn) _btn.disabled = !_sel;
+}
+
+function _updateDlArchiveSelectAllCheckbox() {
+    var _all = document.getElementById('dlArchiveSelectAll');
+    var _sel = _dlArchiveSelectCount();
+    if (_all) _all.checked = _sel > 0 && _sel >= _deliveryLogArchiveData.length;
+}
 
 async function loadBackups() {
     backupsLoaded = false;
@@ -175,16 +217,26 @@ async function loadBackups() {
         backupsLoaded = true;
         document.getElementById('backupPathText').textContent = data.backupPath || '\u2014';
         if (!data.backups.length) {
-            document.getElementById('backupList').innerHTML = '<p style="text-align:center;padding:4rem;color:var(--text-muted)"><i class="fas fa-archive" style="display:block;font-size:2rem;opacity:.3;margin-bottom:1rem"></i>No backups yet. Click \u201cCreate Backup Now\u201d.</p>';
+            document.getElementById('backupList').innerHTML = '<p style="text-align:center;padding:4rem;color:var(--text-muted)"><i class="fas fa-file-csv" style="display:block;font-size:2rem;opacity:.3;margin-bottom:1rem"></i>No review snapshots yet. Click \u201cCreate Review Snapshot\u201d.</p>';
             return;
         }
         var fmtSz = function(b) { return b < 1024 ? b + ' B' : b < 1048576 ? (b/1024).toFixed(1) + ' KB' : (b/1048576).toFixed(1) + ' MB'; };
+        var backupEsc = function(value) {
+            return String(value === null || value === undefined ? '' : value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        };
         var _bHtml = '';
         data.backups.forEach(function(bk) {
             var _dlLinks = '';
             (bk.tables || []).forEach(function(t) {
-                if (t.rows > 0) {
-                    _dlLinks += '<a href="/api/admin/backups/' + bk.name + '/' + t.table + '.csv" class="btn-bo btn-bo-outline" style="padding:0.25rem 0.5rem;font-size:0.68rem" download><i class="fas fa-download me-1"></i>' + t.table + '</a>';
+                var fileName = t.file || (t.rows > 0 ? t.table + '.csv' : '');
+                if (fileName) {
+                    var rowLabel = Number(t.rows) === 0 ? ' (empty)' : '';
+                    _dlLinks += '<a href="/api/admin/backups/' + encodeURIComponent(bk.name) + '/' + encodeURIComponent(fileName) + '" class="btn-bo btn-bo-outline" style="padding:0.25rem 0.5rem;font-size:0.68rem" download><i class="fas fa-download me-1"></i>' + backupEsc(t.table) + rowLabel + '</a>';
                 }
             });
             _bHtml +=
@@ -193,8 +245,8 @@ async function loadBackups() {
                         '<div style="display:flex;align-items:center;gap:0.75rem">' +
                             '<i class="fas fa-archive" style="color:#6366f1;font-size:1.1rem"></i>' +
                             '<div>' +
-                                '<div style="font-weight:600;font-size:0.85rem;font-family:monospace">' + bk.name + '</div>' +
-                                '<div style="font-size:0.7rem;color:var(--text-muted)">' + new Date(bk.createdAt).toLocaleString() + ' &bull; ' + bk.fileCount + ' tables &bull; ' + fmtSz(bk.sizeBytes) + '</div>' +
+                                '<div style="font-weight:600;font-size:0.85rem;font-family:monospace">' + backupEsc(bk.name) + '</div>' +
+                                '<div style="font-size:0.7rem;color:var(--text-muted)">' + new Date(bk.createdAt).toLocaleString() + ' &bull; ' + bk.fileCount + ' table CSVs &bull; ' + fmtSz(bk.sizeBytes) + ' &bull; review only, not restorable</div>' +
                             '</div>' +
                         '</div>' +
                         '<div style="display:flex;gap:0.4rem;flex-wrap:wrap">' +
@@ -208,6 +260,284 @@ async function loadBackups() {
     } catch(e) { document.getElementById('backupList').innerHTML = '<p style="color:#fca5a5;padding:2rem">' + e.message + '</p>'; }
 }
 
+async function loadDeliveryLogArchiveStats() {
+    var statsEl = document.getElementById('dlArchiveStats');
+    if (statsEl) statsEl.textContent = 'Refreshing delivery log archive status...';
+    try {
+        var res  = await apiFetch('/api/admin/delivery-log-archives');
+        var data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Failed');
+        var total = Array.isArray(data) ? data.length : 0;
+        var oldest = null;
+        var newest = null;
+        if (Array.isArray(data) && total > 0) {
+            var sorted = data.slice().sort(function(a, b) {
+                return Number(b.createdAtEpoch || Date.parse(b.createdAt || 0) || 0) - Number(a.createdAtEpoch || Date.parse(a.createdAt || 0) || 0);
+            });
+            newest = sorted[0] ? sorted[0].createdAt : null;
+            oldest = sorted[sorted.length - 1] ? sorted[sorted.length - 1].createdAt : null;
+        }
+        if (statsEl) {
+            var parts = [total + ' total archive(s)'];
+            if (newest) parts.push('Newest: ' + new Date(newest).toLocaleString());
+            if (oldest) parts.push('Oldest: ' + new Date(oldest).toLocaleString());
+            statsEl.textContent = parts.join('  •  ');
+        }
+    } catch(e) {
+        if (statsEl) statsEl.textContent = 'Failed to load archive status: ' + e.message;
+    }
+}
+
+function _dlArchiveCode(record) {
+    var copyReferences = Array.isArray(record && record.copyReferences) ? record.copyReferences : [];
+    if (copyReferences.length) return copyReferences.join(', ');
+    var id = String(record && record.id || '').replace(/[^0-9a-z]/gi, '').toUpperCase();
+    return id ? 'Archive ' + id.slice(0, 12) : 'Archive unavailable';
+}
+
+function _dlArchiveContents(record) {
+    var counts = record && record.counts && typeof record.counts === 'object' ? record.counts : {};
+    var parts = [String(Number(record && record.total || 0)) + ' RX'];
+    var entries = [['received', 'received'], ['returned', 'returned'], ['pending', 'pending']];
+    for (var i = 0; i < entries.length; i++) {
+        var count = Number(counts[entries[i][0]] || 0);
+        if (count > 0) parts.push(String(count) + ' ' + entries[i][1]);
+    }
+    return parts.join(' / ');
+}
+
+function _dlArchiveIntegrity(record) {
+    var reference = String(record && record.reference || '');
+    var verification = String(record && record.verification || '');
+    if (/corrupt|unsupported/i.test(reference) || /unavailable/i.test(verification)) {
+        return { label: 'Unavailable', color: '#fca5a5' };
+    }
+    if (Number(record && record.formatVersion || 1) >= 2 && /^SHA256-[a-f0-9]{64}$/i.test(verification)) {
+        return { label: 'Verified', color: '#86efac' };
+    }
+    return { label: 'Legacy', color: '#cbd5e1' };
+}
+
+function _dlArchiveEvidence(record) {
+    var evidence = [
+        ['Reference', record && record.reference],
+        ['Verification', record && record.verification],
+        ['Artifact hash', record && record.artifactHash],
+        ['Selection evidence', record && record.filters],
+        ['Format version', record && record.formatVersion]
+    ];
+    var rows = '';
+    for (var i = 0; i < evidence.length; i++) {
+        if (evidence[i][1] === undefined || evidence[i][1] === null || String(evidence[i][1]) === '') continue;
+        rows += '<div style="margin-top:.25rem"><strong>' + _dlArchiveEsc(evidence[i][0]) + ':</strong> <code>' + _dlArchiveEsc(String(evidence[i][1])) + '</code></div>';
+    }
+    return '<details style="margin-top:.25rem"><summary style="cursor:pointer;color:var(--text-muted)">Evidence</summary>' +
+        '<div style="min-width:15rem;max-width:28rem;overflow-wrap:anywhere">' + rows + '</div></details>';
+}
+
+async function loadDeliveryLogArchiveList() {
+    var listEl = document.getElementById('dlArchiveList');
+    if (listEl) {
+        listEl.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--text-muted)"><i class="fas fa-spinner fa-spin me-2"></i>Loading delivery log archives...</td></tr>';
+    }
+
+    var existing = _deliveryLogArchiveSelections;
+    try {
+        var res = await apiFetch('/api/admin/delivery-log-archives');
+        var data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Failed');
+        _deliveryLogArchiveData = Array.isArray(data) ? data : [];
+
+        if (!_deliveryLogArchiveData.length) {
+            _deliveryLogArchiveSelections = {};
+            if (listEl) {
+                listEl.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--text-muted)">No delivery log archive files available.</td></tr>';
+            }
+            _renderDeliveryLogArchiveSummary();
+            _updateDlArchiveSelectAllCheckbox();
+            return;
+        }
+
+        var rows = '';
+        var nextSelections = {};
+        _deliveryLogArchiveData.forEach(function(a) {
+            var id = String(a.id || '').trim();
+            var isChecked = !!(existing && existing[id]);
+            var integrity = _dlArchiveIntegrity(a);
+            var createdAt = a.createdAt ? new Date(a.createdAt).toLocaleString() : 'Unknown';
+            if (isChecked) nextSelections[id] = true;
+
+            rows +=
+                '<tr style="border-top:1px solid var(--border)">' +
+                    '<td style="text-align:center"><input type="checkbox" class="dlArchiveChk" data-id="' + _dlArchiveEsc(id) + '" ' + (isChecked ? 'checked' : '') + ' onchange="onDlArchiveSelectRow(this)"></td>' +
+                    '<td><div style="font-weight:600">' + _dlArchiveEsc(a.generated || createdAt) + '</div><div style="color:var(--text-muted)">' + _dlArchiveEsc(_dlArchiveCode(a)) + '</div></td>' +
+                    '<td>' + _dlArchiveEsc(_dlArchiveContents(a)) + '</td>' +
+                    '<td>' + _dlArchiveEsc(a.period || 'All dates') + '</td>' +
+                    '<td><span style="color:' + integrity.color + ';font-weight:700">' + _dlArchiveEsc(integrity.label) + '</span>' + _dlArchiveEvidence(a) + '</td>' +
+                    '<td>' + _dlArchiveEsc(createdAt) + '</td>' +
+                    '<td style="text-align:center">' +
+                        '<button class="btn-bo btn-bo-danger" style="padding:.24rem .45rem;font-size:.66rem" onclick="deleteDeliveryLogArchive(\'' + _dlArchiveEsc(id) + '\',this)"><i class="fas fa-trash-alt"></i></button>' +
+                    '</td>' +
+                '</tr>';
+        });
+        _deliveryLogArchiveSelections = nextSelections;
+
+        if (listEl) {
+            listEl.innerHTML = rows;
+        }
+        _renderDeliveryLogArchiveSummary();
+        _updateDlArchiveSelectAllCheckbox();
+    } catch(e) {
+        if (listEl) listEl.innerHTML = '<tr><td colspan="7" style="color:#fca5a5;padding:2rem">' + _dlArchiveEsc(e.message) + '</td></tr>';
+        _deliveryLogArchiveData = [];
+        _deliveryLogArchiveSelections = {};
+        _renderDeliveryLogArchiveSummary();
+        _updateDlArchiveSelectAllCheckbox();
+    }
+}
+
+function loadDeliveryLogArchiveManager() {
+    loadDeliveryLogArchiveStats();
+    loadDeliveryLogArchiveList();
+}
+
+function toggleDlArchiveSelectAll(checked) {
+    var checks = document.querySelectorAll('.dlArchiveChk');
+    var i;
+    if (!checked) {
+        _deliveryLogArchiveSelections = {};
+        for (i = 0; i < checks.length; i++) {
+            checks[i].checked = false;
+        }
+        _renderDeliveryLogArchiveSummary();
+        _updateDlArchiveSelectAllCheckbox();
+        return;
+    }
+    _deliveryLogArchiveSelections = {};
+    for (i = 0; i < checks.length; i++) {
+        var chk = checks[i];
+        var id = chk.getAttribute('data-id');
+        chk.checked = true;
+        if (id) _deliveryLogArchiveSelections[id] = true;
+    }
+    _renderDeliveryLogArchiveSummary();
+    _updateDlArchiveSelectAllCheckbox();
+}
+
+function onDlArchiveSelectRow(chk) {
+    var id = chk.getAttribute('data-id');
+    if (!id) return;
+    if (chk.checked) _deliveryLogArchiveSelections[id] = true;
+    else delete _deliveryLogArchiveSelections[id];
+    _renderDeliveryLogArchiveSummary();
+    _updateDlArchiveSelectAllCheckbox();
+}
+
+async function deleteSelectedDeliveryLogArchives() {
+    var ids = [];
+    var key;
+    for (key in _deliveryLogArchiveSelections) {
+        if (_deliveryLogArchiveSelections.hasOwnProperty(key)) ids.push(key);
+    }
+    if (!ids.length) return toast('Select archive files first.', 'info');
+    if (!confirm('Permanently delete ' + ids.length + ' selected delivery log archive(s)?')) return;
+
+    var btn = document.getElementById('dlArchiveDeleteSelectedBtn');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Deleting...';
+    }
+
+    var deleted = 0;
+    var failed = [];
+    for (var i = 0; i < ids.length; i++) {
+        var id = ids[i];
+        try {
+            var res = await apiFetch('/api/admin/delivery-log-archives/' + encodeURIComponent(id), { method: 'DELETE' });
+            var d = await res.json();
+            if (!res.ok) throw new Error(d.error || 'Delete failed');
+            delete _deliveryLogArchiveSelections[id];
+            deleted += 1;
+        } catch (_e) {
+            failed.push(id);
+        }
+    }
+    if (failed.length) {
+        toast('Deleted ' + deleted + ' archive(s). Failed: ' + failed.length + '.', 'danger');
+    } else {
+        toast('\u2713 Deleted ' + deleted + ' archive(s).', 'success');
+    }
+    await loadDeliveryLogArchiveManager();
+
+    if (btn) {
+        btn.innerHTML = '<i class="fas fa-trash-alt me-1"></i>Delete Selected';
+        btn.disabled = true;
+    }
+}
+
+async function deleteDeliveryLogArchive(id, btn) {
+    if (!id) return;
+    if (!confirm('Permanently delete delivery log archive ' + id + '?')) return;
+
+    var label;
+    if (btn) {
+        label = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    }
+    try {
+        var res = await apiFetch('/api/admin/delivery-log-archives/' + encodeURIComponent(id), { method: 'DELETE' });
+        var data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Delete failed');
+        delete _deliveryLogArchiveSelections[id];
+        toast('\u2713 Deleted archive ' + id, 'success');
+        await loadDeliveryLogArchiveManager();
+    } catch (e) {
+        toast('Delete failed: ' + e.message, 'danger');
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = label || '<i class="fas fa-trash-alt"></i>';
+        }
+    }
+}
+
+async function purgeDeliveryLogArchives() {
+    var days = parseInt(document.getElementById('dlArchivePurgeDays').value, 10);
+    var confirmText = document.getElementById('dlArchivePurgeConfirm').value.trim();
+    if (!days || days < 1 || days > 3650) {
+        return toast('Enter days between 1 and 3650.', 'danger');
+    }
+    if (confirmText !== 'PURGE DELIVERY LOGS') {
+        return toast('Type PURGE DELIVERY LOGS to confirm.', 'danger');
+    }
+    if (!confirm('This will permanently delete all delivery log archives older than ' + days + ' day(s). Continue?')) return;
+
+    var btn = document.getElementById('dlArchivePurgeBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Purging...';
+    try {
+        var body = {
+            olderThanDays: days,
+            confirm: 'PURGE DELIVERY LOGS'
+        };
+        var res = await apiFetch('/api/admin/delivery-log-archives', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+        var data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Purge failed');
+        toast('\u2713 Purged ' + data.deleted + ' delivery log archive(s).', 'success');
+        await loadDeliveryLogArchiveManager();
+    } catch(e) {
+        toast('Purge failed: ' + e.message, 'danger');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-trash-alt me-1"></i>Purge Old Archives';
+    }
+}
+
 async function createBackup() {
     var btn = document.getElementById('createBackupBtn');
     btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Creating...';
@@ -216,10 +546,10 @@ async function createBackup() {
         var data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Failed');
         var rows = data.files.reduce(function(s,f){ return s+(f.rows||0); }, 0);
-        toast('\u2713 Backup created: ' + data.backupDir + ' (' + rows.toLocaleString() + ' rows, ' + data.files.length + ' tables)', 'success');
+        toast('\u2713 Review snapshot created: ' + data.backupDir + ' (' + rows.toLocaleString() + ' rows, ' + data.files.length + ' table CSVs)', 'success');
         await loadBackups();
-    } catch(e) { toast('Backup failed: ' + e.message, 'danger'); }
-    finally { btn.disabled=false; btn.innerHTML='<i class="fas fa-save me-1"></i>Create Backup Now'; }
+    } catch(e) { toast('Review snapshot failed: ' + e.message, 'danger'); }
+    finally { btn.disabled=false; btn.innerHTML='<i class="fas fa-file-csv me-1"></i>Create Review Snapshot'; }
 }
 
 async function deleteBackup(name, btn) {
@@ -240,6 +570,108 @@ var healthLoaded = false;
 /* BO-04: Auto-refresh timer */
 var _healthTimer     = null;
 var _healthCountSecs = 30;
+var routineChecksLoaded = false;
+var _routineChecksData = null;
+
+function _routineEsc(v) {
+    if (typeof escHtml === 'function') return escHtml(v);
+    return String(v === null || v === undefined ? '' : v)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function _routineStatusBadge(level) {
+    var txt = String(level || '').toLowerCase();
+    var bg = 'rgba(148,163,184,.18)';
+    var color = '#94a3b8';
+    var border = 'rgba(148,163,184,.35)';
+    if (txt === 'warning') {
+        bg = 'rgba(245,158,11,.16)';
+        color = '#fdba74';
+        border = 'rgba(245,158,11,.35)';
+    } else if (txt === 'critical' || txt === 'error') {
+        bg = 'rgba(239,68,68,.16)';
+        color = '#fca5a5';
+        border = 'rgba(239,68,68,.35)';
+    } else if (txt === 'info') {
+        bg = 'rgba(14,165,233,.14)';
+        color = '#7dd3fc';
+        border = 'rgba(14,165,233,.32)';
+    }
+    return '<span style="background:' + bg + ';color:' + color + ';border:1px solid ' + border + ';padding:0.12rem 0.5rem;border-radius:999px;font-size:0.7rem;text-transform:uppercase">' + txt + '</span>';
+}
+
+function _routineJson(value) {
+    if (value === undefined || value === null) return '';
+    if (typeof value === 'string') return value;
+    try { return JSON.stringify(value, null, 2); }
+    catch (e) { return String(value); }
+}
+
+function _routineDetail(label, value, monospace) {
+    if (value === undefined || value === null || value === '') return '';
+    return '<div style="display:grid;grid-template-columns:minmax(120px,170px) minmax(0,1fr);gap:0.5rem;padding:0.2rem 0">' +
+        '<div style="color:#94a3b8;font-size:0.68rem;text-transform:uppercase">' + _routineEsc(label) + '</div>' +
+        '<div style="color:#e5e7eb;white-space:pre-wrap;overflow-wrap:anywhere;' + (monospace ? 'font-family:monospace;' : '') + '">' + _routineEsc(value) + '</div>' +
+    '</div>';
+}
+
+function _routineBriefInterpretation(key, check) {
+    var items = Array.isArray(check && check.items) ? check.items : [];
+    var text = items.map(function(item) {
+        return [item.finding, item.reason, item.recommendedAction].filter(Boolean).join(' ');
+    }).join(' ').toLowerCase();
+    var checkerError = items.some(function(item) { return item.resultType === 'checkerError'; });
+    if (checkerError) return { meaning: 'The checker could not complete.', action: 'Review the checker error before trusting this section.' };
+    if (key === 'slowQueries') {
+        if (text.indexOf('not enabled') >= 0) return { meaning: 'Slow-query statistics are unavailable.', action: 'Enable pg_stat_statements through approved maintenance.' };
+        if (text.indexOf('no actionable') >= 0 || String(check.status) === 'ok') return { meaning: 'No captured query exceeded the configured limits.', action: 'No action; continue collecting normal workload.' };
+        return { meaning: 'One or more captured query patterns need review.', action: 'Review evidence before tuning SQL or indexes.' };
+    }
+    if (key === 'indexChecks') {
+        if (text.indexOf('inconclusive') >= 0 || text.indexOf('observation') >= 0) return { meaning: 'There is not enough mature workload history for an index decision.', action: 'Wait for the stated observation window; do not change indexes yet.' };
+        if (String(check.status) === 'ok') return { meaning: 'No supported index candidate was identified.', action: 'No action.' };
+        return { meaning: 'An evidence-backed index candidate needs validation.', action: 'Require EXPLAIN validation and human approval.' };
+    }
+    if (key === 'deadRows') {
+        if (String(check.status) !== 'critical') return { meaning: 'Routine tuple turnover is monitored; no substantial physical bloat is demonstrated.', action: 'No immediate action; monitor autovacuum.' };
+        return { meaning: 'Dead-row growth requires investigation.', action: 'Review physical-bloat evidence before maintenance.' };
+    }
+    if (key === 'largeColumns') {
+        if (String(check.status) === 'ok') return { meaning: 'No measured column exceeded the review thresholds.', action: 'No action.' };
+        return { meaning: 'History, audit, text, or JSON storage crossed a review threshold.', action: 'Monitor growth and retention; do not delete or rewrite automatically.' };
+    }
+    if (key === 'backupHealth') {
+        if (text.indexOf('identity is missing') >= 0 || text.indexOf('does not match') >= 0) return { meaning: 'No recent successful backup is bound to the current database identity.', action: 'Create a fresh backup for the currently connected database.' };
+        if (text.indexOf('not independently validated') >= 0) return { meaning: 'Backup creation may be current, but recoverability has not been proven.', action: 'Optionally validate it through an isolated restore.' };
+        if (String(check.status) === 'ok') return { meaning: 'Recent backup creation is recognized for this database.', action: 'Continue the backup schedule.' };
+    }
+    return { meaning: check && check.description ? check.description : 'Review the detailed findings below.', action: String(check && check.status) === 'ok' ? 'No action.' : 'Review the detailed evidence.' };
+}
+
+function _routineBriefTable(checks, keys) {
+    var labels = { slowQueries: 'Slow queries', indexChecks: 'Indexes', deadRows: 'Dead rows', largeColumns: 'Large columns', backupHealth: 'Backups' };
+    var rows = keys.map(function(key) {
+        var check = checks[key] || {};
+        var brief = _routineBriefInterpretation(key, check);
+        return '<tr style="border-top:1px solid rgba(255,255,255,.07)">' +
+            '<td style="padding:.55rem .6rem;font-weight:700;white-space:nowrap">' + _routineEsc(labels[key] || key) + '</td>' +
+            '<td style="padding:.55rem .6rem">' + _routineStatusBadge(check.status || 'ok') + '</td>' +
+            '<td style="padding:.55rem .6rem;min-width:240px">' + _routineEsc(brief.meaning) + '</td>' +
+            '<td style="padding:.55rem .6rem;min-width:220px">' + _routineEsc(brief.action) + '</td>' +
+        '</tr>';
+    }).join('');
+    return '<div class="schema-card" style="padding:.8rem 1rem">' +
+        '<div style="font-size:.78rem;font-weight:700;margin-bottom:.55rem">Results at a glance</div>' +
+        '<div style="overflow:auto"><table style="width:100%;border-collapse:collapse;font-size:.73rem">' +
+            '<thead><tr style="color:var(--text-muted);text-align:left;text-transform:uppercase;font-size:.66rem">' +
+                '<th style="padding:.35rem .6rem">Area</th><th style="padding:.35rem .6rem">Status</th>' +
+                '<th style="padding:.35rem .6rem">What it means</th><th style="padding:.35rem .6rem">What to do</th>' +
+            '</tr></thead><tbody>' + rows + '</tbody></table></div></div>';
+}
 
 function startHealthCountdown() {
     stopHealthCountdown();
@@ -269,6 +701,160 @@ function manualHealthRefresh() {
     loadHealth();
 }
 
+function loadRoutineDbChecks() {
+    var btn = document.getElementById('routineChecksRunBtn');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Running...';
+    }
+
+    var summaryEl = document.getElementById('routineChecksSummary');
+    var overallEl = document.getElementById('routineChecksOverall');
+    var briefEl = document.getElementById('routineChecksBrief');
+    var listEl = document.getElementById('routineChecksList');
+
+    if (summaryEl) summaryEl.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Running routine checks...';
+    if (overallEl) overallEl.style.display = 'none';
+    if (briefEl) briefEl.style.display = 'none';
+    if (listEl) listEl.innerHTML = '<p style="text-align:center;padding:2rem;color:var(--text-muted)"><i class="fas fa-spinner fa-spin me-2"></i>Running...</p>';
+
+    apiFetch('/api/admin/routine-db-checks')
+        .then(function(res) {
+            return res.json().then(function(data) {
+                if (!res.ok) throw new Error(data && data.error ? data.error : 'Failed');
+                return data;
+            });
+        })
+        .then(function(data) {
+            routineChecksLoaded = true;
+            _routineChecksData = data || {};
+            var checks = data && data.checks ? data.checks : {};
+            var keys = Object.keys(checks);
+            var totalItems = 0;
+            var critical = 0;
+            var warning = 0;
+            var info = 0;
+            var ok = 0;
+            var checkerErrors = 0;
+            var overall = data && data.overall ? data.overall : 'ok';
+
+            keys.forEach(function(key) {
+                (checks[key].items || []).forEach(function(item) {
+                    if (item.resultType === 'checkerError') {
+                        checkerErrors += 1;
+                        return;
+                    }
+                    totalItems += 1;
+                    if (item.severity === 'critical') critical += 1;
+                    else if (item.severity === 'warning') warning += 1;
+                    else if (item.severity === 'info') info += 1;
+                    else if (item.severity === 'ok') ok += 1;
+                });
+            });
+
+            if (data && data.totals) {
+                critical = Number(data.totals.critical || 0);
+                warning = Number(data.totals.warning || 0);
+                info = Number(data.totals.info || 0);
+                ok = Number(data.totals.ok || 0);
+                checkerErrors = Number(data.totals.checkerErrors || 0);
+                totalItems = critical + warning + info + ok;
+            }
+
+            if (summaryEl) {
+                summaryEl.textContent = 'Last run: ' + new Date(data.generatedAt || Date.now()).toLocaleString() +
+                    ' | ' + totalItems + ' database result(s) (' + critical + ' critical, ' + warning + ' warning, ' + info + ' info, ' + ok + ' ok)' +
+                    ' | ' + checkerErrors + ' checker error(s).';
+            }
+
+            if (overallEl) {
+                overallEl.style.display = '';
+                if (checkerErrors > 0 || overall === 'critical') {
+                    overallEl.style.background = 'rgba(239,68,68,.14)';
+                    overallEl.style.color = '#fca5a5';
+                    overallEl.style.border = '1px solid rgba(239,68,68,.35)';
+                } else if (overall === 'warning') {
+                    overallEl.style.background = 'rgba(245,158,11,.14)';
+                    overallEl.style.color = '#fdba74';
+                    overallEl.style.border = '1px solid rgba(245,158,11,.35)';
+                } else {
+                    overallEl.style.background = 'rgba(16,185,129,.14)';
+                    overallEl.style.color = '#86efac';
+                    overallEl.style.border = '1px solid rgba(16,185,129,.35)';
+                }
+                overallEl.textContent = 'DATABASE ' + String(overall).toUpperCase() + (checkerErrors > 0 ? ' | CHECKER ERROR' : '');
+            }
+
+            if (!keys.length) {
+                if (briefEl) briefEl.style.display = 'none';
+                if (listEl) listEl.innerHTML = '<p style="text-align:center;padding:2rem;color:var(--text-muted)">No checks returned.</p>';
+                return;
+            }
+
+            if (briefEl) {
+                briefEl.innerHTML = _routineBriefTable(checks, keys);
+                briefEl.style.display = '';
+            }
+
+            var html = '';
+            keys.forEach(function(key) {
+                var c = checks[key] || {};
+                var items = c.items || [];
+                var status = c.status || 'ok';
+                html +=
+                    '<div class="schema-card" style="padding:0.9rem 1rem;margin-bottom:0.75rem">' +
+                        '<div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;margin-bottom:0.4rem">' +
+                            '<div style="font-weight:700;font-size:0.82rem"> ' + _routineEsc(key) + '</div>' +
+                            _routineStatusBadge(status) +
+                        '</div>' +
+                        '<div style="font-size:0.74rem;color:var(--text-muted);margin-bottom:0.5rem;min-height:1.25rem">' + _routineEsc(c.description || '') + '</div>' +
+                        '<div style="overflow:auto">';
+
+                if (!items.length) {
+                    html += '<div style="font-size:0.75rem;color:var(--text-muted)">No items.</div>';
+                } else {
+                    html +=
+                        '<table style="width:100%;border-collapse:collapse;font-size:0.73rem">' +
+                            '<tbody>';
+                    items.forEach(function(item) {
+                        var itemType = item.resultType === 'checkerError' ? 'Checker error' : 'Database result';
+                        var approval = item.requiresHumanApproval ? 'Required' : 'Not required';
+                        html +=
+                            '<tr style="border-top:1px solid rgba(255,255,255,.06)">' +
+                                '<td style="padding:0.55rem 0.5rem 0.55rem 0;vertical-align:top;min-width:88px">' + _routineStatusBadge(item.severity || 'ok') + '</td>' +
+                                '<td style="padding:0.55rem 0.4rem;vertical-align:top;color:#94a3b8;font-size:0.69rem;text-transform:uppercase;min-width:48px">' + _routineEsc(item.area || '') + '</td>' +
+                                '<td style="padding:0.55rem 0 0.65rem 0.6rem;vertical-align:top">' +
+                                    '<div style="font-weight:700;margin-bottom:0.35rem">' + _routineEsc(item.finding || '') + '</div>' +
+                                    _routineDetail('Result type', itemType, false) +
+                                    _routineDetail('Reason', item.reason || 'Not provided', false) +
+                                    _routineDetail('Confidence', item.confidence || 'Not provided', false) +
+                                    _routineDetail('Human approval', approval, false) +
+                                    _routineDetail('Recommended action', item.recommendedAction || 'Not provided', false) +
+                                    _routineDetail('Evidence', _routineJson(item.evidence), true) +
+                                    _routineDetail('Additional value', _routineJson(item.value), true) +
+                                '</td>' +
+                            '</tr>';
+                    });
+                    html += '</tbody></table>';
+                }
+                html += '</div></div>';
+            });
+            if (listEl) listEl.innerHTML = html;
+        })
+        .catch(function(e) {
+            if (summaryEl) summaryEl.textContent = 'Unable to run routine checks: ' + e.message;
+            if (listEl) listEl.innerHTML = '<p style="color:#fca5a5;padding:2rem">' + e.message + '</p>';
+            if (overallEl) overallEl.style.display = 'none';
+            if (briefEl) briefEl.style.display = 'none';
+        })
+        .finally(function() {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class=\"fas fa-clipboard-check me-1\"></i>Run Routine Checks';
+            }
+        });
+}
+
 async function loadHealth() {
     healthLoaded = false;
     document.getElementById('healthCards').innerHTML = '';
@@ -284,8 +870,18 @@ async function loadHealth() {
         var n=data.node, d=data.db;
         var heapPct = Math.round((n.heapUsed/n.heapTotal)*100);
         var memPct  = Math.round(((n.totalMemBytes-n.freeMemBytes)/n.totalMemBytes)*100);
+        var dbLabel = (d && d.name) || '\u2014';
+        var dbConn = (d && d.connection) || {};
+        var dbServer = [dbConn.serverHost, dbConn.serverPort].filter(Boolean).join(':');
+        var dbLines = [
+            'Database: ' + dbLabel,
+            'Postgres: ' + (dbServer || 'localhost:5432'),
+            'User: ' + ((d && d.currentUser) || dbConn.currentUser || '\u2014'),
+            (d&&d.size)||'\u2014',
+            data.connections+' active connections'
+        ];
         var cards = [
-            {icon:'fa-database', color:'#6366f1', label:'Database',    lines:[(d&&d.name)||'\u2014', (d&&d.size)||'\u2014', data.connections+' active connections']},
+            {icon:'fa-database', color:'#6366f1', label:'Database',    lines:dbLines},
             {icon:'fa-server',   color:'#10b981', label:'Node.js',     lines:[n.version, n.platform+' ('+n.arch+')', 'Uptime: '+fmtUp(n.uptime)]},
             {icon:'fa-memory',   color:'#f59e0b', label:'Heap Memory', lines:[fmtB(n.heapUsed)+' used', fmtB(n.heapTotal)+' total', heapPct+'% heap used']},
             {icon:'fa-microchip',color:'#06b6d4', label:'System RAM',  lines:[fmtB(n.totalMemBytes-n.freeMemBytes)+' used', fmtB(n.totalMemBytes)+' total', memPct+'% utilization']},
@@ -2445,4 +3041,291 @@ async function purgeCcCleanup() {
         toast('Call Center cleanup purge failed: ' + e.message, 'danger');
     }
     checkCcCleanupConfirm();
+}
+
+// RX Profile Sync — master-admin manual record correction
+var rxProfileSyncRows = [];
+var rxProfileSyncCursor = null;
+var rxProfileSyncNextCursor = null;
+var rxProfileSyncCursorHistory = [];
+var rxProfileSyncIncludesMatchingHistory = false;
+function rxSyncEsc(value) {
+    return String(value === undefined || value === null ? '' : value)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+function rxSyncDate(value) {
+    return value ? new Date(value + 'T12:00:00').toLocaleDateString() : '—';
+}
+
+function rxSyncFieldLabel(field) {
+    return { pharmacyId: 'Pharmacy', patientTransportCompanyId: 'Patient Transport', pharmacyTransportCompanyId: 'Pharmacy Transport' }[field] || field;
+}
+
+function rxSyncValue(row, source, field) {
+    var key = field === 'pharmacyId' ? 'pharmacy' : field === 'patientTransportCompanyId' ? 'patientTransport' : 'pharmacyTransport';
+    return row[source + 'Values'][key] || { label: 'Not set' };
+}
+
+function rxProfileSyncQuery(cursor) {
+    var search = document.getElementById('rxSyncSearch').value || '';
+    var showAll = document.getElementById('rxSyncShowAll').checked;
+    var pageSize = document.getElementById('rxSyncPageSize').value || '100';
+    var differenceField = document.getElementById('rxSyncDifferenceFilter').value || '';
+    var historyScope = document.getElementById('rxSyncHistoryScope').value || 'all';
+    return '/api/admin/rx-profile-sync?search=' + encodeURIComponent(search) + '&showAll=' + showAll + '&differenceFields=' + encodeURIComponent(differenceField) + '&rxHistoryScope=' + encodeURIComponent(historyScope) + '&pageSize=' + encodeURIComponent(pageSize) + (cursor ? '&cursor=' + encodeURIComponent(cursor) : '');
+}
+
+function sortRxProfileSyncRows() {
+    var order = document.getElementById('rxSyncHistoryOrder');
+    var direction = order && order.value === 'newest' ? -1 : 1;
+    rxProfileSyncRows.sort(function(a, b) {
+        var patientOrder = String(a.patientName || '').localeCompare(String(b.patientName || ''), undefined, { sensitivity: 'base' });
+        if (patientOrder) return patientOrder;
+        var dateA = a.rxCreatedAt ? new Date(a.rxCreatedAt).getTime() : 0;
+        var dateB = b.rxCreatedAt ? new Date(b.rxCreatedAt).getTime() : 0;
+        return direction * (dateA - dateB || Number(a.rxId) - Number(b.rxId));
+    });
+    renderRxProfileSyncRows();
+}
+
+async function loadRxProfileSync(cursor) {
+    var list = document.getElementById('rxSyncList');
+    var status = document.getElementById('rxSyncStatus');
+    if (!list) return;
+    if (cursor === undefined) {
+        rxProfileSyncCursor = null;
+        rxProfileSyncNextCursor = null;
+        rxProfileSyncCursorHistory = [];
+    } else {
+        rxProfileSyncCursor = cursor || null;
+    }
+    rxProfileSyncRows = [];
+    rxProfileSyncIncludesMatchingHistory = false;
+    updateRxSyncDisplayExport();
+    list.innerHTML = '<p style="text-align:center;padding:2rem;color:var(--text-muted)"><i class="fas fa-spinner fa-spin me-2"></i>Scanning RX records...</p>';
+    updateRxSyncBulkSelection();
+    try {
+        var showAll = document.getElementById('rxSyncShowAll').checked;
+        var res = await apiFetch(rxProfileSyncQuery(rxProfileSyncCursor));
+        var data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Scan failed');
+        rxProfileSyncRows = Array.isArray(data.rows) ? data.rows : [];
+        rxProfileSyncIncludesMatchingHistory = !!data.includesMatchingHistory;
+        updateRxSyncDisplayExport();
+        rxProfileSyncNextCursor = data.nextCursor || null;
+        status.textContent = 'Page ' + (rxProfileSyncCursorHistory.length + 1) + ': ' + rxProfileSyncRows.length.toLocaleString() + (data.includesMatchingHistory ? ' RX records shown for history review.' : ' RX records with profile differences.') + (data.hasMore ? ' More results are available.' : '');
+        if (!rxProfileSyncRows.length) {
+            list.innerHTML = '<p style="text-align:center;padding:3rem;color:var(--text-muted)"><i class="fas fa-check-circle" style="color:#34d399"></i> No RX records match this scan.</p>';
+            return;
+        }
+        renderRxProfileSyncRows();
+    } catch (error) {
+        list.innerHTML = '<p style="padding:2rem;color:#fca5a5">' + rxSyncEsc(error.message) + '</p>';
+        if (status) status.textContent = '';
+        toast('RX profile sync scan failed: ' + error.message, 'danger');
+    }
+}
+
+function renderRxProfileSyncRows() {
+    var list = document.getElementById('rxSyncList');
+    if (!list) return;
+    list.innerHTML = '<div style="overflow:auto"><table class="bo-table"><thead><tr><th style="width:38px;text-align:center"><input type="checkbox" aria-label="Select up to 100 visible RX records" title="Select the first 100 RX records with differences" onchange="toggleRxProfileSyncRows(this)"></th><th>Patient / RX</th><th>Dates</th><th>Clinic</th><th>Differences</th><th>Action</th></tr></thead><tbody>' + rxProfileSyncRows.map(function(row) {
+            var diffs = row.differences.length ? row.differences.map(function(field) {
+                var patient = rxSyncValue(row, 'patient', field);
+                var rx = rxSyncValue(row, 'rx', field);
+                return '<label style="display:block;margin:.22rem 0"><input type="checkbox" data-rx-sync-field="' + rxSyncEsc(field) + '" checked> <strong>' + rxSyncEsc(rxSyncFieldLabel(field)) + '</strong>: <span style="color:#fca5a5">' + rxSyncEsc(rx.label) + '</span> → <span style="color:#6ee7b7">' + rxSyncEsc(patient.label) + '</span></label>';
+            }).join('') : '<span style="color:#6ee7b7">Already matches Patient profile</span>';
+            return '<tr data-rx-sync-id="' + row.rxId + '"><td style="text-align:center"><input type="checkbox" data-rx-sync-select aria-label="Select RX #' + row.rxId + '" ' + (row.differences.length ? 'onchange="updateRxSyncBulkSelection()"' : 'disabled') + '></td><td><strong>' + rxSyncEsc(row.patientName) + '</strong><br><small style="color:var(--text-muted)">Patient ' + rxSyncEsc(row.patientCode || ('#' + row.patientId)) + ' · RX #' + row.rxId + '</small></td><td><small>Arrival: ' + rxSyncDate(row.arrivalDate) + '<br>Service: ' + rxSyncDate(row.serviceDate) + '</small></td><td><small>' + rxSyncEsc(row.clinicLabel) + '</small></td><td>' + diffs + '</td><td><button class="btn-bo btn-bo-primary" style="padding:.35rem .6rem;font-size:.72rem" ' + (row.differences.length ? '' : 'disabled') + ' onclick="syncRxProfile(' + row.rxId + ', this)"><i class="fas fa-arrows-rotate me-1"></i>Sync selected</button></td></tr>';
+    }).join('') + '</tbody></table></div><div style="display:flex;justify-content:flex-end;gap:.5rem;margin-top:.75rem"><button class="btn-bo btn-bo-outline" ' + (rxProfileSyncCursorHistory.length ? '' : 'disabled') + ' onclick="previousRxProfileSyncPage()">Previous</button><button class="btn-bo btn-bo-outline" ' + (rxProfileSyncNextCursor ? '' : 'disabled') + ' onclick="nextRxProfileSyncPage()">Next</button></div>';
+    var tableBody = list.querySelector('tbody');
+    var renderedRows = tableBody ? tableBody.querySelectorAll('[data-rx-sync-id]') : [];
+    rxProfileSyncRows.forEach(function(row, index) {
+        if (index && rxProfileSyncRows[index - 1].patientId === row.patientId) return;
+        var header = document.createElement('tr');
+        var count = Number(row.patientRxCount) || 0;
+        header.innerHTML = '<td colspan="6" style="padding:.65rem .85rem;background:rgba(99,102,241,.16);border-top:3px solid #6366f1"><strong>' + rxSyncEsc(row.patientName) + '</strong><span style="margin-left:.65rem;color:#c7d2fe;font-size:.78rem">' + count + ' active RX record' + (count === 1 ? '' : 's') + (count > 1 ? ' — review historical RX before syncing' : '') + '</span></td>';
+        var pending = Number(row.patientPendingRxCount);
+        if (!Number.isFinite(pending)) pending = count;
+        var matching = Math.max(0, count - pending);
+        var summary = count + ' active RX record' + (count === 1 ? '' : 's') + ' · ' + pending + ' need sync';
+        if (matching) summary += ' · ' + matching + (rxProfileSyncIncludesMatchingHistory ? ' already matches' : ' matching hidden');
+        header.querySelector('span').textContent = summary + (count > 1 ? ' — review historical RX before syncing' : '');
+        tableBody.insertBefore(header, renderedRows[index]);
+    });
+    updateRxSyncBulkSelection();
+}
+
+function nextRxProfileSyncPage() {
+    if (!rxProfileSyncNextCursor) return;
+    rxProfileSyncCursorHistory.push(rxProfileSyncCursor);
+    loadRxProfileSync(rxProfileSyncNextCursor);
+}
+
+function previousRxProfileSyncPage() {
+    if (!rxProfileSyncCursorHistory.length) return;
+    loadRxProfileSync(rxProfileSyncCursorHistory.pop());
+}
+
+function updateRxSyncDisplayExport() {
+    var button = document.getElementById('rxSyncDisplayExportBtn');
+    if (button) button.disabled = rxProfileSyncRows.length === 0;
+}
+
+function rxSyncCsvCell(value) {
+    var text = value === undefined || value === null ? '' : String(value);
+    var safe = /^[=+\-@]/.test(text) ? '\'' + text : text;
+    return /[",\r\n]/.test(safe) ? '"' + safe.replace(/"/g, '""') + '"' : safe;
+}
+
+function exportRxProfileSyncDisplay() {
+    if (!rxProfileSyncRows.length) { toast('Run a scan with matching records before exporting.', 'info'); return; }
+    var columns = ['RX Record ID', 'Patient Record ID', 'Patient ID', 'Patient Name', 'Arrival Date', 'Service Date', 'Clinic', 'Match Status', 'Difference Fields', 'RX Pharmacy', 'Patient Pharmacy', 'RX Patient Transport', 'Patient Patient Transport', 'RX Pharmacy Transport', 'Patient Pharmacy Transport'];
+    var rows = rxProfileSyncRows.map(function(row) {
+        return [
+            row.rxId, row.patientId, row.patientCode || '', row.patientName || '', row.arrivalDate || '', row.serviceDate || '', row.clinicLabel || '',
+            row.differences.length ? 'Differences found' : 'Matches Patient profile',
+            row.differences.map(rxSyncFieldLabel).join('; '),
+            rxSyncValue(row, 'rx', 'pharmacyId').label, rxSyncValue(row, 'patient', 'pharmacyId').label,
+            rxSyncValue(row, 'rx', 'patientTransportCompanyId').label, rxSyncValue(row, 'patient', 'patientTransportCompanyId').label,
+            rxSyncValue(row, 'rx', 'pharmacyTransportCompanyId').label, rxSyncValue(row, 'patient', 'pharmacyTransportCompanyId').label
+        ];
+    });
+    var csv = '\uFEFF' + [columns].concat(rows).map(function(row) { return row.map(rxSyncCsvCell).join(','); }).join('\r\n');
+    var blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    var url = URL.createObjectURL(blob);
+    var link = document.createElement('a');
+    link.style.display = 'none';
+    link.href = url;
+    link.download = 'rx-profile-sync-displayed-' + new Date().toISOString().slice(0, 10) + '.csv';
+    document.body.appendChild(link);
+    link.click();
+    setTimeout(function() { document.body.removeChild(link); URL.revokeObjectURL(url); }, 1000);
+    toast('Exported ' + rows.length + ' displayed RX Profile Sync record(s).', 'success');
+}
+
+async function exportAllRxProfileSync() {
+    var button = document.getElementById('rxSyncAllExportBtn');
+    if (button) button.disabled = true;
+    try {
+        var rows = [];
+        var cursor = null;
+        do {
+            var res = await apiFetch(rxProfileSyncQuery(cursor));
+            var data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Export scan failed');
+            rows = rows.concat(Array.isArray(data.rows) ? data.rows : []);
+            cursor = data.hasMore ? data.nextCursor : null;
+        } while (cursor);
+        if (!rows.length) { toast('No RX Profile Sync records match this scan.', 'info'); return; }
+        var currentRows = rxProfileSyncRows;
+        rxProfileSyncRows = rows;
+        exportRxProfileSyncDisplay();
+        rxProfileSyncRows = currentRows;
+        toast('Exported ' + rows.length + ' RX Profile Sync record(s).', 'success');
+    } catch (error) {
+        toast('RX profile full export failed: ' + error.message, 'danger');
+    } finally {
+        if (button) button.disabled = false;
+    }
+}
+
+function updateRxSyncBulkSelection() {
+    var button = document.getElementById('rxSyncBulkBtn');
+    if (!button) return;
+    var count = document.querySelectorAll('#rxSyncList [data-rx-sync-select]:checked').length;
+    button.disabled = count === 0;
+    button.innerHTML = '<i class="fas fa-check-double me-1"></i>Sync checked RX' + (count ? ' (' + count + ')' : '');
+}
+
+function toggleRxProfileSyncRows(source) {
+    var inputs = Array.prototype.slice.call(document.querySelectorAll('#rxSyncList [data-rx-sync-select]:not(:disabled)'));
+    inputs.forEach(function(input, index) {
+        input.checked = !!source.checked && index < 100;
+    });
+    source.indeterminate = !!source.checked && inputs.length > 100;
+    updateRxSyncBulkSelection();
+    if (source.checked && inputs.length > 100) toast('Selected the first 100 RX records. Run the batch, then scan again for the next records.', 'info');
+}
+
+async function bulkSyncRxProfiles() {
+    var selected = Array.prototype.slice.call(document.querySelectorAll('#rxSyncList [data-rx-sync-select]:checked'));
+    var entries = selected.map(function(input) {
+        var row = input.closest('tr');
+        return {
+            rxId: row.getAttribute('data-rx-sync-id'),
+            fields: Array.prototype.slice.call(row.querySelectorAll('[data-rx-sync-field]:checked')).map(function(fieldInput) {
+                return fieldInput.getAttribute('data-rx-sync-field');
+            })
+        };
+    }).filter(function(entry) { return entry.fields.length > 0; });
+    if (!entries.length) { toast('Select at least one RX record and one differing field.', 'info'); return; }
+    if (entries.length > 100) { toast('Select no more than 100 RX records per batch.', 'info'); return; }
+    if (!confirm('Sync selected fields for ' + entries.length + ' RX record(s)? Every changed RX will receive its own History and Audit Log entry.')) return;
+
+    var button = document.getElementById('rxSyncBulkBtn');
+    button.disabled = true;
+    try {
+        var res = await apiFetch('/api/admin/rx-profile-sync/bulk', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ entries: entries })
+        });
+        var data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Bulk sync failed');
+        var message = data.updated + ' RX record(s) synchronized';
+        if (data.unchanged) message += ', ' + data.unchanged + ' already matched';
+        if (data.failed) message += ', ' + data.failed + ' failed';
+        toast(message + '.', data.failed ? 'warning' : 'success');
+        await loadRxProfileSync();
+    } catch (error) {
+        toast('RX profile bulk sync failed: ' + error.message, 'danger');
+        updateRxSyncBulkSelection();
+    }
+}
+
+async function exportRxProfileSyncHistory() {
+    try {
+        var res = await apiFetch('/api/admin/rx-profile-sync/export');
+        if (!res.ok) {
+            var errorData = await res.json();
+            throw new Error(errorData.error || 'Export failed');
+        }
+        var blob = await res.blob();
+        var disposition = res.headers.get('Content-Disposition') || '';
+        var match = /filename="?([^";]+)"?/i.exec(disposition);
+        var filename = match ? match[1] : 'rx-profile-sync-history.csv';
+        var url = URL.createObjectURL(blob);
+        var link = document.createElement('a');
+        link.style.display = 'none';
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        setTimeout(function() {
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        }, 1000);
+        toast('Exported RX Profile Sync history.', 'success');
+    } catch (error) {
+        toast('RX profile sync export failed: ' + error.message, 'danger');
+    }
+}
+async function syncRxProfile(rxId, button) {
+    var row = button.closest('tr');
+    var fields = Array.prototype.slice.call(row.querySelectorAll('[data-rx-sync-field]:checked')).map(function(input) { return input.getAttribute('data-rx-sync-field'); });
+    if (!fields.length) { toast('Select at least one differing field.', 'info'); return; }
+    if (!confirm('Sync the selected RX fields from the current Patient profile? This will be recorded in RX History and Audit Log.')) return;
+    button.disabled = true;
+    try {
+        var res = await apiFetch('/api/admin/rx-profile-sync/' + encodeURIComponent(rxId), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ fields: fields }) });
+        var data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Sync failed');
+        toast(data.updated ? 'RX profile synced and audited.' : 'This RX already matches the selected Patient profile values.', 'success');
+        await loadRxProfileSync();
+    } catch (error) {
+        toast('RX profile sync failed: ' + error.message, 'danger');
+        button.disabled = false;
+    }
 }

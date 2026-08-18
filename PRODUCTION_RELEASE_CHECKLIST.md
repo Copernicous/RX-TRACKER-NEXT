@@ -20,26 +20,21 @@ Use this list every time a new production version is compiled, tagged, uploaded 
 - [ ] Confirm `.env.example` contains any new safe, non-secret config keys.
 - [ ] Confirm the real production `.env` exists, but is not committed to Git or packaged in release zips. A release build does not require a production `.env`.
 
-## Build Package
+## Package Policy
 
-- [ ] Run `npm run build:exe`.
-- [ ] Confirm `dist/server.exe` exists.
-- [ ] Confirm `dist/rx-db.exe` exists and `rx-db.exe help` succeeds.
-- [ ] Confirm `dist/server-update-<version>.zip` exists.
-- [ ] Confirm the zip opens and includes `server.exe`, `rx-db.exe`, `.env.example`, `README.md`, `CHANGELOG.md`, `RELEASE_NOTES-v<version>.md`, `PRODUCTION_RELEASE_CHECKLIST.md`, `PROJECT-CONTROL.bat`, `INSTALL-PROJECT-CONTROL.bat`, `scripts/project-control.ps1`, `scripts/Invoke-ReleaseUpdate.ps1`, `scripts/Install-ProjectControl.ps1`, `scripts/Invoke-NextProduction.ps1`, `project-control.json`, `package.json`, `OPERATIONS_MANUAL.md`, `DEFERRED-ITEMS.txt`, `docs/database/COMPILED_RELEASE_UPDATES.md`, the remaining database runbooks, `docs/PRODUCTION_MICROSIP_CHROME_POLICY.md`, `docs/RX_SOFTPHONE_REMOTE_TESTING.md`, `scripts/install-production-microsip-chrome-policy.ps1`, `install-service.ps1`, and `uninstall-service.ps1`.
-- [ ] Extract the zip into an isolated folder and run `PROJECT-CONTROL.bat version`; confirm it reports the release version without missing-file errors.
-- [ ] Confirm the zip does not include `.env`, `.env.staging`, database dumps, secrets, or Git bundles.
+- [ ] Do not run `npm run build:exe` or create release ZIPs in the local working tree. Official executables, server ZIPs, RX Softphone ZIPs, and checksums are built only by GitHub Actions from the approved tag.
+- [ ] Confirm `dist/` and generated ZIPs remain untracked and are not staged.
+- [ ] Confirm the tagged release workflow still builds `server.exe`, `rx-db.exe`, the update/new-server ZIPs, the RX Softphone ZIP, and `SHA256SUMS.txt`.
 
 ## Local Validation
 
 - [ ] Update the affected user-facing documentation before shipping the change (checklist, operations note, release note, or page-specific doc as needed).
-- [ ] Run `dist/server.exe --v` and confirm it prints the expected version.
-- [ ] Run `dist/rx-db.exe status` and `dist/rx-db.exe verify` against an isolated test database.
+- [ ] Run the source-level and targeted regression checks required by database lifecycle CI.
+- [ ] Run `node scripts/db-lifecycle.js status` and `node scripts/db-lifecycle.js verify` only against an approved isolated development or testing database when database validation is required.
 - [ ] Rehearse a recent v3.3.1 custom dump according to `docs/database/SANITIZED_DUMP_REHEARSAL.md`.
 - [ ] Run targeted smoke checks for changed pages or APIs.
 - [ ] Confirm no unwanted files are staged with `git status --short`.
-- [ ] Confirm large generated files remain outside Git unless intentionally attached to a release.
-- [ ] Build `rx-softphone-desktop` with `rx-softphone-desktop/build-release.ps1`, verify the ZIP hash, and attach or copy it to the approved distribution location.
+- [ ] Confirm generated executables and ZIPs remain outside Git; GitHub Actions attaches them to the release.
 - [ ] Complete the remote-workstation acceptance record in `docs/RX_SOFTPHONE_REMOTE_TESTING.md` when the release changes phone or relay behavior.
 
 ## GitHub Upload
@@ -51,7 +46,12 @@ Use this list every time a new production version is compiled, tagged, uploaded 
 - [ ] Push the tag: `git push origin v<version>`.
 - [ ] Confirm the GitHub Actions release workflow runs on the new tag.
 - [ ] Confirm the GitHub Release body uses `.github/releases/v<version>.md`.
-- [ ] Download the official GitHub release assets and verify them against `SHA256SUMS.txt`; never deploy the local build as the official release.
+- [ ] Confirm the release contains `server-update-<version>.zip`, `RX-Tracker-NEXT-New-Server-<version>.zip`, the RX Softphone ZIP, and `SHA256SUMS.txt`.
+- [ ] Download the official GitHub release assets and verify every asset against `SHA256SUMS.txt`; never deploy a local build as the official release.
+- [ ] Confirm the downloaded server ZIP opens and includes `server.exe`, `rx-db.exe`, `.env.example`, `README.md`, `CHANGELOG.md`, `RELEASE_NOTES-v<version>.md`, `PRODUCTION_RELEASE_CHECKLIST.md`, `PROJECT-CONTROL.bat`, `INSTALL-PROJECT-CONTROL.bat`, `scripts/project-control.ps1`, `scripts/Invoke-ReleaseUpdate.ps1`, `scripts/Install-ProjectControl.ps1`, `scripts/Invoke-NextProduction.ps1`, `project-control.json`, `package.json`, `OPERATIONS_MANUAL.md`, `DEFERRED-ITEMS.txt`, `docs/database/COMPILED_RELEASE_UPDATES.md`, the remaining database runbooks, `docs/PRODUCTION_MICROSIP_CHROME_POLICY.md`, `docs/RX_SOFTPHONE_REMOTE_TESTING.md`, `scripts/install-production-microsip-chrome-policy.ps1`, `install-service.ps1`, and `uninstall-service.ps1`.
+- [ ] Confirm the downloaded ZIP does not include `.env`, `.env.staging`, database dumps, secrets, or Git bundles.
+- [ ] Extract the downloaded ZIP into an isolated folder and run `PROJECT-CONTROL.bat version`; confirm it reports the release version without missing-file errors.
+- [ ] Run the downloaded `server.exe --v` and `rx-db.exe help`; validate `rx-db.exe status` and `verify` only against an approved isolated testing database.
 
 ## Routine Production Installation
 

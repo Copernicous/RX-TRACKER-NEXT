@@ -9,6 +9,8 @@ const { chromium } = require('playwright-core');
 const { prepareStagingEnv } = require('./lib/staging-env');
 
 const stagingConfig = prepareStagingEnv();
+process.env.BACKUP_SCHEDULER_ENABLED = 'false';
+process.env.SITE_BACKUP_SCHEDULER_ENABLED = 'false';
 const db = require('../models');
 const backupService = require('../services/backupService');
 const { BUILT_IN_DEFAULTS } = require('../middleware/rbac');

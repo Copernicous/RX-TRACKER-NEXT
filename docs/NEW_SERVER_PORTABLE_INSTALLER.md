@@ -12,7 +12,8 @@ server should continue to use **Project Control option 8, then option 15**.
 - The complete static application payload for the packaged version
 
 The ZIP intentionally does **not** contain `.env`, database passwords, SIP
-passwords, pairing tokens, patient data, or production backups.
+passwords, pairing tokens, patient data, or production backups. It is published
+as a separate asset on each official release together with its SHA-256 entry.
 
 During installation, `INSTALL-NEW-SERVER.bat` creates the real `.env` in the
 final application folder. It generates unique values for:
@@ -142,6 +143,43 @@ Remove-Item Env:RX_NEW_SERVER_ADMIN_PASSWORD
 Never place these passwords in a batch file, JSON file, command-line argument,
 Git repository, ticket, or chat transcript.
 
+## Move existing data to the new server
+
+Do not copy the old server `.env` into a fresh installation and do not point two
+running application servers at the same live database.
+
+1. Create or download a current PostgreSQL custom-format `.dump` from the source
+   server. If the source is a Full Site Backup ZIP, keep the ZIP encrypted and
+   extract only `db_backup.dump` for the database restore.
+2. Record and verify the backup SHA-256 hash.
+3. Install the same or a newer official portable NEXT release on the destination
+   server using the fresh-install steps above.
+4. Open `PROJECT-CONTROL.bat` as Administrator and select **25. Restore verified
+   dump into isolated test copy**.
+5. Restore into a separately named database containing `test`, `copy`,
+   `sandbox`, `rehearsal`, or `scratch`. Wait for validation, migrations,
+   restricted-role verification, and the business-data fingerprint.
+6. Compare patient/RX totals and important reports, then choose activation.
+   Project Control changes only `DB_NAME`, synchronizes the service environment,
+   restarts RX Tracker, and automatically restores the prior configuration if
+   the exact-version/database health check fails.
+7. Verify uploads and documents separately because external file storage is not
+   reconstructed by a database-only dump. Complete login, Dashboard, Patients,
+   RX Records, workflow history, reports, exports, backups, and RX Softphone
+   acceptance checks before retiring the old server.
+
+## Backup retention counts
+
+The Backups page displays both limits but the compiled service reads them at
+startup from `.env`:
+
+- `BACKUP_RETAIN=10` controls the number of PostgreSQL `.dump` files kept.
+- `SITE_BACKUP_RETAIN=5` controls the number of Full Site Backup ZIP files kept.
+
+After changing either value, use Project Control option **11** to restart RX
+Tracker. **Backoffice > Settings > Backup Retention (Days)** is a different
+setting for the separate CSV/table export backup folders; it does not change
+these two file counts.
 ## Retiring an old 3.3.x server
 
 The portable installer does not delete a legacy application or database. Keep

@@ -1049,10 +1049,10 @@ async function runAdminDashboardAndReports(fixtures) {
     assert(!notReturnedBody.includes('#' + returnedRx.id), 'Not Returned filter included a returned RX.');
     pass('RX Records warehouse filter and readable status badge');
 
-    await expectVisible(page, '#rxFilterCurrentWorkflowStage', 'RX Records Current Stage filter');
-    await expectVisible(page, '#rxFilterCurrentStageDateFrom', 'RX Records Current Stage Date From filter');
-    await expectVisible(page, '#rxFilterCurrentStageDateTo', 'RX Records Current Stage Date To filter');
-    await expectVisible(page, '#rxFilterWorkflowStage', 'RX Records Next Action Required filter');
+    await expectVisible(page, '#rxFilterCurrentWorkflowStagePicker', 'RX Records Current Stage filter');
+    await expectVisible(page, '#rxFilterCompletedStageId', 'RX Records Completed Stage filter');
+    await expectVisible(page, '#rxFilterStageFrom', 'RX Records Stage Activity From filter');
+    await expectVisible(page, '#rxFilterStageTo', 'RX Records Stage Activity To filter');
     await expectVisible(
         page,
         'label.form-label:has-text("Current Stage")',
@@ -1060,8 +1060,8 @@ async function runAdminDashboardAndReports(fixtures) {
     );
     await expectVisible(
         page,
-        'label.form-label:has-text("Next Action Required")',
-        'RX Records advanced Next Action Required label'
+        '.rx-stage-completion-title:has-text("Stage Completion")',
+        'RX Records Stage Completion group'
     );
     assert.strictEqual(
         await page.locator('#rxFilterCurrentWorkflowStage').evaluate(element => Boolean(element.closest('#rxAdvPanel'))),
@@ -1069,9 +1069,9 @@ async function runAdminDashboardAndReports(fixtures) {
         'Current Stage must remain in the primary filter row.'
     );
     assert.strictEqual(
-        await page.locator('#rxFilterWorkflowStage').evaluate(element => Boolean(element.closest('#rxAdvPanel'))),
+        await page.locator('#rxFilterCompletedStageId').evaluate(element => Boolean(element.closest('#rxAdvPanel'))),
         true,
-        'Next Action Required must be in Advanced filters.'
+        'Completed Stage must be in Advanced filters.'
     );
     assert.strictEqual(
         await page.locator('#rxFilterCurrentStageDateFrom').evaluate(element => Boolean(element.closest('#rxAdvPanel'))),
@@ -1084,58 +1084,64 @@ async function runAdminDashboardAndReports(fixtures) {
         'Current Stage Date To must be in Advanced filters.'
     );
 
-    const firstStageSequence = Number(firstWorkflowAction.sequenceNumber);
-    const nextStageSequence = firstStageSequence + 1;
-    await page.locator(`#rxFilterWorkflowStage option[value="${nextStageSequence}"]`)
-        .waitFor({ state: 'attached', timeout: 15000 });
-    await page.locator(`#rxFilterCurrentWorkflowStage option[value="${firstStageSequence}"]`)
+    assert.strictEqual(await page.locator('#rxFilterStageFrom').isDisabled(), true, 'Stage Activity From must wait for a selected Completed Stage.');
+    assert.strictEqual(await page.locator('#rxFilterStageTo').isDisabled(), true, 'Stage Activity To must wait for a selected Completed Stage.');
+    await page.locator(`#rxFilterCompletedStageId option[value="${firstWorkflowAction.id}"]`)
         .waitFor({ state: 'attached', timeout: 15000 });
     assert.strictEqual(
-        (await page.locator(`#rxFilterCurrentWorkflowStage option[value="${firstStageSequence}"]`).innerText()).trim(),
+        (await page.locator(`#rxFilterCompletedStageId option[value="${firstWorkflowAction.id}"]`).innerText()).trim(),
         firstWorkflowAction.name,
-        'Current Stage options must use the business action name without offset numbering.'
+        'Completed Stage options must use the business action name.'
     );
-    assert.strictEqual(
-        (await page.locator(`#rxFilterWorkflowStage option[value="${nextStageSequence}"]`).innerText()).trim(),
-        'Needs: ' + secondWorkflowAction.name,
-        'Next Action Required options must explain the required action without stage numbering.'
+    assert(
+        await page.locator('#rxFilterCurrentWorkflowStagePicker .rx-filter-multiselect-option')
+            .filter({ hasText: firstWorkflowAction.name }).count(),
+        'Current Stage picker must retain the business action name.'
     );
 
-    let stageResponse = page.waitForResponse(response =>
-        response.url().includes('/api/rx-records?')
-        && response.url().includes(`workflowStage=${nextStageSequence}`)
-        && response.status() === 200,
-        { timeout: 15000 }
-    );
     await page.selectOption('#rxFilterWarehouseStatus', '');
-    await page.selectOption('#rxFilterWorkflowStage', String(nextStageSequence));
-    await stageResponse;
-    await page.waitForFunction((rxId) => {
-        const body = document.querySelector('#rxBody');
-        return body && body.textContent.indexOf('#' + rxId) !== -1;
-    }, returnedRx.id, { timeout: 15000 });
-    let stageBody = await page.locator('#rxBody').innerText();
-    assert(stageBody.includes('#' + returnedRx.id), 'Needs second action must include the RX currently completed through the first action.');
-    assert(!stageBody.includes('#' + notReturnedRx.id), 'Needs second action must exclude a not-started RX.');
-
-    stageResponse = page.waitForResponse(response =>
+    await page.selectOption('#rxFilterCompletedStageId', String(firstWorkflowAction.id));
+    assert.strictEqual(await page.locator('#rxFilterStageFrom').isDisabled(), false, 'Selecting Completed Stage must enable Stage Activity From.');
+    assert.strictEqual(await page.locator('#rxFilterStageTo').isDisabled(), false, 'Selecting Completed Stage must enable Stage Activity To.');
+    const completedStageResponse = page.waitForResponse(response =>
         response.url().includes('/api/rx-records?')
-        && response.url().includes(`currentWorkflowStage=${firstStageSequence}`)
-        && !response.url().includes(`workflowStage=${nextStageSequence}`)
+        && response.url().includes(`completedStageId=${firstWorkflowAction.id}`)
+        && response.url().includes(`stageFrom=${reportStageDateKey}`)
+        && response.url().includes(`stageTo=${reportStageDateKey}`)
         && response.status() === 200,
         { timeout: 15000 }
     );
-    await page.selectOption('#rxFilterWorkflowStage', '');
-    await page.selectOption('#rxFilterCurrentWorkflowStage', String(firstStageSequence));
-    await stageResponse;
+    await page.fill('#rxFilterStageFrom', reportStageDateKey);
+    await page.fill('#rxFilterStageTo', reportStageDateKey);
+    await completedStageResponse;
     await page.waitForFunction((rxId) => {
         const body = document.querySelector('#rxBody');
         return body && body.textContent.indexOf('#' + rxId) !== -1;
     }, returnedRx.id, { timeout: 15000 });
-    stageBody = await page.locator('#rxBody').innerText();
-    assert(stageBody.includes('#' + returnedRx.id), 'Current Stage must match the Excel current-stage record.');
-    assert(!stageBody.includes('#' + notReturnedRx.id), 'Current Stage must exclude a not-started RX.');
-    pass('RX Records prioritizes Current Stage and keeps Next Action Required advanced');
+    const completedStageBody = await page.locator('#rxBody').innerText();
+    assert(completedStageBody.includes('#' + returnedRx.id), 'Completed Stage must include the RX whose selected action was completed on the selected date.');
+    assert(!completedStageBody.includes('#' + notReturnedRx.id), 'Completed Stage must exclude an RX with no matching action history.');
+
+    const clearCompletedStageResponse = page.waitForResponse(response =>
+        response.url().includes('/api/rx-records?')
+        && !response.url().includes('completedStageId=')
+        && !response.url().includes('stageFrom=')
+        && !response.url().includes('stageTo=')
+        && response.status() === 200,
+        { timeout: 15000 }
+    );
+    await page.click('#rxClearBtn');
+    await clearCompletedStageResponse;
+    assert.strictEqual(await page.inputValue('#rxFilterCompletedStageId'), '');
+    assert.strictEqual(await page.inputValue('#rxFilterStageFrom'), '');
+    assert.strictEqual(await page.inputValue('#rxFilterStageTo'), '');
+    assert.strictEqual(await page.locator('#rxFilterStageFrom').isDisabled(), true, 'Clear must disable Stage Activity From without a selected Completed Stage.');
+    assert.strictEqual(await page.locator('#rxFilterStageTo').isDisabled(), true, 'Clear must disable Stage Activity To without a selected Completed Stage.');
+    assert.strictEqual(await page.locator('#rxCurrentStageDateDetails').evaluate(element => !element.open), true, 'Current Stage Date filters must stay compact until More date filters is opened.');
+    await page.locator('#rxCurrentStageDateDetails summary').click();
+    await expectVisible(page, '#rxFilterCurrentStageDateFrom', 'RX Records Current Stage Date From filter');
+    await expectVisible(page, '#rxFilterCurrentStageDateTo', 'RX Records Current Stage Date To filter');
+    pass('RX Records keeps Current Stage primary and links Completed Stage to its date range');
 
     let currentStageDateResponse = page.waitForResponse(response =>
         response.url().includes('/api/rx-records?')

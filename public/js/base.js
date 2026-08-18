@@ -329,6 +329,86 @@ window.rxApplyCsrf = function(resource, init, replaceExisting) {
     return init;
 };
 
+window.rxWaitForDeliveryLogArchivePrintReady = function(reportWindow) {
+    var targetWindow = reportWindow || window;
+    var doc = targetWindow.document;
+    if (!doc || typeof doc.querySelectorAll !== 'function') {
+        return Promise.reject(new Error('Archived delivery log document is unavailable.'));
+    }
+
+    var links = Array.prototype.slice.call(doc.querySelectorAll('link[rel~="stylesheet"]'));
+    if (!links.length) {
+        return Promise.reject(new Error('Archived delivery log stylesheet is missing.'));
+    }
+
+    var hrefKey = ['h', 'ref'].join('');
+    var stylesheetUrl = typeof window.rxUrl === 'function'
+        ? window.rxUrl('/css/rx-delivery-log-archive-v2.css')
+        : '/css/rx-delivery-log-archive-v2.css';
+    var timerApi = typeof targetWindow.setTimeout === 'function' ? targetWindow : window;
+
+    function waitForStylesheet(link) {
+        return new Promise(function(resolve, reject) {
+            var settled = false;
+            var timer = null;
+
+            function cleanup() {
+                if (timer !== null && typeof timerApi.clearTimeout === 'function') timerApi.clearTimeout(timer);
+                if (typeof link.removeEventListener === 'function') {
+                    link.removeEventListener('load', loaded);
+                    link.removeEventListener('error', failed);
+                }
+            }
+
+            function finish(error) {
+                if (settled) return;
+                settled = true;
+                cleanup();
+                if (error) reject(error);
+                else resolve();
+            }
+
+            function loaded() { finish(); }
+            function failed() { finish(new Error('Archived delivery log stylesheet could not be loaded.')); }
+
+            if (typeof link.addEventListener !== 'function') {
+                try {
+                    if (link.sheet) return finish();
+                } catch (_error) {}
+                return finish(new Error('Archived delivery log stylesheet readiness cannot be verified.'));
+            }
+
+            link.addEventListener('load', loaded);
+            link.addEventListener('error', failed);
+            timer = timerApi.setTimeout(function() {
+                finish(new Error('Archived delivery log stylesheet did not become ready in time.'));
+            }, 10000);
+
+            var currentHref = '';
+            try { currentHref = String(link[hrefKey] || ''); } catch (_error) {}
+            if (stylesheetUrl && currentHref !== stylesheetUrl) {
+                link[hrefKey] = stylesheetUrl;
+                return;
+            }
+            try {
+                if (link.sheet) finish();
+            } catch (_error) {}
+        });
+    }
+
+    return Promise.all(links.map(waitForStylesheet)).then(function() {
+        if (doc.fonts && doc.fonts.ready) return doc.fonts.ready;
+        return null;
+    }).then(function() {
+        if (typeof targetWindow.requestAnimationFrame !== 'function') return null;
+        return new Promise(function(resolve) {
+            targetWindow.requestAnimationFrame(function() {
+                targetWindow.requestAnimationFrame(resolve);
+            });
+        });
+    });
+};
+
 // Staging destructive-action confirmation shared by pages that do not load
 // app.js (notably Back Office). The token remains memory-only.
 if (!window.rxStagingGuard) {
