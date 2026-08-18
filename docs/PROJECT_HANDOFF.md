@@ -8,6 +8,10 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
 
+- **Release candidate v4.0.0-next.70:** Restores RX Profile Sync scans broken
+  in `next.69` by correcting the multi-RX history response field name. No
+  migration or business-data change is included.
+
 - **Release candidate v4.0.0-next.69:** Multi-RX RX Profile Sync review now
   shows every active historical RX record in each patient card, including
   matching records, so the active-RX count and visible history agree. Matching
