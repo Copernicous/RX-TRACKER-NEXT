@@ -8,6 +8,10 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
 
+- **Release candidate v4.0.0-next.71:** Multi-RX RX Profile Sync hides
+  already-matching historical rows by default; they appear only through the
+  explicit history-review checkbox. No migration or business-data change.
+
 - **Release candidate v4.0.0-next.70:** Restores RX Profile Sync scans broken
   in `next.69` by correcting the multi-RX history response field name. No
   migration or business-data change is included.
