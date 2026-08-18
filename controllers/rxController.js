@@ -10,6 +10,66 @@ const {
 } = require('../services/patientServiceDateCycleService');
 
 const Op = db.Sequelize.Op;
+const RX_TRACKING_BASE_ATTRIBUTES = [
+    'id',
+    'rxRecordId',
+    'workflowActionId',
+    'completionDate',
+    'userId',
+    'createdAt',
+    'updatedAt'
+];
+const DRIVER_RX_HISTORY_CHANGE_TYPES = new Set([
+    'driver assignment',
+    'driver correction',
+    'driver sync'
+]);
+
+function isDriverHistoryChangeType(value) {
+    const normalized = cleanString(value).toLowerCase();
+    return DRIVER_RX_HISTORY_CHANGE_TYPES.has(normalized) || normalized.startsWith('driver');
+}
+
+function isDriverField(value) {
+    return /driver|pharmacyTransportCompanyId/i.test(String(value || ''));
+}
+
+function redactDriverValue(value) {
+    if (Array.isArray(value)) {
+        return value
+            .map(redactDriverValue)
+            .filter(item => item !== undefined);
+    }
+    if (!value || typeof value !== 'object') return value;
+    if (typeof value.field === 'string' && isDriverField(value.field)) return undefined;
+
+    const redacted = {};
+    for (const [key, item] of Object.entries(value)) {
+        if (isDriverField(key)) continue;
+        const next = redactDriverValue(item);
+        if (next !== undefined) redacted[key] = next;
+    }
+    return redacted;
+}
+
+function redactDriverJson(value) {
+    if (!value) return value;
+    try {
+        const redacted = redactDriverValue(JSON.parse(value));
+        return JSON.stringify(redacted === undefined ? null : redacted);
+    } catch (error) {
+        // An unreadable legacy payload cannot be proven free of driver details.
+        return null;
+    }
+}
+
+function redactDriverHistoryRow(row) {
+    const plain = row && typeof row.toJSON === 'function' ? row.toJSON() : { ...row };
+    plain.snapshot = redactDriverJson(plain.snapshot);
+    plain.changedFields = redactDriverJson(plain.changedFields);
+    if (isDriverField(plain.note)) plain.note = null;
+    return plain;
+}
 
 // ---- helper: save a history snapshot ----
 async function saveHistory(rxId, userId, changeType, snapshot, changedFields, note, transaction) {
@@ -84,14 +144,22 @@ function getWorkflowWindowBlock(rx) {
     return null;
 }
 
-function cleanString(value) {
-    return value === undefined || value === null ? '' : String(value).trim();
+async function loadWorkflowWindowContext(rx, transaction) {
+    if (!rx || rx.serviceDate) return rx;
+    if (rx.patientServiceDateCycleId) {
+        rx.PatientServiceDateCycle = await db.PatientServiceDateCycle.findByPk(
+            rx.patientServiceDateCycleId,
+            { transaction }
+        );
+    }
+    if (!getRxCycleServiceDate(rx) && rx.patientId) {
+        rx.Patient = await db.Patient.findByPk(rx.patientId, { transaction });
+    }
+    return rx;
 }
 
-function parseSelectedIds(value) {
-    return Array.from(new Set(String(value || '').split(',')
-        .map(function (item) { return parseInt(item, 10); })
-        .filter(function (item) { return Number.isInteger(item) && item > 0; })));
+function cleanString(value) {
+    return value === undefined || value === null ? '' : String(value).trim();
 }
 
 function parseSelectedIds(value) {
@@ -104,6 +172,72 @@ function exactPositiveId(rawValue) {
     const value = cleanString(rawValue);
     if (!value) return null;
     return /^\d+$/.test(value) && Number(value) > 0 ? Number(value) : false;
+}
+
+function expectedDriverId(body, fieldName) {
+    if (!Object.prototype.hasOwnProperty.call(body || {}, fieldName)) {
+        return { provided: false, value: null };
+    }
+    const rawValue = body[fieldName];
+    if (rawValue === null || cleanString(rawValue) === '') {
+        return { provided: true, value: null };
+    }
+    const value = exactPositiveId(rawValue);
+    if (!value) throw new Error(`Invalid ${fieldName}.`);
+    return { provided: true, value };
+}
+
+function driverChangeReason(value, fallback, required) {
+    const reason = cleanString(value) || fallback || '';
+    if (required && !reason) throw new Error('A reason is required for this driver correction.');
+    if (reason.length > 2000) throw new Error('Driver change reason cannot exceed 2000 characters.');
+    return reason;
+}
+
+function driverDisplayName(driver) {
+    if (!driver) return null;
+    return cleanString(driver.contactPerson) || cleanString(driver.companyName) || `Pharmacy Transport #${driver.id}`;
+}
+
+async function resolveAssignableDriver(rawDriverId, transaction) {
+    if (rawDriverId === null || rawDriverId === undefined || cleanString(rawDriverId) === '') return null;
+    const driverId = exactPositiveId(rawDriverId);
+    if (!driverId) throw new Error('Select a valid driver.');
+    const driver = await db.PharmacyTransportCompany.findOne({
+        where: { id: driverId, isActive: true },
+        transaction,
+        lock: transaction.LOCK.UPDATE
+    });
+    if (!driver) throw new Error('The selected driver is unavailable or inactive.');
+    return driver;
+}
+
+async function resolveExistingDriver(rawDriverId, transaction) {
+    if (rawDriverId === null || rawDriverId === undefined || cleanString(rawDriverId) === '') return null;
+    const driverId = exactPositiveId(rawDriverId);
+    if (!driverId) throw new Error('Select a valid driver.');
+    const driver = await db.PharmacyTransportCompany.findByPk(driverId, {
+        transaction,
+        lock: transaction.LOCK.UPDATE
+    });
+    if (!driver) throw new Error('The selected driver does not exist.');
+    return driver;
+}
+
+async function createDriverHistory(values, transaction) {
+    return db.RXDriverAssignmentHistory.create({
+        rxRecordId: values.rxRecordId,
+        workflowTrackingId: values.workflowTrackingId || null,
+        workflowActionId: values.workflowActionId || null,
+        workflowActionName: values.workflowActionName || null,
+        previousDriverId: values.previousDriverId || null,
+        previousDriverName: values.previousDriverName || null,
+        driverId: values.driverId || null,
+        driverName: values.driverName || null,
+        changeType: values.changeType,
+        reason: values.reason,
+        userId: values.userId || null
+    }, { transaction });
 }
 
 function parsePositiveInt(value, fallback, min, max) {
@@ -126,15 +260,41 @@ function minDateOnly(values) {
     return dates.length ? dates[0] : '';
 }
 
-function rxInclude() {
+function canAccessCompletedStageDrivers(permission) {
+    return !!(permission && permission.visible && (
+        permission.canViewDriverHistory ||
+        permission.canCorrectDriver ||
+        permission.canSyncDriverHistory
+    ));
+}
+
+async function requestCanAccessCompletedStageDrivers(req) {
+    return canAccessCompletedStageDrivers(await getRequestPermission(req, 'rx_records'));
+}
+
+function rxInclude(includeStageDriverDetails) {
+    const trackingAttributes = includeStageDriverDetails
+        ? RX_TRACKING_BASE_ATTRIBUTES.concat(['driverId', 'driverNameSnapshot'])
+        : RX_TRACKING_BASE_ATTRIBUTES;
+    const trackingIncludes = [
+        { model: db.WorkflowAction, attributes: ['id', 'name', 'sequenceNumber'] }
+    ];
+    if (includeStageDriverDetails) {
+        trackingIncludes.unshift({ model: db.PharmacyTransportCompany, as: 'Driver', attributes: ['id', 'companyName', 'contactPerson', 'isActive'] });
+    }
     return [
         { model: db.Patient, include: [{ model: db.Clinic }] },
         { model: db.PatientServiceDateCycle },
         { model: db.Pharmacy },
         { model: db.PatientTransportCompany },
         { model: db.PharmacyTransportCompany },
+        { model: db.PharmacyTransportCompany, as: 'CurrentDriver', attributes: ['id', 'companyName', 'contactPerson', 'isActive'] },
         { model: db.Medication },
-        { model: db.RXWorkflowTracking }
+        {
+            model: db.RXWorkflowTracking,
+            attributes: trackingAttributes,
+            include: trackingIncludes
+        }
     ];
 }
 
@@ -395,7 +555,7 @@ function rxPageSortSql(sort) {
     return allowed[sort] || allowed.id;
 }
 
-async function getPaginatedRxRecords(query) {
+async function getPaginatedRxRecords(query, includeStageDriverDetails) {
     const pageSize = parsePositiveInt(query.pageSize, 10, 1, 500);
     const requestedPage = parsePositiveInt(query.page, 1, 1, 1000000);
     const sort = cleanString(query.sort) || 'id';
@@ -436,7 +596,7 @@ async function getPaginatedRxRecords(query) {
     if (ids.length) {
         const data = await db.RXRecord.findAll({
             where: { id: { [Op.in]: ids } },
-            include: rxInclude()
+            include: rxInclude(includeStageDriverDetails)
         });
         const byId = new Map(enrichRxRows(data, activeActionIds).map(row => [row.id, row]));
         rows = ids.map(id => byId.get(id)).filter(Boolean).map(row => ({
@@ -459,14 +619,15 @@ async function getPaginatedRxRecords(query) {
 // GET /api/rx-records
 exports.getAll = async (req, res) => {
     try {
+        const includeStageDriverDetails = await requestCanAccessCompletedStageDrivers(req);
         if (req.query.paginated === 'true') {
-            return res.json(await getPaginatedRxRecords(req.query));
+            return res.json(await getPaginatedRxRecords(req.query, includeStageDriverDetails));
         }
 
         const where = buildRxWhere(req.query);
         const data = await db.RXRecord.findAll({
             where,
-            include: rxInclude(),
+            include: rxInclude(includeStageDriverDetails),
             order: [['id', 'DESC']]
         });
         const activeActionIds = await getActiveWorkflowActionIds();
@@ -479,8 +640,9 @@ exports.getAll = async (req, res) => {
 // GET /api/rx-records/:id
 exports.getOne = async (req, res) => {
     try {
+        const includeStageDriverDetails = await requestCanAccessCompletedStageDrivers(req);
         const data = await db.RXRecord.findByPk(req.params.id, {
-            include: rxInclude()
+            include: rxInclude(includeStageDriverDetails)
         });
         if (!data) return res.status(404).json({ message: 'Not found' });
         const activeActionIds = await getActiveWorkflowActionIds();
@@ -492,7 +654,7 @@ exports.getOne = async (req, res) => {
 exports.create = async (req, res) => {
     const transaction = await db.sequelize.transaction();
     try {
-        const { medications, ...rxData } = req.body;
+        const { medications, currentDriverId: ignoredLegacyDriverId, ...rxData } = req.body;
         let { arrivalDate, serviceDate } = rxData;
 
         // Normalise dates: accept MM/DD/YYYY or YYYY-MM-DD
@@ -612,6 +774,21 @@ exports.create = async (req, res) => {
 
         const rx = await db.RXRecord.create({ ...rxData, arrivalDate, serviceDate }, { transaction });
 
+        const initialDriver = rx.pharmacyTransportCompanyId
+            ? await db.PharmacyTransportCompany.findByPk(rx.pharmacyTransportCompanyId, { transaction })
+            : null;
+
+        if (initialDriver) {
+            await createDriverHistory({
+                rxRecordId: rx.id,
+                driverId: initialDriver.id,
+                driverName: driverDisplayName(initialDriver),
+                changeType: 'current_assignment',
+                reason: 'Initial driver assigned when the RX record was created.',
+                userId: req.user?.id
+            }, transaction);
+        }
+
         if (medications && medications.length > 0) {
             const meds = medications.map(m => ({ ...m, rxRecordId: rx.id }));
             await db.Medication.bulkCreate(meds, { transaction });
@@ -619,17 +796,30 @@ exports.create = async (req, res) => {
 
         // Auto-complete Step 1 (RX received warehouse) on creation
         const step1 = await db.WorkflowAction.findOne({
-            where: { sequenceNumber: 1 },
-            order: [['sequenceNumber', 'ASC']],
+            where: { sequenceNumber: 1, isActive: true },
+            order: [['sequenceNumber', 'ASC'], ['id', 'ASC']],
             transaction
         });
         if (step1) {
-            await db.RXWorkflowTracking.create({
+            const initialTracking = await db.RXWorkflowTracking.create({
                 rxRecordId:       rx.id,
                 workflowActionId: step1.id,
                 completionDate:   new Date(),
-                userId:           req.user?.id || null
+                userId:           req.user?.id || null,
+                driverId:         initialDriver ? initialDriver.id : null,
+                driverNameSnapshot: driverDisplayName(initialDriver)
             }, { transaction });
+            await createDriverHistory({
+                rxRecordId: rx.id,
+                workflowTrackingId: initialTracking.id,
+                workflowActionId: step1.id,
+                workflowActionName: step1.name,
+                driverId: initialDriver ? initialDriver.id : null,
+                driverName: driverDisplayName(initialDriver),
+                changeType: 'stage_snapshot',
+                reason: `Driver captured when "${step1.name}" was auto-completed during RX creation.`,
+                userId: req.user?.id
+            }, transaction);
         }
 
         await saveHistory(rx.id, req.user?.id, 'Create', rx.toJSON(), null,
@@ -645,24 +835,61 @@ exports.create = async (req, res) => {
 
 // POST /api/rx-records/workflow
 exports.updateWorkflow = async (req, res) => {
+    const transaction = await db.sequelize.transaction();
     try {
         const { rxId, actionId } = req.body;
-        const rx = await db.RXRecord.findByPk(rxId, { include: [db.PatientServiceDateCycle, db.Patient] });
-        if (!rx) return res.status(404).json({ error: 'RX not found' });
+        const rx = await db.RXRecord.findByPk(rxId, { transaction, lock: transaction.LOCK.UPDATE });
+        if (!rx) {
+            await transaction.rollback();
+            return res.status(404).json({ error: 'RX not found' });
+        }
+
+        await loadWorkflowWindowContext(rx, transaction);
 
         const windowBlock = getWorkflowWindowBlock(rx);
-        if (windowBlock) return res.status(400).json(windowBlock);
+        if (windowBlock) {
+            await transaction.rollback();
+            return res.status(400).json(windowBlock);
+        }
 
-        const action = await db.WorkflowAction.findByPk(actionId);
-        if (!action) return res.status(404).json({ error: 'Action not found' });
+        const currentDriver = rx.pharmacyTransportCompanyId
+            ? await db.PharmacyTransportCompany.findByPk(rx.pharmacyTransportCompanyId, { transaction })
+            : null;
+        const action = await db.WorkflowAction.findByPk(actionId, { transaction });
+        if (!action) {
+            await transaction.rollback();
+            return res.status(404).json({ error: 'Action not found' });
+        }
+        if (!action.isActive) {
+            await transaction.rollback();
+            return res.status(400).json({
+                error: 'This workflow action is inactive and cannot be completed.',
+                code: 'WORKFLOW_ACTION_INACTIVE'
+            });
+        }
+
+        const alreadyCompleted = await db.RXWorkflowTracking.findOne({
+            where: { rxRecordId: rxId, workflowActionId: actionId },
+            transaction
+        });
+        if (alreadyCompleted) {
+            await transaction.rollback();
+            return res.status(409).json({ error: 'This workflow step is already completed.' });
+        }
 
         if (action.sequenceNumber > 1) {
-            const prevAction = await db.WorkflowAction.findOne({ where: { sequenceNumber: action.sequenceNumber - 1 } });
+            const prevAction = await db.WorkflowAction.findOne({
+                where: { sequenceNumber: action.sequenceNumber - 1, isActive: true },
+                order: [['sequenceNumber', 'ASC'], ['id', 'ASC']],
+                transaction
+            });
             if (prevAction) {
                 const prevCompleted = await db.RXWorkflowTracking.findOne({
-                    where: { rxRecordId: rxId, workflowActionId: prevAction.id }
+                    where: { rxRecordId: rxId, workflowActionId: prevAction.id },
+                    transaction
                 });
                 if (!prevCompleted) {
+                    await transaction.rollback();
                     return res.status(400).json({ error: `Must complete '${prevAction.name}' before '${action.name}'.` });
                 }
             }
@@ -672,13 +899,30 @@ exports.updateWorkflow = async (req, res) => {
             rxRecordId: rxId,
             workflowActionId: actionId,
             completionDate: new Date(),
-            userId: req.user.id
-        });
+            userId: req.user.id,
+            driverId: rx.pharmacyTransportCompanyId || null,
+            driverNameSnapshot: driverDisplayName(currentDriver)
+        }, { transaction });
+
+        await createDriverHistory({
+            rxRecordId: rx.id,
+            workflowTrackingId: tracking.id,
+            workflowActionId: action.id,
+            workflowActionName: action.name,
+            driverId: tracking.driverId,
+            driverName: tracking.driverNameSnapshot,
+            changeType: 'stage_snapshot',
+            reason: `Driver captured when "${action.name}" was completed.`,
+            userId: req.user?.id
+        }, transaction);
 
         // Preserve a patient-refused delivery outcome through later receipt/log steps.
         // Legacy warehouse returns still clear when the RX starts moving again before the delivery step.
-        var deliveryAction = (await db.WorkflowAction.findAll({ attributes: ['name', 'sequenceNumber', 'deliveryOutcomeMode'] })).find(function (item) {
-            return item.deliveryOutcomeMode === 'delivered_or_returned';
+        var deliveryAction = await db.WorkflowAction.findOne({
+            attributes: ['name', 'sequenceNumber', 'deliveryOutcomeMode'],
+            where: { deliveryOutcomeMode: 'delivered_or_returned', isActive: true },
+            order: [['sequenceNumber', 'ASC'], ['id', 'ASC']],
+            transaction
         });
         var isPostDeliveryStep = deliveryAction && action.sequenceNumber > deliveryAction.sequenceNumber;
         if (rx.returnedToWarehouse && action.sequenceNumber > 1 && !isPostDeliveryStep) {
@@ -686,13 +930,315 @@ exports.updateWorkflow = async (req, res) => {
                 returnedToWarehouse: false,
                 warehouseReturnDate: null,
                 warehouseReturnNote: null
+            }, { transaction });
+        }
+
+        await saveHistory(rxId, req.user?.id, 'Workflow', rx.toJSON(), null,
+            `Step completed: ${action.name}`, transaction);
+
+        await transaction.commit();
+        res.json(tracking);
+    } catch (err) {
+        await transaction.rollback();
+        res.status(400).json({ error: err.message });
+    }
+};
+
+// PUT /api/rx-records/:id/current-driver
+// Changes the live assignment used by future workflow stages. Completed stages are untouched.
+exports.updateCurrentDriver = async (req, res) => {
+    const transaction = await db.sequelize.transaction();
+    try {
+        const rx = await db.RXRecord.findByPk(req.params.id, { transaction, lock: transaction.LOCK.UPDATE });
+        if (!rx || rx.isDeleted) {
+            await transaction.rollback();
+            return res.status(404).json({ error: 'Active RX record not found.' });
+        }
+        const previousDriver = rx.pharmacyTransportCompanyId
+            ? await db.PharmacyTransportCompany.findByPk(rx.pharmacyTransportCompanyId, {
+                transaction,
+                lock: transaction.LOCK.UPDATE
+            })
+            : null;
+        const driver = await resolveAssignableDriver(req.body.driverId, transaction);
+        const previousId = rx.pharmacyTransportCompanyId || null;
+        const previousName = driverDisplayName(previousDriver);
+        const nextId = driver ? driver.id : null;
+        const nextName = driverDisplayName(driver);
+        const reason = driverChangeReason(req.body.reason, 'Driver changed during the active RX workflow.', false);
+        const expected = expectedDriverId(req.body, 'expectedCurrentDriverId');
+
+        if (expected.provided && String(expected.value || '') !== String(previousId || '')) {
+            await transaction.rollback();
+            return res.status(409).json({
+                error: 'The current driver changed after this RX was opened. Reload the workflow and try again.',
+                code: 'RX_DRIVER_ASSIGNMENT_STALE'
             });
         }
 
-        await saveHistory(rxId, req.user?.id, 'Workflow', rx.toJSON(), null, `Step completed: ${action.name}`);
+        if (String(previousId || '') === String(nextId || '')) {
+            req.skipAuditLog = true;
+            await transaction.commit();
+            return res.json({ ok: true, changed: false, currentDriver: driver });
+        }
 
-        res.json(tracking);
-    } catch (err) { res.status(400).json({ error: err.message }); }
+        const snapshot = rx.toJSON();
+        await rx.update({ pharmacyTransportCompanyId: nextId }, { transaction });
+        await createDriverHistory({
+            rxRecordId: rx.id,
+            previousDriverId: previousId,
+            previousDriverName: previousName,
+            driverId: nextId,
+            driverName: nextName,
+            changeType: 'current_assignment',
+            reason,
+            userId: req.user?.id
+        }, transaction);
+        await saveHistory(rx.id, req.user?.id, 'Driver Assignment', snapshot, [{
+            field: 'currentDriver', from: previousName, to: nextName
+        }], `Current driver changed from ${previousName || 'Not assigned'} to ${nextName || 'Not assigned'}. Reason: ${reason}`, transaction);
+        req.auditRecordId = rx.id;
+        req.auditPreviousValue = {
+            _label: `RX #${rx.id}`,
+            currentDriverId: previousId,
+            currentDriverName: previousName
+        };
+        req.auditNewValue = {
+            _label: `RX #${rx.id}`,
+            currentDriverId: nextId,
+            currentDriverName: nextName,
+            reason
+        };
+
+        await transaction.commit();
+        res.json({ ok: true, changed: true, currentDriver: driver });
+    } catch (error) {
+        await transaction.rollback();
+        res.status(400).json({ error: error.message });
+    }
+};
+
+// PUT /api/rx-records/workflow-driver
+// Corrects one completed-stage snapshot without changing RXRecords.pharmacyTransportCompanyId.
+exports.correctWorkflowDriver = async (req, res) => {
+    const transaction = await db.sequelize.transaction();
+    try {
+        const trackingId = exactPositiveId(req.body.trackingId);
+        if (!trackingId) throw new Error('Select a valid completed workflow stage.');
+        const reason = driverChangeReason(req.body.reason, '', true);
+        const trackingReference = await db.RXWorkflowTracking.findByPk(trackingId, { transaction });
+        const rx = trackingReference
+            ? await db.RXRecord.findByPk(trackingReference.rxRecordId, {
+                transaction,
+                lock: transaction.LOCK.UPDATE
+            })
+            : null;
+        const tracking = rx
+            ? await db.RXWorkflowTracking.findOne({
+                where: { id: trackingId, rxRecordId: rx.id },
+                transaction,
+                lock: transaction.LOCK.UPDATE
+            })
+            : null;
+        const action = tracking
+            ? await db.WorkflowAction.findByPk(tracking.workflowActionId, { transaction })
+            : null;
+        if (!tracking || !rx || rx.isDeleted) {
+            await transaction.rollback();
+            return res.status(404).json({ error: 'Completed workflow stage not found.' });
+        }
+        const expected = expectedDriverId(req.body, 'expectedDriverId');
+        const previousId = tracking.driverId || null;
+        if (expected.provided && String(expected.value || '') !== String(previousId || '')) {
+            await transaction.rollback();
+            return res.status(409).json({
+                error: 'This stage driver changed after the workflow was opened. Reload and try again.',
+                code: 'RX_STAGE_DRIVER_STALE'
+            });
+        }
+        const driver = await resolveExistingDriver(req.body.driverId, transaction);
+        const previousName = tracking.driverNameSnapshot || null;
+        const nextId = driver ? driver.id : null;
+        const nextName = driverDisplayName(driver);
+        if (String(previousId || '') === String(nextId || '')) {
+            req.skipAuditLog = true;
+            await transaction.commit();
+            return res.json({ ok: true, changed: false, currentDriverId: rx.pharmacyTransportCompanyId });
+        }
+
+        await tracking.update({ driverId: nextId, driverNameSnapshot: nextName }, { transaction });
+        await createDriverHistory({
+            rxRecordId: tracking.rxRecordId,
+            workflowTrackingId: tracking.id,
+            workflowActionId: tracking.workflowActionId,
+            workflowActionName: action ? action.name : null,
+            previousDriverId: previousId,
+            previousDriverName: previousName,
+            driverId: nextId,
+            driverName: nextName,
+            changeType: 'stage_correction',
+            reason,
+            userId: req.user?.id
+        }, transaction);
+        const stageName = action ? action.name : `Tracking #${tracking.id}`;
+        await saveHistory(tracking.rxRecordId, req.user?.id, 'Driver Correction', rx.toJSON(), [{
+            field: `workflowDriver:${tracking.workflowActionId}`, from: previousName, to: nextName
+        }], `Driver for "${stageName}" corrected from ${previousName || 'Not assigned'} to ${nextName || 'Not assigned'}. Current RX driver was not changed. Reason: ${reason}`, transaction);
+        req.auditRecordId = rx.id;
+        req.auditPreviousValue = {
+            _label: `RX #${rx.id} - ${stageName}`,
+            trackingId: tracking.id,
+            driverId: previousId,
+            driverName: previousName
+        };
+        req.auditNewValue = {
+            _label: `RX #${rx.id} - ${stageName}`,
+            trackingId: tracking.id,
+            driverId: nextId,
+            driverName: nextName,
+            currentDriverId: rx.pharmacyTransportCompanyId,
+            reason
+        };
+
+        await transaction.commit();
+        res.json({
+            ok: true,
+            changed: true,
+            trackingId: tracking.id,
+            driverId: nextId,
+            driverName: nextName,
+            currentDriverId: rx.pharmacyTransportCompanyId
+        });
+    } catch (error) {
+        await transaction.rollback();
+        res.status(400).json({ error: error.message });
+    }
+};
+
+// PUT /api/rx-records/:id/sync-driver-history
+// Recovery action: corrects every completed stage to the current RX driver, preserving each prior value.
+exports.syncWorkflowDrivers = async (req, res) => {
+    const transaction = await db.sequelize.transaction();
+    try {
+        const reason = driverChangeReason(req.body.reason, '', true);
+        const rx = await db.RXRecord.findByPk(req.params.id, { transaction, lock: transaction.LOCK.UPDATE });
+        if (!rx || rx.isDeleted) {
+            await transaction.rollback();
+            return res.status(404).json({ error: 'Active RX record not found.' });
+        }
+        const currentDriver = rx.pharmacyTransportCompanyId
+            ? await db.PharmacyTransportCompany.findByPk(rx.pharmacyTransportCompanyId, { transaction })
+            : null;
+        if (!rx.pharmacyTransportCompanyId || !currentDriver) throw new Error('Assign Pharmacy Transportation before synchronizing completed stages.');
+        const expected = expectedDriverId(req.body, 'expectedCurrentDriverId');
+        if (expected.provided && String(expected.value || '') !== String(rx.pharmacyTransportCompanyId || '')) {
+            await transaction.rollback();
+            return res.status(409).json({
+                error: 'The current driver changed after this RX was opened. Reload before synchronizing.',
+                code: 'RX_DRIVER_SYNC_STALE'
+            });
+        }
+        const trackings = await db.RXWorkflowTracking.findAll({
+            where: { rxRecordId: rx.id },
+            transaction,
+            lock: transaction.LOCK.UPDATE
+        });
+        const actionIds = Array.from(new Set(trackings.map(item => item.workflowActionId).filter(Boolean)));
+        const actions = actionIds.length
+            ? await db.WorkflowAction.findAll({ where: { id: { [Op.in]: actionIds } }, transaction })
+            : [];
+        const actionById = new Map(actions.map(item => [Number(item.id), item]));
+        const changed = [];
+        for (const tracking of trackings) {
+            if (String(tracking.driverId || '') === String(rx.pharmacyTransportCompanyId)) continue;
+            const previousId = tracking.driverId || null;
+            const previousName = tracking.driverNameSnapshot || null;
+            const action = actionById.get(Number(tracking.workflowActionId));
+            const currentDriverName = driverDisplayName(currentDriver);
+            await tracking.update({ driverId: rx.pharmacyTransportCompanyId, driverNameSnapshot: currentDriverName }, { transaction });
+            await createDriverHistory({
+                rxRecordId: rx.id,
+                workflowTrackingId: tracking.id,
+                workflowActionId: tracking.workflowActionId,
+                workflowActionName: action ? action.name : null,
+                previousDriverId: previousId,
+                previousDriverName: previousName,
+                driverId: rx.pharmacyTransportCompanyId,
+                driverName: currentDriverName,
+                changeType: 'stage_sync',
+                reason,
+                userId: req.user?.id
+            }, transaction);
+            changed.push({
+                trackingId: tracking.id,
+                stage: action ? action.name : `Action #${tracking.workflowActionId}`,
+                from: previousName,
+                to: currentDriverName
+            });
+        }
+        if (changed.length) {
+            await saveHistory(rx.id, req.user?.id, 'Driver Sync', rx.toJSON(), changed.map(item => ({
+                field: `workflowDriver:${item.trackingId}`, from: item.from, to: item.to
+            })), `${changed.length} completed stage driver assignment(s) synchronized to ${driverDisplayName(currentDriver)}. Reason: ${reason}`, transaction);
+        }
+        if (!changed.length) {
+            req.skipAuditLog = true;
+        } else {
+            req.auditRecordId = rx.id;
+            req.auditPreviousValue = {
+                _label: `RX #${rx.id}`,
+                stages: changed.map(item => ({ trackingId: item.trackingId, stage: item.stage, driverName: item.from }))
+            };
+            req.auditNewValue = {
+                _label: `RX #${rx.id}`,
+                currentDriverId: rx.pharmacyTransportCompanyId,
+                currentDriverName: driverDisplayName(currentDriver),
+                synchronizedStages: changed,
+                reason
+            };
+        }
+        await transaction.commit();
+        res.json({ ok: true, changedCount: changed.length, changed, currentDriver });
+    } catch (error) {
+        await transaction.rollback();
+        res.status(400).json({ error: error.message });
+    }
+};
+
+exports.getDriverHistory = async (req, res) => {
+    try {
+        const rxId = exactPositiveId(req.params.id);
+        if (!rxId) return res.status(400).json({ error: 'Invalid RX record ID.' });
+        const history = await db.RXDriverAssignmentHistory.findAll({
+            where: { rxRecordId: rxId },
+            include: [
+                { model: db.User, attributes: ['id', 'firstName', 'lastName', 'username'] },
+                { model: db.RXWorkflowTracking, attributes: ['id', 'workflowActionId'], include: [{ model: db.WorkflowAction, attributes: ['id', 'name', 'sequenceNumber'] }] }
+            ],
+            order: [['createdAt', 'DESC'], ['id', 'DESC']]
+        });
+        res.json(history);
+    } catch (error) { res.status(500).json({ error: error.message }); }
+};
+
+// GET /api/rx-records/driver-options
+// Historical correction may need a driver that has since been disabled.
+exports.getDriverOptions = async (req, res) => {
+    try {
+        const drivers = await db.PharmacyTransportCompany.findAll({
+            attributes: ['id', 'companyName', 'contactPerson', 'isActive'],
+            order: [['isActive', 'DESC'], ['contactPerson', 'ASC'], ['companyName', 'ASC'], ['id', 'ASC']]
+        });
+        res.json(drivers.map(driver => ({
+            id: driver.id,
+            name: driverDisplayName(driver),
+            companyName: driver.companyName,
+            contactPerson: driver.contactPerson,
+            isActive: driver.isActive
+        })));
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
 };
 
 // POST /api/rx-records/bulk-workflow  (FEAT-10)
@@ -715,12 +1261,19 @@ exports.bulkWorkflow = async (req, res) => {
 
         const action = await db.WorkflowAction.findByPk(actionId);
         if (!action) return res.status(404).json({ error: 'Workflow action not found.' });
+        if (!action.isActive) {
+            return res.status(400).json({
+                error: 'This workflow action is inactive and cannot be completed.',
+                code: 'WORKFLOW_ACTION_INACTIVE'
+            });
+        }
 
         // Pre-fetch previous step (needed for sequence guard)
         let prevAction = null;
         if (action.sequenceNumber > 1) {
             prevAction = await db.WorkflowAction.findOne({
-                where: { sequenceNumber: action.sequenceNumber - 1 }
+                where: { sequenceNumber: action.sequenceNumber - 1, isActive: true },
+                order: [['sequenceNumber', 'ASC'], ['id', 'ASC']]
             });
         }
 
@@ -736,62 +1289,67 @@ exports.bulkWorkflow = async (req, res) => {
                 continue;
             }
 
+            var rowTransaction = await db.sequelize.transaction();
             try {
-                var rx = await db.RXRecord.findByPk(rxId, { include: [db.PatientServiceDateCycle, db.Patient] });
-                if (!rx) {
-                    results.push({ rxId: rxId, ok: false, error: 'Record not found.' });
-                    failed++;
-                    continue;
-                }
-                if (rx.isDeleted) {
-                    results.push({ rxId: rxId, ok: false, error: 'Record is hidden.' });
-                    failed++;
-                    continue;
-                }
+                var rx = await db.RXRecord.findByPk(rxId, {
+                    transaction: rowTransaction,
+                    lock: rowTransaction.LOCK.UPDATE
+                });
+                if (!rx) throw new Error('Record not found.');
+                if (rx.isDeleted) throw new Error('Record is hidden.');
+                await loadWorkflowWindowContext(rx, rowTransaction);
                 var windowBlock = getWorkflowWindowBlock(rx);
                 if (windowBlock) {
-                    results.push({
-                        rxId: rxId,
-                        ok: false,
-                        code: windowBlock.code,
-                        error: windowBlock.error
-                    });
-                    failed++;
-                    continue;
+                    var windowError = new Error(windowBlock.error);
+                    windowError.code = windowBlock.code;
+                    throw windowError;
                 }
 
                 // Sequence guard ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â same logic as updateWorkflow
                 if (prevAction) {
                     var prevCompleted = await db.RXWorkflowTracking.findOne({
-                        where: { rxRecordId: rxId, workflowActionId: prevAction.id }
+                        where: { rxRecordId: rxId, workflowActionId: prevAction.id },
+                        transaction: rowTransaction
                     });
                     if (!prevCompleted) {
-                        results.push({
-                            rxId: rxId,
-                            ok: false,
-                            error: 'Step \'' + prevAction.name + '\' not yet completed.'
-                        });
-                        failed++;
-                        continue;
+                        throw new Error('Step \'' + prevAction.name + '\' not yet completed.');
                     }
                 }
 
                 // Skip if already completed (idempotent)
                 var alreadyDone = await db.RXWorkflowTracking.findOne({
-                    where: { rxRecordId: rxId, workflowActionId: actionId }
+                    where: { rxRecordId: rxId, workflowActionId: actionId },
+                    transaction: rowTransaction
                 });
                 if (alreadyDone) {
+                    await rowTransaction.commit();
                     results.push({ rxId: rxId, ok: true, skipped: true, note: 'Already completed.' });
                     succeeded++;
                     continue;
                 }
 
-                await db.RXWorkflowTracking.create({
-                    rxRecordId:      rxId,
+                var currentDriver = rx.pharmacyTransportCompanyId
+                    ? await db.PharmacyTransportCompany.findByPk(rx.pharmacyTransportCompanyId, { transaction: rowTransaction })
+                    : null;
+                var tracking = await db.RXWorkflowTracking.create({
+                    rxRecordId: rxId,
                     workflowActionId: actionId,
-                    completionDate:  new Date(),
-                    userId:          req.user.id
-                });
+                    completionDate: new Date(),
+                    userId: req.user.id,
+                    driverId: rx.pharmacyTransportCompanyId || null,
+                    driverNameSnapshot: driverDisplayName(currentDriver)
+                }, { transaction: rowTransaction });
+                await createDriverHistory({
+                    rxRecordId: rxId,
+                    workflowTrackingId: tracking.id,
+                    workflowActionId: action.id,
+                    workflowActionName: action.name,
+                    driverId: tracking.driverId,
+                    driverName: tracking.driverNameSnapshot,
+                    changeType: 'stage_snapshot',
+                    reason: `Driver captured when "${action.name}" was bulk-completed.`,
+                    userId: req.user?.id
+                }, rowTransaction);
 
                 // Clear warehouse flag if applicable
                 if (rx.returnedToWarehouse && action.sequenceNumber > 1) {
@@ -799,25 +1357,31 @@ exports.bulkWorkflow = async (req, res) => {
                         returnedToWarehouse: false,
                         warehouseReturnDate: null,
                         warehouseReturnNote: null
-                    });
+                    }, { transaction: rowTransaction });
                 }
 
                 await saveHistory(rxId, req.user.id, 'Workflow', rx.toJSON(), null,
-                    'Bulk step completed: ' + action.name);
+                    `Bulk step completed: ${action.name}`,
+                    rowTransaction);
 
                 var patientLabel = '';
-                try {
-                    var fullRx = await db.RXRecord.findByPk(rxId, { include: [db.Patient] });
-                    if (fullRx && fullRx.Patient) {
-                        patientLabel = fullRx.Patient.firstName + ' ' + fullRx.Patient.lastName;
-                    }
-                } catch(e) { /* non-critical */ }
+                if (rx.patientId) {
+                    var patient = await db.Patient.findByPk(rx.patientId, { transaction: rowTransaction });
+                    if (patient) patientLabel = patient.firstName + ' ' + patient.lastName;
+                }
 
+                await rowTransaction.commit();
                 results.push({ rxId: rxId, ok: true, patientName: patientLabel });
                 succeeded++;
 
             } catch (rowErr) {
-                results.push({ rxId: rxId, ok: false, error: rowErr.message || 'Unknown error.' });
+                if (!rowTransaction.finished) await rowTransaction.rollback();
+                results.push({
+                    rxId: rxId,
+                    ok: false,
+                    code: rowErr.code,
+                    error: rowErr.message || 'Unknown error.'
+                });
                 failed++;
             }
         }
@@ -981,7 +1545,10 @@ exports.undoWorkflow = async (req, res) => {
         const { rxId } = req.body;
 
         // BUG-03 FIX: Guard against null RX record before any further operations
-        const rx = await db.RXRecord.findByPk(rxId, { transaction });
+        const rx = await db.RXRecord.findByPk(rxId, {
+            transaction,
+            lock: transaction.LOCK.UPDATE
+        });
         if (!rx) {
             await transaction.rollback();
             return res.status(404).json({ error: 'RX Record not found.' });
@@ -989,7 +1556,11 @@ exports.undoWorkflow = async (req, res) => {
 
         const completedTrackings = await db.RXWorkflowTracking.findAll({
             where: { rxRecordId: rxId },
-            include: [{ model: db.WorkflowAction }],
+            include: [{
+                model: db.WorkflowAction,
+                where: { isActive: true },
+                required: true
+            }],
             transaction
         });
 
@@ -1003,8 +1574,7 @@ exports.undoWorkflow = async (req, res) => {
                 const dateDiff = new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
                 if (dateDiff) return dateDiff;
                 return (b.id || 0) - (a.id || 0);
-            })[0] || completedTrackings
-            .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())[0];
+            })[0];
 
         if (!latestTracking) {
             await transaction.rollback();
@@ -1013,7 +1583,21 @@ exports.undoWorkflow = async (req, res) => {
 
         const action = latestTracking.WorkflowAction;
         const stepName = action ? action.name : 'step';
+        req.auditUndoneTrackingId = latestTracking.id;
         const undoingDeliveryOutcome = action && action.deliveryOutcomeMode === 'delivered_or_returned';
+        await createDriverHistory({
+            rxRecordId: rx.id,
+            workflowTrackingId: latestTracking.id,
+            workflowActionId: latestTracking.workflowActionId,
+            workflowActionName: action ? action.name : null,
+            previousDriverId: latestTracking.driverId || null,
+            previousDriverName: latestTracking.driverNameSnapshot || null,
+            driverId: null,
+            driverName: null,
+            changeType: 'stage_undo',
+            reason: `Workflow stage undone: ${stepName}.`,
+            userId: req.user?.id
+        }, transaction);
         await latestTracking.destroy({ transaction });
 
         if (undoingDeliveryOutcome) {
@@ -1082,26 +1666,71 @@ exports.returnToWarehouse = async (req, res) => {
     const transaction = await db.sequelize.transaction();
     try {
         const { rxId, note } = req.body;
-        const rx = await db.RXRecord.findByPk(rxId);
-        if (!rx) return res.status(404).json({ error: 'RX Record not found.' });
+        const rx = await db.RXRecord.findByPk(rxId, {
+            transaction,
+            lock: transaction.LOCK.UPDATE
+        });
+        if (!rx) {
+            await transaction.rollback();
+            return res.status(404).json({ error: 'RX Record not found.' });
+        }
+        const currentDriver = rx.pharmacyTransportCompanyId
+            ? await db.PharmacyTransportCompany.findByPk(rx.pharmacyTransportCompanyId, { transaction })
+            : null;
 
         // Find Step 1 (warehouse step ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â the first workflow action by sequenceNumber)
         const step1 = await db.WorkflowAction.findOne({
-            where: { sequenceNumber: 1 },
-            order: [['sequenceNumber', 'ASC']]
+            where: { sequenceNumber: 1, isActive: true },
+            order: [['sequenceNumber', 'ASC'], ['id', 'ASC']],
+            transaction
         });
 
-        // Clear ALL workflow tracking steps
+        const priorTrackings = await db.RXWorkflowTracking.findAll({
+            where: { rxRecordId: rxId },
+            include: [{ model: db.WorkflowAction }],
+            transaction
+        });
+        for (const tracking of priorTrackings) {
+            const action = tracking.WorkflowAction;
+            await createDriverHistory({
+                rxRecordId: rx.id,
+                workflowTrackingId: tracking.id,
+                workflowActionId: tracking.workflowActionId,
+                workflowActionName: action ? action.name : null,
+                previousDriverId: tracking.driverId || null,
+                previousDriverName: tracking.driverNameSnapshot || null,
+                driverId: null,
+                driverName: null,
+                changeType: 'stage_reset',
+                reason: 'Workflow stage removed when RX returned to warehouse.',
+                userId: req.user?.id
+            }, transaction);
+        }
+
+        // Clear ALL workflow tracking steps. The append-only ledger above survives.
         await db.RXWorkflowTracking.destroy({ where: { rxRecordId: rxId }, transaction });
 
         // Auto-complete Step 1 (warehouse) so the RX sits at the warehouse position
         if (step1) {
-            await db.RXWorkflowTracking.create({
+            const resetTracking = await db.RXWorkflowTracking.create({
                 rxRecordId: rxId,
                 workflowActionId: step1.id,
                 completionDate: new Date(),
-                userId: req.user.id
+                userId: req.user.id,
+                driverId: rx.pharmacyTransportCompanyId || null,
+                driverNameSnapshot: driverDisplayName(currentDriver)
             }, { transaction });
+            await createDriverHistory({
+                rxRecordId: rx.id,
+                workflowTrackingId: resetTracking.id,
+                workflowActionId: step1.id,
+                workflowActionName: step1.name,
+                driverId: resetTracking.driverId,
+                driverName: resetTracking.driverNameSnapshot,
+                changeType: 'stage_snapshot',
+                reason: `Driver captured when "${step1.name}" was recreated after return to warehouse.`,
+                userId: req.user?.id
+            }, transaction);
         }
 
         // Mark the RX as returned to warehouse
@@ -1115,7 +1744,8 @@ exports.returnToWarehouse = async (req, res) => {
         }, { transaction });
 
         await saveHistory(rxId, req.user?.id, 'Workflow', rx.toJSON(), null,
-            `Returned to Warehouse${note ? ': ' + note : ''}${step1 ? ' - reset to Step 1: ' + step1.name : ''}`);
+            `Returned to Warehouse${note ? ': ' + note : ''}${step1 ? ' - reset to Step 1: ' + step1.name : ''}`,
+            transaction);
 
         await transaction.commit();
         res.status(200).json({ message: 'Returned to warehouse. Workflow reset to Step 1.' });
@@ -1129,7 +1759,7 @@ exports.returnToWarehouse = async (req, res) => {
 // H2 FIX: Explicit field whitelist ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â prevents arbitrary column writes via req.body
 const RX_ALLOWED_FIELDS = [
     'patientId', 'arrivalDate', 'serviceDate',
-    'pharmacyId', 'patientTransportCompanyId', 'pharmacyTransportCompanyId',
+    'pharmacyId', 'patientTransportCompanyId',
     'notes'
 ];
 
@@ -1241,13 +1871,17 @@ exports.closeExpiredWorkflow = async (req, res) => {
     const transaction = await db.sequelize.transaction();
     try {
         const rx = await db.RXRecord.findByPk(req.params.id, {
-            include: [db.Patient, db.PatientServiceDateCycle],
-            transaction
+            transaction,
+            lock: transaction.LOCK.UPDATE
         });
         if (!rx) {
             await transaction.rollback();
             return res.status(404).json({ error: 'RX Record not found.' });
         }
+        await loadWorkflowWindowContext(rx, transaction);
+        const currentDriver = rx.pharmacyTransportCompanyId
+            ? await db.PharmacyTransportCompany.findByPk(rx.pharmacyTransportCompanyId, { transaction })
+            : null;
         const cycleServiceDate = getRxCycleServiceDate(rx);
         if (!cycleServiceDate) {
             await transaction.rollback();
@@ -1287,12 +1921,27 @@ exports.closeExpiredWorkflow = async (req, res) => {
         }
 
         const completionDate = new Date(expiryDay);
-        await db.RXWorkflowTracking.bulkCreate(missingActions.map(action => ({
-            rxRecordId: rx.id,
-            workflowActionId: action.id,
-            completionDate,
-            userId: req.user?.id || null
-        })), { transaction });
+        for (const action of missingActions) {
+            const tracking = await db.RXWorkflowTracking.create({
+                rxRecordId: rx.id,
+                workflowActionId: action.id,
+                completionDate,
+                userId: req.user?.id || null,
+                driverId: rx.pharmacyTransportCompanyId || null,
+                driverNameSnapshot: driverDisplayName(currentDriver)
+            }, { transaction });
+            await createDriverHistory({
+                rxRecordId: rx.id,
+                workflowTrackingId: tracking.id,
+                workflowActionId: action.id,
+                workflowActionName: action.name,
+                driverId: tracking.driverId,
+                driverName: tracking.driverNameSnapshot,
+                changeType: 'stage_snapshot',
+                reason: `Driver captured when expired workflow stage "${action.name}" was closed.`,
+                userId: req.user?.id
+            }, transaction);
+        }
 
         if (rx.returnedToWarehouse) {
             await rx.update({
@@ -1327,12 +1976,18 @@ exports.closeExpiredWorkflow = async (req, res) => {
 // GET /api/rx-records/:id/history
 exports.getHistory = async (req, res) => {
     try {
+        const permission = await getRequestPermission(req, 'rx_records');
+        const canViewDriverHistory = !!(permission.visible && permission.canViewDriverHistory);
         const history = await db.RXHistory.findAll({
             where: { rxRecordId: req.params.id },
             include: [{ model: db.User, as: 'ChangedBy', attributes: ['firstName', 'lastName', 'username'] }],
             order: [['createdAt', 'DESC']]
         });
-        res.json(history);
+        if (canViewDriverHistory) return res.json(history);
+
+        res.json(history
+            .filter(row => !isDriverHistoryChangeType(row.changeType))
+            .map(redactDriverHistoryRow));
     } catch (err) { res.status(500).json({ error: err.message }); }
 };
 

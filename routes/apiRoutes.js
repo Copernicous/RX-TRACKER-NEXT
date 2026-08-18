@@ -366,6 +366,11 @@ router.post('/rx-records/return-to-warehouse', rbac.requirePermission('rx_record
 router.post('/rx-records/reopen-warehouse-return', rbac.requirePermission('rx_records', 'warehouse'), auditLogger('RX Workflow'), rxController.reopenWarehouseReturn);
 router.post('/rx-records/undo-workflow',        rbac.requirePermission('rx_records', 'undo'), auditLogger('RX Workflow'), rxController.undoWorkflow);
 router.post('/rx-records/workflow',             rbac.requirePermission('rx_records', 'add'),  auditLogger('RX Workflow'), rxController.updateWorkflow);
+router.get('/rx-records/driver-options',          rbac.requirePermission('rx_records', 'correctDriver'), rxController.getDriverOptions);
+router.put('/rx-records/:id/current-driver',     rbac.requirePermission('rx_records', 'assignDriver'), auditLogger('RX Driver'), rxController.updateCurrentDriver);
+router.put('/rx-records/workflow-driver',        rbac.requirePermission('rx_records', 'correctDriver'), auditLogger('RX Driver'), rxController.correctWorkflowDriver);
+router.put('/rx-records/:id/sync-driver-history',rbac.requirePermission('rx_records', 'syncDriverHistory'), auditLogger('RX Driver'), rxController.syncWorkflowDrivers);
+router.get('/rx-records/:id/driver-history',     rbac.requirePermission('rx_records', 'viewDriverHistory'), rxController.getDriverHistory);
 // FEAT-10: Bulk workflow step application
 router.post('/rx-records/bulk-workflow',        rbac.requirePermission('rx_records', 'add'),  auditLogger('RX Workflow'), rxController.bulkWorkflow);
 // FEAT-11: Workflow step date override (edit permission, or expired-lock override)
@@ -748,6 +753,8 @@ router.get('/admin/audit-logs',         masterOnly, adminController.getAuditLogs
 router.get('/admin/rx-profile-sync', masterOnly, rxProfileSyncController.list);
 router.get('/admin/rx-profile-sync/export', masterOnly, rxProfileSyncController.exportHistory);
 router.post('/admin/rx-profile-sync/bulk', masterOnly, rxProfileSyncController.bulkSync);
+router.post('/admin/rx-profile-sync/:rxId/review', masterOnly, rxProfileSyncController.review);
+router.post('/admin/rx-profile-sync/:rxId/reopen', masterOnly, rxProfileSyncController.reopenReview);
 router.post('/admin/rx-profile-sync/:rxId', masterOnly, rxProfileSyncController.sync);
 router.get('/admin/call-center-cleanup', masterOnly, adminController.getCallCenterCleanupPreview);
 router.delete('/admin/call-center-cleanup', masterOnly, requireStagingDestructiveConfirmation, adminController.purgeCallCenterCleanup);

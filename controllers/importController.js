@@ -216,6 +216,7 @@ function extractWorkflowTracking(row, actionByNormalizedName, actionBySequence, 
 
         entries.push({
             workflowActionId: action.id,
+            name: action.name,
             sequenceNumber: action.sequenceNumber || 0,
             completionDate: new Date(`${parsedDate}T00:00:00`)
         });
@@ -470,12 +471,29 @@ exports.importDataset = async (req, res) => {
                                     pharmacyTransportCompanyId: rowPayload.pharmacyTransportCompanyId
                                 }, { transaction: tx });
 
-                                await db.RXWorkflowTracking.bulkCreate(steps.map((step) => ({
-                                    rxRecordId: rx.id,
-                                    workflowActionId: step.workflowActionId,
-                                    completionDate: step.completionDate,
-                                    userId: req.user?.id || null
-                                })), { transaction: tx });
+                                for (const step of steps) {
+                                    const tracking = await db.RXWorkflowTracking.create({
+                                        rxRecordId: rx.id,
+                                        workflowActionId: step.workflowActionId,
+                                        completionDate: step.completionDate,
+                                        userId: req.user?.id || null,
+                                        driverId: null,
+                                        driverNameSnapshot: null
+                                    }, { transaction: tx });
+                                    await db.RXDriverAssignmentHistory.create({
+                                        rxRecordId: rx.id,
+                                        workflowTrackingId: tracking.id,
+                                        workflowActionId: step.workflowActionId,
+                                        workflowActionName: step.name || null,
+                                        previousDriverId: null,
+                                        previousDriverName: null,
+                                        driverId: null,
+                                        driverName: null,
+                                        changeType: 'stage_snapshot',
+                                        reason: `Imported workflow stage "${step.name || step.workflowActionId}" without a driver assignment.`,
+                                        userId: req.user?.id || null
+                                    }, { transaction: tx });
+                                }
                             }
 
                             await syncPatientServiceDateCycles(patient, {

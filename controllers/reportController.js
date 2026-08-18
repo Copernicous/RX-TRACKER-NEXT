@@ -8,6 +8,7 @@ const {
 } = require('../utils/serviceWindowEligibility');
 const patientRxCompleteCsv = require('../utils/patientRxCompleteCsv');
 const { activeRxWorkflowAggregateSql } = require('../utils/rxWorkflowAggregateSql');
+const { getRequestPermission } = require('../middleware/rbac');
 
 const CALL_CENTER_MODULE = 'Call Center';
 const CC_CALL_ACTION = 'Called';
@@ -44,6 +45,7 @@ function rxReportInclude() {
         db.PharmacyTransportCompany,
         {
             model: db.RXWorkflowTracking,
+            attributes: ['id', 'rxRecordId', 'workflowActionId', 'completionDate', 'userId', 'createdAt', 'updatedAt'],
             include: [
                 db.WorkflowAction,
                 { model: db.User, attributes: ['id', 'username', 'firstName', 'lastName'] }
@@ -1193,6 +1195,7 @@ async function getPatientRxCompleteExportRows(query, patientIdsOverride) {
         rxIds.length
             ? db.RXWorkflowTracking.findAll({
                 where: { rxRecordId: { [Op.in]: rxIds } },
+                attributes: ['id', 'rxRecordId', 'workflowActionId', 'completionDate', 'userId', 'createdAt', 'updatedAt'],
                 include: [
                     { model: db.WorkflowAction, required: false },
                     { model: db.User, attributes: PATIENT_RX_EXPORT_USER_ATTRIBUTES, required: false }
@@ -1832,6 +1835,12 @@ exports.getPatientReport = async (req, res) => {
 exports.getPatientRxDetailReport = async (req, res) => {
     try {
         const query = req.query || {};
+        if (query.completeHistory === 'true') {
+            const rxPermission = await getRequestPermission(req, 'rx_records');
+            if (!rxPermission.visible || !rxPermission.canViewDriverHistory) {
+                return res.status(403).json({ error: 'Viewing complete RX history requires Driver History permission.' });
+            }
+        }
         if (query.completeHistory === 'true' && query.format === 'csv') {
             return await streamPatientRxCompleteCsv(req, res);
         }

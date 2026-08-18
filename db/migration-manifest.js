@@ -46,7 +46,9 @@ module.exports = [
   entry('20260725110000-add-patient-list-query-indexes.js', require('../migrations/20260725110000-add-patient-list-query-indexes.js')),
   entry('20260725160000-add-growth-query-indexes.js', require('../migrations/20260725160000-add-growth-query-indexes.js')),
   entry('20260729233000-add-delivery-outcome-mode-to-workflow-actions.js', require('../migrations/20260729233000-add-delivery-outcome-mode-to-workflow-actions.js')),
-  entry('20260730000000-add-rx-delivery-outcome.js', require('../migrations/20260730000000-add-rx-delivery-outcome.js'))
+  entry('20260730000000-add-rx-delivery-outcome.js', require('../migrations/20260730000000-add-rx-delivery-outcome.js')),
+  entry('20260818000000-add-rx-driver-tracking.js', require('../migrations/20260818000000-add-rx-driver-tracking.js')),
+  entry('20260818120000-add-rx-profile-sync-review-events.js', require('../migrations/20260818120000-add-rx-profile-sync-review-events.js'))
 ];
 
 function entry(name, migration) {

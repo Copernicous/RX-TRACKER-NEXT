@@ -1026,6 +1026,7 @@ exports.getTimeline = async (req, res) => {
                 { model: db.Medication },
                 {
                     model: db.RXWorkflowTracking,
+                    attributes: ['id', 'rxRecordId', 'workflowActionId', 'completionDate', 'userId', 'createdAt', 'updatedAt'],
                     include: [
                         { model: db.WorkflowAction },
                         { model: db.User, attributes: ['firstName', 'lastName', 'username'] }

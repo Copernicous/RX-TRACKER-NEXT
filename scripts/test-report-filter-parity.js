@@ -49,7 +49,7 @@ function runHandler(handler, query) {
                 resolve({ status: this.statusCode, payload });
             }
         };
-        Promise.resolve(handler({ query }, res)).catch(reject);
+        Promise.resolve(handler({ query, user: { role: 'Administrator', roleId: 1 } }, res)).catch(reject);
     });
 }
 

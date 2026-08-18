@@ -6,7 +6,8 @@
  * The startup migration in app.js seeds the initial defaults for the built-in roles.
  *
  * Permission object shape per module:
- *   { visible, canAdd, canEdit, canDelete, canExport, canPrint, canCopy, canUndo, canWarehouse, canOverrideExpired }
+ *   { visible, canAdd, canEdit, canDelete, canExport, canPrint, canCopy, canUndo, canWarehouse, canOverrideExpired,
+ *     canViewDriverHistory, canAssignDriver, canCorrectDriver, canSyncDriverHistory }
  *
  * canAdd  → can CREATE new records (POST)
  * canEdit → can MODIFY existing records (PUT/PATCH)
@@ -24,7 +25,7 @@ const BUILT_IN_DEFAULTS = {
             dashboard:          { visible: true,  canAdd: false, canEdit: false, canDelete: false, canExport: true,  canCopy: true, canUndo: false },
             call_center:        { visible: true,  canAdd: true,  canEdit: false, canDelete: false, canExport: true,  canPrint: false, canCopy: true, canUndo: false },
             patients:           { ...full, canOverrideExpired: true },
-            rx_records:         { ...full, canUndo: true, canWarehouse: true, canOverrideExpired: true },
+            rx_records:         { ...full, canUndo: true, canWarehouse: true, canOverrideExpired: true, canViewDriverHistory: true, canAssignDriver: true, canCorrectDriver: true, canSyncDriverHistory: true },
             reports:            { visible: true,  canAdd: false, canEdit: false, canDelete: false, canExport: true,  canCopy: true, canUndo: false },
             audit_log:          { visible: true,  canAdd: false, canEdit: false, canDelete: false, canExport: false, canCopy: true, canUndo: false },
             import:             { ...full },
@@ -50,7 +51,7 @@ const BUILT_IN_DEFAULTS = {
             dashboard:          { visible: true,  canAdd: false, canEdit: false, canDelete: false, canExport: true,  canCopy: true, canUndo: false },
             call_center:        { visible: true,  canAdd: true,  canEdit: false, canDelete: false, canExport: true,  canPrint: false, canCopy: true, canUndo: false },
             patients:           { ...full },
-            rx_records:         { ...full, canUndo: true, canWarehouse: true },
+            rx_records:         { ...full, canUndo: true, canWarehouse: true, canViewDriverHistory: true, canAssignDriver: true, canCorrectDriver: true, canSyncDriverHistory: true },
             reports:            { ...view },
             audit_log:          { visible: true,  canAdd: false, canEdit: false, canDelete: false, canExport: false, canCopy: true, canUndo: false },
             import:             { ...add },
@@ -75,7 +76,7 @@ const BUILT_IN_DEFAULTS = {
             dashboard:          { visible: true,  canAdd: false, canEdit: false, canDelete: false, canExport: true,  canCopy: true, canUndo: false },
             call_center:        { ...hide },
             patients:           { ...addOnly },
-            rx_records:         { ...addOnly, canUndo: false, canWarehouse: false },
+            rx_records:         { ...addOnly, canUndo: false, canWarehouse: false, canViewDriverHistory: true, canAssignDriver: true, canCorrectDriver: false, canSyncDriverHistory: false },
             reports:            { ...view },
             audit_log:          { ...hide },
             import:             { ...hide },
@@ -99,7 +100,7 @@ const BUILT_IN_DEFAULTS = {
             dashboard:          { visible: true,  canAdd: false, canEdit: false, canDelete: false, canExport: true,  canCopy: true, canUndo: false },
             call_center:        { ...hide },
             patients:           { ...view },
-            rx_records:         { ...view, canUndo: false, canWarehouse: false },
+            rx_records:         { ...view, canUndo: false, canWarehouse: false, canViewDriverHistory: true, canAssignDriver: false, canCorrectDriver: false, canSyncDriverHistory: false },
             reports:            { ...view },
             audit_log:          { ...hide },
             import:             { ...hide },
@@ -122,7 +123,7 @@ const BUILT_IN_DEFAULTS = {
             dashboard:          { ...hide },
             call_center:        { visible: true, canAdd: true, canEdit: false, canDelete: false, canExport: false, canPrint: false, canCopy: false, canUndo: false, canOverrideExpired: false },
             patients:           { ...hide },
-            rx_records:         { ...hide, canWarehouse: false },
+            rx_records:         { ...hide, canWarehouse: false, canViewDriverHistory: false, canAssignDriver: false, canCorrectDriver: false, canSyncDriverHistory: false },
             reports:            { ...hide },
             audit_log:          { ...hide },
             import:             { ...hide },
@@ -154,10 +155,15 @@ function normalizePermission(rawPerm) {
         canCopy:            rawPerm.canCopy !== undefined ? !!rawPerm.canCopy : true,
         canUndo:            !!rawPerm.canUndo,
         canWarehouse:       rawPerm.canWarehouse !== undefined ? !!rawPerm.canWarehouse : !!rawPerm.canEdit,
-        canOverrideExpired: !!rawPerm.canOverrideExpired
+        canOverrideExpired:   !!rawPerm.canOverrideExpired,
+        canViewDriverHistory: !!rawPerm.canViewDriverHistory,
+        canAssignDriver:      !!rawPerm.canAssignDriver,
+        canCorrectDriver:     !!rawPerm.canCorrectDriver,
+        canSyncDriverHistory: !!rawPerm.canSyncDriverHistory
     } : {
         visible: false, canAdd: false, canEdit: false, canDelete: false,
-        canExport: false, canPrint: false, canCopy: false, canUndo: false, canWarehouse: false, canOverrideExpired: false
+        canExport: false, canPrint: false, canCopy: false, canUndo: false, canWarehouse: false, canOverrideExpired: false,
+        canViewDriverHistory: false, canAssignDriver: false, canCorrectDriver: false, canSyncDriverHistory: false
     };
 }
 
@@ -166,7 +172,8 @@ async function getRequestPermission(req, moduleKey) {
     if (req.user.role === 'Administrator') {
         return {
             visible: true, canAdd: true, canEdit: true, canDelete: true,
-            canExport: true, canPrint: true, canCopy: true, canUndo: true, canWarehouse: true, canOverrideExpired: true
+            canExport: true, canPrint: true, canCopy: true, canUndo: true, canWarehouse: true, canOverrideExpired: true,
+            canViewDriverHistory: true, canAssignDriver: true, canCorrectDriver: true, canSyncDriverHistory: true
         };
     }
 
@@ -288,6 +295,10 @@ exports.requirePermission = (moduleKey, requiredAction) => {
             if (requiredAction === 'undo'      && !perm.canUndo)      { recordPermissionDenied(req, { moduleKey, requiredAction, reason: 'missing_undo' }); return res.status(403).json({ message: `Access denied: you cannot undo workflow steps.` }); }
             if (requiredAction === 'warehouse' && !perm.canWarehouse) { recordPermissionDenied(req, { moduleKey, requiredAction, reason: 'missing_warehouse' }); return res.status(403).json({ message: `Access denied: you cannot return RX records to warehouse.` }); }
             if (requiredAction === 'overrideExpired' && !perm.canOverrideExpired) { recordPermissionDenied(req, { moduleKey, requiredAction, reason: 'missing_override_expired' }); return res.status(403).json({ message: `Access denied: you cannot override expired 90-day locks.` }); }
+            if (requiredAction === 'assignDriver' && !perm.canAssignDriver) { recordPermissionDenied(req, { moduleKey, requiredAction, reason: 'missing_assign_driver' }); return res.status(403).json({ message: 'Access denied: you cannot change the current driver.' }); }
+            if (requiredAction === 'correctDriver' && !perm.canCorrectDriver) { recordPermissionDenied(req, { moduleKey, requiredAction, reason: 'missing_correct_driver' }); return res.status(403).json({ message: 'Access denied: you cannot correct historical stage drivers.' }); }
+            if (requiredAction === 'viewDriverHistory' && !perm.canViewDriverHistory) { recordPermissionDenied(req, { moduleKey, requiredAction, reason: 'missing_view_driver_history' }); return res.status(403).json({ message: 'Access denied: you cannot view driver assignment history.' }); }
+            if (requiredAction === 'syncDriverHistory' && !perm.canSyncDriverHistory) { recordPermissionDenied(req, { moduleKey, requiredAction, reason: 'missing_sync_driver_history' }); return res.status(403).json({ message: 'Access denied: you cannot synchronize completed-stage drivers.' }); }
 
             next();
         } catch (e) {

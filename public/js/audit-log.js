@@ -252,6 +252,12 @@ function paEsc(value) {
         .replace(/'/g, '&#039;');
 }
 
+function auditCsvCell(value) {
+    var text = String(value == null ? '' : value);
+    if (/^\s*[=+\-@]/.test(text)) text = "'" + text;
+    return '"' + text.replace(/"/g, '""') + '"';
+}
+
 function statusDescription(statusCode) {
     const map = {
         200: 'OK - page loaded normally',
@@ -457,7 +463,7 @@ async function exportActivity() {
             ];
         });
         var csv = [headers].concat(csvRows)
-            .map(function(row) { return row.map(function(value) { return '"' + String(value == null ? '' : value).replace(/"/g,'""') + '"'; }).join(','); })
+            .map(function(row) { return row.map(auditCsvCell).join(','); })
             .join('\n');
         var blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
         var a = document.createElement('a');
@@ -512,7 +518,7 @@ async function loadPage() {
         if (res.status === 401 || res.status === 403) { window.rxNav('/login'); return; }
         if (!res.ok) {
             const err = await res.json().catch(() => ({}));
-            showBody('<tr><td colspan="10" class="text-center text-danger py-4"><i class="fas fa-exclamation-triangle me-2"></i>' + (err.message || err.error || 'Failed to load.') + '</td></tr>');
+            showBody('<tr><td colspan="10" class="text-center text-danger py-4"><i class="fas fa-exclamation-triangle me-2"></i>' + paEsc(err.message || err.error || 'Failed to load.') + '</td></tr>');
             return;
         }
         const text = await res.text();
@@ -538,7 +544,7 @@ async function loadPage() {
         renderTable();
         renderPagination();
     } catch(e) {
-        showBody('<tr><td colspan="10" class="text-center text-danger py-4">Error: ' + e.message + '</td></tr>');
+        showBody('<tr><td colspan="10" class="text-center text-danger py-4">Error: ' + paEsc(e.message) + '</td></tr>');
     }
 }
 
@@ -556,10 +562,11 @@ function renderTable() {
     }
 
     var _rtHtml = ''; for (var _rti = 0; _rti < currentLogs.length; _rti++) { var log = currentLogs[_rti]; _rtHtml += (function() {
+        const userName = log.User ? [log.User.firstName, log.User.lastName].filter(Boolean).join(' ') : '';
         const user = log.User
-            ? '<strong>' + log.User.firstName + ' ' + log.User.lastName + '</strong><br><small class="text-muted">' + log.User.username + '</small>'
+            ? '<strong>' + paEsc(userName || log.User.username || 'Unknown user') + '</strong><br><small class="text-muted">' + paEsc(log.User.username || '') + '</small>'
             : '<span class="text-muted small">System</span>';
-        const badge  = '<span class="badge log-badge ' + (BADGE[log.action] || 'bg-secondary') + '">' + log.action + '</span>';
+        const badge  = '<span class="badge log-badge ' + (BADGE[log.action] || 'bg-secondary') + '">' + paEsc(log.action || '-') + '</span>';
         const rowCls = ROW_CLS[log.action] || '';
         const dt     = new Date(log.createdAt);
         const dateStr = dt.toLocaleDateString('en-US', {year:'2-digit',month:'2-digit',day:'2-digit'});
@@ -568,8 +575,8 @@ function renderTable() {
         // Record / Patient label
         const lbl = getRecordLabel(log);
         const recordCell = lbl
-            ? '<span class="fw-semibold text-primary" style="font-size:.82rem">' + lbl + '</span>'
-            : (log.recordId ? '<code>#' + log.recordId + '</code>' : '<span class="text-muted">-</span>');
+            ? '<span class="fw-semibold text-primary" style="font-size:.82rem">' + paEsc(lbl) + '</span>'
+            : (log.recordId ? '<code>#' + paEsc(log.recordId) + '</code>' : '<span class="text-muted">-</span>');
 
         // Data cell \u2014 readable summary
         let dataCell = '<span class="text-muted">-</span>';
@@ -580,19 +587,19 @@ function renderTable() {
             const m = log.module || '';
 
             if (m === 'Patients' || (m.includes('Patient') && !m.includes('Transport'))) {
-                if (nv.firstName || nv.lastName) parts.push('<b>Name:</b> ' + ([nv.firstName, nv.lastName].filter(Boolean).join(' ')));
-                if (nv.dob)   parts.push('<b>DOB:</b> ' + nv.dob);
-                if (nv.phone) parts.push('<b>Phone:</b> ' + nv.phone);
+                if (nv.firstName || nv.lastName) parts.push('<b>Name:</b> ' + paEsc([nv.firstName, nv.lastName].filter(Boolean).join(' ')));
+                if (nv.dob)   parts.push('<b>DOB:</b> ' + paEsc(nv.dob));
+                if (nv.phone) parts.push('<b>Phone:</b> ' + paEsc(nv.phone));
                 if (nv.isActive !== undefined) parts.push('<b>Status:</b> ' + (nv.isActive ? 'Active' : 'Inactive'));
             } else if (m === 'RX Records' || m === 'RX Workflow') {
-                if (nv.arrivalDate) parts.push('<b>Arrival:</b> ' + nv.arrivalDate);
-                if (nv.serviceDate) parts.push('<b>Service:</b> ' + nv.serviceDate);
-                if (nv.actionId)    parts.push('<b>Step:</b> ' + nv.actionId);
+                if (nv.arrivalDate) parts.push('<b>Arrival:</b> ' + paEsc(nv.arrivalDate));
+                if (nv.serviceDate) parts.push('<b>Service:</b> ' + paEsc(nv.serviceDate));
+                if (nv.actionId)    parts.push('<b>Step:</b> ' + paEsc(nv.actionId));
             } else if (m === 'Users') {
-                if (nv.username)  parts.push('<b>User:</b> ' + nv.username);
-                if (nv.firstName) parts.push('<b>Name:</b> ' + ([nv.firstName, nv.lastName].filter(Boolean).join(' ')));
+                if (nv.username)  parts.push('<b>User:</b> ' + paEsc(nv.username));
+                if (nv.firstName) parts.push('<b>Name:</b> ' + paEsc([nv.firstName, nv.lastName].filter(Boolean).join(' ')));
             } else if (m === 'Authentication') {
-                parts.push('<b>' + (log.action || 'Event') + '</b>');
+                parts.push('<b>' + paEsc(log.action || 'Event') + '</b>');
             } else {
                 const skip = ['_label','id','createdAt','updatedAt','passwordHash'];
                 Object.keys(nv).forEach(function(k) {
@@ -600,14 +607,14 @@ function renderTable() {
                     const v = nv[k];
                     if (v === null || v === undefined || v === '') return;
                     const lbl2 = k.replace(/([A-Z])/g, ' $1').replace(/^(.)/, function(s){ return s.toUpperCase(); });
-                    parts.push('<b>' + lbl2 + ':</b> ' + String(v).substring(0, 30));
+                    parts.push('<b>' + paEsc(lbl2) + ':</b> ' + paEsc(String(v).substring(0, 30)));
                 });
             }
 
             if (parts.length) {
                 const preview = parts.slice(0, 2).join(' · ');
                 const more    = parts.length > 2 ? ' <small class="text-muted">+' + (parts.length - 2) + ' more</small>' : '';
-                dataCell = '<span class="data-cell" data-detail="' + log.id + ' title="Click for full detail" style="cursor:pointer;font-size:.82rem">'
+                dataCell = '<span class="data-cell" data-detail="' + paEsc(log.id) + '" title="Click for full detail" style="cursor:pointer;font-size:.82rem">'
                          + preview + more + '</span>';
             } else if (log.action === 'Delete' || log.action === 'Disable') {
                 dataCell = '<span class="text-muted small"><i class="fas fa-trash-alt me-1"></i>Record removed</span>';
@@ -615,25 +622,25 @@ function renderTable() {
                 dataCell = '<span class="text-success small"><i class="fas fa-undo me-1"></i>Record restored</span>';
             }
         } else if (log.action === 'Login' || log.action === 'Logout') {
-            dataCell = '<span class="text-muted small">' + log.action + '</span>';
+            dataCell = '<span class="text-muted small">' + paEsc(log.action) + '</span>';
         } else if (log.action === 'Delete' || log.action === 'Disable') {
             dataCell = '<span class="text-muted small"><i class="fas fa-trash-alt me-1"></i>Record removed</span>';
         }
 
         const adminBtn = isAdmin
-            ? '<td><button class="btn btn-sm btn-outline-danger py-0 px-1" data-del-single="' + log.id + '"><i class="fas fa-trash"></i></button></td>'
+            ? '<td><button class="btn btn-sm btn-outline-danger py-0 px-1" data-del-single="' + paEsc(log.id) + '"><i class="fas fa-trash"></i></button></td>'
             : '';
 
         return '<tr class="' + rowCls + '">'
-            + '<td><input type="checkbox" class="chk log-chk" data-id="' + log.id + '"></td>'
-            + '<td class="text-muted">' + log.id + '</td>'
-            + '<td><span class="fw-semibold">' + dateStr + '</span><br><small class="text-muted">' + timeStr + '</small></td>'
+            + '<td><input type="checkbox" class="chk log-chk" data-id="' + paEsc(log.id) + '"></td>'
+            + '<td class="text-muted">' + paEsc(log.id) + '</td>'
+            + '<td><span class="fw-semibold">' + paEsc(dateStr) + '</span><br><small class="text-muted">' + paEsc(timeStr) + '</small></td>'
             + '<td>' + user + '</td>'
-            + '<td><span class="badge bg-light text-dark border small">' + (log.module || '-') + '</span></td>'
+            + '<td><span class="badge bg-light text-dark border small">' + paEsc(log.module || '-') + '</span></td>'
             + '<td>' + badge + '</td>'
             + '<td>' + recordCell + '</td>'
             + '<td>' + dataCell + '</td>'
-            + '<td><small class="text-muted font-monospace">' + (log.ipAddress || '-') + '</small></td>'
+            + '<td><small class="text-muted font-monospace">' + paEsc(log.ipAddress || '-') + '</small></td>'
             + adminBtn
             + '</tr>';
     })();
@@ -716,14 +723,14 @@ function formatVal(key, val) {
     if (val === null || val === undefined || val === '') return '<span class="text-muted fst-italic">empty</span>';
     if (key === 'isActive') return val ? '<span class="badge bg-success">Active</span>' : '<span class="badge bg-secondary">Inactive</span>';
     if (typeof val === 'boolean') return val ? '<span class="badge bg-success">Yes</span>' : '<span class="badge bg-secondary">No</span>';
-    if (typeof val === 'object') return '<code class="small">' + JSON.stringify(val) + '</code>';
+    if (typeof val === 'object') return '<code class="small">' + paEsc(JSON.stringify(val)) + '</code>';
     const s = String(val);
     // detect dates
     if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
         const d = new Date(s);
-        return isNaN(d) ? s : d.toLocaleDateString();
+        return paEsc(isNaN(d) ? s : d.toLocaleDateString());
     }
-    return s.length > 120 ? s.substring(0,120) + '…' : s;
+    return paEsc(s.length > 120 ? s.substring(0,120) + '…' : s);
 }
 
 function showDetail(id) {
@@ -731,20 +738,23 @@ function showDetail(id) {
     if (!log) return;
 
     // Modal title
-    document.getElementById('detailModalTitle').innerHTML = '<i class="fas fa-file-alt me-2"></i>Change Details \u2014 ' + (log.module || 'System') + ' #' + (log.recordId || log.id);
+    document.getElementById('detailModalTitle').innerHTML = '<i class="fas fa-file-alt me-2"></i>Change Details \u2014 ' + paEsc(log.module || 'System') + ' #' + paEsc(log.recordId || log.id);
 
     // Action color
     const actionColors = { Create:'success', Update:'primary', Delete:'danger', Login:'info', Logout:'secondary', Restore:'warning', Disable:'danger' };
     const aColor = actionColors[log.action] || 'secondary';
 
     // Summary bar
-    const user = log.User ? (log.User.firstName + ' ' + log.User.lastName + ' <small class="text-muted">('+log.User.username+')</small>') : 'System';
+    const detailUserName = log.User ? [log.User.firstName, log.User.lastName].filter(Boolean).join(' ') : '';
+    const user = log.User
+        ? paEsc(detailUserName || log.User.username || 'Unknown user') + (log.User.username ? ' <small class="text-muted">(' + paEsc(log.User.username) + ')</small>' : '')
+        : 'System';
     document.getElementById('detailSummary').innerHTML =
-        '<span class="badge bg-' + aColor + ' fs-6 px-3 py-2">' + (log.action || '-') + '</span>' +
-        '<span><i class="fas fa-layer-group me-1 text-muted"></i><strong>' + (log.module || '-') + '</strong></span>' +
+        '<span class="badge bg-' + aColor + ' fs-6 px-3 py-2">' + paEsc(log.action || '-') + '</span>' +
+        '<span><i class="fas fa-layer-group me-1 text-muted"></i><strong>' + paEsc(log.module || '-') + '</strong></span>' +
         '<span><i class="fas fa-user me-1 text-muted"></i>' + user + '</span>' +
-        '<span><i class="fas fa-clock me-1 text-muted"></i>' + new Date(log.createdAt).toLocaleString() + '</span>' +
-        '<span class="ms-auto font-monospace small text-muted"><i class="fas fa-network-wired me-1"></i>' + (log.ipAddress || '-') + '</span>';
+        '<span><i class="fas fa-clock me-1 text-muted"></i>' + paEsc(new Date(log.createdAt).toLocaleString()) + '</span>' +
+        '<span class="ms-auto font-monospace small text-muted"><i class="fas fa-network-wired me-1"></i>' + paEsc(log.ipAddress || '-') + '</span>';
 
     // Parse values
     let oldObj = null, newObj = null;
@@ -791,7 +801,7 @@ function showDetail(id) {
             const nv = newObj ? newObj[k] : undefined;
             const lbl = FIELD_LABELS[k] || k.replace(/([A-Z])/g,' $1').replace(/^./, function(s) { return s.toUpperCase(); });
             changedRows += '<tr>' +
-                '<td class="fw-semibold text-muted small" style="text-transform:uppercase;letter-spacing:.04em">' + lbl + '</td>' +
+                '<td class="fw-semibold text-muted small" style="text-transform:uppercase;letter-spacing:.04em">' + paEsc(lbl) + '</td>' +
                 '<td style="background:rgba(220,53,69,0.06)">' + (ov !== undefined ? formatVal(k,ov) : '<span class="text-muted fst-italic">&mdash;</span>') + '</td>' +
                 '<td style="background:rgba(25,135,84,0.06)">' + (nv !== undefined ? formatVal(k,nv) : '<span class="text-muted fst-italic">&mdash;</span>') + '</td>' +
             '</tr>';
@@ -817,7 +827,7 @@ function showDetail(id) {
         unchanged.forEach(function(k) {
             const val = newObj ? newObj[k] : (oldObj ? oldObj[k] : undefined);
             const lbl = FIELD_LABELS[k] || k.replace(/([A-Z])/g,' $1').replace(/^./, function(s) { return s.toUpperCase(); });
-            unchangedRows += '<tr><td class="fw-semibold text-muted small" style="text-transform:uppercase;letter-spacing:.04em">' + lbl + '</td><td>' + formatVal(k,val) + '</td></tr>';
+            unchangedRows += '<tr><td class="fw-semibold text-muted small" style="text-transform:uppercase;letter-spacing:.04em">' + paEsc(lbl) + '</td><td>' + formatVal(k,val) + '</td></tr>';
         });
         html += '<details class="mt-2">' +
             '<summary class="text-muted small" style="cursor:pointer;user-select:none">' +
@@ -861,7 +871,7 @@ async function exportAll() {
             l.newValue      ? JSON.stringify(l.newValue)      : ''
         ]);
         const csv = [HEADERS, ...csvRows]
-            .map(r => r.map(v => '"' + String(v ?? '').replace(/"/g,'""') + '"').join(','))
+            .map(r => r.map(auditCsvCell).join(','))
             .join('\n');
         const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
         const a = Object.assign(document.createElement('a'), {
