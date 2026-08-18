@@ -10,7 +10,7 @@ frozen 3.3.1 repository, its production database, or the RX Softphone source.
 
 ## Current status
 
-Version: `4.0.0-next.72` official release
+Version: `4.0.0-next.73` release candidate
 
 | Area | NEXT behavior |
 |---|---|
@@ -25,13 +25,13 @@ Version: `4.0.0-next.72` official release
 | Test-copy restore | Project Control 2.2.2 option 25 verifies the exact service process, executable, listener, and database before optional activation |
 | RX Softphone | Version 0.6.0 runs as a tray application with its own Windows control window and per-user automatic startup, supports optional PBX Authentication ID, and is published as a separate, checksummed workstation ZIP |
 
-An unreleased `develop` candidate, promoted after staging validation, uses the RX Pharmacy Transportation assignment
+Release candidate `next.73`, promoted after staging and development validation, uses the RX Pharmacy Transportation assignment
 as its current driver and adds immutable driver snapshots on completed workflow stages, selected-stage
 historical correction, append-only history, whole-track recovery sync, and four
-granular RX permissions. Development operator testing is pending; it is not
-part of the official `next.72` release.
+granular RX permissions. It is not installed in production until the official
+release workflow and Project Control update are separately completed.
 
-The same development candidate adds review state to Backoffice **RX Profile Sync**.
+The same release candidate adds review state to Backoffice **RX Profile Sync**.
 Exact Pharmacy and Transport differences can be marked reviewed without being
 synchronized, viewed through Pending / Reviewed / All filters, and reopened.
 The ledger is append-only, and a later change to either compared value appears

@@ -7,6 +7,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+## [4.0.0-next.73]
+
 ### Added
 
 - Added append-only RX Profile Sync review events. An administrator can mark an
