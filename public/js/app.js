@@ -1399,8 +1399,9 @@ function renderTable() {
             }
             if (isSoftDelete && isInactive && (p.canEdit || p.canDelete)) {
                 // Disabled row: show Restore button only
+                var canRestore = crudState.module === 'pharmacy-transport' ? p.canEdit : p.canDelete;
                 actionCell = '<td>' +
-                    (p.canDelete ? '<button class="btn btn-sm btn-outline-success" onclick="restoreRecord(' + row.id + ')" title="Restore"><i class="fas fa-undo me-1"></i>Restore</button>' : '<span class="text-muted small">Disabled</span>') +
+                    (canRestore ? '<button class="btn btn-sm btn-outline-success" onclick="restoreRecord(' + row.id + ')" title="Restore"><i class="fas fa-undo me-1"></i>Restore</button>' : '<span class="text-muted small">Disabled</span>') +
                     '</td>';
             } else if (p.canEdit || p.canDelete) {
                 actionCell = '<td>' +
@@ -1760,6 +1761,15 @@ async function saveRecord() {
             await refreshTable();
         } else {
             var err = await res.json();
+            if (res.status === 409 && crudState.module === 'pharmacy-transport' && err.duplicate) {
+                var duplicateModal = bootstrap.Modal.getInstance(document.getElementById('crudModal'));
+                if (duplicateModal) duplicateModal.hide();
+                if (err.duplicate.isActive === false) {
+                    var inactiveToggle = document.getElementById('showInactiveToggle');
+                    if (inactiveToggle) inactiveToggle.checked = true;
+                }
+                await refreshTable();
+            }
             showToast(err.error || err.message || 'Save failed.', 'danger');
         }
     } catch (e) {

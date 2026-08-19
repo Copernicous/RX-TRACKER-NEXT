@@ -1,6 +1,6 @@
 # RX Tracker NEXT project handoff
 
-Last updated: 2026-08-18
+Last updated: 2026-08-19
 
 This file is the sanitized continuity record for a future administrator or
 Codex session. It intentionally contains no credentials, `.env` values,
@@ -23,9 +23,25 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
   and `rx-db.exe`
   `35ea86695bf9996564dae63f1671704af91bf4fd526ba30df23df0a85be29d43`.
   The official server reports `4.0.0-next.73`, and `rx-db.exe help` succeeds.
-  Production installation remains pending and must use Project Control so the
-  paired application/database rollback and guarded migration process are
-  preserved.
+  The operator confirmed the guarded production installation and normal use on
+  2026-08-19, including access through the Cloudflare proxy.
+
+- **Unreleased candidate — Pharmacy Transport duplicate prevention:** Manual
+  add/edit/restore and CSV import now compare trimmed, collapsed-whitespace,
+  case-insensitive company names against both active and disabled records. A
+  disabled match is revealed through **Show Disabled** and must be restored;
+  an active match must be reused. The audited
+  `20260819120000-prevent-active-pharmacy-transport-duplicates` migration adds
+  a partial normalized unique index for active rows while deliberately keeping
+  legacy disabled IDs and their RX history. The migration passed against an
+  existing active/disabled legacy pair, and the focused isolated regression
+  covers add, edit, restore, CSV import, concurrent writes, and schema
+  verification at 42/42 migrations. The sanitized production-copy staging
+  database was migrated and verified at 42/42, and the feature-branch preview
+  is healthy on port 3200. An isolated browser test confirmed duplicate
+  rejection, automatic **Show Disabled** reveal, and restoration of the same
+  ID; its temporary account, activity/audit rows, and transport fixture were
+  removed. Production and development remain unchanged for this candidate.
 
 - **Unreleased staging candidate — RX Profile Sync review state:** Backoffice
   RX Profile Sync now defaults to Pending and supports Reviewed and All

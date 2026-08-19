@@ -49,6 +49,7 @@
     "test:rx-warehouse-filter-cleanup": "node scripts/test-rx-warehouse-filter-cleanup.js",
     "test:rx-profile-sync": "node scripts/test-rx-profile-sync.js",
     "test:rx-driver-tracking": "node scripts/test-rx-driver-tracking.js",
+    "test:pharmacy-transport-duplicates": "node scripts/test-pharmacy-transport-duplicates.js",
     "test:workflow-date": "node scripts/test-workflow-date-timezone.js",
     "test:backoffice-patient-delete": "node scripts/test-backoffice-patient-delete.js",
     "test:service-window": "node scripts/test-configurable-service-window.js",

@@ -30,7 +30,14 @@ as its current driver and adds immutable driver snapshots on completed workflow 
 historical correction, append-only history, whole-track recovery sync, and four
 granular RX permissions. Its lifecycle, CodeQL, and compiled-release gates
 passed, and its published payloads were checksum-verified. Installation on the
-live production server remains a separate guarded Project Control operation.
+live production server was operator-confirmed on 2026-08-19 after the guarded
+Project Control update; production use and Cloudflare-proxied access were both
+confirmed working.
+
+The current unreleased candidate prevents new duplicate Pharmacy Transport IDs
+for names that differ only by capitalization or whitespace. It preserves
+disabled legacy entries for RX history and directs operators to restore the
+existing disabled entry instead of creating a replacement ID.
 
 The same release adds review state to Backoffice **RX Profile Sync**.
 Exact Pharmacy and Transport differences can be marked reviewed without being
