@@ -14,6 +14,10 @@ const REQUIRED_UNIQUE_INDEXES = [
   ['SoftphoneRelayDevices', ['tokenHash']]
 ];
 
+const REQUIRED_NAMED_UNIQUE_INDEXES = [
+  ['PharmacyTransportCompanies', 'uq_pharmacy_transport_active_company_name_ci']
+];
+
 async function inspectDatabase(db, options = {}) {
   const includeMigrations = options.includeMigrations !== false;
   const includeIndexes = options.includeIndexes !== false;
@@ -62,6 +66,16 @@ async function inspectDatabase(db, options = {}) {
         if (!isMissingRelation(error)) throw error;
       }
     }
+    for (const [tableName, indexName] of REQUIRED_NAMED_UNIQUE_INDEXES) {
+      try {
+        const indexes = await queryInterface.showIndex(tableName);
+        if (!indexes.some(index => index.unique && index.name === indexName)) {
+          missingUniqueIndexes.push({ table: tableName, index: indexName });
+        }
+      } catch (error) {
+        if (!isMissingRelation(error)) throw error;
+      }
+    }
   }
 
   const migrations = includeMigrations
@@ -72,7 +86,9 @@ async function inspectDatabase(db, options = {}) {
   for (const item of missingTables) errors.push(`missing table ${item.table} (${item.model})`);
   for (const item of missingColumns) errors.push(`missing column ${item.table}.${item.column}`);
   for (const item of missingUniqueIndexes) {
-    errors.push(`missing unique index ${item.table}(${item.fields.join(', ')})`);
+    errors.push(item.index
+      ? `missing unique index ${item.index} on ${item.table}`
+      : `missing unique index ${item.table}(${item.fields.join(', ')})`);
   }
   if (includeMigrations && !migrations.metaExists) errors.push('missing SequelizeMeta migration history');
   if (includeMigrations && migrations.missingLedgerColumns.length) {
@@ -138,6 +154,7 @@ function isMissingRelation(error) {
 
 module.exports = {
   REQUIRED_UNIQUE_INDEXES,
+  REQUIRED_NAMED_UNIQUE_INDEXES,
   inspectDatabase,
   assertDatabaseReady
 };

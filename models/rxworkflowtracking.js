@@ -21,6 +21,7 @@ module.exports = (sequelize, DataTypes) => {
     workflowActionId: DataTypes.INTEGER,
     completionDate: DataTypes.DATE,
     userId: DataTypes.INTEGER,
+    notes: DataTypes.TEXT,
     driverId: DataTypes.INTEGER,
     driverNameSnapshot: DataTypes.STRING(160)
   }, {

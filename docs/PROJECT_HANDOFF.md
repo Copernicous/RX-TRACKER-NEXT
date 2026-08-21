@@ -1,12 +1,57 @@
 # RX Tracker NEXT project handoff
 
-Last updated: 2026-08-18
+Last updated: 2026-08-21
 
 This file is the sanitized continuity record for a future administrator or
 Codex session. It intentionally contains no credentials, `.env` values,
 patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
+
+- **Official v4.0.0-next.73** was published on 2026-08-18 from `main` commit
+  `af2926f8d41740be8b476e078d1cda79b9bb9840` after staging and development
+  operator validation of RX driver evolution and RX Profile Sync review state.
+  PostgreSQL lifecycle CI run `32174775523`, CodeQL run `32174775522`, and
+  tagged compiled-release run `32175152976` passed. The downloaded official
+  assets and embedded executables were verified against `SHA256SUMS.txt`:
+  both server ZIP names
+  `98f51ae12bba6d685b4c6bd81b842d21865a6d843bc401aad61ce209efc7e48b`,
+  RX Softphone ZIP
+  `8b3a13a2633fecc77bec44d47802e73c4b89ed7a7296808da271d8d197043b9d`,
+  `server.exe`
+  `648e18ab65232f05b2fd95c5e85c138647ce13704e646592b1f3f0677d15801b`,
+  and `rx-db.exe`
+  `35ea86695bf9996564dae63f1671704af91bf4fd526ba30df23df0a85be29d43`.
+  The official server reports `4.0.0-next.73`, and `rx-db.exe help` succeeds.
+  The operator confirmed the guarded production installation and normal use on
+  2026-08-19, including access through the Cloudflare proxy.
+
+- **Release candidate v4.0.0-next.74:** RX Workflow Tracking completed stages
+  now support per-entry notes beside completion-date edits and selected-stage
+  driver corrections. Notes are stored on the completed workflow tracking row,
+  audited in RX history, shown inline in the workflow modal, and listed in
+  Patient Notes as read-only RX Workflow entries with author, timestamp, RX,
+  stage, completion-date, and service-date context. Manual development
+  operator testing confirmed note creation, display, and Patient Notes listing
+  behavior. Production remains on the last installed official release until a
+  published, checksummed `v4.0.0-next.74` is installed through Project Control.
+
+- **Unreleased candidate — Pharmacy Transport duplicate prevention:** Manual
+  add/edit/restore and CSV import now compare trimmed, collapsed-whitespace,
+  case-insensitive company names against both active and disabled records. A
+  disabled match is revealed through **Show Disabled** and must be restored;
+  an active match must be reused. The audited
+  `20260819120000-prevent-active-pharmacy-transport-duplicates` migration adds
+  a partial normalized unique index for active rows while deliberately keeping
+  legacy disabled IDs and their RX history. The migration passed against an
+  existing active/disabled legacy pair, and the focused isolated regression
+  covers add, edit, restore, CSV import, concurrent writes, and schema
+  verification at 42/42 migrations. The sanitized production-copy staging
+  database was migrated and verified at 42/42, and the feature-branch preview
+  is healthy on port 3200. An isolated browser test confirmed duplicate
+  rejection, automatic **Show Disabled** reveal, and restoration of the same
+  ID; its temporary account, activity/audit rows, and transport fixture were
+  removed. Production and development remain unchanged for this candidate.
 
 - **Unreleased staging candidate — RX Profile Sync review state:** Backoffice
   RX Profile Sync now defaults to Pending and supports Reviewed and All
@@ -19,11 +64,15 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
   sanitized staging production-copy and verified at 41/41 migrations. Focused
   controller tests, sanitizer regression, and isolated Chrome Pending →
   Reviewed → Reopen → Pending/change-reset coverage pass. The staging preview
-  is healthy on port 3100 and awaits operator review before promotion.
+  is healthy on port 3100. After operator staging approval, the exact validated
+  changes were merged and pushed to `develop` on 2026-08-18. The development
+  database is verified at 41/41 migrations and the preview is healthy on port
+  3000; development operator testing passed on 2026-08-18.
 
 - **Unreleased staging candidate — RX driver evolution:** The `staging` branch
-  is aligned with current `main`/`next.72` and contains an unpromoted driver
-  tracking implementation for operator testing. The current driver comes from
+  was aligned with `main`/`next.72` before the driver implementation was
+  promoted through operator-approved staging and development testing. The
+  current driver comes from
   the RX's existing Pharmacy Transportation assignment. For future workflow
   completions, every completed stage keeps its captured
   driver, and an authorized historical correction changes only the selected
@@ -41,10 +90,10 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
   checksum-registered, fingerprinted, and covered by staging-copy
   sanitization. The original local staging database was preserved after its
   historical checksum drift was detected; validation uses a separate staging
-  clone reconciled through the current audited migrations. No development or
-  production database was changed.
+  clone reconciled through the current audited migrations. The development
+  database is migrated and verified at 41/41; production remains unchanged.
 - A user-supplied production dump was restored only into a separately named
-  test copy, migrated to 40 applied migrations with zero pending and a verified
+  test copy, migrated to 41 applied migrations with zero pending and a verified
   checksum ledger, sanitized with zero validation violations, and activated
   only for the local staging preview. Production credentials are intentionally
   disabled in the sanitized copy; use the separately issued test-only account.
@@ -58,8 +107,9 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
   ledger survival after warehouse reset. The complete staging API/database/
   security/report/relay suite and isolated browser-click suite pass on
   2026-08-18. The local staging preview is healthy on port 3100 with its visible
-  staging marker and sanitized production-scale data. Do not promote this
-  candidate to `develop` until operator approval.
+  staging marker and sanitized production-scale data. The candidate was
+  promoted to `develop` after operator approval, and development testing passed.
+  Production still requires the exact `main` CI and compiled release gates.
 
 - **Official v4.0.0-next.72** was published on 2026-08-17 from `main` commit
   `a53f4833820e47136352ae1c0bb415151beacf8d`. PostgreSQL lifecycle CI, CodeQL,

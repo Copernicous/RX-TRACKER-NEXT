@@ -165,6 +165,7 @@ jobs:
         run: |
           createdb -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -T rx_next_ci_base_test rx_next_ci_driver_test
           QA_DB_NAME=rx_next_ci_driver_test timeout --foreground 180s npm run test:rx-driver-tracking
+          DB_NAME=rx_next_ci_driver_test timeout --foreground 180s npm run test:pharmacy-transport-duplicates
 
       - name: Run managed RX Softphone relay integration
         shell: bash

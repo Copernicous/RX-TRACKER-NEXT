@@ -2453,6 +2453,12 @@ var allPatients = [];
         const container = document.getElementById('notesListContainer');
         const countLabel = document.getElementById('notesCountLabel');
         const np = getNotesPerms();
+        const escapeHtml = (value) => String(value || '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
 
         countLabel.textContent = notes.length + ' note' + (notes.length !== 1 ? 's' : '');
         if (!notes.length) {
@@ -2462,15 +2468,32 @@ var allPatients = [];
             return;
         }
         var _notesHtml=''; for(var _ni=0;_ni<notes.length;_ni++){var n=notes[_ni]; _notesHtml+=(function(){
-            const author = n.Author ? (n.Author.firstName + ' ' + n.Author.lastName) : 'System';
+            const author = n.Author ? ((n.Author.firstName || '') + ' ' + (n.Author.lastName || '')).trim() || n.Author.username || 'System' : 'System';
             const dt = new Date(n.createdAt);
-            const dateStr = dt.toLocaleDateString() + ' ' + dt.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+            const dateStr = isNaN(dt.getTime()) ? '' : dt.toLocaleDateString() + ' ' + dt.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+            const isWorkflowNote = n.kind === 'workflow' || n.readOnly === true;
+            const stageLabel = n.workflowActionName
+                ? (n.workflowActionSequence ? ('Step ' + n.workflowActionSequence + ' - ' + n.workflowActionName) : n.workflowActionName)
+                : '';
+            const rxContext = isWorkflowNote
+                ? [
+                    n.rxRecordId ? ('RX #' + n.rxRecordId) : '',
+                    stageLabel,
+                    n.workflowCompletionDate ? ('Completed ' + new Date(n.workflowCompletionDate).toLocaleDateString()) : '',
+                    n.rxServiceDate ? ('Service ' + new Date(n.rxServiceDate + 'T00:00:00').toLocaleDateString()) : ''
+                  ].filter(Boolean).join(' | ')
+                : '';
+            const sourceBadge = isWorkflowNote
+                ? '<span class="badge bg-warning text-dark me-1"><i class="fas fa-sticky-note me-1"></i>RX Workflow</span>'
+                : '<span class="badge bg-secondary me-1">' + escapeHtml(author) + '</span>';
             // Strictly enforce canDelete â€” no author bypass
-            const canDel = np.canDelete;
+            const canDel = np.canDelete && !isWorkflowNote;
 
             let delBtn = '';
             if (canDel) {
                 delBtn = '<button class="btn btn-sm btn-outline-danger py-0 px-2" onclick="deleteNote(' + n.id + ')" title="Delete note"><i class="fas fa-trash-alt" style="font-size:.7rem"></i></button>';
+            } else if (isWorkflowNote) {
+                delBtn = '<span class="text-muted" title="Workflow notes are edited from RX Workflow Tracking" data-bs-toggle="tooltip"><i class="fas fa-link" style="font-size:.75rem;opacity:.65"></i></span>';
             } else {
                 delBtn = '<span class="text-muted" title="You don\'t have permission to delete notes" data-bs-toggle="tooltip"><i class="fas fa-lock" style="font-size:.75rem;opacity:.5"></i></span>';
             }
@@ -2478,10 +2501,12 @@ var allPatients = [];
             return '<div class="card mb-2 border-0" id="note-' + n.id + '" style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1) !important;border-radius:8px">' +
                 '<div class="card-body py-2 px-3">' +
                     '<div class="d-flex justify-content-between align-items-start gap-2">' +
-                        '<div style="min-width:0"><span class="badge bg-secondary me-1">' + author + '</span><small class="text-muted">' + dateStr + '</small></div>' +
+                        '<div style="min-width:0">' + sourceBadge + '<small class="text-muted">' + escapeHtml(dateStr) + '</small>' +
+                            (isWorkflowNote ? '<small class="text-muted d-block mt-1">Added by ' + escapeHtml(author) + (rxContext ? ' | ' + escapeHtml(rxContext) : '') + '</small>' : '') +
+                        '</div>' +
                         '<div class="flex-shrink-0">' + delBtn + '</div>' +
                     '</div>' +
-                    '<p class="mb-0 mt-2" style="white-space:pre-wrap;font-size:.9rem">' + n.note.replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</p>' +
+                    '<p class="mb-0 mt-2" style="white-space:pre-wrap;font-size:.9rem">' + escapeHtml(n.note) + '</p>' +
                 '</div>' +
             '</div>';
         })(); } container.innerHTML = _notesHtml;

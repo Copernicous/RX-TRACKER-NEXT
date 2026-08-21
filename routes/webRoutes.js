@@ -141,6 +141,20 @@ router.get('/patients/:id/timeline', requireWebLogin, (req, res) => {
 });
 
 router.get('/rx-records', requireWebLogin, (req, res) => {
+    const currentBuild = String(res.locals.appBuild || '');
+    if (currentBuild && String(req.query._v || '') !== currentBuild) {
+        const params = new URLSearchParams();
+        Object.entries(req.query || {}).forEach(([key, value]) => {
+            if (key === '_v') return;
+            if (Array.isArray(value)) {
+                value.forEach((item) => params.append(key, String(item)));
+            } else if (value !== undefined && value !== null) {
+                params.append(key, String(value));
+            }
+        });
+        params.set('_v', currentBuild);
+        return res.redirect(302, `/rx-records?${params.toString()}`);
+    }
     res.render('rx-records', { title: 'RX Records', activePage: 'rx-records' });
 });
 
