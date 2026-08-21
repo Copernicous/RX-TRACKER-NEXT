@@ -13,6 +13,38 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
   persistent horizontal scrollbar, explicit left/right controls, and a visible
   hint identifying the driver-permission columns beyond Override.
 
+## [4.0.0-next.74] - 2026-08-21
+
+### Added
+
+- Added normalized Pharmacy Transport identity checks to manual create, edit,
+  restore, and CSV import. A matching disabled record now directs the operator
+  to **Show Disabled** and restore the existing ID; a matching active record
+  directs the operator to use the existing entry.
+- Added per-entry notes to RX Workflow Tracking completed stages, alongside
+  existing completion-date edits and completed-stage driver corrections.
+- Added RX Workflow Tracking notes to the Patient Notes listing as read-only
+  workflow-sourced entries with RX and stage context.
+
+### Database
+
+- Added the audited
+  `20260819120000-prevent-active-pharmacy-transport-duplicates` migration. Its
+  partial case/whitespace-normalized unique index prevents multiple active
+  Pharmacy Transport IDs for the same name while retaining legacy disabled
+  rows and every historical RX reference.
+- Added the audited
+  `20260821120000-add-rx-workflow-tracking-notes` migration for optional
+  completed-stage workflow notes.
+
+### Testing
+
+- Added an isolated PostgreSQL regression for normalized create/edit/restore,
+  CSV import, concurrent creation, active database uniqueness, and migration
+  compatibility with an existing active/disabled legacy pair. An isolated
+  browser check also covers duplicate rejection, automatic **Show Disabled**
+  reveal, existing-ID restoration, and test-fixture cleanup.
+
 ## [4.0.0-next.73]
 
 ### Added
