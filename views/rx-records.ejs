@@ -4,6 +4,17 @@
     <meta charset="UTF-8">
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
     <script>!function(){var t=localStorage.getItem("rxTheme");if(t)document.documentElement.setAttribute("data-theme",t)}();</script>
+    <script>
+    (function() {
+        var bv = '<%- appBuild %>';
+        var kv = '_v=' + bv;
+        if (window.location.search.indexOf(kv) === -1) {
+            var qs = window.location.search;
+            var sep = qs ? '&' : '?';
+            window.location.replace(window.location.pathname + qs + sep + kv);
+        }
+    })();
+    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>RX Records - Patient RX System</title>
     <link href="/assets/bootstrap.min.css" rel="stylesheet">
@@ -2541,6 +2552,10 @@
             : '';
         var disabledBadgeLabel = actionSequence ? ('Disabled \u00b7 Step ' + actionSequence) : 'Disabled';
         var driverName = tracking.driverNameSnapshot || workflowTransportName(tracking.Driver) || 'Not assigned';
+        var noteText = tracking.notes || '';
+        var noteHtml = noteText
+            ? '<div class="wf-note-wrap mt-1"><small class="text-warning"><i class="fas fa-sticky-note me-1"></i><span class="wf-note-label">' + workflowEscapeHtml(noteText) + '</span></small></div>'
+            : '<div class="wf-note-wrap mt-1"><small class="text-warning d-none"><i class="fas fa-sticky-note me-1"></i><span class="wf-note-label"></span></small></div>';
         var completionDate = tracking.completionDate ? new Date(tracking.completionDate) : null;
         var hasCompletionDate = completionDate && !isNaN(completionDate.getTime());
         var completionDateValue = hasCompletionDate ? completionDate.toISOString().slice(0, 10) : '';
@@ -2553,12 +2568,14 @@
                 '<small class="text-muted">Completed stage from a workflow action that is no longer active.</small>' +
                 '<br><span class="wf-date-wrap d-inline-flex align-items-center gap-1"><small class="text-success wf-date-label"><i class="fas fa-check me-1"></i>Completed: ' + workflowEscapeHtml(completionDateLabel) + '</small></span>' +
                 (canShowDriverLabel ? '<div class="wf-driver-wrap"><small class="text-muted"><i class="fas fa-truck me-1"></i>Driver: <span class="wf-driver-label fw-semibold">' + workflowEscapeHtml(driverName) + '</span></small></div>' : '') +
+                noteHtml +
             '</div>' +
             '<div class="d-flex gap-2 wf-cell"' +
                 ' data-rxid="' + workflowEscapeHtml(rxId) + '" data-aid="' + workflowEscapeHtml(actionId) + '"' +
                 ' data-tid="' + workflowEscapeHtml(trackingId) + '" data-curdate="' + workflowEscapeHtml(completionDateValue) + '"' +
-                ' data-done="1" data-canundo="0" data-cancomp="0" data-candate="0"' +
+                ' data-done="1" data-canundo="0" data-cancomp="0" data-candate="0" data-cannote="0"' +
                 ' data-candriver="' + (canCorrectDriver && trackingId ? '1' : '0') + '"' +
+                ' data-note="' + workflowEscapeHtml(noteText) + '"' +
                 ' data-driverid="' + workflowEscapeHtml(canShowDriverLabel ? driverId : '') + '">' +
             '</div>' +
         '</div>';
@@ -2640,6 +2657,8 @@
         var item = triggerBtn && triggerBtn.closest('.list-group-item');
         var wrap = item && item.querySelector('.wf-driver-wrap');
         if (!wrap || wrap.querySelector('.wf-driver-editor')) return;
+        var noteLabel = item && item.querySelector('.wf-note-label');
+        var currentNote = noteLabel ? noteLabel.textContent : '';
 
         triggerBtn.disabled = true;
         var editor = document.createElement('div');
@@ -2657,6 +2676,17 @@
         reason.maxLength = 255;
         reason.placeholder = 'Correction reason (required)';
 
+        var noteLabelEl = document.createElement('label');
+        noteLabelEl.className = 'form-label small text-muted mb-1';
+        noteLabelEl.textContent = 'Workflow note';
+
+        var note = document.createElement('textarea');
+        note.className = 'form-control form-control-sm mb-2';
+        note.rows = 3;
+        note.maxLength = 1000;
+        note.placeholder = 'Add note for this workflow entry';
+        note.value = currentNote || '';
+
         var actions = document.createElement('div');
         actions.className = 'd-flex align-items-center gap-2';
         var saveBtn = document.createElement('button');
@@ -2664,6 +2694,10 @@
         saveBtn.className = 'btn btn-sm btn-primary';
         saveBtn.textContent = 'Save correction';
         saveBtn.disabled = true;
+        var saveNoteBtn = document.createElement('button');
+        saveNoteBtn.type = 'button';
+        saveNoteBtn.className = 'btn btn-sm btn-outline-primary';
+        saveNoteBtn.textContent = 'Save note';
         var cancelBtn = document.createElement('button');
         cancelBtn.type = 'button';
         cancelBtn.className = 'btn btn-sm btn-outline-secondary';
@@ -2672,10 +2706,13 @@
         hint.className = 'text-muted';
         hint.textContent = 'Only this completed stage changes.';
         actions.appendChild(saveBtn);
+        actions.appendChild(saveNoteBtn);
         actions.appendChild(cancelBtn);
         actions.appendChild(hint);
         editor.appendChild(select);
         editor.appendChild(reason);
+        editor.appendChild(noteLabelEl);
+        editor.appendChild(note);
         editor.appendChild(actions);
         wrap.appendChild(editor);
         reason.focus();
@@ -2723,6 +2760,110 @@
                 showToast(error.message || 'Could not correct the completed stage driver.', 'danger');
                 if (error.status === 409) return openWorkflow(rxId);
             });
+        });
+        saveNoteBtn.addEventListener('click', function() {
+            var workflowNote = note.value.trim();
+            saveNoteBtn.disabled = true;
+            cancelBtn.disabled = true;
+            fetchWithAuth(window.rxUrl('/api/rx-records/workflow-note'), {
+                method: 'PUT',
+                body: JSON.stringify({
+                    trackingId: trackingId,
+                    notes: workflowNote
+                })
+            }).then(function(res) {
+                return workflowResponseJson(res, 'Could not save the workflow note.');
+            }).then(function(data) {
+                showToast(data.changed ? 'Workflow note saved.' : 'Workflow note was already up to date.', data.changed ? 'success' : 'info');
+                return openWorkflow(rxId).then(function() { return loadRxRecords(); });
+            }).catch(function(error) {
+                saveNoteBtn.disabled = false;
+                cancelBtn.disabled = false;
+                showToast(error.message || 'Could not save the workflow note.', 'danger');
+                if (error.status === 409) return openWorkflow(rxId);
+            });
+        });
+    }
+
+    function editWorkflowStageNote(trackingId, rxId, currentNote, triggerBtn) {
+        var item = triggerBtn && triggerBtn.closest('.list-group-item');
+        var wrap = item && item.querySelector('.wf-note-wrap');
+        if (!wrap || wrap.querySelector('.wf-note-editor')) return;
+
+        triggerBtn.disabled = true;
+        var editor = document.createElement('div');
+        editor.className = 'wf-note-editor border rounded p-2 mt-2 bg-body';
+
+        var textarea = document.createElement('textarea');
+        textarea.className = 'form-control form-control-sm mb-2';
+        textarea.rows = 3;
+        textarea.maxLength = 1000;
+        textarea.placeholder = 'Workflow note';
+        textarea.value = currentNote || '';
+
+        var actions = document.createElement('div');
+        actions.className = 'd-flex align-items-center gap-2';
+        var saveBtn = document.createElement('button');
+        saveBtn.type = 'button';
+        saveBtn.className = 'btn btn-sm btn-primary';
+        saveBtn.textContent = 'Save note';
+        var clearBtn = document.createElement('button');
+        clearBtn.type = 'button';
+        clearBtn.className = 'btn btn-sm btn-outline-danger';
+        clearBtn.textContent = 'Clear';
+        var cancelBtn = document.createElement('button');
+        cancelBtn.type = 'button';
+        cancelBtn.className = 'btn btn-sm btn-outline-secondary';
+        cancelBtn.textContent = 'Cancel';
+        var hint = document.createElement('small');
+        hint.className = 'text-muted ms-auto';
+        hint.textContent = '1000 character limit';
+        actions.appendChild(saveBtn);
+        actions.appendChild(clearBtn);
+        actions.appendChild(cancelBtn);
+        actions.appendChild(hint);
+        editor.appendChild(textarea);
+        editor.appendChild(actions);
+        wrap.appendChild(editor);
+        textarea.focus();
+
+        function finish() {
+            editor.remove();
+            triggerBtn.disabled = false;
+        }
+        function save(nextNote) {
+            saveBtn.disabled = true;
+            clearBtn.disabled = true;
+            cancelBtn.disabled = true;
+            fetchWithAuth(window.rxUrl('/api/rx-records/workflow-note'), {
+                method: 'PUT',
+                body: JSON.stringify({
+                    trackingId: trackingId,
+                    notes: nextNote
+                })
+            }).then(function(res) {
+                return workflowResponseJson(res, 'Could not save workflow note.');
+            }).then(function(data) {
+                showToast(data.changed ? 'Workflow note saved.' : 'Workflow note was already up to date.', data.changed ? 'success' : 'info');
+                return openWorkflow(rxId).then(function() { return loadRxRecords(); });
+            }).catch(function(error) {
+                saveBtn.disabled = false;
+                clearBtn.disabled = false;
+                cancelBtn.disabled = false;
+                showToast(error.message || 'Could not save workflow note.', 'danger');
+            });
+        }
+
+        cancelBtn.addEventListener('click', finish);
+        clearBtn.addEventListener('click', function() { save(''); });
+        saveBtn.addEventListener('click', function() {
+            var nextNote = textarea.value.trim();
+            if (nextNote.length > 1000) {
+                showToast('Workflow note cannot exceed 1000 characters.', 'warning');
+                textarea.focus();
+                return;
+            }
+            save(nextNote);
         });
     }
 
@@ -2958,6 +3099,7 @@
                 }
                 var canCloseExpired = !!(canComplete || canEditDate || canOverrideExpired);
                 var canEditWorkflowDate = !!(canEditDate || (canOverrideExpired && isExpired));
+                var canEditWorkflowNote = !!(canEditDate || canCorrectDriver || (canOverrideExpired && isExpired));
                 var accessBtnHtml = (isExpired && !canOverrideExpired)
                     ? '<button class="btn btn-sm btn-outline-warning fw-semibold" id="expiredAccessBtn"><i class="fas fa-key me-1"></i>Request Access</button>'
                     : '';
@@ -3064,6 +3206,12 @@
                     var stageDriverName = done && tracking
                         ? (tracking.driverNameSnapshot || workflowTransportName(tracking.Driver) || 'Not assigned')
                         : '';
+                    var stageNote = done && tracking && tracking.notes ? String(tracking.notes) : '';
+                    var stageNoteHtml = done && tracking
+                        ? (stageNote
+                            ? '<div class="wf-note-wrap mt-1"><small class="text-warning"><i class="fas fa-sticky-note me-1"></i><span class="wf-note-label">' + workflowEscapeHtml(stageNote) + '</span></small></div>'
+                            : '<div class="wf-note-wrap mt-1"><small class="text-warning d-none"><i class="fas fa-sticky-note me-1"></i><span class="wf-note-label"></span></small></div>')
+                        : '';
                     listHtml += '<div class="list-group-item d-flex align-items-center gap-3 ' + (done ? (isReturnedDelivery ? 'list-group-item-warning' : 'list-group-item-success') : '') + '">' +
                         '<span class="badge ' + (done ? (isReturnedDelivery ? 'bg-warning text-dark' : 'bg-success') : 'bg-secondary') + ' rounded-pill">' + workflowEscapeHtml(action.sequenceNumber) + '</span>' +
                         '<div class="flex-grow-1">' +
@@ -3071,6 +3219,7 @@
                             '<small class="text-muted">' + workflowEscapeHtml(actionDescription) + '</small>' +
                             (done && tracking ? '<br><span class="wf-date-wrap d-inline-flex align-items-center gap-1"><small class="' + (isReturnedDelivery ? 'text-warning' : 'text-success') + ' wf-date-label"><i class="fas ' + (isReturnedDelivery ? 'fa-undo' : 'fa-check') + ' me-1"></i>' + completionLabel + ': ' + workflowEscapeHtml(new Date(tracking.completionDate).toLocaleDateString()) + '</small></span>' : '') +
                             (done && tracking && canShowStageDrivers ? '<div class="wf-driver-wrap"><small class="text-muted"><i class="fas fa-truck me-1"></i>Driver: <span class="wf-driver-label fw-semibold">' + workflowEscapeHtml(stageDriverName) + '</span></small></div>' : '') +
+                            stageNoteHtml +
                         '</div>' +
                         '<div class="d-flex gap-2 wf-cell"' +
                             ' data-rxid="' + workflowEscapeHtml(rxId) + '" data-aid="' + workflowEscapeHtml(action.id) + '"' +
@@ -3080,7 +3229,9 @@
                             ' data-canundo="' + (canUndo && action.id === lastCompletedActionId ? '1' : '0') + '"' +
                             ' data-cancomp="' + (stepCanComplete && !isExpired ? '1' : '0') + '"' +
                             ' data-candate="' + (done && tracking && canEditWorkflowDate && (!isExpired || canOverrideExpired) ? '1' : '0') + '"' +
+                            ' data-cannote="' + (done && tracking && canEditWorkflowNote ? '1' : '0') + '"' +
                             ' data-candriver="' + (done && tracking && canCorrectDriver ? '1' : '0') + '"' +
+                            ' data-note="' + workflowEscapeHtml(stageNote) + '"' +
                             ' data-driverid="' + workflowEscapeHtml(canShowStageDrivers ? stageDriverId : '') + '"' +
                             ' data-prevdate="' + workflowEscapeHtml(prevStepDate) + '"' +
                             ' data-nextdate="' + workflowEscapeHtml(nextStepDate) + '"' +
@@ -3162,8 +3313,10 @@
                     var _cu  = cell.dataset.canundo === '1';
                     var _cc  = cell.dataset.cancomp === '1';
                     var _cd  = cell.dataset.candate === '1';
+                    var _cnote = cell.dataset.cannote === '1';
                     var _cdriver = cell.dataset.candriver === '1';
                     var _driverid = cell.dataset.driverid || '';
+                    var _note = cell.dataset.note || '';
                     if (_done) {
                         if (_cu) {
                             var bu = document.createElement('button');
@@ -3211,6 +3364,24 @@
                                 );
                             });
                             cell.appendChild(bdriver);
+                        }
+                        if ((_cnote || _cd || _cdriver) && _tid) {
+                            var bnote = document.createElement('button');
+                            bnote.className = 'btn btn-sm btn-outline-warning';
+                            bnote.title = _note ? 'Edit workflow note' : 'Add workflow note';
+                            bnote.innerHTML = '<i class="fas fa-sticky-note"></i>';
+                            bnote.dataset.tid = _tid;
+                            bnote.dataset.rxid = _rid;
+                            bnote.dataset.note = _note;
+                            bnote.addEventListener('click', function() {
+                                editWorkflowStageNote(
+                                    this.dataset.tid,
+                                    parseInt(this.dataset.rxid),
+                                    this.dataset.note || '',
+                                    this
+                                );
+                            });
+                            cell.appendChild(bnote);
                         }
                         cell.insertAdjacentHTML('beforeend', '<i class="fas fa-check-circle text-success fs-5"></i>');
                     } else if (_cc) {

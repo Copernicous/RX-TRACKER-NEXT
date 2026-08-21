@@ -46,5 +46,6 @@ module.exports = Object.freeze({
   '20260730000000-add-rx-delivery-outcome.js': 'fbbeda19402b57425b270318c2922aaaa6d7b9e30bc6c661e9e58b64b5d5d04f',
   '20260818000000-add-rx-driver-tracking.js': '13e4bd6a29166e8b7b45a482949a0cbbca0c9284282fa1d120a083159b1e798b',
   '20260818120000-add-rx-profile-sync-review-events.js': '853da9978341432e9280d0cf351ce671675acb831324b9106ad601abd03bb7c4',
-  '20260819120000-prevent-active-pharmacy-transport-duplicates.js': '247c4f34eb5dd7dac59b65e67f149f8fc63716cf6844fe9d63eacd760f547cf3'
+  '20260819120000-prevent-active-pharmacy-transport-duplicates.js': '247c4f34eb5dd7dac59b65e67f149f8fc63716cf6844fe9d63eacd760f547cf3',
+  '20260821120000-add-rx-workflow-tracking-notes.js': '5f941687c7776ed6c02d2843366adea18b1d07cdb1a0e529848c49294404e93a'
 });

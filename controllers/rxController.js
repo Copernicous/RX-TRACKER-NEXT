@@ -16,6 +16,7 @@ const RX_TRACKING_BASE_ATTRIBUTES = [
     'workflowActionId',
     'completionDate',
     'userId',
+    'notes',
     'createdAt',
     'updatedAt'
 ];
@@ -197,6 +198,13 @@ function driverChangeReason(value, fallback, required) {
 function driverDisplayName(driver) {
     if (!driver) return null;
     return cleanString(driver.contactPerson) || cleanString(driver.companyName) || `Pharmacy Transport #${driver.id}`;
+}
+
+function workflowTrackingNote(value) {
+    const note = cleanString(value);
+    if (!note) return null;
+    if (note.length > 1000) throw new Error('Workflow note cannot exceed 1000 characters.');
+    return note;
 }
 
 async function resolveAssignableDriver(rawDriverId, transaction) {
@@ -1109,6 +1117,77 @@ exports.correctWorkflowDriver = async (req, res) => {
             driverName: nextName,
             currentDriverId: rx.pharmacyTransportCompanyId
         });
+    } catch (error) {
+        await transaction.rollback();
+        res.status(400).json({ error: error.message });
+    }
+};
+
+// PUT /api/rx-records/workflow-note
+// Updates the operator note attached to one completed workflow stage.
+exports.updateWorkflowNote = async (req, res) => {
+    const transaction = await db.sequelize.transaction();
+    try {
+        const trackingId = exactPositiveId(req.body.trackingId);
+        if (!trackingId) throw new Error('Select a valid completed workflow stage.');
+        const nextNote = workflowTrackingNote(req.body.notes);
+        const tracking = await db.RXWorkflowTracking.findByPk(trackingId, {
+            transaction,
+            lock: transaction.LOCK.UPDATE
+        });
+        const rx = tracking
+            ? await db.RXRecord.findByPk(tracking.rxRecordId, { transaction, lock: transaction.LOCK.UPDATE })
+            : null;
+        if (!tracking || !rx || rx.isDeleted) {
+            await transaction.rollback();
+            return res.status(404).json({ error: 'Completed workflow stage not found.' });
+        }
+        const action = tracking.workflowActionId
+            ? await db.WorkflowAction.findByPk(tracking.workflowActionId, { transaction })
+            : null;
+        const rxPerm = await getRequestPermission(req, 'rx_records');
+        const canEditWorkflowNote = !!(rxPerm.visible && (
+            rxPerm.canEdit ||
+            rxPerm.canCorrectDriver ||
+            rxPerm.canOverrideExpired
+        ));
+        if (!canEditWorkflowNote) {
+            await transaction.rollback();
+            return res.status(403).json({ error: 'Access denied: you cannot edit workflow notes.' });
+        }
+
+        const previousNote = tracking.notes || null;
+        if (String(previousNote || '') === String(nextNote || '')) {
+            req.skipAuditLog = true;
+            await transaction.commit();
+            return res.json({ ok: true, changed: false, trackingId, notes: nextNote });
+        }
+
+        const stageName = action ? action.name : `Tracking #${tracking.id}`;
+        await tracking.update({ notes: nextNote }, { transaction });
+        await saveHistory(
+            tracking.rxRecordId,
+            req.user?.id,
+            'Workflow Note',
+            rx.toJSON(),
+            [{ field: `workflowNote:${tracking.workflowActionId}`, from: previousNote, to: nextNote }],
+            `Note for "${stageName}" ${nextNote ? 'updated' : 'cleared'} by ${req.user?.username || 'user'}.`,
+            transaction
+        );
+        req.auditRecordId = tracking.rxRecordId;
+        req.auditPreviousValue = {
+            _label: `RX #${tracking.rxRecordId} - ${stageName}`,
+            trackingId,
+            notes: previousNote
+        };
+        req.auditNewValue = {
+            _label: `RX #${tracking.rxRecordId} - ${stageName}`,
+            trackingId,
+            notes: nextNote
+        };
+
+        await transaction.commit();
+        res.json({ ok: true, changed: true, trackingId, notes: nextNote });
     } catch (error) {
         await transaction.rollback();
         res.status(400).json({ error: error.message });

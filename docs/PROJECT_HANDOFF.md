@@ -1,6 +1,6 @@
 # RX Tracker NEXT project handoff
 
-Last updated: 2026-08-19
+Last updated: 2026-08-21
 
 This file is the sanitized continuity record for a future administrator or
 Codex session. It intentionally contains no credentials, `.env` values,
@@ -25,6 +25,16 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
   The official server reports `4.0.0-next.73`, and `rx-db.exe help` succeeds.
   The operator confirmed the guarded production installation and normal use on
   2026-08-19, including access through the Cloudflare proxy.
+
+- **Release candidate v4.0.0-next.74:** RX Workflow Tracking completed stages
+  now support per-entry notes beside completion-date edits and selected-stage
+  driver corrections. Notes are stored on the completed workflow tracking row,
+  audited in RX history, shown inline in the workflow modal, and listed in
+  Patient Notes as read-only RX Workflow entries with author, timestamp, RX,
+  stage, completion-date, and service-date context. Manual development
+  operator testing confirmed note creation, display, and Patient Notes listing
+  behavior. Production remains on the last installed official release until a
+  published, checksummed `v4.0.0-next.74` is installed through Project Control.
 
 - **Unreleased candidate — Pharmacy Transport duplicate prevention:** Manual
   add/edit/restore and CSV import now compare trimmed, collapsed-whitespace,

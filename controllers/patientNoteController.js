@@ -20,12 +20,84 @@ function getNotesPerm(user) {
 // GET /api/patients/:id/notes — list all notes for a patient
 exports.getNotes = async (req, res) => {
     try {
-        const notes = await db.PatientNote.findAll({
-            where: { patientId: req.params.id },
-            include: [{ model: db.User, as: 'Author', attributes: ['id', 'firstName', 'lastName', 'username'] }],
-            order: [['createdAt', 'DESC']]
+        const [notes, workflowTrackings] = await Promise.all([
+            db.PatientNote.findAll({
+                where: { patientId: req.params.id },
+                include: [{ model: db.User, as: 'Author', attributes: ['id', 'firstName', 'lastName', 'username'] }],
+                order: [['createdAt', 'DESC']]
+            }),
+            db.RXWorkflowTracking.findAll({
+                where: { notes: { [db.Sequelize.Op.ne]: null } },
+                include: [
+                    {
+                        model: db.RXRecord,
+                        attributes: ['id', 'patientId', 'serviceDate'],
+                        where: { patientId: req.params.id, isDeleted: false },
+                        required: true
+                    },
+                    { model: db.WorkflowAction, attributes: ['id', 'name', 'sequenceNumber'], required: false },
+                    { model: db.User, attributes: ['id', 'firstName', 'lastName', 'username'], required: false }
+                ],
+                order: [['updatedAt', 'DESC']]
+            })
+        ]);
+        const workflowRows = workflowTrackings
+            .map((tracking) => tracking.toJSON())
+            .filter((tracking) => String(tracking.notes || '').trim());
+        const workflowRxIds = [...new Set(workflowRows.map((tracking) => tracking.rxRecordId).filter(Boolean))];
+        const workflowHistories = workflowRxIds.length
+            ? await db.RXHistory.findAll({
+                where: {
+                    rxRecordId: { [db.Sequelize.Op.in]: workflowRxIds },
+                    changeType: 'Workflow Note'
+                },
+                include: [{ model: db.User, as: 'ChangedBy', attributes: ['id', 'firstName', 'lastName', 'username'] }],
+                order: [['createdAt', 'DESC']]
+            })
+            : [];
+        const historyByWorkflowNote = new Map();
+        workflowHistories.forEach((history) => {
+            const plain = history.toJSON();
+            let fields = [];
+            try {
+                fields = JSON.parse(plain.changedFields || '[]');
+            } catch (_) {
+                fields = [];
+            }
+            fields.forEach((fieldChange) => {
+                const key = `${plain.rxRecordId}:${fieldChange.field}`;
+                if (!historyByWorkflowNote.has(key)) historyByWorkflowNote.set(key, plain);
+            });
         });
-        res.json(notes);
+
+        const regularNotes = notes.map((note) => {
+            const plain = note.toJSON();
+            plain.kind = 'patient';
+            plain.readOnly = false;
+            return plain;
+        });
+        const workflowNotes = workflowRows
+            .map((tracking) => {
+                const history = historyByWorkflowNote.get(`${tracking.rxRecordId}:workflowNote:${tracking.workflowActionId}`);
+                return {
+                    id: `workflow-${tracking.id}`,
+                    kind: 'workflow',
+                    readOnly: true,
+                    source: 'RX Workflow',
+                    note: String(tracking.notes || '').trim(),
+                    createdAt: history ? history.createdAt : (tracking.updatedAt || tracking.createdAt),
+                    updatedAt: tracking.updatedAt,
+                    Author: history ? history.ChangedBy : (tracking.User || null),
+                    workflowTrackingId: tracking.id,
+                    rxRecordId: tracking.rxRecordId,
+                    rxServiceDate: tracking.RXRecord ? tracking.RXRecord.serviceDate : null,
+                    workflowActionName: tracking.WorkflowAction ? tracking.WorkflowAction.name : null,
+                    workflowActionSequence: tracking.WorkflowAction ? tracking.WorkflowAction.sequenceNumber : null,
+                    workflowCompletionDate: tracking.completionDate
+                };
+            });
+
+        res.json(regularNotes.concat(workflowNotes).sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)));
     } catch (err) { res.status(500).json({ error: err.message }); }
 };
 

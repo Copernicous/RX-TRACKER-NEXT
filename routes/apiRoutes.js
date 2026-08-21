@@ -373,6 +373,7 @@ router.put('/rx-records/:id/sync-driver-history',rbac.requirePermission('rx_reco
 router.get('/rx-records/:id/driver-history',     rbac.requirePermission('rx_records', 'viewDriverHistory'), rxController.getDriverHistory);
 // FEAT-10: Bulk workflow step application
 router.post('/rx-records/bulk-workflow',        rbac.requirePermission('rx_records', 'add'),  auditLogger('RX Workflow'), rxController.bulkWorkflow);
+router.put('/rx-records/workflow-note',         rbac.requirePermission('rx_records', 'read'), auditLogger('RX Workflow'), rxController.updateWorkflowNote);
 // FEAT-11: Workflow step date override (edit permission, or expired-lock override)
 router.put('/rx-records/workflow-date',         rbac.requirePermission('rx_records', 'writeOrOverrideExpired'), auditLogger('RX Workflow'), rxController.updateWorkflowDate);
 router.post('/rx-records/:id/reset-cycle',      rbac.requirePermission('rx_records', 'edit'), auditLogger('RX Records'), rxController.resetRxCycle);
