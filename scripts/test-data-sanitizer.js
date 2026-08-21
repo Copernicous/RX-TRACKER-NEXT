@@ -77,7 +77,8 @@ async function main() {
     completionDate: new Date(),
     userId: user.id,
     driverId: driver.id,
-    driverNameSnapshot: 'Sensitive Driver Snapshot'
+    driverNameSnapshot: 'Sensitive Driver Snapshot',
+    notes: 'Sensitive workflow note'
   });
   const driverHistory = await db.RXDriverAssignmentHistory.create({
     rxRecordId: rx.id,
@@ -189,6 +190,7 @@ async function main() {
   assert.match(sanitizedDriver.phone, /^20255501[0-9]{2}$/);
   assert.strictEqual(sanitizedDriver.notes, null);
   assert.strictEqual(sanitizedDriverTracking.driverNameSnapshot, `Pharmacy Transport ${driver.id}`);
+  assert.strictEqual(sanitizedDriverTracking.notes, 'Sanitized workflow note');
   assert.strictEqual(sanitizedDriverHistory.previousDriverName, 'Driver Snapshot');
   assert.strictEqual(sanitizedDriverHistory.driverName, `Pharmacy Transport ${driver.id}`);
   assert.strictEqual(sanitizedDriverHistory.reason, 'Sanitized driver assignment history');

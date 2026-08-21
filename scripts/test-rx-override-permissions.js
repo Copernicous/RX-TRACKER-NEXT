@@ -388,6 +388,30 @@ async function run() {
   assert.strictEqual(activeReadOnlyEdit.payload.code, 'RX_OVERRIDE_ONLY_ACTIVE_WINDOW');
   logPass('override-only cannot edit active-window workflow date', addDays(activeEditServiceDate, 1));
 
+  logScenario('workflow stage notes');
+  const noteFixture = await createRxFixture(actions, 'note');
+  const noteTracking = await addTracking(noteFixture.rx, actions[0], noOverrideUser, noteFixture.serviceDate);
+  const noteText = `Package ready for route ${runId}`;
+  const noteUpdate = await runHandler(
+    rxController.updateWorkflowNote,
+    mockReq(noOverrideUser, { trackingId: noteTracking.id, notes: noteText })
+  );
+  assert.strictEqual(noteUpdate.status, 200, noteUpdate.payload && noteUpdate.payload.error);
+  assert.strictEqual(noteUpdate.payload.changed, true);
+  assert.strictEqual((await db.RXWorkflowTracking.findByPk(noteTracking.id)).notes, noteText);
+  const longNoteUpdate = await runHandler(
+    rxController.updateWorkflowNote,
+    mockReq(noOverrideUser, { trackingId: noteTracking.id, notes: 'x'.repeat(1001) })
+  );
+  assert.strictEqual(longNoteUpdate.status, 400);
+  const noteClear = await runHandler(
+    rxController.updateWorkflowNote,
+    mockReq(noOverrideUser, { trackingId: noteTracking.id, notes: '' })
+  );
+  assert.strictEqual(noteClear.status, 200, noteClear.payload && noteClear.payload.error);
+  assert.strictEqual((await db.RXWorkflowTracking.findByPk(noteTracking.id)).notes, null);
+  logPass('workflow notes can be saved and cleared', noteTracking.id);
+
   logScenario('close expired RX without override, then undo');
   const closeNoOverrideFixture = await createRxFixture(actions, 'close-no');
   await addTracking(closeNoOverrideFixture.rx, actions[0], noOverrideUser, closeNoOverrideFixture.serviceDate);

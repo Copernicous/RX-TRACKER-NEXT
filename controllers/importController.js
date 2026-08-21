@@ -10,6 +10,12 @@ const {
 const {
     syncPatientServiceDateCycles
 } = require('../services/patientServiceDateCycleService');
+const {
+    cleanCompanyName,
+    normalizeCompanyName,
+    findCompanyNameConflict,
+    duplicateCompanyMessage
+} = require('../utils/pharmacyTransportIdentity');
 
 const WORKFLOW_HEADERS = [
     'rx received warehouse',
@@ -584,21 +590,40 @@ exports.importDataset = async (req, res) => {
             }
 
             case 'pharmacy-transport': {
-                const seenTransport = new Set();
-                for (let i = 0; i < rows.length; i++) {
-                    const row = rows[i]; const rowNum = i + 2;
-                    const { companyName, phone, contactPerson, notes, isActive } = row;
-                    const addErr = (msg) => rowErrors.push({ row: rowNum, error: msg, _rawRow: row });
-                    if (!companyName || !companyName.trim()) { addErr('Company Name is required'); continue; }
-                    const uniqueKey = companyName.trim().toLowerCase();
-                    if (seenTransport.has(uniqueKey)) { addErr(`Pharmacy Transport Company "${companyName.trim()}" is duplicated in this file`); continue; }
-                    seenTransport.add(uniqueKey);
-                    const existing = await db.PharmacyTransportCompany.findOne({ where: { companyName: companyName.trim() } });
-                    if (existing) { addErr(`Pharmacy Transport Company "${companyName.trim()}" already exists in database`); continue; }
-                    validRows.push({ companyName: companyName.trim(), phone: phone ? phone.trim() : null, contactPerson: contactPerson ? contactPerson.trim() : null, notes: notes ? notes.trim() : null, isActive: isActive ? isActive.trim().toLowerCase() === 'true' : true });
+                const transaction = await db.sequelize.transaction();
+                try {
+                    await db.sequelize.query(
+                        "SELECT pg_advisory_xact_lock(hashtext('rx-pharmacy-transport-company-identity'))",
+                        { transaction }
+                    );
+                    const existingRecords = await db.PharmacyTransportCompany.findAll({
+                        attributes: ['id', 'companyName', 'isActive'],
+                        transaction
+                    });
+                    const seenTransport = new Set();
+                    for (let i = 0; i < rows.length; i++) {
+                        const row = rows[i]; const rowNum = i + 2;
+                        const { companyName, phone, contactPerson, notes, isActive } = row;
+                        const addErr = (msg) => rowErrors.push({ row: rowNum, error: msg, _rawRow: row });
+                        const cleanedName = cleanCompanyName(companyName);
+                        if (!cleanedName) { addErr('Company Name is required'); continue; }
+                        const uniqueKey = normalizeCompanyName(cleanedName);
+                        if (seenTransport.has(uniqueKey)) { addErr(`Pharmacy Transport Company "${cleanedName}" is duplicated in this file`); continue; }
+                        seenTransport.add(uniqueKey);
+                        const existing = findCompanyNameConflict(existingRecords, cleanedName);
+                        if (existing) { addErr(duplicateCompanyMessage(existing)); continue; }
+                        validRows.push({ companyName: cleanedName, phone: phone ? phone.trim() : null, contactPerson: contactPerson ? contactPerson.trim() : null, notes: notes ? notes.trim() : null, isActive: isActive ? isActive.trim().toLowerCase() === 'true' : true });
+                    }
+                    if (rowErrors.length === 0 && validRows.length > 0) {
+                        await db.PharmacyTransportCompany.bulkCreate(validRows, { transaction });
+                        successCount = validRows.length;
+                    }
+                    if (rowErrors.length > 0) await transaction.rollback();
+                    else await transaction.commit();
+                } catch (error) {
+                    if (!transaction.finished) await transaction.rollback();
+                    throw error;
                 }
-                if (rowErrors.length > 0) break;
-                if (validRows.length > 0) { await db.PharmacyTransportCompany.bulkCreate(validRows); successCount = validRows.length; }
                 break;
             }
 

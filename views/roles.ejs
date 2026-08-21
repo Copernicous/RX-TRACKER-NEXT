@@ -74,7 +74,7 @@
 
 <!-- Role Edit/Create Modal -->
 <div class="modal fade" id="roleModal" tabindex="-1">
-    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable role-editor-dialog">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="roleModalTitle"><i class="fas fa-shield-alt me-2 text-warning"></i>Create Role</h5>
@@ -111,7 +111,26 @@
                     <strong>Add RX / Complete</strong>. The separate <strong>Add New</strong> column is not used for RX Records.
                 </p>
 
-                <div class="table-responsive">
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2 permission-scroll-toolbar">
+                    <span class="small text-info fw-semibold">
+                        <i class="fas fa-arrows-left-right me-1"></i>
+                        Scroll right to see Driver History, Assign Driver, Correct Driver, and Sync Drivers.
+                    </span>
+                    <div class="btn-group btn-group-sm" role="group" aria-label="Scroll role permissions horizontally">
+                        <button type="button" class="btn btn-outline-secondary" id="permScrollLeft">
+                            <i class="fas fa-arrow-left me-1"></i>Earlier columns
+                        </button>
+                        <button type="button" class="btn btn-outline-primary" id="permScrollRight">
+                            Driver permissions<i class="fas fa-arrow-right ms-1"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="role-permission-top-scroll" id="permEditorTopScroll" tabindex="0" aria-label="Horizontal scrollbar for the role permissions matrix">
+                    <div class="role-permission-top-scroll-content" aria-hidden="true"></div>
+                </div>
+
+                <div class="table-responsive role-permission-scroll" id="permEditorScroll" tabindex="0" aria-label="Role permissions matrix; scroll horizontally for additional permissions">
                     <table class="table table-bordered table-sm align-middle" id="permEditorTable" style="font-size:.85rem">
                         <thead class="table-dark">
                             <tr>

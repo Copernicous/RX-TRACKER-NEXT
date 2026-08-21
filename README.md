@@ -10,7 +10,7 @@ frozen 3.3.1 repository, its production database, or the RX Softphone source.
 
 ## Current status
 
-Version: `4.0.0-next.73` official prerelease
+Version: `4.0.0-next.74` release candidate
 
 | Area | NEXT behavior |
 |---|---|
@@ -30,7 +30,17 @@ as its current driver and adds immutable driver snapshots on completed workflow 
 historical correction, append-only history, whole-track recovery sync, and four
 granular RX permissions. Its lifecycle, CodeQL, and compiled-release gates
 passed, and its published payloads were checksum-verified. Installation on the
-live production server remains a separate guarded Project Control operation.
+live production server was operator-confirmed on 2026-08-19 after the guarded
+Project Control update; production use and Cloudflare-proxied access were both
+confirmed working.
+
+Release candidate `next.74` adds per-entry notes to RX Workflow Tracking
+completed stages and includes those workflow notes as read-only entries in the
+Patient Notes listing with RX, stage, timestamp, and author context. It also
+prevents new duplicate Pharmacy Transport IDs for names that differ only by
+capitalization or whitespace, preserving disabled legacy entries for RX
+history and directing operators to restore the existing disabled entry instead
+of creating a replacement ID.
 
 The same release adds review state to Backoffice **RX Profile Sync**.
 Exact Pharmacy and Transport differences can be marked reviewed without being

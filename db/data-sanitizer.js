@@ -68,6 +68,7 @@ async function sanitizeDatabase(db, options = {}) {
                WHEN "driverId" IS NULL THEN 'Driver Snapshot'
                ELSE 'Pharmacy Transport ' || "driverId"
              END,
+             "notes" = CASE WHEN "notes" IS NULL THEN NULL ELSE 'Sanitized workflow note' END,
              "updatedAt" = NOW()
     `, transaction);
 
@@ -219,7 +220,7 @@ async function validateSanitizedDatabase(db, options = {}) {
     ['pharmacy_identity', `SELECT COUNT(*)::integer AS count FROM "Pharmacies" WHERE "name" !~ '^Pharmacy [0-9]+$' OR ("address" IS NOT NULL AND "address" !~ '^[0-9]+ Example Way$') OR ("phone" IS NOT NULL AND "phone" !~ '^20255501[0-9]{2}$') OR ("contactPerson" IS NOT NULL AND "contactPerson" !~ '^Test Contact [0-9]+$') OR "notes" IS NOT NULL`],
     ['patient_transport_identity', `SELECT COUNT(*)::integer AS count FROM "PatientTransportCompanies" WHERE "companyName" !~ '^Patient Transport [0-9]+$' OR ("phone" IS NOT NULL AND "phone" !~ '^20255501[0-9]{2}$') OR ("contactPerson" IS NOT NULL AND "contactPerson" !~ '^Test Contact [0-9]+$') OR "notes" IS NOT NULL`],
     ['pharmacy_transport_identity', `SELECT COUNT(*)::integer AS count FROM "PharmacyTransportCompanies" WHERE "companyName" !~ '^Pharmacy Transport [0-9]+$' OR ("phone" IS NOT NULL AND "phone" !~ '^20255501[0-9]{2}$') OR ("contactPerson" IS NOT NULL AND "contactPerson" !~ '^Test Contact [0-9]+$') OR "notes" IS NOT NULL`],
-    ['workflow_driver_snapshots', `SELECT COUNT(*)::integer AS count FROM "RXWorkflowTrackings" WHERE "driverNameSnapshot" IS NOT NULL AND (("driverId" IS NULL AND "driverNameSnapshot" <> 'Driver Snapshot') OR ("driverId" IS NOT NULL AND "driverNameSnapshot" <> 'Pharmacy Transport ' || "driverId"))`],
+    ['workflow_driver_snapshots', `SELECT COUNT(*)::integer AS count FROM "RXWorkflowTrackings" WHERE ("driverNameSnapshot" IS NOT NULL AND (("driverId" IS NULL AND "driverNameSnapshot" <> 'Driver Snapshot') OR ("driverId" IS NOT NULL AND "driverNameSnapshot" <> 'Pharmacy Transport ' || "driverId"))) OR ("notes" IS NOT NULL AND "notes" <> 'Sanitized workflow note')`],
     ['driver_history_payloads', `SELECT COUNT(*)::integer AS count FROM "RXDriverAssignmentHistories" WHERE ("previousDriverName" IS NOT NULL AND (("previousDriverId" IS NULL AND "previousDriverName" <> 'Driver Snapshot') OR ("previousDriverId" IS NOT NULL AND "previousDriverName" <> 'Pharmacy Transport ' || "previousDriverId"))) OR ("driverName" IS NOT NULL AND (("driverId" IS NULL AND "driverName" <> 'Driver Snapshot') OR ("driverId" IS NOT NULL AND "driverName" <> 'Pharmacy Transport ' || "driverId"))) OR "reason" IS DISTINCT FROM 'Sanitized driver assignment history'`],
     ['rx_profile_review_payloads', `SELECT COUNT(*)::integer AS count FROM "RXProfileSyncReviewEvents" WHERE "reason" IS NOT NULL AND "reason" <> 'Sanitized RX profile review reason'`],
     ['patient_notes', `SELECT COUNT(*)::integer AS count FROM "PatientNotes" WHERE "note" <> 'Sanitized patient note'`],
