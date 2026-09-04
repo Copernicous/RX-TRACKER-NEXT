@@ -8,6 +8,24 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
 
+- **Official v4.0.0-next.75** was published on 2026-09-04 from `main` commit
+  `51c6066073bc43cdaf0b2e43c5fa05c5b2d4c96e` after staging and development
+  operator validation of configurable Patient Tags. Main PostgreSQL lifecycle
+  CI run `33891715456`, CodeQL run `33891715460`, and tagged compiled-release
+  run `33892161151` passed. The downloaded official assets and embedded
+  executables were verified against `SHA256SUMS.txt`: both server ZIP names
+  `1eedfa823dbe61399777b54dc4f845f62c24fdb38b14001bec8d180c2b399d6e`,
+  RX Softphone ZIP
+  `d2a44c393d26ecff22686d8326423d755c5169fcb0d39fe63f9c27d48ade9b18`,
+  `server.exe`
+  `76741dac7f42b32a0bb42f27ee6804d86b86626f30afb01aa88ecb24a53d86a3`,
+  and `rx-db.exe`
+  `e56d14dcb0f082a40649fd96f7739873dccd24007df8e0ebdae33d67d86ee02a`.
+  The official server reports `4.0.0-next.75`, and `rx-db.exe help` succeeds.
+  Production installation remains pending through Project Control option **8**
+  then **15**. If the production update fails during the controlled window, use
+  Project Control option **16** for the paired application/database rollback.
+
 - **Official v4.0.0-next.73** was published on 2026-08-18 from `main` commit
   `af2926f8d41740be8b476e078d1cda79b9bb9840` after staging and development
   operator validation of RX driver evolution and RX Profile Sync review state.
