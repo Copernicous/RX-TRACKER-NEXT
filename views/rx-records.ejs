@@ -68,8 +68,50 @@
         }
         .rx-filter-multiselect .dropdown-menu { width:100%; min-width:260px; padding:.5rem; color:var(--text); }
         .rx-filter-multiselect { width:100%; }
-        .rx-filter-multiselect > .dropdown-toggle { display:flex; align-items:center; min-width:0; }
-        .rx-filter-multiselect > .dropdown-toggle > span { flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .rx-filter-multiselect > button.form-select {
+            width:100%;
+            min-height:calc(1.5em + .7rem + 2px);
+            height:calc(1.5em + .7rem + 2px);
+            padding:.35rem 2.25rem .35rem .55rem;
+            display:flex;
+            align-items:center;
+            line-height:1.5;
+            min-width:0;
+            white-space:nowrap;
+        }
+        .rx-filter-multiselect > button.form-select > span { flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .rx-advanced-grid {
+            display:grid;
+            grid-template-columns:repeat(6, minmax(0, 1fr));
+            gap:.5rem;
+            align-items:end;
+        }
+        .rx-stage-completion-cell {
+            grid-column:span 3;
+            min-width:0;
+        }
+        .rx-filter-range-cell {
+            grid-column:span 2;
+            min-width:0;
+        }
+        .rx-filter-range-group {
+            display:grid;
+            grid-template-columns:repeat(2, minmax(0, 1fr));
+            gap:.5rem;
+            padding:.52rem .6rem .56rem;
+            border:1px solid rgba(74,144,226,.34);
+            border-radius:.55rem;
+            background:rgba(74,144,226,.025);
+        }
+        @media (max-width: 1199.98px) {
+            .rx-advanced-grid { grid-template-columns:repeat(3, minmax(0, 1fr)); }
+        }
+        @media (max-width: 767.98px) {
+            .rx-advanced-grid { grid-template-columns:repeat(2, minmax(0, 1fr)); }
+        }
+        @media (max-width: 575.98px) {
+            .rx-advanced-grid { grid-template-columns:1fr; }
+        }
         .rx-filter-multiselect-search { margin-bottom:.4rem; }
         .rx-filter-multiselect-options { max-height:185px; overflow-y:auto; }
         .rx-filter-multiselect-option { display:flex; align-items:center; gap:.45rem; padding:.25rem .1rem; font-size:.82rem; color:var(--text); cursor:pointer; }
@@ -79,40 +121,27 @@
         [data-theme="dark"] .rx-filter-multiselect-option { color:#f8fafc !important; }
         [data-theme="dark"] .rx-filter-multiselect-search { background:#111827 !important; border-color:#4b5563 !important; color:#f8fafc !important; }
         .rx-stage-completion-filter {
-            height: 100%;
-            padding: .38rem .48rem .34rem;
-            border: 1px solid var(--border-color, #dee2e6);
-            border-radius: .375rem;
-            background: rgba(74, 144, 226, .035);
-        }
-        .rx-stage-completion-title {
-            margin-bottom: .28rem;
-            color: var(--text-muted, #6c757d);
-            font-size: .72rem;
-            font-weight: 700;
-            letter-spacing: .04em;
-            line-height: 1;
-            text-transform: uppercase;
+            padding:.52rem .6rem .56rem;
+            border:1px solid rgba(74,144,226,.38);
+            border-radius:.55rem;
+            background:rgba(74,144,226,.035);
         }
         .rx-stage-completion-fields {
-            display: grid;
-            grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr) minmax(0, 1fr);
-            gap: .35rem;
+            display:grid;
+            grid-template-columns:minmax(0, 1.45fr) minmax(0, 1fr) minmax(0, 1fr);
+            gap:.5rem;
+            align-items:end;
         }
         .rx-stage-completion-fields .form-label {
             display: block;
-            margin: 0 0 .14rem;
+            margin-bottom: .5rem;
             color: var(--text-muted, #6c757d);
-            font-size: .65rem;
+            font-size: .875rem;
             font-weight: 700;
-            line-height: 1.1;
             text-transform: uppercase;
         }
         .rx-stage-completion-hint {
-            margin-top: .28rem;
-            color: var(--text-muted, #6c757d);
-            font-size: .67rem;
-            line-height: 1.18;
+            display:none;
         }
         .rx-more-workflow-dates { margin-top: .48rem; }
         .rx-more-workflow-dates > summary {
@@ -132,9 +161,23 @@
         }
         .rx-more-workflow-dates[open] > summary::before { transform: rotate(90deg); }
         .rx-more-workflow-dates-body { margin-top: .42rem; }
-        [data-theme="dark"] .rx-stage-completion-filter { background: rgba(74, 144, 226, .09); }
+        [data-theme="dark"] .rx-stage-completion-filter {
+            border-color:rgba(74,144,226,.5);
+            background:rgba(74,144,226,.07);
+        }
+        [data-theme="dark"] .rx-filter-range-group {
+            border-color:rgba(74,144,226,.44);
+            background:rgba(74,144,226,.055);
+        }
         @media (max-width: 767.98px) {
+            .rx-filter-range-cell,
+            .rx-stage-completion-cell { grid-column:span 2; }
+            .rx-filter-range-group { grid-template-columns:1fr; }
             .rx-stage-completion-fields { grid-template-columns: 1fr; }
+        }
+        @media (max-width: 575.98px) {
+            .rx-filter-range-cell,
+            .rx-stage-completion-cell { grid-column:span 1; }
         }
     </style>
 </head>
@@ -178,7 +221,7 @@
                         <label class="form-label small fw-bold"><i class="fas fa-clinic-medical me-1"></i>Pharmacy</label>
                         <input type="hidden" id="rxFilterPharmacy">
                         <div class="dropdown rx-filter-multiselect" id="rxFilterPharmacyPicker">
-                            <button class="form-select form-select-sm text-start dropdown-toggle" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside"><span>All Pharmacies</span></button>
+                            <button class="form-select form-select-sm text-start" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside"><span>All Pharmacies</span></button>
                             <div class="dropdown-menu"><input class="form-control form-control-sm rx-filter-multiselect-search" type="search" placeholder="Type to find pharmacy..."><div class="rx-filter-multiselect-options"></div></div>
                         </div>
                     </div>
@@ -186,7 +229,7 @@
                         <label class="form-label small fw-bold"><i class="fas fa-hospital me-1"></i>Clinic</label>
                         <input type="hidden" id="rxFilterClinic">
                         <div class="dropdown rx-filter-multiselect" id="rxFilterClinicPicker">
-                            <button class="form-select form-select-sm text-start dropdown-toggle" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside"><span>All Clinics</span></button>
+                            <button class="form-select form-select-sm text-start" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside"><span>All Clinics</span></button>
                             <div class="dropdown-menu"><input class="form-control form-control-sm rx-filter-multiselect-search" type="search" placeholder="Type to find clinic..."><div class="rx-filter-multiselect-options"></div></div>
                         </div>
                     </div>
@@ -194,7 +237,7 @@
                         <label class="form-label small fw-bold"><i class="fas fa-tasks me-1"></i>Workflow Status</label>
                         <input type="hidden" id="rxFilterWorkflowStatus">
                         <div class="dropdown rx-filter-multiselect" id="rxFilterWorkflowStatusPicker">
-                            <button class="form-select form-select-sm text-start dropdown-toggle" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside"><span>All Workflow</span></button>
+                            <button class="form-select form-select-sm text-start" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside"><span>All Workflow</span></button>
                             <div class="dropdown-menu"><input class="form-control form-control-sm rx-filter-multiselect-search" type="search" placeholder="Type to find status..."><div class="rx-filter-multiselect-options"></div></div>
                         </div>
                     </div>
@@ -202,7 +245,7 @@
                         <label class="form-label small fw-bold"><i class="fas fa-check-circle me-1"></i>Current Stage</label>
                         <input type="hidden" id="rxFilterCurrentWorkflowStage">
                         <div class="dropdown rx-filter-multiselect" id="rxFilterCurrentWorkflowStagePicker">
-                            <button class="form-select form-select-sm text-start dropdown-toggle" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside"><span>All Current Stages</span></button>
+                            <button class="form-select form-select-sm text-start" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside"><span>All Current Stages</span></button>
                             <div class="dropdown-menu"><input class="form-control form-control-sm rx-filter-multiselect-search" type="search" placeholder="Type to find current stage..."><div class="rx-filter-multiselect-options"></div></div>
                         </div>
                     </div>
@@ -213,40 +256,57 @@
                 </div>
                 <!-- Advanced row -->
                 <div id="rxAdvPanel" style="display:none;border-top:1px solid var(--border-color,#dee2e6);margin-top:10px;padding-top:10px">
-                    <div class="row g-2 align-items-end">
-                        <div class="col-md-2">
+                    <div class="rx-advanced-grid">
+                        <div>
                             <label class="form-label small fw-bold"><i class="fas fa-id-badge me-1"></i>Patient ID</label>
                             <input type="text" class="form-control form-control-sm" id="rxFilterPatientCode" placeholder="e.g. PAT-00001">
                         </div>
-                        <div class="col-md-2">
-                            <label class="form-label small fw-bold"><i class="fas fa-calendar-check me-1"></i>Service Date From</label>
-                            <input type="date" class="form-control form-control-sm" id="rxFilterDateFrom">
+                        <div class="rx-filter-range-cell">
+                            <div class="rx-filter-range-group" role="group" aria-label="RX service date range">
+                                <div>
+                                    <label class="form-label small fw-bold"><i class="fas fa-calendar-check me-1"></i>RX Service From</label>
+                                    <input type="date" class="form-control form-control-sm" id="rxFilterDateFrom">
+                                </div>
+                                <div>
+                                    <label class="form-label small fw-bold"><i class="fas fa-calendar-check me-1"></i>RX Service To</label>
+                                    <input type="date" class="form-control form-control-sm" id="rxFilterDateTo">
+                                </div>
+                            </div>
                         </div>
-                        <div class="col-md-2">
-                            <label class="form-label small fw-bold"><i class="fas fa-calendar-check me-1"></i>Service Date To</label>
-                            <input type="date" class="form-control form-control-sm" id="rxFilterDateTo">
+                        <div class="rx-stage-completion-cell">
+                            <div class="rx-stage-completion-filter" role="group" aria-label="Stage Completion">
+                                <div class="rx-stage-completion-fields">
+                                    <div>
+                                        <label class="form-label small fw-bold" for="rxFilterCompletedStageId"><i class="fas fa-history me-1"></i>Completed Stage</label>
+                                        <select class="form-select form-select-sm" id="rxFilterCompletedStageId">
+                                            <option value="">Select completed stage</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="form-label small fw-bold" for="rxFilterStageFrom">Stage Activity From</label>
+                                        <input type="date" class="form-control form-control-sm" id="rxFilterStageFrom" disabled>
+                                    </div>
+                                    <div>
+                                        <label class="form-label small fw-bold" for="rxFilterStageTo">Stage Activity To</label>
+                                        <input type="date" class="form-control form-control-sm" id="rxFilterStageTo" disabled>
+                                    </div>
+                                </div>
+                                <div class="rx-stage-completion-hint"><i class="fas fa-info-circle me-1"></i>Matches this exact stage only; dates on other stages do not count.</div>
+                            </div>
                         </div>
-                        <div class="col-md-2">
-                            <label class="form-label small fw-bold"><i class="fas fa-calendar-check me-1"></i>Service From</label>
-                            <input type="date" class="form-control form-control-sm" id="rxFilterSvcFrom">
-                        </div>
-                        <div class="col-md-2">
-                            <label class="form-label small fw-bold"><i class="fas fa-calendar-check me-1"></i>Service To</label>
-                            <input type="date" class="form-control form-control-sm" id="rxFilterSvcTo">
-                        </div>
-                        <div class="col-md-2">
+                        <div>
                             <label class="form-label small fw-bold"><i class="fas fa-truck me-1"></i>Patient Transport</label>
                             <select class="form-select form-select-sm" id="rxFilterPatientTransport">
                                 <option value="">All Patient Transports</option>
                             </select>
                         </div>
-                        <div class="col-md-2">
+                        <div>
                             <label class="form-label small fw-bold"><i class="fas fa-truck me-1"></i>Pharmacy Transport</label>
                             <select class="form-select form-select-sm" id="rxFilterPharmacyTransport">
                                 <option value="">All Pharmacy Transports</option>
                             </select>
                         </div>
-                        <div class="col-md-2">
+                        <div>
                             <label class="form-label small fw-bold"><i class="fas fa-warehouse me-1"></i>Warehouse Status</label>
                             <select class="form-select form-select-sm" id="rxFilterWarehouseStatus">
                                 <option value="">All Warehouse Statuses</option>
@@ -254,29 +314,7 @@
                                 <option value="not-returned">Not Returned</option>
                             </select>
                         </div>
-                        <div class="col-md-4">
-                            <div class="rx-stage-completion-filter" role="group" aria-labelledby="rxStageCompletionLabel">
-                                <div class="rx-stage-completion-title" id="rxStageCompletionLabel"><i class="fas fa-history me-1"></i>Stage Completion</div>
-                                <div class="rx-stage-completion-fields">
-                                    <div>
-                                        <label class="form-label" for="rxFilterCompletedStageId">Completed Stage</label>
-                                        <select class="form-select form-select-sm" id="rxFilterCompletedStageId">
-                                            <option value="">Select completed stage</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label class="form-label" for="rxFilterStageFrom">Stage Activity From</label>
-                                        <input type="date" class="form-control form-control-sm" id="rxFilterStageFrom" disabled>
-                                    </div>
-                                    <div>
-                                        <label class="form-label" for="rxFilterStageTo">Stage Activity To</label>
-                                        <input type="date" class="form-control form-control-sm" id="rxFilterStageTo" disabled>
-                                    </div>
-                                </div>
-                                <div class="rx-stage-completion-hint"><i class="fas fa-info-circle me-1"></i>Matches this exact stage only; dates on other stages do not count.</div>
-                            </div>
-                        </div>
-                        <div class="col-md-2">
+                        <div>
                             <label class="form-label small fw-bold"><i class="fas fa-building me-1"></i>Patient Type</label>
                             <select class="form-select form-select-sm" id="rxFilterPatientType">
                                 <option value="">All Patient Types</option>
@@ -284,7 +322,15 @@
                                 <option value="non_company">Non-Company Patients</option>
                             </select>
                         </div>
-                        <div class="col-md-2 d-flex align-items-end">
+                        <div>
+                            <label class="form-label small fw-bold"><i class="fas fa-tags me-1"></i>Patient Tags</label>
+                            <input type="hidden" id="rxFilterPatientTags">
+                            <div class="dropdown rx-filter-multiselect" id="rxFilterPatientTagsPicker">
+                                <button class="form-select form-select-sm text-start" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside"><span>All Patient Tags</span></button>
+                                <div class="dropdown-menu"><input class="form-control form-control-sm rx-filter-multiselect-search" type="search" placeholder="Type to find tag..."><div class="rx-filter-multiselect-options"></div></div>
+                            </div>
+                        </div>
+                        <div class="d-flex align-items-end">
                             <div class="form-check form-switch mt-1">
                                 <input class="form-check-input" type="checkbox" id="rxShowDeleted">
                                 <label class="form-check-label small" for="rxShowDeleted">Show Hidden Records</label>
@@ -938,6 +984,7 @@
     var allPhtList         = []; // pharmacy transport companies cache
     var allMedCatalog      = []; // RX action catalog
     var allDriversList     = []; // active drivers
+    var allPatientTagsList = []; // patient reference tags
     var _rxPrefillPatientId = null;
     var _rxPrefillPatientName = '';
     var rxPatientPickerPromise = null;
@@ -947,7 +994,7 @@
     // Loads all dropdown data needed for the New RX modal and workflow selectors.
     // Returns a Promise so DOMContentLoaded can chain .then(loadRxRecords).
     function loadRxDropdowns() {
-        var phRes, ptRes, rxRes, waRes, catRes, driverRes;
+        var phRes, ptRes, rxRes, waRes, catRes, driverRes, tagRes;
         loadRxPatientPickerData();
         fetchWithAuth(window.rxUrl('/api/lookup/clinics'), { silent: true }).then(function(res) {
             return res && res.ok ? res.json() : [];
@@ -961,7 +1008,8 @@
             fetchWithAuth(window.rxUrl('/api/lookup/pharmacy-transport'), { silent: true }),
             fetchWithAuth(window.rxUrl('/api/lookup/workflow-actions'), { silent: true }),
             fetchWithAuth(window.rxUrl('/api/lookup/medication-catalog'), { silent: true }),
-            fetchWithAuth(window.rxUrl('/api/lookup/pharmacy-transport'), { silent: true })
+            fetchWithAuth(window.rxUrl('/api/lookup/pharmacy-transport'), { silent: true }),
+            fetchWithAuth(window.rxUrl('/api/lookup/patient-tags'), { silent: true })
         ]).then(function(results) {
             phRes = results[0];
             ptRes = results[1];
@@ -969,6 +1017,7 @@
             waRes = results[3];
             catRes = results[4];
             driverRes = results[5];
+            tagRes = results[6];
             if (phRes  && phRes.ok) { return phRes.json();  } return [];
         }).then(function(data) {
             allPharmaciesList = Array.isArray(data) ? data : [];
@@ -1006,6 +1055,10 @@
             });
             populateRxFilterSelects();
             initPatientSearch();
+            if (tagRes && tagRes.ok) { return tagRes.json(); } return [];
+        }).then(function(data) {
+            allPatientTagsList = Array.isArray(data) ? data : [];
+            populateRxFilterSelects();
         }).catch(function(e) {
             console.error('[RX] loadRxDropdowns error:', e);
             populateRxFilterSelects();
@@ -1036,6 +1089,16 @@
 
     function selectedRxFilterIds(value) {
         return String(value || '').split(',').map(function(value) { return value.trim(); }).filter(Boolean);
+    }
+
+    function rxPatientTagLabel(tag) {
+        if (!tag) return '';
+        return (tag.groupName ? tag.groupName + ': ' : '') + (tag.name || ('Tag #' + tag.id));
+    }
+
+    function rxPatientTagsText(tags) {
+        if (!Array.isArray(tags) || !tags.length) return '';
+        return tags.map(rxPatientTagLabel).filter(Boolean).join('; ');
     }
 
     function populateRxMultiFilter(hiddenId, pickerId, items, itemLabel, emptyLabel) {
@@ -1087,6 +1150,7 @@
         var stages = [{ id: 'print_log', name: 'Print Log - Includes Returned to Pharmacy' }, { id: 'returned_to_pharmacy', name: 'Package Returned to Pharmacy' }];
         allWorkflowActions.forEach(function(action, index) { stages.push({ id: String(action.sequenceNumber || index + 1), name: action.name || ('Workflow action ' + (index + 1)) }); });
         populateRxMultiFilter('rxFilterCurrentWorkflowStage', 'rxFilterCurrentWorkflowStagePicker', stages, function(item) { return item.name; }, 'All Current Stages');
+        populateRxMultiFilter('rxFilterPatientTags', 'rxFilterPatientTagsPicker', allPatientTagsList, rxPatientTagLabel, 'All Patient Tags');
     }
 
     function syncRxCompletedStageDateState() {
@@ -1169,7 +1233,7 @@
         function rxCsvPath(obj, path) { return path.split('.').reduce(function(value,key){return value&&value[key]!==undefined?value[key]:'';},obj); }
         function rxCsvStageInfo(rx) { var tracks={};(rx.RXWorkflowTrackings||[]).forEach(function(t){var k=String(t.workflowActionId),old=tracks[k];if(!old||new Date(t.completionDate||0)>=new Date(old.completionDate||0))tracks[k]=t;});var current=null,next=null;allWorkflowActions.forEach(function(a,i){if(tracks[String(a.id)]){if(!current||Number(a.sequenceNumber||i+1)>Number(current.sequenceNumber||0))current=a;}else if(!next)next=a;});return {tracks:tracks,current:current,next:next,currentDate:getRxCurrentStageDateValue(rx)}; }
         function rxCsvColumns() { var items=[
-          ['rxId','RX Record ID',function(r){return r.id||'';}],['patientRecordId','Patient Record ID',function(r){return r.patientId||'';}],['patientId','Patient ID',function(r){return rxCsvPath(r,'Patient.patientCode');}],['patientFirst','Patient First Name',function(r){return rxCsvPath(r,'Patient.firstName');}],['patientLast','Patient Last Name',function(r){return rxCsvPath(r,'Patient.lastName');}],['patientName','Patient Full Name',function(r){return [rxCsvPath(r,'Patient.firstName'),rxCsvPath(r,'Patient.lastName')].filter(Boolean).join(' ');}],['patientDob','Patient Date of Birth',function(r){return rxCsvPath(r,'Patient.dob');}],['patientPhone','Patient Phone',function(r){return rxCsvPath(r,'Patient.phone');}],['patientAddress','Patient Address',function(r){return rxCsvPath(r,'Patient.address');}],['patientType','Patient Type',function(r){return rxCsvPath(r,'Patient.isNonCompanyPatient')?'Non-Company':'Company';}],
+          ['rxId','RX Record ID',function(r){return r.id||'';}],['patientRecordId','Patient Record ID',function(r){return r.patientId||'';}],['patientId','Patient ID',function(r){return rxCsvPath(r,'Patient.patientCode');}],['patientFirst','Patient First Name',function(r){return rxCsvPath(r,'Patient.firstName');}],['patientLast','Patient Last Name',function(r){return rxCsvPath(r,'Patient.lastName');}],['patientName','Patient Full Name',function(r){return [rxCsvPath(r,'Patient.firstName'),rxCsvPath(r,'Patient.lastName')].filter(Boolean).join(' ');}],['patientDob','Patient Date of Birth',function(r){return rxCsvPath(r,'Patient.dob');}],['patientPhone','Patient Phone',function(r){return rxCsvPath(r,'Patient.phone');}],['patientAddress','Patient Address',function(r){return rxCsvPath(r,'Patient.address');}],['patientType','Patient Type',function(r){return rxCsvPath(r,'Patient.isNonCompanyPatient')?'Non-Company':'Company';}],['patientTags','Patient Tags',function(r){return rxPatientTagsText(r.Patient&&r.Patient.PatientTags);}],
           ['arrivalDate','Arrival Date',function(r){return rxCsvDate(r.arrivalDate);}],['serviceDate','RX Service Date',function(r){return rxCsvDate(r.serviceDate);}],['cycleId','Service Date Cycle ID',function(r){return r.patientServiceDateCycleId||'';}],['rxStatus','RX Status',function(r){return r.isDeleted?'Deleted':'Active';}],['deletedAt','RX Deleted At',function(r){return rxCsvDate(r.deletedAt,true);}],
           ['pharmacyId','Pharmacy ID',function(r){return r.pharmacyId||'';}],['pharmacy','Pharmacy',function(r){return rxCsvPath(r,'Pharmacy.name');}],['pharmacyAddress','Pharmacy Address',function(r){return rxCsvPath(r,'Pharmacy.address');}],['pharmacyPhone','Pharmacy Phone',function(r){return rxCsvPath(r,'Pharmacy.phone');}],['pharmacyContact','Pharmacy Contact',function(r){return rxCsvPath(r,'Pharmacy.contactPerson');}],
           ['clinicId','Clinic ID',function(r){return rxCsvPath(r,'Patient.clinicId');}],['clinic','Clinic',function(r){return rxCsvPath(r,'Patient.Clinic.name');}],['clinicAddress','Clinic Address',function(r){return rxCsvPath(r,'Patient.Clinic.address');}],['clinicPhone','Clinic Phone',function(r){return rxCsvPath(r,'Patient.Clinic.phone');}],['clinicContact','Clinic Contact',function(r){return rxCsvPath(r,'Patient.Clinic.contactPerson');}],
@@ -1240,7 +1304,7 @@
         var _filterIds = ['rxFilterPatient','rxFilterId','rxFilterPharmacy','rxFilterClinic','rxFilterPatientCode',
                           'rxFilterDateFrom','rxFilterDateTo','rxFilterSvcFrom','rxFilterSvcTo',
                           'rxFilterPatientTransport','rxFilterPharmacyTransport','rxFilterWarehouseStatus',
-                          'rxFilterPatientType',
+                          'rxFilterPatientType','rxFilterPatientTags',
                           'rxFilterCompletedStageId','rxFilterStageFrom','rxFilterStageTo',
                           'rxFilterCurrentStageDateFrom','rxFilterCurrentStageDateTo',
                           'rxFilterWorkflowStatus','rxFilterCurrentWorkflowStage'];
@@ -1385,6 +1449,7 @@
         setRxParam(params, 'warehouseStatus', document.getElementById('rxFilterWarehouseStatus')?.value || '');
         setRxParam(params, 'workflowStatus', document.getElementById('rxFilterWorkflowStatus')?.value || '');
         setRxParam(params, 'patientType', document.getElementById('rxFilterPatientType')?.value || '');
+        setRxParam(params, 'patientTagIds', document.getElementById('rxFilterPatientTags')?.value || '');
         setRxParam(params, 'currentWorkflowStage', document.getElementById('rxFilterCurrentWorkflowStage')?.value || '');
         var completedStageId = document.getElementById('rxFilterCompletedStageId')?.value || '';
         if (completedStageId) {
@@ -1633,6 +1698,8 @@
         var whVal = whSel ? whSel.value : '';
         var _wfEl = document.getElementById('rxFilterWorkflowStatus');
         var wf    = selectedRxFilterIds(_wfEl ? _wfEl.value : '');
+        var _tagEl = document.getElementById('rxFilterPatientTags');
+        var patientTags = selectedRxFilterIds(_tagEl ? _tagEl.value : '');
         var _currentWfsEl = document.getElementById('rxFilterCurrentWorkflowStage');
         var currentWfStage = selectedRxFilterIds(_currentWfsEl ? _currentWfsEl.value : '');
         var _currentStageFromEl = document.getElementById('rxFilterCurrentStageDateFrom');
@@ -1674,6 +1741,11 @@
             if (phtVal && String(r.pharmacyTransportCompanyId || '') !== String(phtVal)) return false;
             if (whVal === 'returned' && !r.returnedToWarehouse) return false;
             if (whVal === 'not-returned' && r.returnedToWarehouse) return false;
+            if (patientTags.length) {
+                var assignedTags = r.Patient && Array.isArray(r.Patient.PatientTags) ? r.Patient.PatientTags : [];
+                var assignedTagIds = assignedTags.map(function(tag) { return String(tag.id); });
+                if (!patientTags.some(function(tagId) { return assignedTagIds.indexOf(tagId) >= 0; })) return false;
+            }
             if (wf.length && !wf.some(function(status) {
                 if (status === 'incomplete') return wfKey !== 'completed';
                 if (status === 'pending') return wfKey !== 'completed' && wfKey !== 'expired';
@@ -2395,6 +2467,7 @@
                 var infoRows = [
                     ['Patient',            (patient.firstName || '') + ' ' + (patient.lastName || '')],
                     ['Patient ID',         patient.patientCode || '\u2014'],
+                    ['Patient Tags',       rxPatientTagsText(patient.PatientTags) || '\u2014'],
                     ['Default Pharmacy',   pharmacy.name || '\u2014'],
                     ['Service Date',       rx.serviceDate || '\u2014'],
                     ['Next Service Date',  (function(){ if (!rx.serviceDate) return '\u2014'; var e = new Date(new Date(rx.serviceDate).getTime() + window.SERVICE_WINDOW_DAYS*864e5); return e.toLocaleDateString(); })()],

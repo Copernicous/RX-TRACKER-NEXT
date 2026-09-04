@@ -29,17 +29,32 @@ function isDateOnly(value) {
     return /^\d{4}-\d{2}-\d{2}$/.test(cleanString(value));
 }
 
+function parsePositiveIds(rawValue) {
+    return Array.from(new Set(
+        String(rawValue || '')
+            .split(',')
+            .map(value => Number(String(value).trim()))
+            .filter(value => Number.isInteger(value) && value > 0)
+    ));
+}
+
 function normalizeDir(value) {
     return cleanString(value).toLowerCase() === 'asc' ? 'asc' : 'desc';
 }
 
 function patientReportInclude() {
-    return [db.PatientTransportCompany, db.PharmacyTransportCompany, db.Clinic, db.Pharmacy];
+    return [
+        db.PatientTransportCompany,
+        db.PharmacyTransportCompany,
+        db.Clinic,
+        db.Pharmacy,
+        { model: db.PatientTag, through: { attributes: [] }, required: false }
+    ];
 }
 
 function rxReportInclude() {
     return [
-        { model: db.Patient, include: [db.Clinic] },
+        { model: db.Patient, include: [db.Clinic, { model: db.PatientTag, through: { attributes: [] }, required: false }] },
         db.Pharmacy,
         db.PatientTransportCompany,
         db.PharmacyTransportCompany,
@@ -672,6 +687,7 @@ function patientReportFilters(query, replacements, totalSteps) {
     const missingInfo = cleanString(query.missingInfo);
     const eligibility = cleanString(query.eligibility);
     const rxStatus = cleanString(query.rxStatus);
+    const patientTagIds = parsePositiveIds(query.patientTagIds || query.patientTagId);
     const exactIds = [
         ['clinicId', query.clinicId, 'p."clinicId"'],
         ['pharmacyId', query.pharmacyId, 'p."pharmacyId"'],
@@ -739,6 +755,19 @@ function patientReportFilters(query, replacements, totalSteps) {
         where.push('p."isNonCompanyPatient" = TRUE');
     } else if (patientType) {
         where.push('FALSE');
+    }
+    if (cleanString(query.patientTagIds || query.patientTagId)) {
+        if (!patientTagIds.length) {
+            where.push('FALSE');
+        } else {
+            replacements.patientTagIds = patientTagIds;
+            where.push(`EXISTS (
+                SELECT 1
+                FROM "PatientTagAssignments" patient_tag_filter
+                WHERE patient_tag_filter."patientId" = p.id
+                  AND patient_tag_filter."patientTagId" IN (:patientTagIds)
+            )`);
+        }
     }
 
     const missingByKey = {
@@ -862,6 +891,7 @@ async function getPatientRxDetailRows(query, patientIdsOverride) {
             p."serviceDate" AS "patientServiceDate",
             p."isActive" AS "patientIsActive",
             p."isNonCompanyPatient",
+            COALESCE(patient_tags."patientTags", '') AS "patientTags",
             p."clinicId",
             p."pharmacyId" AS "defaultPharmacyId",
             p."patientTransportCompanyId" AS "defaultPatientTransportId",
@@ -919,6 +949,18 @@ async function getPatientRxDetailRows(query, patientIdsOverride) {
         LEFT JOIN "Pharmacies" ph ON ph.id = p."pharmacyId"
         LEFT JOIN "PatientTransportCompanies" pt ON pt.id = p."patientTransportCompanyId"
         LEFT JOIN "PharmacyTransportCompanies" pht ON pht.id = p."pharmacyTransportCompanyId"
+        LEFT JOIN LATERAL (
+            SELECT STRING_AGG(
+                CASE WHEN NULLIF(BTRIM(COALESCE(ptag."groupName", '')), '') IS NOT NULL
+                    THEN ptag."groupName" || ': ' || ptag.name
+                    ELSE ptag.name
+                END,
+                '; ' ORDER BY ptag."groupName", ptag.name, ptag.id
+            ) AS "patientTags"
+            FROM "PatientTagAssignments" pta
+            JOIN "PatientTags" ptag ON ptag.id = pta."patientTagId"
+            WHERE pta."patientId" = p.id
+        ) patient_tags ON TRUE
         LEFT JOIN "RXRecords" r
           ON r."patientId" = p.id
          AND COALESCE(r."isDeleted", FALSE) = FALSE
@@ -1599,6 +1641,7 @@ function rxReportFilters(query, replacements, totalSteps) {
     const stageFrom = isDateOnly(query.stageFrom) ? query.stageFrom : '';
     const stageTo = isDateOnly(query.stageTo) ? query.stageTo : '';
     const patientType = cleanString(query.patientType);
+    const patientTagIds = parsePositiveIds(query.patientTagIds || query.patientTagId);
     const warehouseStatus = cleanString(query.warehouseStatus);
     const dateFrom = isDateOnly(query.serviceFrom || query.dateFrom) ? (query.serviceFrom || query.dateFrom) : '';
     const dateTo = isDateOnly(query.serviceTo || query.dateTo) ? (query.serviceTo || query.dateTo) : '';
@@ -1669,6 +1712,19 @@ function rxReportFilters(query, replacements, totalSteps) {
         where.push('p."isNonCompanyPatient" = TRUE');
     } else if (patientType) {
         where.push('FALSE');
+    }
+    if (cleanString(query.patientTagIds || query.patientTagId)) {
+        if (!patientTagIds.length) {
+            where.push('FALSE');
+        } else {
+            replacements.patientTagIds = patientTagIds;
+            where.push(`EXISTS (
+                SELECT 1
+                FROM "PatientTagAssignments" patient_tag_filter
+                WHERE patient_tag_filter."patientId" = p.id
+                  AND patient_tag_filter."patientTagId" IN (:patientTagIds)
+            )`);
+        }
     }
     if (warehouseStatus === 'returned') {
         where.push('r."returnedToWarehouse" = TRUE');

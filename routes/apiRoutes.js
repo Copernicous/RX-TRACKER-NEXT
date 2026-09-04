@@ -52,6 +52,7 @@ function getCookie(cookieHeader, name) {
 const pharmacyController = require('../controllers/pharmacyController');
 const patientTransportController = require('../controllers/patientTransportController');
 const pharmacyTransportController = require('../controllers/pharmacyTransportController');
+const patientTagController = require('../controllers/patientTagController');
 const userController = require('../controllers/userController');
 const workflowActionController = require('../controllers/workflowActionController');
 const patientController = require('../controllers/patientController');
@@ -253,6 +254,7 @@ const LOOKUP_MAP = {
     'clinics':            { model: db.Clinic,                    fields: ['id', 'name',        'address'],       where: { isActive: true } },
     'patient-transport':  { model: db.PatientTransportCompany,   fields: ['id', 'companyName', 'contactPerson'], where: { isActive: true } },
     'pharmacy-transport': { model: db.PharmacyTransportCompany,  fields: ['id', 'companyName', 'contactPerson'], where: { isActive: true } },
+    'patient-tags':       { model: db.PatientTag,                 fields: ['id', 'name', 'groupName', 'color', 'isDefault'], where: { isActive: true }, order: [['groupName', 'ASC'], ['name', 'ASC'], ['id', 'ASC']] },
     'workflow-actions':   { model: db.WorkflowAction,            fields: ['id', 'name', 'sequenceNumber', 'description', 'deliveryOutcomeMode'], where: { isActive: true }, order: [['sequenceNumber', 'ASC'], ['id', 'ASC']] },
     'medication-catalog': { model: db.MedicationCatalog,         fields: ['id', 'name', 'sortOrder', 'description'],      where: { isActive: true } },
 };
@@ -279,6 +281,7 @@ const pathMap = {
     '/pharmacies': 'pharmacies',
     '/patient-transport': 'patient_transport',
     '/pharmacy-transport': 'pharmacy_transport',
+    '/patient-tags': 'patient_tags',
     '/users': 'users',
     '/workflow-actions': 'workflow_actions',
     '/patients': 'patients',
@@ -320,6 +323,9 @@ router.put('/patient-transport/:id/restore', rbac.requirePermission('patient_tra
 
 generateCRUDRoutes('/pharmacy-transport', pharmacyTransportController, 'Pharmacy Transportation');
 router.put('/pharmacy-transport/:id/restore', rbac.requirePermission('pharmacy_transport', 'edit'), auditLogger('Pharmacy Transportation'), pharmacyTransportController.restore);
+
+generateCRUDRoutes('/patient-tags', patientTagController, 'Patient Tags');
+router.put('/patient-tags/:id/restore', rbac.requirePermission('patient_tags', 'edit'), auditLogger('Patient Tags'), patientTagController.restore);
 
 generateCRUDRoutes('/users', userController, 'Users');
 router.put('/users/:id/restore', rbac.requireRole(['Administrator']), auditLogger('Users'), userController.restore);

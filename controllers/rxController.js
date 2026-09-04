@@ -291,7 +291,7 @@ function rxInclude(includeStageDriverDetails) {
         trackingIncludes.unshift({ model: db.PharmacyTransportCompany, as: 'Driver', attributes: ['id', 'companyName', 'contactPerson', 'isActive'] });
     }
     return [
-        { model: db.Patient, include: [{ model: db.Clinic }] },
+        { model: db.Patient, include: [{ model: db.Clinic }, { model: db.PatientTag, through: { attributes: [] }, required: false }] },
         { model: db.PatientServiceDateCycle },
         { model: db.Pharmacy },
         { model: db.PatientTransportCompany },
@@ -337,6 +337,7 @@ function buildRxWhere(query) {
     const patientId = cleanString(query.patientId);
     const patientTransportId = cleanString(query.patientTransportId);
     const pharmacyTransportId = cleanString(query.pharmacyTransportId);
+    const patientTagIds = parseSelectedIds(query.patientTagIds || query.patientTagId);
     const warehouseStatus = cleanString(query.warehouseStatus);
     const from = maxDateOnly([query.dateFrom, query.serviceFrom]);
     const to = minDateOnly([query.dateTo, query.serviceTo]);
@@ -347,6 +348,14 @@ function buildRxWhere(query) {
     if (/^\d+$/.test(patientId)) where.patientId = parseInt(patientId, 10);
     if (/^\d+$/.test(patientTransportId)) where.patientTransportCompanyId = parseInt(patientTransportId, 10);
     if (/^\d+$/.test(pharmacyTransportId)) where.pharmacyTransportCompanyId = parseInt(pharmacyTransportId, 10);
+    if (cleanString(query.patientTagIds || query.patientTagId)) {
+        where[Op.and] = (where[Op.and] || []).concat(patientTagIds.length ? db.sequelize.literal(`EXISTS (
+            SELECT 1
+            FROM "PatientTagAssignments" AS patient_tag_filter
+            WHERE patient_tag_filter."patientId" = "RXRecord"."patientId"
+              AND patient_tag_filter."patientTagId" IN (${patientTagIds.map(id => Number(id)).join(',')})
+        )`) : db.sequelize.literal('1 = 0'));
+    }
     if (warehouseStatus === 'returned') where.returnedToWarehouse = true;
     if (warehouseStatus === 'not-returned') {
         where[Op.and] = (where[Op.and] || []).concat({
@@ -382,6 +391,7 @@ function addRxPageFilters(query, replacements, totalSteps) {
     const clinicIds = parseSelectedIds(query.clinicIds);
     const patientTransportId = cleanString(query.patientTransportId);
     const pharmacyTransportId = cleanString(query.pharmacyTransportId);
+    const patientTagIds = parseSelectedIds(query.patientTagIds || query.patientTagId);
     const warehouseStatus = cleanString(query.warehouseStatus);
     const patientType = cleanString(query.patientType);
     const workflowStatus = String(query.workflowStatus || '').split(',').map(cleanString).filter(Boolean);
@@ -428,6 +438,19 @@ function addRxPageFilters(query, replacements, totalSteps) {
     if (/^\d+$/.test(pharmacyTransportId)) {
         replacements.pharmacyTransportId = parseInt(pharmacyTransportId, 10);
         whereSql.push('r."pharmacyTransportCompanyId" = :pharmacyTransportId');
+    }
+    if (cleanString(query.patientTagIds || query.patientTagId)) {
+        if (!patientTagIds.length) {
+            whereSql.push('FALSE');
+        } else {
+            replacements.patientTagIds = patientTagIds;
+            whereSql.push(`EXISTS (
+                SELECT 1
+                FROM "PatientTagAssignments" patient_tag_filter
+                WHERE patient_tag_filter."patientId" = p.id
+                  AND patient_tag_filter."patientTagId" IN (:patientTagIds)
+            )`);
+        }
     }
     if (warehouseStatus === 'returned') {
         whereSql.push('r."returnedToWarehouse" = TRUE');

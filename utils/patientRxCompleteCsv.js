@@ -37,6 +37,7 @@ const columns = [
     ['Patient Service Date', row => row.patientServiceDate],
     ['Patient Status', row => row.patientIsActive ? 'Active' : 'Inactive'],
     ['Patient Type', row => row.isNonCompanyPatient ? 'Non-Company' : 'Company'],
+    ['Patient Tags', row => row.patientTags],
     ['Patient Profile Notes', row => row.patientNotes],
     ['Patient Created At', row => isoValue(row.patientCreatedAt)],
     ['Patient Updated At', row => isoValue(row.patientUpdatedAt)],

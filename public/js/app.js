@@ -489,6 +489,7 @@ function checkAuth() {
             '/pharmacies':         'pharmacies',
             '/patient-transport':  'patient_transport',
             '/pharmacy-transport': 'pharmacy_transport',
+            '/patient-tags':       'patient_tags',
             '/clinics':            'clinics',
             '/workflow-actions':   'workflow_actions',
             '/medication-catalog': 'medication_catalog',
@@ -953,6 +954,20 @@ var MODULE_CONFIGS = {
             { key: 'phone', label: 'Phone', type: 'text' },
             { key: 'contactPerson', label: 'Contact Person (optional)', type: 'text' },
             { key: 'notes', label: 'Notes', type: 'textarea' },
+            { key: 'isActive', label: 'Active', type: 'checkbox', default: true }
+        ]
+    },
+    'patient-tags': {
+        label: 'Patient Tag',
+        softDelete: true,
+        columns: ['id', 'name', 'groupName', 'color', 'isDefault', 'isActive'],
+        headers: ['ID', 'Name', 'Group', 'Color', 'Default', 'Active'],
+        fields: [
+            { key: 'name', label: 'Tag Name', type: 'text', required: true },
+            { key: 'groupName', label: 'Group (optional)', type: 'text' },
+            { key: 'color', label: 'Color', type: 'text', hint: 'Optional hex color, for example #4a90e2.' },
+            { key: 'notes', label: 'Notes', type: 'textarea' },
+            { key: 'isDefault', label: 'Default for new patients', type: 'checkbox', default: false },
             { key: 'isActive', label: 'Active', type: 'checkbox', default: true }
         ]
     },
@@ -2026,6 +2041,7 @@ async function renderRolePermissionsMatrix(containerId) {
         { key: 'pharmacies',         label: 'Pharmacies',                   group: 'Settings' },
         { key: 'patient_transport',  label: 'Patient Transport',            group: 'Settings' },
         { key: 'pharmacy_transport', label: 'Pharmacy Transport',           group: 'Settings' },
+        { key: 'patient_tags',       label: 'Patient Tags',                 group: 'Settings' },
         { key: 'workflow_actions',   label: 'Workflow Actions',             group: 'Settings' },
         { key: 'clinics',            label: 'Clinics',                      group: 'Settings' },
         { key: 'medication_catalog', label: 'RX Actions Catalog',           group: 'Settings' },
@@ -2100,6 +2116,7 @@ function getPermissionsHTML(existingPermissions) {
         { key: 'pharmacies',        label: 'Pharmacies (Settings)',                 hasUndo: false, visibleOnly: false },
         { key: 'patient_transport', label: 'Patient Transport (Settings)',           hasUndo: false, visibleOnly: false },
         { key: 'pharmacy_transport',label: 'Pharmacy Transport (Settings)',          hasUndo: false, visibleOnly: false },
+        { key: 'patient_tags',      label: 'Patient Tags (Settings)',               hasUndo: false, visibleOnly: false },
         { key: 'workflow_actions',  label: 'Workflow Actions (Settings)',            hasUndo: false, visibleOnly: false },
         { key: 'clinics',           label: 'Clinics (Settings)',                    hasUndo: false, visibleOnly: false },
         { key: 'medication_catalog',label: 'RX Actions (Settings)',                 hasUndo: false, visibleOnly: false },
@@ -2216,6 +2233,7 @@ function applyReadOnlyRestrictions() {
         '/pharmacies':        'pharmacies',
         '/patient-transport': 'patient_transport',
         '/pharmacy-transport':'pharmacy_transport',
+        '/patient-tags':      'patient_tags',
         '/workflow-actions':  'workflow_actions',
         '/clinics':           'clinics',
         '/medication-catalog':'medication_catalog',

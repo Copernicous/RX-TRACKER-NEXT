@@ -50,7 +50,10 @@ module.exports = [
   entry('20260818000000-add-rx-driver-tracking.js', require('../migrations/20260818000000-add-rx-driver-tracking.js')),
   entry('20260818120000-add-rx-profile-sync-review-events.js', require('../migrations/20260818120000-add-rx-profile-sync-review-events.js')),
   entry('20260819120000-prevent-active-pharmacy-transport-duplicates.js', require('../migrations/20260819120000-prevent-active-pharmacy-transport-duplicates.js')),
-  entry('20260821120000-add-rx-workflow-tracking-notes.js', require('../migrations/20260821120000-add-rx-workflow-tracking-notes.js'))
+  entry('20260821120000-add-rx-workflow-tracking-notes.js', require('../migrations/20260821120000-add-rx-workflow-tracking-notes.js')),
+  entry('20260904120000-create-patient-tags.js', require('../migrations/20260904120000-create-patient-tags.js')),
+  entry('20260904130000-seed-city-patient-tags.js', require('../migrations/20260904130000-seed-city-patient-tags.js')),
+  entry('20260904131500-normalize-city-patient-tags.js', require('../migrations/20260904131500-normalize-city-patient-tags.js'))
 ];
 
 function entry(name, migration) {
