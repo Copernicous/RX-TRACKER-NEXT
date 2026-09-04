@@ -37,6 +37,43 @@
         [data-theme="dark"] #patientsTable tbody tr.patient-non-company-row > td {
             background: rgba(255, 193, 7, .13) !important;
         }
+        .patient-filter-multiselect button.form-select {
+            width:100%;
+            min-height:calc(1.5em + .7rem + 2px);
+            height:calc(1.5em + .7rem + 2px);
+            padding:.35rem 2.25rem .35rem .55rem;
+            display:flex;
+            align-items:center;
+            line-height:1.5;
+            white-space:nowrap;
+        }
+        .patient-filter-multiselect button.form-select span {
+            display:block;
+            min-width:0;
+            overflow:hidden;
+            text-overflow:ellipsis;
+            white-space:nowrap;
+            color:inherit;
+        }
+        .patient-filter-multiselect button.form-select:focus {
+            border-color:var(--primary,#4a90e2);
+            box-shadow:0 0 0 .2rem rgba(74,144,226,.18);
+        }
+        .patient-advanced-grid {
+            display:grid;
+            grid-template-columns:repeat(6, minmax(0, 1fr));
+            gap:.5rem;
+            align-items:end;
+        }
+        @media (max-width: 1199.98px) {
+            .patient-advanced-grid { grid-template-columns:repeat(3, minmax(0, 1fr)); }
+        }
+        @media (max-width: 767.98px) {
+            .patient-advanced-grid { grid-template-columns:repeat(2, minmax(0, 1fr)); }
+        }
+        @media (max-width: 575.98px) {
+            .patient-advanced-grid { grid-template-columns:1fr; }
+        }
         .patient-filter-multiselect .dropdown-menu { width:100%; min-width:260px; padding:.5rem; color:var(--text); }
         .patient-filter-multiselect-search { margin-bottom:.4rem; }
         .patient-filter-multiselect-options { max-height:185px; overflow-y:auto; }
@@ -46,6 +83,17 @@
         [data-theme="dark"] .patient-filter-multiselect .dropdown-menu { background:#1f2937 !important; border-color:#4b5563 !important; }
         [data-theme="dark"] .patient-filter-multiselect-option { color:#f8fafc !important; }
         [data-theme="dark"] .patient-filter-multiselect-search { background:#111827 !important; border-color:#4b5563 !important; color:#f8fafc !important; }
+        .patient-tag-chip {
+            display:inline-flex;align-items:center;gap:.25rem;margin:.18rem .2rem .18rem 0;
+            padding:.18rem .45rem;border-radius:999px;border:1px solid rgba(74,144,226,.35);
+            background:rgba(74,144,226,.12);color:var(--text,#1a202c);font-size:.68rem;font-weight:700;line-height:1.1;
+        }
+        .patient-tag-picker-summary {
+            min-height:38px;display:flex;align-items:center;flex-wrap:wrap;gap:.1rem;
+            border:1px solid var(--border-color,#dee2e6);border-radius:.375rem;padding:.35rem .55rem;background:var(--card-bg,#fff);color:var(--text,#1a202c);
+        }
+        .patient-tag-picker-summary.is-empty { color:var(--text-muted,#6c757d);font-size:.85rem;font-weight:400; }
+        [data-theme="dark"] .patient-tag-picker-summary { background:#111827 !important; border-color:#374151 !important; color:#f8fafc !important; }
     </style>
 </head>
 <body>
@@ -126,32 +174,32 @@
 
                 <!-- Advanced row (collapsible) -->
                 <div id="advancedFilterRow" style="display:none;border-top:1px solid var(--border-color,#dee2e6);margin-top:10px;padding-top:10px">
-                    <div class="row g-2 align-items-end">
-                        <div class="col-md-2">
+                    <div class="patient-advanced-grid">
+                        <div>
                             <label class="form-label small fw-bold"><i class="fas fa-id-badge me-1"></i>Patient ID</label>
                             <input type="text" class="form-control form-control-sm" id="srchPatientCode" placeholder="e.g. PAT-00001" oninput="liveFilter()">
                         </div>
-                        <div class="col-md-3">
+                        <div>
                             <label class="form-label small fw-bold"><i class="fas fa-ambulance me-1"></i>Patient Transport</label>
-                            <input type="hidden" id="srchPatientTransport"><div class="dropdown patient-filter-multiselect" id="srchPatientTransportPicker"><button class="form-select form-select-sm text-start dropdown-toggle" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside"><span>All Patient Transports</span></button><div class="dropdown-menu"><input class="form-control form-control-sm patient-filter-multiselect-search" type="search" placeholder="Type to find patient transport..."><div class="patient-filter-multiselect-options"></div></div></div>
+                            <input type="hidden" id="srchPatientTransport"><div class="dropdown patient-filter-multiselect" id="srchPatientTransportPicker"><button class="form-select form-select-sm text-start" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside"><span>All Patient Transports</span></button><div class="dropdown-menu"><input class="form-control form-control-sm patient-filter-multiselect-search" type="search" placeholder="Type to find patient transport..."><div class="patient-filter-multiselect-options"></div></div></div>
                         </div>
-                        <div class="col-md-3">
+                        <div>
                             <label class="form-label small fw-bold"><i class="fas fa-truck me-1"></i>Pharmacy Transport</label>
-                            <input type="hidden" id="srchPharmacyTransport"><div class="dropdown patient-filter-multiselect" id="srchPharmacyTransportPicker"><button class="form-select form-select-sm text-start dropdown-toggle" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside"><span>All Pharmacy Transports</span></button><div class="dropdown-menu"><input class="form-control form-control-sm patient-filter-multiselect-search" type="search" placeholder="Type to find pharmacy transport..."><div class="patient-filter-multiselect-options"></div></div></div>
+                            <input type="hidden" id="srchPharmacyTransport"><div class="dropdown patient-filter-multiselect" id="srchPharmacyTransportPicker"><button class="form-select form-select-sm text-start" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside"><span>All Pharmacy Transports</span></button><div class="dropdown-menu"><input class="form-control form-control-sm patient-filter-multiselect-search" type="search" placeholder="Type to find pharmacy transport..."><div class="patient-filter-multiselect-options"></div></div></div>
                         </div>
-                        <div class="col-md-3">
+                        <div>
                             <label class="form-label small fw-bold"><i class="fas fa-clinic-medical me-1"></i>Default Pharmacy</label>
-                            <input type="hidden" id="srchPharmacy"><div class="dropdown patient-filter-multiselect" id="srchPharmacyPicker"><button class="form-select form-select-sm text-start dropdown-toggle" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside"><span>All Pharmacies</span></button><div class="dropdown-menu"><input class="form-control form-control-sm patient-filter-multiselect-search" type="search" placeholder="Type to find pharmacy..."><div class="patient-filter-multiselect-options"></div></div></div>
+                            <input type="hidden" id="srchPharmacy"><div class="dropdown patient-filter-multiselect" id="srchPharmacyPicker"><button class="form-select form-select-sm text-start" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside"><span>All Pharmacies</span></button><div class="dropdown-menu"><input class="form-control form-control-sm patient-filter-multiselect-search" type="search" placeholder="Type to find pharmacy..."><div class="patient-filter-multiselect-options"></div></div></div>
                         </div>
-                        <div class="col-md-3">
+                        <div>
                             <label class="form-label small fw-bold"><i class="fas fa-hospital me-1"></i>Clinic</label>
                             <input type="hidden" id="srchClinic">
                             <div class="dropdown patient-filter-multiselect" id="srchClinicPicker">
-                                <button class="form-select form-select-sm text-start dropdown-toggle" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside"><span>All Clinics</span></button>
+                                <button class="form-select form-select-sm text-start" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside"><span>All Clinics</span></button>
                                 <div class="dropdown-menu"><input class="form-control form-control-sm patient-filter-multiselect-search" type="search" placeholder="Type to find clinic..."><div class="patient-filter-multiselect-options"></div></div>
                             </div>
                         </div>
-                        <div class="col-md-2">
+                        <div>
                             <label class="form-label small fw-bold">Status</label>
                             <select class="form-select form-select-sm" id="srchStatus" onchange="liveFilter()">
                                 <option value="">All</option>
@@ -159,7 +207,7 @@
                                 <option value="false">Inactive</option>
                             </select>
                         </div>
-                        <div class="col-md-2">
+                        <div>
                             <label class="form-label small fw-bold"><i class="fas fa-building me-1 text-warning"></i>Patient Type</label>
                             <select class="form-select form-select-sm" id="srchPatientType" onchange="liveFilter()">
                                 <option value="">All Patient Types</option>
@@ -167,15 +215,23 @@
                                 <option value="non_company">Non-Company Patients</option>
                             </select>
                         </div>
-                        <div class="col-md-2">
+                        <div>
+                            <label class="form-label small fw-bold"><i class="fas fa-tags me-1"></i>Patient Tags</label>
+                            <input type="hidden" id="srchPatientTags">
+                            <div class="dropdown patient-filter-multiselect" id="srchPatientTagsPicker">
+                                <button class="form-select form-select-sm text-start" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside"><span>All Patient Tags</span></button>
+                                <div class="dropdown-menu"><input class="form-control form-control-sm patient-filter-multiselect-search" type="search" placeholder="Type to find patient tag..."><div class="patient-filter-multiselect-options"></div></div>
+                            </div>
+                        </div>
+                        <div>
                             <label class="form-label small fw-bold"><i class="fas fa-calendar me-1"></i>Service Date From</label>
                             <input type="date" class="form-control form-control-sm" id="srchServiceFrom" onchange="liveFilter()">
                         </div>
-                        <div class="col-md-2">
+                        <div>
                             <label class="form-label small fw-bold"><i class="fas fa-calendar me-1"></i>Service Date To</label>
                             <input type="date" class="form-control form-control-sm" id="srchServiceTo" onchange="liveFilter()">
                         </div>
-                        <div class="col-md-2 d-flex align-items-center">
+                        <div class="d-flex align-items-center">
                             <div class="form-check form-switch mt-2">
                                 <input class="form-check-input" type="checkbox" id="srchShowDeleted">
                                 <label class="form-check-label small" for="srchShowDeleted">Show Deleted</label>
@@ -335,6 +391,17 @@
                                     <label class="form-check-label" for="pIsNonCompanyPatient">
                                         <i class="fas fa-user-tag me-1 text-warning"></i>Non-Company Patient
                                     </label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label"><i class="fas fa-tags me-1 text-primary"></i>Patient Tags</label>
+                            <input type="hidden" id="pPatientTagIds">
+                            <div class="dropdown patient-filter-multiselect" id="pPatientTagsPicker">
+                                <button class="patient-tag-picker-summary text-start dropdown-toggle w-100" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside"><span>No patient tags selected</span></button>
+                                <div class="dropdown-menu">
+                                    <input class="form-control form-control-sm patient-filter-multiselect-search" type="search" placeholder="Type to find patient tag...">
+                                    <div class="patient-filter-multiselect-options"></div>
                                 </div>
                             </div>
                         </div>

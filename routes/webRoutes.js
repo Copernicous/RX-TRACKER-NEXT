@@ -102,6 +102,10 @@ router.get('/pharmacy-transport', requireWebLogin, (req, res) => {
     res.render('crud', { title: 'Pharmacy Transport Companies', module: 'pharmacy-transport', apiEndpoint: '/api/pharmacy-transport', activePage: 'pharmacy-transport' });
 });
 
+router.get('/patient-tags', requireWebLogin, (req, res) => {
+    res.render('crud', { title: 'Patient Tags', module: 'patient-tags', apiEndpoint: '/api/patient-tags', activePage: 'patient-tags' });
+});
+
 router.get('/clinics', requireWebLogin, (req, res) => {
     res.render('crud', { title: 'Clinics', module: 'clinics', apiEndpoint: '/api/clinics', activePage: 'clinics' });
 });

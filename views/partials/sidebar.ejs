@@ -25,11 +25,11 @@
   // Keep the deployed version visible on every authenticated screen, including
   // the compact Call Center navigation used by agents.
   const hideVersionSidebar = false;
-  const refActive   = ['pharmacies','patient-transport','pharmacy-transport','drivers','clinics','workflow-actions','medication-catalog'].includes(ap);
+  const refActive   = ['pharmacies','patient-transport','pharmacy-transport','patient-tags','drivers','clinics','workflow-actions','medication-catalog'].includes(ap);
   const rptActive   = ['reports','audit-log'].includes(ap);
   const adminActive = ['roles','users','live-rx-phones','softphone-devices','system-settings','backups','import','active-users','phone-account-setup'].includes(ap);
 
-  const refVisible   = sv('pharmacies') || sv('patient_transport') || sv('pharmacy_transport') || sv('drivers') || sv('clinics') || sv('workflow_actions') || sv('medication_catalog');
+  const refVisible   = sv('pharmacies') || sv('patient_transport') || sv('pharmacy_transport') || sv('patient_tags') || sv('drivers') || sv('clinics') || sv('workflow_actions') || sv('medication_catalog');
   const rptVisible   = sv('reports') || sv('audit_log');
   const phoneSetupVisible = locals.phoneAccountSetupAllowed === true;
   const adminVisible = sv('users') || sv('backups') || sv('system_settings') || sv('import') || sv('active_users') || phoneSetupVisible;
@@ -115,6 +115,11 @@
                 <% if (!UP || sv('pharmacy_transport')) { %>
                 <li class="<%= ap === 'pharmacy-transport' ? 'active' : '' %>">
                     <a href="/pharmacy-transport"><i class="fas fa-truck me-2"></i>Pharmacy Transport</a>
+                </li>
+                <% } %>
+                <% if (!UP || sv('patient_tags')) { %>
+                <li class="<%= ap === 'patient-tags' ? 'active' : '' %>">
+                    <a href="/patient-tags"><i class="fas fa-tags me-2"></i>Patient Tags</a>
                 </li>
                 <% } %>
                 <% if (!UP || sv('clinics')) { %>

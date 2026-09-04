@@ -42,6 +42,15 @@ capitalization or whitespace, preserving disabled legacy entries for RX
 history and directing operators to restore the existing disabled entry instead
 of creating a replacement ID.
 
+The same candidate adds configurable Patient Tags under Reference Data.
+Administrators and Supervisors can manage grouped/color-coded tags, mark tags
+as defaults for new patients, and disable tags without erasing historical
+assignments. Patients, RX Records, and Reports can filter by multiple Patient
+Tags, and patient/RX exports include the assigned tag labels. The one-time
+rollout seeds Miami/Tampa City tags and classifies existing patients by address
+for production-update testing. It does not change CORS, FortiGate proxy
+bootstrap, VPN access, ports, cookies, or proxy-aware URL handling.
+
 The same release adds review state to Backoffice **RX Profile Sync**.
 Exact Pharmacy and Transport differences can be marked reviewed without being
 synchronized, viewed through Pending / Reviewed / All filters, and reopened.

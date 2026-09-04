@@ -13,6 +13,7 @@ var MODULE_DEFS = [
     { key: 'pharmacies',         label: 'Pharmacies',            group: 'Settings',  hasUndo: false },
     { key: 'patient_transport',  label: 'Patient Transport',     group: 'Settings',  hasUndo: false },
     { key: 'pharmacy_transport', label: 'Pharmacy Transport',    group: 'Settings',  hasUndo: false },
+    { key: 'patient_tags',       label: 'Patient Tags',          group: 'Settings',  hasUndo: false },
     { key: 'workflow_actions',   label: 'Workflow Actions',      group: 'Settings',  hasUndo: false },
     { key: 'clinics',            label: 'Clinics',               group: 'Settings',  hasUndo: false },
     { key: 'medication_catalog', label: 'RX Actions Catalog',    group: 'Settings',  hasUndo: false },
