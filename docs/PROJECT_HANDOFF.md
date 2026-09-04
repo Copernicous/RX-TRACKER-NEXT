@@ -31,19 +31,25 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
   driver corrections. Notes are stored on the completed workflow tracking row,
   audited in RX history, shown inline in the workflow modal, and listed in
   Patient Notes as read-only RX Workflow entries with author, timestamp, RX,
-  stage, completion-date, and service-date context. The same candidate adds
-  configurable Patient Tags under Reference Data with optional groups, colors,
-  notes, soft-delete preservation, default-for-new-patients behavior, and
+  stage, completion-date, and service-date context. Production remains on the
+  last installed official release until a published, checksummed release is
+  installed through Project Control.
+
+- **Release candidate v4.0.0-next.75:** The candidate adds configurable
+  Patient Tags under Reference Data with optional groups, colors, notes,
+  soft-delete preservation, default-for-new-patients behavior, and
   role-controlled management. Tags can be assigned to Patients, consulted from
   RX Records, filtered in Patients/RX/Reports, and exported in patient/RX
   reporting. The one-time rollout seeds Miami/Tampa City tags, assigns Tampa
   when a patient address contains Tampa, assigns Miami otherwise, and
   normalizes duplicate City tag capitalization. Manual staging/development
-  operator testing confirmed Patient Tags behavior, report/RX filters, and
-  layout polish. No CORS, FortiGate, proxy bootstrap, VPN, cookie, port, or
-  `rxUrl()` behavior was changed. Production remains on the last installed
-  official release until a published, checksummed `v4.0.0-next.74` is installed
-  through Project Control.
+  operator testing confirmed Patient Tags behavior, report/RX filters,
+  automatic city assignment, and layout polish. No CORS, FortiGate, proxy
+  bootstrap, VPN, cookie, port, or `rxUrl()` behavior was changed. Because
+  `v4.0.0-next.74` is already tagged, Patient Tags must publish as a new
+  immutable `v4.0.0-next.75` release. Production installation must use Project
+  Control option **8** then **15**; option **16** remains the paired
+  application/database rollback path if the production update fails.
 
 - **Unreleased candidate — Pharmacy Transport duplicate prevention:** Manual
   add/edit/restore and CSV import now compare trimmed, collapsed-whitespace,

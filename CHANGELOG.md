@@ -7,6 +7,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+## [4.0.0-next.75] - 2026-09-04
+
 ### Added
 
 - Added configurable Patient Tags as Reference Data with role-controlled
