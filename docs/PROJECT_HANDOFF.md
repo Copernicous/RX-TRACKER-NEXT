@@ -1,6 +1,6 @@
 # RX Tracker NEXT project handoff
 
-Last updated: 2026-08-21
+Last updated: 2026-09-04
 
 This file is the sanitized continuity record for a future administrator or
 Codex session. It intentionally contains no credentials, `.env` values,
@@ -31,10 +31,19 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
   driver corrections. Notes are stored on the completed workflow tracking row,
   audited in RX history, shown inline in the workflow modal, and listed in
   Patient Notes as read-only RX Workflow entries with author, timestamp, RX,
-  stage, completion-date, and service-date context. Manual development
-  operator testing confirmed note creation, display, and Patient Notes listing
-  behavior. Production remains on the last installed official release until a
-  published, checksummed `v4.0.0-next.74` is installed through Project Control.
+  stage, completion-date, and service-date context. The same candidate adds
+  configurable Patient Tags under Reference Data with optional groups, colors,
+  notes, soft-delete preservation, default-for-new-patients behavior, and
+  role-controlled management. Tags can be assigned to Patients, consulted from
+  RX Records, filtered in Patients/RX/Reports, and exported in patient/RX
+  reporting. The one-time rollout seeds Miami/Tampa City tags, assigns Tampa
+  when a patient address contains Tampa, assigns Miami otherwise, and
+  normalizes duplicate City tag capitalization. Manual staging/development
+  operator testing confirmed Patient Tags behavior, report/RX filters, and
+  layout polish. No CORS, FortiGate, proxy bootstrap, VPN, cookie, port, or
+  `rxUrl()` behavior was changed. Production remains on the last installed
+  official release until a published, checksummed `v4.0.0-next.74` is installed
+  through Project Control.
 
 - **Unreleased candidate — Pharmacy Transport duplicate prevention:** Manual
   add/edit/restore and CSV import now compare trimmed, collapsed-whitespace,

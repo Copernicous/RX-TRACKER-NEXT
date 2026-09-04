@@ -130,6 +130,15 @@ function isPresent(value) {
     return value !== null && value !== undefined && String(value) !== '';
 }
 
+function parsePositiveIds(rawValue) {
+    return Array.from(new Set(
+        String(rawValue || '')
+            .split(',')
+            .map(value => Number(String(value).trim()))
+            .filter(value => Number.isInteger(value) && value > 0)
+    ));
+}
+
 function optionLabel(record, labelKeys) {
     if (!record) return '';
     for (const key of labelKeys) {
@@ -156,6 +165,11 @@ function patientInclude(options) {
         db.PharmacyTransportCompany,
         db.Clinic,
         db.Pharmacy,
+        {
+            model: db.PatientTag,
+            through: { attributes: [] },
+            required: false
+        },
         noteInclude,
         {
             model: db.RXRecord,
@@ -267,9 +281,19 @@ function buildPatientDatabaseWhere(query, totalWorkflowSteps) {
     ].forEach(([field, rawValue]) => {
         const rawIds = cleanString(rawValue);
         if (!rawIds) return;
-        const ids = Array.from(new Set(rawIds.split(',').map(value => Number(String(value).trim())).filter(value => Number.isInteger(value) && value > 0)));
+        const ids = parsePositiveIds(rawIds);
         clauses.push(ids.length ? { [field]: { [Op.in]: ids } } : impossiblePatientCondition());
     });
+
+    const patientTagIds = parsePositiveIds(query.patientTagIds || query.patientTagId);
+    if (cleanString(query.patientTagIds || query.patientTagId)) {
+        clauses.push(patientTagIds.length ? literal(`EXISTS (
+            SELECT 1
+            FROM "PatientTagAssignments" AS patient_tag_filter
+            WHERE patient_tag_filter."patientId" = "Patient"."id"
+              AND patient_tag_filter."patientTagId" IN (${patientTagIds.map(id => Number(id)).join(',')})
+        )`) : impossiblePatientCondition());
+    }
 
     const serviceFrom = cleanString(query.serviceFrom);
     if (serviceFrom) {
@@ -395,7 +419,7 @@ async function loadPatientFacets(where) {
     const uniqueIds = field => Array.from(new Set(
         grouped.map(row => row[field]).filter(isPresent).map(Number)
     ));
-    const [clinics, pharmacies, patientTransports, pharmacyTransports] = await Promise.all([
+    const [clinics, pharmacies, patientTransports, pharmacyTransports, patientTags] = await Promise.all([
         db.Clinic.findAll({ where: { id: uniqueIds('clinicId') }, attributes: ['id', 'name'], raw: true }),
         db.Pharmacy.findAll({ where: { id: uniqueIds('pharmacyId') }, attributes: ['id', 'name'], raw: true }),
         db.PatientTransportCompany.findAll({
@@ -407,6 +431,12 @@ async function loadPatientFacets(where) {
             where: { id: uniqueIds('pharmacyTransportCompanyId') },
             attributes: ['id', 'companyName', 'contactPerson'],
             raw: true
+        }),
+        db.PatientTag.findAll({
+            where: { isActive: true },
+            attributes: ['id', 'name', 'groupName', 'color'],
+            order: [['groupName', 'ASC'], ['name', 'ASC'], ['id', 'ASC']],
+            raw: true
         })
     ]);
     const asOptions = (rows, keys) => rows
@@ -417,8 +447,68 @@ async function loadPatientFacets(where) {
         clinics: asOptions(clinics, ['name']),
         pharmacies: asOptions(pharmacies, ['name']),
         patientTransports: asOptions(patientTransports, ['contactPerson', 'companyName']),
-        pharmacyTransports: asOptions(pharmacyTransports, ['companyName', 'contactPerson'])
+        pharmacyTransports: asOptions(pharmacyTransports, ['companyName', 'contactPerson']),
+        patientTags: patientTags
+            .map(row => ({ id: String(row.id), label: row.groupName ? row.groupName + ': ' + row.name : row.name, color: row.color || '' }))
+            .filter(row => row.label)
+            .sort((left, right) => left.label.localeCompare(right.label))
     };
+}
+
+async function resolvePatientTagIds(rawValue, options) {
+    options = options || {};
+    if (rawValue === undefined && options.useDefaults) {
+        const defaultTags = await db.PatientTag.findAll({
+            attributes: ['id', 'name', 'groupName'],
+            where: { isActive: true, isDefault: true },
+            transaction: options.transaction,
+            raw: true
+        });
+        const cityTags = await db.PatientTag.findAll({
+            attributes: ['id', 'name', 'groupName'],
+            where: {
+                isActive: true,
+                groupName: { [Op.iLike]: 'City' },
+                [Op.or]: [
+                    { name: { [Op.iLike]: 'Miami' } },
+                    { name: { [Op.iLike]: 'Tampa' } }
+                ]
+            },
+            transaction: options.transaction,
+            raw: true
+        });
+        const address = String(options.address || '').toLowerCase();
+        const inferredCity = /\btampa\b/.test(address) ? 'tampa' : 'miami';
+        const inferredCityTag = cityTags.find(tag => String(tag.name || '').trim().toLowerCase() === inferredCity);
+        const ids = defaultTags
+            .filter(tag => String(tag.groupName || '').trim().toLowerCase() !== 'city')
+            .map(tag => Number(tag.id));
+        if (inferredCityTag) ids.push(Number(inferredCityTag.id));
+        return Array.from(new Set(ids));
+    }
+    const ids = Array.isArray(rawValue)
+        ? rawValue.map(value => Number(value)).filter(value => Number.isInteger(value) && value > 0)
+        : parsePositiveIds(rawValue);
+    const uniqueIds = Array.from(new Set(ids));
+    if (!uniqueIds.length) return [];
+    const existing = await db.PatientTag.findAll({
+        attributes: ['id'],
+        where: { id: uniqueIds },
+        transaction: options.transaction,
+        raw: true
+    });
+    const existingIds = existing.map(row => Number(row.id));
+    if (existingIds.length !== uniqueIds.length) {
+        throw httpError(400, 'One or more selected patient tags no longer exist.');
+    }
+    return existingIds;
+}
+
+async function setPatientTags(patient, rawValue, options) {
+    options = options || {};
+    if (!patient || typeof patient.setPatientTags !== 'function') return;
+    const ids = await resolvePatientTagIds(rawValue, options);
+    await patient.setPatientTags(ids, { transaction: options.transaction });
 }
 
 async function loadPatientRowsByIds(ids, activeActionIds, includeFullNotes) {
@@ -517,7 +607,13 @@ exports.getAll = async (req, res) => {
 exports.getOne = async (req, res) => {
     try {
         const data = await db.Patient.findByPk(req.params.id, {
-            include: [db.PatientTransportCompany, db.PharmacyTransportCompany, db.Clinic, db.RXRecord]
+            include: [
+                db.PatientTransportCompany,
+                db.PharmacyTransportCompany,
+                db.Clinic,
+                db.RXRecord,
+                { model: db.PatientTag, through: { attributes: [] }, required: false }
+            ]
         });
         if (!data) return res.status(404).json({ message: 'Not found' });
         res.json(data);
@@ -526,7 +622,7 @@ exports.getOne = async (req, res) => {
 
 exports.create = async (req, res) => {
     try {
-        let { patientCode, dob, serviceDate, ...otherData } = req.body;
+        let { patientCode, dob, serviceDate, patientTagIds, ...otherData } = req.body;
         otherData.firstName = toUpperName(otherData.firstName);
         otherData.lastName = toUpperName(otherData.lastName);
 
@@ -571,6 +667,7 @@ exports.create = async (req, res) => {
         }
 
         const data = await db.Patient.create({ ...otherData, patientCode });
+        await setPatientTags(data, patientTagIds, { useDefaults: patientTagIds === undefined, address: data.address });
         await syncPatientServiceDateCycles(data, {
             userId: req.user?.id || null,
             source: 'Patient Create',
@@ -594,7 +691,10 @@ exports.create = async (req, res) => {
                 }
             }
         });
-        res.status(201).json(data);
+        const createdPatient = await db.Patient.findByPk(data.id, {
+            include: [db.PatientTransportCompany, db.PharmacyTransportCompany, db.Clinic, db.Pharmacy, { model: db.PatientTag, through: { attributes: [] }, required: false }]
+        });
+        res.status(201).json(createdPatient || data);
     } catch (err) {
         // H1 FIX: Catch DB-level unique constraint violation (race condition fallback)
         if (err.name === 'SequelizeUniqueConstraintError') {
@@ -904,8 +1004,12 @@ async function lockedUpdatePatient(req, res) {
                 }
             }
 
+            if (payload.hasOwnProperty('patientTagIds')) {
+                await setPatientTags(patient, payload.patientTagIds, { transaction });
+            }
+
             return db.Patient.findByPk(req.params.id, {
-                include: [db.PatientTransportCompany, db.PharmacyTransportCompany, db.Clinic, db.Pharmacy],
+                include: [db.PatientTransportCompany, db.PharmacyTransportCompany, db.Clinic, db.Pharmacy, { model: db.PatientTag, through: { attributes: [] }, required: false }],
                 transaction
             });
         });

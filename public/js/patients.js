@@ -26,6 +26,7 @@ var allPatients = [];
     var pharmacyTransportOptions = [];
     var clinicOptions = [];
     var pharmacyOptions = [];
+    var patientTagOptions = [];
 
     function normalizeName(value) {
         return String(value || '').trim().toUpperCase();
@@ -60,12 +61,47 @@ var allPatients = [];
         return String(value || '').split(',').filter(function(id) { return /^\d+$/.test(id); });
     }
 
+    function patientTagLabel(tag) {
+        if (!tag) return '';
+        return tag.groupName ? tag.groupName + ': ' + tag.name : tag.name;
+    }
+
+    function patientTagsText(tags) {
+        return (Array.isArray(tags) ? tags : [])
+            .map(patientTagLabel)
+            .filter(Boolean)
+            .join(', ');
+    }
+
+    function patientTagChipHtml(tag) {
+        if (!tag) return '';
+        var color = /^#[0-9a-fA-F]{6}$/.test(String(tag.color || '')) ? tag.color : '#4a90e2';
+        return '<span class="patient-tag-chip" style="border-color:' + patientEscapeHtml(color) + ';background:' + patientEscapeHtml(color) + '22">' +
+            '<i class="fas fa-tag" aria-hidden="true"></i>' + patientEscapeHtml(patientTagLabel(tag)) + '</span>';
+    }
+
+    function renderPatientTagChips(tags) {
+        tags = Array.isArray(tags) ? tags : [];
+        return tags.map(patientTagChipHtml).join('');
+    }
+
+    function patientTagGroupKey(tag) {
+        return String(tag && tag.groupName || '').trim().toLowerCase();
+    }
+
+    function selectedPatientTagsInGroup(selectedSet, groupKey) {
+        if (!groupKey) return [];
+        return patientTagOptions.filter(function(tag) {
+            return selectedSet.has(String(tag.id)) && patientTagGroupKey(tag) === groupKey;
+        });
+    }
+
     function refreshPatientLookupMultiFilter(hiddenId, pickerId, items, itemLabel, emptyLabel) {
         var hidden = document.getElementById(hiddenId); var picker = document.getElementById(pickerId);
         if (!hidden || !picker) return;
         var selectedSet = new Set(selectedPatientClinicIds(hidden.value)); var buttonLabel = picker.querySelector('button span'); var options = picker.querySelector('.patient-filter-multiselect-options'); var search = picker.querySelector('.patient-filter-multiselect-search');
         var refreshLabel = function() { var names = items.filter(function(item) { return selectedSet.has(String(item.id)); }).map(itemLabel); var label = !names.length ? emptyLabel : (names.length <= 2 ? names.join(', ') : names.length + ' selected'); buttonLabel.textContent = label; hidden.dataset.filterSummary = label; };
-        options.innerHTML = ''; items.forEach(function(item) { var label = document.createElement('label'); label.className = 'patient-filter-multiselect-option'; label.dataset.search = String(itemLabel(item) || '').toLowerCase(); var checkbox = document.createElement('input'); checkbox.type = 'checkbox'; checkbox.value = String(item.id); checkbox.checked = selectedSet.has(checkbox.value); checkbox.addEventListener('change', function() { if (checkbox.checked) selectedSet.add(checkbox.value); else selectedSet.delete(checkbox.value); hidden.value = Array.from(selectedSet).join(','); refreshLabel(); hidden.dispatchEvent(new Event('change', { bubbles: true })); }); label.appendChild(checkbox); label.appendChild(document.createTextNode(itemLabel(item))); options.appendChild(label); });
+        options.innerHTML = ''; items.forEach(function(item) { var label = document.createElement('label'); label.className = 'patient-filter-multiselect-option'; label.dataset.search = String(itemLabel(item) || '').toLowerCase(); var checkbox = document.createElement('input'); checkbox.type = 'checkbox'; checkbox.value = String(item.id); checkbox.checked = selectedSet.has(checkbox.value); checkbox.addEventListener('change', function() { if (checkbox.checked) { selectedSet.add(checkbox.value); var groupKey = patientTagGroupKey(item); var sameGroup = hiddenId === 'pPatientTagIds' ? selectedPatientTagsInGroup(selectedSet, groupKey) : []; if (sameGroup.length > 1) { var groupName = item.groupName || 'this group'; if (!window.confirm(sameGroup.length + ' ' + groupName + ' tags are selected. Are you sure?')) { selectedSet.delete(checkbox.value); checkbox.checked = false; } } } else selectedSet.delete(checkbox.value); hidden.value = Array.from(selectedSet).join(','); refreshLabel(); hidden.dispatchEvent(new Event('change', { bubbles: true })); }); label.appendChild(checkbox); label.appendChild(document.createTextNode(itemLabel(item))); options.appendChild(label); });
         if (search) search.oninput = function() { var term = search.value.toLowerCase().trim(); options.querySelectorAll('.patient-filter-multiselect-option').forEach(function(option) { option.style.display = !term || option.dataset.search.indexOf(term) >= 0 ? '' : 'none'; }); }; refreshLabel();
     }
     function refreshPatientMultiFilters() {
@@ -73,6 +109,8 @@ var allPatients = [];
         refreshPatientLookupMultiFilter('srchPatientTransport', 'srchPatientTransportPicker', patientTransportOptions, function(item) { return item.label; }, 'All Patient Transports');
         refreshPatientLookupMultiFilter('srchPharmacyTransport', 'srchPharmacyTransportPicker', pharmacyTransportOptions, function(item) { return item.label; }, 'All Pharmacy Transports');
         refreshPatientLookupMultiFilter('srchPharmacy', 'srchPharmacyPicker', pharmacyOptions, function(item) { return item.label; }, 'All Pharmacies');
+        refreshPatientLookupMultiFilter('srchPatientTags', 'srchPatientTagsPicker', patientTagOptions, function(item) { return item.label; }, 'All Patient Tags');
+        refreshPatientLookupMultiFilter('pPatientTagIds', 'pPatientTagsPicker', patientTagOptions, function(item) { return item.label; }, 'No patient tags selected');
     }
 
     function serviceDateHistoryActor(row) {
@@ -480,7 +518,7 @@ var allPatients = [];
         document.getElementById('searchBtn').addEventListener('click', applyPatientSearch);
         document.getElementById('clearBtn').addEventListener('click', () => {
             ['srchFirstName','srchLastName','srchDob','srchPhone','srchStatus','srchClinic',
-             'srchPatientCode','srchPatientTransport','srchPharmacyTransport','srchPharmacy','srchServiceFrom','srchServiceTo','srchEligibility','srchMissingInfo','srchPatientType'
+             'srchPatientCode','srchPatientTransport','srchPharmacyTransport','srchPharmacy','srchPatientTags','srchServiceFrom','srchServiceTo','srchEligibility','srchMissingInfo','srchPatientType'
             ].forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
             var clearStatusEl = document.getElementById('srchStatus');
             if (clearStatusEl) clearStatusEl.value = 'true';
@@ -493,7 +531,7 @@ var allPatients = [];
             loadPatients();
         });
         document.getElementById('srchShowDeleted').addEventListener('change', applyPatientSearch);
-        ['srchClinic', 'srchPatientTransport', 'srchPharmacyTransport', 'srchPharmacy'].forEach(function(id) { document.getElementById(id).addEventListener('change', applyPatientSearch); });
+        ['srchClinic', 'srchPatientTransport', 'srchPharmacyTransport', 'srchPharmacy', 'srchPatientTags'].forEach(function(id) { document.getElementById(id).addEventListener('change', applyPatientSearch); });
 
         document.getElementById('savePatientBtn').addEventListener('click', savePatient);
         var savePatientAddRxBtn = document.getElementById('savePatientAddRxBtn');
@@ -583,6 +621,7 @@ var allPatients = [];
             { key: 'active', label: 'Active', fn: p => p.isActive ? 'Yes' : 'No' },
             { key: 'deleted', label: 'Deleted', fn: p => p.isDeleted ? 'Yes' : 'No' },
             { key: 'patientType', label: 'Patient Type', fn: p => p.isNonCompanyPatient ? 'Non-Company' : 'Company' },
+            { key: 'patientTags', label: 'Patient Tags', fn: p => patientTagsText(p.PatientTags) },
             { key: 'clinicId', label: 'Clinic ID', fn: p => p.clinicId || '' },
             { key: 'clinic', label: 'Clinic', fn: p => exportOrganizationValue(p.Clinic, 'name') },
             { key: 'clinicAddress', label: 'Clinic Address', fn: p => exportOrganizationValue(p.Clinic, 'address') },
@@ -728,11 +767,13 @@ var allPatients = [];
         var _uRx = '/api/lookup/pharmacy-transport';
         var _uCl = '/api/lookup/clinics';
         var _uPh = '/api/lookup/pharmacies';
-            const [ptRes, rxRes, clRes, phRes] = await Promise.all([
+        var _uTags = '/api/lookup/patient-tags';
+            const [ptRes, rxRes, clRes, phRes, tagRes] = await Promise.all([
                 fetchWithAuth(_uPt, { silent: true }),
                 fetchWithAuth(_uRx, { silent: true }),
                 fetchWithAuth(_uCl, { silent: true }),
-                fetchWithAuth(_uPh, { silent: true })
+                fetchWithAuth(_uPh, { silent: true }),
+                fetchWithAuth(_uTags, { silent: true })
             ]);
             if (ptRes && ptRes.ok) {
                 const pt = await ptRes.json();
@@ -774,6 +815,20 @@ var allPatients = [];
                     phSel.innerHTML += '<option value="' + p.id + '">' + p.name + (p.address ? ' - ' + p.address : '') + '</option>';
                 });
             }
+            if (tagRes && tagRes.ok) {
+                const tags = await tagRes.json();
+                patientTagOptions = [];
+                tags.forEach(t => {
+                    patientTagOptions.push({
+                        id: String(t.id),
+                        label: patientTagLabel(t),
+                        name: t.name || '',
+                        groupName: t.groupName || '',
+                        color: t.color || '',
+                        isDefault: !!t.isDefault
+                    });
+                });
+            }
             refreshPatientMultiFilters();
         } catch(e) {}
     }
@@ -809,6 +864,7 @@ var allPatients = [];
         setPatientParam(params, 'patientTransportIds', document.getElementById('srchPatientTransport')?.value || '');
         setPatientParam(params, 'pharmacyTransportIds', document.getElementById('srchPharmacyTransport')?.value || '');
         setPatientParam(params, 'pharmacyIds', document.getElementById('srchPharmacy')?.value || '');
+        setPatientParam(params, 'patientTagIds', document.getElementById('srchPatientTags')?.value || '');
         setPatientParam(params, 'serviceFrom', document.getElementById('srchServiceFrom')?.value || '');
         setPatientParam(params, 'serviceTo', document.getElementById('srchServiceTo')?.value || '');
         setPatientParam(params, 'eligibility', document.getElementById('srchEligibility')?.value || '');
@@ -1347,6 +1403,12 @@ var allPatients = [];
                 nonCompanyBadge.innerHTML = '<i class="fas fa-user-slash" aria-hidden="true"></i>';
                 nonCompanyBadge.appendChild(document.createTextNode('Non-Company - No Call Center'));
                 tdName.appendChild(nonCompanyBadge);
+            }
+            if (Array.isArray(p.PatientTags) && p.PatientTags.length) {
+                var tagsWrap = document.createElement('div');
+                tagsWrap.className = 'mt-1';
+                tagsWrap.innerHTML = renderPatientTagChips(p.PatientTags);
+                tdName.appendChild(tagsWrap);
             }
             tr.appendChild(tdName);
 
@@ -2116,6 +2178,10 @@ var allPatients = [];
         document.getElementById('pPharmacyTransport').value = patient ? (patient.pharmacyTransportCompanyId !== null && patient.pharmacyTransportCompanyId !== undefined ? String(patient.pharmacyTransportCompanyId) : '') : '';
         document.getElementById('pClinicId').value = patient ? (patient.clinicId !== null && patient.clinicId !== undefined ? String(patient.clinicId) : '') : '';
         document.getElementById('pPharmacyId').value = patient ? (patient.pharmacyId !== null && patient.pharmacyId !== undefined ? String(patient.pharmacyId) : '') : '';
+        document.getElementById('pPatientTagIds').value = patient
+            ? (Array.isArray(patient.PatientTags) ? patient.PatientTags.map(function(tag) { return String(tag.id); }).join(',') : '')
+            : patientTagOptions.filter(function(tag) { return tag.isDefault; }).map(function(tag) { return String(tag.id); }).join(',');
+        refreshPatientLookupMultiFilter('pPatientTagIds', 'pPatientTagsPicker', patientTagOptions, function(item) { return item.label; }, 'No patient tags selected');
         loadPatientServiceDateHistory(id);
 
         // â”€â”€ 90-DAY SERVICE DATE LOCK UI â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -2313,7 +2379,8 @@ var allPatients = [];
             patientTransportCompanyId: document.getElementById('pPatientTransport').value || null,
             pharmacyTransportCompanyId: document.getElementById('pPharmacyTransport').value || null,
             clinicId: document.getElementById('pClinicId').value || null,
-            pharmacyId: document.getElementById('pPharmacyId').value || null
+            pharmacyId: document.getElementById('pPharmacyId').value || null,
+            patientTagIds: document.getElementById('pPatientTagIds').value || ''
         };
         try {
             const shouldContinue = await shouldContinuePatientCreate(body);
@@ -2839,7 +2906,7 @@ var allPatients = [];
     }
 
     function updateFilterBadge() {
-        const advancedIds = ['srchPatientCode','srchPatientTransport','srchPharmacyTransport','srchPharmacy','srchServiceFrom','srchServiceTo','srchEligibility','srchMissingInfo','srchPatientType'];
+        const advancedIds = ['srchPatientCode','srchPatientTransport','srchPharmacyTransport','srchPharmacy','srchPatientTags','srchServiceFrom','srchServiceTo','srchEligibility','srchMissingInfo','srchPatientType'];
         const basicIds    = ['srchFirstName','srchLastName','srchDob','srchPhone'];
         const statusEl    = document.getElementById('srchStatus');
         const clinicEl    = document.getElementById('srchClinic');
@@ -2879,7 +2946,7 @@ var allPatients = [];
             srchFirstName: 'First Name', srchLastName: 'Last Name', srchDob: 'DOB',
             srchPhone: 'Phone', srchStatus: 'Status', srchClinic: 'Clinic',
             srchPatientCode: 'Patient ID', srchPatientTransport: 'Patient Transport',
-            srchPharmacyTransport: 'Pharmacy Transport', srchPharmacy: 'Pharmacy', srchServiceFrom: 'From',
+            srchPharmacyTransport: 'Pharmacy Transport', srchPharmacy: 'Pharmacy', srchPatientTags: 'Patient Tags', srchServiceFrom: 'From',
             srchServiceTo: 'To', srchEligibility: serviceWindowDays + '-Day Eligibility',
             srchMissingInfo: 'Missing Info', srchPatientType: 'Patient Type'
         };
@@ -2899,5 +2966,8 @@ var allPatients = [];
     function clearOneFilter(id) {
         const el = document.getElementById(id);
         if (el) el.value = '';
+        if (['srchClinic','srchPatientTransport','srchPharmacyTransport','srchPharmacy','srchPatientTags'].indexOf(id) >= 0) {
+            refreshPatientMultiFilters();
+        }
         liveFilter();
     }

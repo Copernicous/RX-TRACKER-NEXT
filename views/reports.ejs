@@ -62,6 +62,68 @@
             white-space: normal;
             min-width: 150px;
         }
+        .report-filter-multiselect button.form-select {
+            width:100%;
+            min-height:calc(1.5em + .7rem + 2px);
+            height:calc(1.5em + .7rem + 2px);
+            padding:.35rem 2.25rem .35rem .55rem;
+            display:flex;
+            align-items:center;
+            line-height:1.5;
+            white-space:nowrap;
+        }
+        .report-filter-multiselect button span {
+            display:block;
+            min-width:0;
+            overflow:hidden;
+            text-overflow:ellipsis;
+            white-space:nowrap;
+            color:inherit;
+        }
+        .report-filter-grid {
+            display:grid;
+            gap:.5rem;
+            align-items:end;
+        }
+        .report-filter-grid-6 { grid-template-columns:repeat(6, minmax(0, 1fr)); }
+        .report-filter-grid-7 { grid-template-columns:repeat(7, minmax(0, 1fr)); }
+        @media (max-width: 1399.98px) {
+            .report-filter-grid-7 { grid-template-columns:repeat(4, minmax(0, 1fr)); }
+        }
+        @media (max-width: 991.98px) {
+            .report-filter-grid,
+            .report-filter-grid-6,
+            .report-filter-grid-7 { grid-template-columns:repeat(2, minmax(0, 1fr)); }
+        }
+        @media (max-width: 575.98px) {
+            .report-filter-grid,
+            .report-filter-grid-6,
+            .report-filter-grid-7 { grid-template-columns:1fr; }
+        }
+        .report-filter-multiselect .dropdown-menu {
+            width:100%;
+            min-width:260px;
+            padding:.5rem;
+            background:var(--card-bg,#fff);
+            border-color:var(--border-color,#dee2e6);
+            color:var(--text,#1a202c);
+        }
+        .report-filter-multiselect-search { margin-bottom:.4rem; }
+        .report-filter-multiselect-options { max-height:185px; overflow-y:auto; }
+        .report-filter-multiselect-option {
+            display:flex;
+            align-items:center;
+            gap:.45rem;
+            padding:.25rem .1rem;
+            font-size:.82rem;
+            color:var(--text,#1a202c);
+            cursor:pointer;
+        }
+        .report-filter-multiselect-option:hover { background:rgba(74,144,226,.14); }
+        .report-filter-multiselect-option input { accent-color:var(--primary,#4a90e2); }
+        [data-theme="dark"] .report-filter-multiselect .dropdown-menu { background:#1f2937 !important; border-color:#4b5563 !important; color:#f8fafc !important; }
+        [data-theme="dark"] .report-filter-multiselect-option { color:#f8fafc !important; }
+        [data-theme="dark"] .report-filter-multiselect-search { background:#111827 !important; border-color:#4b5563 !important; color:#f8fafc !important; }
     </style>
 </head>
 <body>
@@ -164,16 +226,16 @@
 
                         <!-- Advanced filters -->
                         <div id="prAdv" style="display:none;border-top:1px solid var(--border-color,#dee2e6);padding-top:10px;margin-top:2px">
-                            <div class="row g-2 align-items-end">
-                                <div class="col-md-2">
+                            <div class="report-filter-grid report-filter-grid-6">
+                                <div>
                                     <label class="form-label small fw-bold mb-1">Phone</label>
                                     <input type="text" class="form-control form-control-sm" id="prfPhone" placeholder="Phone..." autocomplete="off">
                                 </div>
-                                <div class="col-md-2">
+                                <div>
                                     <label class="form-label small fw-bold mb-1">Date of Birth</label>
                                     <input type="date" class="form-control form-control-sm" id="prfDob">
                                 </div>
-                                <div class="col-md-2">
+                                <div>
                                     <label class="form-label small fw-bold mb-1">Patient Type</label>
                                     <select class="form-select form-select-sm" id="prfPatientType">
                                         <option value="">All Patient Types</option>
@@ -181,7 +243,15 @@
                                         <option value="non_company">Non-Company Patients</option>
                                     </select>
                                 </div>
-                                <div class="col-md-2">
+                                <div>
+                                    <label class="form-label small fw-bold mb-1">Patient Tags</label>
+                                    <input type="hidden" id="prfPatientTagIds">
+                                    <div class="dropdown report-filter-multiselect" id="prfPatientTagPicker">
+                                        <button class="form-select form-select-sm text-start" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside"><span>All Patient Tags</span></button>
+                                        <div class="dropdown-menu"><input class="form-control form-control-sm report-filter-multiselect-search" type="search" placeholder="Type to find patient tag..."><div class="report-filter-multiselect-options"></div></div>
+                                    </div>
+                                </div>
+                                <div>
                                     <label class="form-label small fw-bold mb-1">Eligibility</label>
                                     <select class="form-select form-select-sm" id="prfEligibility">
                                         <option value="">All Eligibility</option>
@@ -192,7 +262,7 @@
                                         <option value="none">No Service Date</option>
                                     </select>
                                 </div>
-                                <div class="col-md-2">
+                                <div>
                                     <label class="form-label small fw-bold mb-1">Missing Information</label>
                                     <select class="form-select form-select-sm" id="prfMissingInfo">
                                         <option value="">All Completeness</option>
@@ -204,7 +274,9 @@
                                         <option value="pharmacyTransport">Missing Pharmacy Transport</option>
                                     </select>
                                 </div>
-                                <div class="col-md-2">
+                            </div>
+                            <div class="report-filter-grid report-filter-grid-7 mt-2">
+                                <div>
                                     <label class="form-label small fw-bold mb-1">RX Records</label>
                                     <select class="form-select form-select-sm" id="prfRxStatus">
                                         <option value="">With or Without RX</option>
@@ -212,29 +284,27 @@
                                         <option value="no_rx">No RX Records</option>
                                     </select>
                                 </div>
-                            </div>
-                            <div class="row g-2 align-items-end mt-1">
-                                <div class="col-md-2">
+                                <div>
                                     <label class="form-label small fw-bold mb-1">Clinic / Location</label>
                                     <select class="form-select form-select-sm" id="prfClinicId"><option value="">All Clinics</option></select>
                                 </div>
-                                <div class="col-md-2">
+                                <div>
                                     <label class="form-label small fw-bold mb-1">Default Pharmacy</label>
                                     <select class="form-select form-select-sm" id="prfPharmacyId"><option value="">All Pharmacies</option></select>
                                 </div>
-                                <div class="col-md-2">
+                                <div>
                                     <label class="form-label small fw-bold mb-1">Patient Transport</label>
                                     <select class="form-select form-select-sm" id="prfPatientTransportId"><option value="">All Patient Transports</option></select>
                                 </div>
-                                <div class="col-md-2">
+                                <div>
                                     <label class="form-label small fw-bold mb-1">Pharmacy Transport</label>
                                     <select class="form-select form-select-sm" id="prfPharmacyTransportId"><option value="">All Pharmacy Transports</option></select>
                                 </div>
-                                <div class="col-md-2">
+                                <div>
                                     <label class="form-label small fw-bold mb-1"><i class="fas fa-calendar me-1"></i>Service From</label>
                                     <input type="date" class="form-control form-control-sm" id="patientDateFrom">
                                 </div>
-                                <div class="col-md-2">
+                                <div>
                                     <label class="form-label small fw-bold mb-1"><i class="fas fa-calendar me-1"></i>Service To</label>
                                     <input type="date" class="form-control form-control-sm" id="patientDateTo">
                                 </div>
@@ -290,6 +360,7 @@
                                         <th style="cursor:pointer" onclick="sortPatientReport('serviceDate')">Service Date <i class="fas fa-sort text-muted" style="opacity:.3" id="prIcon_serviceDate"></i></th>
                                         <th style="cursor:pointer" onclick="sortPatientReport('isActive')">Status <i class="fas fa-sort text-muted" style="opacity:.3" id="prIcon_isActive"></i></th>
                                         <th style="cursor:pointer" onclick="sortPatientReport('isNonCompanyPatient')">Patient Type <i class="fas fa-sort text-muted" style="opacity:.3" id="prIcon_isNonCompanyPatient"></i></th>
+                                        <th>Patient Tags</th>
                                         <th style="cursor:pointer" onclick="sortPatientReport('Clinic.name')">Clinic <i class="fas fa-sort text-muted" style="opacity:.3" id="prIcon_Clinic.name"></i></th>
                                         <th style="cursor:pointer" onclick="sortPatientReport('Pharmacy.name')">Default Pharmacy <i class="fas fa-sort text-muted" style="opacity:.3" id="prIcon_Pharmacy.name"></i></th>
                                         <th style="cursor:pointer" onclick="sortPatientReport('PatientTransportCompany.companyName')">Patient Transport <i class="fas fa-sort text-muted" style="opacity:.3" id="prIcon_PatientTransportCompany.companyName"></i></th>
@@ -297,7 +368,7 @@
                                     </tr>
                                 </thead>
                                 <tbody id="patientReportBody">
-                                    <tr><td colspan="13" class="text-center text-muted py-4">Loading...</td></tr>
+                                    <tr><td colspan="14" class="text-center text-muted py-4">Loading...</td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -393,6 +464,14 @@
                                     </select>
                                 </div>
                                 <div class="col-md-2">
+                                    <label class="form-label small fw-bold mb-1">Patient Tags</label>
+                                    <input type="hidden" id="rrfPatientTagIds">
+                                    <div class="dropdown report-filter-multiselect" id="rrfPatientTagPicker">
+                                        <button class="form-select form-select-sm text-start" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside"><span>All Patient Tags</span></button>
+                                        <div class="dropdown-menu"><input class="form-control form-control-sm report-filter-multiselect-search" type="search" placeholder="Type to find patient tag..."><div class="report-filter-multiselect-options"></div></div>
+                                    </div>
+                                </div>
+                                <div class="col-md-2">
                                     <label class="form-label small fw-bold mb-1">Next Action Required</label>
                                     <select class="form-select form-select-sm" id="rrfWorkflowStage"><option value="">All Next Actions</option></select>
                                 </div>
@@ -477,6 +556,7 @@
                                         <th style="cursor:pointer" onclick="sortRxReport('id')">RX # <i class="fas fa-sort text-muted" style="opacity:.3" id="rrIcon_id"></i></th>
                                         <th style="cursor:pointer" onclick="sortRxReport('Patient.firstName')">Patient <i class="fas fa-sort text-muted" style="opacity:.3" id="rrIcon_Patient.firstName"></i></th>
                                         <th style="cursor:pointer" onclick="sortRxReport('Patient.patientCode')">Patient ID <i class="fas fa-sort text-muted" style="opacity:.3" id="rrIcon_Patient.patientCode"></i></th>
+                                        <th>Patient Tags</th>
                                         <th style="cursor:pointer" onclick="sortRxReport('Pharmacy.name')">Pharmacy <i class="fas fa-sort text-muted" style="opacity:.3" id="rrIcon_Pharmacy.name"></i></th>
                                         <th style="cursor:pointer" onclick="sortRxReport('Clinic.name')">Clinic <i class="fas fa-sort text-muted" style="opacity:.3" id="rrIcon_Clinic.name"></i></th>
                                         <th style="cursor:pointer" onclick="sortRxReport('arrivalDate')">Arrival Date <i class="fas fa-sort text-muted" style="opacity:.3" id="rrIcon_arrivalDate"></i></th>
@@ -492,7 +572,7 @@
                                     </tr>
                                 </thead>
                                 <tbody id="rxActionBody">
-                                    <tr><td colspan="15" class="text-center text-muted py-4">Loading...</td></tr>
+                                    <tr><td colspan="16" class="text-center text-muted py-4">Loading...</td></tr>
                                 </tbody>
                             </table>
                         </div>

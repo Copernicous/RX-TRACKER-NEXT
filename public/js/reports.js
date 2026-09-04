@@ -8,7 +8,8 @@
         pharmacies: [],
         clinics: [],
         patientTransport: [],
-        pharmacyTransport: []
+        pharmacyTransport: [],
+        patientTags: []
     };
     var prSortCol = 'id', prSortDir = 'desc';
     var rrSortCol = 'id', rrSortDir = 'desc';
@@ -84,19 +85,85 @@
         select.value = current;
     }
 
+    function patientTagLabel(tag) {
+        if (!tag) return '';
+        return (tag.groupName ? tag.groupName + ': ' : '') + (tag.name || ('Tag #' + tag.id));
+    }
+
+    function patientTagsText(tags) {
+        if (!Array.isArray(tags) || !tags.length) return '';
+        return tags.map(patientTagLabel).filter(Boolean).join('; ');
+    }
+
+    function selectedReportValues(id) {
+        const input = document.getElementById(id);
+        return input ? String(input.value || '').trim() : '';
+    }
+
+    function selectedReportIds(value) {
+        return String(value || '').split(',').map(value => value.trim()).filter(Boolean);
+    }
+
+    function populatePatientTagFilter(hiddenId, pickerId) {
+        const hidden = document.getElementById(hiddenId);
+        const picker = document.getElementById(pickerId);
+        if (!hidden || !picker) return;
+        const selected = new Set(selectedReportIds(hidden.value));
+        const buttonLabel = picker.querySelector('button span');
+        const options = picker.querySelector('.report-filter-multiselect-options');
+        const search = picker.querySelector('.report-filter-multiselect-search');
+        const refreshLabel = function() {
+            const names = (reportLookups.patientTags || [])
+                .filter(tag => selected.has(String(tag.id)))
+                .map(patientTagLabel);
+            const label = !names.length ? 'All Patient Tags' : (names.length === 1 ? names[0] : names.length + ' selected');
+            if (buttonLabel) buttonLabel.textContent = label;
+        };
+        if (!options) return;
+        options.innerHTML = '';
+        (reportLookups.patientTags || []).forEach(function(tag) {
+            const labelText = patientTagLabel(tag);
+            const label = document.createElement('label');
+            label.className = 'report-filter-multiselect-option';
+            label.dataset.search = String(labelText || '').toLowerCase();
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.value = String(tag.id);
+            checkbox.checked = selected.has(checkbox.value);
+            checkbox.addEventListener('change', function() {
+                if (checkbox.checked) selected.add(checkbox.value);
+                else selected.delete(checkbox.value);
+                hidden.value = Array.from(selected).join(',');
+                refreshLabel();
+            });
+            label.appendChild(checkbox);
+            label.appendChild(document.createTextNode(labelText));
+            options.appendChild(label);
+        });
+        if (search) search.oninput = function() {
+            const term = search.value.toLowerCase().trim();
+            options.querySelectorAll('.report-filter-multiselect-option').forEach(function(option) {
+                option.style.display = !term || option.dataset.search.indexOf(term) >= 0 ? '' : 'none';
+            });
+        };
+        refreshLabel();
+    }
+
     async function loadReportLookups() {
         const results = await Promise.all([
             loadLookup('workflow-actions'),
             loadLookup('pharmacies'),
             loadLookup('clinics'),
             loadLookup('patient-transport'),
-            loadLookup('pharmacy-transport')
+            loadLookup('pharmacy-transport'),
+            loadLookup('patient-tags')
         ]);
         allWorkflowActions = results[0];
         reportLookups.pharmacies = results[1];
         reportLookups.clinics = results[2];
         reportLookups.patientTransport = results[3];
         reportLookups.pharmacyTransport = results[4];
+        reportLookups.patientTags = results[5];
 
         ['prfPharmacyId', 'rrfPharmacyId'].forEach(id =>
             populateLookupSelect(id, reportLookups.pharmacies, 'name', 'All Pharmacies'));
@@ -106,6 +173,8 @@
             populateLookupSelect(id, reportLookups.patientTransport, 'companyName', 'All Patient Transports'));
         ['prfPharmacyTransportId', 'rrfPharmacyTransportId'].forEach(id =>
             populateLookupSelect(id, reportLookups.pharmacyTransport, 'companyName', 'All Pharmacy Transports'));
+        populatePatientTagFilter('prfPatientTagIds', 'prfPatientTagPicker');
+        populatePatientTagFilter('rrfPatientTagIds', 'rrfPatientTagPicker');
         populateLookupSelect('rrfCurrentWorkflowStage', allWorkflowActions, 'name', 'All Current Stages', 'sequenceNumber');
         populateLookupSelect(
             'rrfWorkflowStage',
@@ -430,6 +499,7 @@
         setReportParam(params, 'phone', getVal('prfPhone'));
         setReportParam(params, 'dob', document.getElementById('prfDob')?.value || '');
         setReportParam(params, 'patientType', document.getElementById('prfPatientType')?.value || '');
+        setReportParam(params, 'patientTagIds', selectedReportValues('prfPatientTagIds'));
         setReportParam(params, 'eligibility', document.getElementById('prfEligibility')?.value || '');
         setReportParam(params, 'missingInfo', document.getElementById('prfMissingInfo')?.value || '');
         setReportParam(params, 'rxStatus', document.getElementById('prfRxStatus')?.value || '');
@@ -461,6 +531,7 @@
         setReportParam(params, 'pharmacyId', document.getElementById('rrfPharmacyId')?.value || '');
         setReportParam(params, 'clinicId', document.getElementById('rrfClinicId')?.value || '');
         setReportParam(params, 'patientType', document.getElementById('rrfPatientType')?.value || '');
+        setReportParam(params, 'patientTagIds', selectedReportValues('rrfPatientTagIds'));
         setReportParam(params, 'workflowStatus', document.getElementById('rrfProgress')?.value || '');
         setReportParam(params, 'currentWorkflowStage', document.getElementById('rrfCurrentWorkflowStage')?.value || '');
         setReportParam(params, 'workflowStage', document.getElementById('rrfWorkflowStage')?.value || '');
@@ -747,13 +818,13 @@
         const countEl = document.getElementById('patientReportCount');
         const navEl   = document.getElementById('prPagNav');
         if (!tbody) return;
-        tbody.innerHTML = '<tr><td colspan="13" class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin me-2"></i>Loading...</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="14" class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin me-2"></i>Loading...</td></tr>';
 
         return fetchReportJson('/api/reports/patients?' + buildPatientReportParams().toString()).then(function(result) {
         var data = result && Array.isArray(result.rows) ? result.rows : [];
         allPatientReport = data;
         if (!data.length) {
-            tbody.innerHTML = '<tr><td colspan="13" class="text-center text-muted py-4">No records found</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="14" class="text-center text-muted py-4">No records found</td></tr>';
             if (countEl) countEl.textContent = '0 records';
             if (navEl) navEl.innerHTML = '';
             return;
@@ -785,6 +856,7 @@
                 '<td>' + svc + '</td>' +
                 '<td>' + statusBadge + '</td>' +
                 '<td>' + patientTypeBadge + '</td>' +
+                '<td>' + escHtml(patientTagsText(p.PatientTags) || '-') + '</td>' +
                 '<td>' + escHtml((p.Clinic && p.Clinic.name) || '-') + '</td>' +
                 '<td>' + escHtml((p.Pharmacy && p.Pharmacy.name) || '-') + '</td>' +
                 '<td>' + escHtml((p.PatientTransportCompany && p.PatientTransportCompany.companyName) || '-') + '</td>' +
@@ -798,7 +870,7 @@
             renderPatientReport();
         });
         }).catch(function(err) {
-            tbody.innerHTML = '<tr><td colspan="13" class="text-center text-danger py-4">Could not load patient report.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="14" class="text-center text-danger py-4">Could not load patient report.</td></tr>';
             if (countEl) countEl.textContent = '';
             if (navEl) navEl.innerHTML = '';
             console.error('Patient report load error:', err);
@@ -822,8 +894,9 @@
     function clearPatientFilters() {
         ['prfPatientCode','prfFirstName','prfLastName','prfPhone','prfDob','patientDateFrom','patientDateTo',
          'prfPatientType','prfEligibility','prfMissingInfo','prfRxStatus','prfClinicId','prfPharmacyId',
-         'prfPatientTransportId','prfPharmacyTransportId']
+         'prfPatientTransportId','prfPharmacyTransportId','prfPatientTagIds']
             .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+        populatePatientTagFilter('prfPatientTagIds', 'prfPatientTagPicker');
         document.getElementById('patientStatusFilter').value = '';
         prPage = 1;
         renderPatientReport();
@@ -842,13 +915,13 @@
         const countEl = document.getElementById('rxReportCount');
         const navEl = document.getElementById('rrPagNav');
         if (!tbody) return;
-        tbody.innerHTML = '<tr><td colspan="15" class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin me-2"></i>Loading...</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="16" class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin me-2"></i>Loading...</td></tr>';
 
         return fetchReportJson('/api/reports/rx-actions?' + buildRxReportParams().toString()).then(function(result) {
         var data = result && Array.isArray(result.rows) ? result.rows : [];
         allRxReport = data;
         if (!data.length) {
-            tbody.innerHTML = '<tr><td colspan="15" class="text-center text-muted py-4">No records found</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="16" class="text-center text-muted py-4">No records found</td></tr>';
             if (countEl) countEl.textContent = '0 records';
             if (navEl) navEl.innerHTML = '';
             return;
@@ -906,6 +979,7 @@
                 '<td><span class="badge bg-primary">RX-' + r.id + '</span></td>' +
                 '<td>' + escHtml(ptName) + '</td>' +
                 '<td><span class="badge bg-info text-dark">' + escHtml(ptCode) + '</span></td>' +
+                '<td>' + escHtml(patientTagsText(r.Patient && r.Patient.PatientTags) || '-') + '</td>' +
                 '<td>' + escHtml(phName) + '</td>' +
                 '<td>' + escHtml((r.Patient && r.Patient.Clinic && r.Patient.Clinic.name) || '-') + '</td>' +
                 '<td>' + arrival + '</td>' +
@@ -927,7 +1001,7 @@
             renderRxActionReport();
         });
         }).catch(function(err) {
-            tbody.innerHTML = '<tr><td colspan="15" class="text-center text-danger py-4">Could not load RX action report.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="16" class="text-center text-danger py-4">Could not load RX action report.</td></tr>';
             if (countEl) countEl.textContent = '';
             if (navEl) navEl.innerHTML = '';
             console.error('RX action report load error:', err);
@@ -947,8 +1021,9 @@
     function clearRxFilters() {
         ['rrfRxId','rrfFirstName','rrfLastName','rrfPatientCode','rxDateFrom','rxDateTo','rrfArrivalFrom','rrfArrivalTo',
          'rrfPharmacyId','rrfClinicId','rrfPatientType','rrfCurrentWorkflowStage','rrfWorkflowStage','rrfCompletedStage','rrfStageFrom','rrfStageTo',
-         'rrfPatientTransportId','rrfPharmacyTransportId','rrfWarehouseStatus']
+         'rrfPatientTransportId','rrfPharmacyTransportId','rrfWarehouseStatus','rrfPatientTagIds']
             .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+        populatePatientTagFilter('rrfPatientTagIds', 'rrfPatientTagPicker');
         document.getElementById('rrfProgress').value = '';
         rrPage = 1;
         renderRxActionReport();
@@ -1360,7 +1435,7 @@
     function patientReportHeaders() {
         return [
             'Patient ID','First Name','Last Name','DOB','Phone','Address','Service Date','Status','Patient Type',
-            'Clinic','Default Pharmacy','Patient Transport','Pharmacy Transport'
+            'Patient Tags','Clinic','Default Pharmacy','Patient Transport','Pharmacy Transport'
         ];
     }
 
@@ -1370,6 +1445,7 @@
                 p.patientCode || '', p.firstName || '', p.lastName || '', p.dob || '', p.phone || '', p.address || '',
                 p.serviceDate || '', p.isActive ? 'Active' : 'Inactive',
                 p.isNonCompanyPatient ? 'Non-Company' : 'Company',
+                patientTagsText(p.PatientTags),
                 (p.Clinic && p.Clinic.name) || '',
                 (p.Pharmacy && p.Pharmacy.name) || '',
                 (p.PatientTransportCompany && p.PatientTransportCompany.companyName) || '',
@@ -1417,7 +1493,7 @@
     function patientRxDetailHeaders() {
         return [
             'Patient Database ID','Patient ID','First Name','Last Name','DOB','Phone','Address','Patient Service Date',
-            'Patient Status','Patient Type','Patient Profile Notes','Patient Created At','Patient Updated At',
+            'Patient Status','Patient Type','Patient Tags','Patient Profile Notes','Patient Created At','Patient Updated At',
             'Clinic Database ID','Clinic','Clinic Address','Clinic Phone',
             'Default Pharmacy Database ID','Default Pharmacy','Default Pharmacy Address','Default Pharmacy Phone',
             'Default Patient Transport Database ID','Default Patient Transport','Default Patient Transport Phone',
@@ -1447,6 +1523,7 @@
                 row.phone || '', row.address || '', row.patientServiceDate || '',
                 row.patientIsActive ? 'Active' : 'Inactive',
                 row.isNonCompanyPatient ? 'Non-Company' : 'Company',
+                row.patientTags || '',
                 row.patientNotes || '', exportDateTime(row.patientCreatedAt), exportDateTime(row.patientUpdatedAt),
                 row.clinicId || '', row.clinicName || '', row.clinicAddress || '', row.clinicPhone || '',
                 row.defaultPharmacyId || '', row.defaultPharmacyName || '', row.defaultPharmacyAddress || '', row.defaultPharmacyPhone || '',
@@ -1486,7 +1563,7 @@
 
     function rxReportHeaders() {
         return [
-            'RX #','Patient','Patient ID','Patient Type','Clinic','Pharmacy','Arrival Date','Service Date',
+            'RX #','Patient','Patient ID','Patient Type','Patient Tags','Clinic','Pharmacy','Arrival Date','Service Date',
             'Patient Transport','Pharmacy Transport','Warehouse Status','Warehouse Return Date','Warehouse Return Note',
             'Completed Steps','Current Stage','Current Stage Date','Current Stage Completed By',
             ...workflowStepHeaders(),
@@ -1505,6 +1582,7 @@
                 r.Patient ? `${r.Patient.firstName || ''} ${r.Patient.lastName || ''}`.trim() : '',
                 r.Patient ? r.Patient.patientCode || '' : '',
                 r.Patient && r.Patient.isNonCompanyPatient ? 'Non-Company' : 'Company',
+                patientTagsText(r.Patient && r.Patient.PatientTags),
                 r.Patient && r.Patient.Clinic ? r.Patient.Clinic.name || '' : '',
                 r.Pharmacy ? r.Pharmacy.name || '' : '',
                 r.arrivalDate || '',

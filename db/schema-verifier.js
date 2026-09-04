@@ -11,11 +11,13 @@ const REQUIRED_UNIQUE_INDEXES = [
   ['CallCenterCallAttempts', ['correlationId']],
   ['SoftphoneRelayDevices', ['userId']],
   ['SoftphoneRelayDevices', ['deviceKey']],
-  ['SoftphoneRelayDevices', ['tokenHash']]
+  ['SoftphoneRelayDevices', ['tokenHash']],
+  ['PatientTagAssignments', ['patientId', 'patientTagId']]
 ];
 
 const REQUIRED_NAMED_UNIQUE_INDEXES = [
-  ['PharmacyTransportCompanies', 'uq_pharmacy_transport_active_company_name_ci']
+  ['PharmacyTransportCompanies', 'uq_pharmacy_transport_active_company_name_ci'],
+  ['PatientTags', 'uq_patient_tags_active_group_name']
 ];
 
 async function inspectDatabase(db, options = {}) {

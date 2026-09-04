@@ -7,11 +7,40 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+### Added
+
+- Added configurable Patient Tags as Reference Data with role-controlled
+  management, optional groups, colors, notes, active/inactive status, and a
+  default-for-new-patients flag.
+- Added Patient Tag assignment and filtering in Patients, RX Records, and
+  Reports, including multiselect dropdowns and Patient Tags columns in
+  patient/RX exports.
+- Added seeded City tags for Miami and Tampa. The one-time rollout classifies
+  existing patients from Tampa addresses as Tampa and defaults the remaining
+  patients to Miami; duplicate city tag capitalization is normalized.
+
+### Changed
+
+- Updated Patients, RX Records, and Reports filter layouts so tag selectors
+  match existing theme sizing/colors and related date filters are visually
+  grouped without changing proxy-aware navigation.
+
+### Database
+
+- Added audited migrations for `PatientTags`, `PatientTagAssignments`, seeded
+  City tags, and case-insensitive city tag normalization.
+
 ### Fixed
 
 - Made the wide role-permission matrix discoverable with a wider editor,
   persistent horizontal scrollbar, explicit left/right controls, and a visible
   hint identifying the driver-permission columns beyond Override.
+
+### Safety
+
+- Patient Tag deletion is soft-delete only, preserving patient assignment
+  history. No CORS, FortiGate, proxy bootstrap, VPN, port, cookie, or
+  `rxUrl()` behavior was changed.
 
 ## [4.0.0-next.74] - 2026-08-21
 

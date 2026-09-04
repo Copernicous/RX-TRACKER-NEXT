@@ -47,5 +47,8 @@ module.exports = Object.freeze({
   '20260818000000-add-rx-driver-tracking.js': '13e4bd6a29166e8b7b45a482949a0cbbca0c9284282fa1d120a083159b1e798b',
   '20260818120000-add-rx-profile-sync-review-events.js': '853da9978341432e9280d0cf351ce671675acb831324b9106ad601abd03bb7c4',
   '20260819120000-prevent-active-pharmacy-transport-duplicates.js': '247c4f34eb5dd7dac59b65e67f149f8fc63716cf6844fe9d63eacd760f547cf3',
-  '20260821120000-add-rx-workflow-tracking-notes.js': '5f941687c7776ed6c02d2843366adea18b1d07cdb1a0e529848c49294404e93a'
+  '20260821120000-add-rx-workflow-tracking-notes.js': '5f941687c7776ed6c02d2843366adea18b1d07cdb1a0e529848c49294404e93a',
+  '20260904120000-create-patient-tags.js': '0e1f5864281e311b56e02912ebf69e61fa17e60bca78bdc5bac0a35352b11c0c',
+  '20260904130000-seed-city-patient-tags.js': '6ddd1d2e466a206c6f676f4ebb4cc48e87819d86d27b7715df2acc83dda2f97c',
+  '20260904131500-normalize-city-patient-tags.js': 'd0cdc2455a4d488e280bfab70f7ac3c99dce1a4a45d299bff82713d6140fa5b5'
 });

@@ -12,6 +12,8 @@ const BUSINESS_TABLES = [
   'PatientNotes',
   'PatientServiceDateHistories',
   'PatientServiceDateCycles',
+  'PatientTags',
+  'PatientTagAssignments',
   'CallCenterCallAttempts',
   'CallCenterLocks',
   'Clinics',
