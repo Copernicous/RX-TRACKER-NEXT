@@ -111,12 +111,11 @@ async function main() {
             firstName: 'Import',
             lastName: 'Region',
             dob: '01/01/1980',
-            address: '7401 Kingston Dr, Tampa FL 33619',
-            addressLine1: '7401 Kingston Dr',
-            city: 'Tampa',
+            address: '102 Goldenwood Ave Brandon FL 33511',
+            addressLine1: '102 Goldenwood Ave',
+            city: 'Brandon',
             state: 'FL',
-            zipCode: '33619',
-            region: 'Tampa',
+            zipCode: '33511',
             serviceDate: '06/01/2026',
             isActive: 'true'
         },
@@ -144,11 +143,11 @@ async function main() {
 
     const regionPatient = imported.find(patient => patient.patientCode.endsWith('REGION'));
     assert(regionPatient, 'Region import patient was not found.');
-    assert.strictEqual(regionPatient.addressLine1, '7401 Kingston Dr');
-    assert.strictEqual(regionPatient.city, 'Tampa');
+    assert.strictEqual(regionPatient.addressLine1, '102 Goldenwood Ave');
+    assert.strictEqual(regionPatient.city, 'Brandon');
     assert.strictEqual(regionPatient.state, 'FL');
-    assert.strictEqual(regionPatient.zipCode, '33619');
-    assert(regionPatient.PatientTags.some(tag => String(tag.name).toLowerCase() === 'tampa'), 'Region column did not assign Tampa tag.');
+    assert.strictEqual(regionPatient.zipCode, '33511');
+    assert(regionPatient.PatientTags.some(tag => String(tag.name).toLowerCase() === 'tampa'), 'Tampa-region city did not assign Tampa tag.');
 
     const tagPatient = imported.find(patient => patient.patientCode.endsWith('TAGS'));
     assert(tagPatient, 'Patient Tags import patient was not found.');

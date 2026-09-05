@@ -11,6 +11,7 @@ const KNOWN_FLORIDA_CITIES = [
   'West Palm Beach',
   'Fort Lauderdale',
   'Saint Petersburg',
+  'Saint Peterburg',
   'St Petersburg',
   'Port Saint Lucie',
   'Deerfield Beach',
@@ -35,7 +36,9 @@ const KNOWN_FLORIDA_CITIES = [
   'Moore Haven',
   'Spring Hill',
   'Port Richey',
+  'Safety Harbor',
   'Miami Springs',
+  'Miami Shores',
   'West Miami',
   'Opa Locka',
   'Opa-Locka',
@@ -48,6 +51,7 @@ const KNOWN_FLORIDA_CITIES = [
   'Homestead',
   'Lakeland',
   'Orlando',
+  'Davenport',
   'Aventura',
   'Tamarac',
   'Margate',
@@ -73,6 +77,13 @@ const KNOWN_FLORIDA_CITIES = [
   'Palm Springs',
   'Palm Beach',
   'Lake Worth Beach',
+  'Pinellas Park',
+  'Palm Harbor',
+  'Auburndale',
+  'Apopka',
+  'Immokalee',
+  'Fort Myers',
+  'Oviedo',
   'Lutz',
   'Medley',
   'Hialeah',
@@ -94,7 +105,11 @@ const FLORIDA_CITY_ALIASES = new Map([
   ['EL PORTAL', 'El Portal'],
   ['SAINT PETERSBURG', 'St Petersburg'],
   ['N SAINT PETERSBURG', 'St Petersburg'],
+  ['SAINT PETERBURG', 'St Petersburg'],
+  ['PETERSBURG', 'St Petersburg'],
+  ['ST PETERBURG', 'St Petersburg'],
   ['MIAMI SPRINGS', 'Miami Springs'],
+  ['MIAMI SHORES', 'Miami Shores'],
   ['LEHIGH ACRES', 'Lehigh Acres'],
   ['DEERFIELD BEACH', 'Deerfield Beach'],
   ['POMPANO BEACH', 'Pompano Beach'],
@@ -104,6 +119,7 @@ const FLORIDA_CITY_ALIASES = new Map([
   ['FOURT LAUDERDALE', 'Fort Lauderdale'],
   ['FOURT LAUDELARDALE', 'Fort Lauderdale'],
   ['FOURT LOUDERDALE', 'Fort Lauderdale'],
+  ['FOURDELLADE', 'Fort Lauderdale'],
   ['FORT LAURDALE', 'Fort Lauderdale'],
   ['FORT LAUDELARDALE', 'Fort Lauderdale'],
   ['HALLANDALE BEACH', 'Hallandale Beach'],
@@ -147,6 +163,33 @@ const FLORIDA_CITY_ALIASES = new Map([
   ['WPB', 'West Palm Beach']
 ]);
 
+const TAMPA_REGION_CITIES = Object.freeze([
+  'Bartow',
+  'Brandon',
+  'Cape Coral',
+  'Dover',
+  'Holiday',
+  'Kissimmee',
+  'Lake Wales',
+  'Lakeland',
+  'Lehigh Acres',
+  'Moore Haven',
+  'Naples',
+  'Orlando',
+  'Plant City',
+  'Port Richey',
+  'Riverview',
+  'Ruskin',
+  'Sarasota',
+  'Seffner',
+  'Spring Hill',
+  'St Petersburg',
+  'Tampa',
+  'Temple Terrace',
+  'Valrico',
+  'Wesley Chapel'
+]);
+
 const STREET_FRAGMENT_TOKENS = new Set([
   'AVE', 'AVENUE', 'BLVD', 'CIR', 'CT', 'DR', 'LN', 'LOOP', 'PATH', 'PKWY',
   'PL', 'RD', 'ST', 'TER', 'TERR', 'TRL', 'WAY'
@@ -169,6 +212,9 @@ const FLORIDA_ZIP_CITY = Object.freeze({
   '31609': 'Spring Hill',
   '32209': 'Jacksonville',
   '32805': 'Orlando',
+  '32703': 'Apopka',
+  '32712': 'Apopka',
+  '32765': 'Oviedo',
   '32837': 'Orlando',
   '32867': 'Orlando',
   '33004': 'Dania',
@@ -296,6 +342,7 @@ const FLORIDA_ZIP_CITY = Object.freeze({
   '33596': 'Valrico',
   '33603': 'Tampa',
   '33604': 'Tampa',
+  '33606': 'Tampa',
   '33607': 'Tampa',
   '33610': 'Tampa',
   '33612': 'Tampa',
@@ -320,6 +367,7 @@ const FLORIDA_ZIP_CITY = Object.freeze({
   '33830': 'Bartow',
   '33859': 'Lake Wales',
   '33870': 'Sebring',
+  '33897': 'Davenport',
   '33936': 'Lehigh Acres',
   '33971': 'Lehigh Acres',
   '33972': 'Lehigh Acres',
@@ -327,15 +375,21 @@ const FLORIDA_ZIP_CITY = Object.freeze({
   '33990': 'Cape Coral',
   '33920': 'Cape Canaveral',
   '34112': 'Naples',
+  '34142': 'Immokalee',
   '34432': 'Dunnellon',
   '34470': 'Ocala',
   '34609': 'Spring Hill',
   '34652': 'Port Richey',
   '34668': 'Port Richey',
+  '34683': 'Palm Harbor',
   '34691': 'Holiday',
+  '34695': 'Safety Harbor',
   '34741': 'Kissimmee',
   '33709': 'St Petersburg',
+  '33716': 'St Petersburg',
+  '33781': 'Pinellas Park',
   '34950': 'Fort Pierce',
+  '33967': 'Fort Myers',
   '34953': 'Port Saint Lucie'
 });
 
@@ -358,15 +412,40 @@ function normalizeState(value) {
   return US_STATE_CODES.has(upper) ? upper : null;
 }
 
-function normalizeZip(value) {
+function zipCandidates(value) {
   const clean = cleanAddressPart(value);
-  if (!clean) return null;
-  const match = clean.match(/\b\d{5}(?:-\d{4})?\b/);
-  return match ? match[0] : clean;
+  if (!clean) return [];
+  const exact = clean.match(/\b\d{5}(?:-\d{4})?\b/);
+  if (exact) return [exact[0]];
+  const longNumber = clean.match(/\b(\d{6,})(?:-\d{4})?\b/);
+  if (!longNumber) return [];
+  const digits = longNumber[1];
+  const candidates = [];
+  for (let index = 0; index <= digits.length - 5; index += 1) {
+    candidates.push(digits.slice(index, index + 5));
+  }
+  return Array.from(new Set(candidates));
 }
 
-function normalizeZip5(value) {
-  const zip = normalizeZip(value);
+function cityMatches(left, right) {
+  const leftCity = normalizeCityName(left);
+  const rightCity = normalizeCityName(right);
+  return Boolean(leftCity && rightCity && leftCity.toLowerCase() === rightCity.toLowerCase());
+}
+
+function normalizeZip(value, cityHint) {
+  const clean = cleanAddressPart(value);
+  if (!clean) return null;
+  const candidates = zipCandidates(clean);
+  if (!candidates.length) return clean;
+  const byHint = cityHint
+    ? candidates.find(candidate => cityMatches(FLORIDA_ZIP_CITY[candidate], cityHint))
+    : null;
+  return byHint || candidates.find(candidate => FLORIDA_ZIP_CITY[candidate]) || candidates[0];
+}
+
+function normalizeZip5(value, cityHint) {
+  const zip = normalizeZip(value, cityHint);
   const match = zip && zip.match(/\b(\d{5})/);
   return match ? match[1] : null;
 }
@@ -391,9 +470,23 @@ function isKnownCityName(value) {
   return cityPatterns().some(city => city.toLowerCase() === normalized.toLowerCase());
 }
 
-function getFloridaCityForZip(value) {
-  const zip5 = normalizeZip5(value);
+function getFloridaCityForZip(value, cityHint) {
+  const zip5 = normalizeZip5(value, cityHint);
   return zip5 ? FLORIDA_ZIP_CITY[zip5] || null : null;
+}
+
+function isTampaRegionCity(value) {
+  const city = normalizeCityName(value);
+  if (!city) return false;
+  return TAMPA_REGION_CITIES.some(entry => entry.toLowerCase() === city.toLowerCase());
+}
+
+function inferRegionalTagName(address, city) {
+  const normalizedCity = normalizeCityName(city);
+  if (normalizedCity) return isTampaRegionCity(normalizedCity) ? 'Tampa' : 'Miami';
+  const parsed = hasUsableAddress(address) ? parseAddress(address) : null;
+  if (parsed && parsed.city) return isTampaRegionCity(parsed.city) ? 'Tampa' : 'Miami';
+  return hasUsableAddress(address) ? 'Miami' : 'None';
 }
 
 function aliasesForCity(city) {
@@ -426,17 +519,76 @@ function parseKnownFloridaCityZip(original) {
   const source = cleanAddressPart(original);
   if (!source) return null;
   for (const city of cityPatterns()) {
-    const pattern = new RegExp('^(.*?)(?:,?\\s+)(' + escapeRegExp(city).replace(/\\ /g, '\\s+') + ')\\s*,?\\s*(?:(FL|Florida)\\s+)?(\\d{5}(?:-\\d{4})?)$', 'i');
+    const pattern = new RegExp('^(.*?)(?:,?\\s+)(' + escapeRegExp(city).replace(/\\ /g, '\\s+') + ')\\s*,?\\s*(?:(FL|Florida)\\s+)?(\\d{5,}(?:-\\d{4})?)$', 'i');
     const match = source.match(pattern);
     if (!match) continue;
     return {
       addressLine1: cleanAddressPart(match[1]),
       city: normalizeCityName(match[2]),
       state: normalizeState(match[3] || 'FL'),
-      zipCode: normalizeZip(match[4])
+      zipCode: normalizeZip(match[4], match[2])
     };
   }
   return null;
+}
+
+function parseKnownFloridaCityState(original) {
+  const source = cleanAddressPart(original);
+  if (!source) return null;
+  for (const city of cityPatterns()) {
+    const pattern = new RegExp('^(.*?)(?:,?\\s+)(' + escapeRegExp(city).replace(/\\ /g, '\\s+') + ')\\s*,?\\s*(FL|Florida)(?:\\s+(.*))?$', 'i');
+    const match = source.match(pattern);
+    if (!match) continue;
+    const trailing = cleanAddressPart(match[4]);
+    if (trailing && !/^(APT|UNIT|LOT|LOTE|#|EDIF|BLDG|BUILDING)/i.test(trailing)) continue;
+    return {
+      addressLine1: cleanAddressPart([match[1], trailing].filter(Boolean).join(' ')),
+      city: normalizeCityName(match[2]),
+      state: normalizeState(match[3]),
+      zipCode: null
+    };
+  }
+  return null;
+}
+
+function cleanLineAfterZipSplit(value) {
+  return cleanAddressPart(String(value || '')
+    .replace(/\b(F|[A-Z]?F+L+\w*|Florida)\b/gi, ' ')
+    .replace(/\s*,\s*/g, ' ')
+    .replace(/\s+/g, ' '));
+}
+
+function parseZipReferencedAddress(original) {
+  const source = cleanAddressPart(original);
+  if (!source) return null;
+
+  for (const city of cityPatterns()) {
+    const pattern = new RegExp('^(.*?)(' + escapeRegExp(city).replace(/\\ /g, '\\s+') + ')\\s*,?\\s*(?:(F|[A-Z]?F+L+\\w*|Florida)\\s*)?(\\d{5,})(?:-\\d{4})?\\b(.*)$', 'i');
+    const match = source.match(pattern);
+    if (!match) continue;
+    const zipCode = normalizeZip(match[4], match[2]);
+    const zipCity = getFloridaCityForZip(zipCode, match[2]);
+    return {
+      addressLine1: cleanAddressPart([cleanLineAfterZipSplit(match[1]), cleanLineAfterZipSplit(match[5])].filter(Boolean).join(' ')),
+      city: zipCity || normalizeCityName(match[2]),
+      state: normalizeState(match[3] || 'FL') || 'FL',
+      zipCode
+    };
+  }
+
+  const zipMatches = Array.from(source.matchAll(/\b(\d{5,})(?:-\d{4})?\b/g));
+  const zipMatch = zipMatches.find(match => getFloridaCityForZip(normalizeZip(match[1]))) || null;
+  if (!zipMatch) return null;
+  const zipCode = normalizeZip(zipMatch[1]);
+  const zipCity = getFloridaCityForZip(zipCode);
+  if (!zipCity) return null;
+  const line1 = cleanLineAfterZipSplit(source.replace(zipMatch[0], ' '));
+  return {
+    addressLine1: line1,
+    city: zipCity,
+    state: 'FL',
+    zipCode
+  };
 }
 
 function splitKnownFloridaCityFromStreet(addressLine1, state, zipCode) {
@@ -479,7 +631,7 @@ function splitKnownFloridaCityFromStreetLoose(addressLine1) {
 
 function cleanAddressCityWithZipReference(parts) {
   const data = parts || {};
-  const zipCity = getFloridaCityForZip(data.zipCode);
+  const zipCity = getFloridaCityForZip(data.zipCode, data.city);
   if (!zipCity) return null;
 
   const fromStreet = splitKnownFloridaCityFromStreet(data.addressLine1, data.state, data.zipCode);
@@ -665,6 +817,12 @@ function parseAddress(address) {
   const commaParts = original.split(',').map(cleanAddressPart).filter(Boolean);
   const knownCityZip = parseKnownFloridaCityZip(original);
   if (knownCityZip) return knownCityZip;
+  const zipReferenced = parseZipReferencedAddress(original);
+  if (zipReferenced) return zipReferenced;
+  const knownCityState = parseKnownFloridaCityState(original);
+  if (knownCityState) return knownCityState;
+  const knownCitySuffix = splitKnownFloridaCityFromStreetLoose(original);
+  if (knownCitySuffix) return knownCitySuffix;
 
   if (commaParts.length >= 2) {
     const last = commaParts[commaParts.length - 1];
@@ -703,7 +861,7 @@ function parseAddress(address) {
       addressLine1: cleanAddressPart(trailing[1]),
       city: cleanAddressPart(trailing[2]),
       state,
-      zipCode: normalizeZip(trailing[4])
+      zipCode: normalizeZip(trailing[4], trailing[2])
     };
   }
 
@@ -714,19 +872,21 @@ function normalizeAddressPayload(payload) {
   const data = payload || {};
   const hasStructured = ['addressLine1', 'city', 'state', 'zipCode'].some(field => Object.prototype.hasOwnProperty.call(data, field));
   const parsed = hasStructured ? {} : parseAddress(data.address);
-  const parts = {
+  const parts = normalizeStructuredAddressForReference({
+    address: data.address,
     addressLine1: cleanAddressPart(hasStructured ? data.addressLine1 : parsed.addressLine1),
     city: cleanAddressPart(hasStructured ? data.city : parsed.city),
     state: normalizeState(hasStructured ? data.state : parsed.state),
-    zipCode: normalizeZip(hasStructured ? data.zipCode : parsed.zipCode)
-  };
+    zipCode: normalizeZip(hasStructured ? data.zipCode : parsed.zipCode, hasStructured ? data.city : parsed.city)
+  });
   const address = hasStructured
-    ? composeAddress(parts)
+    ? (cleanAddressPart(data.address) || composeAddress(parts))
     : (cleanAddressPart(data.address) || composeAddress(parts));
   return { ...parts, address };
 }
 
 module.exports = {
+  TAMPA_REGION_CITIES,
   cleanAddressPart,
   composeAddress,
   hasUsableAddress,
@@ -739,5 +899,6 @@ module.exports = {
   cleanAddressCityWithZipReference,
   cleanAddressCityWithKnownCitySuffix,
   getFloridaCityForZip,
+  inferRegionalTagName,
   isKnownCityName
 };

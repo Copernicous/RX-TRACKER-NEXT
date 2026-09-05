@@ -10,7 +10,7 @@ frozen 3.3.1 repository, its production database, or the RX Softphone source.
 
 ## Current status
 
-Version: `4.0.0-next.78` release
+Version: `4.0.0-next.79` release
 
 | Area | NEXT behavior |
 |---|---|
@@ -80,7 +80,15 @@ State, ZIP, Region, Patient Tags, and Patient Tag IDs, with Region resolving to
 the active Region or City Patient Tag group. CSV preview also handles quoted
 full addresses with commas.
 
-The same release adds review state to Backoffice **RX Profile Sync**.
+Official release `next.79` improves the shared patient address parser used by
+imports, patient edits, and structured-address cleanup. Blank structured import
+columns now fall back to the preserved full Address value, disordered ZIP/city
+text is parsed against known ZIP references, and reviewed malformed city/ZIP
+examples are normalized while ambiguous no-reference rows remain for manual
+correction. No database migration, proxy, VPN, `.env`, service bootstrap, or
+configured RX Action change is included.
+
+The RX Profile Sync review release adds review state to Backoffice **RX Profile Sync**.
 Exact Pharmacy and Transport differences can be marked reviewed without being
 synchronized, viewed through Pending / Reviewed / All filters, and reopened.
 The ledger is append-only, and a later change to either compared value appears

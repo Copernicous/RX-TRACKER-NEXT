@@ -17,7 +17,7 @@ const {
     duplicateCompanyMessage
 } = require('../utils/pharmacyTransportIdentity');
 const {
-    hasUsableAddress,
+    inferRegionalTagName,
     normalizeAddressPayload
 } = require('../utils/patientAddress');
 
@@ -272,14 +272,7 @@ function inferDefaultPatientTagIds(tags, address, city) {
         const group = tagKey(tag.groupName);
         return tag.isActive !== false && (group === 'region' || group === 'city');
     });
-    const lowerAddress = String(address || '').trim().toLowerCase();
-    const lowerCity = String(city || '').trim().toLowerCase();
-    let inferred = 'none';
-    if (lowerCity) {
-        inferred = lowerCity === 'tampa' ? 'tampa' : 'miami';
-    } else if (hasUsableAddress(lowerAddress)) {
-        inferred = /\btampa\b/.test(lowerAddress) ? 'tampa' : 'miami';
-    }
+    const inferred = inferRegionalTagName(address, city).toLowerCase();
     const inferredTag = regionalTags.find(tag => tagKey(tag.name) === inferred);
     const ids = defaultTags
         .filter(tag => !['region', 'city'].includes(tagKey(tag.groupName)))

@@ -1,6 +1,6 @@
 {
   "name": "patient-rx-system",
-  "version": "4.0.0-next.78",
+  "version": "4.0.0-next.79",
   "description": "Patient RX Delivery Management System - NEXT database lifecycle preview",
   "main": "app.js",
   "scripts": {
@@ -50,6 +50,7 @@
     "test:rx-profile-sync": "node scripts/test-rx-profile-sync.js",
     "test:rx-driver-tracking": "node scripts/test-rx-driver-tracking.js",
     "test:pharmacy-transport-duplicates": "node scripts/test-pharmacy-transport-duplicates.js",
+    "test:patient-address-parser": "node scripts/test-patient-address-parser.js",
     "test:patient-import-address-tags": "node scripts/test-patient-import-address-tags.js",
     "test:workflow-date": "node scripts/test-workflow-date-timezone.js",
     "test:backoffice-patient-delete": "node scripts/test-backoffice-patient-delete.js",

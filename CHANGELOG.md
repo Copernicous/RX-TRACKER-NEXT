@@ -5,6 +5,37 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ---
 
+## [4.0.0-next.79] - 2026-09-05
+
+### Changed
+
+- Improved patient address parsing for imports and cleanup when structured
+  address columns are present but blank, so the importer falls back to the
+  preserved full Address value.
+- Added safer ZIP-reference parsing for disordered address text, including
+  extra trailing ZIP digits, ZIP values before apartment/building text, glued
+  City/State text, and city/state-only endings with missing ZIP.
+- Expanded reviewed Florida city aliases and ZIP references from the address
+  review workbook.
+- Updated new-patient and CSV-import default regional tag inference to use the
+  approved Tampa-region city list instead of only the literal Tampa city.
+
+### Database
+
+- Added an audited one-time migration to reassign existing regional
+  Miami/Tampa/None Patient Tag assignments from structured City. Tampa-region
+  cities map to Tampa, populated non-Tampa cities map to Miami, and no-address
+  patients map to None. Ambiguous rows without a reliable structured City remain
+  unchanged for manual review.
+
+### Validation
+
+- Added a focused patient address parser regression using reviewed malformed
+  address examples.
+- Reviewed `review address.xlsx`: 195 of 269 review rows now parse to complete
+  City/State/ZIP, 34 parse to City/State with ZIP intentionally blank, and 40
+  ambiguous rows remain for manual correction.
+
 ## [4.0.0-next.78] - 2026-09-05
 
 ### Added

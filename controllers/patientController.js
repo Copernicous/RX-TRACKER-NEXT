@@ -3,7 +3,7 @@ const { Op, literal } = require('sequelize');
 const { parseDate } = require('../utils/dateUtils');
 const { isServiceDateOverrideEnabled, getServiceWindowDays } = require('../utils/globalSettings');
 const {
-    hasUsableAddress,
+    inferRegionalTagName,
     normalizeAddressPayload
 } = require('../utils/patientAddress');
 const {
@@ -484,14 +484,7 @@ async function resolvePatientTagIds(rawValue, options) {
             transaction: options.transaction,
             raw: true
         });
-        const address = cleanLower(options.address);
-        const city = cleanLower(options.city);
-        let inferredCity = 'none';
-        if (city) {
-            inferredCity = city === 'tampa' ? 'tampa' : 'miami';
-        } else if (hasUsableAddress(address)) {
-            inferredCity = /\btampa\b/.test(address) ? 'tampa' : 'miami';
-        }
+        const inferredCity = inferRegionalTagName(options.address, options.city).toLowerCase();
         const inferredCityTag = cityTags.find(tag => String(tag.name || '').trim().toLowerCase() === inferredCity);
         const ids = defaultTags
             .filter(tag => !['city', 'region'].includes(String(tag.groupName || '').trim().toLowerCase()))

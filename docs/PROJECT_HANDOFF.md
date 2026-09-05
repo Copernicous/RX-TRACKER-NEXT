@@ -8,7 +8,18 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
 
-- **Patch release v4.0.0-next.78 in progress:** Patient CSV import now accepts
+- **Patch release v4.0.0-next.79 in progress:** Patient address parsing now
+  falls back from blank structured import columns to the preserved full Address
+  value, repairs reviewed disordered ZIP/city/state patterns, and expands the
+  reviewed Florida city/ZIP reference list. A new audited migration reruns the
+  structured-city regional assignment for existing patients: cities in the
+  approved Tampa-region list map to Tampa, populated non-Tampa cities map to
+  Miami, and no-address patients map to None. Patients whose address remains
+  ambiguous and has no reliable structured City are intentionally left for
+  manual correction. There is no proxy, VPN, FortiGate, cookie, `.env`, port,
+  `rxUrl()`, or service bootstrap change.
+
+- **Official v4.0.0-next.78** was published on 2026-09-05. Patient CSV import now accepts
   the structured address columns `addressLine1`, `city`, `state`, and
   `zipCode`, plus `region`, `patientTags`, and `patientTagIds`. `region`
   resolves to an active Patient Tag in either the Region or City group, so the

@@ -62,5 +62,6 @@ module.exports = Object.freeze({
   '20260905145000-repair-remaining-state-fragments-with-zip-reference.js': '7a1b1c03cb5f99268193277bc55750a7b43586ff0a6e821b8cf067fd81cd053a',
   '20260905150000-normalize-structured-address-reference-fields.js': 'a99a7089ff855e8bf19c068f07741615153c4667a9509906f89c220d9831845c',
   '20260905151000-normalize-structured-address-reference-aliases.js': 'a99a7089ff855e8bf19c068f07741615153c4667a9509906f89c220d9831845c',
-  '20260905152000-normalize-structured-address-street-city-fragments.js': 'a99a7089ff855e8bf19c068f07741615153c4667a9509906f89c220d9831845c'
+  '20260905152000-normalize-structured-address-street-city-fragments.js': 'a99a7089ff855e8bf19c068f07741615153c4667a9509906f89c220d9831845c',
+  '20260905153000-reassign-region-tags-from-structured-city.js': '7943ac44b33077e929488694695d08bf6fa6e587c95d24c83ebfa0c34d51efa1'
 });
