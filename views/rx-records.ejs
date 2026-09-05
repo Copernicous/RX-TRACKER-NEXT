@@ -144,7 +144,8 @@
             display:none;
         }
         .rx-more-workflow-dates { margin-top: .48rem; }
-        .rx-more-workflow-dates > summary {
+        .rx-more-workflow-dates > summary,
+        .rx-more-address-filters > summary {
             width: max-content;
             max-width: 100%;
             color: var(--text-muted, #6c757d);
@@ -152,15 +153,20 @@
             font-size: .72rem;
             list-style: none;
         }
-        .rx-more-workflow-dates > summary::-webkit-details-marker { display: none; }
-        .rx-more-workflow-dates > summary::before {
+        .rx-more-address-filters { margin-top: .48rem; }
+        .rx-more-workflow-dates > summary::-webkit-details-marker,
+        .rx-more-address-filters > summary::-webkit-details-marker { display: none; }
+        .rx-more-workflow-dates > summary::before,
+        .rx-more-address-filters > summary::before {
             content: '\25B8';
             display: inline-block;
             margin-right: .32rem;
             transition: transform .15s ease;
         }
-        .rx-more-workflow-dates[open] > summary::before { transform: rotate(90deg); }
-        .rx-more-workflow-dates-body { margin-top: .42rem; }
+        .rx-more-workflow-dates[open] > summary::before,
+        .rx-more-address-filters[open] > summary::before { transform: rotate(90deg); }
+        .rx-more-workflow-dates-body,
+        .rx-more-address-filters-body { margin-top: .42rem; }
         [data-theme="dark"] .rx-stage-completion-filter {
             border-color:rgba(74,144,226,.5);
             background:rgba(74,144,226,.07);
@@ -347,6 +353,27 @@
                             <div class="col-md-2">
                                 <label class="form-label small fw-bold"><i class="fas fa-calendar-alt me-1"></i>Current Stage Date To</label>
                                 <input type="date" class="form-control form-control-sm" id="rxFilterCurrentStageDateTo" title="Date the actual Current Stage was completed">
+                            </div>
+                        </div>
+                    </details>
+                    <details class="rx-more-address-filters" id="rxPatientAddressDetails">
+                        <summary><i class="fas fa-map-marker-alt me-1"></i>More address filters (Patient City / State / ZIP)</summary>
+                        <div class="row g-2 align-items-end rx-more-address-filters-body">
+                            <div class="col-md-3">
+                                <label class="form-label small fw-bold">Street / Details</label>
+                                <input type="text" class="form-control form-control-sm" id="rxFilterPatientAddressLine1" placeholder="Street, apt, building..." data-address-autocomplete="addressLine1">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label small fw-bold">City</label>
+                                <input type="text" class="form-control form-control-sm" id="rxFilterPatientCity" placeholder="City" data-address-autocomplete="city">
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label small fw-bold">State</label>
+                                <input type="text" class="form-control form-control-sm" id="rxFilterPatientState" placeholder="State" data-address-autocomplete="state">
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label small fw-bold">ZIP</label>
+                                <input type="text" class="form-control form-control-sm" id="rxFilterPatientZipCode" placeholder="ZIP code" data-address-autocomplete="zipCode">
                             </div>
                         </div>
                     </details>
@@ -670,6 +697,7 @@
 <script src="/js/app.js?v=<%= encodeURIComponent(String(locals.appBuild || 'dev')) %>"></script>
 <script src="/js/help.js"></script>
 <script src="/js/documents.js"></script>
+<script src="/js/address-autocomplete.js?v=<%= encodeURIComponent(String(locals.appBuild || 'dev')) %>"></script>
 <script>
     var allRx = [], filteredRx = [], allWorkflowActions = [];
     var rxServiceDateOverrideEnabled = false;
@@ -1233,7 +1261,7 @@
         function rxCsvPath(obj, path) { return path.split('.').reduce(function(value,key){return value&&value[key]!==undefined?value[key]:'';},obj); }
         function rxCsvStageInfo(rx) { var tracks={};(rx.RXWorkflowTrackings||[]).forEach(function(t){var k=String(t.workflowActionId),old=tracks[k];if(!old||new Date(t.completionDate||0)>=new Date(old.completionDate||0))tracks[k]=t;});var current=null,next=null;allWorkflowActions.forEach(function(a,i){if(tracks[String(a.id)]){if(!current||Number(a.sequenceNumber||i+1)>Number(current.sequenceNumber||0))current=a;}else if(!next)next=a;});return {tracks:tracks,current:current,next:next,currentDate:getRxCurrentStageDateValue(rx)}; }
         function rxCsvColumns() { var items=[
-          ['rxId','RX Record ID',function(r){return r.id||'';}],['patientRecordId','Patient Record ID',function(r){return r.patientId||'';}],['patientId','Patient ID',function(r){return rxCsvPath(r,'Patient.patientCode');}],['patientFirst','Patient First Name',function(r){return rxCsvPath(r,'Patient.firstName');}],['patientLast','Patient Last Name',function(r){return rxCsvPath(r,'Patient.lastName');}],['patientName','Patient Full Name',function(r){return [rxCsvPath(r,'Patient.firstName'),rxCsvPath(r,'Patient.lastName')].filter(Boolean).join(' ');}],['patientDob','Patient Date of Birth',function(r){return rxCsvPath(r,'Patient.dob');}],['patientPhone','Patient Phone',function(r){return rxCsvPath(r,'Patient.phone');}],['patientAddress','Patient Address',function(r){return rxCsvPath(r,'Patient.address');}],['patientType','Patient Type',function(r){return rxCsvPath(r,'Patient.isNonCompanyPatient')?'Non-Company':'Company';}],['patientTags','Patient Tags',function(r){return rxPatientTagsText(r.Patient&&r.Patient.PatientTags);}],
+          ['rxId','RX Record ID',function(r){return r.id||'';}],['patientRecordId','Patient Record ID',function(r){return r.patientId||'';}],['patientId','Patient ID',function(r){return rxCsvPath(r,'Patient.patientCode');}],['patientFirst','Patient First Name',function(r){return rxCsvPath(r,'Patient.firstName');}],['patientLast','Patient Last Name',function(r){return rxCsvPath(r,'Patient.lastName');}],['patientName','Patient Full Name',function(r){return [rxCsvPath(r,'Patient.firstName'),rxCsvPath(r,'Patient.lastName')].filter(Boolean).join(' ');}],['patientDob','Patient Date of Birth',function(r){return rxCsvPath(r,'Patient.dob');}],['patientPhone','Patient Phone',function(r){return rxCsvPath(r,'Patient.phone');}],['patientAddress','Patient Address',function(r){return rxCsvPath(r,'Patient.address');}],['patientAddressLine1','Patient Address / Street',function(r){return rxCsvPath(r,'Patient.addressLine1');}],['patientCity','Patient City',function(r){return rxCsvPath(r,'Patient.city');}],['patientState','Patient State',function(r){return rxCsvPath(r,'Patient.state');}],['patientZipCode','Patient ZIP',function(r){return rxCsvPath(r,'Patient.zipCode');}],['patientType','Patient Type',function(r){return rxCsvPath(r,'Patient.isNonCompanyPatient')?'Non-Company':'Company';}],['patientTags','Patient Tags',function(r){return rxPatientTagsText(r.Patient&&r.Patient.PatientTags);}],
           ['arrivalDate','Arrival Date',function(r){return rxCsvDate(r.arrivalDate);}],['serviceDate','RX Service Date',function(r){return rxCsvDate(r.serviceDate);}],['cycleId','Service Date Cycle ID',function(r){return r.patientServiceDateCycleId||'';}],['rxStatus','RX Status',function(r){return r.isDeleted?'Deleted':'Active';}],['deletedAt','RX Deleted At',function(r){return rxCsvDate(r.deletedAt,true);}],
           ['pharmacyId','Pharmacy ID',function(r){return r.pharmacyId||'';}],['pharmacy','Pharmacy',function(r){return rxCsvPath(r,'Pharmacy.name');}],['pharmacyAddress','Pharmacy Address',function(r){return rxCsvPath(r,'Pharmacy.address');}],['pharmacyPhone','Pharmacy Phone',function(r){return rxCsvPath(r,'Pharmacy.phone');}],['pharmacyContact','Pharmacy Contact',function(r){return rxCsvPath(r,'Pharmacy.contactPerson');}],
           ['clinicId','Clinic ID',function(r){return rxCsvPath(r,'Patient.clinicId');}],['clinic','Clinic',function(r){return rxCsvPath(r,'Patient.Clinic.name');}],['clinicAddress','Clinic Address',function(r){return rxCsvPath(r,'Patient.Clinic.address');}],['clinicPhone','Clinic Phone',function(r){return rxCsvPath(r,'Patient.Clinic.phone');}],['clinicContact','Clinic Contact',function(r){return rxCsvPath(r,'Patient.Clinic.contactPerson');}],
@@ -1302,6 +1330,7 @@
 
         // Filter bar listeners
         var _filterIds = ['rxFilterPatient','rxFilterId','rxFilterPharmacy','rxFilterClinic','rxFilterPatientCode',
+                          'rxFilterPatientAddressLine1','rxFilterPatientCity','rxFilterPatientState','rxFilterPatientZipCode',
                           'rxFilterDateFrom','rxFilterDateTo','rxFilterSvcFrom','rxFilterSvcTo',
                           'rxFilterPatientTransport','rxFilterPharmacyTransport','rxFilterWarehouseStatus',
                           'rxFilterPatientType','rxFilterPatientTags',
@@ -1440,6 +1469,10 @@
         setRxParam(params, 'pharmacyIds', document.getElementById('rxFilterPharmacy')?.value || '');
         setRxParam(params, 'clinicIds', document.getElementById('rxFilterClinic')?.value || '');
         setRxParam(params, 'patientCode', document.getElementById('rxFilterPatientCode')?.value || '');
+        setRxParam(params, 'patientAddressLine1', document.getElementById('rxFilterPatientAddressLine1')?.value || '');
+        setRxParam(params, 'patientCity', document.getElementById('rxFilterPatientCity')?.value || '');
+        setRxParam(params, 'patientState', document.getElementById('rxFilterPatientState')?.value || '');
+        setRxParam(params, 'patientZipCode', document.getElementById('rxFilterPatientZipCode')?.value || '');
         setRxParam(params, 'dateFrom', document.getElementById('rxFilterDateFrom')?.value || '');
         setRxParam(params, 'dateTo', document.getElementById('rxFilterDateTo')?.value || '');
         setRxParam(params, 'serviceFrom', document.getElementById('rxFilterSvcFrom')?.value || '');
@@ -1686,6 +1719,10 @@
         var to    = document.getElementById('rxFilterDateTo').value;
         var _pcEl = document.getElementById('rxFilterPatientCode');
         var pc    = (_pcEl ? _pcEl.value : '').toLowerCase().trim();
+        var patientAddressLine1 = (document.getElementById('rxFilterPatientAddressLine1')?.value || '').toLowerCase().trim();
+        var patientCity = (document.getElementById('rxFilterPatientCity')?.value || '').toLowerCase().trim();
+        var patientState = (document.getElementById('rxFilterPatientState')?.value || '').toLowerCase().trim();
+        var patientZipCode = (document.getElementById('rxFilterPatientZipCode')?.value || '').toLowerCase().trim();
         var _sfEl = document.getElementById('rxFilterSvcFrom');
         var sfrom = _sfEl ? _sfEl.value : '';
         var _stEl = document.getElementById('rxFilterSvcTo');
@@ -1727,6 +1764,10 @@
                 var code2 = r.Patient ? (r.Patient.patientCode || '').toLowerCase() : '';
                 if (code2.indexOf(pc) === -1) return false;
             }
+            if (patientAddressLine1 && (!r.Patient || String(r.Patient.addressLine1 || r.Patient.address || '').toLowerCase().indexOf(patientAddressLine1) === -1)) return false;
+            if (patientCity && (!r.Patient || String(r.Patient.city || '').toLowerCase().indexOf(patientCity) === -1)) return false;
+            if (patientState && (!r.Patient || String(r.Patient.state || '').toLowerCase().indexOf(patientState) === -1)) return false;
+            if (patientZipCode && (!r.Patient || String(r.Patient.zipCode || '').toLowerCase().indexOf(patientZipCode) === -1)) return false;
             if (preId && !pat && !pc) {
                 if (!r.Patient || String(r.Patient.id) !== String(preId)) return false;
             }

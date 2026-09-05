@@ -10,7 +10,7 @@ frozen 3.3.1 repository, its production database, or the RX Softphone source.
 
 ## Current status
 
-Version: `4.0.0-next.76` release candidate
+Version: `4.0.0-next.76` release
 
 | Area | NEXT behavior |
 |---|---|
@@ -54,11 +54,19 @@ PostgreSQL lifecycle CI, CodeQL, and the tagged compiled-release workflow
 passed on 2026-09-04; official ZIPs, embedded executables, and checksums were
 verified before production handoff.
 
-Release candidate `next.76` adds `City: None` for patients without a usable
-address. On a restored production dump copy, 421 active blank-address patients
-move from the previous automatic Miami assignment to `City: None`; active
-city-tag counts become Miami 2520, Tampa 563, and None 421. Usable non-Tampa
-addresses still default to Miami unless another city tag rule is added later.
+Official release `next.76` adds `City: None` for patients without a usable
+address, structured patient address fields for Address / Street, City, State,
+and ZIP, and address filters/autocomplete across Patients, RX Records, Patient
+Reports, RX Action Reports, imports, and complete-history exports. The legacy
+full Address field is preserved for reference and compatibility. On the final
+fresh production-dump copy, audited migrations through 58 verified with zero
+pending migrations; the copy contained 3549 total patients, 3548 active
+patients, and 3544 not-deleted patients. Structured-address cleanup populated
+3126 Address / Street values, 2856 City values, 2856 State values, and 2830 ZIP
+values, and the reviewed city cleanup scan found no street-like or unknown City
+values. Patient Tags remain manual/business markers once assigned; the new
+structured City filter is address-based and is not forced to match manual City
+tags.
 
 The same release adds review state to Backoffice **RX Profile Sync**.
 Exact Pharmacy and Transport differences can be marked reviewed without being

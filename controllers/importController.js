@@ -16,6 +16,7 @@ const {
     findCompanyNameConflict,
     duplicateCompanyMessage
 } = require('../utils/pharmacyTransportIdentity');
+const { normalizeAddressPayload } = require('../utils/patientAddress');
 
 const WORKFLOW_HEADERS = [
     'rx received warehouse',
@@ -252,9 +253,9 @@ exports.getTemplate = (req, res) => {
         switch (dataset) {
             case 'patients':
             csvContent =
-                'patientCode,firstName,lastName,dob,phone,address,clinic,serviceDate,patientTransportCompany,pharmacyTransportCompany,notes,isActive,' +
+                'patientCode,firstName,lastName,dob,phone,address,addressLine1,city,state,zipCode,clinic,serviceDate,patientTransportCompany,pharmacyTransportCompany,notes,isActive,' +
                 'RX Received Warehouse,On Route with Driver,Delivered,Mark as Received to print log,Signed by Pharmacy,Archived on local and case close\n' +
-                'PAT-00001,JOHN,DOE,05/15/1985,123-456-7890,"123 Main St, Springfield","Main Clinic",06/01/2026,Health Transit,Pharmacy Express,Allergic to penicillin,true,06/01/2026,06/02/2026,06/03/2026,,,,';
+                'PAT-00001,JOHN,DOE,05/15/1985,123-456-7890,"123 Main St, Miami FL 33101",123 Main St,Miami,FL,33101,"Main Clinic",06/01/2026,Health Transit,Pharmacy Express,Allergic to penicillin,true,06/01/2026,06/02/2026,06/03/2026,,,,';
             break;
         case 'clinics':
             csvContent = 'name,address,phone,contactPerson,notes,isActive\n' +
@@ -337,7 +338,7 @@ exports.importDataset = async (req, res) => {
                 for (let i = 0; i < rows.length; i++) {
                     const row = rows[i];
                     const rowNum = i + 2;
-                    let { patientCode, firstName, lastName, dob, phone, address, clinic, serviceDate, patientTransportCompany, pharmacyTransportCompany, notes, isActive } = row;
+                    let { patientCode, firstName, lastName, dob, phone, address, addressLine1, city, state, zipCode, clinic, serviceDate, patientTransportCompany, pharmacyTransportCompany, notes, isActive } = row;
                     const firstNameCaps = toUpperName(firstName);
                     const lastNameCaps = toUpperName(lastName);
 
@@ -437,13 +438,18 @@ exports.importDataset = async (req, res) => {
                         validateWorkflowAgainstServiceDate(svcDate, workflowTracking, addErr);
                     }
 
+                    const normalizedAddress = normalizeAddressPayload({ address, addressLine1, city, state, zipCode });
                     validRows.push({
                         patientCode,
                         firstName: firstNameCaps,
                         lastName: lastNameCaps,
                         dob: dob.trim(),
                         phone: phone ? phone.trim() : null,
-                        address: address ? address.trim() : null,
+                        address: normalizedAddress.address,
+                        addressLine1: normalizedAddress.addressLine1,
+                        city: normalizedAddress.city,
+                        state: normalizedAddress.state,
+                        zipCode: normalizedAddress.zipCode,
                         serviceDate: svcDate,
                         patientTransportCompanyId,
                         pharmacyTransportCompanyId,

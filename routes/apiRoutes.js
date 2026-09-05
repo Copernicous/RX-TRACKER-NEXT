@@ -18,6 +18,7 @@ const rateLimit = require('express-rate-limit');
 const deliveryLogPdfController = require('../controllers/deliveryLogPdfController');
 const deliveryOutcomeController = require('../controllers/deliveryOutcomeController');
 const deliveryLogArchiveController = require('../controllers/deliveryLogArchiveController');
+const { normalizeState, normalizeStructuredAddressForReference, isKnownCityName } = require('../utils/patientAddress');
 
 const phoneAccountSaveLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
@@ -258,6 +259,33 @@ const LOOKUP_MAP = {
     'workflow-actions':   { model: db.WorkflowAction,            fields: ['id', 'name', 'sequenceNumber', 'description', 'deliveryOutcomeMode'], where: { isActive: true }, order: [['sequenceNumber', 'ASC'], ['id', 'ASC']] },
     'medication-catalog': { model: db.MedicationCatalog,         fields: ['id', 'name', 'sortOrder', 'description'],      where: { isActive: true } },
 };
+router.get('/lookup/patient-addresses', rbac.requirePermission('patients', 'read'), async (req, res) => {
+    try {
+        const rows = await db.Patient.findAll({
+            attributes: ['address', 'addressLine1', 'city', 'state', 'zipCode'],
+            where: {
+                [db.Sequelize.Op.or]: [{ isDeleted: false }, { isDeleted: null }]
+            },
+            raw: true
+        });
+        const normalizedRows = rows.map(normalizeStructuredAddressForReference);
+        const unique = (field, mapper) => Array.from(new Set(
+            normalizedRows.map(row => mapper ? mapper(row[field]) : String(row[field] || '').trim()).filter(Boolean)
+        )).sort((left, right) => left.localeCompare(right, undefined, { sensitivity: 'base' }));
+        res.json({
+            addressLine1: unique('addressLine1').slice(0, 500),
+            city: unique('city', value => {
+                const city = String(value || '').trim();
+                return isKnownCityName(city) ? city : null;
+            }),
+            state: unique('state', normalizeState),
+            zipCode: unique('zipCode')
+        });
+    } catch (e) {
+        console.error('[lookup:patient-addresses]', e.message);
+        res.status(500).json({ error: e.message });
+    }
+});
 router.get('/lookup/:module', async (req, res) => {
     try {
         const cfg = LOOKUP_MAP[req.params.module];

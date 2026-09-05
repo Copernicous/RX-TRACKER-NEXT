@@ -54,7 +54,18 @@ module.exports = [
   entry('20260904120000-create-patient-tags.js', require('../migrations/20260904120000-create-patient-tags.js')),
   entry('20260904130000-seed-city-patient-tags.js', require('../migrations/20260904130000-seed-city-patient-tags.js')),
   entry('20260904131500-normalize-city-patient-tags.js', require('../migrations/20260904131500-normalize-city-patient-tags.js')),
-  entry('20260905120000-add-city-none-patient-tag.js', require('../migrations/20260905120000-add-city-none-patient-tag.js'))
+  entry('20260905120000-add-city-none-patient-tag.js', require('../migrations/20260905120000-add-city-none-patient-tag.js')),
+  entry('20260905130000-add-structured-patient-address.js', require('../migrations/20260905130000-add-structured-patient-address.js')),
+  entry('20260905133000-backfill-known-florida-city-zip-addresses.js', require('../migrations/20260905133000-backfill-known-florida-city-zip-addresses.js')),
+  entry('20260905140000-clean-structured-address-city-prefixes.js', require('../migrations/20260905140000-clean-structured-address-city-prefixes.js')),
+  entry('20260905141000-clean-address-line-city-suffixes.js', require('../migrations/20260905141000-clean-address-line-city-suffixes.js')),
+  entry('20260905142000-normalize-addresses-with-zip-reference.js', require('../migrations/20260905142000-normalize-addresses-with-zip-reference.js')),
+  entry('20260905143000-split-city-suffixes-without-zip.js', require('../migrations/20260905143000-split-city-suffixes-without-zip.js')),
+  entry('20260905144000-repair-zip-referenced-city-state-fragments.js', require('../migrations/20260905144000-repair-zip-referenced-city-state-fragments.js')),
+  entry('20260905145000-repair-remaining-state-fragments-with-zip-reference.js', require('../migrations/20260905145000-repair-remaining-state-fragments-with-zip-reference.js')),
+  entry('20260905150000-normalize-structured-address-reference-fields.js', require('../migrations/20260905150000-normalize-structured-address-reference-fields.js')),
+  entry('20260905151000-normalize-structured-address-reference-aliases.js', require('../migrations/20260905151000-normalize-structured-address-reference-aliases.js')),
+  entry('20260905152000-normalize-structured-address-street-city-fragments.js', require('../migrations/20260905152000-normalize-structured-address-street-city-fragments.js'))
 ];
 
 function entry(name, migration) {

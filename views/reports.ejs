@@ -85,20 +85,54 @@
             gap:.5rem;
             align-items:end;
         }
+        .report-filter-range-cell {
+            grid-column:span 2;
+            min-width:0;
+        }
+        .report-filter-stage-cell {
+            grid-column:span 3;
+            min-width:0;
+        }
+        .report-filter-range-group {
+            display:grid;
+            grid-template-columns:repeat(2,minmax(0,1fr));
+            gap:.5rem;
+            padding:.52rem .6rem .56rem;
+            border:1px solid rgba(74,144,226,.34);
+            border-radius:.55rem;
+            background:rgba(74,144,226,.025);
+        }
+        .report-filter-stage-group {
+            display:grid;
+            grid-template-columns:minmax(0,1.35fr) repeat(2,minmax(0,1fr));
+            gap:.5rem;
+            align-items:end;
+            padding:.52rem .6rem .56rem;
+            border:1px solid rgba(74,144,226,.38);
+            border-radius:.55rem;
+            background:rgba(74,144,226,.035);
+        }
         .report-filter-grid-6 { grid-template-columns:repeat(6, minmax(0, 1fr)); }
         .report-filter-grid-7 { grid-template-columns:repeat(7, minmax(0, 1fr)); }
         @media (max-width: 1399.98px) {
             .report-filter-grid-7 { grid-template-columns:repeat(4, minmax(0, 1fr)); }
+            .report-filter-stage-cell { grid-column:span 4; }
         }
         @media (max-width: 991.98px) {
             .report-filter-grid,
             .report-filter-grid-6,
             .report-filter-grid-7 { grid-template-columns:repeat(2, minmax(0, 1fr)); }
+            .report-filter-range-cell,
+            .report-filter-stage-cell { grid-column:span 2; }
+            .report-filter-stage-group { grid-template-columns:1fr; }
         }
         @media (max-width: 575.98px) {
             .report-filter-grid,
             .report-filter-grid-6,
             .report-filter-grid-7 { grid-template-columns:1fr; }
+            .report-filter-range-cell,
+            .report-filter-stage-cell { grid-column:span 1; }
+            .report-filter-range-group { grid-template-columns:1fr; }
         }
         .report-filter-multiselect .dropdown-menu {
             width:100%;
@@ -121,9 +155,31 @@
         }
         .report-filter-multiselect-option:hover { background:rgba(74,144,226,.14); }
         .report-filter-multiselect-option input { accent-color:var(--primary,#4a90e2); }
+        .report-more-address-filters { margin-top:.5rem; }
+        .report-more-address-filters > summary {
+            width:max-content;max-width:100%;color:var(--text-muted,#6c757d);cursor:pointer;font-size:.72rem;list-style:none;
+        }
+        .report-more-address-filters > summary::-webkit-details-marker { display:none; }
+        .report-more-address-filters > summary::before {
+            content:'\25B8';display:inline-block;margin-right:.32rem;transition:transform .15s ease;
+        }
+        .report-more-address-filters[open] > summary::before { transform:rotate(90deg); }
+        .report-address-filter-body {
+            display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.5rem;align-items:end;margin-top:.42rem;
+        }
+        @media (max-width: 991.98px) { .report-address-filter-body { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+        @media (max-width: 575.98px) { .report-address-filter-body { grid-template-columns:1fr; } }
         [data-theme="dark"] .report-filter-multiselect .dropdown-menu { background:#1f2937 !important; border-color:#4b5563 !important; color:#f8fafc !important; }
         [data-theme="dark"] .report-filter-multiselect-option { color:#f8fafc !important; }
         [data-theme="dark"] .report-filter-multiselect-search { background:#111827 !important; border-color:#4b5563 !important; color:#f8fafc !important; }
+        [data-theme="dark"] .report-filter-range-group {
+            border-color:rgba(74,144,226,.44);
+            background:rgba(74,144,226,.055);
+        }
+        [data-theme="dark"] .report-filter-stage-group {
+            border-color:rgba(74,144,226,.5);
+            background:rgba(74,144,226,.07);
+        }
     </style>
 </head>
 <body>
@@ -300,15 +356,40 @@
                                     <label class="form-label small fw-bold mb-1">Pharmacy Transport</label>
                                     <select class="form-select form-select-sm" id="prfPharmacyTransportId"><option value="">All Pharmacy Transports</option></select>
                                 </div>
-                                <div>
-                                    <label class="form-label small fw-bold mb-1"><i class="fas fa-calendar me-1"></i>Service From</label>
-                                    <input type="date" class="form-control form-control-sm" id="patientDateFrom">
-                                </div>
-                                <div>
-                                    <label class="form-label small fw-bold mb-1"><i class="fas fa-calendar me-1"></i>Service To</label>
-                                    <input type="date" class="form-control form-control-sm" id="patientDateTo">
+                                <div class="report-filter-range-cell">
+                                    <div class="report-filter-range-group" role="group" aria-label="Patient service date range">
+                                        <div>
+                                            <label class="form-label small fw-bold mb-1"><i class="fas fa-calendar me-1"></i>Service From</label>
+                                            <input type="date" class="form-control form-control-sm" id="patientDateFrom">
+                                        </div>
+                                        <div>
+                                            <label class="form-label small fw-bold mb-1"><i class="fas fa-calendar me-1"></i>Service To</label>
+                                            <input type="date" class="form-control form-control-sm" id="patientDateTo">
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
+                            <details class="report-more-address-filters" id="prAddressDetails">
+                                <summary><i class="fas fa-map-marker-alt me-1"></i>More address filters (City / State / ZIP)</summary>
+                                <div class="report-address-filter-body">
+                                    <div>
+                                        <label class="form-label small fw-bold mb-1">Street / Details</label>
+                                        <input type="text" class="form-control form-control-sm" id="prfAddressLine1" placeholder="Street, apt, building..." data-address-autocomplete="addressLine1" autocomplete="off">
+                                    </div>
+                                    <div>
+                                        <label class="form-label small fw-bold mb-1">City</label>
+                                        <input type="text" class="form-control form-control-sm" id="prfCity" placeholder="City" data-address-autocomplete="city" autocomplete="off">
+                                    </div>
+                                    <div>
+                                        <label class="form-label small fw-bold mb-1">State</label>
+                                        <input type="text" class="form-control form-control-sm" id="prfState" placeholder="State" data-address-autocomplete="state" autocomplete="off">
+                                    </div>
+                                    <div>
+                                        <label class="form-label small fw-bold mb-1">ZIP</label>
+                                        <input type="text" class="form-control form-control-sm" id="prfZipCode" placeholder="ZIP code" data-address-autocomplete="zipCode" autocomplete="off">
+                                    </div>
+                                </div>
+                            </details>
                         </div>
 
                         <!-- ── Pagination bar TOP ── -->
@@ -442,20 +523,20 @@
 
                         <!-- Advanced RX filters -->
                         <div id="rrAdv" style="display:none;border-top:1px solid var(--border-color,#dee2e6);padding-top:10px;margin-top:2px">
-                            <div class="row g-2 align-items-end">
-                                <div class="col-md-2">
+                            <div class="report-filter-grid report-filter-grid-6">
+                                <div>
                                     <label class="form-label small fw-bold mb-1">Patient ID</label>
                                     <input type="text" class="form-control form-control-sm" id="rrfPatientCode" placeholder="e.g. PAT-001" autocomplete="off">
                                 </div>
-                                <div class="col-md-2">
+                                <div>
                                     <label class="form-label small fw-bold mb-1">Pharmacy</label>
                                     <select class="form-select form-select-sm" id="rrfPharmacyId"><option value="">All Pharmacies</option></select>
                                 </div>
-                                <div class="col-md-2">
+                                <div>
                                     <label class="form-label small fw-bold mb-1">Clinic / Location</label>
                                     <select class="form-select form-select-sm" id="rrfClinicId"><option value="">All Clinics</option></select>
                                 </div>
-                                <div class="col-md-2">
+                                <div>
                                     <label class="form-label small fw-bold mb-1">Patient Type</label>
                                     <select class="form-select form-select-sm" id="rrfPatientType">
                                         <option value="">All Patient Types</option>
@@ -463,7 +544,7 @@
                                         <option value="non_company">Non-Company Patients</option>
                                     </select>
                                 </div>
-                                <div class="col-md-2">
+                                <div>
                                     <label class="form-label small fw-bold mb-1">Patient Tags</label>
                                     <input type="hidden" id="rrfPatientTagIds">
                                     <div class="dropdown report-filter-multiselect" id="rrfPatientTagPicker">
@@ -471,43 +552,45 @@
                                         <div class="dropdown-menu"><input class="form-control form-control-sm report-filter-multiselect-search" type="search" placeholder="Type to find patient tag..."><div class="report-filter-multiselect-options"></div></div>
                                     </div>
                                 </div>
-                                <div class="col-md-2">
+                                <div>
                                     <label class="form-label small fw-bold mb-1">Next Action Required</label>
                                     <select class="form-select form-select-sm" id="rrfWorkflowStage"><option value="">All Next Actions</option></select>
                                 </div>
-                                <div class="col-md-2">
-                                    <label class="form-label small fw-bold mb-1">History Includes Action</label>
-                                    <select class="form-select form-select-sm" id="rrfCompletedStage"><option value="">Any Action in History</option></select>
-                                </div>
                             </div>
-                            <div class="row g-2 align-items-end mt-1">
-                                <div class="col-md-2">
-                                    <label class="form-label small fw-bold mb-1"><i class="fas fa-calendar me-1"></i>Service From</label>
-                                    <input type="date" class="form-control form-control-sm" id="rxDateFrom">
+                            <div class="report-filter-grid report-filter-grid-7 mt-2">
+                                <div class="report-filter-range-cell">
+                                    <div class="report-filter-range-group" role="group" aria-label="RX service date range">
+                                        <div>
+                                            <label class="form-label small fw-bold mb-1"><i class="fas fa-calendar me-1"></i>Service From</label>
+                                            <input type="date" class="form-control form-control-sm" id="rxDateFrom">
+                                        </div>
+                                        <div>
+                                            <label class="form-label small fw-bold mb-1"><i class="fas fa-calendar me-1"></i>Service To</label>
+                                            <input type="date" class="form-control form-control-sm" id="rxDateTo">
+                                        </div>
+                                    </div>
                                 </div>
-                                <div class="col-md-2">
-                                    <label class="form-label small fw-bold mb-1"><i class="fas fa-calendar me-1"></i>Service To</label>
-                                    <input type="date" class="form-control form-control-sm" id="rxDateTo">
+                                <div class="report-filter-range-cell">
+                                    <div class="report-filter-range-group" role="group" aria-label="RX arrival date range">
+                                        <div>
+                                            <label class="form-label small fw-bold mb-1">Arrival From</label>
+                                            <input type="date" class="form-control form-control-sm" id="rrfArrivalFrom">
+                                        </div>
+                                        <div>
+                                            <label class="form-label small fw-bold mb-1">Arrival To</label>
+                                            <input type="date" class="form-control form-control-sm" id="rrfArrivalTo">
+                                        </div>
+                                    </div>
                                 </div>
-                                <div class="col-md-2">
-                                    <label class="form-label small fw-bold mb-1">Arrival From</label>
-                                    <input type="date" class="form-control form-control-sm" id="rrfArrivalFrom">
-                                </div>
-                                <div class="col-md-2">
-                                    <label class="form-label small fw-bold mb-1">Arrival To</label>
-                                    <input type="date" class="form-control form-control-sm" id="rrfArrivalTo">
-                                </div>
-                                <div class="col-md-2">
+                                <div>
                                     <label class="form-label small fw-bold mb-1">Patient Transport</label>
                                     <select class="form-select form-select-sm" id="rrfPatientTransportId"><option value="">All Patient Transports</option></select>
                                 </div>
-                                <div class="col-md-2">
+                                <div>
                                     <label class="form-label small fw-bold mb-1">Pharmacy Transport</label>
                                     <select class="form-select form-select-sm" id="rrfPharmacyTransportId"><option value="">All Pharmacy Transports</option></select>
                                 </div>
-                            </div>
-                            <div class="row g-2 align-items-end mt-1">
-                                <div class="col-md-2">
+                                <div>
                                     <label class="form-label small fw-bold mb-1">Warehouse Status</label>
                                     <select class="form-select form-select-sm" id="rrfWarehouseStatus">
                                         <option value="">All Warehouse Statuses</option>
@@ -515,20 +598,44 @@
                                         <option value="not-returned">Not Returned</option>
                                     </select>
                                 </div>
-                                <div class="col-md-2">
-                                    <label class="form-label small fw-bold mb-1">Stage Activity From</label>
-                                    <input type="date" class="form-control form-control-sm" id="rrfStageFrom">
-                                </div>
-                                <div class="col-md-2">
-                                    <label class="form-label small fw-bold mb-1">Stage Activity To</label>
-                                    <input type="date" class="form-control form-control-sm" id="rrfStageTo">
-                                </div>
-                                <div class="col-md-6">
-                                    <div class="small text-muted pb-1">
-                                        <i class="fas fa-info-circle me-1"></i>Stage Activity dates filter recorded completion events. Combine them with History Includes Action; they are independent from Current Stage, Service, and Arrival dates.
+                                <div class="report-filter-stage-cell">
+                                    <div class="report-filter-stage-group" role="group" aria-label="RX history activity filters">
+                                        <div>
+                                            <label class="form-label small fw-bold mb-1">History Includes Action</label>
+                                            <select class="form-select form-select-sm" id="rrfCompletedStage"><option value="">Any Action in History</option></select>
+                                        </div>
+                                        <div>
+                                            <label class="form-label small fw-bold mb-1">Stage Activity From</label>
+                                            <input type="date" class="form-control form-control-sm" id="rrfStageFrom">
+                                        </div>
+                                        <div>
+                                            <label class="form-label small fw-bold mb-1">Stage Activity To</label>
+                                            <input type="date" class="form-control form-control-sm" id="rrfStageTo">
+                                        </div>
                                     </div>
                                 </div>
                             </div>
+                            <details class="report-more-address-filters" id="rrAddressDetails">
+                                <summary><i class="fas fa-map-marker-alt me-1"></i>More address filters (Patient City / State / ZIP)</summary>
+                                <div class="report-address-filter-body">
+                                    <div>
+                                        <label class="form-label small fw-bold mb-1">Street / Details</label>
+                                        <input type="text" class="form-control form-control-sm" id="rrfAddressLine1" placeholder="Street, apt, building..." data-address-autocomplete="addressLine1" autocomplete="off">
+                                    </div>
+                                    <div>
+                                        <label class="form-label small fw-bold mb-1">City</label>
+                                        <input type="text" class="form-control form-control-sm" id="rrfCity" placeholder="City" data-address-autocomplete="city" autocomplete="off">
+                                    </div>
+                                    <div>
+                                        <label class="form-label small fw-bold mb-1">State</label>
+                                        <input type="text" class="form-control form-control-sm" id="rrfState" placeholder="State" data-address-autocomplete="state" autocomplete="off">
+                                    </div>
+                                    <div>
+                                        <label class="form-label small fw-bold mb-1">ZIP</label>
+                                        <input type="text" class="form-control form-control-sm" id="rrfZipCode" placeholder="ZIP code" data-address-autocomplete="zipCode" autocomplete="off">
+                                    </div>
+                                </div>
+                            </details>
                         </div>
 
                         <!-- ── Pagination bar TOP ── -->
@@ -987,6 +1094,7 @@
 <script src="/js/base.js?v=<%= encodeURIComponent(String(locals.appBuild || 'dev')) %>"></script>
 <script src="/js/app.js"></script>
 <script src="/js/help.js"></script>
+<script src="/js/address-autocomplete.js?v=<%= encodeURIComponent(String(locals.appBuild || 'dev')) %>"></script>
 <script src="/js/reports.js?v=<%= encodeURIComponent(String(locals.appBuild || 'dev')) %>"></script>
 </body>
 </html>

@@ -1,18 +1,11 @@
-RX Tracker NEXT 4.0.0-next.26
+RX Tracker NEXT 4.0.0-next.76
 ============================
 
-Operational Reports and Test-Copy Recovery Release
+Structured Address and Patient Tags Cleanup Release
 
-RX Tracker NEXT began with the tested RX Tracker 3.3.1 web interface and
-feature set. NEXT replaces database creation,
-sequelize.sync(), startup ALTER TABLE statements, startup backfills, reference
-seeding, and default-administrator creation with explicit rx-db commands.
-RX Softphone 0.6.0 source is preserved in NEXT and its Windows ZIP is published
-as a separate checksummed workstation asset.
-
-This server package is an approved routine update for an existing NEXT
-installation. Project Control must preserve the installed production .env and
-verify the official release checksums before replacing application files.
+This server package is an approved routine update for an existing RX Tracker
+NEXT installation. Project Control must preserve the installed production .env
+and verify the official release checksums before replacing application files.
 
 Package contents
 ----------------
@@ -20,21 +13,25 @@ Package contents
 - server.exe: web application; validates schema and migration state at startup
 - rx-db.exe: explicit create, migrate, verify, adopt, restore, sanitize, and
   comparison lifecycle tool
-- docs/database/: operations, rehearsal, sanitization, cutover, and rollback
-  runbooks
-- scripts/Invoke-NextProduction.ps1: guarded Windows preflight, rehearsal,
-  local test, cutover, and rollback orchestrator
 - PROJECT-CONTROL.bat / scripts/Invoke-ReleaseUpdate.ps1: routine official-ZIP
   updates with database backup, business-data fingerprints, .env preservation,
   health validation, and automatic paired recovery
 - scripts/Invoke-TestCopyRestore.ps1: guided option 25 for validating and
-  restoring a production dump into an isolated testing database, configuring
-  the restricted runtime role, and optionally activating it with automatic
-  service-configuration recovery
-- INSTALL-PROJECT-CONTROL.bat: Project Control bootstrap or repair helper
+  restoring a production dump into an isolated testing database
+- docs/database/: operations, rehearsal, sanitization, cutover, test-copy
+  restore, compiled update, and rollback runbooks
 
-The separate RxSoftphone-0.6.0-win-x64.zip is installed only on managed calling
-workstations. It is not embedded in this server ZIP.
+Release highlights
+------------------
+
+- Adds City: None for patients without a usable address.
+- Adds structured patient address fields: Address / Street, City, State, ZIP.
+- Keeps the original full Address field intact for reference and compatibility.
+- Adds address filters and autocomplete to Patients, RX Records, Patient
+  Reports, RX Action Reports, imports, and complete-history exports.
+- Cleans structured City/State/ZIP values using ZIP-confirmed references.
+- Keeps Patient Tags as manual/business markers once assigned; the structured
+  City filter is address-based and is not forced to match manual City tags.
 
 First verification
 ------------------
@@ -42,10 +39,10 @@ First verification
 1. Preserve/create .env beside both executables. Never take .env from the ZIP.
 2. Run: rx-db.exe status
 3. Run: rx-db.exe verify
-4. Require READY, 37 applied migrations, 0 pending migrations, and a verified
+4. Require READY, 58 applied migrations, 0 pending migrations, and a verified
    checksum ledger.
 5. Run: server.exe --v
-6. Require version 4.0.0-next.26.
+6. Require version 4.0.0-next.76.
 
 Windows production workflow
 ---------------------------
@@ -58,10 +55,6 @@ it. See docs/database/COMPILED_RELEASE_UPDATES.md. Do not repeat the one-time
 On a testing server, option 25 can restore a verified custom-format dump into
 a separately named test-copy database. It never restores over the currently
 configured database. See docs/database/TEST_COPY_RESTORE.md.
-
-Fresh databases and imported 3.3.1 copies have different procedures. Follow
-docs/database/NEXT_DATABASE_OPERATIONS.md exactly. Never adopt, restore, or
-sanitize the live production database.
 
 Rollback
 --------

@@ -5,23 +5,48 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ---
 
-## [Unreleased]
+## [4.0.0-next.76] - 2026-09-05
 
 ### Added
 
 - Added the seeded `City: None` Patient Tag for patients without a usable
   address.
+- Added structured patient address fields for Address / Street, City, State,
+  and ZIP while preserving the legacy full Address field.
+- Added Patient Address filters to Patients, RX Records, Patient Reports, RX
+  Action Reports, and complete-history exports.
+- Added stored-data autocomplete for patient Address / Street, City, State,
+  and ZIP searches across Patients, RX Records, and Reports.
 
 ### Changed
 
 - Updated Patient Tag auto-assignment so blank or placeholder patient
   addresses infer `City: None`; usable non-Tampa addresses continue to default
   to `City: Miami`.
+- Updated patient create/edit and CSV import to save split address fields and
+  compose the legacy Address value for compatibility.
+- Updated address parsing to compare Florida ZIP codes against known city/state
+  references, remove street fragments from City/State, normalize `FLORIDA` to
+  `FL`, and keep State autocomplete limited to valid state codes.
+- Added ZIP-confirmed cleanup aliases for reviewed city misspellings such as
+  `CULTLER BAY`, `FOURT LAUDELARDALE`, `LAKEWORTH`, and embedded Weston text.
+- Added cleanup for broken street/city fragments confirmed by ZIP, including
+  split Homestead text and Lakeland ZIP `33805`.
 
 ### Database
 
 - Added an audited migration to create `City: None` and move blank-address
   patients from the previous automatic Miami assignment to None.
+- Added an audited migration to backfill structured patient address columns
+  from existing full-address text when the city/state/ZIP pattern is clear.
+- Added a follow-up audited backfill for known Florida city + ZIP address
+  endings where the source address omitted the `FL` state token.
+- Added audited cleanup migrations to move street/unit fragments out of City
+  and State using ZIP-confirmed Florida city/state references.
+- Added an audited follow-up normalization migration for reviewed city alias
+  corrections without changing the original full Address reference.
+- Added an audited follow-up normalization migration for remaining reviewed
+  street/city fragments without changing the original full Address reference.
 
 ## [4.0.0-next.75] - 2026-09-04
 

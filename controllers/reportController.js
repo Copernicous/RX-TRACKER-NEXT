@@ -678,6 +678,10 @@ function patientReportFilters(query, replacements, totalSteps) {
     const firstName = cleanString(query.firstName).toLowerCase();
     const lastName = cleanString(query.lastName).toLowerCase();
     const phone = cleanString(query.phone).toLowerCase();
+    const addressLine1 = cleanString(query.addressLine1 || query.address).toLowerCase();
+    const city = cleanString(query.city).toLowerCase();
+    const state = cleanString(query.state).toLowerCase();
+    const zipCode = cleanString(query.zipCode || query.zip).toLowerCase();
     const dob = isDateOnly(query.dob) ? query.dob : '';
     const transport = cleanString(query.transport).toLowerCase();
     const clinic = cleanString(query.clinic).toLowerCase();
@@ -715,6 +719,22 @@ function patientReportFilters(query, replacements, totalSteps) {
     if (phone) {
         replacements.phone = `%${phone}%`;
         where.push('LOWER(COALESCE(p."phone", \'\')) LIKE :phone');
+    }
+    if (addressLine1) {
+        replacements.addressLine1 = `%${addressLine1}%`;
+        where.push('LOWER(COALESCE(p."addressLine1", p."address", \'\')) LIKE :addressLine1');
+    }
+    if (city) {
+        replacements.city = `%${city}%`;
+        where.push('LOWER(COALESCE(p."city", \'\')) LIKE :city');
+    }
+    if (state) {
+        replacements.state = `%${state}%`;
+        where.push('LOWER(COALESCE(p."state", \'\')) LIKE :state');
+    }
+    if (zipCode) {
+        replacements.zipCode = `%${zipCode}%`;
+        where.push('LOWER(COALESCE(p."zipCode", \'\')) LIKE :zipCode');
     }
     if (dob) {
         replacements.dob = dob;
@@ -851,6 +871,10 @@ function patientReportSortSql(sort) {
         dob: 'p."dob"',
         phone: 'LOWER(COALESCE(p."phone", \'\'))',
         address: 'LOWER(COALESCE(p."address", \'\'))',
+        addressLine1: 'LOWER(COALESCE(p."addressLine1", \'\'))',
+        city: 'LOWER(COALESCE(p."city", \'\'))',
+        state: 'LOWER(COALESCE(p."state", \'\'))',
+        zipCode: 'LOWER(COALESCE(p."zipCode", \'\'))',
         serviceDate: 'p."serviceDate"',
         isActive: 'p."isActive"',
         isNonCompanyPatient: 'p."isNonCompanyPatient"',
@@ -888,6 +912,10 @@ async function getPatientRxDetailRows(query, patientIdsOverride) {
             p.dob,
             p.phone,
             p.address,
+            p."addressLine1",
+            p.city,
+            p.state,
+            p."zipCode",
             p."serviceDate" AS "patientServiceDate",
             p."isActive" AS "patientIsActive",
             p."isNonCompanyPatient",
@@ -1633,6 +1661,10 @@ function rxReportFilters(query, replacements, totalSteps) {
     const firstName = cleanString(query.firstName).toLowerCase();
     const lastName = cleanString(query.lastName).toLowerCase();
     const patientCode = cleanString(query.patientCode).toLowerCase();
+    const addressLine1 = cleanString(query.addressLine1 || query.patientAddressLine1 || query.address).toLowerCase();
+    const city = cleanString(query.city || query.patientCity).toLowerCase();
+    const state = cleanString(query.state || query.patientState).toLowerCase();
+    const zipCode = cleanString(query.zipCode || query.patientZipCode || query.zip).toLowerCase();
     const pharmacy = cleanString(query.pharmacy).toLowerCase();
     const workflowStatus = cleanString(query.workflowStatus || query.progress);
     const currentWorkflowStage = cleanString(query.currentWorkflowStage);
@@ -1675,6 +1707,22 @@ function rxReportFilters(query, replacements, totalSteps) {
     if (patientCode) {
         replacements.patientCode = `%${patientCode}%`;
         where.push('LOWER(COALESCE(p."patientCode", \'\')) LIKE :patientCode');
+    }
+    if (addressLine1) {
+        replacements.addressLine1 = `%${addressLine1}%`;
+        where.push('LOWER(COALESCE(p."addressLine1", p."address", \'\')) LIKE :addressLine1');
+    }
+    if (city) {
+        replacements.city = `%${city}%`;
+        where.push('LOWER(COALESCE(p."city", \'\')) LIKE :city');
+    }
+    if (state) {
+        replacements.state = `%${state}%`;
+        where.push('LOWER(COALESCE(p."state", \'\')) LIKE :state');
+    }
+    if (zipCode) {
+        replacements.zipCode = `%${zipCode}%`;
+        where.push('LOWER(COALESCE(p."zipCode", \'\')) LIKE :zipCode');
     }
     if (pharmacy) {
         replacements.pharmacy = `%${pharmacy}%`;

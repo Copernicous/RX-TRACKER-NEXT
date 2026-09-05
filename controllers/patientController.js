@@ -3,6 +3,10 @@ const { Op, literal } = require('sequelize');
 const { parseDate } = require('../utils/dateUtils');
 const { isServiceDateOverrideEnabled, getServiceWindowDays } = require('../utils/globalSettings');
 const {
+    hasUsableAddress,
+    normalizeAddressPayload
+} = require('../utils/patientAddress');
+const {
     evaluateServiceWindow,
     getEligibilityCutoffIso,
     getCallCenterCutoffIso
@@ -124,11 +128,6 @@ function cleanString(value) {
 
 function cleanLower(value) {
     return cleanString(value).toLowerCase();
-}
-
-function hasUsablePatientAddress(value) {
-    const clean = cleanLower(value).replace(/\s+/g, ' ');
-    return Boolean(clean) && !['n/a', 'na', 'none', 'no address', 'unknown', 'null', '-', '--'].includes(clean);
 }
 
 function isPresent(value) {
@@ -265,6 +264,10 @@ function buildPatientDatabaseWhere(query, totalWorkflowSteps) {
     textContains('lastName', query.lastName);
     textContains('phone', query.phone);
     textContains('patientCode', query.patientCode);
+    textContains('addressLine1', query.addressLine1 || query.address);
+    textContains('city', query.city);
+    textContains('state', query.state);
+    textContains('zipCode', query.zipCode || query.zip);
 
     const dob = cleanString(query.dob);
     if (dob) clauses.push({ dob });
@@ -479,8 +482,11 @@ async function resolvePatientTagIds(rawValue, options) {
             raw: true
         });
         const address = cleanLower(options.address);
+        const city = cleanLower(options.city);
         let inferredCity = 'none';
-        if (hasUsablePatientAddress(address)) {
+        if (city) {
+            inferredCity = city === 'tampa' ? 'tampa' : 'miami';
+        } else if (hasUsableAddress(address)) {
             inferredCity = /\btampa\b/.test(address) ? 'tampa' : 'miami';
         }
         const inferredCityTag = cityTags.find(tag => String(tag.name || '').trim().toLowerCase() === inferredCity);
@@ -629,6 +635,7 @@ exports.create = async (req, res) => {
         let { patientCode, dob, serviceDate, patientTagIds, ...otherData } = req.body;
         otherData.firstName = toUpperName(otherData.firstName);
         otherData.lastName = toUpperName(otherData.lastName);
+        Object.assign(otherData, normalizeAddressPayload(otherData));
 
         if (!otherData.firstName || !otherData.lastName) {
             return res.status(400).json({ error: 'First Name and Last Name are required.' });
@@ -671,7 +678,7 @@ exports.create = async (req, res) => {
         }
 
         const data = await db.Patient.create({ ...otherData, patientCode });
-        await setPatientTags(data, patientTagIds, { useDefaults: patientTagIds === undefined, address: data.address });
+        await setPatientTags(data, patientTagIds, { useDefaults: patientTagIds === undefined, address: data.address, city: data.city });
         await syncPatientServiceDateCycles(data, {
             userId: req.user?.id || null,
             source: 'Patient Create',
@@ -736,6 +743,9 @@ async function updatePatientLegacy(req, res) {
             if (req.body.serviceDate && !norm) return res.status(400).json({ error: 'Service Date is not valid. Use MM/DD/YYYY format.' });
             req.body.serviceDate = norm || null;
         }
+        if (['address', 'addressLine1', 'city', 'state', 'zipCode'].some(field => req.body.hasOwnProperty(field))) {
+            Object.assign(req.body, normalizeAddressPayload(req.body));
+        }
 
         const patientPerm = await getRequestPermission(req, 'patients');
         const canEditPatient = !!(patientPerm.visible && patientPerm.canEdit);
@@ -792,7 +802,7 @@ async function updatePatientLegacy(req, res) {
         // Use instance-level set()+save() instead of class-level update() to reliably
         // persist all fields including foreign key columns (pharmacyId, clinicId, etc.)
         const allowedFields = [
-            'firstName', 'lastName', 'dob', 'address', 'phone',
+            'firstName', 'lastName', 'dob', 'address', 'addressLine1', 'city', 'state', 'zipCode', 'phone',
             'serviceDate', 'notes', 'isActive', 'patientCode',
             'patientTransportCompanyId', 'pharmacyTransportCompanyId',
             'clinicId', 'pharmacyId', 'isDeleted'
@@ -881,6 +891,9 @@ async function lockedUpdatePatient(req, res) {
             if (payload.serviceDate && !norm) return res.status(400).json({ error: 'Service Date is not valid. Use MM/DD/YYYY format.' });
             payload.serviceDate = norm || null;
         }
+        if (['address', 'addressLine1', 'city', 'state', 'zipCode'].some(field => payload.hasOwnProperty(field))) {
+            Object.assign(payload, normalizeAddressPayload(payload));
+        }
 
         const patientPerm = await getRequestPermission(req, 'patients');
         const canEditPatient = !!(patientPerm.visible && patientPerm.canEdit);
@@ -944,7 +957,7 @@ async function lockedUpdatePatient(req, res) {
             }
 
             const allowedFields = [
-                'firstName', 'lastName', 'dob', 'address', 'phone',
+                'firstName', 'lastName', 'dob', 'address', 'addressLine1', 'city', 'state', 'zipCode', 'phone',
                 'serviceDate', 'notes', 'isActive', 'patientCode',
                 'patientTransportCompanyId', 'pharmacyTransportCompanyId',
                 'clinicId', 'pharmacyId', 'isDeleted', 'isNonCompanyPatient'

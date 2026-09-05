@@ -80,6 +80,20 @@
         .patient-filter-multiselect-option { display:flex; align-items:center; gap:.45rem; padding:.25rem .1rem; font-size:.82rem; color:var(--text); cursor:pointer; }
         .patient-filter-multiselect-option:hover { background:rgba(74,144,226,.14); }
         .patient-filter-multiselect-option input { accent-color:var(--primary); }
+        .patient-more-address-filters { margin-top:.5rem; }
+        .patient-more-address-filters > summary {
+            width:max-content;max-width:100%;color:var(--text-muted,#6c757d);cursor:pointer;font-size:.72rem;list-style:none;
+        }
+        .patient-more-address-filters > summary::-webkit-details-marker { display:none; }
+        .patient-more-address-filters > summary::before {
+            content:'\25B8';display:inline-block;margin-right:.32rem;transition:transform .15s ease;
+        }
+        .patient-more-address-filters[open] > summary::before { transform:rotate(90deg); }
+        .patient-address-filter-body {
+            display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.5rem;align-items:end;margin-top:.42rem;
+        }
+        @media (max-width: 991.98px) { .patient-address-filter-body { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+        @media (max-width: 575.98px) { .patient-address-filter-body { grid-template-columns:1fr; } }
         [data-theme="dark"] .patient-filter-multiselect .dropdown-menu { background:#1f2937 !important; border-color:#4b5563 !important; }
         [data-theme="dark"] .patient-filter-multiselect-option { color:#f8fafc !important; }
         [data-theme="dark"] .patient-filter-multiselect-search { background:#111827 !important; border-color:#4b5563 !important; color:#f8fafc !important; }
@@ -238,6 +252,27 @@
                             </div>
                         </div>
                     </div>
+                    <details class="patient-more-address-filters" id="patientAddressFilterDetails">
+                        <summary><i class="fas fa-map-marker-alt me-1"></i>More address filters (City / State / ZIP)</summary>
+                        <div class="patient-address-filter-body">
+                            <div>
+                                <label class="form-label small fw-bold">Street / Details</label>
+                                <input type="text" class="form-control form-control-sm" id="srchAddressLine1" placeholder="Street, apt, building..." data-address-autocomplete="addressLine1" oninput="liveFilter()">
+                            </div>
+                            <div>
+                                <label class="form-label small fw-bold">City</label>
+                                <input type="text" class="form-control form-control-sm" id="srchCity" placeholder="City" data-address-autocomplete="city" oninput="liveFilter()">
+                            </div>
+                            <div>
+                                <label class="form-label small fw-bold">State</label>
+                                <input type="text" class="form-control form-control-sm" id="srchState" placeholder="State" maxlength="32" data-address-autocomplete="state" oninput="liveFilter()">
+                            </div>
+                            <div>
+                                <label class="form-label small fw-bold">ZIP</label>
+                                <input type="text" class="form-control form-control-sm" id="srchZipCode" placeholder="ZIP code" data-address-autocomplete="zipCode" oninput="liveFilter()">
+                            </div>
+                        </div>
+                    </details>
                     <!-- Active filter chips -->
                     <div id="activeFilterChips" class="d-flex flex-wrap gap-1 mt-2" style="min-height:0"></div>
                 </div>
@@ -347,9 +382,22 @@
                             <small class="text-muted mt-1 d-block"><i class="fas fa-info-circle me-1"></i>This date starts the <%= serviceWindowDays %>-day window and auto-fills new RX records</small>
                         </div>
 
-                        <div class="col-12">
-                            <label class="form-label">Address</label>
-                            <input type="text" class="form-control" id="pAddress">
+                        <div class="col-md-6">
+                            <label class="form-label">Address / Street</label>
+                            <input type="text" class="form-control" id="pAddressLine1" data-address-autocomplete="addressLine1">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">City</label>
+                            <input type="text" class="form-control" id="pCity" data-address-autocomplete="city">
+                        </div>
+                        <div class="col-md-1">
+                            <label class="form-label">State</label>
+                            <input type="text" class="form-control" id="pState" maxlength="32" data-address-autocomplete="state">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">ZIP</label>
+                            <input type="text" class="form-control" id="pZipCode" data-address-autocomplete="zipCode">
+                            <input type="hidden" id="pAddress">
                         </div>
                         <div class="col-md-6">
                             <label class="form-label"><i class="fas fa-ambulance me-1 text-info"></i>Patient Transport &mdash; Contact Person</label>
@@ -599,6 +647,7 @@ window.__RX_AUTH_PERMS = <%- JSON.stringify(locals.userPerms || null).replace(/<
 <script src="/js/app.js?v=<%= encodeURIComponent(String(locals.appBuild || 'dev')) %>"></script>
 <script src="/js/help.js"></script>
 <script src="/js/documents.js"></script>
+<script src="/js/address-autocomplete.js?v=<%= encodeURIComponent(String(locals.appBuild || 'dev')) %>"></script>
 
 <!-- patients.js moved to external file for FortiGate SSL portal compatibility -->
 <script src="/js/patients.js?v=<%= encodeURIComponent(String(locals.appBuild || 'dev')) %>"></script>

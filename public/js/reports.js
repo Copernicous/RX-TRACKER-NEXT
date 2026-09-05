@@ -497,6 +497,10 @@
         setReportParam(params, 'firstName', getVal('prfFirstName'));
         setReportParam(params, 'lastName', getVal('prfLastName'));
         setReportParam(params, 'phone', getVal('prfPhone'));
+        setReportParam(params, 'addressLine1', getVal('prfAddressLine1'));
+        setReportParam(params, 'city', getVal('prfCity'));
+        setReportParam(params, 'state', getVal('prfState'));
+        setReportParam(params, 'zipCode', getVal('prfZipCode'));
         setReportParam(params, 'dob', document.getElementById('prfDob')?.value || '');
         setReportParam(params, 'patientType', document.getElementById('prfPatientType')?.value || '');
         setReportParam(params, 'patientTagIds', selectedReportValues('prfPatientTagIds'));
@@ -528,6 +532,10 @@
         setReportParam(params, 'firstName', getVal('rrfFirstName'));
         setReportParam(params, 'lastName', getVal('rrfLastName'));
         setReportParam(params, 'patientCode', getVal('rrfPatientCode'));
+        setReportParam(params, 'addressLine1', getVal('rrfAddressLine1'));
+        setReportParam(params, 'city', getVal('rrfCity'));
+        setReportParam(params, 'state', getVal('rrfState'));
+        setReportParam(params, 'zipCode', getVal('rrfZipCode'));
         setReportParam(params, 'pharmacyId', document.getElementById('rrfPharmacyId')?.value || '');
         setReportParam(params, 'clinicId', document.getElementById('rrfClinicId')?.value || '');
         setReportParam(params, 'patientType', document.getElementById('rrfPatientType')?.value || '');
@@ -894,7 +902,7 @@
     function clearPatientFilters() {
         ['prfPatientCode','prfFirstName','prfLastName','prfPhone','prfDob','patientDateFrom','patientDateTo',
          'prfPatientType','prfEligibility','prfMissingInfo','prfRxStatus','prfClinicId','prfPharmacyId',
-         'prfPatientTransportId','prfPharmacyTransportId','prfPatientTagIds']
+         'prfPatientTransportId','prfPharmacyTransportId','prfPatientTagIds','prfAddressLine1','prfCity','prfState','prfZipCode']
             .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
         populatePatientTagFilter('prfPatientTagIds', 'prfPatientTagPicker');
         document.getElementById('patientStatusFilter').value = '';
@@ -1021,7 +1029,7 @@
     function clearRxFilters() {
         ['rrfRxId','rrfFirstName','rrfLastName','rrfPatientCode','rxDateFrom','rxDateTo','rrfArrivalFrom','rrfArrivalTo',
          'rrfPharmacyId','rrfClinicId','rrfPatientType','rrfCurrentWorkflowStage','rrfWorkflowStage','rrfCompletedStage','rrfStageFrom','rrfStageTo',
-         'rrfPatientTransportId','rrfPharmacyTransportId','rrfWarehouseStatus','rrfPatientTagIds']
+         'rrfPatientTransportId','rrfPharmacyTransportId','rrfWarehouseStatus','rrfPatientTagIds','rrfAddressLine1','rrfCity','rrfState','rrfZipCode']
             .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
         populatePatientTagFilter('rrfPatientTagIds', 'rrfPatientTagPicker');
         document.getElementById('rrfProgress').value = '';
@@ -1434,7 +1442,7 @@
 
     function patientReportHeaders() {
         return [
-            'Patient ID','First Name','Last Name','DOB','Phone','Address','Service Date','Status','Patient Type',
+            'Patient ID','First Name','Last Name','DOB','Phone','Address','Address / Street','City','State','ZIP','Service Date','Status','Patient Type',
             'Patient Tags','Clinic','Default Pharmacy','Patient Transport','Pharmacy Transport'
         ];
     }
@@ -1443,6 +1451,7 @@
         return (data || []).map(function(p) {
             return [
                 p.patientCode || '', p.firstName || '', p.lastName || '', p.dob || '', p.phone || '', p.address || '',
+                p.addressLine1 || '', p.city || '', p.state || '', p.zipCode || '',
                 p.serviceDate || '', p.isActive ? 'Active' : 'Inactive',
                 p.isNonCompanyPatient ? 'Non-Company' : 'Company',
                 patientTagsText(p.PatientTags),
@@ -1492,7 +1501,7 @@
 
     function patientRxDetailHeaders() {
         return [
-            'Patient Database ID','Patient ID','First Name','Last Name','DOB','Phone','Address','Patient Service Date',
+            'Patient Database ID','Patient ID','First Name','Last Name','DOB','Phone','Address','Address / Street','City','State','ZIP','Patient Service Date',
             'Patient Status','Patient Type','Patient Tags','Patient Profile Notes','Patient Created At','Patient Updated At',
             'Clinic Database ID','Clinic','Clinic Address','Clinic Phone',
             'Default Pharmacy Database ID','Default Pharmacy','Default Pharmacy Address','Default Pharmacy Phone',
@@ -1520,7 +1529,7 @@
                 : (completed > 0 ? 'In Progress' : 'Not Started'));
             return [
                 row.patientDatabaseId || '', row.patientCode || '', row.firstName || '', row.lastName || '', row.dob || '',
-                row.phone || '', row.address || '', row.patientServiceDate || '',
+                row.phone || '', row.address || '', row.addressLine1 || '', row.city || '', row.state || '', row.zipCode || '', row.patientServiceDate || '',
                 row.patientIsActive ? 'Active' : 'Inactive',
                 row.isNonCompanyPatient ? 'Non-Company' : 'Company',
                 row.patientTags || '',
@@ -1563,7 +1572,7 @@
 
     function rxReportHeaders() {
         return [
-            'RX #','Patient','Patient ID','Patient Type','Patient Tags','Clinic','Pharmacy','Arrival Date','Service Date',
+            'RX #','Patient','Patient ID','Patient Address','Patient Address / Street','Patient City','Patient State','Patient ZIP','Patient Type','Patient Tags','Clinic','Pharmacy','Arrival Date','Service Date',
             'Patient Transport','Pharmacy Transport','Warehouse Status','Warehouse Return Date','Warehouse Return Note',
             'Completed Steps','Current Stage','Current Stage Date','Current Stage Completed By',
             ...workflowStepHeaders(),
@@ -1581,6 +1590,11 @@
                 'RX-' + r.id,
                 r.Patient ? `${r.Patient.firstName || ''} ${r.Patient.lastName || ''}`.trim() : '',
                 r.Patient ? r.Patient.patientCode || '' : '',
+                r.Patient ? r.Patient.address || '' : '',
+                r.Patient ? r.Patient.addressLine1 || '' : '',
+                r.Patient ? r.Patient.city || '' : '',
+                r.Patient ? r.Patient.state || '' : '',
+                r.Patient ? r.Patient.zipCode || '' : '',
                 r.Patient && r.Patient.isNonCompanyPatient ? 'Non-Company' : 'Company',
                 patientTagsText(r.Patient && r.Patient.PatientTags),
                 r.Patient && r.Patient.Clinic ? r.Patient.Clinic.name || '' : '',

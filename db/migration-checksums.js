@@ -51,5 +51,16 @@ module.exports = Object.freeze({
   '20260904120000-create-patient-tags.js': '0e1f5864281e311b56e02912ebf69e61fa17e60bca78bdc5bac0a35352b11c0c',
   '20260904130000-seed-city-patient-tags.js': '6ddd1d2e466a206c6f676f4ebb4cc48e87819d86d27b7715df2acc83dda2f97c',
   '20260904131500-normalize-city-patient-tags.js': 'd0cdc2455a4d488e280bfab70f7ac3c99dce1a4a45d299bff82713d6140fa5b5',
-  '20260905120000-add-city-none-patient-tag.js': '7ace130dfc63a4c08d955c6202aaea864888ad0f8f78b556efe76afaec967ef1'
+  '20260905120000-add-city-none-patient-tag.js': '7ace130dfc63a4c08d955c6202aaea864888ad0f8f78b556efe76afaec967ef1',
+  '20260905130000-add-structured-patient-address.js': '7dcdc946edd7e8e281e1ced5064d54df1b7e0db97ed32705c7ea316da2ba797a',
+  '20260905133000-backfill-known-florida-city-zip-addresses.js': '99eb0521da8941d0accd82ed2751cc8faf2cd4074da80779ae43e1bc4d568c83',
+  '20260905140000-clean-structured-address-city-prefixes.js': '2bdc81474bbd66913df19769477f723d8db3686f0c14243fd5fa505dcac7e054',
+  '20260905141000-clean-address-line-city-suffixes.js': 'd85d2a04bebb169ec269356196ebe466a42bbce9933b86378bf7fc1fed539a12',
+  '20260905142000-normalize-addresses-with-zip-reference.js': '7a1b1c03cb5f99268193277bc55750a7b43586ff0a6e821b8cf067fd81cd053a',
+  '20260905143000-split-city-suffixes-without-zip.js': '7eb5c621535c53021e5990259ee628b5e58c78227619b1a4a5a52787f9857617',
+  '20260905144000-repair-zip-referenced-city-state-fragments.js': '7a1b1c03cb5f99268193277bc55750a7b43586ff0a6e821b8cf067fd81cd053a',
+  '20260905145000-repair-remaining-state-fragments-with-zip-reference.js': '7a1b1c03cb5f99268193277bc55750a7b43586ff0a6e821b8cf067fd81cd053a',
+  '20260905150000-normalize-structured-address-reference-fields.js': 'a99a7089ff855e8bf19c068f07741615153c4667a9509906f89c220d9831845c',
+  '20260905151000-normalize-structured-address-reference-aliases.js': 'a99a7089ff855e8bf19c068f07741615153c4667a9509906f89c220d9831845c',
+  '20260905152000-normalize-structured-address-street-city-fragments.js': 'a99a7089ff855e8bf19c068f07741615153c4667a9509906f89c220d9831845c'
 });

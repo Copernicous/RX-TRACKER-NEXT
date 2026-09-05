@@ -1,6 +1,6 @@
 # RX Tracker NEXT project handoff
 
-Last updated: 2026-09-04
+Last updated: 2026-09-05
 
 This file is the sanitized continuity record for a future administrator or
 Codex session. It intentionally contains no credentials, `.env` values,
@@ -69,18 +69,24 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
   Control option **8** then **15**; option **16** remains the paired
   application/database rollback path if the production update fails.
 
-- **Release candidate v4.0.0-next.76:** Prepared after testing the downloaded
-  `production-backup.dump` in isolated database
-  `patient_rx_city_tags_copy_20260905`. The patch adds seeded `City: None`
-  for patients without a usable address and changes new/imported patient
-  default tag inference so blank or placeholder addresses use None instead of
-  Miami. On the restored copy, the new migration verified at 47 applied
-  migrations with zero pending and a verified checksum ledger. Active
-  city-tag counts after migration were Miami 2520, Tampa 563, and None 421;
-  all 421 active blank-address patients were assigned `City: None`, and no
-  active patient had multiple City tags. Production must not reuse the
-  published `v4.0.0-next.75` tag for this correction; publish as a new
-  immutable patch release if approved.
+- **Official release candidate v4.0.0-next.76 ready for publication:** The
+  final fresh user-supplied dump `production-backup-new.dump` was restored only
+  into isolated database `patient_rx_fresh_copy_20260905`, migrated through 58,
+  and verified with zero pending migrations and a verified checksum ledger. The
+  copy had 3549 total patients, 3548 active patients, 3544 not-deleted
+  patients, and 5 deleted patients. Structured-address cleanup populated 3126
+  Address / Street values, 2856 City values, 2856 State values, and 2830 ZIP
+  values while preserving the legacy full `address` value. The reviewed city
+  cleanup scan found `suspiciousCount=0` for street-like or unknown City values,
+  including the previously reviewed Fort Lauderdale, Lakeland, Lake Worth,
+  Homestead, Cutler Bay, and Weston examples. Patient Tags remain
+  manual/business markers once assigned; the structured City filter is
+  address-based and is not forced to match manual City tags. No proxy, VPN,
+  FortiGate, cookie, `rxUrl()`, production `.env`, or service bootstrap
+  behavior was changed. Production installation must use Project Control option
+  **8** then **15** from the official checksummed GitHub release; option **16**
+  remains the paired application/database rollback path if the production
+  update fails.
 
 - **Unreleased candidate — Pharmacy Transport duplicate prevention:** Manual
   add/edit/restore and CSV import now compare trimmed, collapsed-whitespace,

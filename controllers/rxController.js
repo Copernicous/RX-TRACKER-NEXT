@@ -335,6 +335,10 @@ function buildRxWhere(query) {
     const clinicIds = parseSelectedIds(query.clinicIds);
     const patientType = cleanString(query.patientType);
     const patientId = cleanString(query.patientId);
+    const patientAddressLine1 = cleanString(query.patientAddressLine1 || query.addressLine1 || query.address);
+    const patientCity = cleanString(query.patientCity || query.city);
+    const patientState = cleanString(query.patientState || query.state);
+    const patientZipCode = cleanString(query.patientZipCode || query.zipCode || query.zip);
     const patientTransportId = cleanString(query.patientTransportId);
     const pharmacyTransportId = cleanString(query.pharmacyTransportId);
     const patientTagIds = parseSelectedIds(query.patientTagIds || query.patientTagId);
@@ -346,6 +350,10 @@ function buildRxWhere(query) {
     if (pharmacyIds.length) where.pharmacyId = pharmacyIds.length === 1 ? pharmacyIds[0] : { [Op.in]: pharmacyIds };
     if (clinicIds.length) where['$Patient.clinicId$'] = { [Op.in]: clinicIds };
     if (/^\d+$/.test(patientId)) where.patientId = parseInt(patientId, 10);
+    if (patientAddressLine1) where['$Patient.addressLine1$'] = { [Op.iLike]: `%${patientAddressLine1}%` };
+    if (patientCity) where['$Patient.city$'] = { [Op.iLike]: `%${patientCity}%` };
+    if (patientState) where['$Patient.state$'] = { [Op.iLike]: `%${patientState}%` };
+    if (patientZipCode) where['$Patient.zipCode$'] = { [Op.iLike]: `%${patientZipCode}%` };
     if (/^\d+$/.test(patientTransportId)) where.patientTransportCompanyId = parseInt(patientTransportId, 10);
     if (/^\d+$/.test(pharmacyTransportId)) where.pharmacyTransportCompanyId = parseInt(pharmacyTransportId, 10);
     if (cleanString(query.patientTagIds || query.patientTagId)) {
@@ -387,6 +395,10 @@ function addRxPageFilters(query, replacements, totalSteps) {
     const patient = cleanString(query.patient).toLowerCase();
     const patientCode = cleanString(query.patientCode).toLowerCase();
     const patientId = cleanString(query.patientId);
+    const patientAddressLine1 = cleanString(query.patientAddressLine1 || query.addressLine1 || query.address).toLowerCase();
+    const patientCity = cleanString(query.patientCity || query.city).toLowerCase();
+    const patientState = cleanString(query.patientState || query.state).toLowerCase();
+    const patientZipCode = cleanString(query.patientZipCode || query.zipCode || query.zip).toLowerCase();
     const pharmacyIds = parseSelectedIds(query.pharmacyIds || query.pharmacyId);
     const clinicIds = parseSelectedIds(query.clinicIds);
     const patientTransportId = cleanString(query.patientTransportId);
@@ -480,6 +492,22 @@ function addRxPageFilters(query, replacements, totalSteps) {
     if (patientCode) {
         replacements.patientCodeLike = `%${patientCode}%`;
         whereSql.push('LOWER(COALESCE(p."patientCode", \'\')) LIKE :patientCodeLike');
+    }
+    if (patientAddressLine1) {
+        replacements.patientAddressLine1Like = `%${patientAddressLine1}%`;
+        whereSql.push('LOWER(COALESCE(p."addressLine1", p."address", \'\')) LIKE :patientAddressLine1Like');
+    }
+    if (patientCity) {
+        replacements.patientCityLike = `%${patientCity}%`;
+        whereSql.push('LOWER(COALESCE(p."city", \'\')) LIKE :patientCityLike');
+    }
+    if (patientState) {
+        replacements.patientStateLike = `%${patientState}%`;
+        whereSql.push('LOWER(COALESCE(p."state", \'\')) LIKE :patientStateLike');
+    }
+    if (patientZipCode) {
+        replacements.patientZipCodeLike = `%${patientZipCode}%`;
+        whereSql.push('LOWER(COALESCE(p."zipCode", \'\')) LIKE :patientZipCodeLike');
     }
 
     if (workflowStatus.length) {
