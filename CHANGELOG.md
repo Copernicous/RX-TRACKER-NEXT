@@ -7,6 +7,22 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+### Added
+
+- Added the seeded `City: None` Patient Tag for patients without a usable
+  address.
+
+### Changed
+
+- Updated Patient Tag auto-assignment so blank or placeholder patient
+  addresses infer `City: None`; usable non-Tampa addresses continue to default
+  to `City: Miami`.
+
+### Database
+
+- Added an audited migration to create `City: None` and move blank-address
+  patients from the previous automatic Miami assignment to None.
+
 ## [4.0.0-next.75] - 2026-09-04
 
 ### Added

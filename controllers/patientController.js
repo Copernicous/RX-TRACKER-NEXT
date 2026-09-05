@@ -126,6 +126,11 @@ function cleanLower(value) {
     return cleanString(value).toLowerCase();
 }
 
+function hasUsablePatientAddress(value) {
+    const clean = cleanLower(value).replace(/\s+/g, ' ');
+    return Boolean(clean) && !['n/a', 'na', 'none', 'no address', 'unknown', 'null', '-', '--'].includes(clean);
+}
+
 function isPresent(value) {
     return value !== null && value !== undefined && String(value) !== '';
 }
@@ -468,17 +473,16 @@ async function resolvePatientTagIds(rawValue, options) {
             attributes: ['id', 'name', 'groupName'],
             where: {
                 isActive: true,
-                groupName: { [Op.iLike]: 'City' },
-                [Op.or]: [
-                    { name: { [Op.iLike]: 'Miami' } },
-                    { name: { [Op.iLike]: 'Tampa' } }
-                ]
+                groupName: { [Op.iLike]: 'City' }
             },
             transaction: options.transaction,
             raw: true
         });
-        const address = String(options.address || '').toLowerCase();
-        const inferredCity = /\btampa\b/.test(address) ? 'tampa' : 'miami';
+        const address = cleanLower(options.address);
+        let inferredCity = 'none';
+        if (hasUsablePatientAddress(address)) {
+            inferredCity = /\btampa\b/.test(address) ? 'tampa' : 'miami';
+        }
         const inferredCityTag = cityTags.find(tag => String(tag.name || '').trim().toLowerCase() === inferredCity);
         const ids = defaultTags
             .filter(tag => String(tag.groupName || '').trim().toLowerCase() !== 'city')

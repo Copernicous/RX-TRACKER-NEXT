@@ -10,7 +10,7 @@ frozen 3.3.1 repository, its production database, or the RX Softphone source.
 
 ## Current status
 
-Version: `4.0.0-next.75` official release
+Version: `4.0.0-next.76` release candidate
 
 | Area | NEXT behavior |
 |---|---|
@@ -53,6 +53,12 @@ bootstrap, VPN access, ports, cookies, or proxy-aware URL handling. Main
 PostgreSQL lifecycle CI, CodeQL, and the tagged compiled-release workflow
 passed on 2026-09-04; official ZIPs, embedded executables, and checksums were
 verified before production handoff.
+
+Release candidate `next.76` adds `City: None` for patients without a usable
+address. On a restored production dump copy, 421 active blank-address patients
+move from the previous automatic Miami assignment to `City: None`; active
+city-tag counts become Miami 2520, Tampa 563, and None 421. Usable non-Tampa
+addresses still default to Miami unless another city tag rule is added later.
 
 The same release adds review state to Backoffice **RX Profile Sync**.
 Exact Pharmacy and Transport differences can be marked reviewed without being

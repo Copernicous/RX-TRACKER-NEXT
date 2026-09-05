@@ -69,6 +69,19 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
   Control option **8** then **15**; option **16** remains the paired
   application/database rollback path if the production update fails.
 
+- **Release candidate v4.0.0-next.76:** Prepared after testing the downloaded
+  `production-backup.dump` in isolated database
+  `patient_rx_city_tags_copy_20260905`. The patch adds seeded `City: None`
+  for patients without a usable address and changes new/imported patient
+  default tag inference so blank or placeholder addresses use None instead of
+  Miami. On the restored copy, the new migration verified at 47 applied
+  migrations with zero pending and a verified checksum ledger. Active
+  city-tag counts after migration were Miami 2520, Tampa 563, and None 421;
+  all 421 active blank-address patients were assigned `City: None`, and no
+  active patient had multiple City tags. Production must not reuse the
+  published `v4.0.0-next.75` tag for this correction; publish as a new
+  immutable patch release if approved.
+
 - **Unreleased candidate — Pharmacy Transport duplicate prevention:** Manual
   add/edit/restore and CSV import now compare trimmed, collapsed-whitespace,
   case-insensitive company names against both active and disabled records. A

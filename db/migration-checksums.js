@@ -50,5 +50,6 @@ module.exports = Object.freeze({
   '20260821120000-add-rx-workflow-tracking-notes.js': '5f941687c7776ed6c02d2843366adea18b1d07cdb1a0e529848c49294404e93a',
   '20260904120000-create-patient-tags.js': '0e1f5864281e311b56e02912ebf69e61fa17e60bca78bdc5bac0a35352b11c0c',
   '20260904130000-seed-city-patient-tags.js': '6ddd1d2e466a206c6f676f4ebb4cc48e87819d86d27b7715df2acc83dda2f97c',
-  '20260904131500-normalize-city-patient-tags.js': 'd0cdc2455a4d488e280bfab70f7ac3c99dce1a4a45d299bff82713d6140fa5b5'
+  '20260904131500-normalize-city-patient-tags.js': 'd0cdc2455a4d488e280bfab70f7ac3c99dce1a4a45d299bff82713d6140fa5b5',
+  '20260905120000-add-city-none-patient-tag.js': '7ace130dfc63a4c08d955c6202aaea864888ad0f8f78b556efe76afaec967ef1'
 });
