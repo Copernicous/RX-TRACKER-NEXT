@@ -16,7 +16,10 @@ const {
     findCompanyNameConflict,
     duplicateCompanyMessage
 } = require('../utils/pharmacyTransportIdentity');
-const { normalizeAddressPayload } = require('../utils/patientAddress');
+const {
+    hasUsableAddress,
+    normalizeAddressPayload
+} = require('../utils/patientAddress');
 
 const WORKFLOW_HEADERS = [
     'rx received warehouse',
@@ -191,6 +194,126 @@ function toUpperName(value) {
     return String(value || '').trim().toUpperCase();
 }
 
+function cleanTagText(value) {
+    return String(value || '').trim();
+}
+
+function tagDisplayName(tag) {
+    if (!tag) return '';
+    const groupName = cleanTagText(tag.groupName);
+    const name = cleanTagText(tag.name);
+    return groupName ? `${groupName}: ${name}` : name;
+}
+
+function splitImportList(value) {
+    return String(value || '')
+        .split(/[;,|]/)
+        .map(item => item.trim())
+        .filter(Boolean);
+}
+
+function tagKey(value) {
+    return String(value || '')
+        .trim()
+        .toLowerCase()
+        .normalize('NFKD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/\s+/g, ' ');
+}
+
+function buildPatientTagLookup(tags) {
+    const byId = new Map();
+    const byLabel = new Map();
+    const byName = new Map();
+    const add = (map, key, tag) => {
+        const clean = tagKey(key);
+        if (!clean) return;
+        const list = map.get(clean) || [];
+        list.push(tag);
+        map.set(clean, list);
+    };
+    tags.forEach(tag => {
+        byId.set(String(tag.id), tag);
+        add(byLabel, tagDisplayName(tag), tag);
+        add(byName, tag.name, tag);
+    });
+    return { byId, byLabel, byName };
+}
+
+function selectTagMatch(matches, options) {
+    const activeMatches = (matches || []).filter(tag => tag && tag.isActive !== false);
+    if (!activeMatches.length) return null;
+    const preferredGroups = (options.preferredGroups || []).map(tagKey);
+    if (preferredGroups.length) {
+        const preferred = activeMatches.filter(tag => preferredGroups.includes(tagKey(tag.groupName)));
+        if (preferred.length === 1) return preferred[0];
+        if (preferred.length > 1) return { ambiguous: true, matches: preferred };
+    }
+    if (activeMatches.length === 1) return activeMatches[0];
+    return { ambiguous: true, matches: activeMatches };
+}
+
+function resolveTagToken(token, lookup, options) {
+    const clean = cleanTagText(token);
+    if (!clean) return null;
+    if (/^\d+$/.test(clean) && lookup.byId.has(clean)) return lookup.byId.get(clean);
+    const labelMatch = selectTagMatch(lookup.byLabel.get(tagKey(clean)), options);
+    if (labelMatch) return labelMatch;
+    return selectTagMatch(lookup.byName.get(tagKey(clean)), options);
+}
+
+function hasImportValue(value) {
+    return value !== undefined && value !== null && String(value).trim() !== '';
+}
+
+function inferDefaultPatientTagIds(tags, address, city) {
+    const defaultTags = tags.filter(tag => tag.isActive !== false && tag.isDefault === true);
+    const regionalTags = tags.filter(tag => {
+        const group = tagKey(tag.groupName);
+        return tag.isActive !== false && (group === 'region' || group === 'city');
+    });
+    const lowerAddress = String(address || '').trim().toLowerCase();
+    const lowerCity = String(city || '').trim().toLowerCase();
+    let inferred = 'none';
+    if (lowerCity) {
+        inferred = lowerCity === 'tampa' ? 'tampa' : 'miami';
+    } else if (hasUsableAddress(lowerAddress)) {
+        inferred = /\btampa\b/.test(lowerAddress) ? 'tampa' : 'miami';
+    }
+    const inferredTag = regionalTags.find(tag => tagKey(tag.name) === inferred);
+    const ids = defaultTags
+        .filter(tag => !['region', 'city'].includes(tagKey(tag.groupName)))
+        .map(tag => Number(tag.id));
+    if (inferredTag) ids.push(Number(inferredTag.id));
+    return Array.from(new Set(ids));
+}
+
+function resolveImportedPatientTagIds(row, tags, lookup, addErr) {
+    const rawIdList = hasImportValue(row.patientTagIds) ? splitImportList(row.patientTagIds) : [];
+    const rawTagList = hasImportValue(row.patientTags) ? splitImportList(row.patientTags) : [];
+    const rawRegionList = hasImportValue(row.region) ? splitImportList(row.region) : [];
+    const explicit = rawIdList.length || rawTagList.length || rawRegionList.length;
+    if (!explicit) return inferDefaultPatientTagIds(tags, row.address, row.city);
+
+    const ids = [];
+    const resolveOne = (token, options, label) => {
+        const match = resolveTagToken(token, lookup, options);
+        if (!match) {
+            addErr(`${label} "${token}" does not match an active Patient Tag.`);
+            return;
+        }
+        if (match.ambiguous) {
+            addErr(`${label} "${token}" matches multiple Patient Tags. Use "Group: Name" or the tag ID.`);
+            return;
+        }
+        ids.push(Number(match.id));
+    };
+    rawIdList.forEach(token => resolveOne(token, {}, 'Patient Tag ID'));
+    rawTagList.forEach(token => resolveOne(token, {}, 'Patient Tag'));
+    rawRegionList.forEach(token => resolveOne(token, { preferredGroups: ['Region', 'City'] }, 'Region'));
+    return Array.from(new Set(ids));
+}
+
 function extractWorkflowTracking(row, actionByNormalizedName, actionBySequence, addErr) {
     const entries = [];
     const seenActionIds = new Set();
@@ -253,9 +376,9 @@ exports.getTemplate = (req, res) => {
         switch (dataset) {
             case 'patients':
             csvContent =
-                'patientCode,firstName,lastName,dob,phone,address,addressLine1,city,state,zipCode,clinic,serviceDate,patientTransportCompany,pharmacyTransportCompany,notes,isActive,' +
+                'patientCode,firstName,lastName,dob,phone,address,addressLine1,city,state,zipCode,region,patientTags,clinic,serviceDate,patientTransportCompany,pharmacyTransportCompany,notes,isActive,' +
                 'RX Received Warehouse,On Route with Driver,Delivered,Mark as Received to print log,Signed by Pharmacy,Archived on local and case close\n' +
-                'PAT-00001,JOHN,DOE,05/15/1985,123-456-7890,"123 Main St, Miami FL 33101",123 Main St,Miami,FL,33101,"Main Clinic",06/01/2026,Health Transit,Pharmacy Express,Allergic to penicillin,true,06/01/2026,06/02/2026,06/03/2026,,,,';
+                'PAT-00001,JOHN,DOE,05/15/1985,123-456-7890,"123 Main St, Miami FL 33101",123 Main St,Miami,FL,33101,Miami,,"Main Clinic",06/01/2026,Health Transit,Pharmacy Express,Allergic to penicillin,true,06/01/2026,06/02/2026,06/03/2026,,,,';
             break;
         case 'clinics':
             csvContent = 'name,address,phone,contactPerson,notes,isActive\n' +
@@ -317,6 +440,12 @@ exports.importDataset = async (req, res) => {
                     where: { isActive: true },
                     order: [['sequenceNumber', 'ASC']]
                 });
+                const patientTags = await db.PatientTag.findAll({
+                    where: { isActive: true },
+                    order: [['groupName', 'ASC'], ['name', 'ASC'], ['id', 'ASC']],
+                    raw: true
+                });
+                const patientTagLookup = buildPatientTagLookup(patientTags);
                 const actionByNormalizedName = new Map();
                 const actionBySequence = new Map();
                 workflowActions.forEach((action) => {
@@ -439,6 +568,13 @@ exports.importDataset = async (req, res) => {
                     }
 
                     const normalizedAddress = normalizeAddressPayload({ address, addressLine1, city, state, zipCode });
+                    const patientTagIds = resolveImportedPatientTagIds({
+                        patientTagIds: row.patientTagIds,
+                        patientTags: row.patientTags,
+                        region: row.region,
+                        address: normalizedAddress.address,
+                        city: normalizedAddress.city
+                    }, patientTags, patientTagLookup, addErr);
                     validRows.push({
                         patientCode,
                         firstName: firstNameCaps,
@@ -456,6 +592,7 @@ exports.importDataset = async (req, res) => {
                         clinicId,
                         notes: notes ? notes.trim() : null,
                         isActive: isActive ? isActive.trim().toLowerCase() === 'true' : true,
+                        patientTagIds,
                         workflowTracking
                     });
                 }
@@ -466,13 +603,16 @@ exports.importDataset = async (req, res) => {
                     const tx = await db.sequelize.transaction();
                     try {
                         const createdPatients = await db.Patient.bulkCreate(validRows.map((rowPayload) => {
-                            const { workflowTracking, ...patientPayload } = rowPayload;
+                            const { workflowTracking, patientTagIds, ...patientPayload } = rowPayload;
                             return patientPayload;
                         }), { transaction: tx });
 
                         for (let i = 0; i < createdPatients.length; i++) {
                             const rowPayload = validRows[i];
                             const patient = createdPatients[i];
+                            if (typeof patient.setPatientTags === 'function') {
+                                await patient.setPatientTags(rowPayload.patientTagIds || [], { transaction: tx });
+                            }
                             const steps = rowPayload.workflowTracking || [];
                             if (steps.length) {
                                 const rx = await db.RXRecord.create({

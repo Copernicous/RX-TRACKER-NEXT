@@ -8,6 +8,18 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
 
+- **Patch release v4.0.0-next.78 in progress:** Patient CSV import now accepts
+  the structured address columns `addressLine1`, `city`, `state`, and
+  `zipCode`, plus `region`, `patientTags`, and `patientTagIds`. `region`
+  resolves to an active Patient Tag in either the Region or City group, so the
+  workflow keeps working if the City group is renamed to Region. The importer
+  assigns existing tags only; it does not create tag definitions. The Import
+  screen and template list the new columns, and the client preview parser now
+  handles quoted full addresses containing commas. New-patient default tag
+  inference also recognizes either City or Region as the regional tag group.
+  There is no database migration and no proxy, VPN, FortiGate, cookie, `.env`,
+  port, `rxUrl()`, or service bootstrap change.
+
 - **Patch release v4.0.0-next.77 in progress:** A test-server update from
   `v4.0.0-next.75` to `v4.0.0-next.76` correctly verified schema and checksum
   state at 58 migrations, then stopped with

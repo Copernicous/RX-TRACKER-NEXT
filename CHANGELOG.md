@@ -5,6 +5,26 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ---
 
+## [4.0.0-next.78] - 2026-09-05
+
+### Added
+
+- Added patient CSV import support for `region`, `patientTags`, and
+  `patientTagIds` columns. Region values resolve to active Patient Tags in the
+  Region or City group, so the import still works if the City group is renamed
+  to Region.
+- Added a focused patient import regression covering structured address fields
+  plus Region and Patient Tags assignment.
+
+### Changed
+
+- Updated patient import templates and the Import screen column list to show
+  Address / Street, City, State, ZIP, Region, Patient Tags, and Patient Tag IDs.
+- Improved the Import screen CSV preview parser so quoted full addresses with
+  commas stay aligned during preview.
+- Updated new-patient default tag inference to recognize either City or Region
+  as the regional tag group.
+
 ## [4.0.0-next.77] - 2026-09-05
 
 ### Fixed

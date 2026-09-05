@@ -21,6 +21,9 @@
                 { name: 'city',        req: false, format: 'City' },
                 { name: 'state',       req: false, format: 'State' },
                 { name: 'zipCode',     req: false, format: 'ZIP code' },
+                { name: 'region',      req: false, format: 'Existing Region/City Patient Tag, e.g. Miami or Region: Tampa' },
+                { name: 'patientTags', req: false, format: 'Existing tags separated by ; or |' },
+                { name: 'patientTagIds', req: false, format: 'Existing tag IDs separated by ; or |' },
                 { name: 'clinic',      req: false, format: 'Clinic Name or ID' },
                 { name: 'serviceDate', req: false, format: 'MM/DD/YYYY (e.g. 01/01/2026)' },
                 { name: 'patientTransportCompany',  req: false, format: 'Contact, Company Name, or ID' },
@@ -216,14 +219,37 @@
     }
 
     // ---- CSV Parser ----
+    function parseCSVLine(line) {
+        const values = [];
+        let current = '';
+        let inQuotes = false;
+        for (let i = 0; i < line.length; i++) {
+            const ch = line[i];
+            const next = line[i + 1];
+            if (ch === '"' && inQuotes && next === '"') {
+                current += '"';
+                i++;
+            } else if (ch === '"') {
+                inQuotes = !inQuotes;
+            } else if (ch === ',' && !inQuotes) {
+                values.push(current);
+                current = '';
+            } else {
+                current += ch;
+            }
+        }
+        values.push(current);
+        return values.map(value => value.trim());
+    }
+
     function parseCSV(text) {
         const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n').filter(l => l.trim());
         if (lines.length < 2) return { headers: [], rows: [] };
-        const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+        const headers = parseCSVLine(lines[0]);
         const rows = lines.slice(1).map((line, i) => {
-            const values = line.match(/(".*?"|[^,]+|(?<=,)(?=,)|(?<=,)$|^(?=,))/g) || line.split(',');
+            const values = parseCSVLine(line);
             const obj = { _rowNum: i + 2 };
-            headers.forEach((h, idx) => { obj[h] = (values[idx] || '').trim().replace(/^"|"$/g, ''); });
+            headers.forEach((h, idx) => { obj[h] = (values[idx] || '').trim(); });
             return obj;
         });
         return { headers, rows };

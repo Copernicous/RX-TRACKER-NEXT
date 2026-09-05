@@ -476,7 +476,10 @@ async function resolvePatientTagIds(rawValue, options) {
             attributes: ['id', 'name', 'groupName'],
             where: {
                 isActive: true,
-                groupName: { [Op.iLike]: 'City' }
+                [Op.or]: [
+                    { groupName: { [Op.iLike]: 'City' } },
+                    { groupName: { [Op.iLike]: 'Region' } }
+                ]
             },
             transaction: options.transaction,
             raw: true
@@ -491,7 +494,7 @@ async function resolvePatientTagIds(rawValue, options) {
         }
         const inferredCityTag = cityTags.find(tag => String(tag.name || '').trim().toLowerCase() === inferredCity);
         const ids = defaultTags
-            .filter(tag => String(tag.groupName || '').trim().toLowerCase() !== 'city')
+            .filter(tag => !['city', 'region'].includes(String(tag.groupName || '').trim().toLowerCase()))
             .map(tag => Number(tag.id));
         if (inferredCityTag) ids.push(Number(inferredCityTag.id));
         return Array.from(new Set(ids));

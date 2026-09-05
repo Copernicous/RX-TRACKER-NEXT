@@ -10,7 +10,7 @@ frozen 3.3.1 repository, its production database, or the RX Softphone source.
 
 ## Current status
 
-Version: `4.0.0-next.77` release
+Version: `4.0.0-next.78` release
 
 | Area | NEXT behavior |
 |---|---|
@@ -73,6 +73,12 @@ rollout. It allows approved system/reference Patient Tag seeds such as
 `City: None` to pass the business-data validation while still protecting
 Patient Tag assignments, and it fixes automatic application rollback so release
 file entries are restored as individual paths.
+
+Official release `next.78` updates patient CSV import for the structured
+address and regional tag workflow. Imports now accept Address / Street, City,
+State, ZIP, Region, Patient Tags, and Patient Tag IDs, with Region resolving to
+the active Region or City Patient Tag group. CSV preview also handles quoted
+full addresses with commas.
 
 The same release adds review state to Backoffice **RX Profile Sync**.
 Exact Pharmacy and Transport differences can be marked reviewed without being

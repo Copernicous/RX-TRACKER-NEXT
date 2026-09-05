@@ -32,6 +32,12 @@ const PATIENT_IMPORT_HEADERS = [
     'dob',
     'phone',
     'address',
+    'addressLine1',
+    'city',
+    'state',
+    'zipCode',
+    'region',
+    'patientTags',
     'clinic',
     'serviceDate',
     'patientTransportCompany',
@@ -218,6 +224,7 @@ async function cleanupTestRows() {
         }
 
         await db.DocumentAttachment.destroy({ where: { patientId: { [Op.in]: patientIds } }, transaction });
+        await db.PatientTagAssignment.destroy({ where: { patientId: { [Op.in]: patientIds } }, transaction });
         await db.PatientServiceDateHistory.destroy({ where: { patientId: { [Op.in]: patientIds } }, transaction });
         await db.PatientServiceDateCycle.destroy({ where: { patientId: { [Op.in]: patientIds } }, transaction });
         await db.Patient.destroy({ where: { id: { [Op.in]: patientIds } }, transaction });
@@ -289,6 +296,12 @@ function validRows() {
             lastName: 'ValidInfer',
             dob: '01/05/1980',
             serviceDate: '',
+            address: '123 Import Guard Ave, Tampa FL 33619',
+            addressLine1: '123 Import Guard Ave',
+            city: 'Tampa',
+            state: 'FL',
+            zipCode: '33619',
+            region: 'Tampa',
             notes: 'Blank service date should infer from earliest workflow date.',
             isActive: 'true',
             'RX Received Warehouse': '06/01/2026',
@@ -300,6 +313,12 @@ function validRows() {
             lastName: 'PatientOnly',
             dob: '01/06/1980',
             serviceDate: '06/05/2026',
+            address: '456 Import Guard St, Miami FL 33125',
+            addressLine1: '456 Import Guard St',
+            city: 'Miami',
+            state: 'FL',
+            zipCode: '33125',
+            patientTags: 'Miami',
             notes: 'Patient-only import should create a service-date cycle but no RX.',
             isActive: 'true'
         }
@@ -333,10 +352,15 @@ async function assertValidImportLinksCycles(token) {
     assert(result.errorCount === 0, 'Valid import should have zero errors.');
 
     const inferredPatient = await db.Patient.findOne({
-        where: { patientCode: TEST_PREFIX + 'VALID-INFER' }
+        where: { patientCode: TEST_PREFIX + 'VALID-INFER' },
+        include: [{ model: db.PatientTag, through: { attributes: [] }, required: false }]
     });
     assert(inferredPatient, 'Valid inferred-service-date patient was not created.');
     assert(dateOnly(inferredPatient.serviceDate) === '2026-06-01', 'Blank service date was not inferred from first workflow date.');
+    assert(inferredPatient.city === 'Tampa', 'Structured City was not imported.');
+    assert(inferredPatient.state === 'FL', 'Structured State was not imported.');
+    assert(inferredPatient.zipCode === '33619', 'Structured ZIP was not imported.');
+    assert((inferredPatient.PatientTags || []).some(tag => String(tag.name).toLowerCase() === 'tampa'), 'Region import did not assign the Tampa tag.');
 
     const inferredRx = await db.RXRecord.findOne({
         where: { patientId: inferredPatient.id }
@@ -354,10 +378,12 @@ async function assertValidImportLinksCycles(token) {
     assert(trackingCount === 2, 'Imported RX should have two workflow tracking rows.');
 
     const patientOnly = await db.Patient.findOne({
-        where: { patientCode: TEST_PREFIX + 'VALID-PATIENT-ONLY' }
+        where: { patientCode: TEST_PREFIX + 'VALID-PATIENT-ONLY' },
+        include: [{ model: db.PatientTag, through: { attributes: [] }, required: false }]
     });
     assert(patientOnly, 'Patient-only import row was not created.');
     assert(dateOnly(patientOnly.serviceDate) === '2026-06-05', 'Patient-only service date was not stored.');
+    assert((patientOnly.PatientTags || []).some(tag => String(tag.name).toLowerCase() === 'miami'), 'Patient Tags import did not assign the Miami tag.');
 
     const patientOnlyRxCount = await db.RXRecord.count({ where: { patientId: patientOnly.id } });
     assert(patientOnlyRxCount === 0, 'Patient-only import should not create an RX record when workflow columns are blank.');
