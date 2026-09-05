@@ -5,6 +5,23 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ---
 
+## [4.0.0-next.77] - 2026-09-05
+
+### Fixed
+
+- Fixed the compiled release updater so approved system/reference Patient Tag
+  seeds do not fail the business-data fingerprint check; Patient Tag
+  assignments remain protected.
+- Fixed automatic application rollback to normalize release-file entries as
+  individual paths instead of allowing PowerShell to collapse the package file
+  list into one invalid path.
+
+### Validation
+
+- Added updater self-test coverage for Patient Tag seed changes, protected
+  Patient Tag assignment changes, and malformed combined release manifest
+  entries.
+
 ## [4.0.0-next.76] - 2026-09-05
 
 ### Added

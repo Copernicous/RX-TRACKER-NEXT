@@ -390,7 +390,23 @@ function Assert-BusinessDataUnchanged([object]$Before, [object]$After) {
     if ($differences.Count) {
         Fail "Business-data validation failed: $($differences -join '; '). Database rollback is required."
     }
-    Write-Ok 'Patient, RX, workflow, user, call, and reference-data fingerprints are unchanged.'
+    Write-Ok 'Patient, RX, workflow, user, call, and patient-tag assignment fingerprints are unchanged.'
+}
+
+function Normalize-ReleaseEntries([object]$Entries) {
+    $normalized = New-Object System.Collections.Generic.List[string]
+    foreach ($entry in @($Entries)) {
+        if ($null -eq $entry) { continue }
+        $text = [string]$entry
+        if ([string]::IsNullOrWhiteSpace($text)) { continue }
+        if ($text -match "`r|`n") { Fail 'Release entry list contains an invalid newline.' }
+        if ($text -match '\s+(server\.exe|rx-db\.exe|PROJECT-CONTROL\.bat|package\.json|README\.md|CHANGELOG\.md)(\s|$)') {
+            Fail "Release entry list contains a combined file list: $text"
+        }
+        $normalized.Add($text)
+    }
+    if ($normalized.Count -eq 0) { Fail 'Release entry list is empty.' }
+    return [string[]]$normalized.ToArray()
 }
 
 function Find-PgBin {
@@ -528,6 +544,7 @@ function Wait-ForHealth([string]$ExpectedVersion, [int]$TimeoutSeconds = 45) {
 }
 
 function Backup-ApplicationFiles([string[]]$Entries, [string]$Folder) {
+    $Entries = Normalize-ReleaseEntries $Entries
     $filesRoot = Join-Path $Folder 'files'
     New-Item -ItemType Directory -Path $filesRoot -Force | Out-Null
     $manifest = New-Object System.Collections.Generic.List[object]
@@ -549,6 +566,7 @@ function Backup-ApplicationFiles([string[]]$Entries, [string]$Folder) {
 }
 
 function Install-ApplicationFiles([string]$SourceRoot, [string[]]$Entries) {
+    $Entries = Normalize-ReleaseEntries $Entries
     $ordered = @($Entries | Where-Object { $_ -notin @('server.exe', 'rx-db.exe') }) + @('rx-db.exe', 'server.exe')
     foreach ($entry in ($ordered | Select-Object -Unique)) {
         $relative = $entry.Replace('/', '\')
@@ -567,6 +585,9 @@ function Restore-ApplicationFiles([string]$BackupFolder, [string]$ManifestPath) 
     foreach ($item in $manifest) {
         $relative = ([string]$item.Path).Replace('/', '\')
         $destination = Assert-PathInside (Join-Path $script:AppPath $relative) $script:AppPath 'Application rollback target'
+        if ($relative -match '\s+(server\.exe|rx-db\.exe|PROJECT-CONTROL\.bat|package\.json|README\.md|CHANGELOG\.md)(\s|$)') {
+            Fail "Application rollback manifest entry is not a single release file: $relative"
+        }
         if ($item.Existed -eq $true) {
             $source = Assert-PathInside (Join-Path $filesRoot $relative) $filesRoot 'Application rollback source'
             New-Item -ItemType Directory -Path (Split-Path $destination -Parent) -Force | Out-Null
@@ -643,7 +664,7 @@ function Invoke-Update {
         $backup = New-DatabaseBackup $maintenanceConfig "before-v$($release.Version)"
         $appBackupFolder = Join-Path $script:ReleaseBackupsPath ("$(Get-Date -Format 'yyyyMMdd-HHmmss')-v$previousVersion-before-v$($release.Version)")
         New-Item -ItemType Directory -Path $appBackupFolder -Force | Out-Null
-        $manifestPath = Backup-ApplicationFiles $release.Entries $appBackupFolder
+        $manifestPath = Backup-ApplicationFiles -Entries (Normalize-ReleaseEntries $release.Entries) -Folder $appBackupFolder
         $targetDbExe = Join-Path $release.Staging 'rx-db.exe'
         $beforeFingerprint = Get-BusinessFingerprint $targetDbExe $maintenanceConfig
         [IO.File]::WriteAllText((Join-Path $appBackupFolder 'business-before.json'),
@@ -665,7 +686,7 @@ function Invoke-Update {
             ($afterFingerprint | ConvertTo-Json -Depth 12), (New-Object Text.UTF8Encoding($false)))
         Assert-BusinessDataUnchanged $beforeFingerprint $afterFingerprint
 
-        Install-ApplicationFiles $release.Staging $release.Entries; $filesInstalled = $true
+        Install-ApplicationFiles -SourceRoot $release.Staging -Entries (Normalize-ReleaseEntries $release.Entries); $filesInstalled = $true
         $envHashBefore = (Get-FileHash -LiteralPath (Join-Path $appBackupFolder 'protected.env') -Algorithm SHA256).Hash
         $envHashAfter = (Get-FileHash -LiteralPath $envPath -Algorithm SHA256).Hash
         if ($envHashBefore -ne $envHashAfter) { Fail 'Production .env changed during the update.' }
@@ -683,7 +704,7 @@ function Invoke-Update {
                 $running = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
                 if ($running -and $running.Status -ne 'Stopped') { Stop-Service -Name $ServiceName -Force; $running.WaitForStatus('Stopped', [TimeSpan]::FromSeconds(30)) }
                 if ($migrationAttempted -and $backup) { Restore-DatabaseBackup $maintenanceConfig $backup.Path $backup.Hash }
-                if ($manifestPath) { Restore-ApplicationFiles $appBackupFolder $manifestPath }
+                if ($manifestPath) { Restore-ApplicationFiles -BackupFolder $appBackupFolder -ManifestPath $manifestPath }
                 Start-ManagedService
                 if ($previousVersion) { Wait-ForHealth $previousVersion | Out-Null }
                 Save-State @{ status = 'failed_recovered'; failedAt = (Get-Date).ToString('o'); failure = $failure }
@@ -723,10 +744,10 @@ function Invoke-Rollback {
         $entries = @($previousManifest | ForEach-Object { [string]$_.Path })
         $currentFilesBackup = Join-Path $script:ReleaseBackupsPath ("$(Get-Date -Format 'yyyyMMdd-HHmmss')-rollback-safety-v$currentVersion")
         New-Item -ItemType Directory -Path $currentFilesBackup -Force | Out-Null
-        $currentManifest = Backup-ApplicationFiles $entries $currentFilesBackup
+        $currentManifest = Backup-ApplicationFiles -Entries $entries -Folder $currentFilesBackup
 
         Restore-DatabaseBackup $maintenanceConfig ([string]$state.databaseBackup) ([string]$state.databaseBackupHash)
-        Restore-ApplicationFiles ([string]$state.applicationBackup) ([string]$state.filesManifest)
+        Restore-ApplicationFiles -BackupFolder ([string]$state.applicationBackup) -ManifestPath ([string]$state.filesManifest)
         Start-ManagedService
         Wait-ForHealth ([string]$state.previousVersion) | Out-Null
         Save-State @{
@@ -743,11 +764,24 @@ function Invoke-SelfTest {
     if ((Compare-SemVer '4.0.0-next.5' '4.0.0') -ge 0) { Fail 'Stable version comparison failed.' }
     if ((Compare-SemVer '4.0.1' '4.0.0') -le 0) { Fail 'Patch version comparison failed.' }
     $before = [pscustomobject]@{
-        tableCounts = [pscustomobject]@{ Patients = 10; RXRecords = 6 }
+        tableCounts = [pscustomobject]@{ Patients = 10; RXRecords = 6; PatientTagAssignments = 4 }
         workflowActions = @([pscustomobject]@{ id = 1; name = 'Configured'; isActive = $true })
     }
     $same = $before | ConvertTo-Json -Depth 8 | ConvertFrom-Json
     Assert-BusinessDataUnchanged $before $same
+    $tagSeedChange = [pscustomobject]@{
+        tableCounts = [pscustomobject]@{ Patients = 10; RXRecords = 6; PatientTags = 3; PatientTagAssignments = 4 }
+        workflowActions = $same.workflowActions
+    }
+    Assert-BusinessDataUnchanged $before $tagSeedChange
+    try {
+        $changedAssignments = $before | ConvertTo-Json -Depth 8 | ConvertFrom-Json
+        $changedAssignments.tableCounts.PatientTagAssignments = 5
+        Assert-BusinessDataUnchanged $before $changedAssignments
+        Fail 'Patient tag assignment fingerprint change was not rejected.'
+    } catch {
+        if ($_.Exception.Message -notmatch 'Business-data validation failed') { throw }
+    }
     try {
         $changed = $before | ConvertTo-Json -Depth 8 | ConvertFrom-Json
         $changed.workflowActions[0].name = 'Unexpected default'
@@ -758,6 +792,22 @@ function Invoke-SelfTest {
     }
     $expected = 'C:\RX-Tracker\RX-APP-NEXT\server.exe'
     if ((Select-FirstNativeValue @($expected, '', ([string][char]0))) -ne $expected) { Fail 'NSSM parser self-test failed.' }
+    $releaseEntries = Normalize-ReleaseEntries @('server.exe', 'rx-db.exe', 'scripts/project-control.ps1')
+    if ($releaseEntries.Count -ne 3 -or $releaseEntries[2] -ne 'scripts/project-control.ps1') {
+        Fail 'Release entry normalization self-test failed.'
+    }
+    try {
+        Normalize-ReleaseEntries @("server.exe rx-db.exe package.json") | Out-Null
+        Fail 'Combined release entry self-test failed.'
+    } catch {
+        if ($_.Exception.Message -notmatch 'combined file list') { throw }
+    }
+    try {
+        Normalize-ReleaseEntries @("server.exe`nrx-db.exe") | Out-Null
+        Fail 'Newline release entry self-test failed.'
+    } catch {
+        if ($_.Exception.Message -notmatch 'invalid newline') { throw }
+    }
     $oldMaintenanceUser = $env:RX_DB_MAINTENANCE_USER
     $oldMaintenancePass = $env:RX_DB_MAINTENANCE_PASS
     try {

@@ -10,7 +10,7 @@ frozen 3.3.1 repository, its production database, or the RX Softphone source.
 
 ## Current status
 
-Version: `4.0.0-next.76` release
+Version: `4.0.0-next.77` release
 
 | Area | NEXT behavior |
 |---|---|
@@ -67,6 +67,12 @@ values, and the reviewed city cleanup scan found no street-like or unknown City
 values. Patient Tags remain manual/business markers once assigned; the new
 structured City filter is address-based and is not forced to match manual City
 tags.
+
+Official release `next.77` is a compiled-updater patch for the `next.76`
+rollout. It allows approved system/reference Patient Tag seeds such as
+`City: None` to pass the business-data validation while still protecting
+Patient Tag assignments, and it fixes automatic application rollback so release
+file entries are restored as individual paths.
 
 The same release adds review state to Backoffice **RX Profile Sync**.
 Exact Pharmacy and Transport differences can be marked reviewed without being

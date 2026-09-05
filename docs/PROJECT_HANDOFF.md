@@ -8,6 +8,34 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
 
+- **Patch release v4.0.0-next.77 in progress:** A test-server update from
+  `v4.0.0-next.75` to `v4.0.0-next.76` correctly verified schema and checksum
+  state at 58 migrations, then stopped with
+  `Business-data validation failed: PatientTags: 2 -> 3` because `next.76`
+  intentionally seeds the `City: None` reference Patient Tag. The guarded
+  database rollback restored the pre-update database, but application-file
+  recovery exposed a PowerShell manifest bug where the release file list could
+  be treated as one invalid path. `next.77` fixes both updater issues: approved
+  Patient Tag reference seeds no longer fail the business fingerprint while
+  Patient Tag assignments remain protected, and application backup/install/
+  restore normalizes release entries as individual files. There is no new
+  database migration and no proxy, VPN, FortiGate, cookie, `.env`, port,
+  `rxUrl()`, or service bootstrap change.
+
+- **Official v4.0.0-next.76** was published on 2026-09-05 from `main` commit
+  `4554621318f9f8f8262cced21c8a5484f3092683` after the PostgreSQL lifecycle
+  CI, CodeQL, and tagged compiled-release workflow passed. Its release assets
+  were uploaded with SHA-256 values: both server ZIP names
+  `30218a0f689ae8f054d0a370647cfa5ed4023f3ccc644bd972211d1d82a19037`,
+  RX Softphone ZIP
+  `2adcac671911cad6b9440709cfc3d325d08c5555f98801abb406e734dc3189e6`,
+  `server.exe`
+  `d77192139503fe1f10c574372ce596f894bb91bbe4dda7d97c7766f0f3fb5bf6`,
+  and `rx-db.exe`
+  `77a355de9344aafe4641edf668d99451bba9140c8b94bdd1bbffb88280af915c`.
+  Because the test-server update identified a compiled-updater guard issue,
+  use `next.77` rather than installing `next.76` on production.
+
 - **Official v4.0.0-next.75** was published on 2026-09-04 from `main` commit
   `51c6066073bc43cdaf0b2e43c5fa05c5b2d4c96e` after staging and development
   operator validation of configurable Patient Tags. Main PostgreSQL lifecycle
@@ -69,7 +97,7 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
   Control option **8** then **15**; option **16** remains the paired
   application/database rollback path if the production update fails.
 
-- **Official release candidate v4.0.0-next.76 ready for publication:** The
+- **Official release v4.0.0-next.76 structured-address validation:** The
   final fresh user-supplied dump `production-backup-new.dump` was restored only
   into isolated database `patient_rx_fresh_copy_20260905`, migrated through 58,
   and verified with zero pending migrations and a verified checksum ledger. The
@@ -83,10 +111,7 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
   manual/business markers once assigned; the structured City filter is
   address-based and is not forced to match manual City tags. No proxy, VPN,
   FortiGate, cookie, `rxUrl()`, production `.env`, or service bootstrap
-  behavior was changed. Production installation must use Project Control option
-  **8** then **15** from the official checksummed GitHub release; option **16**
-  remains the paired application/database rollback path if the production
-  update fails.
+  behavior was changed.
 
 - **Unreleased candidate — Pharmacy Transport duplicate prevention:** Manual
   add/edit/restore and CSV import now compare trimmed, collapsed-whitespace,

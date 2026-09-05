@@ -1,4 +1,4 @@
-RX Tracker NEXT 4.0.0-next.76
+RX Tracker NEXT 4.0.0-next.77
 ============================
 
 Structured Address and Patient Tags Cleanup Release
@@ -42,7 +42,7 @@ First verification
 4. Require READY, 58 applied migrations, 0 pending migrations, and a verified
    checksum ledger.
 5. Run: server.exe --v
-6. Require version 4.0.0-next.76.
+6. Require version 4.0.0-next.77.
 
 Windows production workflow
 ---------------------------
