@@ -25,7 +25,7 @@
   // Keep the deployed version visible on every authenticated screen, including
   // the compact Call Center navigation used by agents.
   const hideVersionSidebar = false;
-  const refActive   = ['pharmacies','patient-transport','pharmacy-transport','patient-tags','drivers','clinics','workflow-actions','medication-catalog'].includes(ap);
+  const refActive   = ['pharmacies','patient-transport','pharmacy-transport','patient-tags','city-region-rules','drivers','clinics','workflow-actions','medication-catalog'].includes(ap);
   const rptActive   = ['reports','audit-log'].includes(ap);
   const adminActive = ['roles','users','live-rx-phones','softphone-devices','system-settings','backups','import','active-users','phone-account-setup'].includes(ap);
 
@@ -120,6 +120,9 @@
                 <% if (!UP || sv('patient_tags')) { %>
                 <li class="<%= ap === 'patient-tags' ? 'active' : '' %>">
                     <a href="/patient-tags"><i class="fas fa-tags me-2"></i>Patient Tags</a>
+                </li>
+                <li class="<%= ap === 'city-region-rules' ? 'active' : '' %>">
+                    <a href="/city-region-rules"><i class="fas fa-map-location-dot me-2"></i>City Region Rules</a>
                 </li>
                 <% } %>
                 <% if (!UP || sv('clinics')) { %>

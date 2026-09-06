@@ -70,7 +70,8 @@ module.exports = [
   entry('20260906000000-rerun-improved-structured-address-cleanup.js', require('../migrations/20260906000000-rerun-improved-structured-address-cleanup.js')),
   entry('20260906010000-assign-missing-region-tags-from-structured-city.js', require('../migrations/20260906010000-assign-missing-region-tags-from-structured-city.js')),
   entry('20260906120000-add-patient-address-query-indexes.js', require('../migrations/20260906120000-add-patient-address-query-indexes.js')),
-  entry('20260906121000-add-call-center-query-indexes.js', require('../migrations/20260906121000-add-call-center-query-indexes.js'))
+  entry('20260906121000-add-call-center-query-indexes.js', require('../migrations/20260906121000-add-call-center-query-indexes.js')),
+  entry('20260906130000-create-city-region-rules.js', require('../migrations/20260906130000-create-city-region-rules.js'))
 ];
 
 function entry(name, migration) {

@@ -3,9 +3,9 @@ const { Op, literal } = require('sequelize');
 const { parseDate } = require('../utils/dateUtils');
 const { isServiceDateOverrideEnabled, getServiceWindowDays } = require('../utils/globalSettings');
 const {
-    inferRegionalTagName,
     normalizeAddressPayload
 } = require('../utils/patientAddress');
+const { applyRegionalTagRuleToIds } = require('../services/cityRegionRuleService');
 const {
     evaluateServiceWindow,
     getEligibilityCutoffIso,
@@ -472,25 +472,10 @@ async function resolvePatientTagIds(rawValue, options) {
             transaction: options.transaction,
             raw: true
         });
-        const cityTags = await db.PatientTag.findAll({
-            attributes: ['id', 'name', 'groupName'],
-            where: {
-                isActive: true,
-                [Op.or]: [
-                    { groupName: { [Op.iLike]: 'City' } },
-                    { groupName: { [Op.iLike]: 'Region' } }
-                ]
-            },
-            transaction: options.transaction,
-            raw: true
-        });
-        const inferredCity = inferRegionalTagName(options.address, options.city).toLowerCase();
-        const inferredCityTag = cityTags.find(tag => String(tag.name || '').trim().toLowerCase() === inferredCity);
         const ids = defaultTags
             .filter(tag => !['city', 'region'].includes(String(tag.groupName || '').trim().toLowerCase()))
             .map(tag => Number(tag.id));
-        if (inferredCityTag) ids.push(Number(inferredCityTag.id));
-        return Array.from(new Set(ids));
+        return applyRegionalTagRuleToIds(ids, options);
     }
     const ids = Array.isArray(rawValue)
         ? rawValue.map(value => Number(value)).filter(value => Number.isInteger(value) && value > 0)
@@ -507,7 +492,7 @@ async function resolvePatientTagIds(rawValue, options) {
     if (existingIds.length !== uniqueIds.length) {
         throw httpError(400, 'One or more selected patient tags no longer exist.');
     }
-    return existingIds;
+    return applyRegionalTagRuleToIds(existingIds, options);
 }
 
 async function setPatientTags(patient, rawValue, options) {
@@ -1018,7 +1003,11 @@ async function lockedUpdatePatient(req, res) {
             }
 
             if (payload.hasOwnProperty('patientTagIds')) {
-                await setPatientTags(patient, payload.patientTagIds, { transaction });
+                await setPatientTags(patient, payload.patientTagIds, {
+                    transaction,
+                    address: patient.address,
+                    city: patient.city
+                });
             }
 
             return db.Patient.findByPk(req.params.id, {

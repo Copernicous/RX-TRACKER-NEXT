@@ -7,6 +7,27 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+### Added
+
+- Added staging support for editable City Region Rules under Reference Data,
+  using the existing Patient Tags permission. Rules let a city point to a
+  Region/legacy City Patient Tag, and seeded the approved Tampa-region city
+  list as editable reference data.
+
+### Changed
+
+- Patient save and patient CSV import now apply the City Region Rule when City
+  is populated, preserving non-region tags while replacing the Miami/Tampa/None
+  regional tag. If no custom city rule exists, the existing fallback remains:
+  approved Tampa-region cities map to Tampa, populated other cities map to
+  Miami, and no city/address maps to None.
+
+### Database
+
+- Added audited migration
+  `20260906130000-create-city-region-rules.js` for the city-to-region rule
+  table and lookup indexes.
+
 ## [4.0.0-next.82] - 2026-09-06
 
 ### Changed

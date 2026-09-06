@@ -105,6 +105,9 @@ router.get('/pharmacy-transport', requireWebLogin, (req, res) => {
 router.get('/patient-tags', requireWebLogin, (req, res) => {
     res.render('crud', { title: 'Patient Tags', module: 'patient-tags', apiEndpoint: '/api/patient-tags', activePage: 'patient-tags' });
 });
+router.get('/city-region-rules', requireWebLogin, (req, res) => {
+    res.render('crud', { title: 'City Region Rules', module: 'city-region-rules', apiEndpoint: '/api/city-region-rules', activePage: 'city-region-rules' });
+});
 
 router.get('/clinics', requireWebLogin, (req, res) => {
     res.render('crud', { title: 'Clinics', module: 'clinics', apiEndpoint: '/api/clinics', activePage: 'clinics' });

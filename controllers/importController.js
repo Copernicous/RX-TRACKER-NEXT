@@ -17,9 +17,9 @@ const {
     duplicateCompanyMessage
 } = require('../utils/pharmacyTransportIdentity');
 const {
-    inferRegionalTagName,
     normalizeAddressPayload
 } = require('../utils/patientAddress');
+const { applyRegionalTagRuleToIds } = require('../services/cityRegionRuleService');
 
 const WORKFLOW_HEADERS = [
     'rx received warehouse',
@@ -283,22 +283,15 @@ function hasImportValue(value) {
     return value !== undefined && value !== null && String(value).trim() !== '';
 }
 
-function inferDefaultPatientTagIds(tags, address, city) {
+async function inferDefaultPatientTagIds(tags, address, city) {
     const defaultTags = tags.filter(tag => tag.isActive !== false && tag.isDefault === true);
-    const regionalTags = tags.filter(tag => {
-        const group = tagKey(tag.groupName);
-        return tag.isActive !== false && (group === 'region' || group === 'city');
-    });
-    const inferred = inferRegionalTagName(address, city).toLowerCase();
-    const inferredTag = regionalTags.find(tag => tagKey(tag.name) === inferred);
     const ids = defaultTags
         .filter(tag => !['region', 'city'].includes(tagKey(tag.groupName)))
         .map(tag => Number(tag.id));
-    if (inferredTag) ids.push(Number(inferredTag.id));
-    return Array.from(new Set(ids));
+    return applyRegionalTagRuleToIds(ids, { address, city });
 }
 
-function resolveImportedPatientTagIds(row, tags, lookup, addErr) {
+async function resolveImportedPatientTagIds(row, tags, lookup, addErr) {
     const rawIdList = hasImportValue(row.patientTagIds) ? splitImportList(row.patientTagIds) : [];
     const rawTagList = hasImportValue(row.patientTags) ? splitImportList(row.patientTags) : [];
     const rawRegionList = hasImportValue(row.region) ? splitImportList(row.region) : [];
@@ -321,7 +314,10 @@ function resolveImportedPatientTagIds(row, tags, lookup, addErr) {
     rawIdList.forEach(token => resolveOne(token, {}, 'Patient Tag ID'));
     rawTagList.forEach(token => resolveOne(token, {}, 'Patient Tag'));
     rawRegionList.forEach(token => resolveOne(token, { preferredGroups: ['Region', 'City'] }, 'Region'));
-    return Array.from(new Set(ids));
+    return applyRegionalTagRuleToIds(Array.from(new Set(ids)), {
+        address: row.address,
+        city: row.city
+    });
 }
 
 function extractWorkflowTracking(row, actionByNormalizedName, actionBySequence, addErr) {
@@ -578,7 +574,7 @@ exports.importDataset = async (req, res) => {
                     }
 
                     const normalizedAddress = normalizeAddressPayload({ address, addressLine1, city, state, zipCode });
-                    const patientTagIds = resolveImportedPatientTagIds({
+                    const patientTagIds = await resolveImportedPatientTagIds({
                         patientTagIds: row.patientTagIds,
                         patientTags: row.patientTags,
                         region: row.region,

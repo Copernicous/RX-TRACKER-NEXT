@@ -27,6 +27,7 @@ var allPatients = [];
     var clinicOptions = [];
     var pharmacyOptions = [];
     var patientTagOptions = [];
+    var cityRegionRuleOptions = [];
 
     function normalizeName(value) {
         return String(value || '').trim().toUpperCase();
@@ -94,6 +95,60 @@ var allPatients = [];
         return patientTagOptions.filter(function(tag) {
             return selectedSet.has(String(tag.id)) && patientTagGroupKey(tag) === groupKey;
         });
+    }
+
+    function normalizeCityRuleKey(value) {
+        return String(value || '').trim().replace(/\s+/g, ' ').toLowerCase();
+    }
+
+    function isRegionalPatientTag(tag) {
+        var group = patientTagGroupKey(tag);
+        return group === 'region' || group === 'city';
+    }
+
+    function findRegionalPatientTagByName(name) {
+        var key = String(name || '').trim().toLowerCase();
+        if (!key) return null;
+        var matches = patientTagOptions.filter(function(tag) {
+            return isRegionalPatientTag(tag) && String(tag.name || '').trim().toLowerCase() === key;
+        });
+        return matches.find(function(tag) { return patientTagGroupKey(tag) === 'region'; }) || matches[0] || null;
+    }
+
+    function findRegionTagForCity(city) {
+        var key = normalizeCityRuleKey(city);
+        var rule = key ? cityRegionRuleOptions.find(function(item) {
+            return normalizeCityRuleKey(item.city) === key;
+        }) : null;
+        if (rule && rule.patientTagId) {
+            var tag = patientTagOptions.find(function(item) { return String(item.id) === String(rule.patientTagId); });
+            if (tag) return tag;
+        }
+        if (!key) return findRegionalPatientTagByName('None');
+        return findRegionalPatientTagByName('Miami');
+    }
+
+    function applyRegionTagFromCity(options) {
+        options = options || {};
+        var cityEl = document.getElementById('pCity');
+        var hidden = document.getElementById('pPatientTagIds');
+        if (!cityEl || !hidden) return true;
+        var tag = findRegionTagForCity(cityEl.value);
+        if (!tag) return true;
+        var selectedSet = new Set(selectedPatientClinicIds(hidden.value));
+        var selectedRegional = patientTagOptions.filter(function(item) {
+            return selectedSet.has(String(item.id)) && isRegionalPatientTag(item);
+        });
+        if (selectedRegional.length === 1 && String(selectedRegional[0].id) === String(tag.id)) return true;
+        if (options.confirm && selectedRegional.length && !window.confirm('City ' + (cityEl.value || 'blank') + ' maps to ' + patientTagLabel(tag) + '. Update the Region tag now?')) {
+            return false;
+        }
+        selectedRegional.forEach(function(item) { selectedSet.delete(String(item.id)); });
+        selectedSet.add(String(tag.id));
+        hidden.value = Array.from(selectedSet).join(',');
+        refreshPatientLookupMultiFilter('pPatientTagIds', 'pPatientTagsPicker', patientTagOptions, function(item) { return item.label; }, 'No patient tags selected');
+        hidden.dispatchEvent(new Event('change', { bubbles: true }));
+        return true;
     }
 
     function refreshPatientLookupMultiFilter(hiddenId, pickerId, items, itemLabel, emptyLabel) {
@@ -546,6 +601,11 @@ var allPatients = [];
             serviceDateInput.addEventListener('input', updateSaveAddRxButtonState);
             serviceDateInput.addEventListener('change', updateSaveAddRxButtonState);
         }
+        var patientCityInput = document.getElementById('pCity');
+        if (patientCityInput) {
+            patientCityInput.addEventListener('change', function() { applyRegionTagFromCity({ confirm: true }); });
+            patientCityInput.addEventListener('blur', function() { applyRegionTagFromCity({ confirm: true }); });
+        }
         document.getElementById('confirmDeleteBtn').addEventListener('click', deletePatient);
         document.getElementById('deleteConfirmInput').addEventListener('input', checkDeleteConfirmation);
 
@@ -773,12 +833,14 @@ var allPatients = [];
         var _uCl = '/api/lookup/clinics';
         var _uPh = '/api/lookup/pharmacies';
         var _uTags = '/api/lookup/patient-tags';
-            const [ptRes, rxRes, clRes, phRes, tagRes] = await Promise.all([
+        var _uCityRules = '/api/lookup/city-region-rules';
+            const [ptRes, rxRes, clRes, phRes, tagRes, cityRulesRes] = await Promise.all([
                 fetchWithAuth(_uPt, { silent: true }),
                 fetchWithAuth(_uRx, { silent: true }),
                 fetchWithAuth(_uCl, { silent: true }),
                 fetchWithAuth(_uPh, { silent: true }),
-                fetchWithAuth(_uTags, { silent: true })
+                fetchWithAuth(_uTags, { silent: true }),
+                fetchWithAuth(_uCityRules, { silent: true })
             ]);
             if (ptRes && ptRes.ok) {
                 const pt = await ptRes.json();
@@ -833,6 +895,16 @@ var allPatients = [];
                         isDefault: !!t.isDefault
                     });
                 });
+            }
+            if (cityRulesRes && cityRulesRes.ok) {
+                const rules = await cityRulesRes.json();
+                cityRegionRuleOptions = rules.map(function(rule) {
+                    return {
+                        id: String(rule.id),
+                        city: rule.city || '',
+                        patientTagId: String(rule.patientTagId || '')
+                    };
+                }).filter(function(rule) { return rule.city && rule.patientTagId; });
             }
             refreshPatientMultiFilters();
         } catch(e) {}
@@ -2203,6 +2275,7 @@ var allPatients = [];
             ? (Array.isArray(patient.PatientTags) ? patient.PatientTags.map(function(tag) { return String(tag.id); }).join(',') : '')
             : patientTagOptions.filter(function(tag) { return tag.isDefault; }).map(function(tag) { return String(tag.id); }).join(',');
         refreshPatientLookupMultiFilter('pPatientTagIds', 'pPatientTagsPicker', patientTagOptions, function(item) { return item.label; }, 'No patient tags selected');
+        if (!patient) applyRegionTagFromCity({ confirm: false });
         loadPatientServiceDateHistory(id);
 
         // â”€â”€ 90-DAY SERVICE DATE LOCK UI â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -2378,6 +2451,7 @@ var allPatients = [];
             showToast('Change the service date before adding a new RX for this patient.', 'warning');
             return;
         }
+        if (!applyRegionTagFromCity({ confirm: true })) return;
         btn.disabled = true;
         if (addRxBtn) addRxBtn.disabled = true;
         if (addRxAfterSave && addRxSpinner) {

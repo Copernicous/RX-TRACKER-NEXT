@@ -57,6 +57,7 @@ const pharmacyController = require('../controllers/pharmacyController');
 const patientTransportController = require('../controllers/patientTransportController');
 const pharmacyTransportController = require('../controllers/pharmacyTransportController');
 const patientTagController = require('../controllers/patientTagController');
+const cityRegionRuleController = require('../controllers/cityRegionRuleController');
 const userController = require('../controllers/userController');
 const workflowActionController = require('../controllers/workflowActionController');
 const patientController = require('../controllers/patientController');
@@ -262,6 +263,7 @@ const LOOKUP_MAP = {
     'workflow-actions':   { model: db.WorkflowAction,            fields: ['id', 'name', 'sequenceNumber', 'description', 'deliveryOutcomeMode'], where: { isActive: true }, order: [['sequenceNumber', 'ASC'], ['id', 'ASC']] },
     'medication-catalog': { model: db.MedicationCatalog,         fields: ['id', 'name', 'sortOrder', 'description'],      where: { isActive: true } },
 };
+router.get('/lookup/city-region-rules', cityRegionRuleController.lookup);
 router.get('/lookup/patient-addresses', rbac.requirePermission('patients', 'read'), async (req, res) => {
     try {
         const now = Date.now();
@@ -377,6 +379,7 @@ const pathMap = {
     '/patient-transport': 'patient_transport',
     '/pharmacy-transport': 'pharmacy_transport',
     '/patient-tags': 'patient_tags',
+    '/city-region-rules': 'patient_tags',
     '/users': 'users',
     '/workflow-actions': 'workflow_actions',
     '/patients': 'patients',
@@ -421,6 +424,8 @@ router.put('/pharmacy-transport/:id/restore', rbac.requirePermission('pharmacy_t
 
 generateCRUDRoutes('/patient-tags', patientTagController, 'Patient Tags');
 router.put('/patient-tags/:id/restore', rbac.requirePermission('patient_tags', 'edit'), auditLogger('Patient Tags'), patientTagController.restore);
+generateCRUDRoutes('/city-region-rules', cityRegionRuleController, 'City Region Rules');
+router.put('/city-region-rules/:id/restore', rbac.requirePermission('patient_tags', 'edit'), auditLogger('City Region Rules'), cityRegionRuleController.restore);
 
 generateCRUDRoutes('/users', userController, 'Users');
 router.put('/users/:id/restore', rbac.requireRole(['Administrator']), auditLogger('Users'), userController.restore);

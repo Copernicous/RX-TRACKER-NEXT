@@ -920,5 +920,6 @@ module.exports = {
   cleanAddressCityWithKnownCitySuffix,
   getFloridaCityForZip,
   inferRegionalTagName,
-  isKnownCityName
+  isKnownCityName,
+  normalizeCityName
 };

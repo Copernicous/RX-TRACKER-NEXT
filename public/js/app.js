@@ -490,6 +490,7 @@ function checkAuth() {
             '/patient-transport':  'patient_transport',
             '/pharmacy-transport': 'pharmacy_transport',
             '/patient-tags':       'patient_tags',
+            '/city-region-rules':  'patient_tags',
             '/clinics':            'clinics',
             '/workflow-actions':   'workflow_actions',
             '/medication-catalog': 'medication_catalog',
@@ -971,6 +972,18 @@ var MODULE_CONFIGS = {
             { key: 'isActive', label: 'Active', type: 'checkbox', default: true }
         ]
     },
+    'city-region-rules': {
+        label: 'City Region Rule',
+        softDelete: true,
+        columns: ['id', 'city', 'regionLabel', 'notes', 'isActive'],
+        headers: ['ID', 'City', 'Region Tag', 'Notes', 'Active'],
+        fields: [
+            { key: 'city', label: 'City', type: 'text', required: true },
+            { key: 'patientTagId', label: 'Region Tag', type: 'select', required: true, numeric: true, options: [] },
+            { key: 'notes', label: 'Notes', type: 'textarea' },
+            { key: 'isActive', label: 'Active', type: 'checkbox', default: true }
+        ]
+    },
     'users': {
         label: 'User',
         softDelete: true,
@@ -1090,6 +1103,9 @@ async function loadCrudModule(moduleName, apiEndpoint) {
     if (moduleName === 'users') {
         await loadRolesForUserForm();
     }
+    if (moduleName === 'city-region-rules') {
+        await loadRegionTagsForCityRuleForm();
+    }
 
     await refreshTable();
 }
@@ -1108,6 +1124,27 @@ async function loadRolesForUserForm() {
             }
         }
     } catch(e) { /* non-fatal — form will show empty dropdown */ }
+}
+
+async function loadRegionTagsForCityRuleForm() {
+    try {
+        var res = await fetchWithAuth('/api/lookup/patient-tags', { silent: true });
+        if (res && res.ok) {
+            var tags = await res.json();
+            var cfg = MODULE_CONFIGS['city-region-rules'];
+            var field = cfg.fields.filter(function(f){ return f.key === 'patientTagId'; })[0];
+            if (field) {
+                field.options = tags
+                    .filter(function(tag) {
+                        var group = String(tag.groupName || '').trim().toLowerCase();
+                        return group === 'region' || group === 'city';
+                    })
+                    .map(function(tag) {
+                        return { value: tag.id, label: (tag.groupName ? tag.groupName + ': ' : '') + tag.name };
+                    });
+            }
+        }
+    } catch(e) {}
 }
 
 async function refreshTable() {
@@ -2234,6 +2271,7 @@ function applyReadOnlyRestrictions() {
         '/patient-transport': 'patient_transport',
         '/pharmacy-transport':'pharmacy_transport',
         '/patient-tags':      'patient_tags',
+        '/city-region-rules': 'patient_tags',
         '/workflow-actions':  'workflow_actions',
         '/clinics':           'clinics',
         '/medication-catalog':'medication_catalog',
