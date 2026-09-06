@@ -8,26 +8,35 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
 
-- **Patch release v4.0.0-next.81 in progress:** The new user-supplied
-  `production-backup-new-2.dump` was restored only into isolated database
-  `patient_rx_test_copy_new2_20260906`. The copy contained 3549 total
-  patients. Applying the pending audited Region reassignment, the
+- **Official v4.0.0-next.81** was published on 2026-09-06 from `main` commit
+  `42b599b` after PostgreSQL lifecycle CI run `34003452588`, CodeQL run
+  `34003452605`, and release workflow run `34003648573` passed. Release URL:
+  `https://github.com/Copernicous/RX-TRACKER-NEXT/releases/tag/v4.0.0-next.81`.
+  The new user-supplied `production-backup-new-2.dump` was restored only into
+  isolated database `patient_rx_test_copy_next81_20260906`. The copy contained
+  3549 total patients. Applying the pending audited Region reassignment, the
   structured-address rerun, and the missing Region assignment cleanup reached
   61 applied migrations, 0 pending migrations, and a verified checksum ledger.
-  Structured City/State coverage
-  increased from 2857 to 3086 patients and ZIP coverage increased from 2831 to
-  3026 patients. Forty rows still have address text but no reliable City and
-  remain for manual correction; 423 no-address patients remain Region/City
-  None. The missing regional assignment gap closed from 39 to 0, with final
-  Region counts Miami 2337, Tampa 789, and None 423 on the isolated copy. The
-  cleanup preserves the original full Address field as the review
-  reference, refreshes only Address / Street, City, State, and ZIP, and keeps
-  existing manual structured corrections when the legacy full Address remains
-  ambiguous. Patient import accepts either `City:` or `Region:` labels for
-  regional Patient Tags after the group rename. Project Control allows only the
-  audited missing Region assignment count and continues to reject unrelated
+  Structured City/State coverage increased from 2857 to 3086 patients and ZIP
+  coverage increased from 2831 to 3026 patients. Forty rows still have address
+  text but no reliable City and remain for manual correction; 423 no-address
+  patients remain Region/City None. The missing regional assignment gap closed
+  from 39 to 0, with final Region counts Miami 2337, Tampa 789, and None 423 on
+  the isolated copy. The cleanup preserves the original full Address field as
+  the review reference, refreshes only Address / Street, City, State, and ZIP,
+  and keeps existing manual structured corrections when the legacy full Address
+  remains ambiguous. Patient import accepts either `City:` or `Region:` labels
+  for regional Patient Tags after the group rename. Project Control allows only
+  the audited missing Region assignment count and continues to reject unrelated
   Patient Tag assignment changes. There is no proxy, VPN, FortiGate, cookie,
-  `.env`, port, `rxUrl()`, or service bootstrap change.
+  `.env`, port, `rxUrl()`, or service bootstrap change. Verified official
+  package hashes: `server-update-4.0.0-next.81.zip` and
+  `RX-Tracker-NEXT-New-Server-4.0.0-next.81.zip`
+  `cd02f9c0b7c0f138c601f7ac9aa3444933ffc8c003093bc55445a43d7fd6155a`;
+  `RxSoftphone-0.6.0-win-x64.zip`
+  `eca5fcee6b8948a0ab19c112f54aef8db48d907d19a4bf371c78dab9ba3ed06b`;
+  `server.exe` `a2d9f291f16b10d1f49991e5fa5ed541fd6f0f37238a1f506b7151bb2eb5714e`;
+  and `rx-db.exe` `01c4a44eb6d2b1a8123803a2902095538663607c8246552060cb1335fa260dae`.
 
 - **Official v4.0.0-next.79** was published on 2026-09-05. Patient address parsing now
   falls back from blank structured import columns to the preserved full Address
