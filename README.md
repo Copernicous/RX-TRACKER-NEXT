@@ -10,7 +10,7 @@ frozen 3.3.1 repository, its production database, or the RX Softphone source.
 
 ## Current status
 
-Version: `4.0.0-next.80` release
+Version: `4.0.0-next.81` release
 
 | Area | NEXT behavior |
 |---|---|
@@ -99,6 +99,15 @@ for regional Patient Tags after the group rename. On the fresh
 increased from 2857 to 3086 patients and ZIP coverage increased from 2831 to
 3026 patients; 40 ambiguous address rows remain manual and 423 no-address
 patients remain Region/City `None`.
+
+Official release `next.81` closes the remaining missing regional assignment
+gap for patients that already have structured City data but no Miami/Tampa/None
+Region tag row. On the fresh `production-backup-new-2.dump` test copy, missing
+regional assignments dropped from 39 to 0, with final Region counts of Miami
+2337, Tampa 789, and None 423. Existing operator-reviewed Region tags are not
+overwritten, and Project Control allows only this audited backfill count while
+continuing to protect unrelated Patient Tag assignment changes. It also
+hardens login/shared icon rendering for bundled Font Awesome assets.
 
 The RX Profile Sync review release adds review state to Backoffice **RX Profile Sync**.
 Exact Pharmacy and Transport differences can be marked reviewed without being

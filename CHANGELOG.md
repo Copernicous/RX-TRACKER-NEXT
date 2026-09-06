@@ -5,6 +5,33 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ---
 
+## [4.0.0-next.81] - 2026-09-06
+
+### Fixed
+
+- Added a guarded missing Region assignment cleanup for patients that already
+  have structured City data but no Miami/Tampa/None regional Patient Tag row.
+- Updated Project Control business-data validation to allow only that audited
+  missing Region backfill count while still rejecting unrelated Patient Tag
+  assignment changes.
+- Fixed patient CSV import so regional labels such as `City: None` prefer the
+  current Region tag when legacy City aliases also exist.
+- Hardened login and shared Font Awesome icon rendering when the bundled icon
+  fonts are not inferred correctly by the browser/runtime.
+
+### Database
+
+- Added audited migration
+  `20260906010000-assign-missing-region-tags-from-structured-city.js`. It
+  inserts only missing regional Patient Tag assignments and does not overwrite
+  existing operator-reviewed Region tags.
+
+### Validation
+
+- On the isolated `production-backup-new-2.dump` test copy, missing regional
+  assignments went from 39 to 0. Final Region counts were Miami 2337, Tampa
+  789, and None 423; the known 40 ambiguous address rows remain manual.
+
 ## [4.0.0-next.80] - 2026-09-06
 
 ### Changed

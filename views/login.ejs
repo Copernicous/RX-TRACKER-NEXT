@@ -195,6 +195,106 @@
             border: 1px solid rgba(255,255,255,0.2);
             color: rgba(255,255,255,0.6);
         }
+        .rx-login-icon {
+            display: inline-block;
+            position: relative;
+            width: 18px;
+            height: 18px;
+            color: rgba(255,255,255,0.76);
+            flex: 0 0 auto;
+        }
+        .rx-login-icon-user::before {
+            content: "";
+            position: absolute;
+            left: 6px;
+            top: 2px;
+            width: 6px;
+            height: 6px;
+            border: 2px solid currentColor;
+            border-radius: 50%;
+        }
+        .rx-login-icon-user::after {
+            content: "";
+            position: absolute;
+            left: 3px;
+            bottom: 2px;
+            width: 12px;
+            height: 7px;
+            border: 2px solid currentColor;
+            border-radius: 8px 8px 3px 3px;
+            border-bottom: 0;
+        }
+        .rx-login-icon-lock::before {
+            content: "";
+            position: absolute;
+            left: 5px;
+            top: 1px;
+            width: 8px;
+            height: 8px;
+            border: 2px solid currentColor;
+            border-bottom: 0;
+            border-radius: 8px 8px 0 0;
+        }
+        .rx-login-icon-lock::after {
+            content: "";
+            position: absolute;
+            left: 3px;
+            bottom: 2px;
+            width: 12px;
+            height: 10px;
+            border: 2px solid currentColor;
+            border-radius: 3px;
+            background: rgba(255,255,255,0.08);
+        }
+        .rx-login-icon-eye::before {
+            content: "";
+            position: absolute;
+            left: 2px;
+            top: 5px;
+            width: 14px;
+            height: 8px;
+            border: 2px solid currentColor;
+            border-radius: 14px 14px;
+            transform: rotate(-8deg);
+        }
+        .rx-login-icon-eye::after {
+            content: "";
+            position: absolute;
+            left: 7px;
+            top: 8px;
+            width: 4px;
+            height: 4px;
+            border-radius: 50%;
+            background: currentColor;
+        }
+        .rx-login-icon-eye.is-hidden::after {
+            left: 3px;
+            top: 8px;
+            width: 13px;
+            height: 2px;
+            border-radius: 2px;
+            transform: rotate(-38deg);
+        }
+        .rx-login-icon-alert::before {
+            content: "";
+            position: absolute;
+            left: 8px;
+            top: 4px;
+            width: 2px;
+            height: 8px;
+            border-radius: 2px;
+            background: currentColor;
+        }
+        .rx-login-icon-alert::after {
+            content: "";
+            position: absolute;
+            left: 8px;
+            bottom: 2px;
+            width: 2px;
+            height: 2px;
+            border-radius: 50%;
+            background: currentColor;
+        }
     </style>
 </head>
 <body class="<%= locals.isStaging ? 'rx-staging-env' : '' %>">
@@ -225,7 +325,7 @@
             <div class="mb-3">
                 <label for="username" class="form-label text-uppercase">Username</label>
                 <div class="input-group">
-                    <span class="input-group-text"><i class="fas fa-user"></i></span>
+                    <span class="input-group-text"><span class="rx-login-icon rx-login-icon-user" aria-hidden="true"></span></span>
                     <input type="text" class="form-control" id="username" name="username"
                            placeholder="Enter username" autocomplete="username" required>
                 </div>
@@ -233,11 +333,11 @@
             <div class="mb-4">
                 <label for="password" class="form-label text-uppercase">Password</label>
                 <div class="input-group">
-                    <span class="input-group-text"><i class="fas fa-lock"></i></span>
+                    <span class="input-group-text"><span class="rx-login-icon rx-login-icon-lock" aria-hidden="true"></span></span>
                     <input type="password" class="form-control" id="password" name="password"
                            placeholder="Enter password" autocomplete="current-password" required>
-                    <button class="input-group-text" type="button" id="togglePassword" style="cursor:pointer;">
-                        <i class="fas fa-eye"></i>
+                    <button class="input-group-text" type="button" id="togglePassword" style="cursor:pointer;" aria-label="Show password">
+                        <span class="rx-login-icon rx-login-icon-eye" aria-hidden="true"></span>
                     </button>
                 </div>
             </div>
@@ -305,13 +405,15 @@
         // Toggle password visibility
         document.getElementById('togglePassword').addEventListener('click', function() {
             const pwd = document.getElementById('password');
-            const icon = this.querySelector('i');
+            const icon = this.querySelector('.rx-login-icon-eye');
             if (pwd.type === 'password') {
                 pwd.type = 'text';
-                icon.classList.replace('fa-eye', 'fa-eye-slash');
+                icon.classList.add('is-hidden');
+                this.setAttribute('aria-label', 'Hide password');
             } else {
                 pwd.type = 'password';
-                icon.classList.replace('fa-eye-slash', 'fa-eye');
+                icon.classList.remove('is-hidden');
+                this.setAttribute('aria-label', 'Show password');
             }
         });
 
@@ -447,8 +549,9 @@
 
         function showError(el, msg) {
             el.textContent = '';
-            var icon = document.createElement('i');
-            icon.className = 'fas fa-exclamation-circle me-1';
+            var icon = document.createElement('span');
+            icon.className = 'rx-login-icon rx-login-icon-alert me-1';
+            icon.setAttribute('aria-hidden', 'true');
             el.appendChild(icon);
             el.appendChild(document.createTextNode(msg || 'Error'));
             el.className = 'mb-3 login-notice login-notice-error';

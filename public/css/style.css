@@ -5,6 +5,37 @@
 /* Inter font — self-hosted, no external requests required (FortiGate compatible) */
 @import url('/assets/inter.css');
 
+@font-face {
+    font-family: "Font Awesome 6 Free";
+    font-style: normal;
+    font-weight: 900;
+    font-display: block;
+    src: url("/assets/webfonts/fa-solid-900.woff2") format("woff2"),
+         url("/assets/webfonts/fa-solid-900.ttf") format("truetype");
+}
+
+@font-face {
+    font-family: "Font Awesome 6 Brands";
+    font-style: normal;
+    font-weight: 400;
+    font-display: block;
+    src: url("/assets/webfonts/fa-brands-400.woff2") format("woff2"),
+         url("/assets/webfonts/fa-brands-400.ttf") format("truetype");
+}
+
+.fa,
+.fa-solid,
+.fas {
+    font-family: "Font Awesome 6 Free" !important;
+    font-weight: 900 !important;
+}
+
+.fa-brands,
+.fab {
+    font-family: "Font Awesome 6 Brands" !important;
+    font-weight: 400 !important;
+}
+
 /* ---------- CSS Variables ---------- */
 :root {
     --primary:       #4a90e2;

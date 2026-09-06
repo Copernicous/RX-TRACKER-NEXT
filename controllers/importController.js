@@ -246,15 +246,27 @@ function buildPatientTagLookup(tags) {
 }
 
 function selectTagMatch(matches, options) {
-    const activeMatches = (matches || []).filter(tag => tag && tag.isActive !== false);
+    const byId = new Map();
+    (matches || []).forEach(tag => {
+        if (tag && tag.isActive !== false) byId.set(Number(tag.id), tag);
+    });
+    const activeMatches = Array.from(byId.values());
     if (!activeMatches.length) return null;
     const preferredGroups = (options.preferredGroups || []).map(tagKey);
     if (preferredGroups.length) {
-        const preferred = activeMatches.filter(tag => preferredGroups.includes(tagKey(tag.groupName)));
-        if (preferred.length === 1) return preferred[0];
-        if (preferred.length > 1) return { ambiguous: true, matches: preferred };
+        for (const group of preferredGroups) {
+            const preferred = activeMatches.filter(tag => tagKey(tag.groupName) === group);
+            if (preferred.length === 1) return preferred[0];
+            if (preferred.length > 1) return { ambiguous: true, matches: preferred };
+        }
     }
     if (activeMatches.length === 1) return activeMatches[0];
+    const regionalMatches = activeMatches.filter(tag => ['region', 'city'].includes(tagKey(tag.groupName)));
+    if (regionalMatches.length === activeMatches.length) {
+        const regionMatches = regionalMatches.filter(tag => tagKey(tag.groupName) === 'region');
+        if (regionMatches.length === 1) return regionMatches[0];
+        if (regionMatches.length > 1) return { ambiguous: true, matches: regionMatches };
+    }
     return { ambiguous: true, matches: activeMatches };
 }
 

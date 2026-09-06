@@ -64,11 +64,14 @@ async function createBusinessFingerprint(db) {
     }));
   }
 
+  const regionalAssignmentGaps = await countRegionalAssignmentGaps(db, existingTables);
+
   const data = {
     schema: 1,
     database: db.sequelize.config.database,
     tableCounts,
-    workflowActions
+    workflowActions,
+    regionalAssignmentGaps
   };
   const canonical = JSON.stringify(data);
   return {
@@ -108,6 +111,44 @@ function normalizeTableName(table) {
 
 function quoteIdentifier(value) {
   return `"${String(value).replace(/"/g, '""')}"`;
+}
+
+async function countRegionalAssignmentGaps(db, existingTables) {
+  const patientTable = existingTables.get('patients');
+  const tagTable = existingTables.get('patienttags');
+  const assignmentTable = existingTables.get('patienttagassignments');
+  if (!patientTable || !tagTable || !assignmentTable) return 0;
+
+  const [columns] = await db.sequelize.query(`
+    SELECT LOWER(column_name) AS name
+      FROM information_schema.columns
+     WHERE table_name = :table
+  `, { replacements: { table: patientTable } });
+  const patientColumns = new Set(columns.map((row) => row.name));
+  if (!patientColumns.has('city') || !patientColumns.has('address')) return 0;
+  const addressLineExpression = patientColumns.has('addressline1') ? 'p."addressLine1"' : 'NULL';
+
+  const [rows] = await db.sequelize.query(`
+    WITH regional AS (
+      SELECT p.id,
+             p.city,
+             p.address,
+             ${addressLineExpression} AS "addressLine1",
+             BOOL_OR(tag."isActive" IS TRUE
+               AND LOWER(BTRIM(tag."groupName")) IN ('region', 'city')
+               AND LOWER(BTRIM(tag.name)) IN ('miami', 'tampa', 'none')) AS "hasRegionalTag"
+        FROM ${quoteIdentifier(patientTable)} p
+        LEFT JOIN ${quoteIdentifier(assignmentTable)} assignment
+          ON assignment."patientId" = p.id
+        LEFT JOIN ${quoteIdentifier(tagTable)} tag
+          ON tag.id = assignment."patientTagId"
+       GROUP BY p.id, p.city, p.address, ${addressLineExpression}
+    )
+    SELECT COUNT(*)::integer AS count
+      FROM regional
+     WHERE "hasRegionalTag" IS NOT TRUE
+  `);
+  return Number.parseInt(rows[0]?.count || 0, 10);
 }
 
 module.exports = {

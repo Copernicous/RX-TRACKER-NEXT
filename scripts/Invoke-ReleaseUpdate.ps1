@@ -376,11 +376,21 @@ function Get-BusinessFingerprint([string]$Exe, [hashtable]$Config) {
 
 function Assert-BusinessDataUnchanged([object]$Before, [object]$After) {
     $differences = New-Object System.Collections.Generic.List[string]
+    $allowedRegionalBackfill = $false
     foreach ($property in $Before.tableCounts.PSObject.Properties) {
         $previous = $property.Value
         $currentProperty = $After.tableCounts.PSObject.Properties[$property.Name]
         $current = if ($currentProperty) { $currentProperty.Value } else { $null }
         if ($null -ne $previous -and [string]$previous -ne [string]$current) {
+            if ($property.Name -eq 'PatientTagAssignments') {
+                $beforeGaps = Get-NumericProperty $Before 'regionalAssignmentGaps'
+                $afterGaps = Get-NumericProperty $After 'regionalAssignmentGaps'
+                $delta = ([int64]$current) - ([int64]$previous)
+                if ($beforeGaps -gt 0 -and $delta -eq $beforeGaps -and $afterGaps -eq 0) {
+                    $allowedRegionalBackfill = $true
+                    continue
+                }
+            }
             $differences.Add("$($property.Name): $previous -> $current")
         }
     }
@@ -390,7 +400,18 @@ function Assert-BusinessDataUnchanged([object]$Before, [object]$After) {
     if ($differences.Count) {
         Fail "Business-data validation failed: $($differences -join '; '). Database rollback is required."
     }
-    Write-Ok 'Patient, RX, workflow, user, call, and patient-tag assignment fingerprints are unchanged.'
+    if ($allowedRegionalBackfill) {
+        Write-Ok 'Business-data fingerprints are unchanged except the audited missing Region patient-tag assignment backfill.'
+    } else {
+        Write-Ok 'Patient, RX, workflow, user, call, and patient-tag assignment fingerprints are unchanged.'
+    }
+}
+
+function Get-NumericProperty([object]$Object, [string]$Name) {
+    if (-not $Object -or -not $Object.PSObject.Properties[$Name]) { return 0 }
+    $value = $Object.PSObject.Properties[$Name].Value
+    if ($null -eq $value -or [string]::IsNullOrWhiteSpace([string]$value)) { return 0 }
+    return [int64]$value
 }
 
 function Normalize-ReleaseEntries([object]$Entries) {
@@ -766,14 +787,27 @@ function Invoke-SelfTest {
     $before = [pscustomobject]@{
         tableCounts = [pscustomobject]@{ Patients = 10; RXRecords = 6; PatientTagAssignments = 4 }
         workflowActions = @([pscustomobject]@{ id = 1; name = 'Configured'; isActive = $true })
+        regionalAssignmentGaps = 0
     }
     $same = $before | ConvertTo-Json -Depth 8 | ConvertFrom-Json
     Assert-BusinessDataUnchanged $before $same
     $tagSeedChange = [pscustomobject]@{
         tableCounts = [pscustomobject]@{ Patients = 10; RXRecords = 6; PatientTags = 3; PatientTagAssignments = 4 }
         workflowActions = $same.workflowActions
+        regionalAssignmentGaps = 0
     }
     Assert-BusinessDataUnchanged $before $tagSeedChange
+    $regionalBackfillBefore = [pscustomobject]@{
+        tableCounts = [pscustomobject]@{ Patients = 10; RXRecords = 6; PatientTagAssignments = 4 }
+        workflowActions = $same.workflowActions
+        regionalAssignmentGaps = 2
+    }
+    $regionalBackfillAfter = [pscustomobject]@{
+        tableCounts = [pscustomobject]@{ Patients = 10; RXRecords = 6; PatientTagAssignments = 6 }
+        workflowActions = $same.workflowActions
+        regionalAssignmentGaps = 0
+    }
+    Assert-BusinessDataUnchanged $regionalBackfillBefore $regionalBackfillAfter
     try {
         $changedAssignments = $before | ConvertTo-Json -Depth 8 | ConvertFrom-Json
         $changedAssignments.tableCounts.PatientTagAssignments = 5

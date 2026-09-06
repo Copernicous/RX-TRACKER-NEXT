@@ -64,5 +64,6 @@ module.exports = Object.freeze({
   '20260905151000-normalize-structured-address-reference-aliases.js': 'a99a7089ff855e8bf19c068f07741615153c4667a9509906f89c220d9831845c',
   '20260905152000-normalize-structured-address-street-city-fragments.js': 'a99a7089ff855e8bf19c068f07741615153c4667a9509906f89c220d9831845c',
   '20260905153000-reassign-region-tags-from-structured-city.js': '7943ac44b33077e929488694695d08bf6fa6e587c95d24c83ebfa0c34d51efa1',
-  '20260906000000-rerun-improved-structured-address-cleanup.js': 'ce402fbca878366a06eb3ed83b08466484359cccfa208d860a0bc92774dacaf3'
+  '20260906000000-rerun-improved-structured-address-cleanup.js': 'ce402fbca878366a06eb3ed83b08466484359cccfa208d860a0bc92774dacaf3',
+  '20260906010000-assign-missing-region-tags-from-structured-city.js': '7ed0676f704ff79f4d0a077ce8f3b477b085d192565d97480f12d09243bcf041'
 });
