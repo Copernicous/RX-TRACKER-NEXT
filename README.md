@@ -10,7 +10,7 @@ frozen 3.3.1 repository, its production database, or the RX Softphone source.
 
 ## Current status
 
-Version: `4.0.0-next.82` release
+Version: `4.0.0-next.83` release
 
 | Area | NEXT behavior |
 |---|---|
@@ -117,6 +117,15 @@ full patient payload for the RX modal patient picker. Call Center queue,
 history, notes, and metrics use bounded SQL paths with new query indexes for
 queue eligibility, active call attempts, and active locks. No proxy, VPN,
 cookie, `.env`, port, login, or business-data rule is changed.
+
+Official release `next.83` adds editable City Region Rules under Reference
+Data using the existing Patient Tags permission. A city can be assigned to a
+Region/legacy City Patient Tag from the backoffice, seeded with the approved
+Tampa-region city list. Patient edit/save and CSV import apply the same rule:
+the regional tag is updated from City while non-region tags remain unchanged.
+If no custom rule exists, the prior fallback remains in place. No proxy, VPN,
+FortiGate, cookie, `.env`, port, login/session, service bootstrap, configured
+RX Action, or unrelated business-data rule is changed.
 
 The RX Profile Sync review release adds review state to Backoffice **RX Profile Sync**.
 Exact Pharmacy and Transport differences can be marked reviewed without being

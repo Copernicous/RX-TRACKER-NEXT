@@ -481,7 +481,7 @@ async function resolvePatientTagIds(rawValue, options) {
         ? rawValue.map(value => Number(value)).filter(value => Number.isInteger(value) && value > 0)
         : parsePositiveIds(rawValue);
     const uniqueIds = Array.from(new Set(ids));
-    if (!uniqueIds.length) return [];
+    if (!uniqueIds.length) return applyRegionalTagRuleToIds([], options);
     const existing = await db.PatientTag.findAll({
         attributes: ['id'],
         where: { id: uniqueIds },

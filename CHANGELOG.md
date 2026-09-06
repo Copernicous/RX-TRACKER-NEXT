@@ -7,6 +7,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+## [4.0.0-next.83] - 2026-09-06
+
 ### Added
 
 - Added staging support for editable City Region Rules under Reference Data,
@@ -27,6 +29,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 - Added audited migration
   `20260906130000-create-city-region-rules.js` for the city-to-region rule
   table and lookup indexes.
+
+### Validation
+
+- Operator-tested the staging candidate on `localhost:3101` against the
+  full-copy database.
+- Verified the local full-copy database at 64 applied migrations, 0 pending
+  migrations, and a verified checksum ledger.
+- Passed public JavaScript validation and the structured address / Region /
+  Patient Tags import regression.
 
 ## [4.0.0-next.82] - 2026-09-06
 
