@@ -8,6 +8,26 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
 
+- **Release candidate v4.0.0-next.82:** Address autocomplete no
+  longer loads all patient address options on every Patients/RX/Reports page
+  initialization; it loads when an address field is focused or its advanced
+  address filter section is opened. The `/api/lookup/patient-addresses`
+  response is cached server-side for five minutes with a refresh bypass used
+  after patient address edits. An audited migration adds partial
+  lower-case indexes for structured Address / Street, City, State, and ZIP
+  fields on non-deleted patients. The RX Records default list no longer runs
+  the all-record workflow-state aggregate just to render the first page; it
+  calculates current workflow dates for the returned page and keeps the full
+  aggregate path only when workflow filters or sorting require it. The RX
+  modal patient picker no longer preloads the full `/api/patients` payload on
+  RX page startup; it uses a lightweight on-demand active-patient lookup for
+  the selector. The Call Center queue now hydrates page details, call history,
+  recent notes, and eligible-patient metrics with bounded SQL queries instead
+  of heavier full model/result scans, with an index-only migration for the
+  queue, active call-attempt, and active lock lookup paths. This change does
+  not alter proxy, VPN,
+  FortiGate, cookie, `.env`, port, `rxUrl()`, or service bootstrap behavior.
+
 - **Official v4.0.0-next.81** was published on 2026-09-06 from `main` commit
   `42b599b` after PostgreSQL lifecycle CI run `34003452588`, CodeQL run
   `34003452605`, and release workflow run `34003648573` passed. Release URL:

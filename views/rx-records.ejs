@@ -1017,13 +1017,13 @@
     var _rxPrefillPatientName = '';
     var rxPatientPickerPromise = null;
     var rxPatientPickerLoaded = false;
+    var rxPatientPickerQuery = null;
     var rxPatientSearchInitialized = false;
 
     // Loads all dropdown data needed for the New RX modal and workflow selectors.
     // Returns a Promise so DOMContentLoaded can chain .then(loadRxRecords).
     function loadRxDropdowns() {
         var phRes, ptRes, rxRes, waRes, catRes, driverRes, tagRes;
-        loadRxPatientPickerData();
         fetchWithAuth(window.rxUrl('/api/lookup/clinics'), { silent: true }).then(function(res) {
             return res && res.ok ? res.json() : [];
         }).then(function(data) {
@@ -1094,23 +1094,30 @@
         });
     }
 
-    function loadRxPatientPickerData() {
-        if (rxPatientPickerLoaded) return Promise.resolve(allPatientsList);
+    function loadRxPatientPickerData(query) {
+        query = String(query || '').trim();
+        if (rxPatientPickerLoaded && rxPatientPickerQuery === query) return Promise.resolve(allPatientsList);
         if (rxPatientPickerPromise) return rxPatientPickerPromise;
         var searchInput = document.getElementById('patientSearchInput');
         if (searchInput) searchInput.placeholder = 'Loading patients...';
-        rxPatientPickerPromise = fetchWithAuth(window.rxUrl('/api/patients'), { silent: true }).then(function(res) {
+        var params = new URLSearchParams();
+        if (query) params.set('q', query);
+        params.set('limit', '50');
+        rxPatientPickerPromise = fetchWithAuth(window.rxUrl('/api/lookup/rx-patients') + '?' + params.toString(), { silent: true }).then(function(res) {
             if (!res || !res.ok) return [];
             return res.json();
         }).then(function(data) {
             allPatientsList = Array.isArray(data) ? data : [];
             rxPatientPickerLoaded = true;
+            rxPatientPickerQuery = query;
             if (searchInput) searchInput.placeholder = 'Search patient by name, ID...';
             return allPatientsList;
         }).catch(function(e) {
             console.error('[RX] loadRxPatientPickerData error:', e);
             if (searchInput) searchInput.placeholder = 'Search patient by name, ID...';
             return allPatientsList;
+        }).finally(function() {
+            rxPatientPickerPromise = null;
         });
         return rxPatientPickerPromise;
     }
@@ -2107,7 +2114,7 @@
         addMedicationRow();
         if (_rxPrefillPatientId || _rxPrefillPatientName) {
             if (!applyRxPrefillPatient()) {
-                loadRxPatientPickerData().then(function() {
+                loadRxPatientPickerData(_rxPrefillPatientId || _rxPrefillPatientName).then(function() {
                     applyRxPrefillPatient();
                 });
             }
@@ -2164,10 +2171,10 @@
         var hiIdx = -1;
 
         function renderDropdown(query) {
-            if (!rxPatientPickerLoaded) {
+            if (!rxPatientPickerLoaded || rxPatientPickerQuery !== String(query || '').trim()) {
                 dropdown.innerHTML = '<div class="patient-dropdown-empty"><i class="fas fa-spinner fa-spin me-2"></i>Loading patients...</div>';
                 dropdown.classList.add('open');
-                loadRxPatientPickerData().then(function() {
+                loadRxPatientPickerData(query).then(function() {
                     renderDropdown(searchInput.value || '');
                 });
                 return;

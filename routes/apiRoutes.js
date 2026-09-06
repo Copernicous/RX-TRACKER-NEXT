@@ -20,6 +20,9 @@ const deliveryOutcomeController = require('../controllers/deliveryOutcomeControl
 const deliveryLogArchiveController = require('../controllers/deliveryLogArchiveController');
 const { normalizeState, normalizeStructuredAddressForReference, isKnownCityName } = require('../utils/patientAddress');
 
+const ADDRESS_LOOKUP_CACHE_MS = 5 * 60 * 1000;
+let patientAddressLookupCache = null;
+
 const phoneAccountSaveLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     limit: 5,
@@ -261,6 +264,13 @@ const LOOKUP_MAP = {
 };
 router.get('/lookup/patient-addresses', rbac.requirePermission('patients', 'read'), async (req, res) => {
     try {
+        const now = Date.now();
+        const refreshRequested = req.query.refresh === 'true' || req.query.refresh === '1';
+        if (!refreshRequested && patientAddressLookupCache && patientAddressLookupCache.expiresAt > now) {
+            res.set('Cache-Control', 'private, max-age=300');
+            return res.json(patientAddressLookupCache.payload);
+        }
+
         const rows = await db.Patient.findAll({
             attributes: ['address', 'addressLine1', 'city', 'state', 'zipCode'],
             where: {
@@ -272,7 +282,7 @@ router.get('/lookup/patient-addresses', rbac.requirePermission('patients', 'read
         const unique = (field, mapper) => Array.from(new Set(
             normalizedRows.map(row => mapper ? mapper(row[field]) : String(row[field] || '').trim()).filter(Boolean)
         )).sort((left, right) => left.localeCompare(right, undefined, { sensitivity: 'base' }));
-        res.json({
+        const payload = {
             addressLine1: unique('addressLine1').slice(0, 500),
             city: unique('city', value => {
                 const city = String(value || '').trim();
@@ -280,9 +290,66 @@ router.get('/lookup/patient-addresses', rbac.requirePermission('patients', 'read
             }),
             state: unique('state', normalizeState),
             zipCode: unique('zipCode')
-        });
+        };
+        patientAddressLookupCache = {
+            payload,
+            expiresAt: now + ADDRESS_LOOKUP_CACHE_MS
+        };
+        res.set('Cache-Control', 'private, max-age=300');
+        res.json(payload);
     } catch (e) {
         console.error('[lookup:patient-addresses]', e.message);
+        res.status(500).json({ error: e.message });
+    }
+});
+router.get('/lookup/rx-patients', rbac.requirePermission('patients', 'read'), async (req, res) => {
+    try {
+        const q = String(req.query.q || '').trim();
+        const id = String(req.query.id || '').trim();
+        const limit = Math.min(Math.max(parseInt(req.query.limit || '50', 10) || 50, 1), 50);
+        const clauses = [
+            { [db.Sequelize.Op.or]: [{ isDeleted: false }, { isDeleted: null }] },
+            { isActive: true }
+        ];
+
+        if (/^\d+$/.test(id)) {
+            clauses.push({ id: parseInt(id, 10) });
+        } else if (q) {
+            const like = `%${q}%`;
+            clauses.push({
+                [db.Sequelize.Op.or]: [
+                    { firstName: { [db.Sequelize.Op.iLike]: like } },
+                    { lastName: { [db.Sequelize.Op.iLike]: like } },
+                    { patientCode: { [db.Sequelize.Op.iLike]: like } },
+                    { phone: { [db.Sequelize.Op.iLike]: like } },
+                    /^\d+$/.test(q) ? { id: parseInt(q, 10) } : null
+                ].filter(Boolean)
+            });
+        }
+
+        const rows = await db.Patient.findAll({
+            attributes: [
+                'id',
+                'patientCode',
+                'firstName',
+                'lastName',
+                'dob',
+                'phone',
+                'serviceDate',
+                'isActive',
+                'pharmacyId',
+                'patientTransportCompanyId',
+                'pharmacyTransportCompanyId'
+            ],
+            include: [{ model: db.Pharmacy, attributes: ['id', 'name'], required: false }],
+            where: { [db.Sequelize.Op.and]: clauses },
+            order: [['lastName', 'ASC'], ['firstName', 'ASC'], ['id', 'ASC']],
+            limit
+        });
+        res.set('Cache-Control', 'private, max-age=30');
+        res.json(rows);
+    } catch (e) {
+        console.error('[lookup:rx-patients]', e.message);
         res.status(500).json({ error: e.message });
     }
 });

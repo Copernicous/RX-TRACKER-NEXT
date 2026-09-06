@@ -65,5 +65,7 @@ module.exports = Object.freeze({
   '20260905152000-normalize-structured-address-street-city-fragments.js': 'a99a7089ff855e8bf19c068f07741615153c4667a9509906f89c220d9831845c',
   '20260905153000-reassign-region-tags-from-structured-city.js': '7943ac44b33077e929488694695d08bf6fa6e587c95d24c83ebfa0c34d51efa1',
   '20260906000000-rerun-improved-structured-address-cleanup.js': 'ce402fbca878366a06eb3ed83b08466484359cccfa208d860a0bc92774dacaf3',
-  '20260906010000-assign-missing-region-tags-from-structured-city.js': '7ed0676f704ff79f4d0a077ce8f3b477b085d192565d97480f12d09243bcf041'
+  '20260906010000-assign-missing-region-tags-from-structured-city.js': '7ed0676f704ff79f4d0a077ce8f3b477b085d192565d97480f12d09243bcf041',
+  '20260906120000-add-patient-address-query-indexes.js': '8a794d060c32266ca1d70b786e5682188461a2f916b465330ed3bd76b6be27db',
+  '20260906121000-add-call-center-query-indexes.js': '02f71723f5b963bd84ab574a120aa13f28e536274f08c3e7d730ccfa61692cad'
 });

@@ -578,15 +578,49 @@ function addRxPageFilters(query, replacements, totalSteps) {
     return whereSql;
 }
 
-function rxPageFromSql() {
+function rxPageFromSql(includeWorkflowAggregate) {
     return `
         FROM "RXRecords" r
         LEFT JOIN "Patients" p ON p.id = r."patientId"
         LEFT JOIN "Pharmacies" ph ON ph.id = r."pharmacyId"
+        ${includeWorkflowAggregate ? `
         LEFT JOIN (
             ${activeRxWorkflowAggregateSql()}
         ) wc ON wc."rxRecordId" = r.id
+        ` : ''}
     `;
+}
+
+function rxPageNeedsWorkflowAggregate(query, sort) {
+    return sort === 'workflowStatus'
+        || Boolean(cleanString(query.workflowStatus))
+        || Boolean(cleanString(query.workflowStage))
+        || Boolean(cleanString(query.currentWorkflowStage))
+        || Boolean(cleanString(query.currentStageDateFrom))
+        || Boolean(cleanString(query.currentStageDateTo));
+}
+
+async function loadCurrentStageDatesByRxId(ids) {
+    if (!ids.length) return new Map();
+    const rows = await db.sequelize.query(
+        `SELECT
+             wt."rxRecordId" AS id,
+             (ARRAY_AGG(
+                 wt."completionDate"
+                 ORDER BY
+                     wa."sequenceNumber" DESC NULLS LAST,
+                     wt."completionDate" DESC NULLS LAST,
+                     wt.id DESC
+             ))[1] AS "currentStageDate"
+         FROM "RXWorkflowTrackings" wt
+         INNER JOIN "WorkflowActions" wa
+             ON wa.id = wt."workflowActionId"
+            AND wa."isActive" = TRUE
+         WHERE wt."rxRecordId" IN (:ids)
+         GROUP BY wt."rxRecordId"`,
+        { type: db.Sequelize.QueryTypes.SELECT, replacements: { ids } }
+    );
+    return new Map(rows.map(row => [Number(row.id), row.currentStageDate || null]));
 }
 
 function rxPageSortSql(sort) {
@@ -623,7 +657,8 @@ async function getPaginatedRxRecords(query, includeStageDriverDetails) {
     const totalWorkflowSteps = activeActionIds.size;
     const replacements = {};
     const whereSql = addRxPageFilters(query, replacements, totalWorkflowSteps);
-    const fromSql = rxPageFromSql();
+    const includeWorkflowAggregate = rxPageNeedsWorkflowAggregate(query, sort);
+    const fromSql = rxPageFromSql(includeWorkflowAggregate);
     const whereClause = whereSql.length ? `WHERE ${whereSql.join(' AND ')}` : '';
     const sortSql = rxPageSortSql(sort);
     const dirSql = dir === 'asc' ? 'ASC' : 'DESC';
@@ -642,15 +677,15 @@ async function getPaginatedRxRecords(query, includeStageDriverDetails) {
         offset: pageOffset
     });
     const idRows = total === 0 ? [] : await db.sequelize.query(
-        `SELECT r.id, wc.current_stage_at AS "currentStageDate" ${fromSql} ${whereClause}
+        `SELECT r.id${includeWorkflowAggregate ? ', wc.current_stage_at AS "currentStageDate"' : ''} ${fromSql} ${whereClause}
          ORDER BY ${sortSql} ${dirSql} NULLS LAST, r.id DESC
          LIMIT :limit OFFSET :offset`,
         { type: db.Sequelize.QueryTypes.SELECT, replacements: pageReplacements }
     );
     const ids = idRows.map(row => row.id);
-    const currentStageDateById = new Map(
-        idRows.map(row => [Number(row.id), row.currentStageDate || null])
-    );
+    const currentStageDateById = includeWorkflowAggregate
+        ? new Map(idRows.map(row => [Number(row.id), row.currentStageDate || null]))
+        : await loadCurrentStageDatesByRxId(ids);
     let rows = [];
     if (ids.length) {
         const data = await db.RXRecord.findAll({

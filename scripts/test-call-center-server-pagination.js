@@ -159,16 +159,10 @@ async function main() {
     };
 
     const originalQuery = db.sequelize.query;
-    const originalPatientFindAll = db.Patient.findAll;
     const observedSql = [];
-    const observedPatientLoads = [];
     db.sequelize.query = function(sql, options) {
         observedSql.push(typeof sql === 'string' ? sql : String(sql));
         return originalQuery.call(this, sql, options);
-    };
-    db.Patient.findAll = function(options) {
-        observedPatientLoads.push(options || {});
-        return originalPatientFindAll.call(this, options);
     };
 
     try {
@@ -188,13 +182,13 @@ async function main() {
             && /LIMIT :limit OFFSET :offset/i.test(sql)
         );
         assert(boundedIdQuery, 'Call Center must issue a bounded database ID-page query.');
-        const detailLoad = observedPatientLoads.find(options =>
-            options.where
-            && options.where.id
-            && options.where.id[Op.in]
-            && options.where.id[Op.in].length === 5
+        const boundedDetailQuery = observedSql.find(sql =>
+            /FROM "Patients" p/i.test(sql)
+            && /WHERE p\.id IN \(:ids\)/i.test(sql)
+            && /LEFT JOIN "Clinics" c/i.test(sql)
+            && /LEFT JOIN "PatientTransportCompanies" pt/i.test(sql)
         );
-        assert(detailLoad, 'Call Center details must load only the selected page IDs.');
+        assert(boundedDetailQuery, 'Call Center details must load only the selected page IDs with the lightweight detail query.');
         console.log('PASS: Call Center queue is bounded before details and history load');
 
         payload = await runHandler({
@@ -243,7 +237,6 @@ async function main() {
         console.log('PASS: search, normalized phone, relation search, history sorting, and activity pagination preserved');
     } finally {
         db.sequelize.query = originalQuery;
-        db.Patient.findAll = originalPatientFindAll;
     }
 }
 

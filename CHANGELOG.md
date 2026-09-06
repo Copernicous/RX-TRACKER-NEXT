@@ -5,6 +5,31 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ---
 
+## [Unreleased]
+
+## [4.0.0-next.82] - 2026-09-06
+
+### Changed
+
+- Deferred patient address autocomplete loading until address fields are used,
+  and cached the address lookup payload server-side for five minutes.
+- Added audited structured-address query indexes for City, State, ZIP, and
+  Address / Street fields to support address filtering as patient volume grows.
+- Reduced RX Records initial-list work by calculating current workflow dates
+  only for the returned page unless workflow filters/sorting require the full
+  workflow projection.
+- Replaced the RX modal patient picker's full `/api/patients` preload with a
+  lightweight on-demand active-patient lookup, removing the multi-megabyte
+  patient payload from RX Records page startup.
+- Optimized the Call Center queue by loading page details, call history, recent
+  notes, and eligible-patient metrics with bounded SQL queries instead of
+  heavier full model/result scans.
+
+### Database
+
+- Added audited query indexes for the Call Center queue, active call attempts,
+  and active lock lookups.
+
 ## [4.0.0-next.81] - 2026-09-06
 
 ### Fixed

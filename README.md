@@ -10,7 +10,7 @@ frozen 3.3.1 repository, its production database, or the RX Softphone source.
 
 ## Current status
 
-Version: `4.0.0-next.81` release
+Version: `4.0.0-next.82` release
 
 | Area | NEXT behavior |
 |---|---|
@@ -108,6 +108,15 @@ regional assignments dropped from 39 to 0, with final Region counts of Miami
 overwritten, and Project Control allows only this audited backfill count while
 continuing to protect unrelated Patient Tag assignment changes. It also
 hardens login/shared icon rendering for bundled Font Awesome assets.
+
+Official release `next.82` improves Patients/RX/Call Center page-load
+performance. Patient address autocomplete now loads only when address fields
+are used and is cached briefly server-side. RX Records avoids the full
+workflow-state aggregate for default list loads and no longer preloads the
+full patient payload for the RX modal patient picker. Call Center queue,
+history, notes, and metrics use bounded SQL paths with new query indexes for
+queue eligibility, active call attempts, and active locks. No proxy, VPN,
+cookie, `.env`, port, login, or business-data rule is changed.
 
 The RX Profile Sync review release adds review state to Backoffice **RX Profile Sync**.
 Exact Pharmacy and Transport differences can be marked reviewed without being

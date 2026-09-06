@@ -294,14 +294,26 @@ function callCenterPatientJoinsSql() {
 async function loadCallCenterRowsByIds(ids) {
     if (!ids.length) return [];
     const order = new Map(ids.map((id, index) => [Number(id), index]));
-    const rows = await db.Patient.findAll({
-        attributes: ['id', 'firstName', 'lastName', 'clinicId', 'patientTransportCompanyId', 'phone', 'serviceDate', 'notes', 'isActive', 'isDeleted', 'isNonCompanyPatient'],
-        include: [
-            { model: db.Clinic, attributes: ['id', 'name'], required: false },
-            { model: db.PatientTransportCompany, attributes: ['id', 'companyName'], required: false }
-        ],
-        where: { id: { [Op.in]: ids } }
-    });
+    const rows = await db.sequelize.query(
+        `SELECT p.id,
+                p."firstName",
+                p."lastName",
+                p."clinicId",
+                p."patientTransportCompanyId",
+                p.phone,
+                p."serviceDate",
+                p.notes,
+                p."isActive",
+                p."isDeleted",
+                p."isNonCompanyPatient",
+                c.name AS "clinicName",
+                pt."companyName" AS "patientTransportName"
+         FROM "Patients" p
+         LEFT JOIN "Clinics" c ON c.id = p."clinicId"
+         LEFT JOIN "PatientTransportCompanies" pt ON pt.id = p."patientTransportCompanyId"
+         WHERE p.id IN (:ids)`,
+        { type: db.Sequelize.QueryTypes.SELECT, replacements: { ids } }
+    );
     rows.sort((left, right) => order.get(Number(left.id)) - order.get(Number(right.id)));
     return rows;
 }
@@ -557,15 +569,40 @@ function serializeCallLog(log) {
 async function getCallHistoryForPatients(patientIds) {
     if (!patientIds.length) return {};
     const range = todayRange();
-    const logs = await db.AuditLog.findAll({
-        where: {
-            module: MODULE_NAME,
-            action: CALL_ACTION,
-            recordId: { [Op.in]: patientIds }
-        },
-        include: [{ model: db.User, attributes: ['id', 'firstName', 'lastName', 'username'], required: false }],
-        order: [['createdAt', 'DESC']]
-    });
+    const logs = await db.sequelize.query(
+        `WITH ranked_calls AS (
+             SELECT a.id,
+                    a."recordId",
+                    a."createdAt",
+                    u.id AS "userId",
+                    u."firstName" AS "userFirstName",
+                    u."lastName" AS "userLastName",
+                    u.username AS "username",
+                    COUNT(*) OVER (PARTITION BY a."recordId")::integer AS "callCount",
+                    COUNT(*) FILTER (WHERE a."createdAt" BETWEEN :todayFrom AND :todayTo)
+                        OVER (PARTITION BY a."recordId")::integer AS "todayCount",
+                    ROW_NUMBER() OVER (PARTITION BY a."recordId" ORDER BY a."createdAt" DESC, a.id DESC) AS rn
+             FROM "AuditLogs" a
+             LEFT JOIN "Users" u ON u.id = a."userId"
+             WHERE a."module" = :module
+               AND a."action" = :action
+               AND a."recordId" IN (:patientIds)
+         )
+         SELECT *
+         FROM ranked_calls
+         WHERE rn <= 5
+         ORDER BY "recordId" ASC, "createdAt" DESC, id DESC`,
+        {
+            type: db.Sequelize.QueryTypes.SELECT,
+            replacements: {
+                module: MODULE_NAME,
+                action: CALL_ACTION,
+                patientIds,
+                todayFrom: range.from,
+                todayTo: range.to
+            }
+        }
+    );
 
     const map = {};
     logs.forEach((log) => {
@@ -573,25 +610,38 @@ async function getCallHistoryForPatients(patientIds) {
         const key = String(plain.recordId);
         if (!map[key]) {
             map[key] = {
-                count: 0,
-                todayCount: 0,
+                count: Number(plain.callCount) || 0,
+                todayCount: Number(plain.todayCount) || 0,
                 lastCalledAt: null,
                 lastCalledBy: null,
                 lastCalledTodayAt: null,
                 recent: []
             };
         }
-        map[key].count += 1;
         if (plain.createdAt && new Date(plain.createdAt) >= range.from && new Date(plain.createdAt) <= range.to) {
-            map[key].todayCount += 1;
             if (!map[key].lastCalledTodayAt) map[key].lastCalledTodayAt = plain.createdAt;
         }
         if (!map[key].lastCalledAt) {
             map[key].lastCalledAt = plain.createdAt;
-            map[key].lastCalledBy = getUserLabel(plain.User);
+            map[key].lastCalledBy = getUserLabel({
+                id: plain.userId,
+                firstName: plain.userFirstName,
+                lastName: plain.userLastName,
+                username: plain.username
+            });
         }
         if (map[key].recent.length < 5) {
-            map[key].recent.push(serializeCallLog(plain));
+            map[key].recent.push({
+                id: plain.id,
+                at: plain.createdAt,
+                display: formatDate(plain.createdAt) || localDateOnly(plain.createdAt),
+                user: getUserLabel({
+                    id: plain.userId,
+                    firstName: plain.userFirstName,
+                    lastName: plain.userLastName,
+                    username: plain.username
+                })
+            });
         }
     });
     return map;
@@ -609,24 +659,45 @@ function auditServiceDate(value) {
 
 async function getRecentNotesForPatients(patientIds) {
     if (!patientIds.length) return {};
-    const notes = await db.PatientNote.findAll({
-        where: { patientId: { [Op.in]: patientIds } },
-        include: [{ model: db.User, as: 'Author', attributes: ['id', 'firstName', 'lastName', 'username'], required: false }],
-        order: [['createdAt', 'DESC']]
-    });
+    const notes = await db.sequelize.query(
+        `WITH ranked_notes AS (
+             SELECT n.id,
+                    n."patientId",
+                    n.note,
+                    n.source,
+                    n."createdAt",
+                    u.id AS "authorId",
+                    u."firstName" AS "authorFirstName",
+                    u."lastName" AS "authorLastName",
+                    u.username AS "authorUsername",
+                    ROW_NUMBER() OVER (PARTITION BY n."patientId" ORDER BY n."createdAt" DESC, n.id DESC) AS rn
+             FROM "PatientNotes" n
+             LEFT JOIN "Users" u ON u.id = n."userId"
+             WHERE n."patientId" IN (:patientIds)
+         )
+         SELECT *
+         FROM ranked_notes
+         WHERE rn <= 5
+         ORDER BY "patientId" ASC, "createdAt" DESC, id DESC`,
+        { type: db.Sequelize.QueryTypes.SELECT, replacements: { patientIds } }
+    );
 
     const map = {};
     notes.forEach((note) => {
         const plain = note && typeof note.toJSON === 'function' ? note.toJSON() : note;
         const key = String(plain.patientId);
         if (!map[key]) map[key] = [];
-        if (map[key].length >= 5) return;
         map[key].push({
             id: plain.id,
             note: plain.note || '',
             source: plain.source || 'Patient',
             createdAt: plain.createdAt,
-            author: getUserLabel(plain.Author)
+            author: getUserLabel({
+                id: plain.authorId,
+                firstName: plain.authorFirstName,
+                lastName: plain.authorLastName,
+                username: plain.authorUsername
+            })
         });
     });
     return map;
@@ -658,11 +729,11 @@ function serializePatient(patient, callHistory, noteHistory) {
         firstName: plain.firstName || '',
         lastName: plain.lastName || '',
         clinicId: plain.clinicId || null,
-        clinicName: plain.Clinic && plain.Clinic.name ? plain.Clinic.name : '',
+        clinicName: plain.clinicName || (plain.Clinic && plain.Clinic.name ? plain.Clinic.name : ''),
         patientTransportCompanyId: plain.patientTransportCompanyId || null,
-        patientTransportName: plain.PatientTransportCompany && plain.PatientTransportCompany.companyName
+        patientTransportName: plain.patientTransportName || (plain.PatientTransportCompany && plain.PatientTransportCompany.companyName
             ? plain.PatientTransportCompany.companyName
-            : '',
+            : ''),
         phone: plain.phone || '',
         serviceDate,
         serviceDateDisplay: formatDate(serviceDate),
@@ -1079,23 +1150,24 @@ exports.savePatientAction = async (req, res) => {
 };
 
 async function eligibleTotal() {
-    const patients = await db.Patient.findAll({
-        attributes: ['serviceDate', 'isActive', 'isDeleted', 'isNonCompanyPatient'],
-        where: baseEligibleWhere()
+    return db.Patient.count({
+        where: {
+            ...baseEligibleWhere(),
+            serviceDate: { [Op.lte]: getCallCenterCutoffIso(new Date()) }
+        }
     });
-    return patients.filter(isEligiblePatient).length;
 }
 
 async function availableEligibleTotal(userId) {
-    const patients = await db.Patient.findAll({
-        attributes: ['id', 'serviceDate', 'isActive', 'isDeleted', 'isNonCompanyPatient'],
-        where: baseEligibleWhere()
-    });
-    const eligiblePatients = patients.filter(isEligiblePatient);
+    const where = {
+        ...baseEligibleWhere(),
+        serviceDate: { [Op.lte]: getCallCenterCutoffIso(new Date()) }
+    };
     const lockedByOthers = await getActiveLockedPatientIds(userId);
-    return eligiblePatients.filter((patient) =>
-        !lockedByOthers.has(patient.id)
-    ).length;
+    if (lockedByOthers.size) where.id = { [Op.notIn]: Array.from(lockedByOthers) };
+    return db.Patient.count({
+        where
+    });
 }
 
 function getRange(query) {

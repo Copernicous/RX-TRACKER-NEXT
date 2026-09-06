@@ -1,10 +1,12 @@
 (function() {
     var cachePromise = null;
+    var loadStarted = false;
     var fields = ['addressLine1', 'city', 'state', 'zipCode'];
 
-    function fetchAddressOptions() {
+    function fetchAddressOptions(refresh) {
         if (!cachePromise) {
-            cachePromise = fetchWithAuth(window.rxUrl('/api/lookup/patient-addresses'), { silent: true })
+            var url = '/api/lookup/patient-addresses' + (refresh ? '?refresh=1' : '');
+            cachePromise = fetchWithAuth(window.rxUrl(url), { silent: true })
                 .then(function(res) {
                     if (!res || !res.ok) return {};
                     return res.json();
@@ -39,20 +41,39 @@
     }
 
     function init() {
-        fetchAddressOptions().then(bind);
+        if (loadStarted) return cachePromise;
+        loadStarted = true;
+        return fetchAddressOptions(false).then(bind);
+    }
+
+    function bindLazyLoad() {
+        document.addEventListener('focusin', function(event) {
+            if (event.target && event.target.matches('[data-address-autocomplete]')) init();
+        });
+        document.addEventListener('toggle', function(event) {
+            if (
+                event.target &&
+                event.target.open &&
+                event.target.querySelector &&
+                event.target.querySelector('[data-address-autocomplete]')
+            ) {
+                init();
+            }
+        }, true);
     }
 
     window.rxAddressAutocomplete = {
         init: init,
         refresh: function() {
             cachePromise = null;
-            return fetchAddressOptions().then(bind);
+            loadStarted = true;
+            return fetchAddressOptions(true).then(bind);
         }
     };
 
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', init);
+        document.addEventListener('DOMContentLoaded', bindLazyLoad);
     } else {
-        init();
+        bindLazyLoad();
     }
 })();
