@@ -8,6 +8,36 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
 
+- **Official v4.0.0-next.84** was published on 2026-09-06 from `main` commit
+  `c4c6e37` after PostgreSQL lifecycle CI run `34030220672`, CodeQL run
+  `34030220671`, and release workflow run `34030400346` passed. Release URL:
+  `https://github.com/Copernicous/RX-TRACKER-NEXT/releases/tag/v4.0.0-next.84`.
+  This release adds editable **City Region Rules** under Reference Data using
+  the existing Patient Tags permission. The audited migration
+  `20260906130000-create-city-region-rules.js` creates the rule table, lookup
+  indexes, and seeds the approved Tampa-region city list as editable reference
+  data. Patient edit/save and CSV import apply the same rule table so City
+  updates the Miami/Tampa/None regional Patient Tag while preserving
+  non-region tags. The Patient screen applies the Region automatically without
+  the confusing native confirmation prompt found during final staging review.
+  If no custom rule exists, the existing fallback remains: approved
+  Tampa-region cities map to Tampa, other populated cities map to Miami, and
+  no usable city/address maps to None. The local full-copy database verified at
+  64 applied migrations, 0 pending migrations, and a verified checksum ledger;
+  public JavaScript, structured address / Region / Patient Tags import, and
+  reference-data regressions passed. No proxy, VPN, FortiGate, cookie, `.env`,
+  port, login/session, service bootstrap, configured RX Action, or unrelated
+  business-data rule is changed. `v4.0.0-next.83` was tagged but its release
+  workflow was cancelled before publication after staging review found the
+  City -> Region confirmation confusing; do not install `next.83`. Published
+  SHA-256 values: `server-update-4.0.0-next.84.zip` and
+  `RX-Tracker-NEXT-New-Server-4.0.0-next.84.zip`
+  `d6ade8486d0b3d3202b9678e5f12f2d0e382c9c3c78cad898a27507510f3f3e6`;
+  `RxSoftphone-0.6.0-win-x64.zip`
+  `8d248d252363f627c5470cbc75e2a74d5c27f8634d5ee96188d1af96c5462e8a`;
+  `server.exe` `6dc4f8bf62694c7d788e19c058a9a25f1ac51d4a2126b902d8a2a3f679b522a6`;
+  and `rx-db.exe` `5c402869f5d0950cd1d4ed503bb6cbd6fa0ad2724145f036d01bf61944b0fccb`.
+
 - **Official v4.0.0-next.82** was published on 2026-09-06 from `main` commit
   `5f603f1` after PostgreSQL lifecycle CI run `34025761600`, CodeQL run
   `34025761590`, and release workflow run `34025991497` passed. Release URL:
