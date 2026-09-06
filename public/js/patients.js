@@ -128,8 +128,7 @@ var allPatients = [];
         return findRegionalPatientTagByName('Miami');
     }
 
-    function applyRegionTagFromCity(options) {
-        options = options || {};
+    function applyRegionTagFromCity() {
         var cityEl = document.getElementById('pCity');
         var hidden = document.getElementById('pPatientTagIds');
         if (!cityEl || !hidden) return true;
@@ -140,9 +139,6 @@ var allPatients = [];
             return selectedSet.has(String(item.id)) && isRegionalPatientTag(item);
         });
         if (selectedRegional.length === 1 && String(selectedRegional[0].id) === String(tag.id)) return true;
-        if (options.confirm && selectedRegional.length && !window.confirm('City ' + (cityEl.value || 'blank') + ' maps to ' + patientTagLabel(tag) + '. Update the Region tag now?')) {
-            return false;
-        }
         selectedRegional.forEach(function(item) { selectedSet.delete(String(item.id)); });
         selectedSet.add(String(tag.id));
         hidden.value = Array.from(selectedSet).join(',');
@@ -603,8 +599,8 @@ var allPatients = [];
         }
         var patientCityInput = document.getElementById('pCity');
         if (patientCityInput) {
-            patientCityInput.addEventListener('change', function() { applyRegionTagFromCity({ confirm: true }); });
-            patientCityInput.addEventListener('blur', function() { applyRegionTagFromCity({ confirm: true }); });
+            patientCityInput.addEventListener('change', applyRegionTagFromCity);
+            patientCityInput.addEventListener('blur', applyRegionTagFromCity);
         }
         document.getElementById('confirmDeleteBtn').addEventListener('click', deletePatient);
         document.getElementById('deleteConfirmInput').addEventListener('input', checkDeleteConfirmation);
@@ -2275,7 +2271,7 @@ var allPatients = [];
             ? (Array.isArray(patient.PatientTags) ? patient.PatientTags.map(function(tag) { return String(tag.id); }).join(',') : '')
             : patientTagOptions.filter(function(tag) { return tag.isDefault; }).map(function(tag) { return String(tag.id); }).join(',');
         refreshPatientLookupMultiFilter('pPatientTagIds', 'pPatientTagsPicker', patientTagOptions, function(item) { return item.label; }, 'No patient tags selected');
-        if (!patient) applyRegionTagFromCity({ confirm: false });
+        if (!patient) applyRegionTagFromCity();
         loadPatientServiceDateHistory(id);
 
         // â”€â”€ 90-DAY SERVICE DATE LOCK UI â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -2451,7 +2447,7 @@ var allPatients = [];
             showToast('Change the service date before adding a new RX for this patient.', 'warning');
             return;
         }
-        if (!applyRegionTagFromCity({ confirm: true })) return;
+        applyRegionTagFromCity();
         btn.disabled = true;
         if (addRxBtn) addRxBtn.disabled = true;
         if (addRxAfterSave && addRxSpinner) {

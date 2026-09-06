@@ -7,7 +7,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
-## [4.0.0-next.83] - 2026-09-06
+## [4.0.0-next.84] - 2026-09-06
 
 ### Added
 
@@ -23,6 +23,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
   regional tag. If no custom city rule exists, the existing fallback remains:
   approved Tampa-region cities map to Tampa, populated other cities map to
   Miami, and no city/address maps to None.
+- Removed the browser confirmation from City -> Region autofill so selecting
+  or typing a City quietly keeps the regional tag synchronized.
 
 ### Database
 
@@ -38,6 +40,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
   migrations, and a verified checksum ledger.
 - Passed public JavaScript validation and the structured address / Region /
   Patient Tags import regression.
+
+### Release Process
+
+- `v4.0.0-next.83` was tagged but its release workflow was cancelled before
+  publication after staging review found the City -> Region browser
+  confirmation confusing. The corrected immutable production release is
+  `v4.0.0-next.84`.
 
 ## [4.0.0-next.82] - 2026-09-06
 
