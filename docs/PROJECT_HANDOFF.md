@@ -8,7 +8,11 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
 
-- **Release candidate v4.0.0-next.82:** Address autocomplete no
+- **Official v4.0.0-next.82** was published on 2026-09-06 from `main` commit
+  `5f603f1` after PostgreSQL lifecycle CI run `34025761600`, CodeQL run
+  `34025761590`, and release workflow run `34025991497` passed. Release URL:
+  `https://github.com/Copernicous/RX-TRACKER-NEXT/releases/tag/v4.0.0-next.82`.
+  Address autocomplete no
   longer loads all patient address options on every Patients/RX/Reports page
   initialization; it loads when an address field is focused or its advanced
   address filter section is opened. The `/api/lookup/patient-addresses`
@@ -27,6 +31,18 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
   queue, active call-attempt, and active lock lookup paths. This change does
   not alter proxy, VPN,
   FortiGate, cookie, `.env`, port, `rxUrl()`, or service bootstrap behavior.
+  Published SHA-256 values: `server-update-4.0.0-next.82.zip` and
+  `RX-Tracker-NEXT-New-Server-4.0.0-next.82.zip`
+  `accd5c400e01e0d182ea705826730edf17c028c17b1b8349b7c69b92cae3bbb5`;
+  `RxSoftphone-0.6.0-win-x64.zip`
+  `a73c80b08386c8d2af8f3625a3ff50be7a9c1adb0e0fcd53763c1f8a0c98a457`;
+  `server.exe` `5ed1a963093a32d3d066ea3c8d0d5a9f5459c70a3c96d0481867206f7931a8d5`;
+  and `rx-db.exe` `f67cfe9170f09d7abd520d1d3189dea91de58ad36f247c7c99df9eaaa9c9e5ca`.
+  The official server ZIP was downloaded and matched `SHA256SUMS.txt`; its
+  extracted `package.json` reports `4.0.0-next.82`. Local Windows policy
+  blocked direct execution of the downloaded EXEs from the temp verification
+  folder with `Access is denied`, so production should rely on Project Control
+  option **8**/**15** official release verification before install.
 
 - **Official v4.0.0-next.81** was published on 2026-09-06 from `main` commit
   `42b599b` after PostgreSQL lifecycle CI run `34003452588`, CodeQL run
