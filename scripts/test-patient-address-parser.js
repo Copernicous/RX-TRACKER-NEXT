@@ -104,6 +104,23 @@ assertAddress(
   'cleanup parser handles ZIP-only city reference'
 );
 
+assertAddress(
+  normalizeStructuredAddressForReference({
+    address: 'UNKNOWN ADDRESS TEXT',
+    addressLine1: '1400 MANUAL WAY',
+    city: 'Brandon',
+    state: 'FL',
+    zipCode: '33511'
+  }),
+  {
+    addressLine1: '1400 MANUAL WAY',
+    city: 'Brandon',
+    state: 'FL',
+    zipCode: '33511'
+  },
+  'cleanup rerun preserves existing structured corrections when full address is ambiguous'
+);
+
 assert.strictEqual(inferRegionalTagName('102 GOLDENWOOD AVE BRANDON FL 335111', 'Brandon'), 'Tampa');
 assert.strictEqual(inferRegionalTagName('1400 NW 12 Ave Miami FL 33136', 'Miami'), 'Miami');
 assert.strictEqual(inferRegionalTagName('', ''), 'None');

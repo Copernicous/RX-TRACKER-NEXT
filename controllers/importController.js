@@ -235,6 +235,11 @@ function buildPatientTagLookup(tags) {
     tags.forEach(tag => {
         byId.set(String(tag.id), tag);
         add(byLabel, tagDisplayName(tag), tag);
+        const group = tagKey(tag.groupName);
+        if (group === 'region' || group === 'city') {
+            add(byLabel, `Region: ${tag.name}`, tag);
+            add(byLabel, `City: ${tag.name}`, tag);
+        }
         add(byName, tag.name, tag);
     });
     return { byId, byLabel, byName };

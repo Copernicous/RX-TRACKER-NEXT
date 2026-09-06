@@ -66,7 +66,8 @@ module.exports = [
   entry('20260905150000-normalize-structured-address-reference-fields.js', require('../migrations/20260905150000-normalize-structured-address-reference-fields.js')),
   entry('20260905151000-normalize-structured-address-reference-aliases.js', require('../migrations/20260905151000-normalize-structured-address-reference-aliases.js')),
   entry('20260905152000-normalize-structured-address-street-city-fragments.js', require('../migrations/20260905152000-normalize-structured-address-street-city-fragments.js')),
-  entry('20260905153000-reassign-region-tags-from-structured-city.js', require('../migrations/20260905153000-reassign-region-tags-from-structured-city.js'))
+  entry('20260905153000-reassign-region-tags-from-structured-city.js', require('../migrations/20260905153000-reassign-region-tags-from-structured-city.js')),
+  entry('20260906000000-rerun-improved-structured-address-cleanup.js', require('../migrations/20260906000000-rerun-improved-structured-address-cleanup.js'))
 ];
 
 function entry(name, migration) {

@@ -1,7 +1,7 @@
-RX Tracker NEXT 4.0.0-next.79
+RX Tracker NEXT 4.0.0-next.80
 ============================
 
-Structured Address and Region Cleanup Release
+Structured Address Rerun and Region Cleanup Release
 
 This server package is an approved routine update for an existing RX Tracker
 NEXT installation. Project Control must preserve the installed production .env
@@ -32,8 +32,14 @@ Release highlights
 - Cleans structured City/State/ZIP values using ZIP-confirmed references.
 - Improves import parsing for blank structured columns, disordered ZIP/city
   text, malformed ZIP digits, and city/state endings without ZIP.
+- Reruns the improved structured-address cleanup over existing patient records
+  while preserving the original full Address field for later review.
+- Preserves existing manual structured address corrections when the old full
+  Address text remains ambiguous.
 - Reassigns the regional Miami/Tampa/None tag from structured City using the
   approved Tampa-region city list; ambiguous rows remain manual.
+- Allows patient imports to use either City: or Region: labels for regional
+  Patient Tags after the group rename.
 - Keeps Patient Tags as manual/business markers once assigned; the structured
   City filter is address-based and is not forced to match manual City tags.
 
@@ -43,10 +49,10 @@ First verification
 1. Preserve/create .env beside both executables. Never take .env from the ZIP.
 2. Run: rx-db.exe status
 3. Run: rx-db.exe verify
-4. Require READY, 59 applied migrations, 0 pending migrations, and a verified
+4. Require READY, 60 applied migrations, 0 pending migrations, and a verified
    checksum ledger.
 5. Run: server.exe --v
-6. Require version 4.0.0-next.79.
+6. Require version 4.0.0-next.80.
 
 Windows production workflow
 ---------------------------

@@ -10,7 +10,7 @@ frozen 3.3.1 repository, its production database, or the RX Softphone source.
 
 ## Current status
 
-Version: `4.0.0-next.79` release
+Version: `4.0.0-next.80` release
 
 | Area | NEXT behavior |
 |---|---|
@@ -87,6 +87,18 @@ text is parsed against known ZIP references, and reviewed malformed city/ZIP
 examples are normalized while ambiguous no-reference rows remain for manual
 correction. No database migration, proxy, VPN, `.env`, service bootstrap, or
 configured RX Action change is included.
+
+Official release `next.80` adds a guarded rerun of the improved
+structured-address cleanup for already-populated databases. The migration only
+refreshes the new Address / Street, City, State, and ZIP fields and preserves
+the original full Address field as the review reference. It also keeps existing
+manual structured address corrections when the legacy full Address text remains
+ambiguous, and patient CSV import accepts either `City:` or `Region:` labels
+for regional Patient Tags after the group rename. On the fresh
+`production-backup-new-2.dump` test copy, structured City/State coverage
+increased from 2857 to 3086 patients and ZIP coverage increased from 2831 to
+3026 patients; 40 ambiguous address rows remain manual and 423 no-address
+patients remain Region/City `None`.
 
 The RX Profile Sync review release adds review state to Backoffice **RX Profile Sync**.
 Exact Pharmacy and Transport differences can be marked reviewed without being

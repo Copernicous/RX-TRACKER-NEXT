@@ -5,6 +5,37 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ---
 
+## [4.0.0-next.80] - 2026-09-06
+
+### Changed
+
+- Added a guarded structured-address cleanup rerun for already-populated
+  databases. It refreshes only the new Address / Street, City, State, and ZIP
+  fields while preserving the original full Address field for later reference.
+- Preserved existing manually corrected structured address values when the
+  legacy full Address text is still ambiguous.
+- Updated patient import tag lookup so regional tags accept either `City:`
+  or `Region:` labels after the regional Patient Tag group is renamed.
+
+### Database
+
+- Added audited migration
+  `20260906000000-rerun-improved-structured-address-cleanup.js` to rerun the
+  improved parser against existing patient rows without touching the legacy
+  full Address reference.
+
+### Validation
+
+- Restored `production-backup-new-2.dump` into isolated database
+  `patient_rx_test_copy_new2_20260906`, applied the two pending audited
+  migrations, and verified 60 applied migrations, 0 pending migrations, and a
+  verified checksum ledger.
+- On that fresh dump copy, structured City/State coverage increased from 2857
+  to 3086 patients and ZIP coverage increased from 2831 to 3026 patients.
+  Forty rows still have address text but no reliable City and remain for
+  manual review; 423 patients have no address and remain Region/City `None`.
+- Confirmed no street-fragment City values remained in the fresh dump copy.
+
 ## [4.0.0-next.79] - 2026-09-05
 
 ### Changed

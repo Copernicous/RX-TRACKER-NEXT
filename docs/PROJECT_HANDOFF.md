@@ -1,6 +1,6 @@
 # RX Tracker NEXT project handoff
 
-Last updated: 2026-09-05
+Last updated: 2026-09-06
 
 This file is the sanitized continuity record for a future administrator or
 Codex session. It intentionally contains no credentials, `.env` values,
@@ -8,7 +8,23 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
 
-- **Patch release v4.0.0-next.79 in progress:** Patient address parsing now
+- **Patch release v4.0.0-next.80 in progress:** The new user-supplied
+  `production-backup-new-2.dump` was restored only into isolated database
+  `patient_rx_test_copy_new2_20260906`. The copy contained 3549 total
+  patients. Applying the pending audited Region reassignment plus the new
+  structured-address rerun reached 60 applied migrations, 0 pending
+  migrations, and a verified checksum ledger. Structured City/State coverage
+  increased from 2857 to 3086 patients and ZIP coverage increased from 2831 to
+  3026 patients. Forty rows still have address text but no reliable City and
+  remain for manual correction; 423 no-address patients remain Region/City
+  None. The cleanup preserves the original full Address field as the review
+  reference, refreshes only Address / Street, City, State, and ZIP, and keeps
+  existing manual structured corrections when the legacy full Address remains
+  ambiguous. Patient import now accepts either `City:` or `Region:` labels for
+  regional Patient Tags after the group rename. There is no proxy, VPN,
+  FortiGate, cookie, `.env`, port, `rxUrl()`, or service bootstrap change.
+
+- **Official v4.0.0-next.79** was published on 2026-09-05. Patient address parsing now
   falls back from blank structured import columns to the preserved full Address
   value, repairs reviewed disordered ZIP/city/state patterns, and expands the
   reviewed Florida city/ZIP reference list. A new audited migration reruns the

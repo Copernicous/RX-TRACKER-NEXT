@@ -779,19 +779,39 @@ function cleanAddressCityWithKnownCitySuffix(parts) {
 
 function normalizeStructuredAddressForReference(parts) {
   const data = parts || {};
+  const current = {
+    addressLine1: cleanAddressPart(data.addressLine1),
+    city: normalizeCityName(data.city),
+    state: normalizeState(data.state),
+    zipCode: normalizeZip(data.zipCode, data.city)
+  };
   const parsed = parseAddress(data.address || data.addressLine1 || '');
   let best = cleanAddressCityWithZipReference(parsed) || parsed;
   best = cleanAddressCityWithKnownCitySuffix(best) || best;
-  best = cleanAddressCityWithZipReference({ ...data, ...best }) || best;
-  best = cleanAddressCityWithKnownCitySuffix({ ...data, ...best }) || best;
+  if (!best.city && !best.state && !best.zipCode && current.addressLine1) {
+    best = { ...best, addressLine1: current.addressLine1 };
+  }
+  const merged = {
+    addressLine1: best.addressLine1 || current.addressLine1,
+    city: best.city || current.city,
+    state: best.state || current.state,
+    zipCode: best.zipCode || current.zipCode
+  };
+  best = cleanAddressCityWithZipReference(merged) || best;
+  best = cleanAddressCityWithKnownCitySuffix({
+    addressLine1: best.addressLine1 || current.addressLine1,
+    city: best.city || current.city,
+    state: best.state || current.state,
+    zipCode: best.zipCode || current.zipCode
+  }) || best;
   if ((!best.city || !best.state) && best.addressLine1 && !best.zipCode) {
     best = splitKnownFloridaCityFromStreetLoose(best.addressLine1) || best;
   }
   return {
-    addressLine1: cleanAddressPart(best.addressLine1),
-    city: normalizeCityName(best.city),
-    state: normalizeState(best.state),
-    zipCode: normalizeZip(best.zipCode)
+    addressLine1: cleanAddressPart(best.addressLine1) || current.addressLine1,
+    city: normalizeCityName(best.city) || current.city,
+    state: normalizeState(best.state) || current.state,
+    zipCode: normalizeZip(best.zipCode) || current.zipCode
   };
 }
 
