@@ -33,6 +33,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ### Fixed
 
+- Updated compatible upload, mail, logging, and query-parser dependencies to
+  clear the high-severity release audit gate. A moderate uuid/Sequelize advisory
+  remains; no forced database-library downgrade is applied.
+
 - Matching name and DOB cannot create a duplicate (merge/discard is allowed), now ignoring
   extra whitespace. Final import checks run under a patient table write lock
   to prevent concurrent imports bypassing validation. Preview saves nothing.

@@ -19,6 +19,9 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
   Manual creation also has server duplicate guards. No migration. The user accepted
   the staging flow and authorized production release on 2026-09-10. Release
   preparation is in progress; main CI/tag/publication are not yet complete.
+  Initial main CI stopped on dependency advisories. Compatible lockfile updates
+  clear the high-severity audit gate; a moderate uuid/Sequelize advisory remains
+  pending upstream resolution without a forced database-library downgrade.
   Synthetic duplicate/manual tests, public JS checks, and live isolated staging
   merge/history/restoration/rollback tests pass. On 2026-09-10 the user explicitly
   approved restarting only staging and preparing fresh examples without deleting

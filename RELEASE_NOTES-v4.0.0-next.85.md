@@ -20,3 +20,7 @@ No database migration is added. Installation does not merge, restore, delete, or
 Final import saves use a short patient table write lock; other patient writes can briefly wait. Reports retain patient field values in the audit database and follow its backup/access controls. Privileged explicit audit deletion can remove historical reports.
 
 Validation includes synthetic duplicate/manual-create regressions and isolated PostgreSQL merge, permission, stale-review, service-date, report-history, restoration, and rollback tests. Operator review accepted the staging merge flow.
+
+## Dependency maintenance
+
+The lockfile updates Multer to 2.3.0, Nodemailer to 9.1.1, Morgan to 1.12.0, and qs to 6.16.0 within existing compatible version ranges. The high-severity audit gate passes. A moderate uuid advisory remains through Sequelize; the suggested forced database-library downgrade is not applied.
