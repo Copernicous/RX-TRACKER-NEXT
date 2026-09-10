@@ -7,6 +7,45 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+## [4.0.0-next.85] - 2026-09-10
+
+### Added
+
+- Reviewed patient imports support per-patient merge and individual field
+  keep/fill/override choices, including DOB/phone and appendable notes.
+- Deleted/inactive matches offer explicitly confirmed restore/reactivate and
+  merge, preserving the patient ID and restoring linked hidden RX records.
+- Downloadable per-field import reports persist in Import History for later
+  download from original snapshots. Routine audit rotation preserves reports.
+  Isolated staging tests cover merges, historical access, and restore rollback.
+
+- Patient CSV imports now preview possible duplicates against existing patients
+  (including inactive/deleted records) and earlier rows in the same file. Same
+  name with a different DOB, shared normalized US phone numbers, and matching
+  address plus first or last name require explicit row-by-row review.
+- Importers can skip individual flagged rows directly in the popup or import
+  them as separate patients. Results identify skipped CSV rows. Confirmations expire, are bound to the file, user, and
+  reviewed matches, and are recorded in the audit log when saved.
+
+- Manual patient creation now uses the same possible-match warnings, blocks
+  identical name/DOB without override, and saves patient/tag/service-date data
+  and confirmed-duplicate audit together in a transaction.
+
+### Fixed
+
+- Matching name and DOB cannot create a duplicate (merge/discard is allowed), now ignoring
+  extra whitespace. Final import checks run under a patient table write lock
+  to prevent concurrent imports bypassing validation. Preview saves nothing.
+- Reject future DOBs and DOB text outside the documented date formats.
+- Preserve multiline quoted CSV fields in the browser preview and escape
+  imported values in preview/error/review HTML.
+
+### Validation
+
+- Synthetic controller regressions and public JavaScript syntax checks pass;
+  browser fixtures verified warning review, cancel/review again, confirmed
+  import, skipped-row import, and manual create review/confirmation. Live isolated PostgreSQL merge/history/restore/rollback validation passed; operator accepted staging. No migration.
+
 ## [4.0.0-next.84] - 2026-09-06
 
 ### Added

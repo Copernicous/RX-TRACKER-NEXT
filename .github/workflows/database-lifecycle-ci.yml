@@ -91,6 +91,8 @@ jobs:
         run: |
           npm audit --audit-level=high
           npm run check:public-js
+          npm run test:patient-import-duplicates
+          npm run test:patient-create-duplicates
           pwsh -NoProfile -File scripts/Invoke-NextProduction.ps1 -Action Help
           pwsh -NoProfile -File scripts/Invoke-NextProduction.ps1 -Action SelfTest
           pwsh -NoProfile -File scripts/Invoke-ReleaseUpdate.ps1 -Action Help
@@ -145,6 +147,7 @@ jobs:
         run: |
           createdb -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -T rx_next_ci_base_test rx_next_ci_regression_test
           export DB_NAME=rx_next_ci_regression_test
+          timeout --foreground 180s npm run staging:patient-import-merge
           timeout --foreground 180s npm run test:call-center-queue-reopen
           timeout --foreground 180s npm run test:call-center-phone-client
           timeout --foreground 180s npm run test:call-center-shared-state

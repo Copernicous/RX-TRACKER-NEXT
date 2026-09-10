@@ -2403,33 +2403,6 @@ var allPatients = [];
         if (id) acquireModalLock(id);
     }
 
-    async function shouldContinuePatientCreate(body) {
-        if (editingPatientId || !body.firstName || !body.lastName || !body.dob) {
-            return true;
-        }
-
-        try {
-            var dupUrl = '/api/patients/check-duplicate?firstName=' + encodeURIComponent(body.firstName) +
-                '&lastName=' + encodeURIComponent(body.lastName) +
-                '&dob=' + encodeURIComponent(body.dob);
-            const dupRes = await fetchWithAuth(dupUrl);
-            if (!dupRes || !dupRes.ok) return true;
-
-            const data = await dupRes.json();
-            const duplicates = Array.isArray(data.duplicates) ? data.duplicates : [];
-            if (!duplicates.length) return true;
-
-            if (typeof showDuplicateWarning === 'function') {
-                return await showDuplicateWarning(duplicates, body);
-            }
-
-            return confirm('A patient with the same name and date of birth already exists. Save anyway?');
-        } catch(e) {
-            return true;
-        }
-    }
-
-
     async function savePatient(options) {
         options = options || {};
         const addRxAfterSave = options.addRxAfterSave === true || options.addRxAfterCreate === true;
@@ -2478,12 +2451,17 @@ var allPatients = [];
             patientTagIds: document.getElementById('pPatientTagIds').value || ''
         };
         try {
-            const shouldContinue = await shouldContinuePatientCreate(body);
-            if (!shouldContinue) return;
-
             const url = editingPatientId ? '/api/patients/' + editingPatientId : '/api/patients';
             const method = editingPatientId ? 'PUT' : 'POST';
-            const res = await fetchWithAuth(url, { method, body: JSON.stringify(body) });
+            let res = await fetchWithAuth(url, { method, body: JSON.stringify(body) });
+            while (!editingIdAtSave && res && res.status === 409) {
+                const review = await res.clone().json();
+                if (!review.reviewRequired) break;
+                const matches = review.warnings.flatMap(warning => warning.matches.map(match => ({ ...match.patient, duplicateReasons: match.reasons })));
+                const proceed = await showDuplicateWarning(matches, body, { possible: true });
+                if (!proceed) return;
+                res = await fetchWithAuth(url, { method, body: JSON.stringify({ ...body, duplicateReviewToken: review.reviewToken }) });
+            }
             if (!res) return;
             if (res.ok) {
                 let savedPatient = null;

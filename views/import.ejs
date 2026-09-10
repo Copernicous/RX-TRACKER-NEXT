@@ -149,6 +149,18 @@
                     </div>
 
                     <!-- Preview Section -->
+                    <details id="patientImportHistory" class="mt-4">
+                        <summary class="fw-semibold">Patient Import History — download a previous report</summary>
+                        <p class="small text-muted mt-2">Reports show the values captured at the time of import. Your own reports are listed; users with Audit Log access can review all reports.</p>
+                        <button type="button" id="refreshImportHistoryBtn" class="btn btn-sm btn-outline-secondary mb-2">Refresh history</button>
+                        <div id="patientImportHistoryBody" class="table-responsive"></div>
+                        <div class="d-flex gap-2 align-items-center mt-2">
+                            <button type="button" id="previousImportHistoryBtn" class="btn btn-sm btn-outline-secondary" disabled>Previous</button>
+                            <span id="importHistoryPage" class="small"></span>
+                            <button type="button" id="nextImportHistoryBtn" class="btn btn-sm btn-outline-secondary" disabled>Next</button>
+                        </div>
+                    </details>
+
                     <div id="previewSection" class="d-none mt-4">
                         <hr>
                         <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
@@ -181,6 +193,28 @@
                     </div>
 
                 </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="duplicateReviewModal" tabindex="-1" aria-labelledby="duplicateReviewTitle" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="duplicateReviewTitle">Review possible duplicate patients</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="alert alert-warning">Nothing has been saved. Compare each incoming patient with the possible matches below.
+                    Shared household phones or addresses can be legitimate. Matching name and DOB cannot create a second patient; merge into the existing record or discard the incoming row.</p>
+                <p>For each flagged row, choose Discard, Import as a separate patient, or Merge into an existing patient. Unflagged rows will be imported.
+                    You can also go back, edit your CSV, and select the corrected file. Review the final values for every merge. All selected changes save together, with a downloadable report.</p>
+                <div id="duplicateReviewBody"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Go back and correct file</button>
+                <button type="button" class="btn btn-warning" id="acceptDuplicateImportBtn" disabled>Import all rows including reviewed duplicates</button>
             </div>
         </div>
     </div>

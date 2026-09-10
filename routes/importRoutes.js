@@ -26,6 +26,8 @@ router.use(auth);
 router.get('/template/:dataset', importController.getTemplate);
 
 // Import execution
+router.get('/patient-reports', rbac.requirePermission('import', 'read'), importController.listPatientReports);
+router.get('/patient-reports/:id', rbac.requirePermission('import', 'read'), importController.getPatientReport);
 router.post('/:dataset', rbac.requirePermission('import', 'write'), upload.single('file'), importController.importDataset);
 
 module.exports = router;

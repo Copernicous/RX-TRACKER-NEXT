@@ -149,7 +149,7 @@ exports.rotate = async (req, res) => {
         const { days = 90 } = req.body;
         const cutoff = new Date();
         cutoff.setDate(cutoff.getDate() - parseInt(days));
-        const count = await db.AuditLog.destroy({ where: { createdAt: { [Op.lt]: cutoff } } });
+        const count = await db.AuditLog.destroy({ where: { createdAt: { [Op.lt]: cutoff }, action: { [Op.ne]: 'Patient import report' } } });
         res.status(200).json({ message: `Log rotation complete. ${count} entries older than ${days} days removed.`, count });
     } catch (err) { res.status(500).json({ error: err.message }); }
 };

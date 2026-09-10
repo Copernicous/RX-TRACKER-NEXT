@@ -1,6 +1,7 @@
 const db = require('../models');
 const { Op, literal } = require('sequelize');
 const { parseDate } = require('../utils/dateUtils');
+const { identityKey, findWarnings, createReviewToken, validReviewToken } = require('../utils/patientImportDuplicates');
 const { isServiceDateOverrideEnabled, getServiceWindowDays } = require('../utils/globalSettings');
 const {
     normalizeAddressPayload
@@ -612,8 +613,9 @@ exports.getOne = async (req, res) => {
 };
 
 exports.create = async (req, res) => {
+    let transaction;
     try {
-        let { patientCode, dob, serviceDate, patientTagIds, ...otherData } = req.body;
+        let { patientCode, dob, serviceDate, patientTagIds, duplicateReviewToken, _csrf, ...otherData } = req.body;
         otherData.firstName = toUpperName(otherData.firstName);
         otherData.lastName = toUpperName(otherData.lastName);
         Object.assign(otherData, normalizeAddressPayload(otherData));
@@ -632,16 +634,19 @@ exports.create = async (req, res) => {
         otherData.dob         = normDob;
         otherData.serviceDate = normServiceDate;
 
+        transaction = await db.sequelize.transaction();
+        await db.sequelize.query('LOCK TABLE "Patients" IN SHARE ROW EXCLUSIVE MODE', { transaction });
+
         // Auto-generate patientCode if not provided
         if (!patientCode || !patientCode.trim()) {
             // H1 FIX: Use a retry loop to handle concurrent creates gracefully.
             // Try up to 10 candidate codes based on the current max id.
-            const lastPatient = await db.Patient.findOne({ order: [['id', 'DESC']] });
+            const lastPatient = await db.Patient.findOne({ order: [['id', 'DESC']], transaction });
             let baseId = lastPatient ? lastPatient.id : 0;
             let generated = null;
             for (let attempt = 0; attempt < 10; attempt++) {
                 const candidate = 'PAT-' + String(baseId + 1 + attempt).padStart(5, '0');
-                const exists = await db.Patient.findOne({ where: { patientCode: candidate } });
+                const exists = await db.Patient.findOne({ where: { patientCode: candidate }, transaction });
                 if (!exists) { generated = candidate; break; }
             }
             if (!generated) {
@@ -653,19 +658,35 @@ exports.create = async (req, res) => {
         }
 
         // Validate uniqueness of provided patientCode
-        const existingCode = await db.Patient.findOne({ where: { patientCode } });
+        const existingCode = await db.Patient.findOne({ where: { patientCode }, transaction });
         if (existingCode) {
             return res.status(400).json({ error: `Patient ID "${patientCode}" is already assigned to another patient.` });
         }
 
-        const data = await db.Patient.create({ ...otherData, patientCode });
-        await setPatientTags(data, patientTagIds, { useDefaults: patientTagIds === undefined, address: data.address, city: data.city });
+        const candidates = await db.Patient.findAll({ attributes: ['id', 'patientCode', 'firstName', 'lastName', 'dob',
+            'phone', 'address', 'addressLine1', 'city', 'state', 'zipCode', 'isActive', 'isDeleted'],
+            order: [['id', 'ASC']], raw: true, transaction });
+        const incoming = { ...otherData, patientCode };
+        if (candidates.some(patient => identityKey(patient) === identityKey(incoming))) {
+            return res.status(409).json({ error: 'A patient with the same name and DOB already exists. Use the existing patient; this cannot be overridden.', duplicateBlocked: true });
+        }
+        const warnings = findWarnings([incoming], candidates);
+        const reviewPayload = Buffer.from(JSON.stringify({ type: 'manual-patient-create', incoming, patientTagIds }));
+        if (warnings.length && !validReviewToken(duplicateReviewToken, reviewPayload, req.user?.id, warnings)) {
+            return res.status(409).json({ reviewRequired: true, warnings,
+                reviewToken: createReviewToken(reviewPayload, req.user?.id, warnings),
+                error: 'Review possible duplicate patients before saving.' });
+        }
+        const data = await db.Patient.create(incoming, { transaction });
+        await setPatientTags(data, patientTagIds, { transaction, useDefaults: patientTagIds === undefined, address: data.address, city: data.city });
         await syncPatientServiceDateCycles(data, {
+            transaction,
             userId: req.user?.id || null,
             source: 'Patient Create',
             contextChangeReason: 'Initial patient clinic/pharmacy/transport defaults captured.'
         });
         const newPatientContext = await buildPatientContextSnapshot(data, {
+            transaction,
             source: 'Patient Create'
         });
         await recordPatientServiceDateChange({
@@ -682,10 +703,18 @@ exports.create = async (req, res) => {
                     changedFields: patientContextChangedFields(null, newPatientContext)
                 }
             }
-        });
+        }, { transaction });
+        if (warnings.length) {
+            await db.AuditLog.create({ userId: req.user?.id || null, date: new Date().toISOString().slice(0, 10),
+                time: new Date().toTimeString().slice(0, 8), module: 'Patients', action: 'Confirm possible patient duplicates',
+                recordId: data.id, newValue: { matches: warnings[0].matches.map(match => ({ patientId: match.patient.id, reasons: match.reasons })) },
+                ipAddress: req.ip || req.socket?.remoteAddress || 'unknown' }, { transaction });
+        }
         const createdPatient = await db.Patient.findByPk(data.id, {
+            transaction,
             include: [db.PatientTransportCompany, db.PharmacyTransportCompany, db.Clinic, db.Pharmacy, { model: db.PatientTag, through: { attributes: [] }, required: false }]
         });
+        await transaction.commit();
         res.status(201).json(createdPatient || data);
     } catch (err) {
         // H1 FIX: Catch DB-level unique constraint violation (race condition fallback)
@@ -693,6 +722,8 @@ exports.create = async (req, res) => {
             return res.status(400).json({ error: 'Patient ID conflict — another record was just created with the same code. Please retry.' });
         }
         res.status(400).json({ error: err.message });
+    } finally {
+        if (transaction && !transaction.finished) await transaction.rollback();
     }
 };
 

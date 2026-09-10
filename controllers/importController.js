@@ -20,6 +20,12 @@ const {
     normalizeAddressPayload
 } = require('../utils/patientAddress');
 const { applyRegionalTagRuleToIds } = require('../services/cityRegionRuleService');
+const { identityKey, findWarnings, createReviewToken, validReviewToken } = require('../utils/patientImportDuplicates');
+const { FIELDS: mergeFields, SNAPSHOT_FIELDS, buildPlan, fieldValue } = require('../utils/patientImportMerge');
+const { applyMerge } = require('../services/patientImportMergeService');
+const { getRequestPermission } = require('../middleware/rbac');
+const duplicateReviewAttributes = ['id', 'patientCode', 'firstName', 'lastName', 'dob', 'phone',
+    'address', 'addressLine1', 'city', 'state', 'zipCode', 'isActive', 'isDeleted', ...SNAPSHOT_FIELDS];
 
 const WORKFLOW_HEADERS = [
     'rx received warehouse',
@@ -41,7 +47,7 @@ function normalizeImportHeader(value) {
 const parseCsv = (buffer) => {
     return new Promise((resolve, reject) => {
         const results = [];
-        const stream = Readable.from(buffer.toString('utf-8'));
+        const stream = Readable.from(buffer.toString('utf-8').replace(/^\uFEFF/, ''));
         stream.pipe(csv())
             .on('data', (data) => results.push(data))
             .on('end', () => resolve(results))
@@ -436,9 +442,17 @@ exports.importDataset = async (req, res) => {
         const rowErrors  = [];   // { row, error, _rawRow }
         const validRows  = [];
         let successCount = 0;
+        let skippedRows = [];
+        let mergedRows = [];
+        let reportRows = [];
+        let reportId = null;
 
         switch (dataset) {
             case 'patients': {
+                const mergeReview = req.body?.reviewMode === 'merge';
+                const patientPermission = mergeReview ? await getRequestPermission(req, 'patients') : {};
+                const canMerge = !!(patientPermission.visible && patientPermission.canEdit);
+                const warningOptions = mergeReview ? { includeExact: true, fields: SNAPSHOT_FIELDS } : {};
                 const ptCompanies = await db.PatientTransportCompany.findAll();
                 const phCompanies = await db.PharmacyTransportCompany.findAll();
                 const clinics = await db.Clinic.findAll({ where: { isActive: true } });
@@ -466,9 +480,9 @@ exports.importDataset = async (req, res) => {
                 const lastPatient = await db.Patient.findOne({ order: [['id', 'DESC']] });
                 let baseId = lastPatient ? lastPatient.id : 0;
 
-                const existingPatients = await db.Patient.findAll({ attributes: ['patientCode', 'firstName', 'lastName', 'dob'], raw: true });
+                const existingPatients = await db.Patient.findAll({ attributes: duplicateReviewAttributes, order: [['id', 'ASC']], raw: true });
                 const dbPatientCodes = new Set(existingPatients.map(p => p.patientCode?.toLowerCase()));
-                const dbPatientKeys  = new Set(existingPatients.map(p => `${p.firstName?.toLowerCase()}|${p.lastName?.toLowerCase()}|${p.dob}`));
+                const dbPatientKeys  = new Set(existingPatients.map(identityKey));
 
                 for (let i = 0; i < rows.length; i++) {
                     const row = rows[i];
@@ -485,8 +499,11 @@ exports.importDataset = async (req, res) => {
 
                     if (!firstNameCaps) { addErr('First Name is required'); continue; }
                     if (!lastNameCaps)   { addErr('Last Name is required'); continue; }
-                    const dobParsed = parseDateField(dob);
+                    const dobParsed = /^(\d{1,2}\/\d{1,2}\/\d{4}|\d{4}-\d{2}-\d{2})$/.test(String(dob || '').trim()) ? parseDateField(dob) : null;
                     if (!dob || !dobParsed) { addErr('DOB is required and must be in MM/DD/YYYY or YYYY-MM-DD format (e.g. 05/15/1985)'); continue; }
+                    const today = new Date();
+                    const todayIso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+                    if (dobParsed > todayIso) { addErr('DOB cannot be in the future.'); continue; }
                     dob = dobParsed;
 
                     if (!patientCode || !patientCode.trim()) {
@@ -498,18 +515,18 @@ exports.importDataset = async (req, res) => {
 
                     const patientCodeKey = patientCode.toLowerCase();
                     const seenRow = patientCodeFirstRow.get(patientCodeKey);
-                    if (seenRow && !rowsWithErrors.has(seenRow)) {
+                    if (!mergeReview && seenRow && !rowsWithErrors.has(seenRow)) {
                         addErr(`Patient ID "${patientCode}" is duplicated in this file (also used on line ${seenRow}).`);
                         continue;
                     }
                     patientCodeFirstRow.set(patientCodeKey, rowNum);
                     seenPatientCodes.add(patientCode.toLowerCase());
-                    if (dbPatientCodes.has(patientCode.toLowerCase()))   { addErr(`Patient ID "${patientCode}" already exists in database`); continue; }
+                    if (!mergeReview && dbPatientCodes.has(patientCode.toLowerCase()))   { addErr(`Patient ID "${patientCode}" already exists in database`); continue; }
 
-                    const uniqueKey = `${firstNameCaps.toLowerCase()}|${lastNameCaps.toLowerCase()}|${dob.trim()}`;
-                    if (seenPatients.has(uniqueKey))  { addErr(`Patient "${firstNameCaps} ${lastNameCaps}" born on ${dob.trim()} is duplicated in this file`); continue; }
+                    const uniqueKey = identityKey({ firstName: firstNameCaps, lastName: lastNameCaps, dob });
+                    if (!mergeReview && seenPatients.has(uniqueKey))  { addErr(`Patient "${firstNameCaps} ${lastNameCaps}" born on ${dob.trim()} is duplicated in this file`); continue; }
                     seenPatients.add(uniqueKey);
-                    if (dbPatientKeys.has(uniqueKey)) { addErr(`Patient "${firstNameCaps} ${lastNameCaps}" born on ${dob.trim()} already exists in database`); continue; }
+                    if (!mergeReview && dbPatientKeys.has(uniqueKey)) { addErr(`Patient "${firstNameCaps} ${lastNameCaps}" born on ${dob.trim()} already exists in database`); continue; }
 
                     let patientTransportCompanyId = null;
                     if (patientTransportCompany && patientTransportCompany.trim()) {
@@ -605,9 +622,80 @@ exports.importDataset = async (req, res) => {
 
                 // ── Phase 2: All-or-nothing — only write if zero errors ──
                 if (rowErrors.length > 0) break;
+                const reviewResponse = (warnings) => ({
+                    aborted: true, reviewRequired: true, successCount: 0, errorCount: 0, errors: [],
+                    warnings, ...(mergeReview ? { mergeReview: true, canMerge, mergeFields,
+                        lookupLabels: { clinicId: Object.fromEntries(clinics.map(p => [p.id, p.name])),
+                            patientTransportCompanyId: Object.fromEntries(ptCompanies.map(p => [p.id, p.companyName || p.contactPerson])),
+                            pharmacyTransportCompanyId: Object.fromEntries(phCompanies.map(p => [p.id, p.companyName || p.contactPerson])) } } : {}), reviewToken: createReviewToken(req.file.buffer, req.user?.id, warnings)
+                });
+                if (req.body?.mode === 'preview') {
+                    const warnings = findWarnings(validRows, existingPatients, warningOptions);
+                    return res.json(warnings.length ? reviewResponse(warnings) : {
+                        preview: true, aborted: false, successCount: 0, errorCount: 0, errors: [], warnings: []
+                    });
+                }
                 if (validRows.length > 0) {
                     const tx = await db.sequelize.transaction();
                     try {
+                        // Serialize the final identity check with patient writes, including other imports.
+                        // The lock is held only during final validation/write, never during human review.
+                        await db.sequelize.query('LOCK TABLE "Patients" IN SHARE ROW EXCLUSIVE MODE', { transaction: tx });
+                        const currentPatients = await db.Patient.findAll({ attributes: duplicateReviewAttributes,
+                            order: [['id', 'ASC']], raw: true, transaction: tx });
+                        const currentKeys = new Set(currentPatients.map(identityKey));
+                        const currentCodes = new Set(currentPatients.map(p => String(p.patientCode || '').trim().toLowerCase()));
+                        const conflicts = validRows.flatMap((patient, i) => currentKeys.has(identityKey(patient)) || currentCodes.has(patient.patientCode.toLowerCase())
+                            ? [{ row: i + 2, error: 'Patient name and DOB or Patient ID already exists. Correct the file and validate again.' }] : []);
+                        if (!mergeReview && conflicts.length) {
+                            await tx.rollback();
+                            return res.json({ aborted: true, successCount: 0, errorCount: conflicts.length, errors: conflicts,
+                                failedRows: conflicts.map(e => ({ ...rows[e.row - 2], _import_error: e.error })) });
+                        }
+                        const warnings = findWarnings(validRows, currentPatients, warningOptions);
+                        if (warnings.length && !validReviewToken(req.body?.duplicateReviewToken, req.file.buffer, req.user?.id, warnings)) {
+                            await tx.rollback();
+                            return res.json(reviewResponse(warnings));
+                        }
+                        let plan = [];
+                        let originalRows;
+                        if (mergeReview) {
+                            let decisions;
+                            try {
+                                decisions = JSON.parse(req.body?.reviewDecisions || '[]');
+                                plan = buildPlan(validRows, currentPatients, warnings, decisions, canMerge);
+                            } catch (error) {
+                                await tx.rollback();
+                                return res.status(400).json({ error: error.message });
+                            }
+                            skippedRows = plan.filter(item => item.action === 'skip').map(item => item.row);
+                            originalRows = plan.filter(item => item.action === 'import').map(item => item.row);
+                            const creates = plan.filter(item => item.action === 'import').map(item => item.patient);
+                            validRows.splice(0, validRows.length, ...creates);
+                        } else {
+                        if (req.body?.skipRows) {
+                            try { skippedRows = JSON.parse(req.body.skipRows); } catch (_) { skippedRows = null; }
+                            const flaggedRows = new Set(warnings.map(w => w.row));
+                            if (!Array.isArray(skippedRows) || skippedRows.some(row => !Number.isInteger(row) || !flaggedRows.has(row)) ||
+                                (skippedRows.length && !validReviewToken(req.body?.duplicateReviewToken, req.file.buffer, req.user?.id, warnings))) {
+                                await tx.rollback();
+                                return res.status(400).json({ error: 'Skipped rows must be flagged rows from the current duplicate review. Validate again.' });
+                            }
+                            skippedRows = [...new Set(skippedRows)].sort((a, b) => a - b);
+                        }
+                        const skipped = new Set(skippedRows);
+                        originalRows = validRows.map((_, i) => i + 2).filter(row => !skipped.has(row));
+                        const selectedRows = validRows.filter((_, i) => !skipped.has(i + 2));
+                        validRows.splice(0, validRows.length, ...selectedRows);
+                        if (!validRows.length) {
+                            await tx.rollback();
+                            return res.json({ aborted: false, successCount: 0, skippedCount: skippedRows.length, skippedRows, errorCount: 0, errors: [] });
+                        }
+                        }
+                        const skipped = new Set(skippedRows);
+                        for (const item of plan.filter(item => item.action === 'merge')) {
+                            mergedRows.push(await applyMerge(item, req, tx, patientPermission));
+                        }
                         const createdPatients = await db.Patient.bulkCreate(validRows.map((rowPayload) => {
                             const { workflowTracking, patientTagIds, ...patientPayload } = rowPayload;
                             return patientPayload;
@@ -661,6 +749,47 @@ exports.importDataset = async (req, res) => {
                             });
                         }
 
+                        if (mergeReview) {
+                            const printable = value => value && typeof value === 'object' ? JSON.stringify(value) : value ?? '';
+                            const recordedAt = new Date().toISOString();
+                            reportRows = plan.flatMap(item => {
+                                const merge = mergedRows.find(result => result.row === item.row);
+                                const created = createdPatients[originalRows.indexOf(item.row)];
+                                const base = { csvRow: item.row, action: item.action === 'skip' ? 'discarded' : merge?.restored ? 'restored and merged' : item.action === 'merge' ? 'merged' : 'created',
+                                    patientId: merge?.patientId || created?.id || '', patientCode: merge?.patientCode || created?.patientCode || rows[item.row - 2].patientCode || '',
+                                    recordedAt, operatorId: req.user?.id || '' };
+                                if (merge) return merge.fields.map(field => ({ ...base, field: field.field, choice: field.choice,
+                                    existingValue: printable(field.before), incomingValue: printable(field.incoming), finalValue: printable(field.after) }));
+                                if (created) return mergeFields.map(([field, label]) => ({ ...base, field: label, choice: 'Create new patient', existingValue: '',
+                                    incomingValue: printable(fieldValue(item.patient, field)), finalValue: printable(fieldValue(created, field)) }));
+                                return [{ ...base, field: '', choice: 'Discard row; no changes', existingValue: '', incomingValue: '', finalValue: '' }];
+                            });
+                        }
+
+                        if (warnings.length) {
+                            await db.AuditLog.create({
+                                userId: req.user?.id || null,
+                                date: new Date().toISOString().split('T')[0],
+                                time: new Date().toTimeString().split(' ')[0],
+                                module: 'Data Import', action: 'Confirm possible patient duplicates', recordId: null,
+                                newValue: { importedCount: validRows.length, mergedRows, skippedRows, reviewedRows: warnings.map(w => ({
+                                    row: w.row, decision: skipped.has(w.row) ? 'skip' : mergedRows.some(m => m.row === w.row) ? 'merge' : 'import',
+                                    patientId: createdPatients[originalRows.indexOf(w.row)]?.id || mergedRows.find(m => m.row === w.row)?.patientId || null,
+                                    matches: w.matches.map(m => ({ source: m.source, row: m.row, patientId: m.patient.id, reasons: m.reasons }))
+                                })) },
+                                ipAddress: req.ip || req.socket?.remoteAddress || 'unknown'
+                            }, { transaction: tx });
+                        }
+                        if (mergeReview) {
+                            const report = await db.AuditLog.create({
+                                userId: req.user?.id || null, date: new Date().toISOString().slice(0, 10),
+                                time: new Date().toTimeString().slice(0, 8), module: 'Data Import', action: 'Patient import report', recordId: null,
+                                newValue: { schemaVersion: 1, fileName: String(req.file.originalname || 'patients.csv').replace(/^.*[\\/]/, '').slice(0, 255),
+                                    createdCount: validRows.length, mergedCount: mergedRows.length, discardedCount: skippedRows.length, reportRows },
+                                ipAddress: req.ip || req.socket?.remoteAddress || 'unknown'
+                            }, { transaction: tx });
+                            reportId = report.id;
+                        }
                         await tx.commit();
                         successCount = validRows.length;
                         await bulkRecordPatientServiceDateChanges(createdPatients.map((patient, i) => ({
@@ -673,7 +802,7 @@ exports.importDataset = async (req, res) => {
                             reason: 'Imported patient service date.'
                         });
                     } catch (err) {
-                        await tx.rollback();
+                        if (!tx.finished) await tx.rollback();
                         throw err;
                     }
                 }
@@ -870,10 +999,39 @@ exports.importDataset = async (req, res) => {
             }).catch(err => console.error('[AuditLog Import Error]', err.message));
         }
 
-        return res.json({ aborted: false, successCount, errorCount: 0, errors: [] });
+        return res.json({ aborted: false, successCount, mergedCount: mergedRows.length, mergedRows, skippedCount: skippedRows.length, skippedRows,
+            reportId, reportRows, errorCount: 0, errors: [] });
 
     } catch (err) {
         console.error('[Import Error]', err);
-        return res.status(500).json({ error: err.message });
+        return res.status(err.status || 500).json({ error: err.message });
     }
+};
+
+// Completed import reports are snapshots: never reconstruct them from today's patient records.
+async function reportScope(req) {
+    const permission = await getRequestPermission(req, 'audit_log');
+    return { module: 'Data Import', action: 'Patient import report',
+        ...(!permission.visible ? { userId: req.user.id } : {}) };
+}
+exports.listPatientReports = async (req, res) => {
+    try {
+        const page = Math.max(1, Math.min(100000, parseInt(req.query.page, 10) || 1));
+        const limit = 20;
+        const result = await db.AuditLog.findAndCountAll({ where: await reportScope(req), limit, offset: (page - 1) * limit,
+            order: [['id', 'DESC']], raw: true,
+            attributes: ['id', 'userId', 'createdAt', ...['fileName', 'createdCount', 'mergedCount', 'discardedCount'].map(field => [db.Sequelize.json('newValue.' + field), field])] });
+        res.setHeader('Cache-Control', 'no-store');
+        return res.json({ page, pageSize: limit, total: result.count, reports: result.rows });
+    } catch (error) { return res.status(500).json({ error: 'Unable to load import reports.' }); }
+};
+exports.getPatientReport = async (req, res) => {
+    try {
+        const id = Number(req.params.id);
+        if (!Number.isSafeInteger(id) || id <= 0) return res.status(400).json({ error: 'Invalid report ID.' });
+        const report = await db.AuditLog.findOne({ where: { ...await reportScope(req), id }, attributes: ['id', 'userId', 'createdAt', 'newValue'], raw: true });
+        if (!report) return res.status(404).json({ error: 'Report not found.' });
+        res.setHeader('Cache-Control', 'no-store');
+        return res.json({ id: report.id, userId: report.userId, createdAt: report.createdAt, ...report.newValue });
+    } catch (error) { return res.status(500).json({ error: 'Unable to load this import report.' }); }
 };

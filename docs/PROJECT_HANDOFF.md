@@ -1,12 +1,42 @@
 # RX Tracker NEXT project handoff
 
-Last updated: 2026-09-06
+Last updated: 2026-09-10
 
 This file is the sanitized continuity record for a future administrator or
 Codex session. It intentionally contains no credentials, `.env` values,
 patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
+
+- **v4.0.0-next.85 release candidate - patient import review/merge/history:** Branch
+  `feature/patient-import-duplicate-review` adds server preview, per-row
+  import/merge/discard, selected-field overrides, and stored downloadable reports
+  under Import History. Exact name/DOB or Patient ID matches cannot create a
+  duplicate; they can merge into an existing patient or be discarded. Deleted
+  and inactive matches require explicit restoration confirmation, retain the
+  same patient ID, become active, and restore linked hidden RX records using
+  existing product semantics. Writes and report snapshots share a transaction.
+  Manual creation also has server duplicate guards. No migration. The user accepted
+  the staging flow and authorized production release on 2026-09-10. Release
+  preparation is in progress; main CI/tag/publication are not yet complete.
+  Synthetic duplicate/manual tests, public JS checks, and live isolated staging
+  merge/history/restoration/rollback tests pass. On 2026-09-10 the user explicitly
+  approved restarting only staging and preparing fresh examples without deleting
+  existing records. The port 3100 staging server was restarted with current code.
+  Browser checks passed for login, duplicate review, explicit merge target,
+  field comparison/selection, cancellation, and opening Import History. Merge
+  controls now scroll into view. Restore UI and end-to-end browser save/report
+  downloads still need operator acceptance; backend integration tests pass.
+  Fresh kit `output/patient-merge-fresh-test-kit.zip` contains six numbered CSVs
+  using new synthetic IDs/names/phones. Its baseline was confirmed absent initially, then appeared during the user
+  testing session. The user can continue with file 02; do not reimport file 01. Existing
+  staging patients were left intact. The earlier separately provisioned empty
+  merge-review database remains unused. Original isolated staging has
+  64 migrations and a verified ledger. Production was not modified.
+  Test kit `output/patient-duplicate-test-kit.zip` contains 11 synthetic CSVs;
+  files 07-11 cover deleted/inactive setup and restore/merge cases. Reports are
+  preserved by routine audit rotation, but privileged explicit audit deletion
+  can remove them. See `docs/PATIENT_IMPORT_DUPLICATE_REVIEW.md`.
 
 - **Official v4.0.0-next.84** was published on 2026-09-06 from `main` commit
   `c4c6e37` after PostgreSQL lifecycle CI run `34030220672`, CodeQL run

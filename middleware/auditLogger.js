@@ -113,7 +113,7 @@ exports.auditLog = (moduleName) => {
                 const label = extractLabel(moduleName, req.body, recordId);
 
                 // Strip sensitive fields
-                const { password, passwordHash, ...safeBody } = req.body || {};
+                const { password, passwordHash, duplicateReviewToken, ...safeBody } = req.body || {};
 
                 let newValue;
                 let previousValue = req.auditPreviousValue || null;

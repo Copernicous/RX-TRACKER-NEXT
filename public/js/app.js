@@ -1833,7 +1833,8 @@ async function saveRecord() {
 }
 
 // Show duplicate patient warning modal — returns Promise<boolean> (true = proceed, false = cancel)
-function showDuplicateWarning(duplicates, newPatient) {
+function showDuplicateWarning(duplicates, newPatient, options) {
+    const possible = options && options.possible === true;
     return new Promise(function(resolve) {
         // Remove existing if any
         var existing = document.getElementById('dupWarnModal');
@@ -1866,28 +1867,29 @@ function showDuplicateWarning(duplicates, newPatient) {
                 '<td>' + safeHtml(d.dob || '-') + '</td>' +
                 '<td>' + safeHtml(d.phone || '-') + '</td>' +
                 '<td>' + duplicateStatusBadge(d) + '</td>' +
+                (possible ? '<td>' + safeHtml(d.address || [d.addressLine1, d.city, d.state, d.zipCode].filter(Boolean).join(', ') || '-') + '</td><td>' + safeHtml((d.duplicateReasons || []).join('; ')) + '</td>' : '') +
             '</tr>';
         })(); } var rows=_dupHtml;
 
         var div = document.createElement('div');
         div.innerHTML = '<div class="modal fade" id="dupWarnModal" tabindex="-1" data-bs-backdrop="static">' +
-          '<div class="modal-dialog modal-lg modal-dialog-centered">' +
+          '<div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">' +
             '<div class="modal-content border-warning">' +
               '<div class="modal-header bg-warning bg-opacity-10">' +
                 '<h5 class="modal-title text-warning"><i class="fas fa-exclamation-triangle me-2"></i>Possible Duplicate Patient</h5>' +
               '</div>' +
               '<div class="modal-body">' +
-                '<p>A patient with the same <strong>name and date of birth</strong> already exists:</p>' +
+                (possible ? '<p>Nothing has been saved. Review these possible matches. Shared household phones and addresses can be legitimate. Matching name and DOB cannot be overridden.</p>' : '<p>A patient with the same <strong>name and date of birth</strong> already exists:</p>') +
                 (hasAlternateState ? '<div class="alert alert-warning py-2 small"><i class="fas fa-info-circle me-1"></i>Some matching patients are already in the system but marked deleted or suspended/inactive.</div>' : '') +
-                '<table class="table table-sm table-bordered mb-3">' +
-                  '<thead class="table-light"><tr><th>Patient ID</th><th>Name</th><th>DOB</th><th>Phone</th><th>Status</th></tr></thead>' +
+                '<div class="table-responsive"><table class="table table-sm table-bordered mb-3">' +
+                  '<thead class="table-light"><tr><th>Patient ID</th><th>Name</th><th>DOB</th><th>Phone</th><th>Status</th>' + (possible ? '<th>Address</th><th>Reason flagged</th>' : '') + '</tr></thead>' +
                   '<tbody>' + rows + '</tbody>' +
-                '</table>' +
-                '<p class="mb-0 text-muted small">You are trying to create: <strong>' + safeHtml((newPatient.firstName || '') + ' ' + (newPatient.lastName || '')) + '</strong> (DOB: ' + safeHtml(newPatient.dob || '') + ')</p>' +
+                '</table></div>' +
+                '<p class="mb-0 text-muted small">You are trying to create: <strong>' + safeHtml((newPatient.firstName || '') + ' ' + (newPatient.lastName || '')) + '</strong> (DOB: ' + safeHtml(newPatient.dob || '') + ')' + (possible ? ' | Phone: ' + safeHtml(newPatient.phone || '-') + ' | Address: ' + safeHtml(newPatient.address || [newPatient.addressLine1, newPatient.city, newPatient.state, newPatient.zipCode].filter(Boolean).join(', ') || '-') : '') + '</p>' +
               '</div>' +
               '<div class="modal-footer">' +
                 '<button class="btn btn-outline-secondary" id="dupCancelBtn"><i class="fas fa-times me-1"></i>Cancel &#8212; Go Back</button>' +
-                '<button class="btn btn-warning" id="dupProceedBtn"><i class="fas fa-save me-1"></i>Save Anyway</button>' +
+                '<button class="btn btn-warning" id="dupProceedBtn"><i class="fas fa-save me-1"></i>' + (possible ? 'Reviewed: create separate patient' : 'Save Anyway') + '</button>' +
               '</div>' +
             '</div>' +
           '</div>' +
@@ -1899,7 +1901,7 @@ function showDuplicateWarning(duplicates, newPatient) {
 
         document.getElementById('dupProceedBtn').onclick = function() { modal.hide(); resolve(true); };
         document.getElementById('dupCancelBtn').onclick  = function() { modal.hide(); resolve(false); };
-        modalEl.addEventListener('hidden.bs.modal', function() { modalEl.remove(); }, { once: true });
+        modalEl.addEventListener('hidden.bs.modal', function() { modal.dispose(); modalEl.remove(); resolve(false); document.body.classList.toggle('modal-open', !!document.querySelector('.modal.show')); }, { once: true });
 
         modal.show();
     });
