@@ -8,7 +8,7 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
 
-- **next.86 corrective release preparation (2026-09-10):** The user confirmed
+- **Official v4.0.0-next.86 published (2026-09-10):** The user confirmed
   the test server is back live on next.78 after runtime grants were restored and
   the paused service was fully stopped/restarted. Runtime verification passed
   with 58 migrations, zero pending, verified ledger. User authorized the updater
@@ -16,8 +16,16 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
   manifest arrays, pre-migration backup validation, partial-copy recovery, ACL
   retention and legacy runtime-grant recovery, and runtime verification before
   startup. Real Windows file-backup and isolated PostgreSQL recovery tests pass;
-  CI includes both. No migration changes. next.86 release checks/publication are
-  pending. Older servers MUST bootstrap the corrected Project Control helpers
+  CI includes both. No migration changes. Published from `e9c7c291734e02137cfa0169d0c8096e077e106e` after main
+  lifecycle CI `34534160529`, CodeQL `34534160480`, and release workflow
+  `34534580780` passed. Release URL:
+  https://github.com/Copernicous/RX-TRACKER-NEXT/releases/tag/v4.0.0-next.86
+  Downloaded official update ZIP, embedded executable checksums, server version,
+  and packaged updater equality with tested source were verified. SHA256:
+  update/new-server ZIP `fd97ca6a50902aa5f901200896b0eb11cc59ae787e40a577fd3deded7b09c336`;
+  server.exe `82728fa44a8af9bbbf294a64bf189ef9dae3a7411372489908bdae9dad2b3b2d`;
+  rx-db.exe `5a5a6ad268096947f585c173782fab9ebf9b9577ca1ddb2dcd95d5cc4d788a3d`.
+  Remote next.86 acceptance remains pending. Older servers MUST bootstrap the corrected Project Control helpers
   from the verified extracted release before option 15. Test next.86 on the
   recovered test server before production. A next.78 upgrade still applies
   intervening migrations, including missing Region assignments. No remote
