@@ -8,38 +8,43 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
 
-- **v4.0.0-next.85 release candidate - patient import review/merge/history:** Branch
-  `feature/patient-import-duplicate-review` adds server preview, per-row
-  import/merge/discard, selected-field overrides, and stored downloadable reports
-  under Import History. Exact name/DOB or Patient ID matches cannot create a
-  duplicate; they can merge into an existing patient or be discarded. Deleted
-  and inactive matches require explicit restoration confirmation, retain the
-  same patient ID, become active, and restore linked hidden RX records using
-  existing product semantics. Writes and report snapshots share a transaction.
-  Manual creation also has server duplicate guards. No migration. The user accepted
-  the staging flow and authorized production release on 2026-09-10. Release
-  preparation is in progress; main CI/tag/publication are not yet complete.
-  Initial main CI stopped on dependency advisories. Compatible lockfile updates
-  clear the high-severity audit gate; a moderate uuid/Sequelize advisory remains
-  pending upstream resolution without a forced database-library downgrade.
-  Synthetic duplicate/manual tests, public JS checks, and live isolated staging
-  merge/history/restoration/rollback tests pass. On 2026-09-10 the user explicitly
-  approved restarting only staging and preparing fresh examples without deleting
-  existing records. The port 3100 staging server was restarted with current code.
-  Browser checks passed for login, duplicate review, explicit merge target,
-  field comparison/selection, cancellation, and opening Import History. Merge
-  controls now scroll into view. Restore UI and end-to-end browser save/report
-  downloads still need operator acceptance; backend integration tests pass.
-  Fresh kit `output/patient-merge-fresh-test-kit.zip` contains six numbered CSVs
-  using new synthetic IDs/names/phones. Its baseline was confirmed absent initially, then appeared during the user
-  testing session. The user can continue with file 02; do not reimport file 01. Existing
-  staging patients were left intact. The earlier separately provisioned empty
-  merge-review database remains unused. Original isolated staging has
-  64 migrations and a verified ledger. Production was not modified.
-  Test kit `output/patient-duplicate-test-kit.zip` contains 11 synthetic CSVs;
-  files 07-11 cover deleted/inactive setup and restore/merge cases. Reports are
-  preserved by routine audit rotation, but privileged explicit audit deletion
-  can remove them. See `docs/PATIENT_IMPORT_DUPLICATE_REVIEW.md`.
+- **Official v4.0.0-next.85** was published on 2026-09-10 from `main` commit
+  `32c02856e706eccfb79138a77d7430a9618957cc` after lifecycle CI `34528787557`,
+  CodeQL `34528787371`, and compiled release workflow `34529254016` passed.
+  Release: https://github.com/Copernicous/RX-TRACKER-NEXT/releases/tag/v4.0.0-next.85
+  The user accepted the staging merge flow and authorized the production release.
+  This release adds import duplicate review, per-row import/merge/discard,
+  selected field keep/fill/override, explicit deleted/inactive restoration,
+  and stored downloadable Import History reports. Matching name/DOB or Patient
+  ID cannot create another patient. Restoring makes the same ID active and
+  restores linked hidden RX records, following existing product semantics.
+  Manual creation also checks duplicates. No migration is added and installation
+  does not automatically modify existing patients or configured RX Actions.
+  Final writes are transactional under a short patient table write lock.
+  Historical reports contain patient values; ordinary audit rotation retains
+  them, but privileged explicit audit deletion can remove them.
+  Compatible lockfile updates clear the high-severity dependency gate. A moderate
+  uuid/Sequelize advisory remains pending upstream resolution; no forced
+  database-library downgrade was applied.
+  Local synthetic regressions, isolated PostgreSQL merge/history/restoration/
+  rollback tests, existing address/tag import regression, public JS checks,
+  browser merge review/target/field/cancel/history checks, and full release CI
+  passed. Production installation is NOT confirmed; Project Control is not
+  present on this workstation. Install on the production host using option 8,
+  then option 15, retaining the paired rollback set and verifying green health.
+  Downloaded official update ZIP and embedded server/rx-db hashes were verified;
+  compiled server reports `4.0.0-next.85`. SHA256:
+  - Update and new-server ZIPs: `43b0c73113b6ba59f10c94aa3af83e5199ad8239f0ec8dc7443026691b2aac95`
+  - server.exe: `a8efe5563246a6eb265ef6a334ecafea19aadfeea43842b69e2c260fa03160c5`
+  - rx-db.exe: `4641aade838a506f3ff13542b0cefa6f34b4a6ad24ee8130c89b945b76ccb51c`
+  Staging remains isolated on port 3100 with 64 verified migrations. Its running
+  process predates the release dependency updates; restart before checking the
+  final lockfile there. Existing staging patients were preserved. Fresh synthetic
+  kit `output/patient-merge-fresh-test-kit.zip` has six CSVs; its baseline appeared
+  during the user's testing session, so continue with file 02. The earlier
+  separately provisioned merge-review database remains unused. No local test
+  artifacts, credentials, or runtime files were committed or published.
+  See `docs/PATIENT_IMPORT_DUPLICATE_REVIEW.md` for operation details.
 
 - **Official v4.0.0-next.84** was published on 2026-09-06 from `main` commit
   `c4c6e37` after PostgreSQL lifecycle CI run `34030220672`, CodeQL run

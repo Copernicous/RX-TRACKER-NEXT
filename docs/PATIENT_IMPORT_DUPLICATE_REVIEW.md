@@ -1,7 +1,8 @@
 # Patient CSV duplicate review
 
-This is an unreleased source candidate. Production remains on its installed
-official release until staging acceptance and the normal release process.
+Released in v4.0.0-next.85 after staging acceptance and successful lifecycle,
+security, and compiled-release checks. Production installation remains an
+operator step through Project Control; publication alone does not update a server.
 
 ## Import behavior
 
