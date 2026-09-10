@@ -14,10 +14,24 @@ $ProgressPreference = 'SilentlyContinue'
 $script:LockStream = $null
 $script:StagingPath = $null
 $script:Repository = 'Copernicous/RX-TRACKER-NEXT'
+$script:UpdaterPath = $PSCommandPath
+$script:UpdaterVersion = '4.0.0-next.87'
 
 function Write-Step([string]$Message) { Write-Host "`n==> $Message" -ForegroundColor Cyan }
 function Write-Ok([string]$Message) { Write-Host "[OK] $Message" -ForegroundColor Green }
 function Fail([string]$Message) { throw $Message }
+
+function Assert-UpdaterMatchesPackage([string]$Staging) {
+    $packagedUpdater = Join-Path $Staging 'scripts/Invoke-ReleaseUpdate.ps1'
+    if (-not (Test-Path -LiteralPath $packagedUpdater -PathType Leaf)) {
+        Fail 'Release package is missing its updater.'
+    }
+    if ((Get-FileHash -LiteralPath $script:UpdaterPath -Algorithm SHA256).Hash -ne
+        (Get-FileHash -LiteralPath $packagedUpdater -Algorithm SHA256).Hash) {
+        Fail 'Executing updater does not match the verified package. Extract that package into a separate folder and run its UPDATE-EXISTING-SERVER.bat with the installed application folder and ZIP paths. No database changes have started.'
+    }
+    Write-Ok "Updater matches verified package: $script:UpdaterVersion ($script:UpdaterPath)"
+}
 
 function Initialize-Paths {
     $defaultRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
@@ -722,6 +736,7 @@ function Invoke-Status {
 
 function Invoke-Update {
     Assert-Administrator
+    Write-Step "Updater $script:UpdaterVersion running from $script:UpdaterPath"
     Acquire-UpdateLock
     $serviceStopped = $false; $migrationAttempted = $false; $filesInstalled = $false
     $previousVersion = $null; $config = $null; $maintenanceConfig = $null
@@ -733,6 +748,7 @@ function Invoke-Update {
         $previousVersion = Get-AppVersion
         $currentHealth = Wait-ForHealth $previousVersion
         $release = Resolve-ReleasePackage
+        Assert-UpdaterMatchesPackage $release.Staging
         if ((Compare-SemVer $previousVersion $release.Version) -ge 0) {
             Fail "Release v$($release.Version) is not newer than installed v$previousVersion."
         }

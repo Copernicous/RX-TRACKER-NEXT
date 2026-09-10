@@ -147,6 +147,10 @@ async function countRegionalAssignmentGaps(db, existingTables) {
     SELECT COUNT(*)::integer AS count
       FROM regional
      WHERE "hasRegionalTag" IS NOT TRUE
+       -- Match the historical structured-city backfill exactly. An address
+       -- without a city is deliberately left for operator review.
+       AND (NULLIF(BTRIM(COALESCE(city, '')), '') IS NOT NULL
+         OR NULLIF(BTRIM(COALESCE(address, "addressLine1", '')), '') IS NULL)
   `);
   return Number.parseInt(rows[0]?.count || 0, 10);
 }

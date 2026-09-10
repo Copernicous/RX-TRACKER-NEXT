@@ -33,6 +33,7 @@ const filesToCopy = [
     '.env.example',
     'PROJECT-CONTROL.bat',
     'INSTALL-PROJECT-CONTROL.bat',
+    'UPDATE-EXISTING-SERVER.bat',
     'INSTALL-NEW-SERVER.bat',
     path.join('scripts', 'project-control.ps1'),
     path.join('scripts', 'Invoke-ReleaseUpdate.ps1'),

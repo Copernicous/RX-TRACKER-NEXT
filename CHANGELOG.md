@@ -7,6 +7,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+## [4.0.0-next.87] - 2026-09-10
+
+### Fixed
+
+- Match Region-backfill fingerprint eligibility to the unchanged historical migration; preserve unclassified addresses without falsely rejecting valid tag additions.
+- Package a direct existing-server update launcher and verify executing updater code against the verified ZIP before downtime, preventing stale helper execution on this path.
+- Exercise the real historical migration with eligible and unclassified synthetic patients, unexpected business changes, and updater identity rejection.
+- Retain next.86 application-manifest and runtime-permission recovery safeguards. Production rollout requires successful remote test-host acceptance.
+
 ## [4.0.0-next.86] - 2026-09-10
 
 ### Fixed

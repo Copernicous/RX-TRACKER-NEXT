@@ -24,7 +24,32 @@ this bootstrap when installing `4.0.0-next.6` from either version:
 6. Open `C:\RX-Tracker\RX-APP-NEXT\PROJECT-CONTROL.bat` as Administrator and
    confirm the header shows `Project Control 2.0.0`.
 
-## Bootstrap before next.86 from older installations
+## Corrective next.87 update from older installations
+
+For the repeated next.78-to-next.85/86 recovery incident, use the direct
+packaged updater. Verify the official next.87 ZIP against SHA256SUMS.txt, extract
+outside the application, and open an Administrator terminal in that folder:
+
+```powershell
+.\UPDATE-EXISTING-SERVER.bat "C:\NODE-SERVER\RX-APP-NEXT" "C:\Downloads\server-update-4.0.0-next.87.zip"
+```
+
+Adjust both paths to the actual installation and downloaded ZIP. This runs the
+new helper directly, without depending on the old installed menu. It prints its
+version/path and checks its own hash against the verified package before stopping
+the service. A mismatch stops the update. Future releases that change this helper
+also require running their packaged launcher (or installing their control helpers
+first). The old installed helper cannot enforce this new check by itself.
+
+The Region gap fingerprint now counts only patients eligible for the historical
+structured-city migration: nonblank city or blank COALESCE(address,addressLine1).
+Addresses without a city that the migration cannot classify do not count toward
+the allowed assignment increase. Applied migrations remain unchanged.
+
+Production rollout remains on hold until the recovered test host completes the
+update, has a healthy next.87 service, and passes patient/RX/import acceptance.
+
+## Historical bootstrap before next.86
 
 An older installed updater does not receive fixes merely by downloading a new
 release. Verify the official next.86 ZIP/checksum and extract outside the active

@@ -8,6 +8,26 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
 
+- **next.87 corrective release in preparation (2026-09-10):** Remote operator
+  confirmed runtime verification and service Running after permission recovery;
+  no successful upgrade beyond next.78 is confirmed. Production is on hold.
+  Correct Region fingerprint eligibility to match the unchanged historical
+  migration (unknown nonempty addresses without city remain unclassified).
+  Package UPDATE-EXISTING-SERVER.bat to invoke the new helper directly; require
+  executing helper hash to match the verified ZIP before downtime. Synthetic
+  PostgreSQL regression reproduces 39 eligible additions alongside unknown
+  addresses, verifies migration idempotence and rejects unexpected count drift.
+  Use the next.87 direct launcher instead of retrying old menu/next.86 bootstrap.
+
+- **Repeated remote test failure (2026-09-10):** Operator retried with next.86
+  package and again got the old combined-filename application recovery error
+  after database restore. This execution path is absent from corrected next.86
+  pre-install recovery, indicating the old helper/menu was still executing.
+  The package filename alone does not prove the bootstrap helper was active.
+  Test host must regain runtime grants and pass next.78 readiness, then install
+  verified next.86 control helpers and reopen the menu. Verify installed helper
+  content before another attempt. Production rollout remains on hold.
+
 - **Official v4.0.0-next.86 published (2026-09-10):** The user confirmed
   the test server is back live on next.78 after runtime grants were restored and
   the paused service was fully stopped/restarted. Runtime verification passed
