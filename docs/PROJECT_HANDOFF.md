@@ -8,6 +8,21 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
 
+- **next.86 corrective release preparation (2026-09-10):** The user confirmed
+  the test server is back live on next.78 after runtime grants were restored and
+  the paused service was fully stopped/restarted. Runtime verification passed
+  with 58 migrations, zero pending, verified ledger. User authorized the updater
+  correction and asked about production risk. Local fixes cover Windows PS5.1
+  manifest arrays, pre-migration backup validation, partial-copy recovery, ACL
+  retention and legacy runtime-grant recovery, and runtime verification before
+  startup. Real Windows file-backup and isolated PostgreSQL recovery tests pass;
+  CI includes both. No migration changes. next.86 release checks/publication are
+  pending. Older servers MUST bootstrap the corrected Project Control helpers
+  from the verified extracted release before option 15. Test next.86 on the
+  recovered test server before production. A next.78 upgrade still applies
+  intervening migrations, including missing Region assignments. No remote
+  next.86 installation or production update has occurred.
+
 - **Official v4.0.0-next.85** was published on 2026-09-10 from `main` commit
   `32c02856e706eccfb79138a77d7430a9618957cc` after lifecycle CI `34528787557`,
   CodeQL `34528787371`, and compiled release workflow `34529254016` passed.

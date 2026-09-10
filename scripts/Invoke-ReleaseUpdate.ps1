@@ -462,7 +462,7 @@ function New-DatabaseBackup([hashtable]$Config, [string]$Label) {
     $oldPassword = $env:PGPASSWORD; $env:PGPASSWORD = [string]$Config['DB_PASS']
     try {
         & $pgDump --host ([string]$Config['DB_HOST']) --port $port --username ([string]$Config['DB_USER']) `
-            --format custom --no-owner --no-privileges --file $path $database
+            --format custom --no-owner --file $path $database
         if ($LASTEXITCODE -ne 0) { Fail "pg_dump failed with exit code $LASTEXITCODE." }
         & $pgRestore --list $path | Out-Null
         if ($LASTEXITCODE -ne 0) { Fail 'The database backup could not be validated.' }
@@ -473,7 +473,7 @@ function New-DatabaseBackup([hashtable]$Config, [string]$Label) {
     return [pscustomobject]@{ Path = $path; Hash = $hash }
 }
 
-function Restore-DatabaseBackup([hashtable]$Config, [string]$DumpPath, [string]$ExpectedHash) {
+function Restore-DatabaseBackup([hashtable]$Config, [string]$DumpPath, [string]$ExpectedHash, [hashtable]$RuntimeConfig) {
     $database = [string]$Config['DB_NAME']
     if ($database -notmatch '^[A-Za-z0-9_-]{1,63}$' -or $database -in @('postgres', 'template0', 'template1')) {
         Fail "Refusing to restore unsafe database target: $database"
@@ -493,10 +493,44 @@ function Restore-DatabaseBackup([hashtable]$Config, [string]$DumpPath, [string]$
         if ($LASTEXITCODE -ne 0) { Fail 'Could not drop the exact rollback database.' }
         & (Join-Path $script:ResolvedPgBin 'createdb.exe') @common --template template0 $database
         if ($LASTEXITCODE -ne 0) { Fail 'Could not recreate the exact rollback database.' }
-        & (Join-Path $script:ResolvedPgBin 'pg_restore.exe') @common --dbname $database --no-owner --no-privileges $resolvedDump
+        & (Join-Path $script:ResolvedPgBin 'pg_restore.exe') @common --dbname $database --no-owner --exit-on-error $resolvedDump
         if ($LASTEXITCODE -ne 0) { Fail 'Could not restore the rollback database backup.' }
+        Restore-RuntimeDatabaseAccess $Config $RuntimeConfig
     } finally { $env:PGPASSWORD = $oldPassword }
     Write-Ok "Restored database $database from the verified pre-update backup."
+}
+
+function Restore-RuntimeDatabaseAccess([hashtable]$Config, [hashtable]$RuntimeConfig) {
+    if (-not $RuntimeConfig) { Fail 'Runtime database identity is required to verify recovery access.' }
+    foreach ($key in @('DB_HOST', 'DB_NAME')) {
+        if ([string]$Config[$key] -ne [string]$RuntimeConfig[$key]) { Fail 'Runtime and maintenance database targets differ.' }
+    }
+    $port = if ($Config['DB_PORT']) { [string]$Config['DB_PORT'] } else { '5432' }
+    $runtimePort = if ($RuntimeConfig['DB_PORT']) { [string]$RuntimeConfig['DB_PORT'] } else { '5432' }
+    if ($port -ne $runtimePort) { Fail 'Runtime and maintenance database ports differ.' }
+    $role = [string]$RuntimeConfig['DB_USER']
+    if ($role -eq [string]$Config['DB_USER']) { return }
+    if ($role -notmatch '^[a-z][a-z0-9_]{0,62}$') { Fail 'Unsafe runtime role name for recovery.' }
+    $database = [string]$Config['DB_NAME']
+    if ($database -notmatch '^[A-Za-z0-9_-]{1,63}$') { Fail 'Unsafe database name for runtime access recovery.' }
+    # Restore only the existing application role's canonical access. Never reset
+    # its password, grant ownership/DDL, or make the migration ledger writable.
+    $sql = @"
+GRANT CONNECT ON DATABASE "$database" TO "$role";
+GRANT USAGE ON SCHEMA public TO "$role";
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO "$role";
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO "$role";
+REVOKE INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON TABLE public."SequelizeMeta" FROM "$role";
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO "$role";
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO "$role";
+"@
+    $oldPassword = $env:PGPASSWORD; $env:PGPASSWORD = [string]$Config['DB_PASS']
+    try {
+        $sql | & (Join-Path $script:ResolvedPgBin 'psql.exe') --host ([string]$Config['DB_HOST']) --port $port `
+            --username ([string]$Config['DB_USER']) --dbname $database --no-psqlrc --no-password --set ON_ERROR_STOP=1 --single-transaction --file -
+        if ($LASTEXITCODE -ne 0) { Fail 'Could not restore application database permissions.' }
+    } finally { $env:PGPASSWORD = $oldPassword }
+    Write-Ok 'Application database permissions restored; migration ledger remains read-only.'
 }
 
 function Find-Nssm {
@@ -583,7 +617,32 @@ function Backup-ApplicationFiles([string[]]$Entries, [string]$Folder) {
     Copy-Item -LiteralPath (Join-Path $script:AppPath '.env') -Destination (Join-Path $Folder 'protected.env') -Force
     $manifestPath = Join-Path $Folder 'files-manifest.json'
     [IO.File]::WriteAllText($manifestPath, ($manifest | ConvertTo-Json -Depth 4), (New-Object Text.UTF8Encoding($false)))
+    Assert-ApplicationBackup -BackupFolder $Folder -ManifestPath $manifestPath
     return $manifestPath
+}
+
+function Assert-ApplicationBackup([string]$BackupFolder, [string]$ManifestPath) {
+    $filesRoot = Join-Path $BackupFolder 'files'
+    $manifest = Get-Content -LiteralPath $ManifestPath -Raw | ConvertFrom-Json
+    $manifest = @($manifest)
+    if (-not $manifest.Count) { Fail 'Application rollback manifest is empty.' }
+    $seen = @{}
+    foreach ($item in $manifest) {
+        if ($item.Path -isnot [string] -or $item.Existed -isnot [bool]) { Fail 'Application rollback manifest has an invalid entry.' }
+        $entry = @(Normalize-ReleaseEntries @($item.Path))
+        if ($entry.Count -ne 1) { Fail 'Application rollback manifest entry is not a single release file.' }
+        $relative = $entry[0].Replace('/', '\')
+        if ($seen.ContainsKey($relative)) { Fail 'Application rollback manifest has repeated entries.' }
+        $seen[$relative] = $true
+        $null = Assert-PathInside (Join-Path $script:AppPath $relative) $script:AppPath 'Application rollback target'
+        $source = Assert-PathInside (Join-Path $filesRoot $relative) $filesRoot 'Application rollback source'
+        if ($item.Existed -and -not (Test-Path -LiteralPath $source -PathType Leaf)) { Fail "Application rollback file is missing: $relative" }
+    }
+    foreach ($required in @('server.exe', 'rx-db.exe', 'package.json')) {
+        if (-not $seen.ContainsKey($required)) { Fail "Application rollback manifest is missing $required." }
+        $record = @($manifest | Where-Object { $_.Path -eq $required })
+        if ($record.Count -ne 1 -or -not $record[0].Existed) { Fail "Existing application backup is missing $required." }
+    }
 }
 
 function Install-ApplicationFiles([string]$SourceRoot, [string[]]$Entries) {
@@ -601,8 +660,11 @@ function Install-ApplicationFiles([string]$SourceRoot, [string[]]$Entries) {
 }
 
 function Restore-ApplicationFiles([string]$BackupFolder, [string]$ManifestPath) {
+    # Validate every entry before copying or removing any application file.
+    Assert-ApplicationBackup -BackupFolder $BackupFolder -ManifestPath $ManifestPath
     $filesRoot = Join-Path $BackupFolder 'files'
-    $manifest = @(Get-Content -LiteralPath $ManifestPath -Raw | ConvertFrom-Json)
+    $manifest = Get-Content -LiteralPath $ManifestPath -Raw | ConvertFrom-Json
+    $manifest = @($manifest)
     foreach ($item in $manifest) {
         $relative = ([string]$item.Path).Replace('/', '\')
         $destination = Assert-PathInside (Join-Path $script:AppPath $relative) $script:AppPath 'Application rollback target'
@@ -702,12 +764,16 @@ function Invoke-Update {
         Invoke-RxDb $targetDbExe $maintenanceConfig @('verify')
         Invoke-RxDb $targetDbExe $maintenanceConfig @('seed-reference')
         Invoke-RxDb $targetDbExe $maintenanceConfig @('verify')
+        Restore-RuntimeDatabaseAccess $maintenanceConfig $config
+        Invoke-RxDb $targetDbExe $config @('verify')
         $afterFingerprint = Get-BusinessFingerprint $targetDbExe $maintenanceConfig
         [IO.File]::WriteAllText((Join-Path $appBackupFolder 'business-after.json'),
             ($afterFingerprint | ConvertTo-Json -Depth 12), (New-Object Text.UTF8Encoding($false)))
         Assert-BusinessDataUnchanged $beforeFingerprint $afterFingerprint
 
-        Install-ApplicationFiles -SourceRoot $release.Staging -Entries (Normalize-ReleaseEntries $release.Entries); $filesInstalled = $true
+        # Set before copying: a partial install also requires application recovery.
+        $filesInstalled = $true
+        Install-ApplicationFiles -SourceRoot $release.Staging -Entries (Normalize-ReleaseEntries $release.Entries)
         $envHashBefore = (Get-FileHash -LiteralPath (Join-Path $appBackupFolder 'protected.env') -Algorithm SHA256).Hash
         $envHashAfter = (Get-FileHash -LiteralPath $envPath -Algorithm SHA256).Hash
         if ($envHashBefore -ne $envHashAfter) { Fail 'Production .env changed during the update.' }
@@ -724,8 +790,9 @@ function Invoke-Update {
             try {
                 $running = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
                 if ($running -and $running.Status -ne 'Stopped') { Stop-Service -Name $ServiceName -Force; $running.WaitForStatus('Stopped', [TimeSpan]::FromSeconds(30)) }
-                if ($migrationAttempted -and $backup) { Restore-DatabaseBackup $maintenanceConfig $backup.Path $backup.Hash }
-                if ($manifestPath) { Restore-ApplicationFiles -BackupFolder $appBackupFolder -ManifestPath $manifestPath }
+                if ($migrationAttempted -and $backup) { Restore-DatabaseBackup $maintenanceConfig $backup.Path $backup.Hash $config }
+                if ($filesInstalled -and $manifestPath) { Restore-ApplicationFiles -BackupFolder $appBackupFolder -ManifestPath $manifestPath }
+                Invoke-RxDb (Join-Path $script:AppPath 'rx-db.exe') $config @('verify')
                 Start-ManagedService
                 if ($previousVersion) { Wait-ForHealth $previousVersion | Out-Null }
                 Save-State @{ status = 'failed_recovered'; failedAt = (Get-Date).ToString('o'); failure = $failure }
@@ -761,14 +828,16 @@ function Invoke-Rollback {
         Write-Host 'WARNING: rollback restores the pre-update database. Newer records will leave the active database.' -ForegroundColor Red
         Stop-ManagedService
         $safetyBackup = New-DatabaseBackup $maintenanceConfig "before-rollback-v$currentVersion"
-        $previousManifest = @(Get-Content -LiteralPath ([string]$state.filesManifest) -Raw | ConvertFrom-Json)
+        $previousManifest = Get-Content -LiteralPath ([string]$state.filesManifest) -Raw | ConvertFrom-Json
+        $previousManifest = @($previousManifest)
         $entries = @($previousManifest | ForEach-Object { [string]$_.Path })
         $currentFilesBackup = Join-Path $script:ReleaseBackupsPath ("$(Get-Date -Format 'yyyyMMdd-HHmmss')-rollback-safety-v$currentVersion")
         New-Item -ItemType Directory -Path $currentFilesBackup -Force | Out-Null
         $currentManifest = Backup-ApplicationFiles -Entries $entries -Folder $currentFilesBackup
 
-        Restore-DatabaseBackup $maintenanceConfig ([string]$state.databaseBackup) ([string]$state.databaseBackupHash)
+        Restore-DatabaseBackup $maintenanceConfig ([string]$state.databaseBackup) ([string]$state.databaseBackupHash) $config
         Restore-ApplicationFiles -BackupFolder ([string]$state.applicationBackup) -ManifestPath ([string]$state.filesManifest)
+        Invoke-RxDb (Join-Path $script:AppPath 'rx-db.exe') $config @('verify')
         Start-ManagedService
         Wait-ForHealth ([string]$state.previousVersion) | Out-Null
         Save-State @{

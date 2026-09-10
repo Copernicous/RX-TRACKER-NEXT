@@ -7,6 +7,18 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+## [4.0.0-next.86] - 2026-09-10
+
+### Fixed
+
+- Correct Windows PowerShell 5.1 rollback-manifest parsing so valid JSON arrays
+  are not read as one combined filename. Validate complete application backups
+  before database migration or rollback writes. Avoid application restoration
+  when installation never began; recover partial copies when it did.
+- Preserve backup ACLs and restore runtime grants for older ACL-free backups;
+  verify application-account database readiness before service startup.
+- Add Windows PowerShell 5.1 manifest and real PostgreSQL permission-recovery CI tests.
+
 ## [4.0.0-next.85] - 2026-09-10
 
 ### Added

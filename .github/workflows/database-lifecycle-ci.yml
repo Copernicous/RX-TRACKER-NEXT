@@ -18,6 +18,12 @@ jobs:
       - name: Check out source
         uses: actions/checkout@v6
 
+      - name: Verify updater backup recovery on Windows PowerShell 5.1
+        shell: powershell
+        run: |
+          .\scripts\test-release-backup-manifest.ps1
+          .\scripts\Invoke-ReleaseUpdate.ps1 -Action SelfTest
+
       - name: Use .NET SDK for RX Softphone
         uses: actions/setup-dotnet@v5
         with:
@@ -120,6 +126,14 @@ jobs:
 
       - name: Validate newest backup through an isolated restore
         run: BACKUP_RECOVERABILITY_REAL_DB=true npm run test:backup-recoverability-integration
+
+      - name: Verify release recovery restores runtime database access
+        run: |
+          mkdir -p /tmp/rx-recovery-pg-tools
+          for tool in psql pg_dump pg_restore dropdb createdb; do
+            ln -s "$(command -v "$tool")" "/tmp/rx-recovery-pg-tools/$tool.exe"
+          done
+          pwsh -NoProfile -File scripts/test-release-runtime-recovery.ps1 -PgBin /tmp/rx-recovery-pg-tools
 
       - name: Verify migration checksum drift protection
         run: |

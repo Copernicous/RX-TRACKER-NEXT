@@ -24,6 +24,21 @@ this bootstrap when installing `4.0.0-next.6` from either version:
 6. Open `C:\RX-Tracker\RX-APP-NEXT\PROJECT-CONTROL.bat` as Administrator and
    confirm the header shows `Project Control 2.0.0`.
 
+## Bootstrap before next.86 from older installations
+
+An older installed updater does not receive fixes merely by downloading a new
+release. Verify the official next.86 ZIP/checksum and extract outside the active
+application. Run `INSTALL-PROJECT-CONTROL.bat` from the extracted folder with the
+actual compiled application path as its argument. Close old menus and reopen
+Project Control from the active application folder before option 15. This replaces
+only the backed-up control files, leaving executables, .env, service and database
+untouched. Complete the test-server update before production.
+
+next.86 fixes Windows PowerShell 5.1 manifest array parsing and restores runtime
+permissions after database recovery. Older backups omitted ACLs; the updater
+reinstates canonical application table/sequence access and keeps the migration
+ledger read-only. It verifies runtime database readiness before starting service.
+
 ## Normal update
 
 1. Open `PROJECT-CONTROL.bat` as Administrator.
