@@ -44,7 +44,10 @@ first). The old installed helper cannot enforce this new check by itself.
 The Region gap fingerprint now counts only patients eligible for the historical
 structured-city migration: nonblank city or blank COALESCE(address,addressLine1).
 Addresses without a city that the migration cannot classify do not count toward
-the allowed assignment increase. Applied migrations remain unchanged.
+the allowed assignment increase. If the earlier structured-address cleanup is
+pending, the fingerprint projects its result with the same parser and update
+conditions, without writing data. This accounts for cities extracted from old
+full-address values before the tag backfill. Applied migrations remain unchanged.
 
 Production rollout remains on hold until the recovered test host completes the
 update, has a healthy next.87 service, and passes patient/RX/import acceptance.

@@ -22,13 +22,13 @@ async function main() {
     await admin.query(`CREATE DATABASE "${name}"`); created = true;
     db = connect(name);
     await db.query(`
-      CREATE TABLE "Patients" (id integer PRIMARY KEY, city text, address text, "addressLine1" text);
+      CREATE TABLE "Patients" (id integer PRIMARY KEY, city text, address text, "addressLine1" text, state text, "zipCode" text, "updatedAt" timestamptz);
       CREATE TABLE "PatientTags" (id integer PRIMARY KEY, name text, "groupName" text, "isActive" boolean);
-      CREATE TABLE "PatientTagAssignments" ("patientId" integer, "patientTagId" integer, "createdAt" timestamptz, "updatedAt" timestamptz, UNIQUE("patientId", "patientTagId"));
+      CREATE TABLE "PatientTagAssignments" (id serial PRIMARY KEY, "patientId" integer, "patientTagId" integer, "createdAt" timestamptz, "updatedAt" timestamptz, UNIQUE("patientId", "patientTagId"));
       INSERT INTO "PatientTags" VALUES (1,'Miami','Region',true),(2,'Tampa','City',true),(3,'None','Region',true),(4,'Custom','Other',true);
-      INSERT INTO "Patients" SELECT n, CASE WHEN n <= 13 THEN 'Tampa' WHEN n <= 26 THEN 'Miami' ELSE NULL END, NULL, NULL FROM generate_series(1,39) n;
-      INSERT INTO "Patients" VALUES (40,NULL,'Unclassified synthetic address',NULL),(41,' ',' ',NULL),(42,NULL,NULL,'Unclassified line one'),(43,NULL,'', 'Ignored by historical COALESCE'),(44,'Tampa',NULL,NULL);
-      INSERT INTO "PatientTagAssignments" VALUES (41,3,NOW(),NOW()),(43,3,NOW(),NOW()),(44,2,NOW(),NOW());
+      INSERT INTO "Patients" (id,city,address,"addressLine1") SELECT n, CASE WHEN n <= 13 THEN 'Tampa' WHEN n <= 26 THEN 'Miami' ELSE NULL END, NULL, NULL FROM generate_series(1,39) n;
+      INSERT INTO "Patients" (id,city,address,"addressLine1") VALUES (40,NULL,'Unclassified synthetic address',NULL),(41,' ',' ',NULL),(42,NULL,NULL,'Unclassified line one'),(43,NULL,'', 'Ignored by historical COALESCE'),(44,'Tampa',NULL,NULL);
+      INSERT INTO "PatientTagAssignments" ("patientId","patientTagId","createdAt","updatedAt") VALUES (41,3,NOW(),NOW()),(43,3,NOW(),NOW()),(44,2,NOW(),NOW());
     `);
     const before = await createBusinessFingerprint({ sequelize: db });
     assert.equal(before.regionalAssignmentGaps, 39);
@@ -40,6 +40,21 @@ async function main() {
     assert.equal(unknown.length, 0, 'Unclassified addresses must remain unchanged');
     await migration.up(db.getQueryInterface());
     assert.deepEqual(await createBusinessFingerprint({ sequelize: db }), after, 'Historical backfill must be idempotent');
+    // Rehearse the actual next.78 data-migration order, including a city that
+    // exists only inside a legacy full-address field until cleanup runs.
+    await db.query(`
+      CREATE TABLE "SequelizeMeta" (name text PRIMARY KEY);
+      INSERT INTO "Patients" (id,city,address) VALUES (45,NULL,'1021 Martex Dr Apopka 32703');
+    `);
+    const upgradeBefore = await createBusinessFingerprint({ sequelize: db });
+    assert.equal(upgradeBefore.regionalAssignmentGaps, 1);
+    await require('../migrations/20260905153000-reassign-region-tags-from-structured-city').up(db.getQueryInterface());
+    await require('../migrations/20260906000000-rerun-improved-structured-address-cleanup').up(db.getQueryInterface());
+    await db.query(`INSERT INTO "SequelizeMeta" VALUES ('20260906000000-rerun-improved-structured-address-cleanup.js')`);
+    await migration.up(db.getQueryInterface());
+    const upgradeAfter = await createBusinessFingerprint({ sequelize: db });
+    assert.equal(upgradeAfter.regionalAssignmentGaps, 0);
+    assert.equal(upgradeAfter.tableCounts.PatientTagAssignments - upgradeBefore.tableCounts.PatientTagAssignments, 1);
     const folder = path.resolve('output', name);
     fs.mkdirSync(folder, { recursive: true });
     fs.writeFileSync(path.join(folder, 'before.json'), JSON.stringify(before));
@@ -47,6 +62,11 @@ async function main() {
     const test = spawnSync(process.platform === 'win32' ? 'powershell.exe' : 'pwsh', ['-NoProfile', '-File', path.join(__dirname, 'test-release-preflight.ps1'), '-Fixture', folder], { encoding: 'utf8' });
     process.stdout.write(test.stdout || ''); process.stderr.write(test.stderr || '');
     assert.equal(test.status, 0, 'PowerShell business validation and updater preflight');
+    fs.writeFileSync(path.join(folder, 'before.json'), JSON.stringify(upgradeBefore));
+    fs.writeFileSync(path.join(folder, 'after.json'), JSON.stringify(upgradeAfter));
+    const upgradeTest = spawnSync(process.platform === 'win32' ? 'powershell.exe' : 'pwsh', ['-NoProfile', '-File', path.join(__dirname, 'test-release-preflight.ps1'), '-Fixture', folder], { encoding: 'utf8' });
+    process.stdout.write(upgradeTest.stdout || ''); process.stderr.write(upgradeTest.stderr || '');
+    assert.equal(upgradeTest.status, 0, 'Whole historical data-migration sequence');
     console.log('PASS historical migration: 39 eligible additions, unclassified addresses preserved, idempotence, strict updater validation.');
   } finally {
     if (db) await db.close();

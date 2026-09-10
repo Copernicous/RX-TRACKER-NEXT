@@ -12,6 +12,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 ### Fixed
 
 - Match Region-backfill fingerprint eligibility to the unchanged historical migration; preserve unclassified addresses without falsely rejecting valid tag additions.
+- Forecast the pending historical address cleanup without writes so cities extracted before the backfill are included in the exact allowed assignment increase.
 - Package a direct existing-server update launcher and verify executing updater code against the verified ZIP before downtime, preventing stale helper execution on this path.
 - Exercise the real historical migration with eligible and unclassified synthetic patients, unexpected business changes, and updater identity rejection.
 - Retain next.86 application-manifest and runtime-permission recovery safeguards. Production rollout requires successful remote test-host acceptance.

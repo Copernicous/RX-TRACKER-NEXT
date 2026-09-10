@@ -1,6 +1,7 @@
 'use strict';
 
 const crypto = require('crypto');
+const { normalizeStructuredAddressForReference } = require('../utils/patientAddress');
 
 const BUSINESS_TABLES = [
   'Patients',
@@ -127,32 +128,47 @@ async function countRegionalAssignmentGaps(db, existingTables) {
   const patientColumns = new Set(columns.map((row) => row.name));
   if (!patientColumns.has('city') || !patientColumns.has('address')) return 0;
   const addressLineExpression = patientColumns.has('addressline1') ? 'p."addressLine1"' : 'NULL';
+  const stateExpression = patientColumns.has('state') ? 'p.state' : 'NULL';
+  const zipExpression = patientColumns.has('zipcode') ? 'p."zipCode"' : 'NULL';
+  // next.78 runs address cleanup before missing-Region completion. Forecast
+  // only that pending migration, using its exact parser without writing data.
+  let cleanupPending = false;
+  const ledger = existingTables.get('sequelizemeta');
+  if (ledger) {
+    const [applied] = await db.sequelize.query(
+      `SELECT name FROM ${quoteIdentifier(ledger)} WHERE name = :name`,
+      { replacements: { name: '20260906000000-rerun-improved-structured-address-cleanup.js' } }
+    );
+    cleanupPending = applied.length === 0;
+  }
 
   const [rows] = await db.sequelize.query(`
-    WITH regional AS (
-      SELECT p.id,
-             p.city,
-             p.address,
-             ${addressLineExpression} AS "addressLine1",
-             BOOL_OR(tag."isActive" IS TRUE
-               AND LOWER(BTRIM(tag."groupName")) IN ('region', 'city')
-               AND LOWER(BTRIM(tag.name)) IN ('miami', 'tampa', 'none')) AS "hasRegionalTag"
-        FROM ${quoteIdentifier(patientTable)} p
-        LEFT JOIN ${quoteIdentifier(assignmentTable)} assignment
-          ON assignment."patientId" = p.id
-        LEFT JOIN ${quoteIdentifier(tagTable)} tag
-          ON tag.id = assignment."patientTagId"
-       GROUP BY p.id, p.city, p.address, ${addressLineExpression}
-    )
-    SELECT COUNT(*)::integer AS count
-      FROM regional
-     WHERE "hasRegionalTag" IS NOT TRUE
-       -- Match the historical structured-city backfill exactly. An address
-       -- without a city is deliberately left for operator review.
-       AND (NULLIF(BTRIM(COALESCE(city, '')), '') IS NOT NULL
-         OR NULLIF(BTRIM(COALESCE(address, "addressLine1", '')), '') IS NULL)
+    SELECT p.city, p.address, ${addressLineExpression} AS "addressLine1",
+           ${stateExpression} AS state, ${zipExpression} AS "zipCode"
+      FROM ${quoteIdentifier(patientTable)} p
+     WHERE NOT EXISTS (
+       SELECT 1 FROM ${quoteIdentifier(assignmentTable)} assignment
+       JOIN ${quoteIdentifier(tagTable)} tag ON tag.id = assignment."patientTagId"
+       WHERE assignment."patientId" = p.id AND tag."isActive" IS TRUE
+         AND LOWER(BTRIM(tag."groupName")) IN ('region', 'city')
+         AND LOWER(BTRIM(tag.name)) IN ('miami', 'tampa', 'none')
+     )
   `);
-  return Number.parseInt(rows[0]?.count || 0, 10);
+  // SQL BTRIM without a character argument strips spaces, not all whitespace.
+  const sqlTrim = value => String(value ?? '').replace(/^ +| +$/g, '');
+  return rows.filter(patient => {
+    let projected = patient;
+    const cleanupInput = patient.address ?? patient.addressLine1 ?? patient.city ?? patient.state ?? patient.zipCode ?? '';
+    if (cleanupPending && sqlTrim(cleanupInput)) {
+      const parsed = normalizeStructuredAddressForReference(patient);
+      const fields = ['addressLine1', 'city', 'state', 'zipCode'];
+      const clean = value => String(value || '').replace(/\s+/g, ' ').trim() || null;
+      if (fields.some(field => parsed[field]) && fields.some(field => clean(patient[field]) !== clean(parsed[field]))) {
+        projected = { ...patient, ...parsed };
+      }
+    }
+    return Boolean(sqlTrim(projected.city)) || !sqlTrim(projected.address ?? projected.addressLine1 ?? '');
+  }).length;
 }
 
 module.exports = {

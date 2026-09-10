@@ -17,6 +17,9 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
   executing helper hash to match the verified ZIP before downtime. Synthetic
   PostgreSQL regression reproduces 39 eligible additions alongside unknown
   addresses, verifies migration idempotence and rejects unexpected count drift.
+  The fingerprint also projects the earlier address cleanup only when its
+  migration is pending; the regression executes the three historical data
+  migrations in order with a city extracted from a legacy full address.
   Use the next.87 direct launcher instead of retrying old menu/next.86 bootstrap.
 
 - **Repeated remote test failure (2026-09-10):** Operator retried with next.86

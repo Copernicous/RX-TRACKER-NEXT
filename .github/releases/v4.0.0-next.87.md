@@ -14,10 +14,10 @@ This runs the packaged Project Control updater directly. It requires the exact a
 
 ## Fixes and validation
 
-- Region-backfill validation now counts only patients eligible for the unchanged historical migration. Nonempty addresses without a city remain unclassified; they no longer cause false rollback after the eligible assignments are added.
+- Region-backfill validation now counts only patients eligible for the unchanged historical migration. When the historical address cleanup is pending, validation projects its result without writing data. Nonempty addresses that still have no city remain unclassified; they no longer cause false rollback after the eligible assignments are added.
 - New UPDATE-EXISTING-SERVER.bat avoids the old installed helper. The updater displays its version/path and refuses mismatched package/helper code before database changes.
 - Retains next.86 Windows PowerShell 5.1 manifest parsing, pre-write backup validation, ACL preservation, runtime permission recovery, and runtime readiness checks.
-- Synthetic PostgreSQL regression executes the actual historical migration: 39 eligible additions, unknown addresses preserved, repeat execution unchanged, unrelated assignment increases and patient loss rejected. Tests also exercise package/helper mismatch and existing recovery cases.
+- Synthetic PostgreSQL regression executes the actual historical migration: 39 eligible additions, unknown addresses preserved, repeat execution unchanged, unrelated assignment increases and patient loss rejected. A second case executes Region reassignment, address cleanup, and missing-Region completion in their actual upgrade order, including a city extracted from a legacy address. Tests also exercise package/helper mismatch and existing recovery cases.
 
 ## Production status
 
