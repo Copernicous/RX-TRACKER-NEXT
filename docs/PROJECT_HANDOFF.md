@@ -8,7 +8,7 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
 
-- **next.87 corrective release in preparation (2026-09-10):** Remote operator
+- **Official next.87 corrective prerelease published (2026-09-10):** Remote operator
   confirmed runtime verification and service Running after permission recovery;
   no successful upgrade beyond next.78 is confirmed. Production is on hold.
   Correct Region fingerprint eligibility to match the unchanged historical
@@ -21,6 +21,17 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
   migration is pending; the regression executes the three historical data
   migrations in order with a city extracted from a legacy full address.
   Use the next.87 direct launcher instead of retrying old menu/next.86 bootstrap.
+  Published tag `v4.0.0-next.87` points to
+  `28a803b86e617d3e4c99666b633c68c044e82a02`. Main lifecycle CI `34536522720`,
+  CodeQL `34536522740`, and release build `34536930874` passed. Downloaded
+  official ZIP and both executable hashes verified against SHA256SUMS.txt;
+  packaged launcher/updater match source, server reports next.87, and published
+  rx-db.exe fingerprints match source throughout both isolated synthetic
+  upgrade regressions. ZIP SHA-256:
+  `922787118fb20eda65ebce1125fd3647965ad10bb2c3889005e275763c0fa392`.
+  Release: https://github.com/Copernicous/RX-TRACKER-NEXT/releases/tag/v4.0.0-next.87
+  No remote installation was performed. Remote test-host upgrade and UI
+  acceptance remain required before any real production rollout.
 
 - **Repeated remote test failure (2026-09-10):** Operator retried with next.86
   package and again got the old combined-filename application recovery error
