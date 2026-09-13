@@ -8,16 +8,29 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
 
-- **next.88 publication authorized (2026-09-12):** The Status sort
+- **Official next.88 published and verified (2026-09-12):** The Status sort
   used only `isActive`, allowing deleted patients to remain mixed with active
   patients. Server ordering and client fallback now rank Inactive, Active,
   Deleted ascending and reverse those groups descending. No migration or
   patient-data update. Synthetic in-memory SQL and client regressions pass
   for both directions, null flags, and page boundaries. PostgreSQL pagination
-  regression now covers deleted patients retaining either Active flag. User
-  authorized the complete GitHub publication procedure. Main CI, tag build,
-  and downloaded-asset verification are pending. No remote installation is
-  performed; prior test-host acceptance remains unconfirmed.
+  regression covers deleted patients retaining either Active flag and passed
+  in main lifecycle CI `34727351381`; CodeQL `34727351380` passed too.
+  Tag `v4.0.0-next.88` points to `907fd41a7b419587cce593afd2575af4b32ea9ed`.
+  Release build `34727528972` passed. All three downloaded official ZIPs and
+  both embedded executables match `SHA256SUMS.txt`. Required package files,
+  safe ZIP entries, packaged updater/notes equality with source, server version
+  next.88, and `rx-db.exe help` were verified. Official release:
+  https://github.com/Copernicous/RX-TRACKER-NEXT/releases/tag/v4.0.0-next.88
+  SHA-256 values:
+  - Both server ZIPs: `abe66e48c07a137133d73682ec81c17a0ce3c929a0da12d4414fc242bb63847e`
+  - Softphone ZIP: `f27f60efc6563d4febdd200b43b30ab6f050605d652bbabc5c90e2a2523590e7`
+  - server.exe: `9eb2b0a3bbc157feed022894341520f965c11b73ddbc5f68b095cd126276a3be`
+  - rx-db.exe: `ea7043bd8a37475f46e8f5d832724779fe2eec78d396808803847d1a6c1c1927`
+  No remote installation was performed. Prior recovered test-host acceptance
+  remains unconfirmed; the existing production rollout hold remains documented
+  in the published release notes. Use the verified next.88 direct launcher for
+  older installations affected by the updater recovery incident.
 
 - **Official next.87 corrective prerelease published (2026-09-10):** Remote operator
   confirmed runtime verification and service Running after permission recovery;
