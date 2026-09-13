@@ -173,6 +173,7 @@ jobs:
           CALL_ATTEMPT_TEST_DB_NAME=rx_next_ci_regression_test timeout --foreground 180s npm run test:call-center-call-attempts
           CALL_CENTER_PAGINATION_TEST_DB_NAME=rx_next_ci_regression_test timeout --foreground 180s npm run test:call-center-pagination
           PATIENT_PAGINATION_TEST_DB_NAME=rx_next_ci_regression_test PATIENT_PAGINATION_TEST_CONFIRM_DB_NAME=rx_next_ci_regression_test timeout --foreground 180s npm run test:patient-pagination
+          node scripts/test-patient-status-sort.js
           REPORT_FILTER_TEST_DB_NAME=rx_next_ci_regression_test timeout --foreground 180s npm run test:report-filter-parity
           DASHBOARD_ANALYTICS_TEST_DB_NAME=rx_next_ci_regression_test DASHBOARD_ANALYTICS_TEST_CONFIRM_DB_NAME=rx_next_ci_regression_test timeout --foreground 180s npm run test:dashboard-analytics
           RX_PIPELINE_FILTER_TEST_DB_NAME=rx_next_ci_regression_test RX_PIPELINE_FILTER_TEST_CONFIRM_DB_NAME=rx_next_ci_regression_test timeout --foreground 180s npm run test:rx-pipeline-filter-parity

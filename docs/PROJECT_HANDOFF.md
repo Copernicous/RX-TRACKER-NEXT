@@ -1,12 +1,23 @@
 # RX Tracker NEXT project handoff
 
-Last updated: 2026-09-10
+Last updated: 2026-09-12
 
 This file is the sanitized continuity record for a future administrator or
 Codex session. It intentionally contains no credentials, `.env` values,
 patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
+
+- **next.88 publication authorized (2026-09-12):** The Status sort
+  used only `isActive`, allowing deleted patients to remain mixed with active
+  patients. Server ordering and client fallback now rank Inactive, Active,
+  Deleted ascending and reverse those groups descending. No migration or
+  patient-data update. Synthetic in-memory SQL and client regressions pass
+  for both directions, null flags, and page boundaries. PostgreSQL pagination
+  regression now covers deleted patients retaining either Active flag. User
+  authorized the complete GitHub publication procedure. Main CI, tag build,
+  and downloaded-asset verification are pending. No remote installation is
+  performed; prior test-host acceptance remains unconfirmed.
 
 - **Official next.87 corrective prerelease published (2026-09-10):** Remote operator
   confirmed runtime verification and service Running after permission recovery;

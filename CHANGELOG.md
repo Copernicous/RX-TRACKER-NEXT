@@ -7,6 +7,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+## [4.0.0-next.88] - 2026-09-12
+
+### Fixed
+
+- Patients Status sorting now groups deleted patients last in ascending order
+  and first in descending order, regardless of their retained Active flag.
+  Applies to server pagination and the client fallback.
+
 ## [4.0.0-next.87] - 2026-09-10
 
 ### Fixed

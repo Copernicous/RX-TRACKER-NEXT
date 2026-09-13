@@ -1390,6 +1390,9 @@ var allPatients = [];
             if (pSortCol === 'Clinic.name') {
                 valA = a.Clinic ? a.Clinic.name : '';
                 valB = b.Clinic ? b.Clinic.name : '';
+            } else if (pSortCol === 'isActive') {
+                valA = a.isDeleted ? 2 : (a.isActive ? 1 : 0);
+                valB = b.isDeleted ? 2 : (b.isActive ? 1 : 0);
             } else if (pSortCol === 'nextSvcDate') {
                 // Sort by days remaining until 90-day expiry (numeric)
                 var _epA = a.serviceDate ? new Date(a.serviceDate).getTime() + serviceWindowDays*864e5 : null;

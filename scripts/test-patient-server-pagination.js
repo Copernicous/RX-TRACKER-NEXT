@@ -411,6 +411,34 @@ async function main() {
         });
         assert.strictEqual(result.payload.rows.length, 4);
         console.log('PASS: filters, facets, needs-action, no-RX, sorting, and explicit export preserved');
+
+        // Deleted records retain their active flag. Status must override it,
+        // and the grouping must happen before database pagination.
+        await fixtures.patients[1].update({ isDeleted: true });
+        await fixtures.patients[3].update({ isDeleted: true });
+        await fixtures.patients[2].update({ isActive: false });
+        for (const dir of ['asc', 'desc']) {
+            const expected = dir === 'asc'
+                ? ['GAMMA', 'ALPHA', 'BETA', 'OMEGA']
+                : ['OMEGA', 'BETA', 'ALPHA', 'GAMMA'];
+            const names = [];
+            for (const page of ['1', '2']) {
+                result = await runHandler({
+                    paginated: 'true', page, pageSize: '2',
+                    sort: 'isActive', dir, lastName: marker, includeDeleted: 'true'
+                });
+                assert.strictEqual(result.status, 200, result.payload.error);
+                assert.strictEqual(result.payload.total, 4);
+                names.push(...result.payload.rows.map(row => row.firstName));
+            }
+            assert.deepStrictEqual(names, expected, `Status ${dir} must group deleted records across pages`);
+        }
+        result = await runHandler({
+            paginated: 'true', page: '1', pageSize: '10', sort: 'isActive',
+            dir: 'asc', lastName: marker
+        });
+        assert.deepStrictEqual(result.payload.rows.map(row => row.firstName), ['GAMMA', 'ALPHA']);
+        console.log('PASS: Status sorting groups deleted patients in both directions before pagination');
     } finally {
         db.Patient.findAll = originalFindAll;
     }

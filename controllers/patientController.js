@@ -402,7 +402,8 @@ function patientDatabaseOrder(sortKey, sortDir) {
         phone: `"Patient"."phone" ${direction} ${nullOrder}`,
         serviceDate: `"Patient"."serviceDate" ${direction} ${nullOrder}`,
         nextSvcDate: `"Patient"."serviceDate" ${direction} ${nullOrder}`,
-        isActive: `"Patient"."isActive" ${direction} ${nullOrder}`
+        // Status badges give deletion precedence over the retained active flag.
+        isActive: `CASE WHEN "Patient"."isDeleted" THEN 2 WHEN "Patient"."isActive" THEN 1 ELSE 0 END ${direction}`
     };
     const expression = fixedExpressions[sortKey] || `"Patient"."id" ${direction}`;
     return [[literal(expression)], ['id', direction]];
