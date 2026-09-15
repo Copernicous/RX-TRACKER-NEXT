@@ -8,6 +8,24 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
 
+- **Official next.89 published and verified (2026-09-15):** Blank-ID patient
+  import comparison correction released from
+  `063fc693bb8ec6249942a33b7fc74d9ad88056a1` as `v4.0.0-next.89`.
+  Main lifecycle CI `34995890802`, CodeQL `34995890878`, and release build
+  `34996488087` passed. All three downloaded official ZIPs and both embedded
+  server executables match SHA256SUMS.txt. Package entries and required files
+  checked; updater/launcher/notes/readme content matches source (normalizing
+  line endings). Compiled server reports next.89; rx-db.exe help passed.
+  Release: https://github.com/Copernicous/RX-TRACKER-NEXT/releases/tag/v4.0.0-next.89
+  SHA-256 values:
+  - Both server ZIPs: `ed06f31a593e9a8d3ce33dc538815cd48ca0cd58efb4d9778c0ca0f3483e133b`
+  - Softphone ZIP: `d53081178c73fa01df97fc80259766780ced67030d17899d2152d2ede682dee3`
+  - server.exe: `1ef87e7b37cfe48d113f9f80f5a6b0ce78efc737e11937664322a3d12437ea2f`
+  - rx-db.exe: `6f9789221533975deab061fa4c62f5e309bac00a576c798083e110c4a8086648`
+  No installation performed. Existing recovered test-host acceptance and
+  production rollout hold remain. Use the verified packaged direct launcher
+  for older installations affected by the updater recovery incident.
+
 - **next.89 production package preparation (2026-09-15):** User authorized the
   official release for the blank-ID import correction. Version, lockfile and
   release notes updated. Local import duplicate/address/tag/manual-create
