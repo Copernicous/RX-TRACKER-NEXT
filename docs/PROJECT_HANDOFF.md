@@ -8,6 +8,19 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
 
+- **Development/staging baseline refreshed (2026-09-15):** User requested both
+  environments be updated for future development. Existing NEXT `develop` and
+  `staging` worktrees were fast-forwarded to the verified next.89 release plus
+  publication handoff, with no divergent commits or tracked edits to resolve.
+  Both received fresh `npm ci` installs; import duplicate regression and public
+  JavaScript validation passed in each. Staging configuration guard passed with
+  its separate test-copy database/runtime and scheduled backups disabled.
+  No Node listeners were running on ports 3000/3100/3101; sites remain stopped.
+  Database migrations/readiness were not checked or changed in this source
+  refresh. Verify the intended isolated database before starting the next session.
+  Existing local environment files, runtime data, and untracked work were kept.
+  Future feature work starts in the staging worktree, then promotes to develop.
+
 - **Official next.89 published and verified (2026-09-15):** Blank-ID patient
   import comparison correction released from
   `063fc693bb8ec6249942a33b7fc74d9ad88056a1` as `v4.0.0-next.89`.
