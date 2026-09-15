@@ -477,8 +477,6 @@ exports.importDataset = async (req, res) => {
                 const seenPatientCodes = new Set();
                 const patientCodeFirstRow = new Map();
                 const rowsWithErrors = new Set();
-                const lastPatient = await db.Patient.findOne({ order: [['id', 'DESC']] });
-                let baseId = lastPatient ? lastPatient.id : 0;
 
                 const existingPatients = await db.Patient.findAll({ attributes: duplicateReviewAttributes, order: [['id', 'ASC']], raw: true });
                 const dbPatientCodes = new Set(existingPatients.map(p => p.patientCode?.toLowerCase()));
@@ -506,22 +504,19 @@ exports.importDataset = async (req, res) => {
                     if (dobParsed > todayIso) { addErr('DOB cannot be in the future.'); continue; }
                     dob = dobParsed;
 
-                    if (!patientCode || !patientCode.trim()) {
-                        const nextId = baseId + validRows.length + 1;
-                        patientCode = 'PAT-' + String(nextId).padStart(5, '0');
-                    } else {
-                        patientCode = patientCode.trim();
-                    }
+                    // Only IDs supplied by the file participate in identity comparison.
+                    // Allocate missing codes after review, under the final write lock.
+                    patientCode = (patientCode || '').trim();
 
                     const patientCodeKey = patientCode.toLowerCase();
                     const seenRow = patientCodeFirstRow.get(patientCodeKey);
-                    if (!mergeReview && seenRow && !rowsWithErrors.has(seenRow)) {
+                    if (!mergeReview && patientCode && seenRow && !rowsWithErrors.has(seenRow)) {
                         addErr(`Patient ID "${patientCode}" is duplicated in this file (also used on line ${seenRow}).`);
                         continue;
                     }
                     patientCodeFirstRow.set(patientCodeKey, rowNum);
                     seenPatientCodes.add(patientCode.toLowerCase());
-                    if (!mergeReview && dbPatientCodes.has(patientCode.toLowerCase()))   { addErr(`Patient ID "${patientCode}" already exists in database`); continue; }
+                    if (!mergeReview && patientCode && dbPatientCodes.has(patientCode.toLowerCase()))   { addErr(`Patient ID "${patientCode}" already exists in database`); continue; }
 
                     const uniqueKey = identityKey({ firstName: firstNameCaps, lastName: lastNameCaps, dob });
                     if (!mergeReview && seenPatients.has(uniqueKey))  { addErr(`Patient "${firstNameCaps} ${lastNameCaps}" born on ${dob.trim()} is duplicated in this file`); continue; }
@@ -645,7 +640,7 @@ exports.importDataset = async (req, res) => {
                             order: [['id', 'ASC']], raw: true, transaction: tx });
                         const currentKeys = new Set(currentPatients.map(identityKey));
                         const currentCodes = new Set(currentPatients.map(p => String(p.patientCode || '').trim().toLowerCase()));
-                        const conflicts = validRows.flatMap((patient, i) => currentKeys.has(identityKey(patient)) || currentCodes.has(patient.patientCode.toLowerCase())
+                        const conflicts = validRows.flatMap((patient, i) => currentKeys.has(identityKey(patient)) || (patient.patientCode && currentCodes.has(patient.patientCode.toLowerCase()))
                             ? [{ row: i + 2, error: 'Patient name and DOB or Patient ID already exists. Correct the file and validate again.' }] : []);
                         if (!mergeReview && conflicts.length) {
                             await tx.rollback();
@@ -691,6 +686,16 @@ exports.importDataset = async (req, res) => {
                             await tx.rollback();
                             return res.json({ aborted: false, successCount: 0, skippedCount: skippedRows.length, skippedRows, errorCount: 0, errors: [] });
                         }
+                        }
+                        // Reserve every supplied code, including later CSV rows, before allocation.
+                        const reservedCodes = new Set([...currentCodes, ...rows.map(row => String(row.patientCode || '').trim().toLowerCase())]);
+                        let nextCodeId = currentPatients.reduce((max, patient) => Math.max(max, Number(patient.id) || 0), 0);
+                        for (const patient of validRows) {
+                            if (patient.patientCode) continue;
+                            do {
+                                patient.patientCode = 'PAT-' + String(++nextCodeId).padStart(5, '0');
+                            } while (reservedCodes.has(patient.patientCode.toLowerCase()));
+                            reservedCodes.add(patient.patientCode.toLowerCase());
                         }
                         const skipped = new Set(skippedRows);
                         for (const item of plan.filter(item => item.action === 'merge')) {

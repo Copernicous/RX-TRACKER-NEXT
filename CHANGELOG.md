@@ -7,6 +7,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+### Fixed
+
+- Blank Patient IDs in CSV imports no longer generate false matches to unrelated
+  patients. Assign unused codes only to new patients during the locked final save,
+  reserving existing and supplied CSV codes. Merges retain the existing ID.
+
 ## [4.0.0-next.88] - 2026-09-12
 
 ### Fixed

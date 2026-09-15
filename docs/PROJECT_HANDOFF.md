@@ -1,12 +1,21 @@
 # RX Tracker NEXT project handoff
 
-Last updated: 2026-09-12
+Last updated: 2026-09-15
 
 This file is the sanitized continuity record for a future administrator or
 Codex session. It intentionally contains no credentials, `.env` values,
 patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
+
+- **Pending import correction (2026-09-15):** User confirmed blank-ID CSV rows
+  show unrelated patients as exact Patient ID matches. Import generated codes
+  from internal IDs before comparison, which can collide with existing codes.
+  Local correction keeps missing codes blank through review and allocates unused
+  codes only for new patients under the final write lock, reserving database and
+  supplied CSV codes. Merges retain existing IDs. Synthetic regression covers
+  false matches, multiple blank rows, explicit collisions, and concurrent code
+  allocation. Not released or installed; no migration or existing-data rewrite.
 
 - **Official next.88 published and verified (2026-09-12):** The Status sort
   used only `isActive`, allowing deleted patients to remain mixed with active

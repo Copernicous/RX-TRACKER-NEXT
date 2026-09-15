@@ -6,6 +6,12 @@ operator step through Project Control; publication alone does not update a serve
 
 ## Import behavior
 
+With the pending blank-ID correction, a missing/blank `patientCode` stays blank
+during comparison. Only supplied IDs can produce a Patient ID match. New patients
+receive unused `PAT-` codes during the locked final save, avoiding existing codes
+(including deleted/inactive patients) and all supplied CSV codes. Merges retain
+the existing patient's ID; preview and discarded rows allocate no codes.
+
 Preview & Validate sends the CSV for server validation without saving patient,
 RX, tag assignment, service-date history, or audit records. Any blocking error
 aborts the whole file. After duplicate review, all selected rows save together;

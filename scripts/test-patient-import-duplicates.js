@@ -32,7 +32,7 @@ const db = {
             return rows.map((p, i) => ({ ...p, id: 101 + i, setPatientTags: async () => {} }));
         }
     },
-    AuditLog: { create: async (row, options) => { audit.push({ row, options }); } }
+    AuditLog: { create: async (row, options) => { audit.push({ row, options }); return { id: audit.length }; } }
 };
 for (const name of ['PatientTransportCompany', 'PharmacyTransportCompany', 'Clinic', 'WorkflowAction', 'PatientTag']) {
     db[name] = { findAll: async () => [] };
@@ -170,7 +170,40 @@ async function main() {
     const sameFilePreview = await run([patient, changedDob], { mode: 'preview' });
     result = await run([patient, changedDob], { duplicateReviewToken: sameFilePreview.reviewToken, skipRows: '[3]' });
     assert.equal(result.successCount, 1); assert.equal(writes[0].dob, patient.dob);
-    console.log('PASS patient import duplicate review: no-write preview, hard blocks, warning overrides, stale/file/user/expiry binding, audit, final recheck, DOB validation.');
+    // Missing CSV IDs must not invent matches, even when codes and internal IDs differ.
+    const collision = { ...patient, id: 100, patientCode: 'PAT-00101', firstName: 'UNRELATED', lastName: 'PERSON', phone: '' };
+    const blankId = { ...patient, patientCode: '', phone: '' };
+    reset([patient, collision]);
+    result = await run([blankId], { mode: 'preview', reviewMode: 'merge' });
+    assert.equal(result.warnings.length, 1);
+    assert.equal(result.warnings[0].patient.patientCode, '');
+    assert.equal(result.warnings[0].matches.length, 1);
+    assert.equal(result.warnings[0].matches[0].patient.id, patient.id);
+    assert.equal(result.warnings[0].canCreate, false);
+    assert.equal(writes.length, 0);
+
+    const fresh = { ...blankId, firstName: 'NEW', lastName: 'SYNTHETIC' };
+    for (const reviewMode of ['merge', undefined]) {
+        reset([collision]);
+        const rows = [fresh, { ...fresh, firstName: 'SECOND' }, { ...fresh, firstName: 'THIRD', patientCode: 'pat-00103' }];
+        result = await run(rows, { mode: 'preview', reviewMode });
+        assert.equal(result.warnings.length, 0); assert.equal(writes.length, 0);
+        // A concurrent save takes another code after preview and before the locked read.
+        finalExisting = [collision, { ...collision, id: 99, patientCode: 'PAT-00102' }];
+        result = await run(rows, { reviewMode });
+        assert.equal(result.successCount, 3);
+        assert.deepEqual(writes.map(p => p.patientCode), ['PAT-00104', 'PAT-00105', 'pat-00103']);
+    }
+    reset([collision]);
+    result = await run([{ ...fresh, patientCode: collision.patientCode }], { mode: 'preview', reviewMode: 'merge' });
+    assert.equal(result.warnings[0].canCreate, false, 'Explicit supplied ID collisions must still block creation');
+    const { buildPlan } = require('../utils/patientImportMerge');
+    const mergeWarnings = duplicates.findWarnings([blankId, fresh], [patient], { includeExact: true });
+    const mergePlan = buildPlan([blankId, fresh], [patient], mergeWarnings,
+        [{ row: 2, action: 'merge', targetId: patient.id, fields: {} }], true);
+    assert.equal(mergePlan[0].target.patientCode, patient.patientCode);
+    assert.equal(mergePlan[1].patient.patientCode, '');
+    console.log('PASS patient import duplicate review: no-write preview, hard blocks, warning overrides, stale/file/user/expiry binding, audit, final recheck, DOB validation, missing-ID comparison and locked allocation.');
 }
 module.exports = { controller: context.exports, reset, patient, stats: () => ({ writes: writes.length, audit: audit.length }) };
 if (require.main === module) main().catch(error => { console.error(error); process.exitCode = 1; });

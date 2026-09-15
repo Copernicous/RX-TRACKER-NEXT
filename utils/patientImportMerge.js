@@ -82,8 +82,8 @@ function buildPlan(incoming, existing, warnings, decisions, canEdit) {
             }
         }
         if (item.action === 'import') {
-            const code = String(final.patientCode).trim().toLowerCase();
-            if (newCodes.has(code) || [...projected.values()].some(p => String(p.patientCode).trim().toLowerCase() === code)) throw Error(`Row ${item.row}: Patient ID already exists.`);
+            const code = String(final.patientCode || '').trim().toLowerCase();
+            if (code && (newCodes.has(code) || [...projected.values()].some(p => String(p.patientCode || '').trim().toLowerCase() === code))) throw Error(`Row ${item.row}: Patient ID already exists.`);
             newKeys.add(key); newCodes.add(code);
         }
     }
