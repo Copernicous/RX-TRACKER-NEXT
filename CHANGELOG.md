@@ -7,6 +7,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+## [4.0.0-next.89] - 2026-09-15
+
 ### Fixed
 
 - Blank Patient IDs in CSV imports no longer generate false matches to unrelated

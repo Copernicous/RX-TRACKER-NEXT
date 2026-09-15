@@ -8,6 +8,14 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
 
+- **next.89 production package preparation (2026-09-15):** User authorized the
+  official release for the blank-ID import correction. Version, lockfile and
+  release notes updated. Local import duplicate/address/tag/manual-create
+  regressions and public JavaScript validation passed; high-severity dependency
+  audit gate passed (existing moderate uuid/Sequelize advisory remains).
+  Awaiting main lifecycle CI and tagged build/checksum verification. Existing
+  remote acceptance hold remains; no installation was requested or performed.
+
 - **Pending import correction (2026-09-15):** User confirmed blank-ID CSV rows
   show unrelated patients as exact Patient ID matches. Import generated codes
   from internal IDs before comparison, which can collide with existing codes.

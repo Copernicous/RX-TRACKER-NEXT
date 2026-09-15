@@ -10,7 +10,11 @@ frozen 3.3.1 repository, its production database, or the RX Softphone source.
 
 ## Current status
 
-Version: `4.0.0-next.87` release
+Version: `4.0.0-next.89` release
+
+Version `next.89` fixes false import matches caused by automatically generated
+Patient IDs. Blank IDs remain blank during comparison; new patients receive an
+unused ID during save, and merges retain the existing patient ID.
 
 | Area | NEXT behavior |
 |---|---|

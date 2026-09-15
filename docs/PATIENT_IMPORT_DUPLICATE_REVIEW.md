@@ -6,7 +6,7 @@ operator step through Project Control; publication alone does not update a serve
 
 ## Import behavior
 
-With the pending blank-ID correction, a missing/blank `patientCode` stays blank
+Starting with next.89, a missing/blank `patientCode` stays blank
 during comparison. Only supplied IDs can produce a Patient ID match. New patients
 receive unused `PAT-` codes during the locked final save, avoiding existing codes
 (including deleted/inactive patients) and all supplied CSV codes. Merges retain
