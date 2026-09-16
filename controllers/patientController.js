@@ -638,22 +638,19 @@ exports.create = async (req, res) => {
         transaction = await db.sequelize.transaction();
         await db.sequelize.query('LOCK TABLE "Patients" IN SHARE ROW EXCLUSIVE MODE', { transaction });
 
+        const candidates = await db.Patient.findAll({ attributes: ['id', 'patientCode', 'firstName', 'lastName', 'dob',
+            'phone', 'address', 'addressLine1', 'city', 'state', 'zipCode', 'isActive', 'isDeleted'],
+            order: [['id', 'ASC']], raw: true, transaction });
+
         // Auto-generate patientCode if not provided
         if (!patientCode || !patientCode.trim()) {
-            // H1 FIX: Use a retry loop to handle concurrent creates gracefully.
-            // Try up to 10 candidate codes based on the current max id.
-            const lastPatient = await db.Patient.findOne({ order: [['id', 'DESC']], transaction });
-            let baseId = lastPatient ? lastPatient.id : 0;
-            let generated = null;
-            for (let attempt = 0; attempt < 10; attempt++) {
-                const candidate = 'PAT-' + String(baseId + 1 + attempt).padStart(5, '0');
-                const exists = await db.Patient.findOne({ where: { patientCode: candidate }, transaction });
-                if (!exists) { generated = candidate; break; }
-            }
-            if (!generated) {
-                return res.status(500).json({ error: 'Could not generate a unique Patient ID. Please provide one manually.' });
-            }
-            patientCode = generated;
+            // Codes can be ahead of internal IDs after imports/manual assignments.
+            // Reserve all codes, including inactive/deleted patients, under the write lock.
+            const reservedCodes = new Set(candidates.map(patient => String(patient.patientCode || '').trim().toLowerCase()));
+            let nextCodeId = candidates.reduce((max, patient) => Math.max(max, Number(patient.id) || 0), 0);
+            do {
+                patientCode = 'PAT-' + String(++nextCodeId).padStart(5, '0');
+            } while (reservedCodes.has(patientCode.toLowerCase()));
         } else {
             patientCode = patientCode.trim();
         }
@@ -664,9 +661,6 @@ exports.create = async (req, res) => {
             return res.status(400).json({ error: `Patient ID "${patientCode}" is already assigned to another patient.` });
         }
 
-        const candidates = await db.Patient.findAll({ attributes: ['id', 'patientCode', 'firstName', 'lastName', 'dob',
-            'phone', 'address', 'addressLine1', 'city', 'state', 'zipCode', 'isActive', 'isDeleted'],
-            order: [['id', 'ASC']], raw: true, transaction });
         const incoming = { ...otherData, patientCode };
         if (candidates.some(patient => identityKey(patient) === identityKey(incoming))) {
             return res.status(409).json({ error: 'A patient with the same name and DOB already exists. Use the existing patient; this cannot be overridden.', duplicateBlocked: true });

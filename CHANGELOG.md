@@ -7,6 +7,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+### Fixed
+
+- Manual patient creation with a blank Patient ID now skips all occupied codes
+  instead of failing after ten attempts. Allocation retains the patient write
+  lock and reserves inactive/deleted patients' codes and case variants.
+
 ## [4.0.0-next.89] - 2026-09-15
 
 ### Fixed

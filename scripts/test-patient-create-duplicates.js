@@ -76,7 +76,30 @@ async function main() {
     reset(); failTags = true;
     result = await create({ ...incoming, firstName: 'BOB', phone: '' });
     assert.equal(result.status, 400); assert.equal(existing.length, 1);
-    console.log('PASS manual patient creation: no-write warning, hard identity block, stale/user/payload binding, transactional create/rollback and override audit.');
+    // Imported codes can be ahead of internal IDs, including deleted/inactive rows.
+    reset();
+    existing = Array.from({ length: 25 }, (_, index) => ({
+        ...original, id: index + 1,
+        patientCode: 'PAT-' + String(index + 26).padStart(5, '0'),
+        isDeleted: index % 2 === 0, isActive: false
+    }));
+    existing[24].patientCode = 'pat-00050';
+    const before = JSON.stringify(existing);
+    const automatic = { firstName: 'SYNTHETIC', lastName: 'NEWPERSON', dob: '1990-01-01', serviceDate: '2026-09-10', patientCode: '   ' };
+    result = await create(automatic);
+    assert.equal(result.status, 201);
+    assert.equal(result.patientCode, 'PAT-00051');
+    assert.equal(JSON.stringify(existing.slice(0, 25)), before, 'Existing patients must remain unchanged');
+    result = await create({ ...automatic, lastName: 'SECOND' });
+    assert.equal(result.status, 201);
+    assert.equal(result.patientCode, 'PAT-00052');
+    result = await create({ ...automatic, patientCode: 'PAT-00026' });
+    assert.equal(result.status, 400, 'Explicit occupied IDs must still be rejected');
+    reset(); existing = [];
+    result = await create(automatic);
+    assert.equal(result.status, 201);
+    assert.equal(result.patientCode, 'PAT-00001');
+    console.log('PASS manual patient creation: no-write warning, hard identity block, stale/user/payload binding, transactional create/rollback, override audit and automatic IDs beyond ten occupied codes.');
 }
 module.exports = { controller: context.exports, reset, stats: () => ({ patients: existing.length, audits: audits.length }) };
 if (require.main === module) main().catch(error => { console.error(error); process.exitCode = 1; });

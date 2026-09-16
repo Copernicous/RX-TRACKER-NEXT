@@ -1,12 +1,21 @@
 # RX Tracker NEXT project handoff
 
-Last updated: 2026-09-15
+Last updated: 2026-09-16
 
 This file is the sanitized continuity record for a future administrator or
 Codex session. It intentionally contains no credentials, `.env` values,
 patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
+
+- **Manual Patient ID allocation correction (2026-09-16):** Reported manual
+  create error traced to a ten-candidate limit based on internal database IDs.
+  Staging source now skips reserved codes using the locked patient snapshot,
+  including inactive/deleted patients and case variants, without that limit.
+  Synthetic regression reproduced the original 500 with 25 occupied codes and
+  passes after correction; manual-create and import duplicate suites pass.
+  Existing patients are unchanged. No migration, database access, release,
+  deployment, or promotion performed; live staging acceptance remains pending.
 
 - **Development/staging baseline refreshed (2026-09-15):** User requested both
   environments be updated for future development. Existing NEXT `develop` and
