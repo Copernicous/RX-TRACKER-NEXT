@@ -8,6 +8,26 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
 
+- **Official next.90 hotfix published and verified (2026-09-16):** User
+  confirmed production is running next.89 and authorized urgent production
+  delivery for blocked manual patient creation. Published `v4.0.0-next.90`
+  from `6d61405ecf0cfbd8149c4017b646c336c1bc4091`. Main lifecycle CI
+  `35101970116`, CodeQL `35101970062`, and release build `35102476377` passed.
+  All three official ZIPs and both embedded executables match SHA256SUMS.txt;
+  archive paths, package version, updater/launcher/notes/readme equality checked.
+  Compiled server reports next.90 and rx-db help passed. Import controller is
+  unchanged from next.89; both import regression suites pass. No migration is
+  added for this update. Production installation remains an operator action
+  through Project Control 8 then 15; this workstation has no production updater
+  access. User's next.89 report supersedes uncertainty about their current
+  production version; earlier recovered test-host acceptance is still separate.
+  Release: https://github.com/Copernicous/RX-TRACKER-NEXT/releases/tag/v4.0.0-next.90
+  SHA-256 values:
+  - Both server ZIPs: `3b433af623fbebf8bfd8eede70c00bad775c08bd9c0cc32923a9f38f48b7199a`
+  - Softphone ZIP: `a8d36050dfc88290f81b7c1d9428a7745135d2a6c9b75ea24749ec3b198a1e29`
+  - server.exe: `3183cefd3465884b298999f720c42b3e7960615066d672ff9900eca679d8fd0b`
+  - rx-db.exe: `ef49dea4fc13230f90be345ff68640d9cef6224b4a7dec515b5eaffaaaa6a239`
+
 - **next.90 urgent release preparation (2026-09-16):** User authorized
   production delivery because manual patient creation is blocking staff.
   Promoted the tested allocation correction through develop to main and
