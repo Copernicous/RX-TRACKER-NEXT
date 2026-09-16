@@ -7,6 +7,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+## [4.0.0-next.90] - 2026-09-16
+
 ### Fixed
 
 - Manual patient creation with a blank Patient ID now skips all occupied codes

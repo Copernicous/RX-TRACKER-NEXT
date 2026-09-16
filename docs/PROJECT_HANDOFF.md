@@ -8,6 +8,15 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
 
+- **next.90 urgent release preparation (2026-09-16):** User authorized
+  production delivery because manual patient creation is blocking staff.
+  Promoted the tested allocation correction through develop to main and
+  prepared version/lockfile/notes for next.90. No new migration or existing
+  patient rewrite. Main lifecycle CI and official compiled asset verification
+  are required before delivery. Production installation/version and earlier
+  recovered-host acceptance are not yet confirmed. No local Project Control
+  installation exists at either documented production path on this workstation.
+
 - **Manual Patient ID allocation correction (2026-09-16):** Reported manual
   create error traced to a ten-candidate limit based on internal database IDs.
   Staging source now skips reserved codes using the locked patient snapshot,

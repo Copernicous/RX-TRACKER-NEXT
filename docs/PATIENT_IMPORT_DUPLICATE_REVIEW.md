@@ -74,7 +74,7 @@ or matching patient requires another review. Patient creation, tags, service-dat
 context, and override audit share one transaction. Existing patient editing is
 outside this change.
 
-Pending staging correction: blank manual Patient IDs use the locked patient
+Starting with next.90, blank manual Patient IDs use the locked patient
 snapshot to skip every reserved code, including inactive/deleted patients and
 case variants. Imported codes ahead of internal IDs no longer exhaust a
 ten-attempt limit. No existing patient IDs are changed.

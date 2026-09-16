@@ -10,7 +10,11 @@ frozen 3.3.1 repository, its production database, or the RX Softphone source.
 
 ## Current status
 
-Version: `4.0.0-next.89` release
+Version: `4.0.0-next.90` release
+
+Version `next.90` fixes automatic Patient ID generation during manual creation.
+Blank IDs now skip every occupied code instead of failing after ten attempts,
+including codes held by inactive/deleted patients. No migration is added.
 
 Version `next.89` fixes false import matches caused by automatically generated
 Patient IDs. Blank IDs remain blank during comparison; new patients receive an
