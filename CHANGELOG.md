@@ -9,6 +9,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ### Fixed
 
+- Backoffice Patients also supports Active status (All, Active, Inactive),
+  combined with Deleted status and text search. Status changes clear deletion
+  selection; inactive includes legacy null Active flags, matching status display.
+
 - Backoffice Patients has a dedicated Deleted status filter (All, Not deleted,
   Deleted) that combines with text search and checks only `isDeleted`. Changing
   status clears deletion selections. Legacy null flags count as not deleted.

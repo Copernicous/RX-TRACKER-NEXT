@@ -1423,10 +1423,18 @@
         <input type="text" class="viewer-search" id="viewerSearch" placeholder="Search in any column..." oninput="applyViewerFilter()">
         <div id="viewerDeletedFilterWrap" style="display:none;align-items:center;gap:0.4rem">
             <label for="viewerDeletedFilter" style="font-size:0.73rem;color:var(--text-muted);white-space:nowrap">Deleted status:</label>
-            <select class="pag-size" id="viewerDeletedFilter" onchange="changeViewerDeletedFilter()">
+            <select class="pag-size" id="viewerDeletedFilter" onchange="changeViewerPatientFilter()">
                 <option value="all">All</option>
                 <option value="not-deleted">Not deleted</option>
                 <option value="deleted">Deleted</option>
+            </select>
+        </div>
+        <div id="viewerActiveFilterWrap" style="display:none;align-items:center;gap:0.4rem">
+            <label for="viewerActiveFilter" style="font-size:0.73rem;color:var(--text-muted);white-space:nowrap">Active status:</label>
+            <select class="pag-size" id="viewerActiveFilter" onchange="changeViewerPatientFilter()">
+                <option value="all">All</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
             </select>
         </div>
         <div class="col-toggle-wrap">

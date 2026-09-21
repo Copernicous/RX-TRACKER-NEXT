@@ -8,6 +8,13 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
 
+- **Backoffice active-status filter (2026-09-21, unreleased):** Staging adds
+  All / Active / Inactive alongside Deleted status and text search. It checks
+  `isActive` independently, including legacy null flags as inactive, and clears
+  deletion selection on changes. Select Not deleted + Inactive for inactive
+  patients that have not been deleted. Synthetic combined-filter and Chromium
+  checks pass, as does public JavaScript validation. No data changes or release.
+
 - **Backoffice deleted-status filter (2026-09-21, unreleased):** Staging adds
   All / Not deleted / Deleted alongside the Patients viewer search. Filtering
   checks `isDeleted` only, combines with text search, and treats legacy nulls as
