@@ -141,6 +141,32 @@ async function run() {
     await context.openImpactModal();
     el('impactPhrase').value = 'CONFIRM'; context.checkImpactPhrase();
     assert.equal(el('impactDeleteBtn').disabled, true);
+    context.closeImpactModal();
+    context.viewerSelectedIds.clear(); context.viewerSelectedIds.add('71');
+    releaseImpact = 'wait';
+    const cancelledImpact = context.openImpactModal();
+    context.closeImpactModal();
+    releaseImpact(); releaseImpact = null;
+    await cancelledImpact;
+    el('impactPhrase').value = 'CONFIRM'; context.checkImpactPhrase();
+    assert.equal(el('impactDeleteBtn').disabled, true, 'Late impact response cannot reopen a cancelled confirmation');
+    await context.openImpactModal();
+    el('impactPhrase').value = 'CONFIRM'; context.checkImpactPhrase();
+    const originalApi = context.apiFetch;
+    let completedDelete;
+    context.apiFetch = async (url, options) => {
+        if (options && options.method === 'DELETE') {
+            completedDelete = JSON.parse(options.body);
+            return { ok: true, json: async () => ({ results: { deleted: 1, cascaded: {} } }) };
+        }
+        return originalApi(url, options);
+    };
+    context.loadStats = () => {};
+    await context.executeRowDelete();
+    assert.deepEqual(completedDelete, { tableName: 'Patients', ids: ['71'] });
+    assert.equal(context.viewerSelectedIds.size, 0);
+    assert.equal(context.pendingRowDelete, null);
+    assert.equal(el('impactDeleteBtn').disabled, true);
     await context.openViewer('Clinics');
     assert.equal(context.viewerSelectedIds.size, 0);
     assert.equal(el('viewerActiveFilterWrap').style.display, 'none');
