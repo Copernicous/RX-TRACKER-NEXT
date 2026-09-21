@@ -8,6 +8,18 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
 
+- **Backoffice patient identity correction (2026-09-21, unreleased):** Staging
+  shows `patientCode` first as Patient ID, matching the Patients list including
+  its missing-code fallback. Internal Database ID is separately labeled and
+  hidden by default; stored IDs and relationship keys are unchanged. Permanent
+  row-deletion confirmation lists selected Patient IDs/names and retains the
+  exact reviewed internal-ID selection. New viewer loads clear selection;
+  failed/pending impact checks cannot enable deletion. Synthetic DOM/API tests
+  verify identity collisions, missing-code fallback, multiple selections, and
+  request targeting; isolated Chromium checks with actual viewer/modal markup
+  pass. No database connection, real deletion, migration, or release performed.
+  Regression: `node scripts/test-backoffice-patient-identity.js` (added to CI).
+
 - **Official next.91 published and verified (2026-09-21):** Published patient
   delete confirmation whitespace correction as `v4.0.0-next.91` from
   `bfe98ab4b1187a1a5819c9e2ad19399149a77b58`. Main lifecycle CI `35626890989`,

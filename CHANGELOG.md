@@ -7,6 +7,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+### Fixed
+
+- Backoffice Patients now displays the same Patient ID as the Patients list in
+  its first data column. Internal Database ID is separately labeled and hidden
+  by default. Patient ID remains visible during row selection.
+- Permanent row-deletion confirmation lists every selected patient's Patient ID
+  and name and submits the reviewed internal IDs. Reopening the viewer clears
+  selection, and deletion stays disabled until impact analysis succeeds.
+
 ## [4.0.0-next.91] - 2026-09-21
 
 ### Fixed

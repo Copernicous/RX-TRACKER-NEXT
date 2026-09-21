@@ -182,7 +182,24 @@ function updateActionBar() {
 // DATA VIEWER
 // ══════════════════════════════════════════════════════════════════════════
 
+function viewerColumnLabel(column) {
+    if (viewerMeta && viewerMeta.key === 'Patients') {
+        if (column === 'patientCode') return 'Patient ID';
+        if (column === 'id') return 'Internal Database ID';
+    }
+    return column;
+}
+
+function viewerCellValue(row, column) {
+    if (viewerMeta && viewerMeta.key === 'Patients' && column === 'patientCode') {
+        return row.patientCode || row.id;
+    }
+    return row[column];
+}
+
 async function openViewer(tableKey) {
+    viewerSelectedIds.clear();
+    closeImpactModal();
     var _found = null;
     tableMeta.forEach(function(t) { if (t.key === tableKey) _found = t; });
     viewerMeta = _found;
@@ -208,9 +225,14 @@ async function openViewer(tableKey) {
         if (!res.ok) throw new Error(data.error || 'Load failed');
 
         viewerRows  = data.rows;
-        viewerCols  = data.columns;
+        viewerCols  = data.columns.slice();
+        if (tableKey === 'Patients') {
+            viewerCols = ['patientCode'].concat(viewerCols.filter(function(c) {
+                return c !== 'patientCode' && c !== 'id';
+            }), ['id']);
+        }
         viewerVis = {};
-        viewerCols.forEach(function(c) { viewerVis[c] = true; });
+        viewerCols.forEach(function(c) { viewerVis[c] = !(tableKey === 'Patients' && c === 'id'); });
 
         renderColDropdown();
         applyViewerFilter();
@@ -231,8 +253,8 @@ function renderColDropdown() {
     viewerCols.forEach(function(c) {
         _cdHtml +=
             '<label class="col-item">' +
-                '<input type="checkbox"' + (viewerVis[c] ? ' checked' : '') + ' onchange="toggleCol(\'' + c + '\',this.checked)">' +
-                '<span>' + c + '</span>' +
+                '<input type="checkbox"' + (viewerVis[c] ? ' checked' : '') + (viewerMeta.key === 'Patients' && c === 'patientCode' ? ' disabled' : '') + ' onchange="toggleCol(\'' + c + '\',this.checked)">' +
+                '<span>' + viewerColumnLabel(c) + '</span>' +
             '</label>';
     });
     document.getElementById('colDropdown').innerHTML = _cdHtml;
@@ -247,7 +269,7 @@ document.addEventListener('click', function(e) {
         if (cd) cd.classList.remove('open');
     }
 });
-function toggleCol(col, val) { viewerVis[col] = val; renderViewerTable(); }
+function toggleCol(col, val) { if (viewerMeta.key === 'Patients' && col === 'patientCode') return; viewerVis[col] = val; renderViewerTable(); }
 
 function applyViewerFilter() {
     viewerFilter  = document.getElementById('viewerSearch').value.toLowerCase();
@@ -270,7 +292,7 @@ function applySortToFiltRows() {
     var col = viewerSortCol;
     var dir = viewerSortDir;
     viewerFiltRows.sort(function(a, b) {
-        var va = a[col], vb = b[col];
+        var va = viewerCellValue(a, col), vb = viewerCellValue(b, col);
         if (va === null && vb === null) return 0;
         if (va === null) return 1; if (vb === null) return -1;
         var cmp = String(va).localeCompare(String(vb), undefined, { numeric: true });
@@ -323,7 +345,7 @@ function renderViewerTable() {
     visCols.forEach(function(c) {
         var isSorted = viewerSortCol === c;
         var sortIcon = isSorted ? (viewerSortDir === 'asc' ? 'fa-sort-up' : 'fa-sort-down') : 'fa-sort';
-        ths += '<th class="' + (isSorted ? 'sorted' : '') + '" onclick="sortViewer(\'' + c + '\')">' + c + ' <i class="fas ' + sortIcon + ' sort-icon"></i></th>';
+        ths += '<th class="' + (isSorted ? 'sorted' : '') + '" onclick="sortViewer(\'' + c + '\')">' + viewerColumnLabel(c) + ' <i class="fas ' + sortIcon + ' sort-icon"></i></th>';
     });
 
     var trs = '';
@@ -336,13 +358,13 @@ function renderViewerTable() {
             '</td>';
         var tds = '';
         visCols.forEach(function(c) {
-            var val = row[c];
+            var val = viewerCellValue(row, c);
             if (val === null || val === undefined) { tds += '<td class="null-cell">\u2014</td>'; return; }
             if (val === true  || val === 'true')   { tds += '<td class="bool-true">\u2713 true</td>'; return; }
             if (val === false || val === 'false')  { tds += '<td class="bool-false">\u2717 false</td>'; return; }
             var str = String(val);
-            var display = str.length > 80 ? str.slice(0, 80) + '\u2026' : str;
-            tds += '<td title="' + str.replace(/"/g,'&quot;') + '">' + display + '</td>';
+            var display = c !== 'patientCode' && str.length > 80 ? str.slice(0, 80) + '\u2026' : str;
+            tds += '<td title="' + escHtml(str) + '">' + escHtml(display) + '</td>';
         });
         trs += '<tr class="' + (isSel ? 'sel-row' : '') + '">' + checkTd + tds + '</tr>';
     });
@@ -402,8 +424,33 @@ function updateViewerSelUI() {
 }
 
 // ── Row delete impact modal ───────────────────────────────────────────────
+var pendingRowDelete = null;
+var rowImpactReady = false;
+
+function renderImpactPatients(ids) {
+    var box = document.getElementById('impactPatients');
+    box.textContent = '';
+    box.style.display = viewerMeta.key === 'Patients' ? '' : 'none';
+    if (viewerMeta.key !== 'Patients') return;
+    var heading = document.createElement('strong');
+    heading.textContent = 'Patients selected for permanent deletion';
+    box.appendChild(heading);
+    ids.forEach(function(id) {
+        var row = viewerRows.find(function(patient) { return String(patient.id) === String(id); });
+        if (!row) throw new Error('Selected patient is no longer in the loaded list. Reopen Patients and select again.');
+        var item = document.createElement('div');
+        item.textContent = String(row.patientCode || row.id) + ' - ' +
+            String((row.firstName || '') + ' ' + (row.lastName || '')).trim();
+        box.appendChild(item);
+    });
+}
+
 async function openImpactModal() {
     if (!viewerSelectedIds.size || !viewerMeta) return;
+    pendingRowDelete = { tableName: viewerMeta.key, ids: Array.from(viewerSelectedIds) };
+    rowImpactReady = false;
+    var request = pendingRowDelete;
+    document.getElementById('impactWarning').textContent = 'This action is permanent and irreversible.';
     document.getElementById('impactBackdrop').classList.add('show');
     document.getElementById('impactTableName').textContent = viewerMeta.label;
     document.getElementById('impactRowCount').textContent  = viewerSelectedIds.size;
@@ -412,18 +459,20 @@ async function openImpactModal() {
     document.getElementById('impactList').innerHTML = '<p style="color:var(--text-muted);font-size:0.8rem;text-align:center"><i class="fas fa-spinner fa-spin me-2"></i>Analyzing impact...</p>';
 
     try {
-        var _ids = Array.from(viewerSelectedIds);
+        renderImpactPatients(request.ids);
+        var _ids = request.ids;
         var res  = await apiFetch('/api/admin/row-impact', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ tableName: viewerMeta.key, ids: _ids })
+            body: JSON.stringify({ tableName: request.tableName, ids: _ids })
         });
         var data = await res.json();
+        if (pendingRowDelete !== request) return;
         if (!res.ok) throw new Error(data.error || 'Impact check failed');
 
         if (!data.impact.length) {
             document.getElementById('impactList').innerHTML = '<p style="color:#6ee7b7;font-size:0.8rem;text-align:center"><i class="fas fa-check-circle me-1"></i>No related records found. Safe to delete.</p>';
-            document.getElementById('impactWarning').innerHTML = 'Deleting <strong>' + viewerSelectedIds.size + '</strong> row(s). No cascade effects.';
+            document.getElementById('impactWarning').innerHTML = 'Deleting <strong>' + request.ids.length + '</strong> row(s). No cascade effects.';
         } else {
             var totalCascade = 0;
             var cascadeItems = [];
@@ -457,16 +506,21 @@ async function openImpactModal() {
             }
             document.getElementById('impactWarning').innerHTML = warnParts.join(' ');
         }
-        setTimeout(function() { document.getElementById('impactPhrase').focus(); }, 80);
+        rowImpactReady = true;
+        checkImpactPhrase();
+        setTimeout(function() { if (pendingRowDelete === request) document.getElementById('impactPhrase').focus(); }, 80);
     } catch(e) {
-        document.getElementById('impactList').innerHTML = '<p style="color:#fca5a5;font-size:0.8rem">' + e.message + '</p>';
+        if (pendingRowDelete !== request) return;
+        rowImpactReady = false;
+        checkImpactPhrase();
+        document.getElementById('impactList').textContent = e.message;
     }
 }
 
-function closeImpactModal() { document.getElementById('impactBackdrop').classList.remove('show'); }
+function closeImpactModal() { pendingRowDelete = null; rowImpactReady = false; document.getElementById('impactBackdrop').classList.remove('show'); }
 
 function checkImpactPhrase() {
-    var ok = document.getElementById('impactPhrase').value === 'CONFIRM';
+    var ok = rowImpactReady && pendingRowDelete && document.getElementById('impactPhrase').value === 'CONFIRM';
     document.getElementById('impactPhrase').classList.toggle('valid', ok);
     document.getElementById('impactDeleteBtn').disabled = !ok;
 }
@@ -474,17 +528,19 @@ function checkImpactPhrase() {
 document.getElementById('impactBackdrop').addEventListener('click', function(e) { if (e.target === e.currentTarget) closeImpactModal(); });
 
 async function executeRowDelete() {
-    if (document.getElementById('impactPhrase').value !== 'CONFIRM') return;
+    if (!rowImpactReady || !pendingRowDelete || document.getElementById('impactPhrase').value !== 'CONFIRM') return;
+    var request = pendingRowDelete;
+    rowImpactReady = false;
     var btn = document.getElementById('impactDeleteBtn');
     var sp  = document.getElementById('impactSpinner');
     var ic  = document.getElementById('impactIcon');
     btn.disabled = true; sp.style.display = 'inline-block'; ic.style.display = 'none';
     try {
-        var _ids = Array.from(viewerSelectedIds);
+        var _ids = request.ids;
         var res  = await apiFetch('/api/admin/rows', {
             method: 'DELETE',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ tableName: viewerMeta.key, ids: _ids })
+            body: JSON.stringify({ tableName: request.tableName, ids: _ids })
         });
         var data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Delete failed');
@@ -502,7 +558,7 @@ async function executeRowDelete() {
     } catch(e) {
         toast('Delete failed: ' + e.message, 'danger');
     } finally {
-        btn.disabled = false; sp.style.display = 'none'; ic.style.display = 'inline-block';
+        checkImpactPhrase(); sp.style.display = 'none'; ic.style.display = 'inline-block';
     }
 }
 

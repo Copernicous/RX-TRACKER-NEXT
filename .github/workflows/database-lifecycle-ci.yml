@@ -99,6 +99,7 @@ jobs:
           npm audit --audit-level=high
           npm run check:public-js
           node scripts/test-patient-delete-confirmation.js
+          node scripts/test-backoffice-patient-identity.js
           npm run test:patient-import-duplicates
           npm run test:patient-create-duplicates
           pwsh -NoProfile -File scripts/Invoke-NextProduction.ps1 -Action Help
