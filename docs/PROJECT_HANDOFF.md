@@ -1,12 +1,22 @@
 # RX Tracker NEXT project handoff
 
-Last updated: 2026-09-16
+Last updated: 2026-09-21
 
 This file is the sanitized continuity record for a future administrator or
 Codex session. It intentionally contains no credentials, `.env` values,
 patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
+
+- **Patient delete confirmation correction (2026-09-21):** Local staging source
+  normalizes whitespace in the displayed name and both sides of the confirmation
+  comparison. Previously only the input was trimmed, so stored outer or repeated
+  spaces could leave Delete disabled after copying the visible name. Synthetic
+  UI regression reproduces the old failure and verifies whitespace variants,
+  rejection of different/incomplete/empty names, and dialog reset after the fix.
+  No database access, patient changes, migration, release, or deployment performed.
+  The reported record's stored values were not inspected; live acceptance remains
+  pending. Regression: `node scripts/test-patient-delete-confirmation.js`.
 
 - **next.90 urgent release preparation (2026-09-16):** User authorized
   production delivery because manual patient creation is blocking staff.

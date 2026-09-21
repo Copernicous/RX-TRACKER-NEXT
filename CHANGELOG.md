@@ -7,6 +7,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+### Fixed
+
+- Patient delete confirmation now normalizes whitespace in both the displayed
+  name and typed/pasted confirmation, so extra stored spaces do not leave Delete
+  disabled. Different, incomplete, and empty names still fail confirmation.
+
 ## [4.0.0-next.90] - 2026-09-16
 
 ### Fixed
