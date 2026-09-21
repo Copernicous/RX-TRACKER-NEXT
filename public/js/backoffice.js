@@ -212,6 +212,8 @@ async function openViewer(tableKey) {
 
     document.getElementById('viewerBadge').textContent = 'Loading...';
     document.getElementById('viewerSearch').value = '';
+    document.getElementById('viewerDeletedFilter').value = 'all';
+    document.getElementById('viewerDeletedFilterWrap').style.display = tableKey === 'Patients' ? 'flex' : 'none';
     viewerFilter  = '';
     viewerPage    = 1;
     viewerSortCol = null;
@@ -271,18 +273,29 @@ document.addEventListener('click', function(e) {
 });
 function toggleCol(col, val) { if (viewerMeta.key === 'Patients' && col === 'patientCode') return; viewerVis[col] = val; renderViewerTable(); }
 
+function viewerDeletedFilterValue() {
+    return viewerMeta && viewerMeta.key === 'Patients'
+        ? document.getElementById('viewerDeletedFilter').value : 'all';
+}
+
+function changeViewerDeletedFilter() {
+    viewerSelectedIds.clear();
+    closeImpactModal();
+    applyViewerFilter();
+}
+
 function applyViewerFilter() {
     viewerFilter  = document.getElementById('viewerSearch').value.toLowerCase();
     viewerPage    = 1;
-    if (viewerFilter) {
-        viewerFiltRows = viewerRows.filter(function(row) {
-            return Object.values(row).some(function(v) {
-                return v !== null && String(v).toLowerCase().indexOf(viewerFilter) >= 0;
-            });
+    var deletedFilter = viewerDeletedFilterValue();
+    viewerFiltRows = viewerRows.filter(function(row) {
+        var deleted = row.isDeleted === true || row.isDeleted === 'true';
+        if (deletedFilter === 'deleted' && !deleted) return false;
+        if (deletedFilter === 'not-deleted' && deleted) return false;
+        return !viewerFilter || Object.values(row).some(function(v) {
+            return v !== null && String(v).toLowerCase().indexOf(viewerFilter) >= 0;
         });
-    } else {
-        viewerFiltRows = viewerRows;
-    }
+    });
     applySortToFiltRows();
     renderViewerTable();
 }
@@ -324,10 +337,10 @@ function renderViewerTable() {
     var end      = ps ? Math.min(start + ps, total) : total;
     var pageRows = viewerFiltRows.slice(start, end);
 
-    document.getElementById('viewerInfo').textContent = 'Showing ' + (start+1) + '\u2013' + end + ' of ' + total.toLocaleString() + (viewerFilter ? ' (filtered)' : '');
+    document.getElementById('viewerInfo').textContent = 'Showing ' + (start+1) + '\u2013' + end + ' of ' + total.toLocaleString() + (viewerFilter || viewerDeletedFilterValue() !== 'all' ? ' (filtered)' : '');
 
     if (!pageRows.length) {
-        document.getElementById('viewerTableWrap').innerHTML = '<p class="no-rows"><i class="fas fa-search me-2"></i>No records' + (viewerFilter ? ' match your search' : '') + '.</p>';
+        document.getElementById('viewerTableWrap').innerHTML = '<p class="no-rows"><i class="fas fa-search me-2"></i>No records' + (viewerFilter || viewerDeletedFilterValue() !== 'all' ? ' match your filters' : '') + '.</p>';
         renderPagination(0, 0, 0);
         updateViewerSelUI();
         return;

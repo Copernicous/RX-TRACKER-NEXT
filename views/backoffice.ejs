@@ -1421,6 +1421,14 @@
     <!-- Toolbar -->
     <div class="viewer-toolbar">
         <input type="text" class="viewer-search" id="viewerSearch" placeholder="Search in any column..." oninput="applyViewerFilter()">
+        <div id="viewerDeletedFilterWrap" style="display:none;align-items:center;gap:0.4rem">
+            <label for="viewerDeletedFilter" style="font-size:0.73rem;color:var(--text-muted);white-space:nowrap">Deleted status:</label>
+            <select class="pag-size" id="viewerDeletedFilter" onchange="changeViewerDeletedFilter()">
+                <option value="all">All</option>
+                <option value="not-deleted">Not deleted</option>
+                <option value="deleted">Deleted</option>
+            </select>
+        </div>
         <div class="col-toggle-wrap">
             <button class="col-toggle-btn" id="colToggleBtn" onclick="toggleColDropdown()">
                 <i class="fas fa-columns me-1"></i>Columns <i class="fas fa-chevron-down ms-1" style="font-size:0.65rem"></i>

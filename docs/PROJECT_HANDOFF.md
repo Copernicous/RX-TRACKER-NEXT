@@ -8,6 +8,15 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
 
+- **Backoffice deleted-status filter (2026-09-21, unreleased):** Staging adds
+  All / Not deleted / Deleted alongside the Patients viewer search. Filtering
+  checks `isDeleted` only, combines with text search, and treats legacy nulls as
+  not deleted. Changing status clears row selection and pending confirmation;
+  opening another table resets/hides the patient-only filter. Synthetic tests
+  cover unrelated boolean flags, text combinations, counts, null flags, and
+  selection reset. Chromium checks and public JavaScript validation pass.
+  No database access, data changes, deployment, or release performed.
+
 - **Backoffice patient identity correction (2026-09-21, unreleased):** Staging
   shows `patientCode` first as Patient ID, matching the Patients list including
   its missing-code fallback. Internal Database ID is separately labeled and

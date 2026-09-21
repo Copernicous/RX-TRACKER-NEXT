@@ -9,6 +9,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ### Fixed
 
+- Backoffice Patients has a dedicated Deleted status filter (All, Not deleted,
+  Deleted) that combines with text search and checks only `isDeleted`. Changing
+  status clears deletion selections. Legacy null flags count as not deleted.
+
 - Backoffice Patients now displays the same Patient ID as the Patients list in
   its first data column. Internal Database ID is separately labeled and hidden
   by default. Patient ID remains visible during row selection.
