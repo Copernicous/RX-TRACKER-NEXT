@@ -8,6 +8,27 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
 
+- **Official next.92 published and verified (2026-09-21):** Published Backoffice
+  Patient ID alignment, identity-based deletion review, and Deleted / Active
+  filters as `v4.0.0-next.92` from `2eacc1602c59bba47e8282c9ce1e978787b9461e`.
+  Exact-main lifecycle CI `35632926391`, CodeQL `35632926379`, and official Windows
+  release workflow `35633636956` passed. Downloaded all three ZIPs and verified
+  hashes, archive integrity, safe paths, required entries, package version,
+  packaged text/source parity, and embedded server/rx-db hashes against
+  SHA256SUMS.txt. Compiled server and Project Control report next.92; rx-db help
+  passed from the isolated extraction. Local browser/client/controller regression
+  checks used synthetic fixtures; no real deletion or production installation.
+  No migration or automatic patient-data rewrite. Install through Project Control
+  8 then 15, refresh Backoffice, verify IDs and filters, and cancel deletion review
+  unless permanent deletion is intended. Main/develop/staging share this source
+  and publication record after the release handoff.
+  Release: https://github.com/Copernicous/RX-TRACKER-NEXT/releases/tag/v4.0.0-next.92
+  SHA-256 values:
+  - Both server ZIPs: `d1ba80e9dfe67e9257acb663a2932855ae55c68b5763d5548e0bed2da7f1a8b2`
+  - Softphone ZIP: `56a51a422f2df6d6396c723d972b26e90604859755d5dd8eda9ddb8a0d953218`
+  - server.exe: `decc214b4a494cc356956da15239e67150ba71adfa00d0602f7969b8f1eb2aa5`
+  - rx-db.exe: `ee7c017d3e83921f2fa6f7f45d50c534e57d94b14d69c52c1086b2efa68bc3a5`
+
 - **next.92 release preparation (2026-09-21):** User authorized publication after
   safety validation. Promoted Backoffice identity/deletion review and Deleted /
   Active filters through develop to main. Synthetic client/API tests include
