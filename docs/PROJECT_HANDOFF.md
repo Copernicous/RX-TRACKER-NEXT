@@ -8,6 +8,24 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
 
+- **Official next.91 published and verified (2026-09-21):** Published patient
+  delete confirmation whitespace correction as `v4.0.0-next.91` from
+  `bfe98ab4b1187a1a5819c9e2ad19399149a77b58`. Main lifecycle CI `35626890989`,
+  CodeQL `35626891030`, and official Windows release workflow `35627301941`
+  passed. All three downloaded ZIPs and both embedded executables match
+  SHA256SUMS.txt; archive integrity, safe paths, required entries, package version,
+  and packaged text/source parity verified. Compiled server and Project Control
+  report next.91; rx-db help passed. No new migration or patient-data rewrite.
+  Installation remains an operator action through Project Control 8 then 15.
+  Refresh Patients and verify the affected confirmation enables Delete; cancel
+  unless deletion is intended. No production installation or deletion performed.
+  Release: https://github.com/Copernicous/RX-TRACKER-NEXT/releases/tag/v4.0.0-next.91
+  SHA-256 values:
+  - Both server ZIPs: `5372ed7df4f62324eec0ba0e7dbda486e5435e318e962a57e4a8936753f1a9a6`
+  - Softphone ZIP: `fdf8c57e06add9d9d665ab453020ed4b7fa74ead13eb085fd7e42b1edd5638a7`
+  - server.exe: `02d1eb5042b1ac506155b74e297465a4ebc3cd38744ef9bc741243f1c4bf794c`
+  - rx-db.exe: `688c2d64ed2bd781713b5b665c435e241a0651a80d1d390c74633d67c5fc2d59`
+
 - **next.91 release preparation (2026-09-21):** User authorized the usual official
   publication for the patient delete confirmation whitespace fix. Promoted the
   tested staging change through develop to main; added its synthetic UI regression
