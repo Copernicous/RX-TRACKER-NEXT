@@ -2502,10 +2502,14 @@ var allPatients = [];
         }
     }
 
+    function normalizeDeleteConfirmationName(value) {
+        return String(value || '').replace(/\s+/g, ' ').trim();
+    }
+
     function promptDeletePatient(id) {
         deletingPatientId = id;
         const patient = allPatients.find(p => p.id === id);
-        var fullName = (patient.firstName||'') + ' ' + (patient.lastName||'');
+        var fullName = normalizeDeleteConfirmationName((patient.firstName||'') + ' ' + (patient.lastName||''));
         document.getElementById('deleteConfirmNameText').textContent = fullName;
         const input = document.getElementById('deleteConfirmInput');
         input.value = '';
@@ -2516,9 +2520,9 @@ var allPatients = [];
 
     function checkDeleteConfirmation() {
         const input = document.getElementById('deleteConfirmInput');
-        const expected = input.getAttribute('data-expected-name');
+        const expected = normalizeDeleteConfirmationName(input.getAttribute('data-expected-name'));
         const btn = document.getElementById('confirmDeleteBtn');
-        if (input.value.trim() === expected) {
+        if (expected && normalizeDeleteConfirmationName(input.value) === expected) {
             btn.disabled = false;
         } else {
             btn.disabled = true;
