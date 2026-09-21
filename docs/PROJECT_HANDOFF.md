@@ -8,6 +8,15 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
 
+- **next.92 release preparation (2026-09-21):** User authorized publication after
+  safety validation. Promoted Backoffice identity/deletion review and Deleted /
+  Active filters through develop to main. Synthetic client/API tests include
+  reviewed internal-ID targeting, cancelled late responses, successful cleanup,
+  failed/pending impact guards, and combined filters. Existing controller deletion
+  tests, Chromium markup checks, and public JS validation pass. No new migration,
+  server deletion behavior change, automatic data rewrite, or production install.
+  Awaiting exact-main CI/CodeQL and official tagged package verification.
+
 - **Backoffice active-status filter (2026-09-21, unreleased):** Staging adds
   All / Active / Inactive alongside Deleted status and text search. It checks
   `isActive` independently, including legacy null flags as inactive, and clears

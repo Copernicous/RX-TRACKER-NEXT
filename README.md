@@ -10,7 +10,12 @@ frozen 3.3.1 repository, its production database, or the RX Softphone source.
 
 ## Current status
 
-Version: `4.0.0-next.91` release
+Version: `4.0.0-next.92` release
+
+Version `next.92` shows the same Patient ID in Backoffice and the Patients list,
+adds independent Deleted and Active status filters, and lists selected Patient
+IDs/names before permanent deletion. Deletion retains the exact reviewed internal
+IDs and requires a successful impact check. No migration or patient-data rewrite.
 
 Version `next.91` fixes patient delete confirmation staying disabled when stored
 names contain extra spaces. Displayed and pasted names use consistent whitespace

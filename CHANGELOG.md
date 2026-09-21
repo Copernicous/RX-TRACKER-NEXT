@@ -7,6 +7,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+## [4.0.0-next.92] - 2026-09-21
+
 ### Fixed
 
 - Backoffice Patients also supports Active status (All, Active, Inactive),
