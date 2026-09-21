@@ -8,6 +8,13 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
 
+- **next.91 release preparation (2026-09-21):** User authorized the usual official
+  publication for the patient delete confirmation whitespace fix. Promoted the
+  tested staging change through develop to main; added its synthetic UI regression
+  to lifecycle CI and aligned version, lockfile, changelog, and release notes.
+  Awaiting exact-main lifecycle/CodeQL gates and tagged compiled asset verification.
+  No new migration, production installation, or patient-data change is included.
+
 - **Patient delete confirmation correction (2026-09-21):** Local staging source
   normalizes whitespace in the displayed name and both sides of the confirmation
   comparison. Previously only the input was trimmed, so stored outer or repeated

@@ -1,27 +1,28 @@
-﻿RX Tracker NEXT 4.0.0-next.90
+RX Tracker NEXT 4.0.0-next.91
 ============================
 
-Automatic Patient ID Hotfix
+Patient Delete Confirmation Fix
 
-Manual patient creation now skips every occupied Patient ID instead of failing
-after ten candidates. Inactive/deleted patient codes remain reserved. Existing
-patients and duplicate review rules are preserved. No new migration is added.
+The patient Delete confirmation now handles extra spaces consistently in the
+stored name and typed/pasted text. Different, incomplete, and empty names still
+fail confirmation. No new migration or existing-patient rewrite is added.
 Older versions still apply intervening audited migrations.
 
 Installation
 ------------
 Verify the official ZIP against SHA256SUMS.txt. Use Project Control option 8,
 then option 15. For older installations affected by the next.78 recovery incident,
-run UPDATE-EXISTING-SERVER.bat from the verified next.90 extraction outside the
+run UPDATE-EXISTING-SERVER.bat from the verified next.91 extraction outside the
 application, passing the actual application path and downloaded ZIP path.
 The updater preserves .env and the paired application/database rollback set.
 Validate the older recovered-host upgrade path before rollout to affected hosts.
-See RELEASE_NOTES-v4.0.0-next.90.md and docs/database/COMPILED_RELEASE_UPDATES.md.
+See RELEASE_NOTES-v4.0.0-next.91.md and docs/database/COMPILED_RELEASE_UPDATES.md.
 
 Verification
 ------------
-Require a healthy service reporting 4.0.0-next.90. Retry the blocked new-patient
-form with Patient ID blank and confirm an unused ID is saved.
+Require a healthy service reporting 4.0.0-next.91. Refresh the Patients page,
+open the affected patient's Delete dialog, and paste the displayed full name.
+Confirm Delete becomes enabled, then cancel unless deletion is intended.
 
 Rollback
 --------

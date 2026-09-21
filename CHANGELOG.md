@@ -7,6 +7,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+## [4.0.0-next.91] - 2026-09-21
+
 ### Fixed
 
 - Patient delete confirmation now normalizes whitespace in both the displayed

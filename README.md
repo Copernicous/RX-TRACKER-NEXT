@@ -10,7 +10,12 @@ frozen 3.3.1 repository, its production database, or the RX Softphone source.
 
 ## Current status
 
-Version: `4.0.0-next.90` release
+Version: `4.0.0-next.91` release
+
+Version `next.91` fixes patient delete confirmation staying disabled when stored
+names contain extra spaces. Displayed and pasted names use consistent whitespace
+normalization; different, incomplete, and empty names still fail confirmation.
+No migration or existing-patient rewrite is added.
 
 Version `next.90` fixes automatic Patient ID generation during manual creation.
 Blank IDs now skip every occupied code instead of failing after ten attempts,
