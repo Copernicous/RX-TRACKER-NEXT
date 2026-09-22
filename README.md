@@ -10,7 +10,12 @@ frozen 3.3.1 repository, its production database, or the RX Softphone source.
 
 ## Current status
 
-Version: `4.0.0-next.92` release
+Version: `4.0.0-next.93` release
+
+Version `next.93` fixes patient address edits reverting on save. Visible Street,
+City, State, and ZIP fields now override the hidden previous full address; the
+full address is rebuilt and Region receives the saved city. No new migration
+or automatic patient-data rewrite.
 
 Version `next.92` shows the same Patient ID in Backoffice and the Patients list,
 adds independent Deleted and Active status filters, and lists selected Patient

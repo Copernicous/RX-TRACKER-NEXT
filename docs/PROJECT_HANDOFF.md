@@ -8,6 +8,14 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
 
+- **next.93 urgent release preparation (2026-09-22):** User reports the address
+  reversion affects production and explicitly authorized an urgent release.
+  Promoted the synthetic-tested staging fix through develop to main and aligned
+  version, lockfile, changelog, and release notes. Development regression checks
+  and public JavaScript validation pass. Exact-main lifecycle CI and official
+  tagged asset verification are required before delivery. No new migration or
+  existing-data rewrite; production installation remains through Project Control.
+
 - **Patient address save correction (2026-09-22, unreleased):** Synthetic
   controller regression reproduced visible address edits reverting because the
   hidden legacy full address overrode them during normalization. Staging update

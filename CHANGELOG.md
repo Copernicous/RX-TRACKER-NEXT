@@ -7,6 +7,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+## [4.0.0-next.93] - 2026-09-22
+
 ### Fixed
 
 - Patient address edits now take precedence over the stale hidden full address.
