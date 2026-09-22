@@ -1,12 +1,24 @@
 # RX Tracker NEXT project handoff
 
-Last updated: 2026-09-21
+Last updated: 2026-09-22
 
 This file is the sanitized continuity record for a future administrator or
 Codex session. It intentionally contains no credentials, `.env` values,
 patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
+
+- **Patient address save correction (2026-09-22, unreleased):** Synthetic
+  controller regression reproduced visible address edits reverting because the
+  hidden legacy full address overrode them during normalization. Staging update
+  handlers now honor explicit structured fields, rebuild the full address, and
+  preserve omitted fields from the current record (under the existing row lock
+  in the transactional handler). Explicit blanks remain cleared. Import and
+  historical cleanup parsing are unchanged. Address update, parser, import
+  address/tag, import duplicate, and manual-create regressions pass. CI includes
+  the new synthetic address-update test, including Region input and permission
+  checks. No production record was inspected or changed; no migration, release,
+  deployment, or branch promotion performed. Live acceptance remains pending.
 
 - **Official next.92 published and verified (2026-09-21):** Published Backoffice
   Patient ID alignment, identity-based deletion review, and Deleted / Active

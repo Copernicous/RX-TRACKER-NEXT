@@ -4,7 +4,8 @@ const { parseDate } = require('../utils/dateUtils');
 const { identityKey, findWarnings, createReviewToken, validReviewToken } = require('../utils/patientImportDuplicates');
 const { isServiceDateOverrideEnabled, getServiceWindowDays } = require('../utils/globalSettings');
 const {
-    normalizeAddressPayload
+    normalizeAddressPayload,
+    normalizePatientAddressUpdate
 } = require('../utils/patientAddress');
 const { applyRegionalTagRuleToIds } = require('../services/cityRegionRuleService');
 const {
@@ -751,7 +752,7 @@ async function updatePatientLegacy(req, res) {
             req.body.serviceDate = norm || null;
         }
         if (['address', 'addressLine1', 'city', 'state', 'zipCode'].some(field => req.body.hasOwnProperty(field))) {
-            Object.assign(req.body, normalizeAddressPayload(req.body));
+            Object.assign(req.body, normalizePatientAddressUpdate(req.body, patient));
         }
 
         const patientPerm = await getRequestPermission(req, 'patients');
@@ -898,10 +899,6 @@ async function lockedUpdatePatient(req, res) {
             if (payload.serviceDate && !norm) return res.status(400).json({ error: 'Service Date is not valid. Use MM/DD/YYYY format.' });
             payload.serviceDate = norm || null;
         }
-        if (['address', 'addressLine1', 'city', 'state', 'zipCode'].some(field => payload.hasOwnProperty(field))) {
-            Object.assign(payload, normalizeAddressPayload(payload));
-        }
-
         const patientPerm = await getRequestPermission(req, 'patients');
         const canEditPatient = !!(patientPerm.visible && patientPerm.canEdit);
         const canOverrideExpired = !!(patientPerm.visible && patientPerm.canOverrideExpired);
@@ -922,6 +919,8 @@ async function lockedUpdatePatient(req, res) {
                 lock: transaction.LOCK.UPDATE
             });
             if (!patient) throw httpError(404, 'Not found');
+
+            Object.assign(payload, normalizePatientAddressUpdate(payload, patient));
 
             const previousServiceDate = parseDate(patient.serviceDate);
             const previousPatientContext = await buildPatientContextSnapshot(patient, {

@@ -888,6 +888,27 @@ function parseAddress(address) {
   return { addressLine1: original, city: null, state: null, zipCode: null };
 }
 
+function normalizePatientAddressUpdate(payload, patient) {
+  const fields = ['addressLine1', 'city', 'state', 'zipCode'];
+  const has = field => Object.prototype.hasOwnProperty.call(payload, field);
+  if (!fields.some(has)) return has('address') ? normalizeAddressPayload(payload) : {};
+
+  // The edit form carries the previous full address in a hidden input. Visible
+  // structured fields are authoritative, including explicit blanks. Merge only
+  // omitted fields from the locked record; never reparse the stale full address
+  // over an operator's correction (the import/cleanup parser has other rules).
+  const current = patient || {};
+  const fallback = parseAddress(current.address);
+  const value = field => has(field) ? payload[field] : (current[field] ?? fallback[field]);
+  const parts = {
+    addressLine1: cleanAddressPart(value('addressLine1')),
+    city: normalizeCityName(value('city')),
+    state: normalizeState(value('state')),
+    zipCode: normalizeZip(value('zipCode'), value('city'))
+  };
+  return { ...parts, address: composeAddress(parts) };
+}
+
 function normalizeAddressPayload(payload) {
   const data = payload || {};
   const hasStructured = ['addressLine1', 'city', 'state', 'zipCode'].some(field => Object.prototype.hasOwnProperty.call(data, field));
@@ -911,6 +932,7 @@ module.exports = {
   composeAddress,
   hasUsableAddress,
   normalizeAddressPayload,
+  normalizePatientAddressUpdate,
   normalizeState,
   normalizeStructuredAddressForReference,
   parseAddress,

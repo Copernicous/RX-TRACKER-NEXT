@@ -102,6 +102,7 @@ jobs:
           node scripts/test-backoffice-patient-identity.js
           npm run test:patient-import-duplicates
           npm run test:patient-create-duplicates
+          node scripts/test-patient-address-update.js
           pwsh -NoProfile -File scripts/Invoke-NextProduction.ps1 -Action Help
           pwsh -NoProfile -File scripts/Invoke-NextProduction.ps1 -Action SelfTest
           pwsh -NoProfile -File scripts/Invoke-ReleaseUpdate.ps1 -Action Help

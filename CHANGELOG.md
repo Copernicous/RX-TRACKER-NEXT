@@ -7,6 +7,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+### Fixed
+
+- Patient address edits now take precedence over the stale hidden full address.
+  Saving rebuilds the full address from Street, City, State, and ZIP, preserves
+  omitted fields on partial updates, and honors explicitly cleared fields.
+  Region assignment receives the updated city. Import/cleanup parsing is unchanged.
+
 ## [4.0.0-next.92] - 2026-09-21
 
 ### Fixed
