@@ -14,7 +14,7 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Verify release version and passed lifecycle gate
         shell: pwsh
@@ -43,13 +43,13 @@ jobs:
           Write-Host "Lifecycle gate passed: $($passedMainRun.html_url)"
 
       - name: Use Node.js 22
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: "22"
           cache: npm
 
       - name: Use .NET SDK for RX Softphone
-        uses: actions/setup-dotnet@v5
+        uses: actions/setup-dotnet@v6
         with:
           global-json-file: rx-softphone-desktop/global.json
 
