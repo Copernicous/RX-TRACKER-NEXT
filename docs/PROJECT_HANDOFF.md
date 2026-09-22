@@ -8,6 +8,26 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
 
+- **Official next.93 hotfix published and verified (2026-09-22):** Published
+  patient address save correction from `b91e09820152b3b0e7896a32069c7ae1e87dbb10`
+  as `v4.0.0-next.93`. Exact-main PostgreSQL lifecycle CI `35735396925`, CodeQL
+  `35735396877`, and official Windows release workflow `35735686913` passed.
+  All three downloaded ZIPs and both embedded executables match SHA256SUMS.txt;
+  archive integrity, safe paths, required entries, package version, and packaged
+  text/source parity passed. Compiled server and Project Control report next.93;
+  rx-db help passed in the isolated extraction. No new migration or automatic
+  patient rewrite. Production installation remains an operator action through
+  Project Control 8 then 15; no installation was performed from this workstation.
+  Refresh Patients, re-enter previously failed address edits, save, reopen, and
+  verify Street/City/State/ZIP and Region. Main/develop/staging are synchronized
+  with the release and this publication record.
+  Release: https://github.com/Copernicous/RX-TRACKER-NEXT/releases/tag/v4.0.0-next.93
+  SHA-256 values:
+  - Both server ZIPs: `a170aa7fe65ad354e61c9fa60250ccccb19894bab02c802c65c287871d3a2ee1`
+  - Softphone ZIP: `5673b118bcc60875cc2fa78bf578fd61dc74553a34a1d42bea30a25f52425370`
+  - server.exe: `b6ace65139fa89fbb20000b16e2d57e7c85a3aa3fd573377ee01bfcccf3f25ec`
+  - rx-db.exe: `2713a8ccc32aa67f1a8de3d1bdc729f206b3844ea17f861402509f9e007fbce0`
+
 - **next.93 urgent release preparation (2026-09-22):** User reports the address
   reversion affects production and explicitly authorized an urgent release.
   Promoted the synthetic-tested staging fix through develop to main and aligned
