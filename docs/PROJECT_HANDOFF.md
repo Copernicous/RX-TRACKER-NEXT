@@ -1,12 +1,28 @@
 # RX Tracker NEXT project handoff
 
-Last updated: 2026-09-23
+Last updated: 2026-09-24
 
 This file is the sanitized continuity record for a future administrator or
 Codex session. It intentionally contains no credentials, `.env` values,
 patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
+
+- **Archival deferred; external viewing preferred for later review (2026-09-24):**
+  User postponed cold storage, rotation and in-app recall as low priority.
+  Do not resume or enable them automatically in a future session; wait for
+  an explicit request. The simpler direction to evaluate later is a protected,
+  self-contained archive of eligible old history, opened outside RX Tracker
+  with standard viewers, without loading it back into the application.
+  Patients, RX and operational dependencies remain active. Formats, storage
+  location, age thresholds and source removal are undecided and unauthorized.
+  Verify completeness, external readability, access protection, backup and
+  operational dependencies before any future removal. Existing Audit Log
+  Rotate is destructive, not archival; do not use it for this proposal.
+  See docs/HISTORY_ARCHIVAL_REVIEW.md for the deferred review and known risks.
+  Separate pagination/filter/top-controls/CSV-export work remains committed
+  on staging at f10e230, tested with synthetic fixtures and not released or
+  deployed. This deferral does not remove that work or authorize promotion.
 
 - **History browsing/export and archival review (2026-09-23, unreleased):**
   Staging adds top-of-list date presets/custom local-date bounds, reference/

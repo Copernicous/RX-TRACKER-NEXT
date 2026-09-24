@@ -1,8 +1,44 @@
 # History archival and recall: implementation review
 
-Status: proposal only, 2026-09-23. No cold-storage jobs, automatic rotation,
+Status: deferred by the user on 2026-09-24; low priority. No cold-storage jobs, automatic rotation,
 movement, removal, retention settings, or production changes are authorized
 by this document. Review the scope and operational effects before implementing.
+
+## Latest decision: postpone and consider external viewing instead
+
+Do not resume this work automatically when reopening the repository. Wait for
+an explicit user request. Keep the existing data in place.
+
+The preferred direction for later evaluation is a self-contained archive of
+eligible old history that can be opened outside RX Tracker, rather than an
+integrated cold-storage/recall system. This could avoid catalog integration,
+recall jobs, temporary retrieval caches and application-version dependencies.
+It still requires proof that the archived records are not used by operations.
+
+Possible formats to evaluate, not implement now:
+
+- CSV for structured import/history details, accompanied by a field dictionary
+  and clear date/time-zone information; preserve original snapshots separately
+  when CSV would lose information.
+- PDF or self-contained HTML for human-readable delivery copies. Any conversion
+  must be verified against the original; retain original evidence and references.
+  A PDF rendition is not automatically equivalent to the original signed/hash-
+  verified application artifact or its audited reprint workflow.
+- Compressed plain text for closed technical log files.
+- A dated package with a simple index, record counts, format version and checksums,
+  readable using standard programs without installing RX Tracker.
+
+No format, external program, storage destination, retention window, compression
+policy, or source deletion has been selected. Patient/RX records and their
+operational dependencies remain excluded. Sensitive archives need protected
+access and verified backups even when opened outside the app. An exported copy
+does not authorize deleting the source, and moving files alone does not reduce
+total storage usage.
+
+The in-app recall sequence below is the earlier alternative retained for review,
+not the chosen implementation. If work resumes, compare the simpler external
+archive against it before proposing implementation. Pagination/filter/export
+work already committed on staging is separate and remains unreleased.
 
 The separate staging pagination/filter/export work does not archive data. Its
 Delivery Log metadata cache is process-local, rebuildable browsing metadata;
