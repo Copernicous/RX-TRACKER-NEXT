@@ -24,6 +24,7 @@ const { identityKey, findWarnings, createReviewToken, validReviewToken } = requi
 const { FIELDS: mergeFields, SNAPSHOT_FIELDS, buildPlan, fieldValue } = require('../utils/patientImportMerge');
 const { applyMerge } = require('../services/patientImportMergeService');
 const { getRequestPermission } = require('../middleware/rbac');
+const { parseHistoryQuery, csvLine, csvHeaders, writeCsv } = require('../utils/historyListing');
 const duplicateReviewAttributes = ['id', 'patientCode', 'firstName', 'lastName', 'dob', 'phone',
     'address', 'addressLine1', 'city', 'state', 'zipCode', 'isActive', 'isDeleted', ...SNAPSHOT_FIELDS];
 
@@ -1021,14 +1022,62 @@ async function reportScope(req) {
 }
 exports.listPatientReports = async (req, res) => {
     try {
-        const page = Math.max(1, Math.min(100000, parseInt(req.query.page, 10) || 1));
-        const limit = 20;
-        const result = await db.AuditLog.findAndCountAll({ where: await reportScope(req), limit, offset: (page - 1) * limit,
-            order: [['id', 'DESC']], raw: true,
-            attributes: ['id', 'userId', 'createdAt', ...['fileName', 'createdCount', 'mergedCount', 'discardedCount'].map(field => [db.Sequelize.json('newValue.' + field), field])] });
+        const query = parseHistoryQuery(req.query);
+        const limit = query.pageSize;
+        const where = await historyReportScope(req, query);
+        const options = { where, limit, order: [['id', 'DESC']], raw: true, attributes: historyReportAttributes() };
+        const result = await db.AuditLog.findAndCountAll({ ...options, offset: (query.page - 1) * limit });
+        const page = Math.min(query.page, Math.max(1, Math.ceil(result.count / limit)));
+        if (page !== query.page) result.rows = await db.AuditLog.findAll({ ...options, offset: (page - 1) * limit });
         res.setHeader('Cache-Control', 'no-store');
         return res.json({ page, pageSize: limit, total: result.count, reports: result.rows });
-    } catch (error) { return res.status(500).json({ error: 'Unable to load import reports.' }); }
+    } catch (error) { return res.status(error.status || 500).json({ error: error.status === 400 ? error.message : 'Unable to load import reports.' }); }
+};
+
+function historyReportAttributes() {
+    return ['id', 'userId', 'createdAt', ...['fileName', 'createdCount', 'mergedCount', 'discardedCount']
+        .map(field => [db.Sequelize.json('newValue.' + field), field])];
+}
+
+async function historyReportScope(req, query) {
+    const where = await reportScope(req);
+    const { Op } = db.Sequelize;
+    if (query.start || query.end) {
+        where.createdAt = {};
+        if (query.start) where.createdAt[Op.gte] = query.start;
+        if (query.end) where.createdAt[Op.lt] = query.end;
+    }
+    if (query.search) {
+        // Literal substring search: wildcard characters in filenames are not operators.
+        const pattern = '%' + query.search.replace(/[\\%_]/g, char => '\\' + char) + '%';
+        where[Op.or] = [
+            db.Sequelize.where(db.Sequelize.cast(db.Sequelize.json('newValue.fileName'), 'text'), { [Op.iLike]: pattern }),
+            db.Sequelize.where(db.Sequelize.cast(db.Sequelize.col('id'), 'text'), { [Op.iLike]: pattern })
+        ];
+    }
+    return where;
+}
+
+exports.exportPatientReportHistory = async (req, res) => {
+    try {
+        const where = await historyReportScope(req, parseHistoryQuery(req.query));
+        const options = { order: [['id', 'DESC']], limit: 500, raw: true, attributes: historyReportAttributes() };
+        let rows = await db.AuditLog.findAll({ ...options, where });
+        csvHeaders(res, 'patient-import-history.csv');
+        if (!await writeCsv(res, '\uFEFF' + csvLine(['Report ID', 'File', 'Recorded (UTC)', 'Operator ID', 'New', 'Merged', 'Discarded']))) return;
+        while (rows.length) {
+            for (const row of rows) {
+                if (!await writeCsv(res, csvLine([row.id, row.fileName, new Date(row.createdAt).toISOString(), row.userId,
+                    row.createdCount, row.mergedCount, row.discardedCount]))) return;
+            }
+            if (rows.length < options.limit || res.destroyed) break;
+            rows = await db.AuditLog.findAll({ ...options, where: { ...where, id: { [db.Sequelize.Op.lt]: rows[rows.length - 1].id } } });
+        }
+        res.end();
+    } catch (error) {
+        if (res.headersSent) return res.destroy(error);
+        return res.status(error.status || 500).json({ error: error.status === 400 ? error.message : 'Unable to export import history.' });
+    }
 };
 exports.getPatientReport = async (req, res) => {
     try {

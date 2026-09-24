@@ -4,6 +4,7 @@ const crypto = require('crypto');
 
 const db = require('../models');
 const { resolveWritablePath } = require('../utils/runtimePaths');
+const { parseHistoryQuery, csvLine, csvHeaders, writeCsv } = require('../utils/historyListing');
 
 const ARCHIVE_DIR = resolveWritablePath('administration', 'delivery-log-archives');
 const ARCHIVE_EXT = '.json';
@@ -1041,6 +1042,84 @@ exports.list = async (_req, res) => {
         return res.json(records);
     } catch (error) {
         return sendControllerError(res, error, 'Failed to list delivery-log archives.');
+    }
+};
+
+// Rebuildable, process-local metadata index. Original files remain authoritative;
+// changed files are re-read, and printing always performs full verification.
+const historyMetadata = new Map();
+let historyScan = Promise.resolve();
+function archiveHistorySnapshot() {
+    const scan = historyScan.then(async () => {
+        await recoverStagedArchives();
+        const files = (await fs.promises.readdir(ARCHIVE_DIR)).filter(file => file.endsWith(ARCHIVE_EXT));
+        const present = new Set(files);
+        for (const name of historyMetadata.keys()) if (!present.has(name)) historyMetadata.delete(name);
+        const records = [];
+        for (let offset = 0; offset < files.length; offset += 16) {
+            const batch = await Promise.all(files.slice(offset, offset + 16).map(async file => {
+                const id = sanitizeArchiveId(file.slice(0, -ARCHIVE_EXT.length));
+                let signature;
+                try {
+                    const stat = await fs.promises.stat(path.join(ARCHIVE_DIR, file));
+                    signature = [stat.size, stat.mtimeMs, stat.ctimeMs, stat.ino].join(':');
+                    const cached = historyMetadata.get(file);
+                    if (cached && cached.signature === signature) return cached.record;
+                    const original = await readArchive(id);
+                    const record = { ...summary(original), pharmacies: original.pharmacyGroups.map(group => group.pharmacy).filter(Boolean) };
+                    historyMetadata.set(file, { signature, record });
+                    return record;
+                } catch (error) {
+                    if (error.code === 'ENOENT') { historyMetadata.delete(file); return null; }
+                    const record = { id, reference: '(corrupt or unsupported record)', verification: 'unavailable', total: 0, createdAt: null };
+                    // Retry transient failures on the next request.
+                    historyMetadata.delete(file);
+                    return record;
+                }
+            }));
+            records.push(...batch.filter(Boolean));
+        }
+        return records.sort((a, b) => Number(b.createdAtEpoch || 0) - Number(a.createdAtEpoch || 0) || b.id.localeCompare(a.id));
+    });
+    historyScan = scan.catch(() => {});
+    return scan;
+}
+
+async function filteredArchiveHistory(query) {
+    const search = query.search.toLowerCase();
+    return (await archiveHistorySnapshot()).filter(record => {
+        const time = Number(record.createdAtEpoch || 0);
+        if (query.start && (!time || time < query.start.getTime())) return false;
+        if (query.end && (!time || time >= query.end.getTime())) return false;
+        return !search || [record.id, record.reference, ...(record.copyReferences || []), ...(record.pharmacies || [])]
+            .some(value => String(value || '').toLowerCase().includes(search));
+    });
+}
+
+exports.history = async (req, res) => {
+    try {
+        const query = parseHistoryQuery(req.query);
+        const records = await filteredArchiveHistory(query);
+        const page = Math.min(query.page, Math.max(1, Math.ceil(records.length / query.pageSize)));
+        res.setHeader('Cache-Control', 'no-store');
+        return res.json({ page, pageSize: query.pageSize, total: records.length,
+            records: records.slice((page - 1) * query.pageSize, page * query.pageSize) });
+    } catch (error) { return sendControllerError(res, error, 'Failed to load archive history.'); }
+};
+
+exports.exportHistory = async (req, res) => {
+    try {
+        const records = await filteredArchiveHistory(parseHistoryQuery(req.query));
+        csvHeaders(res, 'delivery-log-history.csv');
+        if (!await writeCsv(res, '\uFEFF' + csvLine(['Archive ID', 'Reference', 'Copy references', 'Saved (UTC)', 'Pharmacies', 'Report period', 'RX count', 'Verification']))) return;
+        for (const record of records) {
+            if (!await writeCsv(res, csvLine([record.id, record.reference, (record.copyReferences || []).join('; '),
+                record.createdAt, (record.pharmacies || []).join('; '), record.period, record.total, record.verification]))) return;
+        }
+        res.end();
+    } catch (error) {
+        if (res.headersSent) return res.destroy(error);
+        return sendControllerError(res, error, 'Failed to export archive history.');
     }
 };
 

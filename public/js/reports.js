@@ -16,6 +16,7 @@
     var ccrSortCol = 'lastActionAt', ccrSortDir = 'desc';
     var ccaSortCol = 'dialedAt', ccaSortDir = 'desc';
     var allDeliveryLogArchives = [];
+    var deliveryHistoryList = null;
     var prPage = 1, prPageSize = 10;
     var rrPage = 1, rrPageSize = 10;
     var ccrPage = 1, ccrPageSize = 10;
@@ -280,10 +281,6 @@
             '</div></details>';
     }
 
-    function fetchDeliveryLogArchives() {
-        return fetchReportJson('/api/reports/delivery-log-archives');
-    }
-
     function deliveryLogTimezoneName() {
         try {
             return String(Intl.DateTimeFormat().resolvedOptions().timeZone || '');
@@ -408,50 +405,55 @@
         });
     }
 
-    async function renderDeliveryLogArchiveRecords() {
+    function renderDeliveryLogArchiveRecords() {
         const tbody = document.getElementById('deliveryLogArchiveBody');
         if (!tbody) return Promise.resolve();
-        tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin me-2"></i>Loading...</td></tr>';
-
-        try {
-            const records = await fetchDeliveryLogArchives();
-            allDeliveryLogArchives = Array.isArray(records) ? records : [];
-            if (!allDeliveryLogArchives.length) {
-                tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4">No archived delivery logs yet</td></tr>';
-                return;
-            }
-
-            tbody.innerHTML = allDeliveryLogArchives.map(function(record) {
-                const encodedId = encodeURIComponent(record.id || '');
-                const createdAt = record.createdAt ? formatArchiveDate(record.createdAt) : '';
-                const integrity = deliveryLogArchiveIntegrity(record);
-                return '<tr>' +
-                    '<td><div class="fw-semibold">' + escHtml(record.generated || createdAt || 'Unknown time') + '</div>' +
-                        '<div class="small text-muted">' + escHtml(deliveryLogArchiveCode(record)) + '</div>' +
-                        '<div class="small text-muted">Saved ' + escHtml(createdAt || 'Unknown') + '</div></td>' +
-                    '<td>' + escHtml(deliveryLogArchiveContents(record)) + '</td>' +
-                    '<td>' + escHtml(record.period || 'All dates') + '</td>' +
-                    '<td><span class="badge ' + integrity.className + '">' + escHtml(integrity.label) + '</span>' + deliveryLogArchiveEvidence(record) + '</td>' +
-                    '<td class="text-nowrap">' +
-                        '<button class="btn btn-sm btn-outline-primary delivery-log-reprint-btn" type="button" data-record-id="' + escHtml(encodedId) + '" ' +
-                            (integrity.printable ? '' : 'disabled title="This archive cannot be verified."') + '>' +
-                            '<i class="fas fa-print me-1"></i>Reprint' +
-                        '</button>' +
-                    '</td>' +
-                '</tr>';
-            }).join('');
-
-            tbody.querySelectorAll('.delivery-log-reprint-btn').forEach(function(button) {
-                button.addEventListener('click', function() {
-                    var recordId = button.getAttribute('data-record-id') || '';
-                    if (!recordId) return;
-                    openDeliveryLogArchivePrint(recordId);
-                });
+        if (!deliveryHistoryList) {
+            deliveryHistoryList = new window.RxHistoryList({
+                prefix: 'deliveryHistory', endpoint: '/api/reports/delivery-log-archives/history',
+                exportEndpoint: '/api/reports/delivery-log-archives/export', rowsKey: 'records',
+                filename: 'delivery-log-history.csv',
+                canRead: typeof getPagePerms === 'function' && getPagePerms().canPrint,
+                message: message => {
+                    allDeliveryLogArchives = [];
+                    tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4">' + escHtml(message) + '</td></tr>';
+                },
+                render: renderDeliveryLogArchiveRows
             });
-        } catch (_err) {
-            allDeliveryLogArchives = [];
-            tbody.innerHTML = '<tr><td colspan="5" class="text-center text-danger py-4">Could not load archive history.</td></tr>';
         }
+        return deliveryHistoryList.refresh();
+    }
+
+    function renderDeliveryLogArchiveRows(records) {
+        const tbody = document.getElementById('deliveryLogArchiveBody');
+        allDeliveryLogArchives = records;
+        tbody.innerHTML = allDeliveryLogArchives.map(function(record) {
+            const encodedId = encodeURIComponent(record.id || '');
+            const createdAt = record.createdAt ? formatArchiveDate(record.createdAt) : '';
+            const integrity = deliveryLogArchiveIntegrity(record);
+            return '<tr>' +
+                '<td><div class="fw-semibold">' + escHtml(record.generated || createdAt || 'Unknown time') + '</div>' +
+                    '<div class="small text-muted">' + escHtml(deliveryLogArchiveCode(record)) + '</div>' +
+                    '<div class="small text-muted">Saved ' + escHtml(createdAt || 'Unknown') + '</div></td>' +
+                '<td>' + escHtml(deliveryLogArchiveContents(record)) + '</td>' +
+                '<td>' + escHtml(record.period || 'All dates') + '</td>' +
+                '<td><span class="badge ' + integrity.className + '">' + escHtml(integrity.label) + '</span>' + deliveryLogArchiveEvidence(record) + '</td>' +
+                '<td class="text-nowrap">' +
+                    '<button class="btn btn-sm btn-outline-primary delivery-log-reprint-btn" type="button" data-record-id="' + escHtml(encodedId) + '" ' +
+                        (integrity.printable ? '' : 'disabled title="This archive cannot be verified."') + '>' +
+                        '<i class="fas fa-print me-1"></i>Reprint' +
+                    '</button>' +
+                '</td>' +
+            '</tr>';
+        }).join('');
+
+        tbody.querySelectorAll('.delivery-log-reprint-btn').forEach(function(button) {
+            button.addEventListener('click', function() {
+                var recordId = button.getAttribute('data-record-id') || '';
+                if (!recordId) return;
+                openDeliveryLogArchivePrint(recordId);
+            });
+        });
     }
 
     function openDeliveryLogArchivePrint(recordId) {

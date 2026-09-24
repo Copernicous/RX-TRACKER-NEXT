@@ -38,6 +38,7 @@
     "test:report-view-render": "node scripts/test-report-view-render.js",
     "test:delivery-log-archive": "node scripts/test-delivery-log-archive.js",
     "test:delivery-log-archive-client": "node scripts/test-delivery-log-archive-client.js",
+    "test:history-listing": "node scripts/test-history-listing.js",
     "test:routine-db-health": "node scripts/test-routine-db-health.js",
     "test:backup-scheduler-disable": "node scripts/test-backup-scheduler-disable.js",
     "test:backup-recoverability-integration": "node scripts/test-backup-recoverability-integration.js",

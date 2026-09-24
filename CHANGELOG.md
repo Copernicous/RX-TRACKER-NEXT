@@ -7,6 +7,19 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+### Added
+
+- Delivery Log Archive and Patient Import History have date presets, custom
+  date ranges, search, and 20/50/100-row pagination above their listings.
+  CSV history exports include all matching rows and preserve access scope.
+  Individual archived reprints and import snapshot downloads remain available.
+- Delivery Log history reuses metadata for unchanged archive files while
+  reprints continue to verify originals. No migration, archival, deletion,
+  or retention change is included.
+- Added a review-only cold-storage/recall implementation and sensitivity
+  checklist in docs/HISTORY_ARCHIVAL_REVIEW.md. Implementation is deferred
+  pending review; Patients, RX and their operational dependencies stay active.
+
 ## [4.0.0-next.93] - 2026-09-22
 
 ### Fixed

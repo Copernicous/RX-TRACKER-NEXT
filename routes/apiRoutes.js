@@ -513,6 +513,8 @@ router.get('/reports/rx-receipts', rbac.requirePermission('reports', 'read'), re
 router.get('/reports/rx-actions', rbac.requirePermission('reports', 'read'), reportController.getRXActionReport);
 router.get('/reports/rx-delivery-log-interactive.pdf', rbac.requirePermission('reports', 'export'), deliveryLogPdfController.download);
 router.get('/reports/delivery-log-archives',       rbac.requirePermission('reports', 'print'), deliveryLogArchiveController.list);
+router.get('/reports/delivery-log-archives/history', rbac.requirePermission('reports', 'print'), deliveryLogArchiveController.history);
+router.get('/reports/delivery-log-archives/export', rbac.requirePermission('reports', 'print'), rbac.requirePermission('reports', 'export'), deliveryLogArchiveController.exportHistory);
 router.post('/reports/delivery-log-archives',      rbac.requirePermission('rx_records', 'print'), deliveryLogArchiveCreateLimiter, deliveryLogArchiveController.create);
 router.get('/reports/delivery-log-archives/:id',   rbac.requirePermission('reports', 'print'), deliveryLogArchiveController.get);
 router.get('/reports/delivery-log-archives/:id/print', requireDeliveryLogPrintPermission, deliveryLogArchiveController.print);

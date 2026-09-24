@@ -116,6 +116,7 @@ jobs:
           npm run test:report-view-render
           npm run test:delivery-log-archive
           npm run test:delivery-log-archive-client
+          npm run test:history-listing
           npm run test:routine-db-health
           npm run test:backup-scheduler-disable
           npm run test:backoffice-backup-snapshot

@@ -153,12 +153,8 @@
                         <summary class="fw-semibold">Patient Import History — download a previous report</summary>
                         <p class="small text-muted mt-2">Reports show the values captured at the time of import. Your own reports are listed; users with Audit Log access can review all reports.</p>
                         <button type="button" id="refreshImportHistoryBtn" class="btn btn-sm btn-outline-secondary mb-2">Refresh history</button>
+                        <%- include('partials/history-controls', { prefix: 'importHistory', dateLabel: 'Import recorded date', searchLabel: 'Filename or report ID' }) %>
                         <div id="patientImportHistoryBody" class="table-responsive"></div>
-                        <div class="d-flex gap-2 align-items-center mt-2">
-                            <button type="button" id="previousImportHistoryBtn" class="btn btn-sm btn-outline-secondary" disabled>Previous</button>
-                            <span id="importHistoryPage" class="small"></span>
-                            <button type="button" id="nextImportHistoryBtn" class="btn btn-sm btn-outline-secondary" disabled>Next</button>
-                        </div>
                     </details>
 
                     <div id="previewSection" class="d-none mt-4">
@@ -227,7 +223,8 @@
 <script src="/js/app.js"></script>
 <script src="/js/help.js"></script>
 
-<script src="/js/import.js"></script>
+<script src="/js/history-list.js?v=<%= encodeURIComponent(String(locals.appBuild || 'dev')) %>"></script>
+<script src="/js/import.js?v=<%= encodeURIComponent(String(locals.appBuild || 'dev')) %>"></script>
 
 </body>
 </html>

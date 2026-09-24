@@ -11,8 +11,7 @@
     let pendingDuplicateReview = null;
     let importBusy = false;
     let selectedRevision = 0;
-    let importHistoryPage = 1;
-    let importHistoryBusy = false;
+    let importHistoryList = null;
     const importEscape = value => String(value ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
 
     const DATASET_SPECS = {
@@ -174,8 +173,6 @@
             if (event.target.open) loadImportHistory(1);
         });
         document.getElementById('refreshImportHistoryBtn').addEventListener('click', () => loadImportHistory(1));
-        document.getElementById('previousImportHistoryBtn').addEventListener('click', () => loadImportHistory(importHistoryPage - 1));
-        document.getElementById('nextImportHistoryBtn').addEventListener('click', () => loadImportHistory(importHistoryPage + 1));
         document.getElementById('cancelPreviewBtn').addEventListener('click', () => {
             document.getElementById('previewSection').classList.add('d-none');
             document.getElementById('uploadBtn').disabled = false;
@@ -687,27 +684,28 @@
         );
     }
 
-    async function loadImportHistory(page) {
-        if (importHistoryBusy) return;
-        importHistoryBusy = true;
+    function loadImportHistory(page) {
         const body = document.getElementById('patientImportHistoryBody');
-        body.textContent = 'Loading import history...';
-        try {
-            const res = await fetchWithAuth('/api/import/patient-reports?page=' + Math.max(1, page));
-            if (!res || !res.ok) throw new Error('Unable to load import history.');
-            const data = await res.json();
-            importHistoryPage = data.page;
-            let html = '<table class="table table-sm table-bordered"><thead><tr><th>Report</th><th>File</th><th>Recorded</th><th>Operator ID</th><th>New</th><th>Merged</th><th>Discarded</th><th>Report</th></tr></thead><tbody>';
-            data.reports.forEach(report => {
-                html += '<tr><td>' + report.id + '</td><td>' + importEscape(report.fileName) + '</td><td>' + importEscape(new Date(report.createdAt).toLocaleString()) + '</td><td>' + importEscape(report.userId) + '</td><td>' + Number(report.createdCount) + '</td><td>' + Number(report.mergedCount) + '</td><td>' + Number(report.discardedCount) + '</td><td><button type="button" class="btn btn-sm btn-outline-primary historical-report" data-id="' + report.id + '">Download CSV</button></td></tr>';
+        if (!importHistoryList) {
+            importHistoryList = new window.RxHistoryList({
+                prefix: 'importHistory', endpoint: '/api/import/patient-reports',
+                exportEndpoint: '/api/import/patient-reports/export', rowsKey: 'reports',
+                filename: 'patient-import-history.csv',
+                message: message => { body.textContent = message; },
+                render: renderImportHistoryRows
             });
-            body.innerHTML = data.reports.length ? html + '</tbody></table>' : '<p>No completed patient import reports yet.</p>';
-            body.querySelectorAll('.historical-report').forEach(button => button.addEventListener('click', () => downloadStoredImportReport(Number(button.dataset.id))));
-            document.getElementById('importHistoryPage').textContent = 'Page ' + data.page + ' of ' + Math.max(1, Math.ceil(data.total / data.pageSize));
-            document.getElementById('previousImportHistoryBtn').disabled = data.page <= 1;
-            document.getElementById('nextImportHistoryBtn').disabled = data.page * data.pageSize >= data.total;
-        } catch (error) { body.textContent = error.message; }
-        finally { importHistoryBusy = false; }
+        }
+        return importHistoryList.load(page || 1);
+    }
+
+    function renderImportHistoryRows(reports) {
+        const body = document.getElementById('patientImportHistoryBody');
+        let html = '<table class="table table-sm table-bordered"><thead><tr><th>Report</th><th>File</th><th>Recorded</th><th>Operator ID</th><th>New</th><th>Merged</th><th>Discarded</th><th>Report</th></tr></thead><tbody>';
+        reports.forEach(report => {
+            html += '<tr><td>' + report.id + '</td><td>' + importEscape(report.fileName) + '</td><td>' + importEscape(new Date(report.createdAt).toLocaleString()) + '</td><td>' + importEscape(report.userId) + '</td><td>' + Number(report.createdCount) + '</td><td>' + Number(report.mergedCount) + '</td><td>' + Number(report.discardedCount) + '</td><td><button type="button" class="btn btn-sm btn-outline-primary historical-report" data-id="' + report.id + '">Download CSV</button></td></tr>';
+        });
+        body.innerHTML = html + '</tbody></table>';
+        body.querySelectorAll('.historical-report').forEach(button => button.addEventListener('click', () => downloadStoredImportReport(Number(button.dataset.id))));
     }
 
     async function downloadStoredImportReport(id) {

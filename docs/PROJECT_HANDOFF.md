@@ -1,12 +1,32 @@
 # RX Tracker NEXT project handoff
 
-Last updated: 2026-09-22
+Last updated: 2026-09-23
 
 This file is the sanitized continuity record for a future administrator or
 Codex session. It intentionally contains no credentials, `.env` values,
 patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
+
+- **History browsing/export and archival review (2026-09-23, unreleased):**
+  Staging adds top-of-list date presets/custom local-date bounds, reference/
+  pharmacy or filename/report-ID search, 20/50/100-row pagination, and filtered
+  CSV history exports for Delivery Log Archive and Patient Import History.
+  Import report ownership/audit-reader scope and archive print/export permissions
+  remain enforced. Reprints and individual import snapshots retain their paths.
+  Delivery history uses a rebuildable process-local metadata cache; unchanged
+  files are not reread, but original-file storage and existing capacity caps
+  remain. No migration or data removal. Synthetic controller tests cover
+  multi-page/batched exports, permissions scope, date/DST bounds and cache
+  refresh; existing import/archive/client/render regressions pass. Chromium
+  fixture verifies top controls, pagination, both CSV downloads and narrow-screen
+  layout. No production data, installation, release or branch promotion.
+  User explicitly requested review before any cold-storage/recall implementation:
+  see docs/HISTORY_ARCHIVAL_REVIEW.md. Existing audit Rotate deletes old rows
+  (excluding import reports); Call Center and analytics depend on some log rows.
+  Site ZIP intentionally excludes delivery archive files; verify a protected
+  archive backup/restore path before any future move. No cold storage, recall
+  job or automatic retention change has been implemented.
 
 - **Official next.93 hotfix published and verified (2026-09-22):** Published
   patient address save correction from `b91e09820152b3b0e7896a32069c7ae1e87dbb10`
