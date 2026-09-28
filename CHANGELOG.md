@@ -9,6 +9,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ### Added
 
+- RX Records Stage Report popup: current/reached stage scope, multiple stages,
+  stage-date bounds, grouping, oldest/newest sorting, elapsed calendar days,
+  pagination, and complete filtered CSV with patient, clinic and driver details.
+  Existing RX read/export and historical-driver permissions remain enforced.
+
+### Added
+
 - Delivery Log Archive and Patient Import History have date presets, custom
   date ranges, search, and 20/50/100-row pagination above their listings.
   CSV history exports include all matching rows and preserve access scope.

@@ -1,12 +1,31 @@
 # RX Tracker NEXT project handoff
 
-Last updated: 2026-09-24
+Last updated: 2026-09-28
 
 This file is the sanitized continuity record for a future administrator or
 Codex session. It intentionally contains no credentials, `.env` values,
 patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
+
+- **RX Stage Report staging preview (2026-09-28, unreleased):** RX Records has
+  a Stage Report popup with multiple active-stage selection, current-stage
+  default / reached-stage scope, inclusive stage-date bounds, workflow-order
+  grouping, oldest/newest sorting, calendar days elapsed, 50-row pages, and
+  complete filtered CSV. Current scope shows current driver; reached scope
+  shows the stage driver snapshot under existing historical-driver permissions.
+  Export requires RX export permission. Synthetic PostgreSQL temporary-table
+  regression covers moved-forward exclusion, duplicates, retired actions,
+  pagination, grouping, date bounds/DST, CSV and access controls. Public JS
+  validation and RX Records template/inline-script rendering pass. Browser
+  visual acceptance remains pending because no connected browser was available.
+  Test via http://localhost:3100/rx-records then Stage Report.
+  The isolated staging test-copy database was behind: a local custom-format
+  backup and SHA-256 sidecar were saved under ignored staging/runtime/backups
+  before applying 22 existing audited migrations. It now has 64 applied,
+  zero pending and a verified checksum ledger; startup readiness passed and
+  the staging login responds HTTP 200. Scheduled backups remain disabled.
+  No new migration, production update, or develop/main promotion.
 
 - **Archival deferred; external viewing preferred for later review (2026-09-24):**
   User postponed cold storage, rotation and in-app recall as low priority.
