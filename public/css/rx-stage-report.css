@@ -1,25 +1,19 @@
-/* Keep report contrast independent of Bootstrap's light table/button defaults. */
+/* Use site surfaces and dividers, with readable report text in both themes. */
 #rxStageReportModal {
-    --report-bg: #ffffff;
-    --report-text: #172033;
+    --report-bg: var(--surface);
+    --report-text: var(--text);
     --report-muted: #475569;
-    --report-panel: #f1f5f9;
-    --report-group: #dbeafe;
-    --report-hover: #e8eff8;
-    --report-border: #64748b;
+    --report-panel: var(--surface-2);
+    --report-group: var(--surface-2);
+    --report-hover: var(--surface-2);
+    --report-border: var(--border);
     --report-link: #174ea6;
     --report-success: #166534;
     color: var(--report-text);
     color-scheme: light;
 }
 [data-theme="dark"] #rxStageReportModal {
-    --report-bg: #161b22;
-    --report-text: #f1f5f9;
     --report-muted: #cbd5e1;
-    --report-panel: #242f3e;
-    --report-group: #263d59;
-    --report-hover: #29384b;
-    --report-border: #94a3b8;
     --report-link: #b9d9ff;
     --report-success: #86efac;
     color-scheme: dark;
@@ -54,7 +48,7 @@
 }
 #rxStageReportModal .form-check-input {
     background-color: var(--report-bg);
-    border: 2px solid var(--report-border);
+    border: 1px solid var(--report-border);
     flex-shrink: 0;
 }
 #rxStageReportModal .form-check-input:checked,
@@ -115,10 +109,14 @@
     color: var(--report-muted) !important;
     border-color: var(--report-border) !important;
     opacity: 1;
-    border-style: dashed !important;
+    border-style: solid !important;
     cursor: not-allowed;
 }
 #rxStageReportModal :is(button, input, select):focus-visible {
     outline: 3px solid var(--report-link) !important;
     outline-offset: 3px;
+}
+
+#rxStageReportModal .border-bottom {
+    border-color: var(--border) !important;
 }
