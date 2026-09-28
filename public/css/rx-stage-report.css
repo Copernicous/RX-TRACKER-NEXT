@@ -1,0 +1,124 @@
+/* Keep report contrast independent of Bootstrap's light table/button defaults. */
+#rxStageReportModal {
+    --report-bg: #ffffff;
+    --report-text: #172033;
+    --report-muted: #475569;
+    --report-panel: #f1f5f9;
+    --report-group: #dbeafe;
+    --report-hover: #e8eff8;
+    --report-border: #64748b;
+    --report-link: #174ea6;
+    --report-success: #166534;
+    color: var(--report-text);
+    color-scheme: light;
+}
+[data-theme="dark"] #rxStageReportModal {
+    --report-bg: #161b22;
+    --report-text: #f1f5f9;
+    --report-muted: #cbd5e1;
+    --report-panel: #242f3e;
+    --report-group: #263d59;
+    --report-hover: #29384b;
+    --report-border: #94a3b8;
+    --report-link: #b9d9ff;
+    --report-success: #86efac;
+    color-scheme: dark;
+}
+#rxStageReportModal .modal-content,
+#rxStageReportModal .modal-body,
+#rxStageReportModal .modal-footer,
+#rxStageReportModal .dropdown-menu {
+    background: var(--report-bg) !important;
+    color: var(--report-text) !important;
+    border-color: var(--report-border) !important;
+}
+#rxStageReportModal .form-label,
+#rxStageReportModal .form-check-label,
+#rxStageReportModal .dropdown-menu label {
+    color: var(--report-text) !important;
+}
+#rxStageReportModal .text-muted {
+    color: var(--report-muted) !important;
+}
+#rxStageReportModal .form-control,
+#rxStageReportModal .form-select,
+#rxStageReportModal option {
+    background-color: var(--report-bg) !important;
+    color: var(--report-text) !important;
+    border-color: var(--report-border) !important;
+}
+#rxStageReportModal .form-control:disabled {
+    background-color: var(--report-panel) !important;
+    color: var(--report-muted) !important;
+    opacity: 1;
+}
+#rxStageReportModal .form-check-input {
+    background-color: var(--report-bg);
+    border: 2px solid var(--report-border);
+    flex-shrink: 0;
+}
+#rxStageReportModal .form-check-input:checked,
+#rxStageReportModal .form-check-input:indeterminate {
+    background-color: #1d4ed8;
+    border-color: var(--report-link);
+}
+#rxStageReportModal .table {
+    --bs-table-bg: var(--report-bg);
+    --bs-table-color: var(--report-text);
+    --bs-table-hover-bg: var(--report-hover);
+    --bs-table-hover-color: var(--report-text);
+    --bs-table-active-bg: var(--report-group);
+    --bs-table-active-color: var(--report-text);
+    color: var(--report-text);
+}
+#rxStageReportModal .table > :not(caption) > * > * {
+    background: var(--report-bg) !important;
+    color: var(--report-text) !important;
+    border-color: var(--report-border) !important;
+    box-shadow: none !important;
+}
+#rxStageReportModal .table thead th {
+    background: var(--report-panel) !important;
+}
+#rxStageReportModal .table tbody .table-active > * {
+    background: var(--report-group) !important;
+    font-weight: 700;
+}
+#rxStageReportModal .table tbody tr:not(.table-active):hover > * {
+    background: var(--report-hover) !important;
+}
+#rxStageReportModal [data-stage-report-sort] {
+    color: var(--report-link) !important;
+    font-weight: 700;
+}
+#rxStageReportModal [data-stage-report-sort]:hover {
+    text-decoration: underline !important;
+}
+#rxStageReportModal .btn-primary {
+    background: #1d4ed8 !important;
+    color: #ffffff !important;
+    border-color: #1d4ed8 !important;
+}
+#rxStageReportModal .btn-outline-success {
+    color: var(--report-success) !important;
+    border-color: var(--report-success) !important;
+    background: var(--report-bg) !important;
+}
+#rxStageReportModal .btn-secondary,
+#rxStageReportModal .btn-outline-secondary {
+    color: var(--report-text) !important;
+    border-color: var(--report-border) !important;
+    background: var(--report-panel) !important;
+}
+#rxStageReportModal .btn:not(.btn-link):disabled {
+    background: var(--report-panel) !important;
+    color: var(--report-muted) !important;
+    border-color: var(--report-border) !important;
+    opacity: 1;
+    border-style: dashed !important;
+    cursor: not-allowed;
+}
+#rxStageReportModal :is(button, input, select):focus-visible {
+    outline: 3px solid var(--report-link) !important;
+    outline-offset: 3px;
+}

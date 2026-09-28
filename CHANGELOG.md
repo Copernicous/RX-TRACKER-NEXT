@@ -7,6 +7,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+### Fixed
+
+- Stage Report now uses explicit light/dark contrast for labels, dropdowns,
+  table rows/groups, sorting controls, disabled controls and keyboard focus.
+
 ### Added
 
 - RX Records Stage Report: current/reached scope checkboxes, multiple stages,
