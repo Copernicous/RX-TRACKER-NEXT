@@ -1,12 +1,30 @@
 # RX Tracker NEXT project handoff
 
-Last updated: 2026-09-22
+Last updated: 2026-09-28
 
 This file is the sanitized continuity record for a future administrator or
 Codex session. It intentionally contains no credentials, `.env` values,
 patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
+
+- **Stage Report approved in staging and promoted to development (2026-09-28):**
+  User accepted the popup and requested development testing. Promoted the Stage
+  Report files from staging a345c0c with their shared CSV helper; unrelated
+  history pagination/archive work remains in staging. RX Records now offers
+  scope and stage checkboxes with All options, All dates / stage-date bounds,
+  elapsed calendar days, sortable columns within stage groups, pagination,
+  and complete filtered CSV. RX read/export and historical-driver permissions
+  remain enforced. Synthetic SQL scope/grouping/sorting/pagination/CSV/access
+  checks, public JS validation, and RX template rendering passed on develop.
+  The separate patient_rx_dev database had three pending existing migrations;
+  backed it up with an archive-list check and SHA-256 sidecar under local
+  output/development-backups, then applied the audited migrations. Verification
+  is READY with 64 applied, zero pending and verified checksums. Development
+  runs at http://localhost:3000 (LAN http://192.168.15.87:3000), with backup
+  schedulers disabled in the launch environment; login responds HTTP 200.
+  Existing development credentials are unchanged. Development user acceptance
+  remains pending. No production release, main change, or new migration.
 
 - **Official next.93 hotfix published and verified (2026-09-22):** Published
   patient address save correction from `b91e09820152b3b0e7896a32069c7ae1e87dbb10`

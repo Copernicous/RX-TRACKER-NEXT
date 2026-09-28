@@ -66,6 +66,7 @@ const callAttemptController = require('../controllers/callAttemptController');
 const softphoneAccountController = require('../controllers/softphoneAccountController');
 const softphoneRelayController = require('../controllers/softphoneRelayController');
 const rxController = require('../controllers/rxController');
+const rxStageReportController = require('../controllers/rxStageReportController');
 const dashboardController = require('../controllers/dashboardController');
 const reportController = require('../controllers/reportController');
 const auditLogController = require('../controllers/auditLogController');
@@ -467,6 +468,8 @@ generateCRUDRoutes('/medication-catalog', medicationCatalogController, 'Medicati
 router.put('/medication-catalog/:id/restore', rbac.requirePermission('medication_catalog', 'edit'), auditLogger('Medication Catalog'), medicationCatalogController.restore);
 
 // RX Workflow must be registered BEFORE the generic rx-records CRUD to avoid :id matching "workflow"
+router.get('/rx-records/stage-report', rbac.requirePermission('rx_records', 'read'), rxStageReportController.getReport);
+router.get('/rx-records/stage-report/export', rbac.requirePermission('rx_records', 'export'), rxStageReportController.getReport);
 router.post('/rx-records/delivery-outcome', rbac.requirePermission('rx_records', 'add'), deliveryOutcomeController.setOutcome);
 router.post('/rx-records/return-to-warehouse', rbac.requirePermission('rx_records', 'warehouse'), auditLogger('RX Workflow'), rxController.returnToWarehouse);
 router.post('/rx-records/reopen-warehouse-return', rbac.requirePermission('rx_records', 'warehouse'), auditLogger('RX Workflow'), rxController.reopenWarehouseReturn);
