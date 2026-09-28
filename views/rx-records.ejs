@@ -21,6 +21,7 @@
     <link href="/assets/inter.css" rel="stylesheet">
     <link rel="stylesheet" href="/assets/fontawesome.all.min.css">
     <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/rx-stage-report.css?v=<%= encodeURIComponent(String(locals.appBuild || 'dev')) %>">
     <style>
         .patient-dropdown {
             display: none;
@@ -387,6 +388,7 @@
                     <div class="d-flex gap-2">
                         <button class="btn btn-outline-primary btn-sm" id="rxDeliveryLogPdfBtn" data-role-action="print" title="Open the filtered delivery log for printing or saving as PDF"><i class="fas fa-file-pdf me-1"></i>Delivery Log PDF</button>
                         <button class="btn btn-outline-success btn-sm" id="rxDeliveryLogExcelBtn" data-role-action="export" title="Download the filtered delivery log as a formatted Excel workbook"><i class="fas fa-file-excel me-1"></i>Delivery Log Excel</button>
+                        <button class="btn btn-outline-primary btn-sm" id="rxStageReportBtn"><i class="fas fa-filter me-1"></i>Stage Report</button>
                         <button class="btn btn-outline-success btn-sm" id="exportRxListCsvBtn"><i class="fas fa-file-csv me-1"></i>Export CSV</button>
                         <button class="btn btn-success btn-sm" id="addRxBtn"><i class="fas fa-plus me-1"></i>New RX</button>
                     </div>
@@ -4164,6 +4166,8 @@
     });
 
 </script>
+<%- include('partials/rx-stage-report') %>
+<script src="/js/rx-stage-report.js?v=<%= encodeURIComponent(String(locals.appBuild || 'dev')) %>"></script>
 <script src="/js/rx-delivery-log.js?v=<%= encodeURIComponent(String(locals.appBuild || 'dev')) %>"></script>
 </body>
 </html>

@@ -7,6 +7,18 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+### Fixed
+
+- Stage Report now uses explicit light/dark contrast for labels, dropdowns,
+  table rows/groups, sorting controls, disabled controls and keyboard focus.
+
+### Added
+
+- RX Records Stage Report: current/reached scope checkboxes, multiple stages,
+  All scopes/stages/dates, stage-date bounds, elapsed days, grouped results,
+  sortable columns, pagination, and complete filtered CSV with driver, clinic,
+  patient, stage and date. Existing read/export and driver permissions apply.
+
 ## [4.0.0-next.93] - 2026-09-22
 
 ### Fixed
