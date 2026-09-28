@@ -8,34 +8,36 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
 
-- **Stage Report selector/sorting refinement (2026-09-28, unreleased):**
-  Stage scope now has Current / Reached checkboxes plus All scopes. Selecting
-  both uses the reached-stage union without duplicate RX/stage entries and
-  preserves historical-driver permission restrictions. Stages has All stages;
-  All dates disables and omits date bounds. All eight result column headers
-  toggle ascending/descending sorting across every page and CSV, within stage
-  groups; Stage sorts group names. The sort dropdowns reflect header selection.
-  Expanded synthetic SQL tests, public JS validation and template rendering
-  pass. Staging-only update; browser/user visual acceptance remains pending.
+- **Official next.94 published and verified (2026-09-28):** Released the
+  user-approved RX Stage Report from 95a88420246006009923513caea9efa05826eb48
+  as v4.0.0-next.94. Exact-main PostgreSQL lifecycle CI 36496141877, CodeQL
+  36496141836 and Windows release workflow 36496560037 passed. Downloaded all
+  three official ZIPs: checksums, archive integrity, safe entries, required
+  package files, version, packaged source parity and both embedded executable
+  hashes passed. Compiled server and Project Control installed-version output
+  report next.94; rx-db help passed from isolated extraction. No new migration
+  or automatic business-data rewrite. Existing page styles/controllers are
+  unchanged; report CSS is popup-scoped. Separate history/archive functionality
+  remains staging-only. Production installation remains through Project Control
+  8 then 15; no live installation was performed from this workstation.
+  Release: https://github.com/Copernicous/RX-TRACKER-NEXT/releases/tag/v4.0.0-next.94
+  SHA-256 values:
+  - Both server ZIPs: `3e7e935302d37e2c37ea1f5a0d9bf29c05b2f1605a966a91280701f41cf676ae`
+  - Softphone ZIP: `a6abe5e716cc6febee6a45c1988aac96eea7df0778d8c066f036ae96303ea9e2`
+  - server.exe: `c1da87eb872cf23430da05d178d41a652a2800b37a765a02515770c79ea913ab`
+  - rx-db.exe: `bbab0b0f53f21c9e2d2e12dc564c721e89e0614e28f97e8e308ed7334d08ce4e`
 
-- **RX Stage Report staging preview (2026-09-28, unreleased):** RX Records has
-  a Stage Report popup with multiple active-stage selection, current-stage
-  default / reached-stage scope, inclusive stage-date bounds, workflow-order
-  grouping, oldest/newest sorting, calendar days elapsed, 50-row pages, and
-  complete filtered CSV. Current scope shows current driver; reached scope
-  shows the stage driver snapshot under existing historical-driver permissions.
-  Export requires RX export permission. Synthetic PostgreSQL temporary-table
-  regression covers moved-forward exclusion, duplicates, retired actions,
-  pagination, grouping, date bounds/DST, CSV and access controls. Public JS
-  validation and RX Records template/inline-script rendering pass. Browser
-  visual acceptance remains pending because no connected browser was available.
-  Test via http://localhost:3100/rx-records then Stage Report.
-  The isolated staging test-copy database was behind: a local custom-format
-  backup and SHA-256 sidecar were saved under ignored staging/runtime/backups
-  before applying 22 existing audited migrations. It now has 64 applied,
-  zero pending and a verified checksum ledger; startup readiness passed and
-  the staging login responds HTTP 200. Scheduled backups remain disabled.
-  No new migration, production update, or develop/main promotion.
+- **next.94 release preparation (2026-09-28):** User approved production
+  publication after development review and requested isolation from other pages.
+  The Stage Report uses new read-only RX endpoints, its own script and CSS
+  scoped under the popup ID; shared styles, existing controllers and migrations
+  are unchanged. Promoted approved develop source, retaining main's deferred
+  archival record. Separate history pagination/export work remains staging-only.
+  Version/lockfile/changelog/package notes are aligned for next.94. The real
+  PostgreSQL synthetic Stage Report regression now runs in lifecycle CI.
+  Exact-main lifecycle and CodeQL gates precede the release tag. Official ZIP
+  and executable checksum verification remain required before delivery.
+  Production installation uses Project Control; no live installation performed.
 
 - **Archival deferred; external viewing preferred for later review (2026-09-24):**
   User postponed cold storage, rotation and in-app recall as low priority.
@@ -52,6 +54,24 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
   Separate pagination/filter/top-controls/CSV-export work remains committed
   on staging at f10e230, tested with synthetic fixtures and not released or
   deployed. This deferral does not remove that work or authorize promotion.
+
+- **Stage Report approved in staging and promoted to development (2026-09-28):**
+  User accepted the popup and requested development testing. Promoted the Stage
+  Report files from staging a345c0c with their shared CSV helper; unrelated
+  history pagination/archive work remains in staging. RX Records now offers
+  scope and stage checkboxes with All options, All dates / stage-date bounds,
+  elapsed calendar days, sortable columns within stage groups, pagination,
+  and complete filtered CSV. RX read/export and historical-driver permissions
+  remain enforced. Synthetic SQL scope/grouping/sorting/pagination/CSV/access
+  checks, public JS validation, and RX template rendering passed on develop.
+  The separate patient_rx_dev database had three pending existing migrations;
+  backed it up with an archive-list check and SHA-256 sidecar under local
+  output/development-backups, then applied the audited migrations. Verification
+  is READY with 64 applied, zero pending and verified checksums. Development
+  runs at http://localhost:3000 (LAN http://192.168.15.87:3000), with backup
+  schedulers disabled in the launch environment; login responds HTTP 200.
+  Existing development credentials are unchanged. Development user acceptance
+  remains pending. No production release, main change, or new migration.
 
 - **History browsing/export and archival review (2026-09-23, unreleased):**
   Staging adds top-of-list date presets/custom local-date bounds, reference/

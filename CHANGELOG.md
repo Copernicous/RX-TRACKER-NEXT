@@ -7,22 +7,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
-### Fixed
-
-- Stage Report now uses explicit light/dark contrast for labels, dropdowns,
-  table rows/groups, sorting controls, disabled controls and keyboard focus.
-
-### Added
-
-- Stage Report supports scope checkboxes with All scopes, All stages, All dates,
-  and sortable column headings with the same full-result ordering in CSV.
-
-- RX Records Stage Report popup: current/reached stage scope, multiple stages,
-  stage-date bounds, grouping, oldest/newest sorting, elapsed calendar days,
-  pagination, and complete filtered CSV with patient, clinic and driver details.
-  Existing RX read/export and historical-driver permissions remain enforced.
-
-### Added
+### Added (staging only)
 
 - Delivery Log Archive and Patient Import History have date presets, custom
   date ranges, search, and 20/50/100-row pagination above their listings.
@@ -34,6 +19,20 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 - Added a review-only cold-storage/recall implementation and sensitivity
   checklist in docs/HISTORY_ARCHIVAL_REVIEW.md. Implementation is deferred
   pending review; Patients, RX and their operational dependencies stay active.
+
+## [4.0.0-next.94] - 2026-09-28
+
+### Fixed
+
+- Stage Report now uses explicit light/dark contrast for labels, dropdowns,
+  table rows/groups, sorting controls, disabled controls and keyboard focus.
+
+### Added
+
+- RX Records Stage Report: current/reached scope checkboxes, multiple stages,
+  All scopes/stages/dates, stage-date bounds, elapsed days, grouped results,
+  sortable columns, pagination, and complete filtered CSV with driver, clinic,
+  patient, stage and date. Existing read/export and driver permissions apply.
 
 ## [4.0.0-next.93] - 2026-09-22
 
