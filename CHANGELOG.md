@@ -7,6 +7,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+## [4.0.0-next.94] - 2026-09-28
+
 ### Fixed
 
 - Stage Report now uses explicit light/dark contrast for labels, dropdowns,

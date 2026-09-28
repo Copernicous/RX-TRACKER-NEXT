@@ -131,6 +131,9 @@ jobs:
       - name: Validate newest backup through an isolated restore
         run: BACKUP_RECOVERABILITY_REAL_DB=true npm run test:backup-recoverability-integration
 
+      - name: Verify RX Stage Report scopes sorting CSV and permissions
+        run: RX_STAGE_REPORT_TEST_DB_NAME=rx_next_ci_base_test RX_STAGE_REPORT_TEST_CONFIRM_DB_NAME=rx_next_ci_base_test node scripts/test-rx-stage-report.js
+
       - name: Verify release recovery restores runtime database access
         run: |
           mkdir -p /tmp/rx-recovery-pg-tools

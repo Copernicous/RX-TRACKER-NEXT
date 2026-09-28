@@ -8,6 +8,18 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
 
+- **next.94 release preparation (2026-09-28):** User approved production
+  publication after development review and requested isolation from other pages.
+  The Stage Report uses new read-only RX endpoints, its own script and CSS
+  scoped under the popup ID; shared styles, existing controllers and migrations
+  are unchanged. Promoted approved develop source, retaining main's deferred
+  archival record. Separate history pagination/export work remains staging-only.
+  Version/lockfile/changelog/package notes are aligned for next.94. The real
+  PostgreSQL synthetic Stage Report regression now runs in lifecycle CI.
+  Exact-main lifecycle and CodeQL gates precede the release tag. Official ZIP
+  and executable checksum verification remain required before delivery.
+  Production installation uses Project Control; no live installation performed.
+
 - **Archival deferred; external viewing preferred for later review (2026-09-24):**
   User postponed cold storage, rotation and in-app recall as low priority.
   Do not resume or enable them automatically in a future session; wait for

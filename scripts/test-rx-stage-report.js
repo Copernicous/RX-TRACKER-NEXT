@@ -6,7 +6,15 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 const { createRequire } = require('node:module');
-require('./lib/staging-env').prepareStagingEnv();
+if (process.env.RX_STAGE_REPORT_TEST_DB_NAME) {
+    const name = process.env.RX_STAGE_REPORT_TEST_DB_NAME;
+    if (!/(?:^|_)(?:test|qa|staging|sandbox)(?:_|$)/i.test(name) || process.env.RX_STAGE_REPORT_TEST_CONFIRM_DB_NAME !== name) {
+        throw Error('Stage report regression requires an explicitly confirmed test database.');
+    }
+    process.env.DB_NAME = name;
+} else {
+    require('./lib/staging-env').prepareStagingEnv();
+}
 process.env.TZ = 'America/New_York';
 const db = require('../models');
 

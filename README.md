@@ -10,7 +10,12 @@ frozen 3.3.1 repository, its production database, or the RX Softphone source.
 
 ## Current status
 
-Version: `4.0.0-next.93` release
+Version: `4.0.0-next.94` release
+
+Version `next.94` adds RX Records **Stage Report**: current/reached stage
+selection, stage-date filters, days elapsed, grouped sortable results and
+complete filtered CSV. Popup styling uses the existing light/dark theme.
+Existing RX and driver-history permissions apply. No new migration.
 
 Version `next.93` fixes patient address edits reverting on save. Visible Street,
 City, State, and ZIP fields now override the hidden previous full address; the
