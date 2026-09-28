@@ -8,32 +8,42 @@
       <div class="modal-body">
         <form id="rxStageReportForm" class="row g-3 mb-3">
           <div class="col-md-6">
-            <label class="form-label" for="stageReportScope">Stage scope</label>
-            <select id="stageReportScope" class="form-select">
-              <option value="current">Currently at selected stage</option>
-              <option value="reached">Reached selected stage (including moved forward)</option>
-            </select>
+            <label class="form-label" id="stageReportScopeLabel">Stage scope</label>
+            <div class="dropdown">
+              <button type="button" id="stageReportScopeBtn" class="form-select text-start" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false" aria-labelledby="stageReportScopeLabel stageReportScopeBtn">Currently at selected stage</button>
+              <div class="dropdown-menu w-100 p-3">
+                <label class="d-flex gap-2 py-1 border-bottom fw-semibold"><input type="checkbox" id="stageReportAllScopes" class="form-check-input">All scopes</label>
+                <label class="d-flex gap-2 py-1"><input type="checkbox" id="stageReportScopeCurrent" class="form-check-input" checked>Currently at selected stage</label>
+                <label class="d-flex gap-2 py-1"><input type="checkbox" id="stageReportScopeReached" class="form-check-input">Reached selected stage (including moved forward)</label>
+                <div class="small text-muted mt-2">Reached includes current records. Selecting both shows each RX/stage entry once.</div>
+              </div>
+            </div>
           </div>
           <div class="col-md-6">
             <label class="form-label" id="stageReportStagesLabel">Stages</label>
             <div class="dropdown">
               <button type="button" id="stageReportStagesBtn" class="form-select text-start" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false" aria-labelledby="stageReportStagesLabel stageReportStagesBtn">Select stages</button>
-              <div id="stageReportStages" class="dropdown-menu w-100 p-3" style="max-height:240px;overflow-y:auto"></div>
+              <div class="dropdown-menu w-100 p-3" style="max-height:240px;overflow-y:auto">
+                <label class="d-flex gap-2 py-1 border-bottom fw-semibold"><input type="checkbox" id="stageReportAllStages" class="form-check-input">All stages</label>
+                <div id="stageReportStages"></div>
+              </div>
             </div>
           </div>
-          <div class="col-sm-4"><label class="form-label" for="stageReportFrom">Stage date from</label><input type="date" id="stageReportFrom" class="form-control"></div>
-          <div class="col-sm-4"><label class="form-label" for="stageReportTo">Stage date to</label><input type="date" id="stageReportTo" class="form-control"></div>
-          <div class="col-sm-4"><label class="form-label" for="stageReportSort">Sort within each stage</label><select id="stageReportSort" class="form-select"><option value="asc">Oldest to newest</option><option value="desc">Newest to oldest</option></select></div>
+          <div class="col-12"><label class="form-check-label"><input type="checkbox" id="stageReportAllDates" class="form-check-input me-2" checked>All dates</label></div>
+          <div class="col-sm-6"><label class="form-label" for="stageReportFrom">Stage date from</label><input type="date" id="stageReportFrom" class="form-control" disabled></div>
+          <div class="col-sm-6"><label class="form-label" for="stageReportTo">Stage date to</label><input type="date" id="stageReportTo" class="form-control" disabled></div>
+          <div class="col-sm-6"><label class="form-label" for="stageReportSortColumn">Sort by</label><select id="stageReportSortColumn" class="form-select"><option value="stageDate">Stage date</option><option value="rxId">RX ID</option><option value="patientCode">Patient ID</option><option value="patient">Patient</option><option value="clinic">Clinic</option><option value="driver">Driver</option><option value="stage">Stage</option><option value="daysElapsed">Days elapsed</option></select></div>
+          <div class="col-sm-6"><label class="form-label" for="stageReportSort">Sort direction</label><select id="stageReportSort" class="form-select"><option value="asc">Oldest to newest</option><option value="desc">Newest to oldest</option></select></div>
           <div class="col-12 d-flex gap-2 flex-wrap">
             <button type="submit" class="btn btn-primary" id="stageReportApply">Apply filters</button>
             <button type="button" class="btn btn-outline-success" id="stageReportExport" disabled>Export CSV</button>
           </div>
         </form>
-        <p class="small text-muted">This report uses its own filters. Stages are grouped in workflow order. Current stage means the latest reached active workflow step; dates and elapsed calendar days use the application timezone.</p>
+        <p class="small text-muted">Click a column heading to sort all matching results within each stage; click again to reverse. Sorting Stage orders the groups by name. CSV follows the same order. Current stage means the latest reached active workflow step; dates and elapsed calendar days use the application timezone.</p>
         <div id="stageReportStatus" role="status" aria-live="polite" class="mb-2">Select stages and apply filters.</div>
         <div class="table-responsive">
           <table class="table table-hover align-middle">
-            <thead><tr><th>RX ID</th><th>Patient ID</th><th>Patient</th><th>Clinic</th><th id="stageReportDriverHeading">Current driver</th><th>Stage</th><th>Stage date</th><th>Days elapsed</th></tr></thead>
+            <thead><tr><th aria-sort="none"><button type="button" class="btn btn-link p-0 text-start text-decoration-none" data-stage-report-sort="rxId"><span>RX ID</span> <span data-sort-indicator aria-hidden="true">?</span></button></th><th aria-sort="none"><button type="button" class="btn btn-link p-0 text-start text-decoration-none" data-stage-report-sort="patientCode"><span>Patient ID</span> <span data-sort-indicator aria-hidden="true">?</span></button></th><th aria-sort="none"><button type="button" class="btn btn-link p-0 text-start text-decoration-none" data-stage-report-sort="patient"><span>Patient</span> <span data-sort-indicator aria-hidden="true">?</span></button></th><th aria-sort="none"><button type="button" class="btn btn-link p-0 text-start text-decoration-none" data-stage-report-sort="clinic"><span>Clinic</span> <span data-sort-indicator aria-hidden="true">?</span></button></th><th aria-sort="none"><button type="button" class="btn btn-link p-0 text-start text-decoration-none" data-stage-report-sort="driver"><span id="stageReportDriverHeading">Current driver</span> <span data-sort-indicator aria-hidden="true">?</span></button></th><th aria-sort="none"><button type="button" class="btn btn-link p-0 text-start text-decoration-none" data-stage-report-sort="stage"><span>Stage</span> <span data-sort-indicator aria-hidden="true">?</span></button></th><th aria-sort="none"><button type="button" class="btn btn-link p-0 text-start text-decoration-none" data-stage-report-sort="stageDate"><span>Stage date</span> <span data-sort-indicator aria-hidden="true">?</span></button></th><th aria-sort="none"><button type="button" class="btn btn-link p-0 text-start text-decoration-none" data-stage-report-sort="daysElapsed"><span>Days elapsed</span> <span data-sort-indicator aria-hidden="true">?</span></button></th></tr></thead>
             <tbody id="stageReportRows"></tbody>
           </table>
         </div>

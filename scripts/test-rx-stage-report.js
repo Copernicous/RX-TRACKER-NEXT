@@ -65,8 +65,27 @@ const db = require('../models');
         assert.equal(csv.text.trim().split('\r\n').length, 57);
         assert.ok(csv.text.includes("'=Synthetic Patient"));
         assert.ok(csv.text.trim().split('\r\n').at(-1).includes('Delivered'));
+        assert.equal((await run({ scope: 'both', stages: '1,2' })).body.total, 56, 'Both scopes must not duplicate entries');
+        assert.equal((await run({ sort: 'daysElapsed', direction: 'asc' })).body.rows[0].rxId, 55);
+        assert.equal((await run({ sort: 'daysElapsed', direction: 'desc' })).body.rows[0].rxId, 2);
+        assert.equal((await run({ sort: 'rxId', direction: 'desc' })).body.rows[0].rxId, 55);
+        assert.equal((await run({ scope: 'both', stages: '1,2', sort: 'stage' })).body.rows[0].stage, 'Delivered');
+        assert.equal((await run({ sort: 'stageDate; DROP TABLE' })).code, 400);
+        await sql(`INSERT INTO "Patients" VALUES (2,'ZZ-2','Zulu','Test',2);
+          INSERT INTO "Clinics" VALUES (2,'Zulu clinic');
+          INSERT INTO "PharmacyTransportCompanies" VALUES (2,'Zulu driver','Zulu transport');
+          UPDATE "RXRecords" SET "patientId"=2, "pharmacyTransportCompanyId"=2 WHERE id=55;`);
+        for (const sort of ['patientCode', 'patient', 'clinic', 'driver']) {
+            assert.equal((await run({ sort, direction: 'desc' })).body.rows[0].rxId, 55, sort + ' sorts the full result before pagination');
+            const sortedCsv = await run({ sort, direction: 'desc' }, true);
+            assert.ok(sortedCsv.text.split('\r\n')[1].startsWith('"55",'), sort + ' CSV follows table ordering');
+        }
+        for (const sort of ['rxId', 'patientCode', 'patient', 'clinic', 'driver', 'stage', 'stageDate', 'daysElapsed']) {
+            assert.equal((await run({ sort, direction: 'desc', scope: 'both', stages: '1,2' })).body.total, 56);
+        }
         permission.canViewDriverHistory = false;
         result = await run({ scope: 'reached' }); assert.equal(result.body.driverRestricted, true); assert.equal(result.body.rows[0].driver, '');
+        result = await run({ scope: 'both', sort: 'driver' }); assert.equal(result.body.driverRestricted, true); assert.equal(result.body.rows[0].driver, '');
         permission.canExport = false; assert.equal((await run({}, true)).code, 403);
         permission.visible = false; assert.equal((await run()).code, 403);
         const presented = context.exports.present({ stageDate: '2026-03-08T05:00:00Z' }, new Date('2026-03-09T04:00:00Z'));

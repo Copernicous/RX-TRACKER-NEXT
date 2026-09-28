@@ -10,7 +10,9 @@ function parseQuery(query) {
     const invalid = message => { throw Object.assign(new Error(message), { status: 400 }); };
     const scope = query.scope || 'current';
     const direction = query.direction || 'asc';
-    if (!['current', 'reached'].includes(scope)) invalid('Invalid stage scope.');
+    const sort = query.sort || 'stageDate';
+    if (!['rxId', 'patientCode', 'patient', 'clinic', 'driver', 'stage', 'stageDate', 'daysElapsed'].includes(sort)) invalid('Invalid sort column.');
+    if (!['current', 'reached', 'both'].includes(scope)) invalid('Select at least one stage scope.');
     if (!['asc', 'desc'].includes(direction)) invalid('Invalid sort direction.');
     if (typeof query.stages !== 'string' || !/^\d+(,\d+)*$/.test(query.stages)) invalid('Select at least one stage.');
     const stages = [...new Set(query.stages.split(',').map(Number))];
@@ -21,7 +23,7 @@ function parseQuery(query) {
     if (query.from && query.to && query.from > query.to) invalid('From date must be on or before To date.');
     const page = query.page === undefined ? 1 : Number(query.page);
     if (!Number.isSafeInteger(page) || page < 1 || page > 1000000) invalid('Invalid page.');
-    return { scope, direction, stages, page, from: localDayBoundaryIso(query.from, 0), to: localDayBoundaryIso(query.to, 1) };
+    return { scope, direction, sort, stages, page, from: localDayBoundaryIso(query.from, 0), to: localDayBoundaryIso(query.to, 1) };
 }
 
 function calendarDay(date) {
@@ -68,7 +70,15 @@ exports.getReport = async (req, res) => {
         ${filter.scope === 'current' ? 'AND t.sequence = cw.current_stage_sequence' : ''}
         ${filter.from ? 'AND t."completionDate" >= CAST(:from AS TIMESTAMPTZ)' : ''}
         ${filter.to ? 'AND t."completionDate" < CAST(:to AS TIMESTAMPTZ)' : ''}`;
-        const ordered = `${base} ORDER BY t.sequence ASC NULLS LAST, t."workflowActionId" ASC, t."completionDate" ${filter.direction.toUpperCase()} NULLS LAST, r.id ASC`;
+        const direction = filter.direction.toUpperCase();
+        const sortColumns = { rxId: 'r.id', patientCode: `LOWER(COALESCE(NULLIF(p."patientCode", ''), p.id::text))`,
+            patient: `LOWER(CONCAT_WS(' ', p."firstName", p."lastName"))`, clinic: 'LOWER(c.name)',
+            driver: `LOWER(${driverSql})`, stage: 'LOWER(t.stage)', stageDate: 't."completionDate"', daysElapsed: 't."completionDate"' };
+        // Keep stage groups together; elapsed days run in the opposite direction to dates.
+        const rowDirection = filter.sort === 'daysElapsed' ? (direction === 'ASC' ? 'DESC' : 'ASC') : direction;
+        const groups = filter.sort === 'stage' ? `LOWER(t.stage) ${direction}, t."workflowActionId" ASC`
+            : 't.sequence ASC NULLS LAST, t."workflowActionId" ASC';
+        const ordered = `${base} ORDER BY ${groups}, ${sortColumns[filter.sort]} ${rowDirection} NULLS LAST, t."completionDate" ASC NULLS LAST, r.id ASC`;
         const query = (sql, extra = {}) => db.sequelize.query(sql, { replacements: { ...replacements, ...extra }, type: db.Sequelize.QueryTypes.SELECT });
         const now = new Date();
         const driverHeading = filter.scope === 'current' ? 'Current driver' : 'Stage driver';
@@ -86,7 +96,7 @@ exports.getReport = async (req, res) => {
         const counts = await query(`SELECT COUNT(*)::integer AS total FROM (${base}) report`);
         const rows = await query(`${ordered} LIMIT 50 OFFSET :offset`, { offset: (filter.page - 1) * 50 });
         return res.json({ rows: rows.map(row => present(row, now)), total: counts[0].total, page: filter.page, pageSize: 50,
-            driverHeading, driverRestricted: filter.scope === 'reached' && !historicalDriver,
+            driverHeading, driverRestricted: filter.scope !== 'current' && !historicalDriver,
             timezone: Intl.DateTimeFormat().resolvedOptions().timeZone, canExport: !!permission.canExport });
     } catch (error) {
         if (res.headersSent) return res.destroy(error);

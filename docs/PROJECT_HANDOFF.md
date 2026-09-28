@@ -8,6 +8,16 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
 
+- **Stage Report selector/sorting refinement (2026-09-28, unreleased):**
+  Stage scope now has Current / Reached checkboxes plus All scopes. Selecting
+  both uses the reached-stage union without duplicate RX/stage entries and
+  preserves historical-driver permission restrictions. Stages has All stages;
+  All dates disables and omits date bounds. All eight result column headers
+  toggle ascending/descending sorting across every page and CSV, within stage
+  groups; Stage sorts group names. The sort dropdowns reflect header selection.
+  Expanded synthetic SQL tests, public JS validation and template rendering
+  pass. Staging-only update; browser/user visual acceptance remains pending.
+
 - **RX Stage Report staging preview (2026-09-28, unreleased):** RX Records has
   a Stage Report popup with multiple active-stage selection, current-stage
   default / reached-stage scope, inclusive stage-date bounds, workflow-order

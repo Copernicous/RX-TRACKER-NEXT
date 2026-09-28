@@ -9,6 +9,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ### Added
 
+- Stage Report supports scope checkboxes with All scopes, All stages, All dates,
+  and sortable column headings with the same full-result ordering in CSV.
+
 - RX Records Stage Report popup: current/reached stage scope, multiple stages,
   stage-date bounds, grouping, oldest/newest sorting, elapsed calendar days,
   pagination, and complete filtered CSV with patient, clinic and driver details.
