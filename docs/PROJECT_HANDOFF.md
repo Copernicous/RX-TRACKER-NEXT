@@ -8,6 +8,25 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
 
+- **Official next.94 published and verified (2026-09-28):** Released the
+  user-approved RX Stage Report from 95a88420246006009923513caea9efa05826eb48
+  as v4.0.0-next.94. Exact-main PostgreSQL lifecycle CI 36496141877, CodeQL
+  36496141836 and Windows release workflow 36496560037 passed. Downloaded all
+  three official ZIPs: checksums, archive integrity, safe entries, required
+  package files, version, packaged source parity and both embedded executable
+  hashes passed. Compiled server and Project Control installed-version output
+  report next.94; rx-db help passed from isolated extraction. No new migration
+  or automatic business-data rewrite. Existing page styles/controllers are
+  unchanged; report CSS is popup-scoped. Separate history/archive functionality
+  remains staging-only. Production installation remains through Project Control
+  8 then 15; no live installation was performed from this workstation.
+  Release: https://github.com/Copernicous/RX-TRACKER-NEXT/releases/tag/v4.0.0-next.94
+  SHA-256 values:
+  - Both server ZIPs: `3e7e935302d37e2c37ea1f5a0d9bf29c05b2f1605a966a91280701f41cf676ae`
+  - Softphone ZIP: `a6abe5e716cc6febee6a45c1988aac96eea7df0778d8c066f036ae96303ea9e2`
+  - server.exe: `c1da87eb872cf23430da05d178d41a652a2800b37a765a02515770c79ea913ab`
+  - rx-db.exe: `bbab0b0f53f21c9e2d2e12dc564c721e89e0614e28f97e8e308ed7334d08ce4e`
+
 - **next.94 release preparation (2026-09-28):** User approved production
   publication after development review and requested isolation from other pages.
   The Stage Report uses new read-only RX endpoints, its own script and CSS
