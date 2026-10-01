@@ -71,3 +71,8 @@ query
 
 # Coverage
 coverage/
+
+# Local release worktrees, validation evidence and browser fixtures
+/output/
+/outputs/
+/.playwright-cli/

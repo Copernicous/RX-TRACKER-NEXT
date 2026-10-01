@@ -1,8 +1,7 @@
 name: Weekly dependency security audit
 
 on:
-  schedule:
-    - cron: "00 13 * * 2"
+  # Local builds are the default. Hosted execution requires explicit authorization.
   workflow_dispatch:
 
 permissions:

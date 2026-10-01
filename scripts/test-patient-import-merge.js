@@ -123,7 +123,9 @@ async function main() {
     assert.equal(result.mergedCount, 1); await existing.reload(); assert.equal(existing.city, 'Miami');
     const currentDate = new Date().toISOString().slice(0, 10);
     await existing.update({ serviceDate: currentDate });
-    const dateChange = { ...correction, serviceDate: '2026-10-01' };
+    const changedDate = new Date(currentDate + 'T12:00:00Z');
+    changedDate.setUTCDate(changedDate.getUTCDate() + 1);
+    const dateChange = { ...correction, serviceDate: changedDate.toISOString().slice(0, 10) };
     preview = await run([dateChange], { mode: 'preview' }, false, true);
     result = await run([dateChange], { duplicateReviewToken: preview.reviewToken,
         reviewDecisions: JSON.stringify([decision(2, existing.id, { serviceDate: 'incoming' })]) }, false, true);

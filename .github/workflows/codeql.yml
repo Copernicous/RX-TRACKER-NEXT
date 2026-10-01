@@ -1,18 +1,7 @@
 name: CodeQL security scan
 
 on:
-  push:
-    branches:
-      - main
-      - develop
-      - staging
-  pull_request:
-    branches:
-      - main
-      - develop
-      - staging
-  schedule:
-    - cron: "20 11 * * 0"
+  # Local builds are the default. Hosted execution requires explicit authorization.
   workflow_dispatch:
 
 permissions:

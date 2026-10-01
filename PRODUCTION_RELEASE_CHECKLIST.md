@@ -20,38 +20,29 @@ Use this list every time a new production version is compiled, tagged, uploaded 
 - [ ] Confirm `.env.example` contains any new safe, non-secret config keys.
 - [ ] Confirm the real production `.env` exists, but is not committed to Git or packaged in release zips. A release build does not require a production `.env`.
 
-## Package Policy
+## Local validation and packages
 
-- [ ] Do not run `npm run build:exe` or create release ZIPs in the local working tree. Official executables, server ZIPs, RX Softphone ZIPs, and checksums are built only by GitHub Actions from the approved tag.
-- [ ] Confirm `dist/` and generated ZIPs remain untracked and are not staged.
-- [ ] Confirm the tagged release workflow still builds `server.exe`, `rx-db.exe`, the update/new-server ZIPs, the RX Softphone ZIP, and `SHA256SUMS.txt`.
+- [ ] Follow docs/LOCAL_RELEASE.md from an intended clean source commit.
+- [ ] All hosted workflows are disabled/manual-only before pushing anything.
+- [ ] Prepare-LocalRelease.ps1 passes the complete PostgreSQL lifecycle suite,
+      recovery tests, application regressions, JavaScript/C# CodeQL scans,
+      dependency gate, unchanged Softphone build, and server/rx-db builds.
+- [ ] LOCAL_VALIDATION.json identifies the exact source commit and version.
+- [ ] Verify the two server ZIPs, Softphone ZIP, embedded executables and
+      SHA256SUMS.txt. Generated packages, credentials, logs and dumps stay out of Git.
+- [ ] Stage Report user acceptance completed; unrelated staging work excluded.
 
-## Local Validation
+## GitHub upload
 
-- [ ] Update the affected user-facing documentation before shipping the change (checklist, operations note, release note, or page-specific doc as needed).
-- [ ] Run the source-level and targeted regression checks required by database lifecycle CI.
-- [ ] Run `node scripts/db-lifecycle.js status` and `node scripts/db-lifecycle.js verify` only against an approved isolated development or testing database when database validation is required.
-- [ ] Rehearse a recent v3.3.1 custom dump according to `docs/database/SANITIZED_DUMP_REHEARSAL.md`.
-- [ ] Run targeted smoke checks for changed pages or APIs.
-- [ ] Confirm no unwanted files are staged with `git status --short`.
-- [ ] Confirm generated executables and ZIPs remain outside Git; GitHub Actions attaches them to the release.
-- [ ] Complete the remote-workstation acceptance record in `docs/RX_SOFTPHONE_REMOTE_TESTING.md` when the release changes phone or relay behavior.
-
-## GitHub Upload
-
-- [ ] Commit the version files, changelog, release notes, workflow/script updates, and checklist updates.
-- [ ] Push the branch: `git push origin main`.
-- [ ] Wait for the exact `main` commit to pass database lifecycle CI, CodeQL, and the Windows RX Softphone build.
-- [ ] Create the matching annotated tag only after `main` CI passes: `git tag -a v<version> -m "RX Tracker NEXT <version>"`.
-- [ ] Push the tag: `git push origin v<version>`.
-- [ ] Confirm the GitHub Actions release workflow runs on the new tag.
-- [ ] Confirm the GitHub Release body uses `.github/releases/v<version>.md`.
-- [ ] Confirm the release contains `server-update-<version>.zip`, `RX-Tracker-NEXT-New-Server-<version>.zip`, the RX Softphone ZIP, and `SHA256SUMS.txt`.
-- [ ] Download the official GitHub release assets and verify every asset against `SHA256SUMS.txt`; never deploy a local build as the official release.
-- [ ] Confirm the downloaded server ZIP opens and includes `server.exe`, `rx-db.exe`, `.env.example`, `README.md`, `CHANGELOG.md`, `RELEASE_NOTES-v<version>.md`, `PRODUCTION_RELEASE_CHECKLIST.md`, `PROJECT-CONTROL.bat`, `INSTALL-PROJECT-CONTROL.bat`, `scripts/project-control.ps1`, `scripts/Invoke-ReleaseUpdate.ps1`, `scripts/Install-ProjectControl.ps1`, `scripts/Invoke-NextProduction.ps1`, `project-control.json`, `package.json`, `OPERATIONS_MANUAL.md`, `DEFERRED-ITEMS.txt`, `docs/database/COMPILED_RELEASE_UPDATES.md`, the remaining database runbooks, `docs/PRODUCTION_MICROSIP_CHROME_POLICY.md`, `docs/RX_SOFTPHONE_REMOTE_TESTING.md`, `scripts/install-production-microsip-chrome-policy.ps1`, `install-service.ps1`, and `uninstall-service.ps1`.
-- [ ] Confirm the downloaded ZIP does not include `.env`, `.env.staging`, database dumps, secrets, or Git bundles.
-- [ ] Extract the downloaded ZIP into an isolated folder and run `PROJECT-CONTROL.bat version`; confirm it reports the release version without missing-file errors.
-- [ ] Run the downloaded `server.exe --v` and `rx-db.exe help`; validate `rx-db.exe status` and `verify` only against an approved isolated testing database.
+- [ ] Fast-forward approved develop then main to the locally verified commit.
+- [ ] Push source and a new matching annotated tag; no hosted jobs may start.
+- [ ] Create a draft with version-specific notes and upload finished ZIPs,
+      SHA256SUMS.txt and sanitized LOCAL_VALIDATION.json.
+- [ ] Download every draft asset and compare hashes to local originals;
+      validate embedded executable hashes and version before publication.
+- [ ] Publish only after verification. Never replace an existing release.
+- [ ] Update the handoff with commit, validation and verified release hashes.
+- [ ] Publishing does not authorize installing on production.
 
 ## Routine Production Installation
 

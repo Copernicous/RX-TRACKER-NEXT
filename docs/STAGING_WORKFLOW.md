@@ -34,13 +34,9 @@ git merge --no-ff staging
 # after final dev polish and tests
 git checkout main
 git merge --no-ff develop
-git push origin main develop staging
-
-# after the exact main commit passes PostgreSQL lifecycle CI and CodeQL
-git tag -a vX.Y.Z -m "RX Tracker NEXT X.Y.Z"
-git push origin vX.Y.Z
-
-# GitHub Actions builds and publishes the official executables, ZIPs, and checksums
+# Run the complete local release checks/build before pushing source or tags.
+# See docs/LOCAL_RELEASE.md. Hosted workflows remain manual-only.
+# Upload verified local packages to a draft, download/verify, then publish.
 ```
 
 ## Folder And File Map
@@ -253,7 +249,7 @@ Use this path for bigger decisions, risky changes, new workflows, or anything th
 
    Clean wording, edge cases, migrations, and production readiness on `develop`.
 
-8. Production release
+8. Production release (verified local build; see docs/LOCAL_RELEASE.md)
 
    Merge `develop` into `main`, run production checks/build, push, deploy, then verify the real production workflow.
 

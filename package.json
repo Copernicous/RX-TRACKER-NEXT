@@ -1,6 +1,6 @@
 {
   "name": "patient-rx-system",
-  "version": "4.0.0-next.94",
+  "version": "4.0.0-next.95",
   "description": "Patient RX Delivery Management System - NEXT database lifecycle preview",
   "main": "app.js",
   "scripts": {
@@ -171,7 +171,7 @@
     "multer": "^2.2.0",
     "node-cron": "^4.4.1",
     "node-windows": "^1.0.0-beta.8",
-    "nodemailer": "^9.0.1",
+    "nodemailer": "^10.0.13",
     "pdf-lib": "^1.17.1",
     "pg": "^8.22.0",
     "pg-hstore": "^2.3.4",

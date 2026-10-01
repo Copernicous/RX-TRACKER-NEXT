@@ -34,4 +34,17 @@ assert(apiRoutes.includes("rbac.requirePermission('rx_records', 'print'), delive
 assert(apiRoutes.includes("'/reports/delivery-log-archives/:id/print', requireDeliveryLogPrintPermission"), 'Delivery-log printing must preserve RX Records and Reports permission compatibility.');
 assert(guide.includes('staging -> develop -> main -> official release'), 'The operator guide must preserve the release path.');
 
+// Local release policy preserves the checks while preventing paid hosted jobs.
+for (const name of fs.readdirSync(path.join(root, '.github/workflows')).filter(name => /\.ya?ml$/.test(name))) {
+    const workflow = read('.github/workflows/' + name);
+    const trigger = workflow.split(/^on:\s*$/m)[1].split(/^permissions:|^jobs:/m)[0];
+    assert(trigger.includes('workflow_dispatch:'), name + ' must require explicit dispatch');
+    assert(!/^\s+(push|pull_request|schedule|workflow_run|release):/m.test(trigger), name + ' must not run automatically');
+}
+const localRelease = read('scripts/Prepare-LocalRelease.ps1');
+assert(localRelease.includes('$validation.sourceCommit -ne $sha'), 'Local lifecycle evidence must match exact source.');
+assert(localRelease.includes('git status --porcelain'), 'Local releases require a clean checkout.');
+assert(localRelease.includes('SHA256SUMS.txt') && localRelease.includes('Package/source mismatch'), 'Local release assets require checksums and source parity.');
+assert(read('docs/LOCAL_RELEASE.md').includes('draft'), 'Downloaded draft verification must precede publication.');
+
 console.log('PASS automated dependency, CodeQL, pull-request review, and operator-guidance policy.');

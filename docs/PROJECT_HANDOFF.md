@@ -8,6 +8,16 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
 
+- **next.95 local release preparation (2026-10-01):** User requested promotion
+  of the reviewed baseline comparison through development to production with
+  all release execution local. Report changes are committed on staging and
+  cherry-picked to develop; deferred history/archive work remains staging-only.
+  A separate clean release worktree holds next.95 version/notes, manual-only
+  workflow triggers, a repeatable local lifecycle/build/package harness and
+  dependency audit fixes. Full local validation and package verification are
+  required before push/publication. No production installation is authorized.
+
+
 - **Stage Report baseline comparison (2026-10-01, unreleased staging):** Added
   a single baseline stage selector alongside the existing multiple-stage
   selector. The baseline stage name appears immediately left of the compared
@@ -20,7 +30,7 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
   by both table and CSV endpoints. The stage-to-today age column
   and its sort option were removed from the table and CSV at user request. Synthetic PostgreSQL regression, public JavaScript
   validation and staging configuration checks passed. Browser fixture review
-  uses synthetic data. Live user acceptance remains pending. No migration,
+  uses synthetic data. User requested release preparation after staging review. No migration,
   production deployment, release or promotion to develop/main performed.
 
 - **Official next.94 published and verified (2026-09-28):** Released the
@@ -1495,20 +1505,13 @@ C:\RX-Tracker\deployment-state
 
 ## Release procedure for maintainers
 
-1. Work only in the NEXT repository and inspect the existing worktree first.
-2. Update code, tests, changelog, version, and version-specific release notes.
-3. Run relevant source-level local checks. Do not build official executables or
-   release ZIPs locally; GitHub Actions builds them from the approved tag.
-4. Commit and push `main`.
-5. Wait for the full PostgreSQL lifecycle CI to pass.
-6. Create and push a new annotated `v<version>` tag.
-7. Wait for the Windows release workflow to publish the server ZIP, RX
-   Softphone workstation ZIP, and `SHA256SUMS.txt`.
-8. Verify the published assets and executable versions before giving the
-   production operator deployment instructions.
-
-Never reuse a tag, publish unverified local binaries as official, or commit a
-production `.env` or database dump.
+Follow docs/LOCAL_RELEASE.md and the root AGENTS.md publishing policy.
+Build/test/package locally from a clean, intended commit. All hosted workflows
+are manual-only and must be disabled remotely before a push could trigger old
+workflow definitions. Preserve the full lifecycle, migration/recovery, security,
+application and packaging gates. Push the verified source/new tag and upload
+finished artifacts to a draft; download and hash-verify before publication.
+Do not install on production without separate user authorization.
 
 ## New-session checklist
 

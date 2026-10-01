@@ -1,10 +1,7 @@
 name: NEXT database lifecycle CI
 
 on:
-  push:
-    branches: [main, develop, staging, modernize/database-lifecycle]
-  pull_request:
-    branches: [main, develop, staging]
+  # Local builds are the default. Hosted execution requires explicit authorization.
   workflow_dispatch:
 
 permissions:

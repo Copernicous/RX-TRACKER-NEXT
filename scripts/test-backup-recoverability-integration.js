@@ -7,7 +7,7 @@ const path = require('path');
 
 async function main() {
     const databaseName = String(process.env.DB_NAME || '');
-    assert.strictEqual(process.env.GITHUB_ACTIONS, 'true', 'Real recoverability integration is restricted to GitHub Actions.');
+    assert.ok(process.env.GITHUB_ACTIONS === 'true' || (process.env.RX_LOCAL_RELEASE_TEST === '1' && process.env.DB_HOST === '127.0.0.1'), 'Real recoverability integration requires CI or the explicit localhost release harness.');
     assert.strictEqual(process.env.CI, 'true', 'Real recoverability integration requires the disposable CI environment.');
     assert.strictEqual(
         process.env.BACKUP_RECOVERABILITY_REAL_DB,

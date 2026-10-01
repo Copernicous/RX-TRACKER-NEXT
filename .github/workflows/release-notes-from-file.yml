@@ -1,9 +1,8 @@
 name: Release with Notes
 
 on:
-  push:
-    tags:
-      - 'v*'
+  # Local builds are the default. Hosted execution requires explicit authorization.
+  workflow_dispatch:
 
 permissions:
   contents: write

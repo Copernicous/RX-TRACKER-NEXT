@@ -7,6 +7,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+## [4.0.0-next.95] - 2026-10-01
+
 ### Added
 
 - RX Stage Report baseline selector: compare one baseline stage with multiple
@@ -19,6 +21,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
   or CSV requests; changing the baseline removes it from the comparison.
   The popup now uses nearly the full screen width and provides a synchronized
   horizontal scrollbar above wide results, with keyboard scrolling support.
+
+### Changed
+
+- Make the synthetic import service-date guard fixture relative to the test
+  date so it does not become a no-op on October 1, 2026. Application rules are unchanged.
+- Release validation and Windows packaging now run locally. Hosted workflows
+  are manual-only; source/tag pushes do not start GitHub-hosted jobs.
+- Updated Nodemailer and compatible locked dependencies to clear the required
+  high-severity dependency gate. Existing moderate Sequelize/UUID findings
+  remain; no forced database-library downgrade.
 
 ## [4.0.0-next.94] - 2026-09-28
 

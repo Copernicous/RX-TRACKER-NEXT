@@ -251,9 +251,10 @@ checksummed production release.
 - [Verified test-copy restore](docs/database/TEST_COPY_RESTORE.md)
 - [3.3.1 startup mutation inventory](docs/database/STARTUP_MUTATION_INVENTORY.md)
 
-Every push and pull request runs the fresh-provision, checksum-drift,
-sanitization, v3.3.1 dump-rehearsal, application-regression, and restricted
-read/write runtime-role checks in GitHub Actions.
+Release preparation runs fresh-provision, checksum-drift, sanitization,
+v3.3.1 dump-rehearsal, application-regression, and restricted read/write
+runtime-role checks locally. Hosted workflows are manual-only. See
+[Local release preparation](docs/LOCAL_RELEASE.md).
 
 For source development, install Node.js and PostgreSQL, create a local `.env`
 from `.env.example`, then run:

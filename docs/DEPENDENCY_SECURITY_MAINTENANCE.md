@@ -3,18 +3,14 @@
 RX Tracker checks dependencies automatically. Production never installs an
 update merely because GitHub finds one.
 
-## What happens automatically
+## Local checks and hosted automation
 
-- Every Monday, Dependabot checks npm packages and GitHub Actions.
-- Dependabot opens update pull requests against `staging`, not `main`.
-- Every pull request receives a dependency review. A newly introduced high or
-  critical vulnerability blocks the pull request.
-- Every Tuesday, the locked dependency tree receives a separate high-severity
-  npm audit even when nobody changed the repository.
-- CodeQL scans JavaScript and the RX Softphone C# source on pushes, pull
-  requests, and every Sunday.
-- Existing staging, development, main, release-build, database, browser, and
-  softphone checks remain required.
+Dependabot continues proposing updates against staging. Hosted Actions are
+manual-only while local execution is required. Do not enable or dispatch them
+without explicit user authorization. Run the high-severity dependency audit,
+JavaScript/C# CodeQL scans, lifecycle suite and package gates locally using
+`docs/LOCAL_RELEASE.md` before promotion/publication. Retain the evidence for
+that exact commit; a push is not validation.
 
 ## What the administrator needs to do
 
@@ -22,10 +18,10 @@ When GitHub emails about a Dependabot pull request:
 
 1. Open the pull request. Do not press **Merge** immediately.
 2. Confirm the destination shown near the title is `staging`.
-3. Wait for the checks at the bottom of the pull request.
-4. If any check is red, leave the pull request open and request technical
+3. Run the complete local release checks for the candidate commit.
+4. If any local check fails, leave the pull request open and request technical
    review.
-5. If all checks are green, request a normal RX Tracker dependency promotion.
+5. If all local checks pass, request a normal RX Tracker dependency promotion.
    The update still follows `staging -> develop -> main -> official release`.
 
 The simplest request to send for review is:
