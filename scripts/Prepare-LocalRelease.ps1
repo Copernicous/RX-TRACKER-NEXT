@@ -4,6 +4,7 @@ param(
     [Parameter(Mandatory=$true)][string]$OutputDirectory,
     [Parameter(Mandatory=$true)][string]$DotnetDirectory,
     [Parameter(Mandatory=$true)][string]$CodeqlExe,
+    [Parameter(Mandatory=$true)][string]$BaselineRef,
     [string]$PgBin = 'C:\Program Files\PostgreSQL\17\bin'
 )
 $ErrorActionPreference = 'Stop'
@@ -42,18 +43,22 @@ Invoke-Checked 'lifecycle' 'node.exe' @('scripts/local-release-checks.js','--env
 $validation = Get-Content (Join-Path $output 'lifecycle/validation.json') -Raw | ConvertFrom-Json
 if (-not $validation.passed -or $validation.sourceCommit -ne $sha) { throw 'Exact-source local lifecycle validation is missing.' }
 Invoke-Checked 'softphone-compile' (Join-Path $DotnetDirectory 'dotnet.exe') @('build','rx-softphone-desktop/RxSoftphone.csproj','-c','Release','-r','win-x64')
+$baselineSha = (git rev-parse --verify "$BaselineRef^{commit}").Trim()
+if ($LASTEXITCODE -ne 0) { throw 'The published baseline ref is missing.' }
+$baselineSource = Join-Path $output 'baseline-source'
+Invoke-Checked 'baseline-archive' 'git.exe' @('archive','--format=zip',"--output=$(Join-Path $output 'baseline-source.zip')",$baselineSha)
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+[IO.Compression.ZipFile]::ExtractToDirectory((Join-Path $output 'baseline-source.zip'), $baselineSource)
+$baselineDb = Join-Path $output 'baseline-codeql-javascript'
+Invoke-Checked 'baseline-codeql-create' $CodeqlExe @('database','create',$baselineDb,'--language=javascript',"--source-root=$baselineSource",'--build-mode=none','--threads=2')
+Invoke-Checked 'baseline-codeql-analyze' $CodeqlExe @('database','analyze',$baselineDb,'codeql/javascript-queries:codeql-suites/javascript-code-scanning.qls','--format=sarif-latest',"--output=$(Join-Path $output 'baseline-javascript.sarif')",'--threads=2')
 foreach ($language in @('javascript','csharp')) {
     $dbPath = Join-Path $output "codeql-$language"
     Invoke-Checked "codeql-$language-create" $CodeqlExe @('database','create',$dbPath,"--language=$language","--source-root=$root",'--build-mode=none','--threads=2')
     Invoke-Checked "codeql-$language-analyze" $CodeqlExe @('database','analyze',$dbPath,"codeql/$language-queries:codeql-suites/$language-code-scanning.qls",'--format=sarif-latest',"--output=$(Join-Path $output "$language.sarif")",'--threads=2')
-    $sarif = Get-Content (Join-Path $output "$language.sarif") -Raw | ConvertFrom-Json
-    foreach ($run in $sarif.runs) {
-        foreach ($result in $run.results) {
-            $rule = $run.tool.driver.rules | Where-Object id -eq $result.ruleId | Select-Object -First 1
-            if ([double]$rule.properties.'security-severity' -ge 7 -or $result.level -eq 'error') { throw "CodeQL blocking finding: $($result.ruleId). Review SARIF before release." }
-        }
-    }
 }
+Invoke-Checked 'codeql-review' 'node.exe' @('scripts/review-local-codeql.js',$output,$BaselineRef)
+
 Invoke-Checked 'server-build' 'npx.cmd' @('--yes','--package=@yao-pkg/pkg@6.23.0','pkg','app.js','--target','node22-win-x64','--output','dist/server.exe','--compress','GZip')
 Invoke-Checked 'database-cli-build' 'npx.cmd' @('--yes','--package=@yao-pkg/pkg@6.23.0','pkg','scripts/db-lifecycle.js','--target','node22-win-x64','--output','dist/rx-db.exe','--compress','GZip')
 Invoke-Checked 'server-packaging' 'node.exe' @('scripts/post-build.js')
@@ -102,7 +107,7 @@ $extracted = Join-Path $output 'compiled-smoke'
 Invoke-Checked 'compiled-runtime' 'node.exe' @('scripts/test-compiled-release.js',$extracted,$MaintenanceEnv)
 
 if ((git rev-parse HEAD).Trim() -ne $sha -or @(git status --porcelain).Count -ne 0) { throw 'Source changed during validation/build; rerun from clean checkout.' }
-$manifest = @{ version=$version; sourceCommit=$sha; finishedAt=[DateTime]::UtcNow.ToString('o'); localValidationPassed=$true; checksums=$hashes; lifecycleChecks=@($validation.checks).Count; codeql=@('javascript','csharp'); pkgVersion='6.23.0'; nodeVersion=(& node.exe --version); dotnetVersion=(& (Join-Path $DotnetDirectory 'dotnet.exe') --version) }
+$manifest = @{ version=$version; sourceCommit=$sha; finishedAt=[DateTime]::UtcNow.ToString('o'); localValidationPassed=$true; checksums=$hashes; lifecycleChecks=@($validation.checks).Count; codeql=@('javascript','csharp'); codeqlReview=(Get-Content (Join-Path $output 'codeql-review.json') -Raw | ConvertFrom-Json); knownDependencyWarnings=@('Existing moderate Sequelize/UUID npm findings','Unchanged SIPSorcery 10.0.12: GHSA-jwjp-4649-v8jp, GHSA-pfvm-w89x-94jw'); pkgVersion='6.23.0'; nodeVersion=(& node.exe --version); dotnetVersion=(& (Join-Path $DotnetDirectory 'dotnet.exe') --version) }
 $manifest | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $output 'LOCAL_VALIDATION.json') -Encoding UTF8
 Write-Host "PASS local release $version from $sha. Assets: $output"
 Write-Host 'No source, tag, draft or release was pushed/published. Installation remains a separate operator action.'

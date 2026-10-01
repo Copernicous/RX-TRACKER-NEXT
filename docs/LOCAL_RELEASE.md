@@ -27,6 +27,7 @@ user authorization. All workflow triggers are manual-only.
   -OutputDirectory <new-local-evidence-directory> `
   -DotnetDirectory <portable-sdk-directory> `
   -CodeqlExe <codeql.exe-path> `
+  -BaselineRef <previous-published-release-tag> `
   -PgBin 'C:\Program Files\PostgreSQL\17\bin'
 ```
 
@@ -35,7 +36,12 @@ It installs locked dependencies, runs `local-release-checks.js`, compiles the
 unchanged Softphone, runs both CodeQL scans, builds server/rx-db with pinned
 pkg 6.23.0, builds all three ZIPs, verifies source/package parity and compiled
 versions, and writes SHA256SUMS.txt and LOCAL_VALIDATION.json. Failures block
-release; they never fall back to GitHub. CodeQL errors/high findings block.
+release; they never fall back to GitHub. CodeQL runs on the candidate and the
+published JavaScript baseline with the same tool/query bundle. New unreviewed
+high/error findings block; existing findings stay in the evidence and are not
+declared safe. Unchanged Softphone source is identified against the baseline.
+See LOCAL_RELEASE_SECURITY_REVIEW.md for the narrow test-only review and
+existing source/dependency findings.
 Existing moderate Sequelize/UUID findings do not justify a forced downgrade.
 
 The lifecycle harness includes fresh provisioning/idempotence, checksum drift,

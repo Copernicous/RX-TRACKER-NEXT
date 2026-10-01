@@ -15,7 +15,10 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
   A separate clean release worktree holds next.95 version/notes, manual-only
   workflow triggers, a repeatable local lifecycle/build/package harness and
   dependency audit fixes. Full local validation and package verification are
-  required before push/publication. No production installation is authorized.
+  required before push/publication. Local CodeQL reports legacy findings;
+  compare the prior published baseline and retain the full evidence. Unchanged
+  Softphone SIPSorcery also emits two high NuGet advisories; see
+  docs/LOCAL_RELEASE_SECURITY_REVIEW.md. No production installation is authorized.
 
 
 - **Stage Report baseline comparison (2026-10-01, unreleased staging):** Added
