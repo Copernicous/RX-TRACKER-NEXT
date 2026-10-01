@@ -18,8 +18,8 @@ $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
 $notes = Join-Path $root ".github/releases/v$version.md"
 if (-not (Test-Path -LiteralPath $notes)) { throw 'Missing version-specific release notes.' }
 if ((Get-Content $notes -Raw) -notmatch [regex]::Escape($version)) { throw 'Release notes version mismatch.' }
-$lock = Get-Content package-lock.json -Raw | ConvertFrom-Json
-if ($lock.version -ne $version -or $lock.packages.''.version -ne $version) { throw 'Lockfile version mismatch.' }
+$lockVersions = @(& node.exe -p "JSON.stringify([require('./package-lock.json').version,require('./package-lock.json').packages[''].version])") | ConvertFrom-Json
+if ($LASTEXITCODE -ne 0 -or $lockVersions[0] -ne $version -or $lockVersions[1] -ne $version) { throw 'Lockfile version mismatch.' }
 foreach ($tool in @((Join-Path $DotnetDirectory 'dotnet.exe'), $CodeqlExe, (Join-Path $PgBin 'pg_dump.exe'))) {
     if (-not (Test-Path -LiteralPath $tool)) { throw "Missing local tool: $tool" }
 }
