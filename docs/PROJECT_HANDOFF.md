@@ -8,6 +8,29 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
 
+- **next.95 published for testing (2026-10-01):** At the user's request, pushed
+  verified source `c93c957d1663a8807a42195aaca31d97daa02d5c` to develop/main and
+  annotated tag `v4.0.0-next.95`. Published the locally built prerelease after
+  uploading as a draft and downloading all five assets again. All asset hashes
+  and embedded server/rx-db executable hashes matched the local originals.
+  Local validation passed 66 PostgreSQL lifecycle/application checks, browser
+  review, CodeQL baseline comparison, package/source parity, ZIP integrity and
+  extracted compiled-runtime startup. `LOCAL_VALIDATION.json` is a release asset.
+  The five repository workflows remain disabled; no hosted builds were started.
+  Known legacy findings and unchanged Softphone dependency advisories remain
+  documented in `docs/LOCAL_RELEASE_SECURITY_REVIEW.md`.
+  This documentation entry follows the immutable verified release commit.
+  Development on port 3000 reports next.95 with healthy database checks.
+  No remote testing-server or production installation was performed.
+  Install on the testing server through Project Control option 8 then 15 and
+  confirm version next.95 before testing the Stage Report comparison and CSV.
+  Release: https://github.com/Copernicous/RX-TRACKER-NEXT/releases/tag/v4.0.0-next.95
+  Verified SHA-256 values:
+  - Both server ZIPs: `5f4c9fea4da2fa50644172b1aac7778ba72cadb7a1750345a3d680a707a99fdc`
+  - Softphone ZIP: `4a2b6e2ddafe30d6a88d1fc93e0caca35a7f8451b49e6503093de72dd2bb07b6`
+  - server.exe: `4e44bd55346213308630c069b3fa847dd0431a8e896cd024879b0aaeece6cb1b`
+  - rx-db.exe: `24229ec0e1ab4ac447ddeeb878c4ae99dee4103a587800ff31b086adfc419f54`
+
 - **next.95 local release preparation (2026-10-01):** User requested promotion
   of the reviewed baseline comparison through development to production with
   all release execution local. Report changes are committed on staging and

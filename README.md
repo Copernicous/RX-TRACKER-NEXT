@@ -10,7 +10,13 @@ frozen 3.3.1 repository, its production database, or the RX Softphone source.
 
 ## Current status
 
-Version: `4.0.0-next.94` release
+Version: `4.0.0-next.95` prerelease, published for testing
+
+Version `next.95` adds baseline-to-stage date comparisons and signed days
+between stages to the RX Records Stage Report and CSV. The baseline is excluded
+from comparison choices. The wider popup has synchronized horizontal scrolling;
+the stage-to-today column is removed. No new migration. All release builds and
+validation run locally; GitHub stores the verified packages and checksums.
 
 Version `next.94` adds RX Records **Stage Report**: current/reached stage
 selection, stage-date filters, days elapsed, grouped sortable results and
