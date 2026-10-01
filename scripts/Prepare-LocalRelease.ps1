@@ -97,6 +97,10 @@ foreach ($name in $assets) {
     Copy-Item -LiteralPath (Join-Path $root "dist/$name") -Destination $output
 }
 Copy-Item -LiteralPath (Join-Path $root 'dist/SHA256SUMS.txt') -Destination $output
+$extracted = Join-Path $output 'compiled-smoke'
+[IO.Compression.ZipFile]::ExtractToDirectory((Join-Path $root "dist/server-update-$version.zip"), $extracted)
+Invoke-Checked 'compiled-runtime' 'node.exe' @('scripts/test-compiled-release.js',$extracted,$MaintenanceEnv)
+
 if ((git rev-parse HEAD).Trim() -ne $sha -or @(git status --porcelain).Count -ne 0) { throw 'Source changed during validation/build; rerun from clean checkout.' }
 $manifest = @{ version=$version; sourceCommit=$sha; finishedAt=[DateTime]::UtcNow.ToString('o'); localValidationPassed=$true; checksums=$hashes; lifecycleChecks=@($validation.checks).Count; codeql=@('javascript','csharp'); pkgVersion='6.23.0'; nodeVersion=(& node.exe --version); dotnetVersion=(& (Join-Path $DotnetDirectory 'dotnet.exe') --version) }
 $manifest | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $output 'LOCAL_VALIDATION.json') -Encoding UTF8

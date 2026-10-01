@@ -133,7 +133,7 @@ async function smokeServer(label, database, port, extra = {}, relay = false) {
         const password = crypto.randomBytes(24).toString('hex');
         roleCreated = true;
         lifecycle('runtime-role-configure', ['configure-runtime-role','--role',runtimeRole,'--confirm-database',databases[0]], { RX_RUNTIME_DB_PASSWORD: password });
-        for (const operation of ['inspect-runtime-role','verify-runtime-role']) lifecycle(operation, [operation,'--role',runtimeRole]);
+        for (const operation of ['inspect-runtime-role','verify-runtime-role']) lifecycle(operation, [operation,'--role',runtimeRole], { RX_RUNTIME_DB_PASSWORD: password });
         node('restricted-routine-db-health', 'scripts/test-routine-db-health.js', [], { ROUTINE_DB_HEALTH_REAL_DB: 'true', DB_USER: runtimeRole, DB_PASS: password });
         await smokeServer('restricted-runtime', databases[0], 3211, { DB_USER: runtimeRole, DB_PASS: password });
         evidence.passed = true;
