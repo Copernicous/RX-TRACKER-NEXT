@@ -1,12 +1,27 @@
 # RX Tracker NEXT project handoff
 
-Last updated: 2026-09-28
+Last updated: 2026-10-01
 
 This file is the sanitized continuity record for a future administrator or
 Codex session. It intentionally contains no credentials, `.env` values,
 patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
+
+- **Stage Report baseline comparison (2026-10-01, unreleased staging):** Added
+  a single baseline stage selector alongside the existing multiple-stage
+  selector. The baseline stage name appears immediately left of the compared
+  stage in both table and CSV. Results include baseline date, compared stage date and
+  signed calendar days between them, with sortable comparison columns. Each
+  comparison uses the latest recorded dates on the same RX; target date filters
+  do not restrict the baseline. Missing dates stay unknown; earlier targets
+  yield negative days. The baseline is disabled and deselected in comparison
+  choices, excluded from All comparison stages, and rejected as a comparison
+  by both table and CSV endpoints. The stage-to-today age column
+  and its sort option were removed from the table and CSV at user request. Synthetic PostgreSQL regression, public JavaScript
+  validation and staging configuration checks passed. Browser fixture review
+  uses synthetic data. Live user acceptance remains pending. No migration,
+  production deployment, release or promotion to develop/main performed.
 
 - **Official next.94 published and verified (2026-09-28):** Released the
   user-approved RX Stage Report from 95a88420246006009923513caea9efa05826eb48

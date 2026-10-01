@@ -120,3 +120,43 @@
 #rxStageReportModal .border-bottom {
     border-color: var(--border) !important;
 }
+
+/* Give the comparison columns nearly the full screen, only in this report. */
+#rxStageReportModal .modal-dialog {
+    width: calc(100% - 2rem);
+    max-width: none;
+    margin: 1rem auto;
+}
+#rxStageReportModal .stage-report-top-scroll {
+    overflow-x: scroll;
+    overflow-y: hidden;
+    height: 20px;
+    margin-bottom: 0.4rem;
+}
+#rxStageReportModal .stage-report-top-scroll > div {
+    height: 1px;
+}
+#rxStageReportModal :is(.stage-report-top-scroll, .table-responsive) {
+    scrollbar-color: var(--report-muted) var(--report-panel);
+    scrollbar-width: auto;
+}
+#rxStageReportModal :is(.stage-report-top-scroll, .table-responsive)::-webkit-scrollbar {
+    height: 14px;
+}
+#rxStageReportModal :is(.stage-report-top-scroll, .table-responsive)::-webkit-scrollbar-track {
+    background: var(--report-panel);
+}
+#rxStageReportModal :is(.stage-report-top-scroll, .table-responsive)::-webkit-scrollbar-thumb {
+    background: var(--report-muted);
+    border: 3px solid var(--report-panel);
+    border-radius: 8px;
+}
+#rxStageReportModal :is(.stage-report-top-scroll, .table-responsive):focus-visible {
+    outline: 3px solid var(--report-link);
+    outline-offset: 2px;
+}
+@media (max-width: 575.98px) {
+    #rxStageReportModal .modal-dialog {
+        width: calc(100% - 1rem);
+    }
+}

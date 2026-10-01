@@ -7,6 +7,19 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+### Added
+
+- RX Stage Report baseline selector: compare one baseline stage with multiple
+  stages, with the baseline stage named immediately left of the compared stage
+  in the table and CSV, showing adjacent baseline/stage dates and signed calendar days between
+  them. Comparison columns support sorting and complete filtered CSV export;
+  missing dates remain unknown. Removed the stage-to-today age column and its
+  sort option from the report and CSV so comparisons end with days since baseline.
+  The baseline cannot be selected as a comparison, including through All stages
+  or CSV requests; changing the baseline removes it from the comparison.
+  The popup now uses nearly the full screen width and provides a synchronized
+  horizontal scrollbar above wide results, with keyboard scrolling support.
+
 ## [4.0.0-next.94] - 2026-09-28
 
 ### Fixed

@@ -91,6 +91,37 @@ const db = require('../models');
         for (const sort of ['rxId', 'patientCode', 'patient', 'clinic', 'driver', 'stage', 'stageDate', 'daysElapsed']) {
             assert.equal((await run({ sort, direction: 'desc', scope: 'both', stages: '1,2' })).body.total, 56);
         }
+        for (const baselineStage of ['', '0', '-1', '1.5', '3', '999', '1,2', '1);DROP TABLE', ['1']]) {
+            assert.equal((await run({ baselineStage })).code, 400, 'Reject invalid/inactive baselines');
+        }
+        result = await run({ baselineStage: '1', stages: '2', from: '2026-09-10', to: '2026-09-10' });
+        assert.equal(result.body.total, 1, 'Baseline outside target date bounds is retained');
+        assert.equal(result.body.baselineStage.name, 'Received');
+        assert.equal(result.body.rows[0].baselineDate, '2026-09-02T14:00:00.000Z');
+        assert.equal(result.body.rows[0].daysSinceBaseline, 8);
+        assert.equal((await run({ baselineStage: '1', stages: '1' })).code, 400);
+        assert.equal((await run({ baselineStage: '1', stages: '1,2' }, true)).code, 400, 'CSV also rejects baseline among comparison stages');
+        result = await run({ baselineStage: '2', stages: '1', scope: 'reached', sort: 'daysSinceBaseline' });
+        assert.equal(result.body.rows[0].daysSinceBaseline, -8, 'Earlier targets retain signed intervals');
+        assert.equal(result.body.rows[1].daysSinceBaseline, null, 'Missing baseline does not remove RX');
+        assert.equal(result.body.total, 55, 'Join stays within RX, not patient');
+        assert.equal((await run({ baselineStage: '1', stages: '2', sort: 'baselineDate', direction: 'desc' })).body.rows[0].rxId, 1);
+        const comparisonCsv = await run({ baselineStage: '1', stages: '2' }, true);
+        assert.ok(comparisonCsv.text.includes('"Days since baseline"'));
+        assert.ok(comparisonCsv.text.includes('"Received"'));
+        assert.ok(comparisonCsv.text.includes('"2026-09-02T14:00:00.000Z"'));
+        assert.ok(comparisonCsv.text.includes('"8"'));
+        // Different time zones and DST must sort by the displayed calendar interval, not elapsed hours.
+        await sql(`INSERT INTO "RXWorkflowTrackings" VALUES
+          (200,2,2,'2026-09-12 01:00:00-04','Test driver'),
+          (201,3,2,NULL,'Test driver');`);
+        result = await run({ baselineStage: '1', stages: '2', sort: 'daysSinceBaseline', direction: 'desc' });
+        assert.deepEqual(Array.from(result.body.rows, row => row.daysSinceBaseline), [9, 8, null]);
+        assert.equal(result.body.rows[0].baselineDate, '2026-09-03T14:00:00.000Z', 'Latest duplicate baseline wins');
+        const dst = context.exports.present({ baselineDate: '2026-03-08T05:00:00Z', stageDate: '2026-03-09T04:00:00Z' }, new Date());
+        assert.equal(dst.daysSinceBaseline, 1);
+        assert.equal(context.exports.present({ baselineDate: null, stageDate: '2026-09-10' }, new Date()).daysSinceBaseline, null);
+        assert.equal(context.exports.present({ baselineDate: '2026-09-10', stageDate: null }, new Date()).daysSinceBaseline, null);
         permission.canViewDriverHistory = false;
         result = await run({ scope: 'reached' }); assert.equal(result.body.driverRestricted, true); assert.equal(result.body.rows[0].driver, '');
         result = await run({ scope: 'both', sort: 'driver' }); assert.equal(result.body.driverRestricted, true); assert.equal(result.body.rows[0].driver, '');

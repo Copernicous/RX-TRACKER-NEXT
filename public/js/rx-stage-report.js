@@ -4,6 +4,21 @@
     const endpoint = '/api/rx-records/stage-report';
     let applied = null, page = 1, total = 0, canExport = false, generation = 0;
     let controller = null;
+    const topScroll = el('stageReportTopScroll');
+    const tableScroll = el('stageReportTableScroll');
+    function updateHorizontalScroll() {
+        const width = tableScroll.scrollWidth;
+        topScroll.firstElementChild.style.width = width + 'px';
+        topScroll.hidden = width <= tableScroll.clientWidth;
+        topScroll.scrollLeft = tableScroll.scrollLeft;
+    }
+    topScroll.addEventListener('scroll', () => { tableScroll.scrollLeft = topScroll.scrollLeft; });
+    tableScroll.addEventListener('scroll', () => { topScroll.scrollLeft = tableScroll.scrollLeft; });
+    const scrollObserver = new ResizeObserver(updateHorizontalScroll);
+    scrollObserver.observe(tableScroll);
+    scrollObserver.observe(tableScroll.querySelector('table'));
+    el('rxStageReportModal').addEventListener('shown.bs.modal', updateHorizontalScroll);
+
     const status = message => { el('stageReportStatus').textContent = message; };
     function stop() {
         generation++;
@@ -38,30 +53,42 @@
             if (token !== generation) return;
             canExport = data.canExport;
             const selected = new Set(Array.from(el('stageReportStages').querySelectorAll('input:checked'), input => input.value));
+            const baseline = el('stageReportBaseline');
+            const previousBaseline = baseline.value;
+            baseline.replaceChildren();
             el('stageReportStages').replaceChildren();
             data.stages.forEach(stage => {
+                const option = document.createElement('option'); option.value = stage.id; option.textContent = stage.name; baseline.append(option);
                 const label = document.createElement('label'); label.className = 'd-flex gap-2 py-1';
                 const input = document.createElement('input'); input.type = 'checkbox'; input.value = stage.id; input.className = 'form-check-input'; input.checked = selected.has(String(stage.id));
                 label.append(input, document.createTextNode(stage.name)); el('stageReportStages').append(label);
             });
+            if (data.stages.some(stage => String(stage.id) === previousBaseline)) baseline.value = previousBaseline;
             updateSelection();
             el('stageReportApply').disabled = !data.stages.length;
             status(data.stages.length ? 'Select stages and apply filters.' : 'No active stages are configured.');
         } catch (error) { if (token === generation) status(error.message); }
     });
     function updateSelection() {
+        const baseline = el('stageReportBaseline').value;
+        el('stageReportStages').querySelectorAll('input').forEach(input => {
+            input.disabled = input.value === baseline;
+            if (input.disabled) input.checked = false;
+            input.parentElement.title = input.disabled ? 'Selected as baseline; choose another stage to compare.' : '';
+        });
         const count = el('stageReportStages').querySelectorAll('input:checked').length;
-        const stageCount = el('stageReportStages').querySelectorAll('input').length;
+        const stageCount = el('stageReportStages').querySelectorAll('input:not(:disabled)').length;
+        el('stageReportAllStages').disabled = stageCount === 0;
         el('stageReportAllStages').checked = stageCount > 0 && count === stageCount;
         el('stageReportAllStages').indeterminate = count > 0 && count < stageCount;
-        el('stageReportStagesBtn').textContent = stageCount > 0 && count === stageCount ? 'All stages' : count ? count + ' stage(s) selected' : 'Select stages';
+        el('stageReportStagesBtn').textContent = stageCount > 0 && count === stageCount ? 'All comparison stages' : count ? count + ' stage(s) selected' : 'Select stages';
         const current = el('stageReportScopeCurrent').checked, reached = el('stageReportScopeReached').checked;
         el('stageReportAllScopes').checked = current && reached;
         el('stageReportAllScopes').indeterminate = current !== reached;
         el('stageReportScopeBtn').textContent = current && reached ? 'All scopes' : current ? 'Currently at selected stage' : reached ? 'Reached selected stage' : 'Select scope';
         const allDates = el('stageReportAllDates').checked;
         el('stageReportFrom').disabled = allDates; el('stageReportTo').disabled = allDates;
-        const dateSort = el('stageReportSortColumn').value === 'stageDate';
+        const dateSort = ['stageDate', 'baselineDate'].includes(el('stageReportSortColumn').value);
         el('stageReportSort').options[0].textContent = dateSort ? 'Oldest to newest' : 'Ascending (A-Z / smallest first)';
         el('stageReportSort').options[1].textContent = dateSort ? 'Newest to oldest' : 'Descending (Z-A / largest first)';
     }
@@ -76,7 +103,7 @@
     el('rxStageReportModal').addEventListener('hidden.bs.modal', clear);
     el('rxStageReportForm').addEventListener('change', event => {
         if (event.target.id === 'stageReportAllStages') {
-            el('stageReportStages').querySelectorAll('input').forEach(input => { input.checked = event.target.checked; });
+            el('stageReportStages').querySelectorAll('input').forEach(input => { input.checked = !input.disabled && event.target.checked; });
         }
         if (event.target.id === 'stageReportAllScopes') {
             el('stageReportScopeCurrent').checked = event.target.checked;
@@ -86,13 +113,15 @@
     });
     el('rxStageReportForm').addEventListener('submit', event => {
         event.preventDefault();
+        updateSelection();
         const stages = Array.from(el('stageReportStages').querySelectorAll('input:checked'), input => input.value);
         if (!stages.length) { status('Select at least one stage.'); return; }
         const current = el('stageReportScopeCurrent').checked, reached = el('stageReportScopeReached').checked;
         if (!current && !reached) { status('Select at least one stage scope.'); return; }
         const allDates = el('stageReportAllDates').checked;
         if (!allDates && el('stageReportFrom').value && el('stageReportTo').value && el('stageReportFrom').value > el('stageReportTo').value) { status('From date must be on or before To date.'); return; }
-        applied = new URLSearchParams({ stages: stages.join(','), scope: current && reached ? 'both' : current ? 'current' : 'reached',
+        if (!el('stageReportBaseline').value) { status('Select a baseline stage.'); return; }
+        applied = new URLSearchParams({ baselineStage: el('stageReportBaseline').value, stages: stages.join(','), scope: current && reached ? 'both' : current ? 'current' : 'reached',
             from: allDates ? '' : el('stageReportFrom').value, to: allDates ? '' : el('stageReportTo').value,
             sort: el('stageReportSortColumn').value, direction: el('stageReportSort').value });
         load(1);
@@ -109,14 +138,15 @@
             page = data.page; total = data.total; canExport = data.canExport;
             updateSortHeaders();
             el('stageReportDriverHeading').textContent = data.driverHeading;
+            el('stageReportBaselineHeading').textContent = data.baselineStage ? data.baselineStage.name + ' date (baseline)' : 'Baseline date';
             let group = null;
             data.rows.forEach(row => {
                 if (group !== row.stageId) {
                     const tr = document.createElement('tr'); const th = document.createElement('th');
-                    th.colSpan = 8; th.scope = 'rowgroup'; th.textContent = row.stage; tr.className = 'table-active'; tr.append(th); el('stageReportRows').append(tr); group = row.stageId;
+                    th.colSpan = 10; th.scope = 'rowgroup'; th.textContent = row.stage; tr.className = 'table-active'; tr.append(th); el('stageReportRows').append(tr); group = row.stageId;
                 }
                 const tr = document.createElement('tr');
-                [row.rxId, row.patientCode, row.patient, row.clinic || 'Not set', data.driverRestricted ? 'Restricted' : row.driver || 'Not recorded', row.stage, row.stageDateDisplay, row.daysElapsed == null ? 'Unknown' : row.daysElapsed].forEach(value => {
+                [row.rxId, row.patientCode, row.patient, row.clinic || 'Not set', data.driverRestricted ? 'Restricted' : row.driver || 'Not recorded', data.baselineStage ? data.baselineStage.name : 'Not selected', row.stage, row.baselineDateDisplay, row.stageDateDisplay, row.daysSinceBaseline == null ? 'Unknown' : row.daysSinceBaseline].forEach(value => {
                     const td = document.createElement('td'); td.textContent = value; tr.append(td);
                 });
                 el('stageReportRows').append(tr);

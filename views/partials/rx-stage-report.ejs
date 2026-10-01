@@ -7,7 +7,7 @@
       </div>
       <div class="modal-body">
         <form id="rxStageReportForm" class="row g-3 mb-3">
-          <div class="col-md-6">
+          <div class="col-12">
             <label class="form-label" id="stageReportScopeLabel">Stage scope</label>
             <div class="dropdown">
               <button type="button" id="stageReportScopeBtn" class="form-select text-start" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false" aria-labelledby="stageReportScopeLabel stageReportScopeBtn">Currently at selected stage</button>
@@ -19,31 +19,34 @@
               </div>
             </div>
           </div>
+          <div class="col-md-6"><label class="form-label" for="stageReportBaseline">Baseline stage</label><select id="stageReportBaseline" class="form-select" required></select></div>
           <div class="col-md-6">
-            <label class="form-label" id="stageReportStagesLabel">Stages</label>
+            <label class="form-label" id="stageReportStagesLabel">Compare stages</label>
             <div class="dropdown">
               <button type="button" id="stageReportStagesBtn" class="form-select text-start" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false" aria-labelledby="stageReportStagesLabel stageReportStagesBtn">Select stages</button>
               <div class="dropdown-menu w-100 p-3" style="max-height:240px;overflow-y:auto">
-                <label class="d-flex gap-2 py-1 border-bottom fw-semibold"><input type="checkbox" id="stageReportAllStages" class="form-check-input">All stages</label>
+                <label class="d-flex gap-2 py-1 border-bottom fw-semibold"><input type="checkbox" id="stageReportAllStages" class="form-check-input">All comparison stages</label>
                 <div id="stageReportStages"></div>
+                <div class="small text-muted mt-2">The baseline stage is excluded from comparison.</div>
               </div>
             </div>
           </div>
           <div class="col-12"><label class="form-check-label"><input type="checkbox" id="stageReportAllDates" class="form-check-input me-2" checked>All dates</label></div>
           <div class="col-sm-6"><label class="form-label" for="stageReportFrom">Stage date from</label><input type="date" id="stageReportFrom" class="form-control" disabled></div>
           <div class="col-sm-6"><label class="form-label" for="stageReportTo">Stage date to</label><input type="date" id="stageReportTo" class="form-control" disabled></div>
-          <div class="col-sm-6"><label class="form-label" for="stageReportSortColumn">Sort by</label><select id="stageReportSortColumn" class="form-select"><option value="stageDate">Stage date</option><option value="rxId">RX ID</option><option value="patientCode">Patient ID</option><option value="patient">Patient</option><option value="clinic">Clinic</option><option value="driver">Driver</option><option value="stage">Stage</option><option value="daysElapsed">Days elapsed</option></select></div>
+          <div class="col-sm-6"><label class="form-label" for="stageReportSortColumn">Sort by</label><select id="stageReportSortColumn" class="form-select"><option value="stageDate">Stage date</option><option value="rxId">RX ID</option><option value="patientCode">Patient ID</option><option value="patient">Patient</option><option value="clinic">Clinic</option><option value="driver">Driver</option><option value="stage">Stage</option><option value="baselineDate">Baseline date</option><option value="daysSinceBaseline">Days since baseline</option></select></div>
           <div class="col-sm-6"><label class="form-label" for="stageReportSort">Sort direction</label><select id="stageReportSort" class="form-select"><option value="asc">Oldest to newest</option><option value="desc">Newest to oldest</option></select></div>
           <div class="col-12 d-flex gap-2 flex-wrap">
             <button type="submit" class="btn btn-primary" id="stageReportApply">Apply filters</button>
             <button type="button" class="btn btn-outline-success" id="stageReportExport" disabled>Export CSV</button>
           </div>
         </form>
-        <p class="small text-muted">Click a column heading to sort all matching results within each stage; click again to reverse. Sorting Stage orders the groups by name. CSV follows the same order. Current stage means the latest reached active workflow step; dates and elapsed calendar days use the application timezone.</p>
+        <p class="small text-muted">Click a column heading to sort all matching results within each stage; click again to reverse. Sorting Stage orders the groups by name. CSV follows the same order. Current stage means the latest reached active workflow step; dates and elapsed calendar days use the application timezone. Days since baseline compares each selected stage date with the baseline date for the same RX. The latest recorded date for each stage is used. Missing dates show Unknown; negative days mean the selected stage predates the baseline. Date filters apply to the compared stage, not the baseline.</p>
         <div id="stageReportStatus" role="status" aria-live="polite" class="mb-2">Select stages and apply filters.</div>
-        <div class="table-responsive">
+        <div id="stageReportTopScroll" class="stage-report-top-scroll" tabindex="0" role="region" aria-label="Scroll report columns horizontally" hidden><div></div></div>
+        <div id="stageReportTableScroll" class="table-responsive" tabindex="0" role="region" aria-label="Stage comparison results">
           <table class="table table-hover align-middle">
-            <thead><tr><th aria-sort="none"><button type="button" class="btn btn-link p-0 text-start text-decoration-none" data-stage-report-sort="rxId"><span>RX ID</span> <span data-sort-indicator aria-hidden="true">&#8597;</span></button></th><th aria-sort="none"><button type="button" class="btn btn-link p-0 text-start text-decoration-none" data-stage-report-sort="patientCode"><span>Patient ID</span> <span data-sort-indicator aria-hidden="true">&#8597;</span></button></th><th aria-sort="none"><button type="button" class="btn btn-link p-0 text-start text-decoration-none" data-stage-report-sort="patient"><span>Patient</span> <span data-sort-indicator aria-hidden="true">&#8597;</span></button></th><th aria-sort="none"><button type="button" class="btn btn-link p-0 text-start text-decoration-none" data-stage-report-sort="clinic"><span>Clinic</span> <span data-sort-indicator aria-hidden="true">&#8597;</span></button></th><th aria-sort="none"><button type="button" class="btn btn-link p-0 text-start text-decoration-none" data-stage-report-sort="driver"><span id="stageReportDriverHeading">Current driver</span> <span data-sort-indicator aria-hidden="true">&#8597;</span></button></th><th aria-sort="none"><button type="button" class="btn btn-link p-0 text-start text-decoration-none" data-stage-report-sort="stage"><span>Stage</span> <span data-sort-indicator aria-hidden="true">&#8597;</span></button></th><th aria-sort="none"><button type="button" class="btn btn-link p-0 text-start text-decoration-none" data-stage-report-sort="stageDate"><span>Stage date</span> <span data-sort-indicator aria-hidden="true">&#8597;</span></button></th><th aria-sort="none"><button type="button" class="btn btn-link p-0 text-start text-decoration-none" data-stage-report-sort="daysElapsed"><span>Days elapsed</span> <span data-sort-indicator aria-hidden="true">&#8597;</span></button></th></tr></thead>
+            <thead><tr><th aria-sort="none"><button type="button" class="btn btn-link p-0 text-start text-decoration-none" data-stage-report-sort="rxId"><span>RX ID</span> <span data-sort-indicator aria-hidden="true">&#8597;</span></button></th><th aria-sort="none"><button type="button" class="btn btn-link p-0 text-start text-decoration-none" data-stage-report-sort="patientCode"><span>Patient ID</span> <span data-sort-indicator aria-hidden="true">&#8597;</span></button></th><th aria-sort="none"><button type="button" class="btn btn-link p-0 text-start text-decoration-none" data-stage-report-sort="patient"><span>Patient</span> <span data-sort-indicator aria-hidden="true">&#8597;</span></button></th><th aria-sort="none"><button type="button" class="btn btn-link p-0 text-start text-decoration-none" data-stage-report-sort="clinic"><span>Clinic</span> <span data-sort-indicator aria-hidden="true">&#8597;</span></button></th><th aria-sort="none"><button type="button" class="btn btn-link p-0 text-start text-decoration-none" data-stage-report-sort="driver"><span id="stageReportDriverHeading">Current driver</span> <span data-sort-indicator aria-hidden="true">&#8597;</span></button></th><th scope="col">Baseline stage</th><th aria-sort="none"><button type="button" class="btn btn-link p-0 text-start text-decoration-none" data-stage-report-sort="stage"><span>Compared stage</span> <span data-sort-indicator aria-hidden="true">&#8597;</span></button></th><th aria-sort="none"><button type="button" class="btn btn-link p-0 text-start text-decoration-none" data-stage-report-sort="baselineDate"><span id="stageReportBaselineHeading">Baseline date</span> <span data-sort-indicator aria-hidden="true">&#8597;</span></button></th><th aria-sort="none"><button type="button" class="btn btn-link p-0 text-start text-decoration-none" data-stage-report-sort="stageDate"><span>Stage date</span> <span data-sort-indicator aria-hidden="true">&#8597;</span></button></th><th aria-sort="none"><button type="button" class="btn btn-link p-0 text-start text-decoration-none" data-stage-report-sort="daysSinceBaseline"><span>Days since baseline</span> <span data-sort-indicator aria-hidden="true">&#8597;</span></button></th></tr></thead>
             <tbody id="stageReportRows"></tbody>
           </table>
         </div>
