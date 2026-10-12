@@ -8,6 +8,27 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
 
+- **next.96 published and deployment-ready (2026-10-12):** User approved the
+  importer against the restored development database. Published locally verified
+  source `f64a9424a6e87e80a758ad153ed2814d525c0a10` as `v4.0.0-next.96`; develop/main and tag pushed.
+  All 69 lifecycle/application checks passed, including 33 review scenarios,
+  9 importer integration and 20 File Management scenarios. Both CodeQL scans
+  completed: no introduced JavaScript findings, 83 existing findings retained,
+  C# zero findings and unchanged source. Existing Softphone/UUID warnings remain.
+  Proxy-addr fixed to 2.0.8; npm run dev uses Node native watcher instead of
+  unpatched nodemon/braces. Compiled runtime, package/source parity, ZIP safety,
+  version and database health passed. All five draft assets were downloaded again
+  and hash-compared before publication; embedded executables in both server ZIPs
+  matched. No hosted workflow or live installation was performed.
+  Importer enabled by default; IMPORT_REVIEW_V2=false and restart restores the
+  baseline. No new schema migration; familiar format and three file tabs retained.
+  Install through Project Control option 8 then 15, verify next.96 health and
+  importer behavior, and preserve the paired rollback set.
+  Release: https://github.com/Copernicous/RX-TRACKER-NEXT/releases/tag/v4.0.0-next.96
+  SHA-256: both server ZIPs `69a2a1886e19d6b6f9b754b3aeb837d5b5a0519912918f1e60cafa973b330171`;
+  server.exe `ac501370b8dfb24e068fefb8c6fdd582107103465559ca753f99f2e133b2525f`;
+  rx-db.exe `ed01d62429cde633c89e8c844d47951650584975552c03c507298b157b76e1de`.
+
 - **next.96 production release preparation (2026-10-12):** User accepted the
   restored-database development importer and authorized production publication.
   Clean release worktree selectively includes importer/file-retention changes;
