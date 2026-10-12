@@ -170,7 +170,7 @@ router.get('/reports', requireWebLogin, (req, res) => {
 });
 
 router.get('/import', requireWebLogin, (req, res) => {
-    res.render('import', { title: 'Data Import', activePage: 'import' });
+    res.render('import', { title: 'Data Import', activePage: 'import', importReviewV2: require('../utils/importReviewV2').enabled() });
 });
 
 router.get('/audit-log', requireWebLogin, (req, res) => {

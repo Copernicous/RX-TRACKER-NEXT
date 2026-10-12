@@ -32,6 +32,20 @@ function findWarnings(incoming, existing, options = {}) {
     const phones = new Map();
     const addresses = new Map();
     const codes = new Map();
+    const births = new Map();
+    const similar = (left, right) => {
+        const a = normalizeName(left), b = normalizeName(right);
+        if (a === b) return true;
+        if (Math.min(a.length, b.length) < 4 || Math.abs(a.length - b.length) > 1) return false;
+        let i = 0, j = 0, changes = 0;
+        while (i < a.length && j < b.length) {
+            if (a[i] === b[j]) { i++; j++; continue; }
+            if (++changes > 1) return false;
+            if (a.length >= b.length) i++;
+            if (b.length >= a.length) j++;
+        }
+        return changes + (i < a.length || j < b.length ? 1 : 0) <= 1;
+    };
     const nameKey = p => JSON.stringify([normalizeName(p.firstName), normalizeName(p.lastName)]);
     function add(map, key, value) {
         if (!key) return;
@@ -44,6 +58,7 @@ function findWarnings(incoming, existing, options = {}) {
         add(phones, normalizePhone(patient.phone), entry);
         add(addresses, addressKey(patient), entry);
         add(codes, normalizeName(patient.patientCode), entry);
+        if (options.householdInformational) add(births, parseDate(patient.dob), entry);
     }
     existing.forEach(p => index(p, 'database', null));
     const warnings = [];
@@ -53,7 +68,8 @@ function findWarnings(incoming, existing, options = {}) {
         const phone = normalizePhone(patient.phone);
         const address = addressKey(patient);
         const candidates = new Set([...(names.get(name) || []), ...(phones.get(phone) || []), ...(addresses.get(address) || []),
-            ...(options.includeExact ? codes.get(normalizeName(patient.patientCode)) || [] : [])]);
+            ...(options.includeExact ? codes.get(normalizeName(patient.patientCode)) || [] : []),
+            ...(options.householdInformational ? (births.get(parseDate(patient.dob)) || []).filter(entry => similar(patient.firstName, entry.patient.firstName) && similar(patient.lastName, entry.patient.lastName)) : [])]);
         const matches = [];
         for (const candidate of candidates) {
             const other = candidate.patient;
@@ -63,6 +79,7 @@ function findWarnings(incoming, existing, options = {}) {
             const reasons = [];
             if (exact) reasons.push('Same name and DOB: creating another patient is blocked');
             else if (name === nameKey(other)) reasons.push('Same first and last name, different DOB');
+            if (!exact && options.householdInformational && parseDate(patient.dob) === parseDate(other.dob) && similar(patient.firstName, other.firstName) && similar(patient.lastName, other.lastName)) reasons.push('Similar name and same DOB: verify spelling before deciding');
             if (sameCode && options.includeExact) reasons.push('Same Patient ID: creating another patient is blocked');
             if (phone && phone === normalizePhone(other.phone)) reasons.push('Same phone number (may be shared by a household)');
             if (address && address === addressKey(other) &&
@@ -73,6 +90,8 @@ function findWarnings(incoming, existing, options = {}) {
                 ...(options.includeExact ? { blocksCreate: !!(exact || sameCode) } : {}) });
         }
         if (matches.length) warnings.push({ row, patient: displayPatient(patient, options.fields), matches,
+            ...(options.householdInformational ? { informational: matches.every(match => !match.blocksCreate &&
+                !match.reasons.includes('Same first and last name, different DOB') && !match.reasons.includes('Similar name and same DOB: verify spelling before deciding')) } : {}),
             ...(options.includeExact ? { canCreate: !matches.some(match => match.blocksCreate) } : {}) });
         index(patient, 'file', row);
     });

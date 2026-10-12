@@ -1,12 +1,29 @@
 # RX Tracker NEXT project handoff
 
-Last updated: 2026-10-01
+Last updated: 2026-10-12
 
 This file is the sanitized continuity record for a future administrator or
 Codex session. It intentionally contains no credentials, `.env` values,
 patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
+
+- **Import File Management promoted locally to development (2026-10-12):** User
+  accepted the simpler staging presentation and authorized development. Selective
+  importer promotion from `4eebd22` onto develop `c93c957`; unrelated staging
+  history/report/release work excluded. Familiar review and development history
+  controls retained, with three file tabs, persisted correction records and
+  dated original/corrected CSV downloads. Audit rotation protects only the new
+  import snapshots in addition to existing import reports. No schema change,
+  configured RX Action change, dependency/version change or other-page edits.
+  Opt-in for development/staging via IMPORT_REVIEW_V2=true and explicit APP_ENV;
+  production remains disabled. 20 File Management scenarios, 30 controller/model
+  scenarios, 9 PostgreSQL cases, baseline import/address/manual regressions and
+  browser checks passed. Port 3000 now hosts an isolated synthetic review from
+  output/import-development-worktree, using its own disposable test database;
+  existing development database/configuration are unchanged. No push, hosted
+  workflow, production release or installation. See
+  docs/IMPORT_FILE_MANAGEMENT_DEVELOPMENT.md for scope, validation and rollback.
 
 - **next.95 local release preparation (2026-10-01):** User requested promotion
   of the reviewed baseline comparison through development to production with

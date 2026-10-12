@@ -13,6 +13,7 @@ const patient = { id: 1, patientCode: 'TEST-1', firstName: 'TEST ALICE', lastNam
 let existing = [], finalExisting = null, writes = [], audit = [], locks = 0, transactions = [];
 const db = {
     sequelize: {
+        literal: value => value,
         transaction: async () => {
             const tx = { finished: null, async commit() { this.finished = 'commit'; }, async rollback() { this.finished = 'rollback'; } };
             transactions.push(tx);
@@ -22,6 +23,7 @@ const db = {
     },
     Patient: {
         findOne: async () => ({ id: 100 }),
+        findByPk: async id => ({ id, updatedAt: new Date('2026-01-01T00:00:00Z') }),
         findAll: async options => {
             assert(options.attributes.includes('isDeleted'));
             return options.transaction && finalExisting ? finalExisting : existing;
@@ -32,16 +34,17 @@ const db = {
             return rows.map((p, i) => ({ ...p, id: 101 + i, setPatientTags: async () => {} }));
         }
     },
-    AuditLog: { create: async (row, options) => { audit.push({ row, options }); return { id: audit.length }; } }
+    AuditLog: { findAll: async () => [], create: async (row, options) => { audit.push({ row, options }); return { id: audit.length }; } }
 };
 for (const name of ['PatientTransportCompany', 'PharmacyTransportCompany', 'Clinic', 'WorkflowAction', 'PatientTag']) {
     db[name] = { findAll: async () => [] };
 }
+let failServiceHistory = false;
 const context = { exports: {}, console, Buffer, Date, require(name) {
     if (name === '../models') return db;
     if (name === '../services/patientImportMergeService') return { applyMerge: async () => { throw Error('Merge is covered by the staging merge regression'); } };
     if (name === '../middleware/rbac') return { getRequestPermission: async () => ({}) };
-    if (name === '../services/patientServiceDateHistoryService') return { bulkRecordPatientServiceDateChanges: async () => {} };
+    if (name === '../services/patientServiceDateHistoryService') return { bulkRecordPatientServiceDateChanges: async () => { if (failServiceHistory) throw Error('Synthetic after-commit history failure'); } };
     if (name === '../services/patientServiceDateCycleService') return { syncPatientServiceDateCycles: async () => {} };
     if (name === '../services/cityRegionRuleService') return { applyRegionalTagRuleToIds: async ids => ids };
     if (name === '../utils/globalSettings') return { getServiceWindowDays: () => 90 };
@@ -205,5 +208,5 @@ async function main() {
     assert.equal(mergePlan[1].patient.patientCode, '');
     console.log('PASS patient import duplicate review: no-write preview, hard blocks, warning overrides, stale/file/user/expiry binding, audit, final recheck, DOB validation, missing-ID comparison and locked allocation.');
 }
-module.exports = { controller: context.exports, reset, patient, stats: () => ({ writes: writes.length, audit: audit.length }) };
+module.exports = { setHistoryFailure: value => { failServiceHistory = value; }, controller: context.exports, reset, patient, stats: () => ({ writes: writes.length, audit: audit.length }) };
 if (require.main === module) main().catch(error => { console.error(error); process.exitCode = 1; });
