@@ -8,6 +8,18 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
 
+- **Shared-phone import review narrowed (2026-10-12, development):** With the
+  importer flag enabled, phone-only matches are excluded when both DOBs are
+  present and different and the full names are neither equal nor similar.
+  Exact identities, Patient ID collisions, matching/missing DOBs, similar names
+  and independent address evidence retain their checks. Existing review layout
+  and all three file tabs are unchanged. 33 synthetic review scenarios, 9
+  PostgreSQL integration scenarios, 20 file-management scenarios and legacy
+  duplicate regressions passed. The port 3000 preview now uses the user-requested
+  September 30 backup in an isolated restored test database; previous synthetic
+  database preserved. Schema verification: 64 applied, 0 pending, verified
+  checksums. Production and source backup untouched. No push or release.
+
 - **Import File Management promoted locally to development (2026-10-12):** User
   accepted the simpler staging presentation and authorized development. Selective
   importer promotion from `4eebd22` onto develop `c93c957`; unrelated staging
