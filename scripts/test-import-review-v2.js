@@ -12,8 +12,8 @@ const existing = { id: 1, patientCode: 'SYNTHETIC-1', firstName: 'ALICE', lastNa
 const sibling = { ...existing, id: undefined, patientCode: '', firstName: 'BOB', dob: '1982-03-04' };
 const raw = p => ({ ...p, _rowNum: 2 });
 const options = { includeExact: true, householdInformational: true };
-check('switch defaults off and refuses production', () => {
-    assert(!enabled({})); assert(!enabled({ APP_ENV: 'production', IMPORT_REVIEW_V2: 'true' }));
+check('released switch defaults on and supports explicit rollback', () => {
+    assert(enabled({})); assert(enabled({ APP_ENV: 'production' })); assert(!enabled({ IMPORT_REVIEW_V2: 'false' }));
     assert(enabled({ APP_ENV: 'staging', IMPORT_REVIEW_V2: 'true' }));
     assert(enabled({ APP_ENV: 'development', IMPORT_REVIEW_V2: 'true' }));
 });

@@ -1,6 +1,6 @@
 'use strict';
 const assert = require('node:assert/strict');
-if (process.env.DB_HOST !== '127.0.0.1' || process.env.DB_PORT !== '55439' || process.env.DB_NAME !== 'rx_next_ci_regression_test') throw Error('Requires the isolated import test cluster.');
+if (process.env.DB_HOST !== '127.0.0.1' || (process.env.DB_PORT !== '55439' && process.env.RX_LOCAL_RELEASE_TEST !== '1') || process.env.DB_NAME !== 'rx_next_ci_regression_test') throw Error('Requires the isolated import test cluster.');
 process.env.APP_ENV = 'staging'; process.env.IMPORT_REVIEW_V2 = 'true';
 const db = require('../models'), controller = require('../controllers/importController');
 const files = require('../services/importCorrectionFiles'), csv = require('../public/js/import-review-model');

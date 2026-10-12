@@ -10,7 +10,13 @@ frozen 3.3.1 repository, its production database, or the RX Softphone source.
 
 ## Current status
 
-Version: `4.0.0-next.95` prerelease, published for testing
+Version: `4.0.0-next.96`
+
+Version `next.96` adds Import History / Files to Correct / Corrected Files tabs,
+retained dated original/corrected uploads and correction-only reimports. Phone-only
+matches with different DOBs and dissimilar names no longer nest unrelated people
+in identity review. Familiar presentation retained; no new migration. Enabled by
+default; IMPORT_REVIEW_V2=false restores baseline behavior.
 
 Version `next.95` adds baseline-to-stage date comparisons and signed days
 between stages to the RX Records Stage Report and CSV. The baseline is excluded

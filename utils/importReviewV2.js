@@ -1,8 +1,8 @@
 'use strict';
 
-// Experimental behavior is unavailable outside staging/development and defaults off.
+// Released importer behavior defaults on; explicit false restores the baseline.
 function enabled(env = process.env) {
-    return ['staging', 'development'].includes(env.APP_ENV) && env.IMPORT_REVIEW_V2 === 'true';
+    return env.IMPORT_REVIEW_V2 !== 'false';
 }
 function sourceHash(row) {
     const fields = Object.keys(row).filter(key => !key.startsWith('_review') && key !== '_import_error').sort();

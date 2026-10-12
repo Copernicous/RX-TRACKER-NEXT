@@ -22,7 +22,7 @@ const databases = ['base_test', 'ledger_test', 'sanitizer_test', 'v331_copy', 'r
 const created = [];
 const runtimeRole = 'rxnext_runtime_local_' + crypto.randomBytes(5).toString('hex');
 let roleCreated = false;
-const env = { ...process.env, NODE_ENV: 'development', CI: 'true', RX_LOCAL_RELEASE_TEST: '1',
+const env = { ...process.env, NODE_ENV: 'development', IMPORT_REVIEW_V2: 'false', CI: 'true', RX_LOCAL_RELEASE_TEST: '1',
     DB_HOST: '127.0.0.1', DB_PORT: supplied.DB_PORT || '5432', DB_USER: supplied.DB_USER, DB_PASS: supplied.DB_PASS,
     PGPASSWORD: supplied.DB_PASS, DB_NAME: databases[0],
     JWT_SECRET: crypto.randomBytes(32).toString('hex'), SETTINGS_ENCRYPTION_KEY: crypto.randomBytes(32).toString('hex'),
@@ -127,6 +127,7 @@ async function smokeServer(label, database, port, extra = {}, relay = false) {
         await create(databases[5], databases[0]);
         const regression = { DB_NAME: databases[5], QA_DB_NAME: databases[5], SOFTPHONE_SETUP_TEST_DB_NAME: databases[5], CALL_ATTEMPT_TEST_DB_NAME: databases[5], CALL_CENTER_PAGINATION_TEST_DB_NAME: databases[5], PATIENT_PAGINATION_TEST_DB_NAME: databases[5], PATIENT_PAGINATION_TEST_CONFIRM_DB_NAME: databases[5], REPORT_FILTER_TEST_DB_NAME: databases[5], DASHBOARD_ANALYTICS_TEST_DB_NAME: databases[5], DASHBOARD_ANALYTICS_TEST_CONFIRM_DB_NAME: databases[5], RX_PIPELINE_FILTER_TEST_DB_NAME: databases[5], RX_PIPELINE_FILTER_TEST_CONFIRM_DB_NAME: databases[5] };
         for (const name of ['patient-import-merge','call-center-queue-reopen','call-center-phone-client','call-center-shared-state','softphone-self-setup','call-center-call-attempts','call-center-server-pagination','patient-server-pagination','patient-status-sort','report-filter-parity','dashboard-persisted-analytics','rx-pipeline-filter-parity','patient-service-date-double-update','rx-override-permissions','workflow-date-timezone','backoffice-patient-delete','configurable-service-window']) node(name, 'scripts/test-' + name + '.js', [], regression);
+        for (const name of ['import-review-v2','import-review-v2-integration','import-file-management']) node(name, 'scripts/test-' + name + '.js', [], { ...regression, IMPORT_REVIEW_V2: 'true' });
         await create(databases[6], databases[0]);
         for (const name of ['rx-driver-tracking','pharmacy-transport-duplicates']) node(name, 'scripts/test-' + name + '.js', [], { DB_NAME: databases[6], QA_DB_NAME: databases[6] });
         await smokeServer('relay-runtime', databases[5], 3212, {}, true);

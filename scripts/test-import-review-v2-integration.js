@@ -1,7 +1,7 @@
 'use strict';
 // Only a disposable test cluster is accepted. No .env or external patient files.
 const assert = require('node:assert/strict');
-if (process.env.DB_HOST !== '127.0.0.1' || process.env.DB_PORT !== '55439' || process.env.DB_NAME !== 'rx_next_ci_regression_test') throw Error('Requires the isolated import-review test cluster.');
+if (process.env.DB_HOST !== '127.0.0.1' || (process.env.DB_PORT !== '55439' && process.env.RX_LOCAL_RELEASE_TEST !== '1') || process.env.DB_NAME !== 'rx_next_ci_regression_test') throw Error('Requires the isolated import-review test cluster.');
 process.env.APP_ENV = 'staging'; process.env.IMPORT_REVIEW_V2 = 'true';
 const db = require('../models');
 const controller = require('../controllers/importController');

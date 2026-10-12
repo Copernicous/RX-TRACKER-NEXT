@@ -1,4 +1,4 @@
-RX Tracker NEXT 4.0.0-next.95
+RX Tracker NEXT 4.0.0-next.96
 ============================
 
 RX Stage Report
@@ -15,11 +15,11 @@ Installation
 Verify the official ZIP against SHA256SUMS.txt. Use Project Control option 8,
 then option 15. The updater preserves .env and the paired rollback set.
 For older installations affected by the next.78 recovery incident, follow
-RELEASE_NOTES-v4.0.0-next.95.md and docs/database/COMPILED_RELEASE_UPDATES.md.
+RELEASE_NOTES-v4.0.0-next.96.md and docs/database/COMPILED_RELEASE_UPDATES.md.
 
 Verification
 ------------
-Require healthy service version 4.0.0-next.95. Refresh RX Records, open Stage
+Require healthy service version 4.0.0-next.96. Refresh RX Records, open Stage
 Report, compare scope/date filters, sort results and export CSV. Confirm all
 matching pages are exported and both light/dark themes remain readable.
 
