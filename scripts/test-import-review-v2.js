@@ -19,9 +19,23 @@ check('switch defaults off and refuses production', () => {
 });
 check('legacy shared-phone warning remains unchanged', () => assert.equal(findWarnings([sibling], [existing], { includeExact: true })[0].informational, undefined));
 check('different names with shared phone default to separate patient', () => {
-    const warnings = findWarnings([sibling], [existing], options); assert(warnings[0].informational);
+    const warnings = findWarnings([sibling], [existing], options); assert.equal(warnings.length, 0);
     const items = model.session([raw(sibling)], warnings); assert(model.resolved(items[0]));
-    assert.equal(model.decisions(items)[0].action, 'import');
+    assert.equal(model.decisions(items).length, 0, 'Separate people need no duplicate decision');
+});
+check('mixed review excludes unrelated database and CSV shared-phone matches', () => {
+    const unrelated = { ...sibling, firstName: 'ROBERT', lastName: 'OTHER' };
+    const incoming = { ...existing, patientCode: '', phone: sibling.phone };
+    const warnings = findWarnings([unrelated, incoming], [{ ...existing, phone: '3055550199' }, { ...unrelated, id: 2 }], options);
+    const review = warnings.find(w => w.row === 3);
+    assert.equal(review.matches.length, 1); assert.equal(review.matches[0].patient.id, existing.id);
+    assert.equal(review.canCreate, false);
+});
+check('same DOB or missing DOB retains shared-phone evidence', () => {
+    for (const dob of [existing.dob, null]) assert.equal(findWarnings([{ ...sibling, dob }], [existing], options)[0].matches.length, 1);
+});
+check('similar names with different DOB retain shared-phone evidence', () => {
+    assert.equal(findWarnings([{ ...sibling, firstName: 'ALISE' }], [existing], options)[0].matches.length, 1);
 });
 check('exact name/DOB stays blocked even with shared household phone', () => {
     const warnings = findWarnings([existing], [existing], options); assert.equal(warnings[0].canCreate, false); assert(!warnings[0].informational);
@@ -111,9 +125,9 @@ async function main() {
     result = await run('firstName,dob\nALICE,1980-01-02'); assert.equal(result.status, 400); count++; console.log('PASS missing required header rejected');
     result = await run('firstName,lastName,dob,phone,phone\nALICE,EXAMPLE,1980-01-02,123,456'); assert.equal(result.status, 400); count++; console.log('PASS duplicate header rejected');
     harness.reset([existing]); result = await run(model.encode(['firstName','lastName','dob','phone'], [sibling]));
-    assert(result.warnings[0].informational); count++; console.log('PASS server household informational review');
+    assert.equal(result.warnings.length, 0); count++; console.log('PASS server excludes unrelated shared-phone matches');
     const token = result.reviewToken;
-    result = await run(model.encode(['firstName','lastName','dob','phone'], [sibling]), { mode: 'save', duplicateReviewToken: token, reviewDecisions: JSON.stringify([{ row: 2, action: 'import' }]) });
+    result = await run(model.encode(['firstName','lastName','dob','phone'], [sibling]), { mode: 'save', duplicateReviewToken: token });
     assert.equal(result.successCount, 1); count++; console.log('PASS household individual create through signed locked review');
     harness.reset(); harness.setHistoryFailure(true);
     try {

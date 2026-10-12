@@ -7,6 +7,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+### Fixed
+
+- Development/staging importer no longer nests phone-only matches with different
+  DOBs and dissimilar names inside another patient review. Identity and ID
+  safeguards remain; current review format and file tabs are unchanged.
+
 ### Added (development opt-in)
 
 - Patient import File Management: familiar review and three tabs for existing

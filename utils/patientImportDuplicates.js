@@ -81,7 +81,11 @@ function findWarnings(incoming, existing, options = {}) {
             else if (name === nameKey(other)) reasons.push('Same first and last name, different DOB');
             if (!exact && options.householdInformational && parseDate(patient.dob) === parseDate(other.dob) && similar(patient.firstName, other.firstName) && similar(patient.lastName, other.lastName)) reasons.push('Similar name and same DOB: verify spelling before deciding');
             if (sameCode && options.includeExact) reasons.push('Same Patient ID: creating another patient is blocked');
-            if (phone && phone === normalizePhone(other.phone)) reasons.push('Same phone number (may be shared by a household)');
+            const differentIdentity = options.householdInformational &&
+                parseDate(patient.dob) && parseDate(other.dob) && parseDate(patient.dob) !== parseDate(other.dob) &&
+                !(similar(patient.firstName, other.firstName) && similar(patient.lastName, other.lastName));
+            // Shared contact information alone must not nest unrelated people in an identity review.
+            if (phone && phone === normalizePhone(other.phone) && !differentIdentity) reasons.push('Same phone number (may be shared by a household)');
             if (address && address === addressKey(other) &&
                 (normalizeName(patient.firstName) === normalizeName(other.firstName) || normalizeName(patient.lastName) === normalizeName(other.lastName))) {
                 reasons.push('Same address and matching first or last name');
