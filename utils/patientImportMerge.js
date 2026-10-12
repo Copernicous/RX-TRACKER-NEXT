@@ -34,12 +34,12 @@ function mergePatch(target, incoming, choices) {
     for (const key of Object.keys(patch)) if (JSON.stringify(patch[key] ?? null) === JSON.stringify(target[key] ?? null)) delete patch[key];
     return patch;
 }
-function buildPlan(incoming, existing, warnings, decisions, canEdit) {
+function buildPlan(incoming, existing, warnings, decisions, canEdit, options = {}) {
     if (!Array.isArray(decisions)) throw Error('Review decisions must be a list.');
     const byRow = new Map(warnings.map(w => [w.row, w]));
     const choices = new Map();
     for (const decision of decisions) {
-        if (!decision || !Number.isInteger(decision.row) || !byRow.has(decision.row) || choices.has(decision.row) ||
+        if (!decision || !Number.isInteger(decision.row) || (!byRow.has(decision.row) && !(options.allowUnflaggedSkip && decision.row >= 2 && decision.row < incoming.length + 2 && decision.action === 'skip')) || choices.has(decision.row) ||
             !['import', 'skip', 'merge'].includes(decision.action)) throw Error('Invalid or repeated row decision. Review the file again.');
         choices.set(decision.row, decision);
     }
@@ -48,7 +48,7 @@ function buildPlan(incoming, existing, warnings, decisions, canEdit) {
         const row = i + 2, warning = byRow.get(row), decision = choices.get(row);
         if (warning && !decision) throw Error(`Choose an action for CSV row ${row}.`);
         const action = decision?.action || 'import';
-        if (action === 'skip') return { row, action };
+        if (action === 'skip') return { row, action, ...(options.allowUnflaggedSkip ? { patient } : {}) };
         if (action === 'import') {
             if (warning && !warning.canCreate) throw Error(`Row ${row}: matching name/DOB or Patient ID cannot create another patient. Merge or discard the row.`);
             return { row, action, patient };

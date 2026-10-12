@@ -1,6 +1,9 @@
 ﻿const db = require('../models');
 const bcrypt = require('bcryptjs');
 const csv = require('csv-parser');
+const retainedFile = require('../utils/retainedImportFile');
+const correctionFiles = require('../services/importCorrectionFiles');
+const { enabled: importReviewV2Enabled, sourceHash, repeatedRows } = require('../utils/importReviewV2');
 const { Readable } = require('stream');
 const { parseDate } = require('../utils/dateUtils');
 const { getServiceWindowDays } = require('../utils/globalSettings');
@@ -44,14 +47,19 @@ function normalizeImportHeader(value) {
 }
 
 // Helper to parse CSV buffer to array of objects
-const parseCsv = (buffer) => {
+const parseCsv = (buffer, strict = false) => {
     return new Promise((resolve, reject) => {
         const results = [];
         const stream = Readable.from(buffer.toString('utf-8').replace(/^\uFEFF/, ''));
-        stream.pipe(csv())
+        stream.pipe(csv(strict ? { strict: true, mapHeaders: ({ header }) => header.trim() } : {}))
+            .on('headers', headers => {
+                if (strict && (headers.some(h => !h) || new Set(headers).size !== headers.length || ['firstName', 'lastName', 'dob'].some(h => !headers.includes(h)))) {
+                    const error = Error('Patient CSV requires unique nonblank headers including firstName, lastName and dob.'); error.status = 400; reject(error);
+                }
+            })
             .on('data', (data) => results.push(data))
             .on('end', () => resolve(results))
-            .on('error', (err) => reject(err));
+            .on('error', (err) => { if (strict) err.status = 400; reject(err); });
     });
 };
 
@@ -433,7 +441,7 @@ exports.importDataset = async (req, res) => {
     }
 
     try {
-        const rows = await parseCsv(req.file.buffer);
+        const rows = await parseCsv(req.file.buffer, req.params.dataset === 'patients' && req.body?.reviewVersion === '2' && req.body?.reviewMode === 'merge' && importReviewV2Enabled());
         if (rows.length === 0) {
             return res.status(400).json({ error: 'The uploaded file is empty or missing headers' });
         }
@@ -450,9 +458,19 @@ exports.importDataset = async (req, res) => {
         switch (dataset) {
             case 'patients': {
                 const mergeReview = req.body?.reviewMode === 'merge';
+                const reviewV2 = mergeReview && req.body?.reviewVersion === '2' && importReviewV2Enabled();
+                if (reviewV2) await correctionFiles.validate(db, req.user.id, rows);
+                let originalUploadedFile;
+                if (reviewV2) {
+                    const sourceIds = [...new Set(rows.map(row => Number(row._reviewCorrectionId)).filter(id => Number.isSafeInteger(id) && id > 0))];
+                    const sourceId = Number(req.body?.sourceUploadId) || (sourceIds.length === 1 ? sourceIds[0] : null);
+                    if (sourceId) { const [source] = await correctionFiles.load(db, req.user.id, [sourceId]); originalUploadedFile = source.newValue.sourceFile; }
+                    if (!originalUploadedFile) originalUploadedFile = retainedFile.capture(req.file);
+                    else { originalUploadedFile = { ...originalUploadedFile, downloadName: retainedFile.capture({ originalname: originalUploadedFile.name, buffer: Buffer.alloc(0) }).downloadName }; }
+                }
                 const patientPermission = mergeReview ? await getRequestPermission(req, 'patients') : {};
                 const canMerge = !!(patientPermission.visible && patientPermission.canEdit);
-                const warningOptions = mergeReview ? { includeExact: true, fields: SNAPSHOT_FIELDS } : {};
+                const warningOptions = mergeReview ? { includeExact: true, fields: SNAPSHOT_FIELDS, ...(reviewV2 ? { householdInformational: true } : {}) } : {};
                 const ptCompanies = await db.PatientTransportCompany.findAll();
                 const phCompanies = await db.PharmacyTransportCompany.findAll();
                 const clinics = await db.Clinic.findAll({ where: { isActive: true } });
@@ -495,6 +513,11 @@ exports.importDataset = async (req, res) => {
                         markError();
                     };
 
+                    if (reviewV2 && phone && phone.trim()) {
+                        let digits = phone.replace(/\D/g, '');
+                        if (digits.length === 11 && digits[0] === '1') digits = digits.slice(1);
+                        if (digits.length !== 10 || /^(\d)\1+$/.test(digits)) { addErr('Phone must contain 10 US digits (optional leading 1); verify the original number.'); continue; }
+                    }
                     if (!firstNameCaps) { addErr('First Name is required'); continue; }
                     if (!lastNameCaps)   { addErr('Last Name is required'); continue; }
                     const dobParsed = /^(\d{1,2}\/\d{1,2}\/\d{4}|\d{4}-\d{2}-\d{2})$/.test(String(dob || '').trim()) ? parseDateField(dob) : null;
@@ -617,17 +640,23 @@ exports.importDataset = async (req, res) => {
 
                 // ── Phase 2: All-or-nothing — only write if zero errors ──
                 if (rowErrors.length > 0) break;
+                const previousReports = reviewV2 ? await db.AuditLog.findAll({ where: { module: 'Data Import', action: 'Patient import report', userId: req.user?.id }, attributes: ['id', [db.sequelize.literal("\"newValue\"->'sourceRows'"), 'sourceRows']], order: [['id', 'DESC']], limit: 100, raw: true }) : [];
+                const decorateWarnings = (warnings, patients) => {
+                    if (!reviewV2) return warnings;
+                    const repeats = repeatedRows(rows, patients, previousReports);
+                    return warnings.map(w => ({ ...w, previousImport: repeats.find(r => r.row === w.row && w.matches.some(m => m.source === 'database' && Number(m.patient.id) === r.patientId)) || null }));
+                };
                 const reviewResponse = (warnings) => ({
                     aborted: true, reviewRequired: true, successCount: 0, errorCount: 0, errors: [],
-                    warnings, ...(mergeReview ? { mergeReview: true, canMerge, mergeFields,
+                    warnings, ...(reviewV2 ? { reviewPatients: validRows } : {}), ...(mergeReview ? { mergeReview: true, canMerge, mergeFields,
                         lookupLabels: { clinicId: Object.fromEntries(clinics.map(p => [p.id, p.name])),
                             patientTransportCompanyId: Object.fromEntries(ptCompanies.map(p => [p.id, p.companyName || p.contactPerson])),
                             pharmacyTransportCompanyId: Object.fromEntries(phCompanies.map(p => [p.id, p.companyName || p.contactPerson])) } } : {}), reviewToken: createReviewToken(req.file.buffer, req.user?.id, warnings)
                 });
                 if (req.body?.mode === 'preview') {
-                    const warnings = findWarnings(validRows, existingPatients, warningOptions);
+                    const warnings = decorateWarnings(findWarnings(validRows, existingPatients, warningOptions), existingPatients);
                     return res.json(warnings.length ? reviewResponse(warnings) : {
-                        preview: true, aborted: false, successCount: 0, errorCount: 0, errors: [], warnings: []
+                        preview: true, aborted: false, successCount: 0, errorCount: 0, errors: [], warnings: [], ...(reviewV2 ? { reviewPatients: validRows } : {})
                     });
                 }
                 if (validRows.length > 0) {
@@ -636,6 +665,7 @@ exports.importDataset = async (req, res) => {
                         // Serialize the final identity check with patient writes, including other imports.
                         // The lock is held only during final validation/write, never during human review.
                         await db.sequelize.query('LOCK TABLE "Patients" IN SHARE ROW EXCLUSIVE MODE', { transaction: tx });
+                        const correctionLinks = reviewV2 ? await correctionFiles.validate(db, req.user.id, rows, tx) : [];
                         const currentPatients = await db.Patient.findAll({ attributes: duplicateReviewAttributes,
                             order: [['id', 'ASC']], raw: true, transaction: tx });
                         const currentKeys = new Set(currentPatients.map(identityKey));
@@ -647,18 +677,26 @@ exports.importDataset = async (req, res) => {
                             return res.json({ aborted: true, successCount: 0, errorCount: conflicts.length, errors: conflicts,
                                 failedRows: conflicts.map(e => ({ ...rows[e.row - 2], _import_error: e.error })) });
                         }
-                        const warnings = findWarnings(validRows, currentPatients, warningOptions);
+                        const warnings = decorateWarnings(findWarnings(validRows, currentPatients, warningOptions), currentPatients);
                         if (warnings.length && !validReviewToken(req.body?.duplicateReviewToken, req.file.buffer, req.user?.id, warnings)) {
                             await tx.rollback();
                             return res.json(reviewResponse(warnings));
                         }
                         let plan = [];
                         let originalRows;
+                        let reviewNotesByRow = {};
                         if (mergeReview) {
                             let decisions;
                             try {
                                 decisions = JSON.parse(req.body?.reviewDecisions || '[]');
-                                plan = buildPlan(validRows, currentPatients, warnings, decisions, canMerge);
+                                plan = buildPlan(validRows, currentPatients, warnings, decisions, canMerge, { allowUnflaggedSkip: reviewV2 });
+                                if (reviewV2) {
+                                    reviewNotesByRow = JSON.parse(req.body?.reviewNotes || '{}');
+                                    if (!reviewNotesByRow || typeof reviewNotesByRow !== 'object' || Array.isArray(reviewNotesByRow) || Object.entries(reviewNotesByRow).some(([key, value]) => !/^\d+$/.test(key) || Number(key) < 2 || Number(key) >= rows.length + 2 || typeof value !== 'string' || value.length > 4000)) throw Error('Invalid review notes. Limit notes to 4000 characters per row.');
+                                    const deferred = JSON.parse(req.body?.deferredRows || '[]');
+                                    if (!Array.isArray(deferred) || new Set(deferred).size !== deferred.length || deferred.some(row => !Number.isInteger(row) || !plan.some(item => item.row === row && item.action === 'skip'))) throw Error('Deferred rows must be skipped rows in this review.');
+                                    plan.forEach(item => { item.deferred = deferred.includes(item.row); });
+                                }
                             } catch (error) {
                                 await tx.rollback();
                                 return res.status(400).json({ error: error.message });
@@ -760,13 +798,14 @@ exports.importDataset = async (req, res) => {
                             reportRows = plan.flatMap(item => {
                                 const merge = mergedRows.find(result => result.row === item.row);
                                 const created = createdPatients[originalRows.indexOf(item.row)];
-                                const base = { csvRow: item.row, action: item.action === 'skip' ? 'discarded' : merge?.restored ? 'restored and merged' : item.action === 'merge' ? 'merged' : 'created',
+                                const base = { csvRow: item.row, action: item.action === 'skip' ? (item.deferred ? 'deferred' : 'discarded') : merge?.restored ? 'restored and merged' : item.action === 'merge' ? 'merged' : 'created',
                                     patientId: merge?.patientId || created?.id || '', patientCode: merge?.patientCode || created?.patientCode || rows[item.row - 2].patientCode || '',
-                                    recordedAt, operatorId: req.user?.id || '' };
+                                    recordedAt, operatorId: req.user?.id || '', ...(reviewV2 ? { sourceRow: rows[item.row - 2]._reviewSourceRow || item.row, reviewNotes: reviewNotesByRow[item.row] ?? rows[item.row - 2]._reviewNotes ?? '' } : {}) };
                                 if (merge) return merge.fields.map(field => ({ ...base, field: field.field, choice: field.choice,
                                     existingValue: printable(field.before), incomingValue: printable(field.incoming), finalValue: printable(field.after) }));
                                 if (created) return mergeFields.map(([field, label]) => ({ ...base, field: label, choice: 'Create new patient', existingValue: '',
                                     incomingValue: printable(fieldValue(item.patient, field)), finalValue: printable(fieldValue(created, field)) }));
+                                if (reviewV2) return mergeFields.map(([field, label]) => ({ ...base, field: label, choice: item.deferred ? 'Deferred; no changes' : 'Discard row; no changes', existingValue: '', incomingValue: printable(fieldValue(item.patient, field)), finalValue: '' }));
                                 return [{ ...base, field: '', choice: 'Discard row; no changes', existingValue: '', incomingValue: '', finalValue: '' }];
                             });
                         }
@@ -786,15 +825,21 @@ exports.importDataset = async (req, res) => {
                             }, { transaction: tx });
                         }
                         if (mergeReview) {
+                            const sourceRows = reviewV2 ? await Promise.all(plan.filter(item => item.action !== 'skip').map(async item => {
+                                const patientId = mergedRows.find(m => m.row === item.row)?.patientId || createdPatients[originalRows.indexOf(item.row)]?.id;
+                                const final = await db.Patient.findByPk(patientId, { attributes: ['id', 'updatedAt'], transaction: tx, raw: true });
+                                return { csvRow: item.row, hash: sourceHash(rows[item.row - 2]), patientId, updatedAt: new Date(final.updatedAt).toISOString() };
+                            })) : [];
                             const report = await db.AuditLog.create({
                                 userId: req.user?.id || null, date: new Date().toISOString().slice(0, 10),
                                 time: new Date().toTimeString().slice(0, 8), module: 'Data Import', action: 'Patient import report', recordId: null,
-                                newValue: { schemaVersion: 1, fileName: String(req.file.originalname || 'patients.csv').replace(/^.*[\\/]/, '').slice(0, 255),
-                                    createdCount: validRows.length, mergedCount: mergedRows.length, discardedCount: skippedRows.length, reportRows },
+                                newValue: { schemaVersion: reviewV2 ? 2 : 1, ...(reviewV2 ? { sourceRows, sourceFile: originalUploadedFile, uploadedFile: retainedFile.capture(req.file), hasUploadedFile: true, hasOriginalUpload: originalUploadedFile.sha256 !== retainedFile.capture(req.file).sha256 } : {}), fileName: String(req.file.originalname || 'patients.csv').replace(/^.*[\\/]/, '').slice(0, 255),
+                                    createdCount: validRows.length, mergedCount: mergedRows.length, discardedCount: skippedRows.length - (reviewV2 ? plan.filter(item => item.deferred).length : 0), ...(reviewV2 ? { deferredCount: plan.filter(item => item.deferred).length } : {}), reportRows },
                                 ipAddress: req.ip || req.socket?.remoteAddress || 'unknown'
                             }, { transaction: tx });
                             reportId = report.id;
                         }
+                        if (reviewV2) await correctionFiles.resolve(db, req, correctionLinks, plan.filter(item => item.action !== 'skip').map(item => item.row), reportId, tx);
                         await tx.commit();
                         successCount = validRows.length;
                         await bulkRecordPatientServiceDateChanges(createdPatients.map((patient, i) => ({
@@ -808,6 +853,11 @@ exports.importDataset = async (req, res) => {
                         });
                     } catch (err) {
                         if (!tx.finished) await tx.rollback();
+                        if (reviewV2 && tx.finished === 'commit') return res.status(500).json({
+                            error: 'The patient batch was saved, but a follow-up service-date history operation failed. Check Import History before retrying.',
+                            saveCommitted: true, aborted: false, successCount, mergedCount: mergedRows.length,
+                            skippedCount: skippedRows.length, skippedRows, reportId, reportRows, errorCount: 0, errors: []
+                        });
                         throw err;
                     }
                 }
@@ -1025,7 +1075,7 @@ exports.listPatientReports = async (req, res) => {
         const limit = 20;
         const result = await db.AuditLog.findAndCountAll({ where: await reportScope(req), limit, offset: (page - 1) * limit,
             order: [['id', 'DESC']], raw: true,
-            attributes: ['id', 'userId', 'createdAt', ...['fileName', 'createdCount', 'mergedCount', 'discardedCount'].map(field => [db.Sequelize.json('newValue.' + field), field])] });
+            attributes: ['id', 'userId', 'createdAt', ...['fileName', 'createdCount', 'mergedCount', 'discardedCount', ...(importReviewV2Enabled() ? ['hasUploadedFile','hasOriginalUpload'] : [])].map(field => [db.Sequelize.json('newValue.' + field), field])] });
         res.setHeader('Cache-Control', 'no-store');
         return res.json({ page, pageSize: limit, total: result.count, reports: result.rows });
     } catch (error) { return res.status(500).json({ error: 'Unable to load import reports.' }); }
@@ -1037,6 +1087,72 @@ exports.getPatientReport = async (req, res) => {
         const report = await db.AuditLog.findOne({ where: { ...await reportScope(req), id }, attributes: ['id', 'userId', 'createdAt', 'newValue'], raw: true });
         if (!report) return res.status(404).json({ error: 'Report not found.' });
         res.setHeader('Cache-Control', 'no-store');
-        return res.json({ id: report.id, userId: report.userId, createdAt: report.createdAt, ...report.newValue });
+        const { sourceFile, uploadedFile, ...snapshot } = report.newValue;
+        return res.json({ id: report.id, userId: report.userId, createdAt: report.createdAt, ...snapshot });
     } catch (error) { return res.status(500).json({ error: 'Unable to load this import report.' }); }
 };
+
+
+// File management stores correction snapshots separately from completed import history.
+exports.saveCorrectionFile = async (req, res) => {
+    try {
+        correctionFiles.requireEnabled();
+        if (!req.file) return res.status(400).json({ error: 'Select the original CSV file.' });
+        let result, status = 200;
+        await exports.importDataset({ ...req, params: { dataset: 'patients' }, body: { mode: 'preview', reviewMode: 'merge', reviewVersion: '2' } }, {
+            status(code) { status = code; return this; }, json(data) { result = data; }
+        });
+        if (status !== 200) return res.status(status).json(result);
+        if (!result.aborted || result.reviewRequired || !result.errors?.length) return res.status(400).json({ error: 'This file has no validation errors to store.' });
+        const rows = await parseCsv(req.file.buffer, true);
+        const ids = await correctionFiles.saveErrors(db, req, rows, result.errors);
+        res.setHeader('Cache-Control', 'no-store');
+        const files = await correctionFiles.load(db, req.user.id, ids);
+        return res.json({ ids, pendingCount: files.reduce((count, file) => count + file.pending.length, 0) });
+    } catch (e) { return res.status(e.status || 500).json({ error: e.status ? e.message : 'Unable to save correction file.' }); }
+};
+exports.listCorrectionFiles = async (req, res) => {
+    try {
+        correctionFiles.requireEnabled();
+        const page = Math.max(1, Math.min(100000, parseInt(req.query.page, 10) || 1));
+        const result = await db.AuditLog.findAndCountAll({ where: { userId: req.user.id, module: 'Data Import', action: correctionFiles.FILE },
+            attributes: ['id'], order: [['id','DESC']], offset: (page-1)*20, limit: 20, raw: true });
+        const records = await correctionFiles.load(db, req.user.id, result.rows.map(r => r.id));
+        res.setHeader('Cache-Control', 'no-store');
+        return res.json({ page, total: result.count, pageSize: 20, files: records.sort((a,b) => b.id-a.id).map(r => ({ id: r.id, fileName: r.newValue.fileName, recordedAt: r.createdAt,
+            pendingCount: r.pending.length, originalCount: r.newValue.items.length, correctedUploads: r.completed.map(e => ({ reportId: e.newValue.reportId, fileName: e.newValue.fileName, recordedAt: e.createdAt, correctedCount: e.newValue.itemIds.length })) })) });
+    } catch (e) { return res.status(e.status || 500).json({ error: e.status ? e.message : 'Unable to list correction files.' }); }
+};
+exports.getCorrectionFile = async (req, res) => {
+    try {
+        correctionFiles.requireEnabled();
+        const id = Number(req.params.id);
+        if (!Number.isSafeInteger(id) || id <= 0) return res.status(400).json({ error: 'Invalid correction file ID.' });
+        const [record] = await correctionFiles.load(db, req.user.id, [id]);
+        res.setHeader('Cache-Control', 'no-store');
+        return res.json(correctionFiles.packet(record));
+    } catch (e) { return res.status(e.status || 500).json({ error: e.status ? e.message : 'Unable to load correction file.' }); }
+};
+
+async function downloadStoredUpload(req, res, original) {
+    try {
+        correctionFiles.requireEnabled();
+        const id = Number(req.params.id);
+        if (!Number.isSafeInteger(id) || id <= 0) return res.status(400).json({ error: 'Invalid report ID.' });
+        const report = await db.AuditLog.findOne({ where: { ...await reportScope(req), id }, attributes: ['newValue'], raw: true });
+        if (!report) return res.status(404).json({ error: 'Report not found.' });
+        return retainedFile.send(res, original ? report.newValue.sourceFile : report.newValue.uploadedFile || report.newValue.sourceFile);
+    } catch (e) { return res.status(e.status || 500).json({ error: 'Unable to download the uploaded file.' }); }
+};
+exports.downloadCorrectionOriginalFile = async (req, res) => {
+    try {
+        correctionFiles.requireEnabled();
+        const id = Number(req.params.id);
+        if (!Number.isSafeInteger(id) || id <= 0) return res.status(400).json({ error: 'Invalid correction file ID.' });
+        const [record] = await correctionFiles.load(db, req.user.id, [id]);
+        return retainedFile.send(res, record.newValue.sourceFile);
+    } catch (e) { return res.status(e.status || 500).json({ error: e.status ? e.message : 'Unable to download original file.' }); }
+};
+
+exports.downloadUploadedFile = (req, res) => downloadStoredUpload(req, res, false);
+exports.downloadOriginalSourceFile = (req, res) => downloadStoredUpload(req, res, true);

@@ -7,6 +7,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+### Added (development opt-in)
+
+- Patient import File Management: familiar review and three tabs for existing
+  Import History, Files to Correct and Corrected Files. Retain source and
+  corrected CSVs with dated download names, persistent error rows and atomic
+  correction resolution. Preserve existing history and its development controls.
+  Protect import snapshots during audit rotation. No schema/dependency/version
+  change. Requires APP_ENV=development or staging plus IMPORT_REVIEW_V2=true;
+  production remains disabled. See docs/IMPORT_FILE_MANAGEMENT_DEVELOPMENT.md.
+
 ## [4.0.0-next.95] - 2026-10-01
 
 ### Added

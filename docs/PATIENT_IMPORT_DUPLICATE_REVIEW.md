@@ -4,6 +4,15 @@ Released in v4.0.0-next.85 after staging acceptance and successful lifecycle,
 security, and compiled-release checks. Production installation remains an
 operator step through Project Control; publication alone does not update a server.
 
+## Development File Management
+
+The opt-in development/staging import extension retains the familiar review
+and existing history, adding correction-file tabs and source/corrected CSV
+retention. It is disabled in production. See
+[IMPORT_FILE_MANAGEMENT_DEVELOPMENT.md](IMPORT_FILE_MANAGEMENT_DEVELOPMENT.md)
+for activation, isolated testing and rollback. The baseline rules below remain
+when the extension is off.
+
 ## Import behavior
 
 Starting with next.89, a missing/blank `patientCode` stays blank

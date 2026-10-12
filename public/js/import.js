@@ -13,6 +13,11 @@
     let selectedRevision = 0;
     let importHistoryPage = 1;
     let importHistoryBusy = false;
+    let originalCorrectionSourceId = null;
+    let reviewUploadFile = null;
+    let reviewHeaders = [];
+    let reviewV2Session = null;
+    const reviewV2Active = () => currentDataset === 'patients' && window.RX_IMPORT_REVIEW_V2 === true;
     const importEscape = value => String(value ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
 
     const DATASET_SPECS = {
@@ -265,20 +270,24 @@
         const records = [];
         let values = [], value = '', quoted = false;
         const source = text.replace(/^\uFEFF/, '');
+        const cell = value => typeof window !== 'undefined' && currentDataset === 'patients' && window.RX_IMPORT_REVIEW_V2 === true ? value : value.trim();
         for (let i = 0; i < source.length; i++) {
             const ch = source[i];
             if (ch === '"' && quoted && source[i + 1] === '"') { value += '"'; i++; }
             else if (ch === '"') quoted = !quoted;
-            else if (ch === ',' && !quoted) { values.push(value.trim()); value = ''; }
+            else if (ch === ',' && !quoted) { values.push(cell(value)); value = ''; }
             else if ((ch === '\n' || ch === '\r') && !quoted) {
-                values.push(value.trim()); records.push(values); values = []; value = '';
+                values.push(cell(value)); records.push(values); values = []; value = '';
                 if (ch === '\r' && source[i + 1] === '\n') i++;
             } else value += ch;
         }
         if (quoted) throw new Error('CSV contains an unclosed quoted field.');
-        if (value || values.length) { values.push(value.trim()); records.push(values); }
-        const headers = records.shift() || [];
-        const rows = records.map((cells, i) => {
+        if (value || values.length) { values.push(cell(value)); records.push(values); }
+        const rawHeaders = records.shift() || [];
+        const headers = typeof window !== 'undefined' && currentDataset === 'patients' && window.RX_IMPORT_REVIEW_V2 === true ? rawHeaders.map(header => header.trim()) : rawHeaders;
+        const dataRecords = typeof window !== 'undefined' && currentDataset === 'patients' && window.RX_IMPORT_REVIEW_V2 === true ? records.filter(cells => !(cells.length === 1 && cells[0] === '')) : records;
+        const rows = dataRecords.map((cells, i) => {
+            if (typeof window !== 'undefined' && currentDataset === 'patients' && window.RX_IMPORT_REVIEW_V2 === true && cells.length !== headers.length) throw Error('CSV row ' + (i + 2) + ' has ' + cells.length + ' columns; expected ' + headers.length + '.');
             const row = { _rowNum: i + 2 };
             headers.forEach((header, j) => { row[header] = cells[j] || ''; });
             return row;
@@ -324,8 +333,17 @@
         if (revision !== selectedRevision) return;
         let parsed;
         try { parsed = parseCSV(text); }
-        catch (err) { showToast(err.message, 'danger'); uploadBtn.disabled = false; return; }
+        catch (err) { showToast(err.message, 'danger'); if (reviewV2Active()) showImportFormatErrorV2(file, err.message); uploadBtn.disabled = false; return; }
         const { headers, rows } = parsed;
+        if (reviewV2Active()) {
+            reviewUploadFile = file; reviewHeaders = headers;
+            const missing = DATASET_SPECS.patients.requiredFields.filter(h => !headers.includes(h));
+            if (missing.length || headers.some(h => !h) || new Set(headers).size !== headers.length) {
+                const message = 'CSV requires unique, nonblank headers. Missing: ' + missing.join(', ');
+                showToast(message, 'danger'); showImportFormatErrorV2(file, message);
+                uploadBtn.disabled = false; return;
+            }
+        }
 
         if (!rows.length) {
             showToast('CSV file appears empty or has no data rows.', 'warning');
@@ -338,7 +356,8 @@
         invalidRows = validated.filter(r =>  r._errors.length);
         parsedRows  = validated;
 
-        renderPreview(headers, validated);
+        renderPreview(reviewV2Active() ? headers.filter(h => !h.startsWith('_review')) : headers, validated);
+        if (reviewV2Active()) { await previewImportV2(file, revision); uploadBtn.disabled = false; return; }
         if (currentDataset === 'patients' && invalidRows.length === 0) {
             importBusy = true;
             document.getElementById('confirmImportBtn').disabled = true;
@@ -372,6 +391,8 @@
 
     function resetDuplicateReview() {
         selectedRevision++;
+        originalCorrectionSourceId = null; reviewUploadFile = null; reviewHeaders = []; reviewV2Session = null;
+        document.getElementById('importV2Corrections')?.remove();
         duplicateReviewToken = '';
         duplicateSkipRows = [];
         duplicateDecisions = [];
@@ -456,6 +477,7 @@
             targets.forEach(m => { html += '<option value="' + m.patient.id + '">' + describe(m.patient) + '</option>'; });
             html += '</select></label><p class="small mt-2">The existing Patient ID and history are retained. Blank incoming values never erase data. Address is selected as one complete group. Service-date changes follow the normal eligibility rules. Non-region tags and RX workflow dates are retained. Patient status is retained unless you explicitly confirm restoration below; incoming CSV status is not applied. City changes apply the normal Region rule.</p><div class="merge-fields"></div></div>';
             card.innerHTML = html;
+            if (reviewV2Active() && (w.previousImport || w.informational)) card.querySelector('.duplicate-decision').value = w.previousImport ? 'skip' : 'import';
             card.addEventListener('change', event => {
                 if (event.target.classList.contains('duplicate-decision')) {
                     const panel = card.querySelector('.merge-panel');
@@ -473,6 +495,7 @@
         });
         button.disabled = true;
         button.textContent = 'Choose an action for each flagged row';
+        if (reviewV2Active()) updateSummary();
         button.onclick = () => {
             if (button.disabled || importBusy || pendingDuplicateReview !== data) return;
             duplicateReviewToken = data.reviewToken;
@@ -556,7 +579,7 @@
 
     // ---- Confirm: send to server ----
     async function confirmImport() {
-        if (importBusy || invalidRows.length > 0 || validRows.length === 0) return;
+        if (importBusy || invalidRows.length > 0 || validRows.length === 0 || (reviewV2Active() && !reviewUploadFile)) return;
         if (pendingDuplicateReview) { showDuplicateReview(pendingDuplicateReview); return; }
         importBusy = true;
         document.getElementById('csvFile').disabled = true;
@@ -570,7 +593,13 @@
         try {
             const fileInput = document.getElementById('csvFile');
             const formData  = new FormData();
-            formData.append('file', fileInput.files[0]);
+            formData.append('file', reviewV2Active() ? reviewUploadFile : fileInput.files[0]);
+            if (reviewV2Active()) {
+                formData.append('reviewVersion', '2');
+                if (originalCorrectionSourceId) formData.append('sourceUploadId', originalCorrectionSourceId);
+                formData.append('reviewNotes', JSON.stringify(Object.fromEntries((reviewV2Session?.items || []).map(i => [i.row, i.raw._reviewNotes || '']))));
+                formData.append('deferredRows', '[]');
+            }
             if (duplicateReviewToken) formData.append('duplicateReviewToken', duplicateReviewToken);
             if (currentDataset === 'patients') {
                 formData.append('reviewMode', 'merge');
@@ -592,9 +621,11 @@
                 displayResults(data);
             } else {
                 showToast(data.error || 'Import failed', 'danger');
+                if (reviewV2Active() && data.saveCommitted) displayResults(data);
+                else if (reviewV2Active()) showImportV2Corrections({ aborted: true, errors: parsedRows.map(r => ({ row: r._rowNum, error: data.error || 'Save failed; revalidate this batch' })) });
             }
         } catch (err) {
-            showToast('Network error during upload', 'danger');
+            showToast(reviewV2Active() ? 'Save status is unknown. Check Import History and revalidate before retrying; do not assume the batch was unsaved.' : 'Network error during upload', 'danger');
         } finally {
             importBusy = false;
             document.getElementById('csvFile').disabled = false;
@@ -626,6 +657,7 @@
     }
 
     function displayResults(data) {
+        if (reviewV2Active()) showImportV2Corrections(data);
         const box = document.getElementById('resultsBox');
         box.style.display = 'block';
 
@@ -677,13 +709,23 @@
         }
         reportBtn.hidden = data.aborted || !data.reportRows?.length;
         reportBtn.onclick = () => data.reportId ? downloadStoredImportReport(data.reportId) : downloadImportReport(data.reportRows);
+        if (reviewV2Active()) {
+            if (!data.aborted) loadCorrectionFiles();
+            if (dlBtn) dlBtn.style.display = 'none';
+            if (data.aborted) document.getElementById('resultsSummary').textContent = data.errorCount + ' errors. Nothing saved; download correction rows or validate the other rows separately.';
+            else {
+                if (data.saveCommitted) document.getElementById('resultsHeading').textContent = 'Saved - follow-up check needed';
+                const deferred = reviewV2Session?.items.filter(i => i.decision.action === 'defer').length || 0;
+                document.getElementById('resultsSummary').textContent = 'Created ' + data.successCount + ', merged ' + (data.mergedCount || 0) + ', deferred ' + deferred + ', skipped ' + ((data.skippedCount || 0) - deferred) + '.' + (data.saveCommitted ? ' ' + data.error : '');
+            }
+        }
         if (!data.aborted && document.getElementById('patientImportHistory').open) loadImportHistory(1);
 
         showToast(
-            data.aborted
+            data.saveCommitted ? data.error : data.aborted
                 ? 'Import aborted: ' + data.errorCount + ' error(s). Nothing was saved.'
                 : 'Import complete! ' + data.successCount + ' records added.',
-            data.aborted ? 'danger' : 'success'
+            data.saveCommitted ? 'warning' : data.aborted ? 'danger' : 'success'
         );
     }
 
@@ -699,9 +741,11 @@
             importHistoryPage = data.page;
             let html = '<table class="table table-sm table-bordered"><thead><tr><th>Report</th><th>File</th><th>Recorded</th><th>Operator ID</th><th>New</th><th>Merged</th><th>Discarded</th><th>Report</th></tr></thead><tbody>';
             data.reports.forEach(report => {
-                html += '<tr><td>' + report.id + '</td><td>' + importEscape(report.fileName) + '</td><td>' + importEscape(new Date(report.createdAt).toLocaleString()) + '</td><td>' + importEscape(report.userId) + '</td><td>' + Number(report.createdCount) + '</td><td>' + Number(report.mergedCount) + '</td><td>' + Number(report.discardedCount) + '</td><td><button type="button" class="btn btn-sm btn-outline-primary historical-report" data-id="' + report.id + '">Download CSV</button></td></tr>';
+                html += '<tr><td>' + report.id + '</td><td>' + importEscape(report.fileName) + '</td><td>' + importEscape(new Date(report.createdAt).toLocaleString()) + '</td><td>' + importEscape(report.userId) + '</td><td>' + Number(report.createdCount) + '</td><td>' + Number(report.mergedCount) + '</td><td>' + Number(report.discardedCount) + '</td><td><button type="button" class="btn btn-sm btn-outline-primary historical-report" data-id="' + report.id + '">Download CSV</button>' + (reviewV2Active() && report.hasUploadedFile ? '<button type="button" class="btn btn-sm btn-outline-secondary ms-1 uploaded-file" data-id="' + report.id + '">Uploaded file</button>' + (report.hasOriginalUpload ? '<button type="button" class="btn btn-sm btn-outline-secondary ms-1 original-source-file" data-id="' + report.id + '">Original upload</button>' : '') : '') + '</td></tr>';
             });
             body.innerHTML = data.reports.length ? html + '</tbody></table>' : '<p>No completed patient import reports yet.</p>';
+            body.querySelectorAll('.original-source-file').forEach(button => button.addEventListener('click', () => downloadOriginalImportedFile('/api/import/patient-reports/' + button.dataset.id + '/original-file')));
+            body.querySelectorAll('.uploaded-file').forEach(button => button.addEventListener('click', () => downloadOriginalImportedFile('/api/import/patient-reports/' + button.dataset.id + '/uploaded-file')));
             body.querySelectorAll('.historical-report').forEach(button => button.addEventListener('click', () => downloadStoredImportReport(Number(button.dataset.id))));
             document.getElementById('importHistoryPage').textContent = 'Page ' + data.page + ' of ' + Math.max(1, Math.ceil(data.total / data.pageSize));
             document.getElementById('previousImportHistoryBtn').disabled = data.page <= 1;
@@ -721,7 +765,7 @@
 
     function downloadImportReport(rows, reportId) {
         if (!rows?.length) return;
-        const headers = ['csvRow', 'action', 'patientId', 'patientCode', 'recordedAt', 'operatorId', 'field', 'choice', 'existingValue', 'incomingValue', 'finalValue'];
+        const headers = ['csvRow', 'action', 'patientId', 'patientCode', 'recordedAt', 'operatorId', 'field', 'choice', 'existingValue', 'incomingValue', 'finalValue', ...(rows.some(row => row.sourceRow !== undefined) ? ['sourceRow', 'reviewNotes'] : [])];
         const escape = value => {
             let text = String(value ?? '');
             if (/^[\s]*[=+@-]/.test(text)) text = "'" + text;
