@@ -4037,3 +4037,7 @@ Workflow Actions and RX Actions are catalog/lookup tables, not administrative fu
 - `RX-Manager.bat` — server/database/config management (options 1–18)
 - Portable `server.exe` build via `@yao-pkg/pkg`
 - FortiGate reverse-proxy compatibility (base-path detection)
+
+Release dependency audit: proxy-addr updated to 2.0.8; development-only nodemon
+removed because its braces dependency has no patched release. npm run dev uses
+Node built-in --watch. No forced Sequelize downgrade.

@@ -1596,3 +1596,7 @@ relevant runbook. Confirm the live production version with Project Control or
 `server.exe --v` before planning another release. Ask the user only for facts
 that cannot be discovered safely; never ask them to paste secret `.env`
 contents into chat.
+
+Release dependency audit: proxy-addr updated to 2.0.8; development-only nodemon
+removed because its braces dependency has no patched release. npm run dev uses
+Node built-in --watch. No forced Sequelize downgrade.
