@@ -8,6 +8,17 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
 
+- **next.96 production release preparation (2026-10-12):** User accepted the
+  restored-database development importer and authorized production publication.
+  Clean release worktree selectively includes importer/file-retention changes;
+  unrelated staging work and local user edits excluded. Version/lock/notes aligned.
+  Released importer now defaults on in every environment; IMPORT_REVIEW_V2=false
+  restores baseline after restart. This supersedes the earlier opt-in restriction.
+  No schema migration, dependency change, RX Action change or Softphone edit.
+  Local lifecycle/importer, security, compilation, packaging and downloaded-asset
+  verification are required before publication. Production installation remains
+  the user action through Project Control 8 then 15. No live deployment performed.
+
 - **Shared-phone import review narrowed (2026-10-12, development):** With the
   importer flag enabled, phone-only matches are excluded when both DOBs are
   present and different and the full names are neither equal nor similar.

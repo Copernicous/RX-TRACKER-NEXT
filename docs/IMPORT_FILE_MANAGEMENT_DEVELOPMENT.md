@@ -1,3 +1,7 @@
+> Release update: next.96 enables this importer by default in all environments.
+> IMPORT_REVIEW_V2=false and restart restores the baseline. The following records
+> the earlier isolated development review; it is historical, not release setup.
+
 # Import File Management in development
 
 2026-10-12. User authorized development promotion after reviewing staging.
