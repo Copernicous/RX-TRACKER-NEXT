@@ -8,6 +8,29 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
 
+- **next.97 security release published and verified (2026-10-23):** Published
+  `v4.0.0-next.97` from `320dae151b51a34b31ea944ec95de9c0a84573c6`;
+  develop/main and the new annotated tag were pushed after local validation.
+  All 70 lifecycle/application checks passed. Both actual executables report
+  Node 22.23.4, OpenSSL 3.5.9. Node backports the Brotli CVE-2026-111497 fix;
+  its bundled Brotli version string remains 1.1.0 (see upstream Node 22.23.4
+  release notes). Packaging is pinned to pkg 6.24.0. body-parser 2.4.0 fixes
+  CVE-2026-111181; ip-address 10.7.4 fixes its parsing advisory. CodeQL found
+  no introduced JavaScript findings (83 existing retained), C# zero findings
+  with unchanged source. Existing Sequelize/UUID and Softphone warnings remain
+  documented. Package/source parity, safe ZIP entries, compiled startup and
+  database health passed. All five draft assets were downloaded again; hashes
+  and both executable hashes inside both server ZIPs matched before publication.
+  Repository build/release workflows stayed disabled and no hosted release jobs
+  ran. No new migration, RX Action change, business-data rewrite or installation.
+  Install through Project Control 8 then 15 and require healthy next.97; preserve
+  the paired application/database rollback set. Publication does not deploy.
+  Release: https://github.com/Copernicous/RX-TRACKER-NEXT/releases/tag/v4.0.0-next.97
+  Both server ZIPs SHA-256:
+  `43efafe12d2b3321356e051e59adce92a78e1da1c799235bc7670bdbba305eac`;
+  server.exe `6585d0ea0ebf4c2c52124b25466ec0edb940552a6d7f26ea68d0fa43e5cfbcc4`;
+  rx-db.exe `2e81b3e6774208dcc2a6ccd46cb7c392b32ec3b736927a2aff424fd2dbd25604`.
+
 - **next.97 security release preparation (2026-10-23):** User authorized local validation and GitHub publication to patch server installations. Candidate embeds Node 22.23.4 using pinned pkg 6.24.0. Both executable runtimes must pass inspection before packaging. No new migration or business-data rewrite. Existing security findings remain documented. Production installation remains through Project Control 8 then 15; no live deployment performed. Lifecycle, CodeQL, packaging and downloaded-asset verification must pass before publication. Security dependencies: body-parser 2.4.0 fixes CVE-2026-111181 (compressed request denial of service); ip-address 10.7.4 fixes its parsing denial of service advisory. A disposable HTTP regression checks valid and malformed compressed requests leave the process healthy.
 
 - **next.96 published and deployment-ready (2026-10-12):** User approved the
