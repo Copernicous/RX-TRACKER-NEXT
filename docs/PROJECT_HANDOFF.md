@@ -8,7 +8,7 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
 
-- **next.97 security release preparation (2026-10-23):** User authorized local validation and GitHub publication to patch server installations. Candidate embeds Node 22.23.4 using pinned pkg 6.24.0. Both executable runtimes must pass inspection before packaging. No new migration or business-data rewrite. Existing security findings remain documented. Production installation remains through Project Control 8 then 15; no live deployment performed. Lifecycle, CodeQL, packaging and downloaded-asset verification must pass before publication.
+- **next.97 security release preparation (2026-10-23):** User authorized local validation and GitHub publication to patch server installations. Candidate embeds Node 22.23.4 using pinned pkg 6.24.0. Both executable runtimes must pass inspection before packaging. No new migration or business-data rewrite. Existing security findings remain documented. Production installation remains through Project Control 8 then 15; no live deployment performed. Lifecycle, CodeQL, packaging and downloaded-asset verification must pass before publication. Security dependencies: body-parser 2.4.0 fixes CVE-2026-111181 (compressed request denial of service); ip-address 10.7.4 fixes its parsing denial of service advisory. A disposable HTTP regression checks valid and malformed compressed requests leave the process healthy.
 
 - **next.96 published and deployment-ready (2026-10-12):** User approved the
   importer against the restored development database. Published locally verified

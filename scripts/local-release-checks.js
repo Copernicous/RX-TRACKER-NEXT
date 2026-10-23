@@ -98,6 +98,7 @@ async function smokeServer(label, database, port, extra = {}, relay = false) {
         evidence.checks.push({ label: 'manual-only-hosted-workflows', passed: true });
         run('dependency-audit', process.execPath, [npmCli, 'audit', '--audit-level=high']);
         node('public-javascript', 'scripts/check-public-js.js');
+        node('compressed-request-security', 'scripts/test-compressed-request-security.js');
         for (const name of ['patient-delete-confirmation','backoffice-patient-identity','patient-import-duplicates','patient-create-duplicates','patient-address-update','dependency-policy','security-automation','reference-data','new-server-installer','project-control-test-copy-restore','report-view-render','delivery-log-archive','delivery-log-archive-client','routine-db-health','backup-scheduler-disable','backoffice-backup-snapshot','i18n-branding']) node(name, 'scripts/test-' + name + '.js');
         for (const name of ['Invoke-NextProduction','Invoke-ReleaseUpdate','Invoke-TestCopyRestore']) ps(name + '-self-test', 'scripts/' + name + '.ps1', ['-Action','SelfTest']);
         ps('backup-manifest-ps51', 'scripts/test-release-backup-manifest.ps1');

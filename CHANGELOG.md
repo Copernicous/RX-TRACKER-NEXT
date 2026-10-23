@@ -14,6 +14,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 - Embed Node.js 22.23.4 in server.exe and rx-db.exe for the October 21 security fixes, including CVE-2026-111497. Pin packaging to pkg 6.24.0 and inspect both executable runtimes before packaging.
 - Add read-only --runtime-info to both executables. No new migration or business-data rewrite.
 
+- Security dependencies: body-parser 2.4.0 fixes CVE-2026-111181 (compressed request denial of service); ip-address 10.7.4 fixes its parsing denial of service advisory. A disposable HTTP regression checks valid and malformed compressed requests leave the process healthy.
+
 ## [4.0.0-next.96] - 2026-10-12
 
 ### Fixed
