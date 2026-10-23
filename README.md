@@ -10,7 +10,9 @@ frozen 3.3.1 repository, its production database, or the RX Softphone source.
 
 ## Current status
 
-Version: `4.0.0-next.96`
+Version: `4.0.0-next.97`
+
+Version `next.97` embeds Node.js 22.23.4 for the October 21 security advisories. Both executable runtimes are verified before packaging. No new migration.
 
 Version `next.96` adds Import History / Files to Correct / Corrected Files tabs,
 retained dated original/corrected uploads and correction-only reimports. Phone-only

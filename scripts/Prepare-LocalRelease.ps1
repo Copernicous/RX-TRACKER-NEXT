@@ -59,8 +59,16 @@ foreach ($language in @('javascript','csharp')) {
 }
 Invoke-Checked 'codeql-review' 'node.exe' @('scripts/review-local-codeql.js',$output,$BaselineRef)
 
-Invoke-Checked 'server-build' 'npx.cmd' @('--yes','--package=@yao-pkg/pkg@6.23.0','pkg','app.js','--target','node22-win-x64','--output','dist/server.exe','--compress','GZip')
-Invoke-Checked 'database-cli-build' 'npx.cmd' @('--yes','--package=@yao-pkg/pkg@6.23.0','pkg','scripts/db-lifecycle.js','--target','node22-win-x64','--output','dist/rx-db.exe','--compress','GZip')
+Invoke-Checked 'server-build' 'npx.cmd' @('--yes','--package=@yao-pkg/pkg@6.24.0','pkg','app.js','--target','node22-win-x64','--output','dist/server.exe','--compress','GZip')
+Invoke-Checked 'database-cli-build' 'npx.cmd' @('--yes','--package=@yao-pkg/pkg@6.24.0','pkg','scripts/db-lifecycle.js','--target','node22-win-x64','--output','dist/rx-db.exe','--compress','GZip')
+# Inspect both real executables before packaging; a host Node update is insufficient.
+$runtimeEvidence = @{}
+foreach ($binary in @('server','rx-db')) {
+    Invoke-Checked "$binary-runtime" (Join-Path $root "dist/$binary.exe") @('--runtime-info')
+    $runtime = Get-Content (Join-Path $output "$binary-runtime.log") -Raw | ConvertFrom-Json
+    if ($runtime.applicationVersion -ne $version -or $runtime.node -ne '22.23.4') { throw "Unapproved embedded runtime in $binary" }
+    $runtimeEvidence[$binary] = $runtime
+}
 Invoke-Checked 'server-packaging' 'node.exe' @('scripts/post-build.js')
 Invoke-Checked 'softphone-packaging' 'powershell.exe' @('-NoProfile','-ExecutionPolicy','Bypass','-File','rx-softphone-desktop/build-release.ps1')
 $softphone = @(Get-ChildItem rx-softphone-desktop/release -Filter 'RxSoftphone-*-win-x64.zip' -File)
@@ -107,7 +115,7 @@ $extracted = Join-Path $output 'compiled-smoke'
 Invoke-Checked 'compiled-runtime' 'node.exe' @('scripts/test-compiled-release.js',$extracted,$MaintenanceEnv)
 
 if ((git rev-parse HEAD).Trim() -ne $sha -or @(git status --porcelain).Count -ne 0) { throw 'Source changed during validation/build; rerun from clean checkout.' }
-$manifest = @{ version=$version; sourceCommit=$sha; finishedAt=[DateTime]::UtcNow.ToString('o'); localValidationPassed=$true; checksums=$hashes; lifecycleChecks=@($validation.checks).Count; codeql=@('javascript','csharp'); codeqlReview=(Get-Content (Join-Path $output 'codeql-review.json') -Raw | ConvertFrom-Json); knownDependencyWarnings=@('Existing moderate Sequelize/UUID npm findings','Unchanged SIPSorcery 10.0.12: GHSA-jwjp-4649-v8jp, GHSA-pfvm-w89x-94jw'); pkgVersion='6.23.0'; nodeVersion=(& node.exe --version); dotnetVersion=(& (Join-Path $DotnetDirectory 'dotnet.exe') --version) }
+$manifest = @{ version=$version; sourceCommit=$sha; finishedAt=[DateTime]::UtcNow.ToString('o'); localValidationPassed=$true; checksums=$hashes; lifecycleChecks=@($validation.checks).Count; codeql=@('javascript','csharp'); codeqlReview=(Get-Content (Join-Path $output 'codeql-review.json') -Raw | ConvertFrom-Json); knownDependencyWarnings=@('Existing moderate Sequelize/UUID npm findings','Unchanged SIPSorcery 10.0.12: GHSA-jwjp-4649-v8jp, GHSA-pfvm-w89x-94jw'); embeddedRuntimes=$runtimeEvidence; pkgVersion='6.24.0'; nodeVersion=(& node.exe --version); dotnetVersion=(& (Join-Path $DotnetDirectory 'dotnet.exe') --version) }
 $manifest | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $output 'LOCAL_VALIDATION.json') -Encoding UTF8
 Write-Host "PASS local release $version from $sha. Assets: $output"
 Write-Host 'No source, tag, draft or release was pushed/published. Installation remains a separate operator action.'

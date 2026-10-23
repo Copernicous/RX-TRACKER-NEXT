@@ -34,7 +34,7 @@ user authorization. All workflow triggers are manual-only.
 The script requires a clean commit and no `.env` in the release worktree.
 It installs locked dependencies, runs `local-release-checks.js`, compiles the
 unchanged Softphone, runs both CodeQL scans, builds server/rx-db with pinned
-pkg 6.23.0, builds all three ZIPs, verifies source/package parity and compiled
+pkg 6.24.0, builds all three ZIPs, verifies source/package parity and compiled
 versions, and writes SHA256SUMS.txt and LOCAL_VALIDATION.json. Failures block
 release; they never fall back to GitHub. CodeQL runs on the candidate and the
 published JavaScript baseline with the same tool/query bundle. New unreviewed
@@ -72,3 +72,6 @@ extends the former hosted-only test guard without permitting live databases.
 
 Preparation does not push or publish automatically. It leaves a concrete,
 verified set of files ready for the authorized push/upload step.
+
+Both built executables must report Node 22.23.4 through --runtime-info before
+packaging. Embedded versions are recorded in LOCAL_VALIDATION.json.

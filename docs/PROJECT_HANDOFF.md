@@ -1,12 +1,14 @@
 # RX Tracker NEXT project handoff
 
-Last updated: 2026-10-12
+Last updated: 2026-10-23
 
 This file is the sanitized continuity record for a future administrator or
 Codex session. It intentionally contains no credentials, `.env` values,
 patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
+
+- **next.97 security release preparation (2026-10-23):** User authorized local validation and GitHub publication to patch server installations. Candidate embeds Node 22.23.4 using pinned pkg 6.24.0. Both executable runtimes must pass inspection before packaging. No new migration or business-data rewrite. Existing security findings remain documented. Production installation remains through Project Control 8 then 15; no live deployment performed. Lifecycle, CodeQL, packaging and downloaded-asset verification must pass before publication.
 
 - **next.96 published and deployment-ready (2026-10-12):** User approved the
   importer against the restored development database. Published locally verified

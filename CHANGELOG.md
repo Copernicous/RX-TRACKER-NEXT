@@ -7,6 +7,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
+## [4.0.0-next.97] - 2026-10-23
+
+### Security
+
+- Embed Node.js 22.23.4 in server.exe and rx-db.exe for the October 21 security fixes, including CVE-2026-111497. Pin packaging to pkg 6.24.0 and inspect both executable runtimes before packaging.
+- Add read-only --runtime-info to both executables. No new migration or business-data rewrite.
+
 ## [4.0.0-next.96] - 2026-10-12
 
 ### Fixed
