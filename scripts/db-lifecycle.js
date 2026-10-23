@@ -1,10 +1,10 @@
+'use strict';
+
 // Read-only runtime inspection: exits before configuration or database loading.
 if (process.argv.includes('--runtime-info')) {
     console.log(JSON.stringify({ applicationVersion: require('../package.json').version, node: process.versions.node, brotli: process.versions.brotli, openssl: process.versions.openssl }));
     process.exit(0);
 }
-
-'use strict';
 
 require('dotenv').config();
 
