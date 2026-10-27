@@ -8,6 +8,35 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
 
+- **next.99 published and deployment-ready (2026-10-27):** Official release
+  https://github.com/Copernicous/RX-TRACKER-NEXT/releases/tag/v4.0.0-next.99
+  is a prerelease consistent with the NEXT version series. Immutable tag/source
+  `1764c8bd3e7c2dcf0aed75487814c46825ac9446` is on remote develop/main. All 75 exact-source local
+  lifecycle checks passed, including pause/cutoff/ignore immutability, retention,
+  PostgreSQL CSV cursors, backup/restore, sanitization and restricted runtime.
+  New application security findings were resolved with trusted query/file catalogs,
+  an RX Profile Sync rate limit and plain-text error rendering. CodeQL retained
+  83 baseline JavaScript findings plus one narrowly reviewed fixed-loopback
+  smoke-test finding; no unreviewed introduced high/error findings. C# zero,
+  source unchanged. Existing dependency warnings remain disclosed. Both compiled
+  executables report Node 22.23.4. Extracted-package tests verified authenticated
+  Backoffice partials, default-off Sync APIs and both file archive adapters.
+  All five draft assets were downloaded and hash-matched before publication;
+  embedded executable hashes, versions and both operator runbooks also verified.
+  Server/new-server ZIP SHA256 (byte-identical):
+  `706e405f7ad63beb1120ef9150962dedabfec41ec9d8d89bf145518814f85d9e`.
+  Softphone ZIP SHA256: `facaf1dd0f869a0e505c899e1922779ff1491c33a619f90f5debc84186371416`.
+  Sanitized LOCAL_VALIDATION.json and SHA256SUMS.txt are published. Private logs,
+  disposable dumps and credentials stay ignored locally. Hosted Actions remain
+  disabled; no hosted run was triggered. Deferred staging work remains excluded.
+  Installation is pending the operator: Project Control 8 then 15, preserve paired
+  rollback and protect external archive folders/receipts/sequence ledger/renderers.
+  No new migration since next.98 or installation-time patient/RX rewrite. Existing
+  policies keep new file sections disabled; Sync defaults off until explicitly
+  configured. Older binaries cannot read compressed archives; follow the packaged
+  filesystem recovery guidance rather than relying on database rollback alone.
+
+
 - **next.99 release preparation (2026-10-27):** Production changelog, notes, package/lock and operator runbooks aligned to 4.0.0-next.99. Source includes the accepted Backoffice retention and default-off RX Profile Sync controls; unrelated workspace edits, private data and deferred staging work are excluded. No new migration or installation-time patient/RX rewrite. Existing saved policies leave new file sections disabled. Full clean-commit local validation/build, CodeQL comparison against next.98 and downloaded draft-asset verification are required before publication. Hosted Actions remain disabled; installation is a separate operator action.
 
 - **Backoffice archive / RX Profile Sync implementation (2026-10-27, unreleased):** Shared archive controls and storage-aware viewers; error resolution retention/count fixes; verified gzip/recall for delivery and CSV snapshot files; bounded raw-table viewing and cursor-based CSV generation, without snapshot auto-deletion. RX Profile Sync defaults off, persists pause plus inclusive UTC RX-creation cutoff, blocks paused/out-of-range copying, and permits explicit review/ignore without patient/RX writes. Existing policies add file archive sections disabled. No migration, production installation or new publication. See HISTORY_ARCHIVING.md and RX_PROFILE_SYNC_CONTROLS.md. All 75 local lifecycle checks passed for source 33ad25c5e385a59b55fe6adf043077b875ff80a3; 15 archive scenarios include actual PostgreSQL CSV cursors. Synthetic browser QA verified shared controls, archived read-only errors, table page 2, persisted start-date/stop controls and bulk ignore, with zero console errors. Local port 3000 restarted on the same restored test copy, exact PID/database verified, backups/archive/outbound alert automation still suppressed. No production changes or published assets were modified.
