@@ -50,6 +50,9 @@ async function run() {
     assert.equal(context.viewerSelectedIds.size, 0);
     assert.equal(context.viewerCols[0], 'patientCode');
     assert.equal(context.viewerVis.id, false);
+    context.toggleRowSel('71', true); context.viewerRows = [patients[1]];
+    context.renderImpactPatients(['71']); assert.match(el('impactPatients').textContent, /PAT-00091/);
+    context.viewerRows = patients; context.clearRowSelection();
     assert.equal(context.viewerColumnLabel('id'), 'Internal Database ID');
     assert.match(el('viewerTableWrap').innerHTML, /Patient ID/);
     assert.match(el('viewerTableWrap').innerHTML, /PAT-00091/);

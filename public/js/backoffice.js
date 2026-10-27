@@ -9,6 +9,7 @@ var tableCounts = {};
 var selected     = new Set();
 
 // ── Viewer state ──────────────────────────────────────────────────────────
+var viewerSelectionRows = new Map();
 var viewerTotal = 0;
 var viewerGeneration = 0;
 var viewerRows = [];
@@ -201,7 +202,7 @@ function viewerCellValue(row, column) {
 }
 
 async function openViewer(tableKey) {
-    viewerSelectedIds.clear();
+    viewerSelectedIds.clear(); viewerSelectionRows.clear();
     closeImpactModal();
     var _found = null;
     tableMeta.forEach(function(t) { if (t.key === tableKey) _found = t; });
@@ -227,10 +228,12 @@ async function openViewer(tableKey) {
     document.getElementById('viewerOverlay').classList.add('show');
 
     try {
+        var generation = ++viewerGeneration;
         var res = await apiFetch('/api/admin/table-data/' + tableKey + '?size=' + (viewerPageSize || 20));
         var data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Load failed');
 
+        if (generation !== viewerGeneration) return;
         viewerTotal = data.total;
         viewerRows = data.rows;
         viewerCols  = data.columns.slice();
@@ -290,7 +293,7 @@ function viewerActiveFilterValue() {
 }
 
 function changeViewerPatientFilter() {
-    viewerSelectedIds.clear();
+    viewerSelectedIds.clear(); viewerSelectionRows.clear();
     closeImpactModal();
     return applyViewerFilter();
 }
@@ -311,7 +314,7 @@ async function loadViewerPage() {
         renderViewerTable();
     } catch (e) { if (generation === viewerGeneration) toast(e.message, 'danger'); }
 }
-function applyViewerFilter() { viewerSelectedIds.clear(); viewerPage = 1; return loadViewerPage(); }
+function applyViewerFilter() { viewerSelectedIds.clear(); viewerSelectionRows.clear(); viewerPage = 1; return loadViewerPage(); }
 
 function applySortToFiltRows() {
     if (!viewerSortCol) return;
@@ -335,7 +338,7 @@ function changePageSize() {
     viewerPage = 1; loadViewerPage();
 }
 function clearRowSelection() {
-    viewerSelectedIds.clear();
+    viewerSelectedIds.clear(); viewerSelectionRows.clear();
     renderViewerTable();
 }
 
@@ -412,14 +415,11 @@ function renderViewerTable() {
 var viewerSelectedIds = new Set();
 
 function toggleRowSel(id, checked) {
-    if (checked) viewerSelectedIds.add(String(id));
-    else         viewerSelectedIds.delete(String(id));
+    if (checked) { viewerSelectedIds.add(String(id)); viewerSelectionRows.set(String(id), viewerRows.find(function(row) { return String(row.id) === String(id); })); }
+    else { viewerSelectedIds.delete(String(id)); viewerSelectionRows.delete(String(id)); }
     updateViewerSelUI();
     var ps = viewerPageSize || viewerFiltRows.length;
-    var pageRows = viewerFiltRows.slice(
-        (viewerPage-1) * ps,
-        viewerPage * ps || viewerFiltRows.length
-    );
+    var pageRows = viewerFiltRows;
     var allSel  = pageRows.every(function(r) { return viewerSelectedIds.has(String(r.id)); });
     var someSel = pageRows.some(function(r)  { return viewerSelectedIds.has(String(r.id)); });
     var cb = document.getElementById('selAllCheck');
@@ -431,8 +431,8 @@ function toggleSelectPage(checked) {
     var start = (viewerPage - 1) * ps;
     var end   = ps ? Math.min(start + ps, viewerFiltRows.length) : viewerFiltRows.length;
     viewerFiltRows.forEach(function(r) {
-        if (checked) viewerSelectedIds.add(String(r.id));
-        else         viewerSelectedIds.delete(String(r.id));
+        if (checked) { viewerSelectedIds.add(String(r.id)); viewerSelectionRows.set(String(r.id), r); }
+        else { viewerSelectedIds.delete(String(r.id)); viewerSelectionRows.delete(String(r.id)); }
     });
     document.querySelectorAll('.row-check').forEach(function(cb) {
         cb.checked = viewerSelectedIds.has(String(cb.value));
@@ -462,7 +462,7 @@ function renderImpactPatients(ids) {
     heading.textContent = 'Patients selected for permanent deletion';
     box.appendChild(heading);
     ids.forEach(function(id) {
-        var row = viewerRows.find(function(patient) { return String(patient.id) === String(id); });
+        var row = viewerRows.find(function(patient) { return String(patient.id) === String(id); }) || viewerSelectionRows.get(String(id));
         if (!row) throw new Error('Selected patient is no longer in the loaded list. Reopen Patients and select again.');
         var item = document.createElement('div');
         item.textContent = String(row.patientCode || row.id) + ' - ' +
@@ -578,7 +578,7 @@ async function executeRowDelete() {
         }
         toast('\u2713 Deleted ' + data.results.deleted + ' row(s)' + (cascadeInfo ? ' + cascaded: ' + cascadeInfo : ''), 'success');
         closeImpactModal();
-        viewerSelectedIds.clear();
+        viewerSelectedIds.clear(); viewerSelectionRows.clear();
         await openViewer(viewerMeta.key);
         loadStats();
     } catch(e) {

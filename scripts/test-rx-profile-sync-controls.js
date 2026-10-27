@@ -12,13 +12,13 @@ async function main() {
     const role = await db.Role.findOne({ where: { name: 'Administrator' } });
     const user = await db.User.create({ username: 'CONTROL-TEST', firstName: 'Synthetic', lastName: 'Administrator', roleId: role.id, passwordHash: 'not-a-login', isActive: true });
     const pharmacy = await db.Pharmacy.create({ name: 'Synthetic Pharmacy', isActive: true });
-    const patient = await db.Patient.create({ firstName: 'Synthetic', lastName: 'Control', pharmacyId: pharmacy.id });
+    const patient = await db.Patient.create({ firstName: 'Synthetic', lastName: 'Control', patientCode: 'CONTROL-001', isActive: true, pharmacyId: pharmacy.id });
     const day = new Date().toISOString().slice(0, 10), boundary = new Date(day + 'T00:00:00.000Z');
-    const oldRx = await db.RXRecord.create({ patientId: patient.id, pharmacyId: null, createdAt: new Date(boundary.getTime() - 1) }, { silent: true });
-    const rx = await db.RXRecord.create({ patientId: patient.id, pharmacyId: null, createdAt: boundary }, { silent: true });
+    const oldRx = await db.RXRecord.create({ patientId: patient.id, pharmacyId: null, updatedAt: boundary, createdAt: new Date(boundary.getTime() - 1) }, { silent: true });
+    const rx = await db.RXRecord.create({ patientId: patient.id, pharmacyId: null, createdAt: boundary, updatedAt: boundary }, { silent: true });
     assert.equal((await controls.get()).enabled, false);
     assert.deepEqual((await call(controller.list)).body.rows, []);
-    assert.equal((await call(controller.sync, { params: { rxId: rx.id }, user })).code, 409);
+    const pausedSync = await call(controller.sync, { params: { rxId: rx.id }, user }); assert.equal(pausedSync.code, 409, JSON.stringify(pausedSync.body));
     assert.equal((await call(controller.bulkSync, { body: { entries: [{ rxId: rx.id, fields: ['pharmacyId'] }] }, user })).code, 409);
     assert.throws(() => controls.validate({ enabled: true, startDate: null }), /starting date/);
     assert.throws(() => controls.validate({ enabled: true, startDate: '2026-02-30' }), /valid/);

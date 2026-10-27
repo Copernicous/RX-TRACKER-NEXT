@@ -104,6 +104,17 @@ async function main() {
     const pagedTable = await response(admin.getTableData, { params: { tableName: 'AuditLogs' }, query: { size: '1', page: '2', search: 'History' } });
     assert.equal(pagedTable.status, 200); assert(pagedTable.body.rows.length <= 1); assert(pagedTable.body.total >= 1);
     pass('Backoffice resolution timestamps/counts, archived read-only scopes and bounded raw-table pagination');
+    const snapshotSettings = require('../utils/globalSettings'), savedSettingsReader = snapshotSettings.readSettings;
+    const snapshotRoot = path.resolve('output/backoffice-snapshot-integration-' + Date.now());
+    snapshotSettings.readSettings = () => ({ backupPath: snapshotRoot });
+    try {
+        const snapshot = await response(admin.createBackup, { user: reqUser });
+        assert.equal(snapshot.status, 200, JSON.stringify(snapshot.body));
+        assert(snapshot.body.files.some(file => file.table === 'AuditLogsArchive' && file.rows > 0));
+        assert(snapshot.body.files.some(file => file.table === 'ErrorLogsArchive' && file.rows > 0));
+    } finally { snapshotSettings.readSettings = savedSettingsReader; fs.rmSync(snapshotRoot, { recursive: true, force: true }); }
+    pass('real PostgreSQL read-only CSV cursors preserve archived tables in bounded snapshot exports');
+
 
     const doomed = await audit({ action: 'Rollback test' });
     const create = db.AuditLog.create;
