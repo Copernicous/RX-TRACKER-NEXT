@@ -25,6 +25,9 @@ async function main() {
     await controls.save({ enabled: true, startDate: day }, user);
     let rows = (await call(controller.list)).body.rows;
     assert(rows.some(row => row.rxId === rx.id)); assert(!rows.some(row => row.rxId === oldRx.id));
+    const multi = await call(controller.list, { query: { rxHistoryScope: 'multi' } });
+    assert(multi.body.rows.some(row => row.rxId === rx.id && row.patientRxCount === 2));
+    assert(!multi.body.rows.some(row => row.rxId === oldRx.id));
     assert.equal((await call(controller.sync, { params: { rxId: oldRx.id }, body: { fields: ['pharmacyId'] }, user })).code, 400);
     const findRows = db.RXRecord.findAll; let pauseDuringScan = true;
     db.RXRecord.findAll = async function(options) {

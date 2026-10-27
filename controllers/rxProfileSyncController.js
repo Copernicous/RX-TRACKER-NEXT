@@ -231,6 +231,12 @@ exports.list = async (req, res) => {
                 order: [['patientId', 'ASC'], ['createdAt', 'ASC'], ['id', 'ASC']]
             });
             await verifyScanControl(control);
+            const groupPatientIds = [...new Set(records.map(record => Number(record.patientId)))];
+            const fullCounts = groupPatientIds.length ? await db.RXRecord.findAll({
+                where: { [Op.and]: [activeRecordCondition(), { patientId: { [Op.in]: groupPatientIds } }] },
+                attributes: ['patientId', [db.sequelize.fn('COUNT', db.sequelize.col('id')), 'count']], group: ['patientId'], raw: true
+            }) : [];
+            const fullPatientCounts = new Map(fullCounts.map(row => [Number(row.patientId), Number(row.count)]));
             const groups = new Map();
             records.forEach(record => {
                 const rx = record.get({ plain: true });
@@ -249,8 +255,9 @@ exports.list = async (req, res) => {
             });
             const rows = [];
             [...groups.values()].forEach(group => {
-                if (group.length < 2) return;
-                group.forEach(row => { row.patientRxCount = group.length; });
+                const fullCount = fullPatientCounts.get(Number(group[0].patientId)) || group.length;
+                if (fullCount < 2) return;
+                group.forEach(row => { row.patientRxCount = fullCount; });
                 rows.push(...group);
             });
             await applyReviewState(rows, reviewStatus);
@@ -268,10 +275,10 @@ exports.list = async (req, res) => {
                 });
                 if (!qualifyingRows.length) return;
                 // A multi-RX result is a patient history card. Once a card
-                // qualifies, history-review mode includes every active RX.
+                // qualifies, history-review mode includes active RX within the saved creation-date scope.
                 const rowsForCard = showAll ? group : qualifyingRows;
                 rowsForCard.forEach(row => {
-                    row.patientRxCount = group.length;
+                    row.patientRxCount = fullPatientCounts.get(Number(row.patientId)) || group.length;
                     row.patientPendingRxCount = group.filter(item => item.pendingDifferences.length > 0).length;
                     row.patientReviewedRxCount = group.filter(item => item.reviewedDifferences.length > 0).length;
                     displayedRows.push(row);
