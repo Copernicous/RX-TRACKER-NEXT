@@ -3,6 +3,9 @@
 const db = require('../models');
 const { Op } = require('sequelize');
 const crypto = require('crypto');
+const syncControl = require('../services/rxProfileSyncControl');
+exports.getControl = async (_req, res) => { try { res.json(await syncControl.get()); } catch (_e) { res.status(500).json({ error: 'Unable to load RX Profile Sync controls.' }); } };
+exports.saveControl = async (req, res) => { try { res.json(await syncControl.save(req.body, req.user)); } catch (e) { res.status(400).json({ error: e.message }); } };
 
 const SYNC_FIELDS = [
     'pharmacyId',
@@ -194,6 +197,8 @@ function valuesWithLabels(values, labels) {
 
 exports.list = async (req, res) => {
     try {
+        const control = await syncControl.get();
+        if (!control.enabled && req.query.manualReview !== 'true') return res.json({ rows: [], total: 0, hasMore: false, nextCursor: null, control, paused: true });
         const search = String(req.query.search || '').trim();
         const showAll = String(req.query.showAll || '') === 'true';
         const requestedDifferenceFields = new Set(String(req.query.differenceFields || '').split(',').filter(field => SYNC_FIELDS.includes(field)));
@@ -203,6 +208,7 @@ exports.list = async (req, res) => {
         const pageSize = Math.min(Math.max(Number.parseInt(req.query.pageSize, 10) || 100, 1), 250);
         const cursor = decodeCursor(req.query.cursor);
         const recordConditions = [activeRecordCondition()];
+        if (control.startDate) recordConditions.push({ createdAt: { [Op.gte]: new Date(control.startDate + 'T00:00:00.000Z') } });
         const lookups = await loadLookups();
         const labels = fieldLabels(lookups);
         if (rxHistoryScope === 'multi') {
@@ -264,7 +270,7 @@ exports.list = async (req, res) => {
                 });
             });
             displayedRows.sort((left, right) => left.patientName.localeCompare(right.patientName) || new Date(left.rxCreatedAt || 0) - new Date(right.rxCreatedAt || 0) || left.rxId - right.rxId);
-            return res.json({ rows: displayedRows, total: displayedRows.length, reviewStatus, includesMatchingHistory: showAll, hasMore: false, nextCursor: null, patientCardPaging: true });
+            return res.json({ control, paused: !control.enabled, rows: displayedRows, total: displayedRows.length, reviewStatus, includesMatchingHistory: showAll, hasMore: false, nextCursor: null, patientCardPaging: true });
         }
         const candidates = [];
         let scanCursor = cursor;
@@ -335,7 +341,7 @@ exports.list = async (req, res) => {
         }
         const hasMore = candidates.length > pageSize;
         const displayed = candidates.slice(0, pageSize);
-        res.json({ rows: displayed.map(candidate => candidate.row), total: displayed.length, reviewStatus, includesMatchingHistory: includeMatchingHistory, hasMore, nextCursor: hasMore ? displayed[displayed.length - 1].cursor : null });
+        res.json({ control, paused: !control.enabled, rows: displayed.map(candidate => candidate.row), total: displayed.length, reviewStatus, includesMatchingHistory: includeMatchingHistory, hasMore, nextCursor: hasMore ? displayed[displayed.length - 1].cursor : null });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
@@ -343,6 +349,7 @@ exports.list = async (req, res) => {
 
 async function syncRxRecord({ rxId, requestedFields, user, ipAddress }) {
     return db.sequelize.transaction(async transaction => {
+        const control = await syncControl.requireEnabled(transaction);
         const rx = await db.RXRecord.findOne({
             where: { id: rxId, [Op.and]: [activeRecordCondition()] },
             include: [{ model: db.Patient, required: true, where: activeRecordCondition() }],
@@ -350,6 +357,7 @@ async function syncRxRecord({ rxId, requestedFields, user, ipAddress }) {
             lock: transaction.LOCK.UPDATE
         });
         if (!rx) throw new Error('RX record was not found or is deleted.');
+        if (!syncControl.inRange(rx, control)) throw new Error('This RX was created before the configured starting date.');
         const patient = rx.Patient;
         const fields = fieldsToSync(rx, patient, requestedFields);
         if (!fields.length) return { updated: false, rxId, patientId: patient.id, changes: [] };
@@ -523,7 +531,7 @@ async function handleReviewState(req, res, action) {
         });
         res.json(result);
     } catch (error) {
-        res.status(400).json({ error: error.message });
+        res.status(error.status || 400).json({ error: error.message });
     }
 }
 
@@ -547,6 +555,8 @@ exports.sync = async (req, res) => {
 };
 
 exports.bulkSync = async (req, res) => {
+    try { if (!(await syncControl.get()).enabled) return res.status(409).json({ error: 'RX Profile Sync is paused.' }); }
+    catch (_e) { return res.status(500).json({ error: 'Unable to verify RX Profile Sync controls.' }); }
     const entries = req.body && Array.isArray(req.body.entries) ? req.body.entries : [];
     if (!entries.length) return res.status(400).json({ error: 'Select at least one RX record.' });
     if (entries.length > 100) return res.status(400).json({ error: 'A maximum of 100 RX records can be synchronized at once.' });

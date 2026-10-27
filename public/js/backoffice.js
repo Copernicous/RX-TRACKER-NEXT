@@ -4,11 +4,14 @@ var _EMPTY_JOIN = '';
 var USER  = window.BACKOFFICE_USER || {};
 
 var tableMeta    = [];
-var tableCounts  = {};
+var tableArchiveCounts = {};
+var tableCounts = {};
 var selected     = new Set();
 
 // ── Viewer state ──────────────────────────────────────────────────────────
-var viewerRows    = [];
+var viewerTotal = 0;
+var viewerGeneration = 0;
+var viewerRows = [];
 var viewerCols    = [];
 var viewerVis     = {};
 var viewerFilter  = '';
@@ -95,7 +98,7 @@ async function loadStats() {
         var res  = await apiFetch('/api/admin/stats');
         var data = await res.json();
         tableMeta   = data.tables;
-        tableCounts = data.counts;
+        tableCounts = data.counts; tableArchiveCounts = data.archiveCounts || {};
         renderStatsRow();
         renderGrid();
         updateActionBar();
@@ -135,7 +138,7 @@ function renderGrid() {
                 '</div>' +
                 '<div class="table-desc">' + (t.description||'') + '</div>' +
                 '<div class="tc-count ' + (count===0?'count-zero':'') + '" style="color:' + (count>0?t.color:'var(--text-muted)') + '">' +
-                    count.toLocaleString() + ' <span>records</span>' +
+                    count.toLocaleString() + ' <span>active records</span>' + (t.key === 'AuditLogs' ? '<small style="display:block;font-size:.75rem">' + Number(tableArchiveCounts[t.key] || 0).toLocaleString() + ' archived - ' + (count + Number(tableArchiveCounts[t.key] || 0)).toLocaleString() + ' total</small>' : '') +
                 '</div>' +
                 '<div class="tc-actions">' +
                     '<button class="tc-btn tc-btn-view"   onclick="openViewer(\'' + t.key + '\')"><i class="fas fa-eye"></i> View</button>' +
@@ -224,11 +227,12 @@ async function openViewer(tableKey) {
     document.getElementById('viewerOverlay').classList.add('show');
 
     try {
-        var res  = await apiFetch('/api/admin/table-data/' + tableKey);
+        var res = await apiFetch('/api/admin/table-data/' + tableKey + '?size=' + (viewerPageSize || 20));
         var data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Load failed');
 
-        viewerRows  = data.rows;
+        viewerTotal = data.total;
+        viewerRows = data.rows;
         viewerCols  = data.columns.slice();
         if (tableKey === 'Patients') {
             viewerCols = ['patientCode'].concat(viewerCols.filter(function(c) {
@@ -239,7 +243,7 @@ async function openViewer(tableKey) {
         viewerCols.forEach(function(c) { viewerVis[c] = !(tableKey === 'Patients' && c === 'id'); });
 
         renderColDropdown();
-        applyViewerFilter();
+        viewerFiltRows = viewerRows; renderViewerTable();
         document.getElementById('viewerBadge').textContent = data.total.toLocaleString() + ' records';
     } catch(e) {
         document.getElementById('viewerTableWrap').innerHTML = '<p class="no-rows" style="color:#fca5a5"><i class="fas fa-exclamation-circle me-2"></i>' + e.message + '</p>';
@@ -288,28 +292,26 @@ function viewerActiveFilterValue() {
 function changeViewerPatientFilter() {
     viewerSelectedIds.clear();
     closeImpactModal();
-    applyViewerFilter();
+    return applyViewerFilter();
 }
 
-function applyViewerFilter() {
-    viewerFilter  = document.getElementById('viewerSearch').value.toLowerCase();
-    viewerPage    = 1;
-    var deletedFilter = viewerDeletedFilterValue();
-    var activeFilter = viewerActiveFilterValue();
-    viewerFiltRows = viewerRows.filter(function(row) {
-        var deleted = row.isDeleted === true || row.isDeleted === 'true';
-        if (deletedFilter === 'deleted' && !deleted) return false;
-        if (deletedFilter === 'not-deleted' && deleted) return false;
-        var active = row.isActive === true || row.isActive === 'true';
-        if (activeFilter === 'active' && !active) return false;
-        if (activeFilter === 'inactive' && active) return false;
-        return !viewerFilter || Object.values(row).some(function(v) {
-            return v !== null && String(v).toLowerCase().indexOf(viewerFilter) >= 0;
-        });
-    });
-    applySortToFiltRows();
-    renderViewerTable();
+function viewerParams() {
+    return new URLSearchParams({ page: viewerPage, size: viewerPageSize || 20,
+        search: document.getElementById('viewerSearch').value, deleted: viewerDeletedFilterValue(), active: viewerActiveFilterValue(),
+        sort: viewerSortCol || 'id', direction: viewerSortCol ? viewerSortDir : 'desc' });
 }
+async function loadViewerPage() {
+    var generation = ++viewerGeneration;
+    try {
+        var response = await apiFetch('/api/admin/table-data/' + viewerMeta.key + '?' + viewerParams());
+        var data = await response.json(); if (!response.ok) throw Error(data.error || 'Unable to load table.');
+        if (generation !== viewerGeneration) return;
+        viewerRows = data.rows; viewerFiltRows = data.rows; viewerTotal = data.total; viewerFilter = document.getElementById('viewerSearch').value;
+        if (viewerPage > 1 && !data.rows.length) { viewerPage = Math.max(1, Math.ceil(viewerTotal / viewerPageSize)); return loadViewerPage(); }
+        renderViewerTable();
+    } catch (e) { if (generation === viewerGeneration) toast(e.message, 'danger'); }
+}
+function applyViewerFilter() { viewerSelectedIds.clear(); viewerPage = 1; return loadViewerPage(); }
 
 function applySortToFiltRows() {
     if (!viewerSortCol) return;
@@ -326,11 +328,11 @@ function applySortToFiltRows() {
 function sortViewer(col) {
     if (viewerSortCol === col) viewerSortDir = viewerSortDir === 'asc' ? 'desc' : 'asc';
     else { viewerSortCol = col; viewerSortDir = 'asc'; }
-    applySortToFiltRows(); renderViewerTable();
+    viewerPage = 1; loadViewerPage();
 }
 function changePageSize() {
-    viewerPageSize = parseInt(document.getElementById('pageSizeSelect').value) || 0;
-    viewerPage = 1; renderViewerTable();
+    viewerPageSize = Math.min(500, parseInt(document.getElementById('pageSizeSelect').value) || 20);
+    viewerPage = 1; loadViewerPage();
 }
 function clearRowSelection() {
     viewerSelectedIds.clear();
@@ -339,14 +341,14 @@ function clearRowSelection() {
 
 function renderViewerTable() {
     var visCols = viewerCols.filter(function(c) { return viewerVis[c]; });
-    var total   = viewerFiltRows.length;
+    var total = viewerTotal;
     var ps      = viewerPageSize || total;
     var pages   = ps ? Math.max(1, Math.ceil(total / ps)) : 1;
     viewerPage    = Math.min(viewerPage, pages);
 
     var start    = (viewerPage - 1) * ps;
     var end      = ps ? Math.min(start + ps, total) : total;
-    var pageRows = viewerFiltRows.slice(start, end);
+    var pageRows = viewerFiltRows;
 
     document.getElementById('viewerInfo').textContent = 'Showing ' + (start+1) + '\u2013' + end + ' of ' + total.toLocaleString() + (viewerFilter || viewerDeletedFilterValue() !== 'all' || viewerActiveFilterValue() !== 'all' ? ' (filtered)' : '');
 
@@ -428,7 +430,7 @@ function toggleSelectPage(checked) {
     var ps    = viewerPageSize || viewerFiltRows.length;
     var start = (viewerPage - 1) * ps;
     var end   = ps ? Math.min(start + ps, viewerFiltRows.length) : viewerFiltRows.length;
-    viewerFiltRows.slice(start, end).forEach(function(r) {
+    viewerFiltRows.forEach(function(r) {
         if (checked) viewerSelectedIds.add(String(r.id));
         else         viewerSelectedIds.delete(String(r.id));
     });
@@ -605,24 +607,26 @@ function renderPagination(page, pages, total) {
     ctrl.innerHTML = html;
 }
 
-function goPage(p) { viewerPage = p; renderViewerTable(); }
+function goPage(p) { viewerPage = p; return loadViewerPage(); }
 
 // ── CSV Export ────────────────────────────────────────────────────────────
-function exportCurrentTable() {
-    if (!viewerMeta) return;
-    exportRowsAsCSV(viewerMeta.key, viewerMeta.label, viewerFiltRows, viewerCols.filter(function(c) { return viewerVis[c]; }));
-}
-
-async function exportTable(tableKey) {
-    var meta = null;
-    tableMeta.forEach(function(t) { if (t.key === tableKey) meta = t; });
-    toast('Loading ' + ((meta && meta.label) || tableKey) + '...', 'info');
+function exportCurrentTable() { if (viewerMeta) exportTable(viewerMeta.key, true); }
+async function exportTable(tableKey, filtered) {
     try {
-        var res  = await apiFetch('/api/admin/table-data/' + tableKey);
-        var data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Load failed');
-        exportRowsAsCSV(tableKey, (meta && meta.label) || tableKey, data.rows, data.columns);
-        toast('\u2713 Exported ' + data.total.toLocaleString() + ' records from ' + ((meta && meta.label) || tableKey), 'success');
+        var params = filtered ? viewerParams() : new URLSearchParams();
+        params.set('page', '1'); params.set('size', '500'); params.set('sort', 'id'); params.set('direction', 'desc');
+        var rows = [], columns, before;
+        while (true) {
+            if (before) params.set('before', before);
+            var response = await apiFetch('/api/admin/table-data/' + tableKey + '?' + params);
+            var data = await response.json(); if (!response.ok) throw Error(data.error || 'Export failed.');
+            columns = data.columns; rows = rows.concat(data.rows);
+            if (data.rows.length < 500) break;
+            var next = String(data.rows[data.rows.length - 1].id);
+            if (next === before) throw Error('Export cursor did not advance.'); before = next;
+        }
+        exportRowsAsCSV(tableKey, tableKey, rows, filtered ? columns.filter(function(c) { return viewerVis[c]; }) : columns);
+        toast('Exported ' + rows.length + ' active records.', 'success');
     } catch(e) { toast('Export failed: ' + e.message, 'danger'); }
 }
 
@@ -1223,7 +1227,7 @@ async function loadAuditLogs(page) {
                         (r.userId ? 'User #' + r.userId : '<span style="color:var(--text-muted)">System</span>');
             var _entityId = r.entityId ? ' <span style="color:var(--text-muted);font-size:0.7rem">#' + r.entityId + '</span>' : '';
             var _details  = escHtml(r.details  || '');
-            var _action   = escHtml(r.action   || '');
+            var _action   = escHtml(r.action || '') + ' [' + escHtml(r.storage || 'active') + ']';
             var _entity   = escHtml(r.entity   || '');
             _auditRows +=
                 '<tr style="border-bottom:1px solid rgba(255,255,255,0.04)" onmouseover="this.style.background=\'rgba(255,255,255,0.02)\'" onmouseout="this.style.background=\'\'">' +
@@ -1296,7 +1300,7 @@ async function exportAuditLogsCSV() {
                 createdAt: r.createdAt ? new Date(r.createdAt).toLocaleString() : '',
                 userId:    r.userId || '',
                 username:  r.firstName ? r.firstName + ' ' + r.lastName : (r.userId ? 'User #' + r.userId : 'System'),
-                action:    r.action   || '',
+                storage: r.storage, action: r.action || '',
                 entity:    r.entity   || '',
                 entityId:  r.entityId || '',
                 details:   r.details  || '',

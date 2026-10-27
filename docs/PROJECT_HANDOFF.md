@@ -8,6 +8,12 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
 
+- **Backoffice archive / RX Profile Sync implementation (2026-10-27, unreleased):** Shared archive controls and storage-aware viewers; error resolution retention/count fixes; verified gzip/recall for delivery and CSV snapshot files; bounded raw-table viewing and cursor-based CSV generation, without snapshot auto-deletion. RX Profile Sync defaults off, persists pause plus inclusive UTC RX-creation cutoff, blocks paused/out-of-range copying, and permits explicit review/ignore without patient/RX writes. Existing policies add file archive sections disabled. No migration, production installation or new publication. See HISTORY_ARCHIVING.md and RX_PROFILE_SYNC_CONTROLS.md. Disposable-database validation pending.
+
+- **Backoffice rotation review (2026-10-27):** Source review and a no-DB controller fixture confirmed error resolution does not refresh updatedAt and reports requested rather than affected counts. Recently resolved old errors can become immediately archive-eligible; combined-history rows have no storage marker and active-only actions can misreport archived selections. Purge remains destructive, not rotation. Next priorities: correct resolution retention/counts, reuse existing archive policy/downloads with storage scope, then evaluate verified compression/recall for delivery JSON and CSV snapshots. Entire-table viewing/snapshot reads remain separate load issues. No application/data/policy/release change. See docs/BACKOFFICE_ROTATION_REVIEW_2026-10-27.md.
+
+
+
 - **next.98 published and deployment-ready (2026-10-27):** Official release
   https://github.com/Copernicous/RX-TRACKER-NEXT/releases/tag/v4.0.0-next.98
   remains a prerelease, consistent with the NEXT version series. Tag/source

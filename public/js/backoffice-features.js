@@ -245,7 +245,7 @@ async function loadBackups() {
                         '<div style="display:flex;align-items:center;gap:0.75rem">' +
                             '<i class="fas fa-archive" style="color:#6366f1;font-size:1.1rem"></i>' +
                             '<div>' +
-                                '<div style="font-weight:600;font-size:0.85rem;font-family:monospace">' + backupEsc(bk.name) + '</div>' +
+                                '<div style="font-weight:600;font-size:0.85rem;font-family:monospace">' + backupEsc(bk.name) + (bk.compressedFiles ? ' (' + bk.compressedFiles + ' compressed)' : '') + '</div>' +
                                 '<div style="font-size:0.7rem;color:var(--text-muted)">' + new Date(bk.createdAt).toLocaleString() + ' &bull; ' + bk.fileCount + ' table CSVs &bull; ' + fmtSz(bk.sizeBytes) + ' &bull; review only, not restorable</div>' +
                             '</div>' +
                         '</div>' +
@@ -364,7 +364,7 @@ async function loadDeliveryLogArchiveList() {
             var id = String(a.id || '').trim();
             var isChecked = !!(existing && existing[id]);
             var integrity = _dlArchiveIntegrity(a);
-            var createdAt = a.createdAt ? new Date(a.createdAt).toLocaleString() : 'Unknown';
+            var createdAt = (a.createdAt ? new Date(a.createdAt).toLocaleString() : 'Unknown') + (a.storage === 'compressed' ? ' (compressed)' : '');
             if (isChecked) nextSelections[id] = true;
 
             rows +=
@@ -2280,7 +2280,7 @@ async function loadErrorLogs(page) {
         dateTo:   _errDateTo,
     });
     try {
-        var res  = await apiFetch('/api/admin/error-logs?' + params.toString());
+        var res  = await apiFetch('/api/admin/error-logs?' + params.toString() + '&historySource=' + encodeURIComponent(document.getElementById('errHistorySource').value));
         var data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Failed');
         errlogLoaded = true; errlogTotal = data.total;
@@ -2342,14 +2342,14 @@ async function loadErrorLogs(page) {
                 : '';
             _eRows +=
                 '<tr id="erow-' + r.id + '" style="border-bottom:1px solid rgba(255,255,255,0.04)" onmouseover="this.style.background=\'rgba(255,255,255,0.02)\'" onmouseout="this.style.background=\'\'">' +
-                    '<td style="padding:0.4rem 0.625rem"><input type="checkbox" class="err-chk" value="' + r.id + '" onchange="onErrCheck(' + r.id + ',this.checked)"></td>' +
+                    '<td style="padding:0.4rem 0.625rem"><input type="checkbox" class="err-chk" ' + (r.storage === 'archived' ? 'disabled ' : '') + 'value="' + r.id + '" onchange="onErrCheck(' + r.id + ',this.checked)"></td>' +
                     '<td style="padding:0.4rem 0.75rem"><span style="font-size:0.63rem;font-weight:700;border-radius:4px;padding:0.12rem 0.4rem;background:' + sc + '22;color:' + sc + ';border:1px solid ' + sc + '44;white-space:nowrap"><i class="fas ' + si + ' me-1"></i>' + sev + '</span></td>' +
                     '<td style="padding:0.4rem 0.75rem;color:var(--text-muted);font-size:0.7rem">' + (r.source||'\u2014') + '</td>' +
                     '<td style="padding:0.4rem 0.75rem;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + _msgEsc + '">' + (r.message||'\u2014') + '</td>' +
                     '<td style="padding:0.4rem 0.75rem;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-muted);font-size:0.68rem" title="' + _urlEsc + '">' + (r.url||'\u2014') + '</td>' +
                     '<td style="padding:0.4rem 0.75rem;white-space:nowrap;font-size:0.7rem">' + (r.username||'<span style="color:var(--text-muted)">System</span>') + '</td>' +
                     '<td style="padding:0.4rem 0.75rem;color:var(--text-muted);white-space:nowrap;font-size:0.7rem">' + new Date(r.createdAt).toLocaleString() + '</td>' +
-                    '<td style="padding:0.4rem 0.75rem"><span style="font-size:0.63rem;font-weight:700;border-radius:4px;padding:0.12rem 0.4rem;background:' + resC + '22;color:' + resC + ';border:1px solid ' + resC + '44">' + (r.resolved?'Resolved':'Open') + '</span></td>' +
+                    '<td style="padding:0.4rem 0.75rem"><span style="font-size:0.63rem;font-weight:700;border-radius:4px;padding:0.12rem 0.4rem;background:' + resC + '22;color:' + resC + ';border:1px solid ' + resC + '44">' + (r.resolved?'Resolved':'Open') + ' - ' + (r.storage === 'archived' ? 'Archived (read-only)' : 'Active') + '</span></td>' +
                     '<td style="padding:0.4rem 0.75rem">' +
                         (r.stack
                             ? '<button class="btn-bo btn-bo-outline" style="padding:0.18rem 0.5rem;font-size:0.63rem;white-space:nowrap" onclick="showErrDetail(' + r.id + ',this)"><i class="fas fa-code me-1"></i>Stack</button>'
@@ -2406,10 +2406,10 @@ async function exportErrorLogsCSV() {
             dateFrom: _errDateFrom,
             dateTo:   _errDateTo,
         });
-        var res  = await apiFetch('/api/admin/error-logs?' + params.toString());
+        var res  = await apiFetch('/api/admin/error-logs?' + params.toString() + '&historySource=' + encodeURIComponent(document.getElementById('errHistorySource').value));
         var data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Failed');
-        var cols = ['id','severity','source','message','url','username','ipAddress','resolved','createdAt','stack'];
+        var cols = ['storage','id','severity','source','message','url','username','ipAddress','resolved','createdAt','stack'];
         var rows = (data.rows || []).map(function(r) {
             // Replace newlines in multi-line fields so each error stays on ONE CSV row.
             // Stack traces are joined with " | " so the full trace is readable in a single cell.
@@ -2418,7 +2418,7 @@ async function exportErrorLogsCSV() {
                 return String(v).replace(/\r\n/g, ' | ').replace(/\n/g, ' | ').replace(/\r/g, ' | ');
             }
             return {
-                id:        r.id,
+                storage: r.storage, id: r.id,
                 severity:  r.severity  || '',
                 source:    r.source    || '',
                 message:   flattenField(r.message),
@@ -2467,7 +2467,7 @@ function onErrCheck(id, checked) {
 }
 
 function toggleSelectAllErrors(checked) {
-    document.querySelectorAll('.err-chk').forEach(function(chk) {
+    document.querySelectorAll('.err-chk:not(:disabled)').forEach(function(chk) {
         chk.checked = checked;
         onErrCheck(parseInt(chk.value, 10), checked);
     });
@@ -2488,7 +2488,7 @@ async function resolveSelectedErrors() {
         });
         var data = await res.json();
         if (!res.ok) throw new Error(data.error||'Failed');
-        toast('\u2713 ' + errSelIds.size + ' error(s) marked resolved', 'success');
+        toast(data.message, 'success');
         errSelIds.clear(); errlogLoaded = false; await loadErrorLogs(errlogPage);
     } catch(e) { toast('Failed: '+e.message,'danger'); }
 }
@@ -3075,7 +3075,7 @@ function rxProfileSyncQuery(cursor) {
     var differenceField = document.getElementById('rxSyncDifferenceFilter').value || '';
     var historyScope = document.getElementById('rxSyncHistoryScope').value || 'all';
     var reviewStatus = document.getElementById('rxSyncReviewStatus').value || 'pending';
-    return '/api/admin/rx-profile-sync?search=' + encodeURIComponent(search) + '&showAll=' + showAll + '&differenceFields=' + encodeURIComponent(differenceField) + '&reviewStatus=' + encodeURIComponent(reviewStatus) + '&rxHistoryScope=' + encodeURIComponent(historyScope) + '&pageSize=' + encodeURIComponent(pageSize) + (cursor ? '&cursor=' + encodeURIComponent(cursor) : '');
+    return '/api/admin/rx-profile-sync?manualReview=' + (window.rxSyncManualReview ? 'true' : 'false') + '&search=' + encodeURIComponent(search) + '&showAll=' + showAll + '&differenceFields=' + encodeURIComponent(differenceField) + '&reviewStatus=' + encodeURIComponent(reviewStatus) + '&rxHistoryScope=' + encodeURIComponent(historyScope) + '&pageSize=' + encodeURIComponent(pageSize) + (cursor ? '&cursor=' + encodeURIComponent(cursor) : '');
 }
 
 function sortRxProfileSyncRows() {
@@ -3112,6 +3112,8 @@ async function loadRxProfileSync(cursor) {
         var res = await apiFetch(rxProfileSyncQuery(rxProfileSyncCursor));
         var data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Scan failed');
+        if (data.control) window.rxProfileSyncControl = data.control;
+        if (data.paused && !window.rxSyncManualReview) status.textContent = 'Paused. Use Review candidates while paused to review / ignore without copying values.';
         rxProfileSyncRows = Array.isArray(data.rows) ? data.rows : [];
         rxProfileSyncIncludesMatchingHistory = !!data.includesMatchingHistory;
         updateRxSyncDisplayExport();
@@ -3138,7 +3140,7 @@ function renderRxProfileSyncRows() {
                 var rx = rxSyncValue(row, 'rx', field);
                 return '<label style="display:block;margin:.22rem 0"><input type="checkbox" data-rx-sync-field="' + rxSyncEsc(field) + '" checked> <strong>' + rxSyncEsc(rxSyncFieldLabel(field)) + '</strong>: <span style="color:#fca5a5">' + rxSyncEsc(rx.label) + '</span> → <span style="color:#6ee7b7">' + rxSyncEsc(patient.label) + '</span></label>';
             }).join('') : '<span style="color:#6ee7b7">Already matches Patient profile</span>';
-            return '<tr data-rx-sync-id="' + row.rxId + '"><td style="text-align:center"><input type="checkbox" data-rx-sync-select aria-label="Select RX #' + row.rxId + '" ' + (row.differences.length ? 'onchange="updateRxSyncBulkSelection()"' : 'disabled') + '></td><td><strong>' + rxSyncEsc(row.patientName) + '</strong><br><small style="color:var(--text-muted)">Patient ' + rxSyncEsc(row.patientCode || ('#' + row.patientId)) + ' · RX #' + row.rxId + '</small></td><td><small>Arrival: ' + rxSyncDate(row.arrivalDate) + '<br>Service: ' + rxSyncDate(row.serviceDate) + '</small></td><td><small>' + rxSyncEsc(row.clinicLabel) + '</small></td><td>' + diffs + '</td><td><button class="btn-bo btn-bo-primary" style="padding:.35rem .6rem;font-size:.72rem" ' + (row.differences.length ? '' : 'disabled') + ' onclick="syncRxProfile(' + row.rxId + ', this)"><i class="fas fa-arrows-rotate me-1"></i>Sync selected</button></td></tr>';
+            return '<tr data-rx-sync-id="' + row.rxId + '"><td style="text-align:center"><input type="checkbox" data-rx-sync-select aria-label="Select RX #' + row.rxId + '" ' + (row.differences.length ? 'onchange="updateRxSyncBulkSelection()"' : 'disabled') + '></td><td><strong>' + rxSyncEsc(row.patientName) + '</strong><br><small style="color:var(--text-muted)">Patient ' + rxSyncEsc(row.patientCode || ('#' + row.patientId)) + ' · RX #' + row.rxId + '</small></td><td><small>Arrival: ' + rxSyncDate(row.arrivalDate) + '<br>Service: ' + rxSyncDate(row.serviceDate) + '</small></td><td><small>' + rxSyncEsc(row.clinicLabel) + '</small></td><td>' + diffs + '</td><td><button class="btn-bo btn-bo-primary" style="padding:.35rem .6rem;font-size:.72rem" ' + (row.differences.length ? '' : 'disabled') + ' ' + (window.rxProfileSyncControl?.enabled ? '' : 'disabled') + ' onclick="syncRxProfile(' + row.rxId + ', this)"><i class="fas fa-arrows-rotate me-1"></i>Sync selected</button></td></tr>';
     }).join('') + '</tbody></table></div><div style="display:flex;justify-content:flex-end;gap:.5rem;margin-top:.75rem"><button class="btn-bo btn-bo-outline" ' + (rxProfileSyncCursorHistory.length ? '' : 'disabled') + ' onclick="previousRxProfileSyncPage()">Previous</button><button class="btn-bo btn-bo-outline" ' + (rxProfileSyncNextCursor ? '' : 'disabled') + ' onclick="nextRxProfileSyncPage()">Next</button></div>';
     var tableBody = list.querySelector('tbody');
     var renderedRows = tableBody ? tableBody.querySelectorAll('[data-rx-sync-id]') : [];
@@ -3178,8 +3180,8 @@ renderRxProfileSyncRows = function() {
             : '<span style="color:#6ee7b7">Already matches Patient profile</span>');
         var actions = '';
         if (pendingCount) {
-            actions += '<button class="btn-bo btn-bo-primary" style="padding:.35rem .6rem;font-size:.72rem;margin:.15rem" onclick="syncRxProfile(' + row.rxId + ', this)"><i class="fas fa-arrows-rotate me-1"></i>Sync selected</button>';
-            actions += '<button class="btn-bo btn-bo-outline" style="padding:.35rem .6rem;font-size:.72rem;margin:.15rem" onclick="changeRxProfileReview(' + row.rxId + ', \'review\', this)"><i class="fas fa-check me-1"></i>Mark reviewed</button>';
+            actions += '<button class="btn-bo btn-bo-primary" style="padding:.35rem .6rem;font-size:.72rem;margin:.15rem" ' + (window.rxProfileSyncControl?.enabled ? '' : 'disabled') + ' onclick="syncRxProfile(' + row.rxId + ', this)"><i class="fas fa-arrows-rotate me-1"></i>Sync selected</button>';
+            actions += '<button class="btn-bo btn-bo-outline" style="padding:.35rem .6rem;font-size:.72rem;margin:.15rem" onclick="changeRxProfileReview(' + row.rxId + ', \'review\', this)"><i class="fas fa-check me-1"></i>Mark reviewed / ignore</button>';
         }
         if (reviewedCount) actions += '<button class="btn-bo btn-bo-outline" style="padding:.35rem .6rem;font-size:.72rem;margin:.15rem" onclick="changeRxProfileReview(' + row.rxId + ', \'reopen\', this)"><i class="fas fa-rotate-left me-1"></i>Reopen</button>';
         if (!actions) actions = '<span style="color:var(--text-muted);font-size:.75rem">No action needed</span>';
@@ -3288,7 +3290,7 @@ function updateRxSyncBulkSelection() {
     var button = document.getElementById('rxSyncBulkBtn');
     if (!button) return;
     var count = document.querySelectorAll('#rxSyncList [data-rx-sync-select]:checked').length;
-    button.disabled = count === 0;
+    button.disabled = count === 0 || !window.rxProfileSyncControl?.enabled;
     button.innerHTML = '<i class="fas fa-check-double me-1"></i>Sync checked RX' + (count ? ' (' + count + ')' : '');
 }
 
@@ -3303,6 +3305,7 @@ function toggleRxProfileSyncRows(source) {
 }
 
 async function bulkSyncRxProfiles() {
+    if (!window.rxProfileSyncControl?.enabled) return toast('RX Profile Sync is paused.', 'info');
     var selected = Array.prototype.slice.call(document.querySelectorAll('#rxSyncList [data-rx-sync-select]:checked'));
     var entries = selected.map(function(input) {
         var row = input.closest('tr');
@@ -3366,6 +3369,7 @@ async function exportRxProfileSyncHistory() {
     }
 }
 async function syncRxProfile(rxId, button) {
+    if (!window.rxProfileSyncControl?.enabled) return toast('RX Profile Sync is paused. Review / ignore remains available.', 'info');
     var row = button.closest('tr');
     var fields = Array.prototype.slice.call(row.querySelectorAll('[data-rx-sync-field][data-review-state="pending"]:checked')).map(function(input) { return input.getAttribute('data-rx-sync-field'); });
     if (!fields.length) { toast('Select at least one differing field.', 'info'); return; }

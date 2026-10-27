@@ -9,6 +9,14 @@ const { parseDate } = require('../utils/dateUtils');
 const fileSettings = require('../utils/globalSettings');
 const logDashboardService = require('../services/logDashboardService');
 const backupService = require('../services/backupService');
+const fileArchives = require('../services/backofficeFileArchive');
+function historyRelation(table, source = 'all') {
+    if (!['active', 'archived', 'all'].includes(source)) { const e = Error('Invalid history storage.'); e.status = 400; throw e; }
+    return table + (source === 'active' ? '' : source === 'archived' ? 'Archive' : 'History');
+}
+function storageColumn(table, alias, source) {
+    return source === 'all' ? `CASE WHEN EXISTS (SELECT 1 FROM "${table}Archive" a WHERE a.id = ${alias}.id) THEN 'archived' ELSE 'active' END` : `'${source}'`;
+}
 const {
     recordPatientServiceDateChange
 } = require('../services/patientServiceDateHistoryService');
@@ -179,7 +187,8 @@ exports.getStats = async (req, res) => {
             );
             counts[t.key] = parseInt(result.cnt, 10);
         }
-        res.json({ tables: TABLE_META, counts });
+        const [archived] = await db.sequelize.query('SELECT COUNT(*)::bigint AS count FROM "AuditLogsArchive"', { type: QueryTypes.SELECT });
+        res.json({ tables: TABLE_META, counts, archiveCounts: { AuditLogs: Number(archived.count) } });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -499,7 +508,7 @@ function getSnapshotFileName(tableName, index) {
     return `${String(index + 1).padStart(3, '0')}-${safeName}.csv`;
 }
 
-async function discoverPublicBaseTables() {
+async function discoverPublicBaseTables(transaction) {
     const rows = await db.sequelize.query(`
         SELECT tables.table_schema,
                tables.table_name,
@@ -525,7 +534,7 @@ async function discoverPublicBaseTables() {
         WHERE tables.table_schema = 'public'
           AND tables.table_type = 'BASE TABLE'
         ORDER BY tables.table_name, columns.ordinal_position
-    `, { type: QueryTypes.SELECT });
+    `, { type: QueryTypes.SELECT, transaction });
 
     const tables = new Map();
     rows.forEach(row => {
@@ -556,25 +565,37 @@ exports.createBackup = async (req, res) => {
     const bkpRoot  = settings.backupPath || path.join(__dirname, '..', 'backups');
     const createdAt = new Date();
     const ts       = createdAt.toISOString().replace(/[:.]/g, '-').replace(/Z$/, '');
-    const bkpDir   = path.join(bkpRoot, `backup_${ts}`);
+    const bkpDir = path.join(bkpRoot, `backup_${ts}-${require('crypto').randomUUID().slice(0, 8)}`);
+    let created = false;
     try {
-        fs.mkdirSync(bkpDir, { recursive: true });
-        const catalogTables = await discoverPublicBaseTables();
+        fs.mkdirSync(bkpRoot, { recursive: true });
+        fs.mkdirSync(bkpDir, { mode: 0o700 }); created = true;
         const files = [];
-        for (const [index, table] of catalogTables.entries()) {
-            const qualifiedTable = `${quoteCatalogIdentifier(table.schema)}.${quoteCatalogIdentifier(table.table)}`;
-            const rows = await db.sequelize.query(`SELECT * FROM ${qualifiedTable}`, { type: QueryTypes.SELECT });
-            const columns = table.columns.map(column => column.name);
-            const file = getSnapshotFileName(table.table, index);
-            fs.writeFileSync(path.join(bkpDir, file), rowsToCsv(columns, rows), 'utf8');
-            files.push({
-                schema: table.schema,
-                table: table.table,
-                file,
-                rows: rows.length,
-                columns: table.columns
-            });
-        }
+        await db.sequelize.transaction({ isolationLevel: 'REPEATABLE READ', readOnly: true }, async transaction => {
+            await db.sequelize.query('SET TRANSACTION READ ONLY', { transaction });
+            const catalogTables = await discoverPublicBaseTables(transaction);
+            for (const [index, table] of catalogTables.entries()) {
+                const qualifiedTable = `${quoteCatalogIdentifier(table.schema)}.${quoteCatalogIdentifier(table.table)}`;
+                const columns = table.columns.map(column => column.name);
+                const file = getSnapshotFileName(table.table, index);
+                const handle = await fs.promises.open(path.join(bkpDir, file), 'wx', 0o600);
+                let count = 0;
+                try {
+                    await handle.writeFile(rowsToCsv(columns, []));
+                    await db.sequelize.query(`DECLARE rx_snapshot_cursor NO SCROLL CURSOR FOR SELECT * FROM ${qualifiedTable}`, { transaction });
+                    while (true) {
+                        const rows = await db.sequelize.query('FETCH FORWARD 250 FROM rx_snapshot_cursor', { transaction, type: QueryTypes.SELECT });
+                        if (!rows.length) break;
+                        const csv = rowsToCsv(columns, rows);
+                        await handle.writeFile(csv.slice(rowsToCsv(columns, []).length));
+                        count += rows.length;
+                    }
+                    await db.sequelize.query('CLOSE rx_snapshot_cursor', { transaction });
+                    await handle.sync();
+                } finally { await handle.close(); }
+                files.push({ schema: table.schema, table: table.table, file, rows: count, columns: table.columns });
+            }
+        });
         const manifest = {
             formatVersion: 2,
             artifactType: 'database-csv-review-snapshot',
@@ -588,25 +609,16 @@ exports.createBackup = async (req, res) => {
             tables: files
         };
         fs.writeFileSync(path.join(bkpDir, 'manifest.json'), JSON.stringify(manifest, null, 2), 'utf8');
-        // Auto-prune old backups
-        try {
-            const retDays = parseInt(settings.backupRetentionDays || 30, 10);
-            const cutoff  = Date.now() - retDays * 86400 * 1000;
-            fs.readdirSync(bkpRoot).forEach(d => {
-                const full = path.join(bkpRoot, d);
-                if (fs.statSync(full).isDirectory() && d.startsWith('backup_') && fs.statSync(full).mtimeMs < cutoff)
-                    fs.rmSync(full, { recursive: true, force: true });
-            });
-        } catch {}
+        // Review snapshots are preserved. The shared archive policy compresses older files.
         res.json({
             success: true,
-            backupDir: `backup_${ts}`,
+            backupDir: path.basename(bkpDir),
             artifactType: manifest.artifactType,
             restorable: manifest.restorable,
             files
         });
     } catch (e) {
-        try { fs.rmSync(bkpDir, { recursive: true, force: true }); } catch {}
+        if (created) { try { fs.rmSync(bkpDir, { recursive: true, force: true }); } catch {} }
         res.status(500).json({ error: e.message });
     }
 };
@@ -623,13 +635,14 @@ exports.listBackups = (req, res) => {
                 const stat  = fs.statSync(full);
                 let manifest = null;
                 try { manifest = JSON.parse(fs.readFileSync(path.join(full, 'manifest.json'), 'utf8')); } catch {}
-                const csvFiles = fs.readdirSync(full).filter(f => f.endsWith('.csv'));
+                const csvFiles = fs.readdirSync(full).filter(f => /\.csv(?:\.gz)?$/.test(f));
                 const size = csvFiles.reduce((s, f) => { try { return s + fs.statSync(path.join(full, f)).size; } catch { return s; } }, 0);
                 return {
                     name: d,
                     createdAt: manifest?.createdAt || stat.birthtime,
                     sizeBytes: size,
                     fileCount: csvFiles.length,
+                    compressedFiles: csvFiles.filter(f => f.endsWith('.gz')).length,
                     artifactType: manifest?.artifactType || 'legacy-database-csv-export',
                     restorable: manifest?.restorable === true,
                     tables: manifest?.tables || []
@@ -653,16 +666,23 @@ exports.deleteBackup = (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 };
 
-exports.downloadBackupFile = (req, res) => {
+exports.downloadBackupFile = async (req, res) => {
     const { name, file } = req.params;
-    if (!name.startsWith('backup_') || name.includes('..') || file.includes('..')) return res.status(400).json({ error: 'Invalid path.' });
-    const settings = readSettings();
-    const bkpRoot  = settings.backupPath || path.join(__dirname, '..', 'backups');
-    const fp = path.join(bkpRoot, name, file);
-    if (!fs.existsSync(fp)) return res.status(404).json({ error: 'File not found.' });
-    res.setHeader('Content-Disposition', `attachment; filename="${file}"`);
-    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-    res.sendFile(path.resolve(fp));
+    if (!/^backup_[A-Za-z0-9_-]+$/.test(name || '') || !/^[A-Za-z0-9_-]+\.csv$/.test(file || '')) return res.status(400).json({ error: 'Invalid snapshot file.' });
+    try {
+        const fp = path.join(readSettings().backupPath, name, file);
+        const physical = await fileArchives.existing(fp);
+        if (physical.endsWith('.gz')) await fileArchives.verified(fp);
+        res.setHeader('Content-Disposition', `attachment; filename="${file}"`);
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+        const { pipeline } = require('stream/promises');
+        const streams = [fs.createReadStream(physical)];
+        if (physical.endsWith('.gz')) streams.push(require('zlib').createGunzip());
+        await pipeline(...streams, res);
+    } catch (e) {
+        if (res.headersSent) return res.destroy(e);
+        return res.status(e.code === 'ENOENT' ? 404 : 409).json({ error: 'Snapshot missing or checksum verification failed.' });
+    }
 };
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -3092,17 +3112,19 @@ exports.getAuditLogs = async (req, res) => {
 
     const whereClause = where.join(' AND ');
     try {
+        const historySource = req.query.historySource || 'all';
+        const relation = historyRelation('AuditLogs', historySource);
         const [countRow] = await db.sequelize.query(
-            `SELECT COUNT(*) AS total FROM "AuditLogsHistory" al WHERE ${whereClause}`,
+            `SELECT COUNT(*) AS total FROM "${relation}" al WHERE ${whereClause}`,
             { type: QueryTypes.SELECT, replacements }
         );
         const total = parseInt(countRow.total, 10);
 
         const rows = await db.sequelize.query(`
-            SELECT al.id, al."action", al."module", al."recordId", al."date", al."time",
+            SELECT ${storageColumn('AuditLogs', 'al', historySource)} AS storage, al.id, al."action", al."module", al."recordId", al."date", al."time",
                    al."ipAddress", al."previousValue", al."newValue", al."createdAt", al."userId",
                    u."firstName", u."lastName", u."username"
-            FROM "AuditLogsHistory" al
+            FROM "${relation}" al
             LEFT JOIN "Users" u ON u.id = al."userId"
             WHERE ${whereClause}
             ORDER BY al."createdAt" DESC
@@ -3111,43 +3133,38 @@ exports.getAuditLogs = async (req, res) => {
 
         // Distinct action types for filter dropdown
         const actions = await db.sequelize.query(
-            `SELECT DISTINCT "action" FROM "AuditLogsHistory" WHERE "action" IS NOT NULL ORDER BY "action"`,
+            `SELECT DISTINCT "action" FROM "${relation}" WHERE "action" IS NOT NULL ORDER BY "action"`,
             { type: QueryTypes.SELECT }
         );
 
-        res.json({ rows, total, page, pageSize, pages: Math.ceil(total / pageSize), actions: actions.map(a => a.action) });
+        res.json({ historySource, rows, total, page, pageSize, pages: Math.ceil(total / pageSize), actions: actions.map(a => a.action) });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        res.status(err.status || 500).json({ error: err.message });
     }
 };
 // GET /api/admin/table-data/:tableName — fetch all rows from a table
 exports.getTableData = async (req, res) => {
     const { tableName } = req.params;
-    const validKeys = new Set(TABLE_META.map(t => t.key));
-    if (!validKeys.has(tableName)) {
-        return res.status(400).json({ error: `Unknown table: ${tableName}` });
-    }
+    if (!TABLE_META.some(t => t.key === tableName)) return res.status(400).json({ error: 'Unknown table.' });
     try {
-        const rows = await db.sequelize.query(
-            `SELECT * FROM "${tableName}" ORDER BY id DESC`,
-            { type: QueryTypes.SELECT }
-        );
-        // Get column names from first row, or from information_schema if empty
-        let columns = [];
-        if (rows.length > 0) {
-            columns = Object.keys(rows[0]);
-        } else {
-            const colRows = await db.sequelize.query(
-                `SELECT column_name FROM information_schema.columns WHERE table_name = :tbl ORDER BY ordinal_position`,
-                { type: QueryTypes.SELECT, replacements: { tbl: tableName } }
-            );
-            columns = colRows.map(r => r.column_name);
+        const query = req.query || {};
+        const columns = (await db.sequelize.query('SELECT column_name FROM information_schema.columns WHERE table_schema = \'public\' AND table_name = :tbl ORDER BY ordinal_position', { type: QueryTypes.SELECT, replacements: { tbl: tableName } })).map(r => r.column_name);
+        const limit = Math.min(500, Math.max(1, parseInt(query.size, 10) || 20));
+        const page = Math.max(1, Math.min(10000000, parseInt(query.page, 10) || 1));
+        const sort = columns.includes(query.sort) ? query.sort : 'id';
+        const direction = query.direction === 'asc' ? 'ASC' : 'DESC';
+        const where = ['TRUE'], replacements = { limit, offset: (page - 1) * limit };
+        if (query.search) { where.push('to_jsonb(t)::text ILIKE :search'); replacements.search = '%' + String(query.search).slice(0, 200).replace(/[\\%_]/g, char => '\\' + char) + '%'; }
+        if (tableName === 'Patients') {
+            if (['deleted', 'not-deleted'].includes(query.deleted)) { where.push('COALESCE(t."isDeleted", false) = :deleted'); replacements.deleted = query.deleted === 'deleted'; }
+            if (['active', 'inactive'].includes(query.active)) { where.push('COALESCE(t."isActive", false) = :active'); replacements.active = query.active === 'active'; }
         }
-        const meta = TABLE_META.find(t => t.key === tableName);
-        res.json({ tableName, label: meta?.label || tableName, columns, rows, total: rows.length });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
+        if (query.before) { if (!/^\d+$/.test(String(query.before))) return res.status(400).json({ error: 'Invalid export cursor.' }); where.push('t.id < :before'); replacements.before = query.before; }
+        const sql = `FROM "${tableName}" t WHERE ${where.join(' AND ')}`;
+        const [count] = await db.sequelize.query(`SELECT COUNT(*)::bigint AS count ${sql}`, { type: QueryTypes.SELECT, replacements });
+        const rows = await db.sequelize.query(`SELECT t.* ${sql} ORDER BY ${quoteCatalogIdentifier(sort)} ${direction}, id ${direction} LIMIT :limit OFFSET :offset`, { type: QueryTypes.SELECT, replacements });
+        res.json({ tableName, label: TABLE_META.find(t => t.key === tableName).label, columns, rows, total: Number(count.count), page, pageSize: limit, storage: 'active' });
+    } catch (err) { res.status(500).json({ error: err.message }); }
 };
 
 // ── FK children map: parent table → child tables that reference it ─────────────
@@ -3550,17 +3567,19 @@ exports.getErrorLogs = async (req, res) => {
 
     const wc = where.join(' AND ');
     try {
+        const historySource = req.query.historySource || 'all';
+        const relation = historyRelation('ErrorLogs', historySource);
         const [countRow] = await db.sequelize.query(
-            `SELECT COUNT(*) AS total FROM "ErrorLogsHistory" el WHERE ${wc}`,
+            `SELECT COUNT(*) AS total FROM "${relation}" el WHERE ${wc}`,
             { type: QueryTypes.SELECT, replacements: rep }
         );
         const total = parseInt(countRow.total, 10);
 
         const rows = await db.sequelize.query(`
-            SELECT el.id, el."source", el."severity", el."message", el."stack",
+            SELECT ${storageColumn('ErrorLogs', 'el', historySource)} AS storage, el.id, el."source", el."severity", el."message", el."stack",
                    el."url", el."userAgent", el."ipAddress", el."resolved", el."createdAt",
                    el."userId", u."username", u."firstName", u."lastName"
-            FROM "ErrorLogsHistory" el
+            FROM "${relation}" el
             LEFT JOIN "Users" u ON u.id = el."userId"
             WHERE ${wc}
             ORDER BY el."createdAt" DESC
@@ -3577,28 +3596,24 @@ exports.getErrorLogs = async (req, res) => {
                 COUNT(*) FILTER (WHERE resolved = false)     AS unresolved,
                 COUNT(*) FILTER (WHERE source = 'frontend')  AS frontend,
                 COUNT(*) FILTER (WHERE source = 'backend')   AS backend
-            FROM "ErrorLogsHistory"
+            FROM "${relation}"
         `, { type: QueryTypes.SELECT });
 
-        res.json({ rows, total, page, pageSize, pages: Math.ceil(total / pageSize), stats: stats[0] });
-    } catch (e) { res.status(500).json({ error: e.message }); }
+        res.json({ historySource, rows, total, page, pageSize, pages: Math.ceil(total / pageSize), stats: stats[0] });
+    } catch (e) { res.status(e.status || 500).json({ error: e.message }); }
 };
 
 exports.resolveErrorLogs = async (req, res) => {
-    const { ids } = req.body; // array or 'all'
+    const { ids } = req.body;
     try {
-        if (ids === 'all') {
-            await db.sequelize.query(`UPDATE "ErrorLogs" SET "resolved" = true`, { type: QueryTypes.UPDATE });
-            res.json({ success: true, message: 'All marked resolved.' });
-        } else if (Array.isArray(ids) && ids.length) {
-            await db.sequelize.query(
-                `UPDATE "ErrorLogs" SET "resolved" = true WHERE id = ANY(:ids)`,
-                { replacements: { ids }, type: QueryTypes.UPDATE }
-            );
-            res.json({ success: true, message: `${ids.length} error(s) marked resolved.` });
-        } else {
-            res.status(400).json({ error: 'No IDs provided.' });
-        }
+        const all = ids === 'all';
+        if (!all && (!Array.isArray(ids) || !ids.length || ids.length > 1000 || ids.some(id => !Number.isSafeInteger(id) || id < 1))) return res.status(400).json({ error: 'Provide up to 1,000 valid error IDs.' });
+        const unique = all ? [] : [...new Set(ids)];
+        const rows = await db.sequelize.query(`UPDATE "ErrorLogs" SET "resolved" = true, "updatedAt" = CURRENT_TIMESTAMP
+            WHERE "resolved" = false ${all ? '' : 'AND id IN (:ids)'} RETURNING id`,
+            { type: QueryTypes.SELECT, replacements: all ? {} : { ids: unique } });
+        res.json({ success: true, resolved: rows.length, ignored: all ? 0 : unique.length - rows.length,
+            message: `${rows.length} active error(s) marked resolved. Recent resolution changes remain active for the retention window.` });
     } catch (e) { res.status(500).json({ error: e.message }); }
 };
 

@@ -869,6 +869,8 @@ router.get('/admin/orphans',            masterOnly, adminController.getOrphans);
 router.delete('/admin/orphans',         masterOnly, requireStagingDestructiveConfirmation, adminController.cleanOrphans);
 router.get('/admin/duplicates',         masterOnly, adminController.getDuplicates);
 router.get('/admin/audit-logs',         masterOnly, adminController.getAuditLogs);
+router.get('/admin/rx-profile-sync/control', masterOnly, rxProfileSyncController.getControl);
+router.put('/admin/rx-profile-sync/control', masterOnly, rxProfileSyncController.saveControl);
 router.get('/admin/rx-profile-sync', masterOnly, rxProfileSyncController.list);
 router.get('/admin/rx-profile-sync/export', masterOnly, rxProfileSyncController.exportHistory);
 router.post('/admin/rx-profile-sync/bulk', masterOnly, rxProfileSyncController.bulkSync);

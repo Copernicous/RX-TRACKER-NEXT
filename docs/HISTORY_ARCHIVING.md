@@ -205,3 +205,35 @@ before claiming a performance improvement. See PostgreSQL's
 
 Synthetic local evidence is ignored under `output/history-archive-validation`;
 the UI screenshot is under `output/playwright/history-archive-controls.png`.
+
+## Backoffice additions (unreleased)
+
+Backoffice uses the same controls and schedule as Audit Log. Audit/error viewers
+show Active/Archived/All and storage labels; archived errors are read-only.
+Resolving an active error refreshes its modification timestamp, protecting it for
+the configured recent window. Permanent purge remains a separate destructive action.
+
+Two additional sections compress older Delivery Log JSON files and CSV review
+snapshot CSVs in place as original-name.gz plus original-name.gz.sha256 receipts.
+Initial windows are 30 days. Previously saved policies add these switches disabled;
+review and enable them explicitly. Preview shows eligible files; each run processes
+at most 10 files, checking creation and modification dates. Corrupt/unsupported
+items are retained and counted as skipped. The source is removed only after fsync,
+SHA256/decompression verification and an unchanged-source check. Different existing
+compressed content blocks removal. Missing/corrupt compressed content fails clearly.
+
+Delivery listings, downloads and carbon-copy printing recall original bytes and
+verify integrity without writing a hot cache or changing the sequence ledger.
+CSV snapshot downloads decompress verified bytes as the original CSV. Manifests
+and checksum receipts remain with each snapshot; old review snapshots are no
+longer automatically deleted. The legacy CSV retention-days field is inactive.
+PostgreSQL/site backup retention and paired rollback sets are unchanged. Protect
+and back up the complete delivery and CSV directories, including gzip receipts,
+renderer dependencies and delivery sequence ledger; rehearse recovery. An older
+binary cannot read compressed files, so use a compatible application or explicitly
+verified rehydration of filesystem archives during rollback. Database paired rollback
+does not automatically restore these external files. No migration is required.
+
+Raw table viewing uses server pagination/search/sorting. CSV generation uses a
+read-only repeatable-read cursor, fetching 250 rows at a time. These changes bound
+application memory; creating a complete snapshot still reads the complete database.

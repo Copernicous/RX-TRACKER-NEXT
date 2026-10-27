@@ -2,6 +2,7 @@
 
 const db = require('../models');
 const { QueryTypes } = require('sequelize');
+const fileArchives = require('./backofficeFileArchive');
 const KEY = 'history_archive_policy_v1';
 const LAST = 'history_archive_last_run_v1';
 const LOCK = 7261030;
@@ -29,7 +30,8 @@ const TYPES = Object.freeze({
           AND (SELECT COUNT(*) FROM "AuditLogs" r WHERE r."recordId" = s.id AND r."module" = 'Data Import'
             AND r."action" IN ('Patient import correction revision', 'Patient import correction resolved')) < ${BATCH_SIZE}` },
     activity: { table: 'UserActivityLogs', model: 'UserActivityLog', date: 'visitedAt', label: 'Page activity', eligible: 'TRUE' },
-    errors: { table: 'ErrorLogs', model: 'ErrorLog', date: 'createdAt', label: 'Resolved errors', eligible: '"resolved" = TRUE' }
+    errors: { table: 'ErrorLogs', model: 'ErrorLog', date: 'createdAt', label: 'Resolved errors', eligible: '"resolved" = TRUE' },
+    ...fileArchives.TYPES
 });
 const defaults = () => ({ automatic: false, hourUTC: 6, types: Object.fromEntries(Object.keys(TYPES).map(k => [k, { enabled: true, days: 30 }])) });
 function bad(message) { const e = Error(message); e.status = 400; throw e; }
@@ -78,6 +80,7 @@ function predicate(type) {
 }
 async function preview(kind, retention, now = new Date()) {
     const type = typeOf(kind), cutoff = cutoffFor(retention, now);
+    if (type.file) return fileArchives.preview(kind, retention, now);
     const [row] = await db.sequelize.query(`SELECT COUNT(*)::bigint AS count, MIN(s."${type.date}") AS oldest, MAX(s."${type.date}") AS newest
         FROM "${type.table}" s WHERE ${predicate(type)}`, { replacements: { cutoff }, type: QueryTypes.SELECT });
     return { kind, days: retention, cutoff: cutoff.toISOString(), eligible: Number(row.count), oldest: row.oldest, newest: row.newest };
@@ -118,7 +121,18 @@ async function batch(kind, retention, actorId, now, automatic) {
     });
 }
 async function run(kind, retention, actorId, options = {}) {
-    typeOf(kind); days(retention);
+    const type = typeOf(kind); days(retention);
+    if (type.file) return db.sequelize.transaction(async transaction => {
+        const [lock] = await db.sequelize.query('SELECT pg_try_advisory_xact_lock(:key) AS locked', { replacements: { key: LOCK }, transaction, type: QueryTypes.SELECT });
+        if (!lock.locked) { const e = Error('Another archive operation is running.'); e.status = 409; throw e; }
+        if (options.automatic) {
+            const current = await policy(transaction);
+            if (!current.automatic || !current.types[kind].enabled || current.types[kind].days !== retention) return { kind, count: 0 };
+        }
+        const result = await fileArchives.run(kind, retention, options.now || new Date());
+        if (result.count) await receipt('Files compressed', { kind, count: result.count, days: retention, cutoff: result.cutoff, verified: true }, actorId, transaction);
+        return result;
+    });
     const now = options.now || new Date();
     let count = 0;
     // Bounded work: at most 2,500 rows per section per invocation.
@@ -134,6 +148,7 @@ async function status() {
     const sections = [];
     for (const [kind, type] of Object.entries(TYPES)) {
         const result = await preview(kind, value.types[kind].days);
+        if (type.file) { sections.push({ ...result, label: type.label, storage: type.location, file: true }); continue; }
         // Audit and import totals share a physical table; label counts by section.
         const where = kind === 'imports' ? `WHERE "module" = 'Data Import' AND "action" = 'Patient import report'`
             : kind === 'corrections' ? `WHERE "module" = 'Data Import' AND "action" = 'Patient import correction file'`

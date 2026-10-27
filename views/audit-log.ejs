@@ -60,36 +60,7 @@
                 </select>
                 <span class="small text-muted">Archived records remain available for review and export.</span>
             </div>
-            <details id="historyArchivePanel" class="filter-card d-none mb-3">
-                <summary class="fw-semibold">Automatic history archiving</summary>
-                <p class="small mt-2">Keep recent history active and store eligible older records in the database archive. No archive expiry. Pending import corrections, unresolved errors and operational call records stay active. Complete reports include both stores.</p>
-                <div class="d-flex gap-3 align-items-center flex-wrap mb-3">
-                    <label><input type="checkbox" id="archiveAutomatic"> Enable daily automatic archiving</label>
-                    <label for="archiveHour">Run at hour (UTC)</label><input id="archiveHour" type="number" min="0" max="23" class="form-control form-control-sm" style="width:80px">
-                    <button type="button" id="archiveSave" class="btn btn-sm btn-primary">Save settings</button>
-                    <button type="button" id="archiveRefresh" class="btn btn-sm btn-outline-secondary">Refresh</button>
-                </div>
-                <div class="table-responsive"><table class="table table-sm"><thead><tr><th>Section</th><th>Automatic</th><th>Keep recent days</th><th>Active</th><th>Archived</th><th>Eligible</th><th>Manual archive</th></tr></thead><tbody id="archiveSections"></tbody></table></div>
-                <p class="small text-muted">Save changes before previewing. Each run moves up to 2,500 records per section. Archive storage is part of the PostgreSQL database and its full backups.</p>
-                <p id="archiveSchedulerState" class="small" role="status"></p>
-                <p id="archiveLastRun" class="small"></p><p id="archiveMessage" class="small" role="status" aria-live="polite"></p>
-                <section id="archiveDownloadBrowser" class="d-none border rounded p-3 mt-3" aria-labelledby="archiveDownloadTitle">
-                    <h6 id="archiveDownloadTitle">Archive downloads</h6>
-                    <p class="small mb-2">Downloads make copies. Every record stays stored in the archive and remains available for review.</p>
-                    <p id="archiveDownloadSummary" class="small fw-semibold" role="status" aria-live="polite"></p>
-                    <p id="archiveDownloadPeriod" class="small text-muted"></p>
-                    <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
-                        <button type="button" id="archivePagePrevious" class="btn btn-sm btn-outline-secondary">Previous page</button>
-                        <label for="archivePageNumber" class="small mb-0">Page</label><input id="archivePageNumber" type="number" min="1" value="1" class="form-control form-control-sm" style="width:85px">
-                        <span id="archivePageTotal" class="small"></span><button type="button" id="archivePageGo" class="btn btn-sm btn-outline-secondary">Go</button>
-                        <button type="button" id="archivePageNext" class="btn btn-sm btn-outline-secondary">Next page</button>
-                        <button type="button" id="archiveNextPending" class="btn btn-sm btn-outline-primary">Go to next pending</button>
-                        <button type="button" id="archivePagesRefresh" class="btn btn-sm btn-outline-secondary">Refresh archive pages</button>
-                    </div>
-                    <div class="table-responsive"><table class="table table-sm"><thead><tr><th>Page</th><th>Records</th><th>Event dates</th><th>Download status in this browser</th><th>Action</th></tr></thead><tbody id="archiveDownloadPages"></tbody></table></div>
-                    <p id="archiveDownloadNotice" class="small text-muted mb-0">Progress is saved in this browser. A marked page means its download was started; check browser Downloads to confirm the file was saved. Downloads made before this update are not marked.</p>
-                </section>
-            </details>
+            <%- include('partials/history-archive-panel') %>
             <ul class="nav nav-pills mb-3 gap-2" id="auditTabs">
                 <li class="nav-item">
                     <button class="nav-link active" id="auditTabBtn" type="button">

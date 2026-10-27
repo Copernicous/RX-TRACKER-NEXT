@@ -30,6 +30,9 @@ async function main() {
     const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'rx-review-snapshot-'));
     const originalReadSettings = fileSettings.readSettings;
     const originalQuery = db.sequelize.query;
+    const originalTransaction = db.sequelize.transaction;
+    db.sequelize.transaction = async (_options, fn) => fn({});
+    let cursorSql, cursorRead = false;
     const observedSql = [];
 
     const catalogRows = [
@@ -52,6 +55,9 @@ async function main() {
         const normalized = String(sql).replace(/\s+/g, ' ').trim();
         observedSql.push(normalized);
         if (normalized.includes('FROM information_schema.tables AS tables')) return catalogRows;
+        if (normalized === 'SET TRANSACTION READ ONLY' || normalized === 'CLOSE rx_snapshot_cursor') return [];
+        if (normalized.startsWith('DECLARE rx_snapshot_cursor')) { cursorSql = normalized.split(' FOR ')[1]; cursorRead = false; return []; }
+        if (normalized.startsWith('FETCH FORWARD')) { if (cursorRead) return []; cursorRead = true; return db.sequelize.query(cursorSql); }
         if (normalized === 'SELECT * FROM "public"."AuditLogs"') {
             return [{
                 id: 1,
@@ -75,8 +81,8 @@ async function main() {
         assert.strictEqual(createRes.body.success, true, 'snapshot creation response');
         assert.strictEqual(createRes.body.restorable, false, 'CSV snapshot is explicitly not restorable');
         assert.strictEqual(createRes.body.files.length, 3, 'every discovered public base table is included');
-        assert.ok(observedSql[0].includes("tables.table_type = 'BASE TABLE'"), 'discovery is limited to public base tables');
-        assert.ok(observedSql[0].includes('JOIN pg_catalog.pg_class'), 'catalog validation is part of discovery');
+        assert.ok(observedSql.find(sql => sql.includes('FROM information_schema.tables AS tables')).includes("tables.table_type = 'BASE TABLE'"), 'discovery is limited to public base tables');
+        assert.ok(observedSql.find(sql => sql.includes('FROM information_schema.tables AS tables')).includes('JOIN pg_catalog.pg_class'), 'catalog validation is part of discovery');
         assert.ok(observedSql.includes('SELECT * FROM "public"."Odd""Table"'), 'catalog identifier is safely quoted');
 
         const snapshotDir = path.join(tempRoot, createRes.body.backupDir);
@@ -131,7 +137,7 @@ async function main() {
         console.log('Backoffice catalog-driven CSV review snapshot tests passed.');
     } finally {
         fileSettings.readSettings = originalReadSettings;
-        db.sequelize.query = originalQuery;
+        db.sequelize.query = originalQuery; db.sequelize.transaction = originalTransaction;
         fs.rmSync(tempRoot, { recursive: true, force: true });
     }
 }

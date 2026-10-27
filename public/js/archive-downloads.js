@@ -34,7 +34,7 @@ if (typeof document !== 'undefined') document.addEventListener('DOMContentLoaded
     const byId = id => document.getElementById(id);
     const summary = byId('archiveDownloadSummary'), body = byId('archiveDownloadPages');
     async function request(url) {
-        const response = await fetchWithAuth(url);
+        const response = await (window.BACKOFFICE_USER ? apiFetch : fetchWithAuth)(url);
         if (!response || !response.ok) {
             const value = response && await response.json().catch(() => ({}));
             const e = Error(value?.error || 'Unable to load archive pages.'); e.status = response?.status; throw e;

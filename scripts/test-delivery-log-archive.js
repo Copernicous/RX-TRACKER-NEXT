@@ -387,6 +387,21 @@ async function run() {
             'Every fresh print authorization must have its own audit event.'
         );
 
+        const compressedFile = path.join(archiveDirectory, createResponse.body.id + '.json');
+        const fileArchives = require('../services/backofficeFileArchive');
+        const oldTime = new Date(now - 60 * 86400000); fs.utimesSync(compressedFile, oldTime, oldTime);
+        const originalBytes = fs.readFileSync(compressedFile);
+        assert(await fileArchives.compress(compressedFile, now - 30 * 86400000));
+        const listCompressed = responseRecorder(); await controller.list({}, listCompressed);
+        assert(listCompressed.body.some(item => item.id === stored.id && item.storage === 'compressed'));
+        const recalled = await fileArchives.read(compressedFile, 2 * 1024 * 1024);
+        assert.deepStrictEqual(recalled, originalBytes);
+        archiveTest.assertRecordIntegrity(JSON.parse(recalled));
+        const replayCompressed = responseRecorder();
+        await controller.create({ body: validRequest, user: { id: 2, username: 'tester' }, ip: '127.0.0.1' }, replayCompressed);
+        assert.strictEqual(replayCompressed.statusCode, 200); assert.strictEqual(replayCompressed.body.idempotentReplay, true);
+        // Restore this synthetic fixture so the subsequent destructive tests keep their original scope.
+        fs.writeFileSync(compressedFile, originalBytes); fs.unlinkSync(compressedFile + '.gz'); fs.unlinkSync(compressedFile + '.gz.sha256');
         fs.unlinkSync(path.join(archiveDirectory, createResponse.body.id + '.json'));
         const afterDeletion = await archiveTest.allocatePharmacyReferences(
             canonicalGroups('Next Patient'), now, 240

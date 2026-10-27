@@ -3,6 +3,7 @@ const path = require('path');
 const crypto = require('crypto');
 
 const db = require('../models');
+const fileArchives = require('../services/backofficeFileArchive');
 const { resolveWritablePath } = require('../utils/runtimePaths');
 
 const ARCHIVE_DIR = resolveWritablePath('administration', 'delivery-log-archives');
@@ -655,9 +656,7 @@ function normalizeLegacyRecord(record) {
 
 async function readArchive(id) {
     const filePath = archivePath(id);
-    const stat = await fs.promises.stat(filePath);
-    if (stat.size > MAX_ARCHIVE_BYTES) throw requestError('Archive file exceeds the supported size.', 409, 'ARCHIVE_FORMAT_UNSUPPORTED');
-    const content = await fs.promises.readFile(filePath, 'utf8');
+    const content = (await fileArchives.read(filePath, MAX_ARCHIVE_BYTES)).toString('utf8');
     const data = JSON.parse(content);
     if (data && data.formatVersion === FORMAT_VERSION) {
         const record = assertRecordIntegrity(data);
@@ -898,10 +897,10 @@ async function recoverStagedArchives() {
             }
             continue;
         }
-        const deletingMarker = ARCHIVE_EXT + '.deleting-';
+        const deletingMarker = file.includes(ARCHIVE_EXT + '.gz.deleting-') ? ARCHIVE_EXT + '.gz.deleting-' : ARCHIVE_EXT + '.deleting-';
         const markerIndex = file.indexOf(deletingMarker);
         if (markerIndex <= 0) continue;
-        const originalName = file.slice(0, markerIndex + ARCHIVE_EXT.length);
+        const originalName = file.slice(0, markerIndex + deletingMarker.length - '.deleting-'.length);
         const originalPath = path.join(ARCHIVE_DIR, originalName);
         try {
             if (!fs.existsSync(originalPath)) {
@@ -930,7 +929,7 @@ async function archiveStorageUsage() {
             const stat = await fs.promises.stat(path.join(ARCHIVE_DIR, file));
             if (!stat.isFile()) continue;
             totalBytes += stat.size;
-            if (file.endsWith(ARCHIVE_EXT)) archiveCount += 1;
+            if (file.endsWith(ARCHIVE_EXT) || file.endsWith(ARCHIVE_EXT + '.gz')) archiveCount += 1;
         } catch (error) {
             if (error.code !== 'ENOENT') throw error;
         }
@@ -1026,13 +1025,13 @@ exports.create = async (req, res) => {
 exports.list = async (_req, res) => {
     try {
         await recoverStagedArchives();
-        const files = await fs.promises.readdir(ARCHIVE_DIR);
+        const files = [...new Set((await fs.promises.readdir(ARCHIVE_DIR)).map(file => file.endsWith('.json.gz') ? file.slice(0, -3) : file))];
         const records = [];
         for (const file of files) {
             if (!file.endsWith(ARCHIVE_EXT)) continue;
             const id = sanitizeArchiveId(file.slice(0, -ARCHIVE_EXT.length));
             try {
-                records.push(summary(await readArchive(id)));
+                records.push({ ...summary(await readArchive(id)), storage: (await fileArchives.existing(archivePath(id))).endsWith('.gz') ? 'compressed' : 'original' });
             } catch (_error) {
                 records.push({ id, reference: '(corrupt or unsupported record)', verification: 'unavailable', total: 0, createdAt: null });
             }
@@ -1099,7 +1098,7 @@ exports.delete = async (req, res) => {
     let record;
     try {
         await recoverStagedArchives();
-        originalPath = archivePath(req.params.id);
+        originalPath = await fileArchives.existing(archivePath(req.params.id));
         try {
             record = await readArchive(req.params.id);
         } catch (readError) {
@@ -1132,7 +1131,7 @@ exports.purge = async (req, res) => {
 
         const cutoff = Date.now() - (olderThanDays * 24 * 60 * 60 * 1000);
         await recoverStagedArchives();
-        const files = await fs.promises.readdir(ARCHIVE_DIR);
+        const files = [...new Set((await fs.promises.readdir(ARCHIVE_DIR)).map(file => file.endsWith('.json.gz') ? file.slice(0, -3) : file))];
         let inspected = 0;
         let skipped = 0;
         const candidates = [];
@@ -1143,7 +1142,7 @@ exports.purge = async (req, res) => {
             try {
                 const record = await readArchive(id);
                 if (!archiveCreatedAtEpoch(record) || archiveCreatedAtEpoch(record) > cutoff) continue;
-                candidates.push({ originalPath: archivePath(id), record });
+                candidates.push({ originalPath: await fileArchives.existing(archivePath(id)), record });
             } catch (_error) {
                 skipped += 1;
             }

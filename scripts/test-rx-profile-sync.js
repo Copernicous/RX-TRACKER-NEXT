@@ -5,6 +5,8 @@ const fs = require('fs');
 const path = require('path');
 const db = require('../models');
 const controller = require('../controllers/rxProfileSyncController');
+const control = require('../services/rxProfileSyncControl');
+control.get = control.requireEnabled = async () => ({ enabled: true, startDate: '2000-01-01' });
 
 async function runSync(rx, fields) {
     const historyRows = [];
@@ -171,6 +173,7 @@ function fakeRx(rxValues, patientValues, options = {}) {
     const pending = {};
     return {
         id: state.id,
+        createdAt: new Date('2026-01-01T00:00:00Z'),
         patientId: state.patientId,
         Patient: patient,
         pharmacyUpdates: [],

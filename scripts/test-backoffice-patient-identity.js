@@ -13,16 +13,28 @@ class Element {
 }
 const elements = new Map();
 const el = id => { if (!elements.has(id)) elements.set(id, new Element()); return elements.get(id); };
-const context = { window: {}, document: { getElementById: el, addEventListener() {}, createElement: () => new Element(), querySelectorAll: () => [] }, setInterval() {}, setTimeout() {}, escHtml: value => String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;') };
+const context = { URLSearchParams, window: {}, document: { getElementById: el, addEventListener() {}, createElement: () => new Element(), querySelectorAll: () => [] }, setInterval() {}, setTimeout() {}, escHtml: value => String(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;') };
 vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../public/js/backoffice.js'), 'utf8'), context);
 const patients = [{ id: 71, patientCode: 'PAT-00091', firstName: 'SAMPLE', lastName: '<ONE>' }, { id: 91, patientCode: 'PAT-00111', firstName: 'SAMPLE', lastName: 'TWO' }, { id: 92, patientCode: null, firstName: 'NO', lastName: 'CODE' }];
 const requests = [];
+let tableFixture;
 let impactFails = false;
 let releaseImpact;
 context.apiFetch = async (url, options = {}) => {
     const body = options.body ? JSON.parse(options.body) : null;
     requests.push({ url, body, method: options.method });
-    if (url.includes('table-data')) return { ok: true, json: async () => ({ rows: patients, columns: Object.keys(patients[0]), total: patients.length }) };
+    if (url.includes('table-data')) {
+        const params = new URL(url, 'http://fixture').searchParams;
+        let rows = tableFixture || patients;
+        rows = rows.filter(row => {
+            const deleted = row.isDeleted === true || row.isDeleted === 'true';
+            const active = row.isActive === true || row.isActive === 'true';
+            if (params.get('deleted') === 'deleted' && !deleted || params.get('deleted') === 'not-deleted' && deleted) return false;
+            if (params.get('active') === 'active' && !active || params.get('active') === 'inactive' && active) return false;
+            return !params.get('search') || Object.values(row).some(value => String(value).toLowerCase().includes(params.get('search').toLowerCase()));
+        });
+        return { ok: true, json: async () => ({ rows, columns: Object.keys(patients[0]), total: rows.length }) };
+    }
     if (url.endsWith('row-impact')) {
         if (releaseImpact === 'wait') await new Promise(resolve => { releaseImpact = resolve; });
         return { ok: !impactFails, json: async () => impactFails ? { error: 'Synthetic failure' } : { impact: [] } };
@@ -53,58 +65,60 @@ async function run() {
         { id: 4, patientCode: 'TEST-D', isDeleted: 'true', isActive: false },
         { id: 5, patientCode: 'TEST-E', isDeleted: 'false', isActive: true }
     ];
+    tableFixture = statusRows;
     context.viewerRows = statusRows;
     context.viewerSelectedIds.add('2');
     context.viewerPage = 2;
     el('viewerDeletedFilter').value = 'deleted';
-    context.changeViewerPatientFilter();
+    await context.changeViewerPatientFilter();
     assert.equal(context.viewerSelectedIds.size, 0, 'Changing status clears prior delete selection');
     assert.equal(context.viewerPage, 1);
     assert.equal(context.viewerFiltRows.map(row => row.id).join(','), '1,4');
     assert.match(el('viewerInfo').textContent, /2.*filtered/);
     el('viewerSearch').value = 'TEST-D';
-    context.applyViewerFilter();
+    await context.applyViewerFilter();
     assert.equal(context.viewerFiltRows.map(row => row.id).join(','), '4');
     el('viewerSearch').value = 'TEST-B';
-    context.applyViewerFilter();
+    await context.applyViewerFilter();
     assert.equal(context.viewerFiltRows.length, 0);
     assert.match(el('viewerTableWrap').innerHTML, /No records match your filters/);
     el('viewerSearch').value = '';
     el('viewerDeletedFilter').value = 'not-deleted';
-    context.changeViewerPatientFilter();
+    await context.changeViewerPatientFilter();
     assert.equal(context.viewerFiltRows.map(row => row.id).join(','), '2,3,5');
     el('viewerDeletedFilter').value = 'all';
-    context.changeViewerPatientFilter();
+    await context.changeViewerPatientFilter();
     assert.equal(context.viewerFiltRows.length, 5);
     statusRows.push({ id: 6, patientCode: 'TEST-F', isDeleted: false, isActive: null });
     statusRows.push({ id: 7, patientCode: 'TEST-G', isDeleted: true, isActive: 'true' });
     statusRows.push({ id: 8, patientCode: 'TEST-H', isDeleted: false, isActive: 'false' });
     context.viewerSelectedIds.add('2');
     el('viewerActiveFilter').value = 'inactive';
-    context.changeViewerPatientFilter();
+    await context.changeViewerPatientFilter();
     assert.equal(context.viewerSelectedIds.size, 0);
     assert.equal(context.viewerFiltRows.map(row => row.id).join(','), '1,4,6,8');
     assert.match(el('viewerInfo').textContent, /filtered/);
     el('viewerDeletedFilter').value = 'not-deleted';
-    context.changeViewerPatientFilter();
+    await context.changeViewerPatientFilter();
     assert.equal(context.viewerFiltRows.map(row => row.id).join(','), '6,8');
     el('viewerSearch').value = 'TEST-H';
-    context.applyViewerFilter();
+    await context.applyViewerFilter();
     assert.equal(context.viewerFiltRows.map(row => row.id).join(','), '8');
     el('viewerSearch').value = '';
     el('viewerDeletedFilter').value = 'deleted';
     el('viewerActiveFilter').value = 'active';
-    context.changeViewerPatientFilter();
+    await context.changeViewerPatientFilter();
     assert.equal(context.viewerFiltRows.map(row => row.id).join(','), '7');
     el('viewerDeletedFilter').value = 'all';
-    context.changeViewerPatientFilter();
+    await context.changeViewerPatientFilter();
     assert.equal(context.viewerFiltRows.map(row => row.id).join(','), '2,3,5,7');
     el('viewerActiveFilter').value = 'all';
-    context.changeViewerPatientFilter();
+    await context.changeViewerPatientFilter();
     assert.equal(context.viewerFiltRows.length, 8);
+    tableFixture = patients;
     context.viewerRows = patients;
     el('viewerSearch').value = '91';
-    context.applyViewerFilter();
+    await context.applyViewerFilter();
     assert.equal(context.viewerFiltRows.length, 2);
     context.viewerSelectedIds.add('71');
     releaseImpact = 'wait';
@@ -175,7 +189,7 @@ async function run() {
     assert.equal(el('viewerDeletedFilterWrap').style.display, 'none');
     assert.equal(el('viewerDeletedFilter').value, 'all');
     el('viewerDeletedFilter').value = 'deleted';
-    context.applyViewerFilter();
+    await context.applyViewerFilter();
     assert.equal(context.viewerFiltRows.length, patients.length, 'Other tables ignore patient status filter');
     assert.equal(context.viewerColumnLabel('id'), 'id');
     assert.equal(context.viewerCols[0], 'id');

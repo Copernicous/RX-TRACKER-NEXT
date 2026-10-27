@@ -26,7 +26,7 @@ async function archiveRevision() {
     return row.revision;
 }
 function section(kind) {
-    if (!Object.hasOwn(service.TYPES, kind)) { const e = Error('Unknown archive section.'); e.status = 400; throw e; }
+    if (!Object.hasOwn(service.TYPES, kind) || service.TYPES[kind].file) { const e = Error('Unknown archive section.'); e.status = 400; throw e; }
     const { Op } = db.Sequelize;
     const where = {};
     if (kind === 'imports') Object.assign(where, { module: 'Data Import', action: 'Patient import report' });

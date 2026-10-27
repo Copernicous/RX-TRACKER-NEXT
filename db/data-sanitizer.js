@@ -203,7 +203,7 @@ async function sanitizeDatabase(db, options = {}) {
              "updatedAt" = NOW()
     `, transaction);
 
-    await execute(sequelize, "DELETE FROM \"SystemSettings\" WHERE \"key\" IN ('history_archive_policy_v1', 'history_archive_last_run_v1')", transaction);
+    await execute(sequelize, "DELETE FROM \"SystemSettings\" WHERE \"key\" IN ('history_archive_policy_v1', 'history_archive_last_run_v1', 'rx_profile_sync_control_v1')", transaction);
 
     // Apply one unpublished offset to every date/timestamp column. This keeps
     // intervals, ordering, ring time, talk time, and cross-table date

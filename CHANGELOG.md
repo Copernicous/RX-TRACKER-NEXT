@@ -5,6 +5,28 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ---
 
+## [Unreleased]
+
+### Added
+
+- Backoffice shares history archive settings, counts, Active/Archived/All viewers
+  and dated downloads. Verified compression preserves old delivery JSON and CSV
+  snapshot files with original-content retrieval; the same daily policy controls
+  their 30-day windows. Existing saved policies keep new file sections disabled.
+- RX Profile Sync defaults off with a persisted pause/start-date control. Pausing
+  blocks single/bulk copying and routine scans; explicit review while paused and
+  bulk reviewed/ignore decisions leave patient/RX values unchanged. The inclusive
+  cutoff uses RX creation date at 00:00 UTC. No automatic copying is introduced.
+
+### Fixed
+
+- Backoffice error resolution refreshes updatedAt, returns affected counts and
+  preserves recently resolved errors through their retention window. Archived
+  errors are labeled read-only; permanent purge stays a separate explicit action.
+- Raw table viewing filters/sorts/pages on the server; complete table exports use
+  bounded keyset requests. CSV snapshots fetch 250 rows at a time in a read-only
+  repeatable-read transaction and no longer auto-delete older review snapshots.
+
 ## [4.0.0-next.98] - 2026-10-27
 
 ### Added

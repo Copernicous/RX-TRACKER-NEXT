@@ -15,7 +15,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const message = document.getElementById('archiveMessage');
     const show = value => { message.textContent = value; };
     async function request(url, options) {
-        const response = await fetchWithAuth(url, options);
+        if (options?.body) options = { ...options, headers: { 'Content-Type': 'application/json', ...options.headers } };
+        const response = await (window.BACKOFFICE_USER ? apiFetch : fetchWithAuth)(url, options);
         const data = response && await response.json();
         if (!response || !response.ok) throw Error(data?.error || 'Archive request failed.');
         return data;
@@ -34,7 +35,7 @@ document.addEventListener('DOMContentLoaded', () => {
             rows.replaceChildren();
             for (const section of data.sections) {
                 const tr = document.createElement('tr');
-                const label = document.createElement('td'); label.textContent = section.label; tr.appendChild(label);
+                const label = document.createElement('td'); label.textContent = section.label + (section.skipped ? ' (' + section.skipped + ' unreadable items retained)' : ''); tr.appendChild(label);
                 const enable = document.createElement('input'); enable.type = 'checkbox'; enable.checked = policy.types[section.kind].enabled; enable.dataset.kind = section.kind;
                 enable.setAttribute('aria-label', section.label + ' automatic archiving');
                 const eCell = document.createElement('td'); eCell.appendChild(enable); tr.appendChild(eCell);
@@ -48,14 +49,16 @@ document.addEventListener('DOMContentLoaded', () => {
                     run.disabled = true;
                     try {
                         const preview = await request('/api/history-archive/preview', { method: 'POST', body: JSON.stringify({ kind: section.kind, days: policy.types[section.kind].days }) });
-                        if (!confirm(`Archive up to 2,500 of ${preview.eligible} eligible ${section.label.toLowerCase()} older than ${preview.cutoff}? Newer and protected records stay active. Archived records remain available through Archived / All.`)) return;
+                        if (!confirm(`Archive eligible older items (up to 10 files or 2,500 database rows per run; some sections have smaller limits). Preview:  ${preview.eligible} eligible ${section.label.toLowerCase()} older than ${preview.cutoff}? Newer and protected records stay active. Archived records remain available through Archived / All.`)) return;
                         const result = await request('/api/history-archive/run', { method: 'POST', body: JSON.stringify({ kind: section.kind, days: policy.types[section.kind].days }) });
-                        await refresh(); show(result.message); loadPage(); loadActivityPage(); loadErrors();
+                        await refresh(); show(result.message);
+                        if (window.BACKOFFICE_USER) window.dispatchEvent(new Event('historyarchived'));
+                        else { loadPage(); loadActivityPage(); loadErrors(); }
                     } catch (e) { show(e.message); } finally { run.disabled = false; }
                 };
                 actions.appendChild(run);
-                const download = document.createElement('button'); download.type = 'button'; download.className = 'btn btn-sm btn-outline-success ms-1 mb-1'; download.textContent = 'Browse downloads';
-                download.onclick = () => window.ArchiveDownloadBrowser.open(section);
+                const download = document.createElement('button'); download.type = 'button'; download.className = 'btn btn-sm btn-outline-success ms-1 mb-1'; download.textContent = section.file ? 'Review files' : 'Browse downloads';
+                download.onclick = () => { if (section.file) { if (typeof switchTab === 'function') switchTab('backups'); else window.location.href = '/backoffice?tab=backups'; } else window.ArchiveDownloadBrowser.open(section); };
                 actions.appendChild(download); tr.appendChild(actions); rows.appendChild(tr);
             }
             document.getElementById('archiveLastRun').textContent = data.lastRun
@@ -79,10 +82,10 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('archiveRefresh').onclick = refresh;
     // Authentication is established by audit-log.js before its initial page load.
     const wait = setInterval(() => {
-        const user = typeof getCurrentAuthUser === 'function' && getCurrentAuthUser();
+        const user = window.BACKOFFICE_USER || (typeof getCurrentAuthUser === 'function' && getCurrentAuthUser());
         if (!user || !user.id) return;
         clearInterval(wait);
-        if (user.role === 'Administrator') refresh();
+        if (user.role === 'Administrator' || user.roleId === 1) refresh();
     }, 200);
     setTimeout(() => clearInterval(wait), 10000);
 });

@@ -409,7 +409,8 @@
     </div>
 
     <!-- Tab Navigation -->
-    <div class="tab-nav">
+    <%- include('partials/history-archive-panel') %>
+        <div class="tab-nav">
         <button class="tab-btn active" id="tabTables" onclick="switchTab('tables')"><i class="fas fa-table"></i>Managed Tables</button>
         <button class="tab-btn" id="tabSchema" onclick="switchTab('schema')"><i class="fas fa-project-diagram"></i>Schema</button>
         <button class="tab-btn" id="tabOrphans" onclick="switchTab('orphans')"><i class="fas fa-unlink"></i>Orphans</button>
@@ -531,6 +532,16 @@
 
     <!-- ══ RX Profile Sync Panel ══ -->
     <div id="rxsyncContent" class="schema-wrap">
+        <div class="schema-card" style="padding:1rem;margin-bottom:1rem">
+            <strong>RX Profile Sync controls</strong><p class="small">Off by default. Scans compare values; they never copy automatically. Pause stops routine scans and blocks Sync actions. Review/ignore only records a decision and never changes the patient or RX.</p>
+            <label><input type="checkbox" id="rxSyncEnabled"> Enable RX Profile Sync</label>
+            <label>RX created on/after (UTC) <input type="date" id="rxSyncStartDate"></label>
+            <button class="btn-bo btn-bo-primary" id="rxSyncControlSave" type="button">Save controls</button>
+            <button class="btn-bo btn-bo-outline" id="rxSyncPause" type="button">Stop / leave off</button>
+            <button class="btn-bo btn-bo-outline" id="rxSyncManualReview" type="button">Review candidates while paused</button>
+            <button class="btn-bo btn-bo-outline" id="rxSyncIgnoreSelected" type="button">Mark checked reviewed / ignore</button>
+            <p id="rxSyncControlStatus" class="small" role="status"></p>
+        </div>
         <div class="schema-card" style="padding:1rem">
             <div style="display:flex;justify-content:space-between;gap:1rem;align-items:flex-start;flex-wrap:wrap">
                 <div>
@@ -562,7 +573,7 @@
         <div id="rxSyncList"><p style="text-align:center;padding:3rem;color:var(--text-muted)">Click <strong>Scan</strong> to find RX records that differ from their Patient profile.</p></div>
     </div>
     <!-- ══ Audit Log Panel ══ -->
-    <div id="auditContent" class="schema-wrap">
+    <div id="auditContent" class="schema-wrap"><label>History storage <select id="auditHistorySource" class="schema-search" onchange="loadAuditLogs(1)"><option value="all">All</option><option value="active">Active</option><option value="archived">Archived (read-only)</option></select></label><p class="small">Older audit events remain stored. Use Automatic history archiving above for settings and dated downloads.</p>
         <!-- Filters -->
         <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1rem;margin-bottom:1rem">
             <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(175px,1fr));gap:0.65rem;margin-bottom:0.65rem">
@@ -659,8 +670,8 @@
                     <div style="font-size:0.68rem;color:var(--text-muted);margin-top:0.3rem">Folder will be created if it doesn't exist</div>
                 </div>
                 <div class="schema-card" style="padding:1rem">
-                    <label style="font-size:0.72rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.07em">Backup Retention (Days)</label>
-                    <input type="number" id="sRetentionDays" class="schema-search" style="margin:0.4rem 0 0" min="1" max="365" placeholder="30">
+                    <label style="font-size:0.72rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.07em">Legacy CSV retention (inactive)</label>
+                    <input type="number" id="sRetentionDays" disabled title="CSV snapshots are now preserved. Configure compression in Automatic history archiving." class="schema-search" style="margin:0.4rem 0 0" min="1" max="365" placeholder="30">
                     <div style="font-size:0.68rem;color:var(--text-muted);margin-top:0.3rem">Backups older than this are auto-deleted</div>
                 </div>
                 <div class="schema-card" style="padding:1rem">
@@ -881,7 +892,7 @@
     </div>
 
     <!-- ══ Error Logs Panel ══ -->
-    <div id="errlogContent" class="schema-wrap">
+    <div id="errlogContent" class="schema-wrap"><label>History storage <select id="errHistorySource" class="schema-search" onchange="errSelIds.clear();loadErrorLogs(1)"><option value="all">All</option><option value="active">Active</option><option value="archived">Archived (read-only)</option></select></label><p class="small">Archived errors are read-only. Routine retention uses Automatic history archiving above. Purge permanently deletes active records and is separate from archiving.</p>
         <!-- Header -->
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:0.75rem">
             <div>
@@ -1450,7 +1461,7 @@
                 <option value="50">50</option>
                 <option value="100">100</option>
                 <option value="250">250</option>
-                <option value="0">All</option>
+                <option value="500">500</option>
             </select>
         </div>
         <span class="viewer-info" id="viewerInfo"></span>
@@ -1558,5 +1569,9 @@
 </script>
 <script src="/js/backoffice.js?v=<%= encodeURIComponent(String(locals.appBuild || 'dev')) %>"></script>
 <script src="/js/backoffice-features.js?v=<%= encodeURIComponent(String(locals.appBuild || 'dev')) %>"></script>
+<script src="/js/archive-downloads.js"></script>
+<script src="/js/history-archive.js"></script>
+<script src="/js/backoffice-archives.js"></script>
+<script src="/js/rx-profile-sync-controls.js"></script>
 </body>
 </html>
