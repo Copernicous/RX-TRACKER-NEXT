@@ -1,28 +1,36 @@
-RX Tracker NEXT 4.0.0-next.98
+RX Tracker NEXT 4.0.0-next.99
 ============================
 
-Verified history archiving
---------------------------
-Older eligible records move transactionally to database archive tables. Recent
-events, unresolved work and operational call references remain active. Initial
-retention is 30 days per section; automatic archiving starts disabled. Existing
-saved settings are preserved, and server-level scheduler pauses are shown.
-Browse Active/Archived/All and numbered downloads with event date ranges.
-Downloading makes a copy; archived records remain stored and readable.
+Backoffice retention and RX Profile Sync controls
+------------------------------------------------
+Backoffice shares archive settings, Active/Archived/All views, dated downloads
+and active/archive counts. Resolving errors refreshes retention timestamps.
+Verified gzip compression preserves older delivery logs and CSV snapshot files;
+normal downloads and delivery printing recall their original content. Existing
+saved policies add the new file sections disabled with 30-day windows.
+CSV snapshots are no longer auto-deleted. Table viewing uses server pagination;
+snapshot creation fetches 250 rows at a time in a read-only transaction.
 
-Archive tables are included in full database backups. This reduces active-table
-load, not total database storage. Technical file logs are compressed separately;
-back up logs/archive separately. See docs/HISTORY_ARCHIVING.md.
+RX Profile Sync defaults OFF. Stop / leave off persists across restarts and
+blocks copying while paused. Enabling requires an inclusive starting date based
+on RX creation time at 00:00 UTC. Explicit review while paused and individual/
+bulk reviewed-ignore decisions do not change patient/RX values. Syncing values
+requires an explicit enabled Sync action; no automatic copying is introduced.
 
-Installation and verification
------------------------------
-Verify SHA256SUMS.txt. Use Project Control option 8 then option 15. One audited
-migration creates archive tables/views (65 migrations total); startup is check-only.
-Preserve .env, configured RX Actions and the paired application/database rollback
-set. Require healthy version 4.0.0-next.98; check archive status and full history.
-Migration rollback refuses populated archives. Use Project Control option 16 for
-emergency paired application/database recovery, never an older binary alone.
-Publication does not install production. See RELEASE_NOTES-v4.0.0-next.98.md.
+Installation and recovery
+-------------------------
+Verify SHA256SUMS.txt and LOCAL_VALIDATION.json. Use Project Control option 8
+then 15. No new migration since next.98 (65 migrations total); startup checks
+only. Preserve .env, configured RX Actions and the paired app/database rollback
+set. No installation-time patient/RX rewrite. Require healthy next.99 and check
+archive settings, stored-file recall and paused RX Profile Sync.
 
-Both executables embed Node.js 22.23.4. Local validation records exact source,
-checks and package hashes. Existing dependency/source findings remain documented.
+Protect delivery/CSV snapshot folders, gzip files and .gz.sha256 receipts,
+renderers and the delivery sequence ledger in separate filesystem backups.
+General site packages exclude sensitive archives. Older binaries cannot read
+compressed files: use a compatible application or verified file rehydration
+when recovering. A paired database rollback does not restore external files.
+See docs/HISTORY_ARCHIVING.md and docs/RX_PROFILE_SYNC_CONTROLS.md.
+
+Both executables embed verified Node.js 22.23.4. Existing source/dependency
+findings remain documented. Publication does not install production.

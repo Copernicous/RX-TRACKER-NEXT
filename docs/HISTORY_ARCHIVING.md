@@ -206,7 +206,7 @@ before claiming a performance improvement. See PostgreSQL's
 Synthetic local evidence is ignored under `output/history-archive-validation`;
 the UI screenshot is under `output/playwright/history-archive-controls.png`.
 
-## Backoffice additions (unreleased)
+## Backoffice additions (4.0.0-next.99)
 
 Backoffice uses the same controls and schedule as Audit Log. Audit/error viewers
 show Active/Archived/All and storage labels; archived errors are read-only.

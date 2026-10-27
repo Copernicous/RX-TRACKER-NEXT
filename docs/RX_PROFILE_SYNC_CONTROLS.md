@@ -1,4 +1,4 @@
-# RX Profile Sync controls (unreleased)
+# RX Profile Sync controls (4.0.0-next.99)
 
 Backoffice > RX Profile Sync is off by default. There is no background job copying
 profile values: scans compute differences and Sync explicitly copies selected
@@ -22,5 +22,5 @@ to the current compared values; a later value change can legitimately need new
 review. Pausing prevents routine scans regardless. Activity history remains
 exportable. Controls survive restarts; sanitized copies reset to off.
 
-No new migration or published release is included. Existing permissions and all
+Available in 4.0.0-next.99. No new migration is required. Existing permissions and all
 other patient/RX workflows remain unchanged.

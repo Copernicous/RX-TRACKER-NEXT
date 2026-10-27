@@ -10,7 +10,16 @@ frozen 3.3.1 repository, its production database, or the RX Softphone source.
 
 ## Current status
 
-Version: `4.0.0-next.98`
+Version: `4.0.0-next.99`
+
+Version `next.99` brings shared archive controls and storage-aware views to
+Backoffice, preserves older delivery logs/CSV snapshots through verified gzip
+compression, and bounds table browsing/snapshot generation. RX Profile Sync
+defaults off, supports a persisted pause and inclusive UTC RX creation-date cutoff,
+and allows reviewed/ignore decisions without changing patient or RX values.
+No new migration or installation-time patient/RX rewrite. See
+[Sync controls](docs/RX_PROFILE_SYNC_CONTROLS.md) and
+[History archiving](docs/HISTORY_ARCHIVING.md).
 
 Version `next.98` archives older audit/import/correction/activity/error history while
 retaining recent and protected records. Initial retention is 30 days per section;
