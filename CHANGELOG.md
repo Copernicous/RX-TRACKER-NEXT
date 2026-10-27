@@ -27,6 +27,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
   bounded keyset requests. CSV snapshots fetch 250 rows at a time in a read-only
   repeatable-read transaction and no longer auto-delete older review snapshots.
 
+### Security
+
+- Resolve query identifiers and snapshot download paths through trusted catalogs,
+  rate-limit RX Profile Sync requests and render error messages as plain text.
+
 ## [4.0.0-next.98] - 2026-10-27
 
 ### Added

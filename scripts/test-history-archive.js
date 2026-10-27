@@ -103,7 +103,9 @@ async function main() {
     assert.equal((await response(admin.getAuditLogs, { query: { historySource: 'invalid' } })).status, 400);
     const pagedTable = await response(admin.getTableData, { params: { tableName: 'AuditLogs' }, query: { size: '1', page: '2', search: 'History' } });
     assert.equal(pagedTable.status, 200); assert(pagedTable.body.rows.length <= 1); assert(pagedTable.body.total >= 1);
-    pass('Backoffice resolution timestamps/counts, archived read-only scopes and bounded raw-table pagination');
+    assert.equal((await response(admin.getTableData, { params: { tableName: 'AuditLogs"; DROP TABLE "Patients";--' }, query: {} })).status, 400);
+    assert.equal((await response(admin.getTableData, { params: { tableName: 'AuditLogs' }, query: { size: '1', sort: 'id"; DROP TABLE "Patients";--', direction: 'ASC; DELETE' } })).status, 200);
+    pass('Backoffice resolution timestamps/counts, archived read-only scopes, trusted query identifiers and bounded raw-table pagination');
     const snapshotSettings = require('../utils/globalSettings'), savedSettingsReader = snapshotSettings.readSettings;
     const snapshotRoot = path.resolve('output/backoffice-snapshot-integration-' + Date.now());
     snapshotSettings.readSettings = () => ({ backupPath: snapshotRoot });

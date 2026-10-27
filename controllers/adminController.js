@@ -15,7 +15,7 @@ function historyRelation(table, source = 'all') {
     return table + (source === 'active' ? '' : source === 'archived' ? 'Archive' : 'History');
 }
 function storageColumn(table, alias, source) {
-    return source === 'all' ? `CASE WHEN EXISTS (SELECT 1 FROM "${table}Archive" a WHERE a.id = ${alias}.id) THEN 'archived' ELSE 'active' END` : `'${source}'`;
+    return source === 'all' ? `CASE WHEN EXISTS (SELECT 1 FROM "${table}Archive" a WHERE a.id = ${alias}.id) THEN 'archived' ELSE 'active' END` : source === 'active' ? "'active'" : "'archived'";
 }
 const {
     recordPatientServiceDateChange
@@ -668,9 +668,16 @@ exports.deleteBackup = (req, res) => {
 
 exports.downloadBackupFile = async (req, res) => {
     const { name, file } = req.params;
-    if (!/^backup_[A-Za-z0-9_-]+$/.test(name || '') || !/^[A-Za-z0-9_-]+\.csv$/.test(file || '')) return res.status(400).json({ error: 'Invalid snapshot file.' });
+    if (typeof name !== 'string' || typeof file !== 'string' || !/^backup_[A-Za-z0-9_-]+$/.test(name) || !/^[A-Za-z0-9_-]+\.csv$/.test(file)) return res.status(400).json({ error: 'Invalid snapshot file.' });
     try {
-        const fp = path.join(readSettings().backupPath, name, file);
+        const root = path.resolve(readSettings().backupPath);
+        // Resolve an existing catalog entry rather than building paths from request strings.
+        const folder = (await fs.promises.readdir(root, { withFileTypes: true })).find(entry => entry.isDirectory() && entry.name === name);
+        if (!folder) { const error = Error('Snapshot folder not found.'); error.code = 'ENOENT'; throw error; }
+        const directory = path.join(root, folder.name);
+        const entry = (await fs.promises.readdir(directory, { withFileTypes: true })).find(item => item.isFile() && (item.name === file || item.name === file + '.gz'));
+        if (!entry) { const error = Error('Snapshot file not found.'); error.code = 'ENOENT'; throw error; }
+        const fp = path.join(directory, entry.name.endsWith('.gz') ? entry.name.slice(0, -3) : entry.name);
         const physical = await fileArchives.existing(fp);
         if (physical.endsWith('.gz')) await fileArchives.verified(fp);
         res.setHeader('Content-Disposition', `attachment; filename="${file}"`);
@@ -3144,14 +3151,15 @@ exports.getAuditLogs = async (req, res) => {
 };
 // GET /api/admin/table-data/:tableName — fetch all rows from a table
 exports.getTableData = async (req, res) => {
-    const { tableName } = req.params;
-    if (!TABLE_META.some(t => t.key === tableName)) return res.status(400).json({ error: 'Unknown table.' });
+    const meta = TABLE_META.find(table => table.key === req.params.tableName);
+    if (!meta) return res.status(400).json({ error: 'Unknown table.' });
+    const tableName = meta.key;
     try {
         const query = req.query || {};
         const columns = (await db.sequelize.query('SELECT column_name FROM information_schema.columns WHERE table_schema = \'public\' AND table_name = :tbl ORDER BY ordinal_position', { type: QueryTypes.SELECT, replacements: { tbl: tableName } })).map(r => r.column_name);
         const limit = Math.min(500, Math.max(1, parseInt(query.size, 10) || 20));
         const page = Math.max(1, Math.min(10000000, parseInt(query.page, 10) || 1));
-        const sort = columns.includes(query.sort) ? query.sort : 'id';
+        const sort = columns.find(column => column === query.sort) || 'id';
         const direction = query.direction === 'asc' ? 'ASC' : 'DESC';
         const where = ['TRUE'], replacements = { limit, offset: (page - 1) * limit };
         if (query.search) { where.push('to_jsonb(t)::text ILIKE :search'); replacements.search = '%' + String(query.search).slice(0, 200).replace(/[\\%_]/g, char => '\\' + char) + '%'; }

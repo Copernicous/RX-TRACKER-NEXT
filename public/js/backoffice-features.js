@@ -2383,7 +2383,7 @@ async function loadErrorLogs(page) {
         document.getElementById('errlogPagination').innerHTML = pg;
         updateErrSelCount();
         if (_ebtn) _ebtn.style.display = '';
-    } catch(e) { document.getElementById('errlogTable').innerHTML = '<p style="color:#fca5a5;padding:2rem">'+e.message+'</p>'; }
+    } catch(e) { document.getElementById('errlogTable').textContent = e.message || 'Unable to load error logs.'; }
 }
 
 // ── Export Error Logs CSV (all matching rows, fetches all pages) ───────────

@@ -24,6 +24,14 @@ const { normalizeState, normalizeStructuredAddressForReference, isKnownCityName 
 const ADDRESS_LOOKUP_CACHE_MS = 5 * 60 * 1000;
 let patientAddressLookupCache = null;
 
+const rxProfileSyncLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    limit: 180,
+    standardHeaders: true,
+    legacyHeaders: false,
+    keyGenerator: req => 'rx-profile-sync-user-' + String(req.user && req.user.id || 'anonymous'),
+    message: { error: 'Too many RX Profile Sync requests. Try again in a minute.' }
+});
 const phoneAccountSaveLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     limit: 5,
@@ -869,14 +877,14 @@ router.get('/admin/orphans',            masterOnly, adminController.getOrphans);
 router.delete('/admin/orphans',         masterOnly, requireStagingDestructiveConfirmation, adminController.cleanOrphans);
 router.get('/admin/duplicates',         masterOnly, adminController.getDuplicates);
 router.get('/admin/audit-logs',         masterOnly, adminController.getAuditLogs);
-router.get('/admin/rx-profile-sync/control', masterOnly, rxProfileSyncController.getControl);
-router.put('/admin/rx-profile-sync/control', masterOnly, rxProfileSyncController.saveControl);
-router.get('/admin/rx-profile-sync', masterOnly, rxProfileSyncController.list);
-router.get('/admin/rx-profile-sync/export', masterOnly, rxProfileSyncController.exportHistory);
-router.post('/admin/rx-profile-sync/bulk', masterOnly, rxProfileSyncController.bulkSync);
-router.post('/admin/rx-profile-sync/:rxId/review', masterOnly, rxProfileSyncController.review);
-router.post('/admin/rx-profile-sync/:rxId/reopen', masterOnly, rxProfileSyncController.reopenReview);
-router.post('/admin/rx-profile-sync/:rxId', masterOnly, rxProfileSyncController.sync);
+router.get('/admin/rx-profile-sync/control', masterOnly, rxProfileSyncLimiter, rxProfileSyncController.getControl);
+router.put('/admin/rx-profile-sync/control', masterOnly, rxProfileSyncLimiter, rxProfileSyncController.saveControl);
+router.get('/admin/rx-profile-sync', masterOnly, rxProfileSyncLimiter, rxProfileSyncController.list);
+router.get('/admin/rx-profile-sync/export', masterOnly, rxProfileSyncLimiter, rxProfileSyncController.exportHistory);
+router.post('/admin/rx-profile-sync/bulk', masterOnly, rxProfileSyncLimiter, rxProfileSyncController.bulkSync);
+router.post('/admin/rx-profile-sync/:rxId/review', masterOnly, rxProfileSyncLimiter, rxProfileSyncController.review);
+router.post('/admin/rx-profile-sync/:rxId/reopen', masterOnly, rxProfileSyncLimiter, rxProfileSyncController.reopenReview);
+router.post('/admin/rx-profile-sync/:rxId', masterOnly, rxProfileSyncLimiter, rxProfileSyncController.sync);
 router.get('/admin/call-center-cleanup', masterOnly, adminController.getCallCenterCleanupPreview);
 router.delete('/admin/call-center-cleanup', masterOnly, requireStagingDestructiveConfirmation, adminController.purgeCallCenterCleanup);
 // System Settings

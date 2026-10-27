@@ -55,6 +55,12 @@ async function main() {
     assert.deepEqual(Buffer.concat(chunks), csv);
     assert.equal(fs.readFileSync(backupDump, 'utf8'), 'never touch database backups');
     let status; await admin.downloadBackupFile({ params: { name: '../outside', file: '001-Sample.csv' } }, { status(code) { status = code; return this; }, json() {} }); assert.equal(status, 400);
+    const outside = path.join(temporary, 'outside'); fs.mkdirSync(outside); fs.writeFileSync(path.join(outside, '001-Sample.csv'), 'outside file');
+    const linked = path.join(files.root('csvSnapshots'), 'backup_link');
+    fs.symlinkSync(outside, linked, process.platform === 'win32' ? 'junction' : 'dir');
+    const rejected = { code: 200, status(code) { this.code = code; return this; }, json(value) { this.body = value; } };
+    await admin.downloadBackupFile({ params: { name: 'backup_link', file: '001-Sample.csv' } }, rejected);
+    assert.equal(rejected.code, 404);
     console.log('PASS file retention boundaries, verified compression/recall, corruption/size rejection, changed-source preservation, sequence/backup isolation and original CSV download.');
 }
 main().catch(e => { console.error(e); process.exitCode = 1; }).finally(async () => {
