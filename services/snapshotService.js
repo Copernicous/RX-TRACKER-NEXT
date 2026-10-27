@@ -194,17 +194,17 @@ async function captureSnapshot(forDate) {
     `, { type: QueryTypes.SELECT, replacements: { snapshotDate } });
 
     const loginEventsToday = await seq.query(
-        `SELECT COUNT(*) AS cnt FROM "AuditLogs" WHERE "createdAt" >= :dayStart AND "createdAt" < :dayEnd AND "module" = 'Authentication' AND "action" = 'Login'`,
+        `SELECT COUNT(*) AS cnt FROM "AuditLogsHistory" WHERE "createdAt" >= :dayStart AND "createdAt" < :dayEnd AND "module" = 'Authentication' AND "action" = 'Login'`,
         { type: QueryTypes.SELECT, replacements: { dayStart, dayEnd } }
     ).then(r => parseInt(r[0].cnt, 10));
 
     const uniqueLoginUsersToday = await seq.query(
-        `SELECT COUNT(DISTINCT "userId") AS cnt FROM "AuditLogs" WHERE "createdAt" >= :dayStart AND "createdAt" < :dayEnd AND "module" = 'Authentication' AND "action" = 'Login' AND "userId" IS NOT NULL`,
+        `SELECT COUNT(DISTINCT "userId") AS cnt FROM "AuditLogsHistory" WHERE "createdAt" >= :dayStart AND "createdAt" < :dayEnd AND "module" = 'Authentication' AND "action" = 'Login' AND "userId" IS NOT NULL`,
         { type: QueryTypes.SELECT, replacements: { dayStart, dayEnd } }
     ).then(r => parseInt(r[0].cnt, 10));
 
     const userActivity = await seq.query(
-        `SELECT COUNT(*) AS events, COUNT(DISTINCT "userId") AS users FROM "UserActivityLogs" WHERE "visitedAt" >= :dayStart AND "visitedAt" < :dayEnd`,
+        `SELECT COUNT(*) AS events, COUNT(DISTINCT "userId") AS users FROM "UserActivityLogsHistory" WHERE "visitedAt" >= :dayStart AND "visitedAt" < :dayEnd`,
         { type: QueryTypes.SELECT, replacements: { dayStart, dayEnd } }
     ).then(r => ({
         events: parseInt(r[0].events, 10) || 0,
@@ -212,17 +212,17 @@ async function captureSnapshot(forDate) {
     })).catch(() => ({ events: 0, users: 0 }));
 
     const auditEventsToday = await seq.query(
-        `SELECT COUNT(*) AS cnt FROM "AuditLogs" WHERE "createdAt" >= :dayStart AND "createdAt" < :dayEnd`,
+        `SELECT COUNT(*) AS cnt FROM "AuditLogsHistory" WHERE "createdAt" >= :dayStart AND "createdAt" < :dayEnd`,
         { type: QueryTypes.SELECT, replacements: { dayStart, dayEnd } }
     ).then(r => parseInt(r[0].cnt, 10));
 
     const errorLogsToday = await seq.query(
-        `SELECT COUNT(*) AS cnt FROM "ErrorLogs" WHERE "createdAt" >= :dayStart AND "createdAt" < :dayEnd`,
+        `SELECT COUNT(*) AS cnt FROM "ErrorLogsHistory" WHERE "createdAt" >= :dayStart AND "createdAt" < :dayEnd`,
         { type: QueryTypes.SELECT, replacements: { dayStart, dayEnd } }
     ).then(r => parseInt(r[0].cnt, 10));
 
     const unresolvedErrors = await seq.query(
-        `SELECT COUNT(*) AS cnt FROM "ErrorLogs" WHERE "resolved" = false`,
+        `SELECT COUNT(*) AS cnt FROM "ErrorLogsHistory" WHERE "resolved" = false`,
         { type: QueryTypes.SELECT }
     ).then(r => parseInt(r[0].cnt, 10));
 
@@ -502,7 +502,7 @@ async function materializeSnapshotChunk(startDate, endDate) {
                    COUNT(DISTINCT "userId") FILTER (
                        WHERE module = 'Authentication' AND action = 'Login' AND "userId" IS NOT NULL
                    )::integer AS login_users
-            FROM "AuditLogs"
+            FROM "AuditLogsHistory"
             WHERE ("createdAt" AT TIME ZONE :timeZone)::date
                   BETWEEN CAST(:startDate AS date) AND CAST(:endDate AS date)
             GROUP BY ("createdAt" AT TIME ZONE :timeZone)::date
@@ -511,7 +511,7 @@ async function materializeSnapshotChunk(startDate, endDate) {
             SELECT ("visitedAt" AT TIME ZONE :timeZone)::date AS event_date,
                    COUNT(*)::integer AS activity_events,
                    COUNT(DISTINCT "userId")::integer AS activity_users
-            FROM "UserActivityLogs"
+            FROM "UserActivityLogsHistory"
             WHERE ("visitedAt" AT TIME ZONE :timeZone)::date
                   BETWEEN CAST(:startDate AS date) AND CAST(:endDate AS date)
             GROUP BY ("visitedAt" AT TIME ZONE :timeZone)::date
@@ -519,7 +519,7 @@ async function materializeSnapshotChunk(startDate, endDate) {
         error_daily AS (
             SELECT ("createdAt" AT TIME ZONE :timeZone)::date AS event_date,
                    COUNT(*)::integer AS error_events
-            FROM "ErrorLogs"
+            FROM "ErrorLogsHistory"
             WHERE ("createdAt" AT TIME ZONE :timeZone)::date
                   BETWEEN CAST(:startDate AS date) AND CAST(:endDate AS date)
             GROUP BY ("createdAt" AT TIME ZONE :timeZone)::date
@@ -529,7 +529,7 @@ async function materializeSnapshotChunk(startDate, endDate) {
                 (SELECT COUNT(*)::integer FROM "Users") AS total_users,
                 (SELECT COUNT(*)::integer FROM "Users" WHERE "isActive" = true) AS active_users,
                 (SELECT COUNT(*)::integer FROM "RXRecords" WHERE "isDeleted" = true) AS deleted_rx,
-                (SELECT COUNT(*)::integer FROM "ErrorLogs" WHERE "resolved" = false) AS unresolved_errors,
+                (SELECT COUNT(*)::integer FROM "ErrorLogsHistory" WHERE "resolved" = false) AS unresolved_errors,
                 (SELECT COUNT(*)::integer FROM "Pharmacies") AS total_pharmacies,
                 (SELECT COUNT(*)::integer FROM "Clinics") AS total_clinics,
                 (

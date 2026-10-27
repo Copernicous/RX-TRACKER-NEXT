@@ -178,6 +178,7 @@
         document.getElementById('patientImportHistory').addEventListener('toggle', event => {
             if (event.target.open) loadImportHistory(1);
         });
+        document.getElementById('importHistorySource').addEventListener('change', () => loadImportHistory(1));
         document.getElementById('refreshImportHistoryBtn').addEventListener('click', () => loadImportHistory(1));
         document.getElementById('previousImportHistoryBtn').addEventListener('click', () => loadImportHistory(importHistoryPage - 1));
         document.getElementById('nextImportHistoryBtn').addEventListener('click', () => loadImportHistory(importHistoryPage + 1));
@@ -735,7 +736,7 @@
         const body = document.getElementById('patientImportHistoryBody');
         body.textContent = 'Loading import history...';
         try {
-            const res = await fetchWithAuth('/api/import/patient-reports?page=' + Math.max(1, page));
+            const res = await fetchWithAuth('/api/import/patient-reports?page=' + Math.max(1, page) + '&historySource=' + document.getElementById('importHistorySource').value);
             if (!res || !res.ok) throw new Error('Unable to load import history.');
             const data = await res.json();
             importHistoryPage = data.page;

@@ -135,7 +135,7 @@ var HELP_SECTIONS = [
       { q:'Who can see the audit log?',
         a:'Only users with the Administrator or Manager role can access /audit-log. Regular Staff and Viewer users are redirected if they try to access it directly. This is to protect sensitive change history from casual viewing.' },
       { q:'Bulk delete / rotating old entries',
-        a:'Administrators can delete all audit entries older than a specific date using the <b>"Rotate"</b> function. This is useful for keeping the database size manageable over time. Rotated entries are permanently removed and cannot be recovered. A rotation itself creates a new audit entry recording that it happened and who did it.' }
+        a:'Administrators can archive eligible older audit events, completed import reports, page activity and resolved errors while retaining recent history. The initial retention window is 30 days. Use Automatic history archiving to configure each section and its daily UTC schedule. Archived / All views retain access to old events and original import downloads. Transfers are verified and recorded in the audit log. Protected operational records remain active.' }
     ]
   },
 

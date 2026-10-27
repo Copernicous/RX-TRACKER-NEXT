@@ -1,4 +1,5 @@
 'use strict';
+const { sourceModel } = require('../utils/historySource');
 
 const db = require('../models');
 const { Op } = require('sequelize');
@@ -78,8 +79,8 @@ exports.getAll = async (req, res) => {
         }
 
         const [total, data] = await Promise.all([
-            db.UserActivityLog.count({ where }),
-            db.UserActivityLog.findAll(queryOptions)
+            sourceModel(db, 'UserActivityLog', req.query.historySource || 'active').count({ where }),
+            sourceModel(db, 'UserActivityLog', req.query.historySource || 'active').findAll(queryOptions)
         ]);
 
         res.json({ data, total });
@@ -90,7 +91,7 @@ exports.getAll = async (req, res) => {
 
 exports.getUsers = async (req, res) => {
     try {
-        const rows = await db.UserActivityLog.findAll({
+        const rows = await sourceModel(db, 'UserActivityLog', req.query.historySource || 'active').findAll({
             attributes: [
                 [db.sequelize.fn('DISTINCT', db.sequelize.col('usernameSnapshot')), 'username']
             ],
@@ -105,7 +106,7 @@ exports.getUsers = async (req, res) => {
 
 exports.getRoles = async (req, res) => {
     try {
-        const rows = await db.UserActivityLog.findAll({
+        const rows = await sourceModel(db, 'UserActivityLog', req.query.historySource || 'active').findAll({
             attributes: [
                 [db.sequelize.fn('DISTINCT', db.sequelize.col('roleSnapshot')), 'role']
             ],
@@ -120,7 +121,7 @@ exports.getRoles = async (req, res) => {
 
 exports.getPages = async (req, res) => {
     try {
-        const rows = await db.UserActivityLog.findAll({
+        const rows = await sourceModel(db, 'UserActivityLog', req.query.historySource || 'active').findAll({
             attributes: [
                 'pagePath',
                 [db.sequelize.fn('MAX', db.sequelize.col('pageTitle')), 'pageTitle']

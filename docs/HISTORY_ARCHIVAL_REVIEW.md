@@ -1,13 +1,18 @@
 # History archival and recall: implementation review
 
-Status: deferred by the user on 2026-09-24; low priority. No cold-storage jobs, automatic rotation,
-movement, removal, retention settings, or production changes are authorized
-by this document. Review the scope and operational effects before implementing.
+Status update 2026-10-27: the user explicitly authorized archiving/automatic
+rotation for logs and imports and selected a 30-day recent window. The unreleased
+implementation uses PostgreSQL archive tables with complete-history views and
+separate compressed technical files. See [HISTORY_ARCHIVING.md](HISTORY_ARCHIVING.md)
+for current scope and operation. Production installation remains a separate action.
+Delivery copies and other business histories remain outside this implementation.
+The earlier alternatives and decisions below are retained as historical design
+context; their no-implementation statements describe the September deferral.
 
-## Latest decision: postpone and consider external viewing instead
+## Historical decision (2026-09-24): postpone and consider external viewing
 
-Do not resume this work automatically when reopening the repository. Wait for
-an explicit user request. Keep the existing data in place.
+The September deferral prohibited automatically resuming work. The explicit
+October 27 request supersedes it for the scope documented in HISTORY_ARCHIVING.md.
 
 The preferred direction for later evaluation is a self-contained archive of
 eligible old history that can be opened outside RX Tracker, rather than an

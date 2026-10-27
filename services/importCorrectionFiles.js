@@ -14,10 +14,11 @@ const links = rows => rows.flatMap((row, index) => {
 });
 async function load(db, userId, ids, transaction) {
     if (!ids.length) return [];
-    const records = await db.AuditLog.findAll({ where: { id: ids, userId, module: 'Data Import', action: FILE },
+    const reader = transaction ? db.AuditLog : db.AuditLogHistory;
+    const records = await reader.findAll({ where: { id: ids, userId, module: 'Data Import', action: FILE },
         order: [['id', 'ASC']], raw: true, ...(transaction ? { transaction, lock: transaction.LOCK.UPDATE } : {}) });
     if (records.length !== ids.length) fail('Correction file is unavailable or belongs to another importer.');
-    const events = await db.AuditLog.findAll({ where: { recordId: ids, userId, module: 'Data Import', action: [REVISION, RESOLVED] },
+    const events = await reader.findAll({ where: { recordId: ids, userId, module: 'Data Import', action: [REVISION, RESOLVED] },
         order: [['id', 'ASC']], raw: true, ...(transaction ? { transaction } : {}) });
     return records.map(record => {
         const items = new Map(record.newValue.items.map(item => [item.itemId, { ...item }]));
@@ -66,7 +67,7 @@ async function persistErrors(db, req, rows, errors, transaction) {
     const ids = [];
     if (newItems.length) {
         const captured = retainedFile.capture(req.file);
-        const existing = await db.AuditLog.findOne({ where: { userId: req.user.id, module: 'Data Import', action: FILE, [db.Sequelize.Op.and]: db.Sequelize.where(db.Sequelize.json('newValue.sourceFile.sha256'), captured.sha256) }, order: [['id','DESC']], attributes: ['id'], raw: true, transaction });
+        const existing = await db.AuditLogHistory.findOne({ where: { userId: req.user.id, module: 'Data Import', action: FILE, [db.Sequelize.Op.and]: db.Sequelize.where(db.Sequelize.json('newValue.sourceFile.sha256'), captured.sha256) }, order: [['id','DESC']], attributes: ['id'], raw: true, transaction });
         if (existing) ids.push(existing.id);
         else {
         const file = await audit(db, req, FILE, null, { schemaVersion: 1, fileName: String(req.file.originalname || 'patients.csv').replace(/^.*[\\/]/,'').slice(0,255), headers, items: newItems, sourceFile: retainedFile.capture(req.file) }, transaction);

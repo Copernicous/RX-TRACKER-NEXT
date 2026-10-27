@@ -10,7 +10,13 @@ frozen 3.3.1 repository, its production database, or the RX Softphone source.
 
 ## Current status
 
-Version: `4.0.0-next.97`
+Version: `4.0.0-next.98`
+
+Version `next.98` archives older audit/import/correction/activity/error history while
+retaining recent and protected records. Initial retention is 30 days per section;
+automatic processing starts disabled. Browse archives and download numbered, dated
+pages without removing stored records. One audited migration creates archive
+tables and read-only combined views. See [History archiving](docs/HISTORY_ARCHIVING.md).
 
 Version `next.97` embeds Node.js 22.23.4 for the October 21 security advisories. Both executable runtimes are verified before packaging. No new migration.
 
@@ -257,6 +263,7 @@ checksummed production release.
 ## Start here
 
 - [Current project handoff](docs/PROJECT_HANDOFF.md)
+- [History archiving and retention (unreleased)](docs/HISTORY_ARCHIVING.md)
 - [Portable new-server installer](docs/NEW_SERVER_PORTABLE_INSTALLER.md)
 - [Database operations](docs/database/NEXT_DATABASE_OPERATIONS.md)
 - [Sanitized dump rehearsal](docs/database/SANITIZED_DUMP_REHEARSAL.md)

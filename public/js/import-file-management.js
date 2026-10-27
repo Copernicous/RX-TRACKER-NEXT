@@ -7,6 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('patientImportHistory').open = true;
     document.getElementById('filesToCorrectTab').addEventListener('shown.bs.tab', () => loadCorrectionFiles());
     document.getElementById('correctedFilesTab').addEventListener('shown.bs.tab', () => loadCorrectionFiles());
+    document.getElementById('importHistorySource').addEventListener('change', () => loadCorrectionFiles(1));
     document.getElementById('refreshCorrectionFilesBtn').onclick = () => loadCorrectionFiles();
     document.getElementById('previousCorrectionFilesBtn').onclick = () => loadCorrectionFiles(correctionFilesPage - 1);
     document.getElementById('nextCorrectionFilesBtn').onclick = () => loadCorrectionFiles(correctionFilesPage + 1);
@@ -55,7 +56,7 @@ async function loadCorrectionFiles(page = correctionFilesPage) {
     correctionFilesBusy = true;
     const pending = document.getElementById('correctionFilesList'), completed = document.getElementById('correctedFilesList');
     try {
-        const res = await fetchWithAuth('/api/import/patient-corrections?page=' + Math.max(1, page));
+        const res = await fetchWithAuth('/api/import/patient-corrections?page=' + Math.max(1, page) + '&historySource=' + document.getElementById('importHistorySource').value);
         if (!res) return;
         const data = await res.json();
         if (!res.ok) throw Error(data.error || 'Unable to load correction files.');

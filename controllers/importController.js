@@ -1,3 +1,4 @@
+const { sourceModel } = require('../utils/historySource');
 ﻿const db = require('../models');
 const bcrypt = require('bcryptjs');
 const csv = require('csv-parser');
@@ -640,7 +641,7 @@ exports.importDataset = async (req, res) => {
 
                 // ── Phase 2: All-or-nothing — only write if zero errors ──
                 if (rowErrors.length > 0) break;
-                const previousReports = reviewV2 ? await db.AuditLog.findAll({ where: { module: 'Data Import', action: 'Patient import report', userId: req.user?.id }, attributes: ['id', [db.sequelize.literal("\"newValue\"->'sourceRows'"), 'sourceRows']], order: [['id', 'DESC']], limit: 100, raw: true }) : [];
+                const previousReports = reviewV2 ? await db.AuditLogHistory.findAll({ where: { module: 'Data Import', action: 'Patient import report', userId: req.user?.id }, attributes: ['id', [db.sequelize.literal("\"newValue\"->'sourceRows'"), 'sourceRows']], order: [['id', 'DESC']], limit: 100, raw: true }) : [];
                 const decorateWarnings = (warnings, patients) => {
                     if (!reviewV2) return warnings;
                     const repeats = repeatedRows(rows, patients, previousReports);
@@ -1073,7 +1074,7 @@ exports.listPatientReports = async (req, res) => {
     try {
         const page = Math.max(1, Math.min(100000, parseInt(req.query.page, 10) || 1));
         const limit = 20;
-        const result = await db.AuditLog.findAndCountAll({ where: await reportScope(req), limit, offset: (page - 1) * limit,
+        const result = await sourceModel(db, 'AuditLog', req.query.historySource || 'active').findAndCountAll({ where: await reportScope(req), limit, offset: (page - 1) * limit,
             order: [['id', 'DESC']], raw: true,
             attributes: ['id', 'userId', 'createdAt', ...['fileName', 'createdCount', 'mergedCount', 'discardedCount', ...(importReviewV2Enabled() ? ['hasUploadedFile','hasOriginalUpload'] : [])].map(field => [db.Sequelize.json('newValue.' + field), field])] });
         res.setHeader('Cache-Control', 'no-store');
@@ -1084,7 +1085,7 @@ exports.getPatientReport = async (req, res) => {
     try {
         const id = Number(req.params.id);
         if (!Number.isSafeInteger(id) || id <= 0) return res.status(400).json({ error: 'Invalid report ID.' });
-        const report = await db.AuditLog.findOne({ where: { ...await reportScope(req), id }, attributes: ['id', 'userId', 'createdAt', 'newValue'], raw: true });
+        const report = await db.AuditLogHistory.findOne({ where: { ...await reportScope(req), id }, attributes: ['id', 'userId', 'createdAt', 'newValue'], raw: true });
         if (!report) return res.status(404).json({ error: 'Report not found.' });
         res.setHeader('Cache-Control', 'no-store');
         const { sourceFile, uploadedFile, ...snapshot } = report.newValue;
@@ -1115,7 +1116,7 @@ exports.listCorrectionFiles = async (req, res) => {
     try {
         correctionFiles.requireEnabled();
         const page = Math.max(1, Math.min(100000, parseInt(req.query.page, 10) || 1));
-        const result = await db.AuditLog.findAndCountAll({ where: { userId: req.user.id, module: 'Data Import', action: correctionFiles.FILE },
+        const result = await sourceModel(db, 'AuditLog', req.query.historySource || 'active').findAndCountAll({ where: { userId: req.user.id, module: 'Data Import', action: correctionFiles.FILE },
             attributes: ['id'], order: [['id','DESC']], offset: (page-1)*20, limit: 20, raw: true });
         const records = await correctionFiles.load(db, req.user.id, result.rows.map(r => r.id));
         res.setHeader('Cache-Control', 'no-store');
@@ -1139,7 +1140,7 @@ async function downloadStoredUpload(req, res, original) {
         correctionFiles.requireEnabled();
         const id = Number(req.params.id);
         if (!Number.isSafeInteger(id) || id <= 0) return res.status(400).json({ error: 'Invalid report ID.' });
-        const report = await db.AuditLog.findOne({ where: { ...await reportScope(req), id }, attributes: ['newValue'], raw: true });
+        const report = await db.AuditLogHistory.findOne({ where: { ...await reportScope(req), id }, attributes: ['newValue'], raw: true });
         if (!report) return res.status(404).json({ error: 'Report not found.' });
         return retainedFile.send(res, original ? report.newValue.sourceFile : report.newValue.uploadedFile || report.newValue.sourceFile);
     } catch (e) { return res.status(e.status || 500).json({ error: 'Unable to download the uploaded file.' }); }

@@ -1,34 +1,28 @@
-RX Tracker NEXT 4.0.0-next.97
+RX Tracker NEXT 4.0.0-next.98
 ============================
 
-Security update
----------------
-Both executables embed patched Node.js 22.23.4. Use --runtime-info to inspect
-the runtime without starting the service or connecting to a database.
+Verified history archiving
+--------------------------
+Older eligible records move transactionally to database archive tables. Recent
+events, unresolved work and operational call references remain active. Initial
+retention is 30 days per section; automatic archiving starts disabled. Existing
+saved settings are preserved, and server-level scheduler pauses are shown.
+Browse Active/Archived/All and numbered downloads with event date ranges.
+Downloading makes a copy; archived records remain stored and readable.
 
-RX Stage Report
----------------
-Open RX Records > Stage Report. Select a baseline and different comparison
-stages. Each row shows baseline/compared stage names, their dates and days
-between them. Missing dates stay Unknown. The former today-age column is gone.
-Sort results and export all filtered pages. The wider popup has a horizontal
-scrollbar above wide results. Existing permissions and themes apply.
-No new migration or automatic data rewrite.
+Archive tables are included in full database backups. This reduces active-table
+load, not total database storage. Technical file logs are compressed separately;
+back up logs/archive separately. See docs/HISTORY_ARCHIVING.md.
 
-Installation
-------------
-Verify the official ZIP against SHA256SUMS.txt. Use Project Control option 8,
-then option 15. The updater preserves .env and the paired rollback set.
-For older installations affected by the next.78 recovery incident, follow
-RELEASE_NOTES-v4.0.0-next.97.md and docs/database/COMPILED_RELEASE_UPDATES.md.
+Installation and verification
+-----------------------------
+Verify SHA256SUMS.txt. Use Project Control option 8 then option 15. One audited
+migration creates archive tables/views (65 migrations total); startup is check-only.
+Preserve .env, configured RX Actions and the paired application/database rollback
+set. Require healthy version 4.0.0-next.98; check archive status and full history.
+Migration rollback refuses populated archives. Use Project Control option 16 for
+emergency paired application/database recovery, never an older binary alone.
+Publication does not install production. See RELEASE_NOTES-v4.0.0-next.98.md.
 
-Verification
-------------
-Require healthy service version 4.0.0-next.97. Refresh RX Records, open Stage
-Report, compare scope/date filters, sort results and export CSV. Confirm all
-matching pages are exported and both light/dark themes remain readable.
-
-Rollback
---------
-Use Project Control option 16 for emergency paired application/database rollback.
-Preserve the paired rollback set and follow the documented recovery procedure.
+Both executables embed Node.js 22.23.4. Local validation records exact source,
+checks and package hashes. Existing dependency/source findings remain documented.

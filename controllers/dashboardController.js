@@ -101,7 +101,7 @@ exports.getStats = async (req, res) => {
                 if (done < totalWorkflowSteps) pendingDeliveriesCount++;
             }
         }
-        const recentActivity = await db.AuditLog.findAll({
+        const recentActivity = await db.AuditLogHistory.findAll({
             limit: 10,
             order: [['date', 'DESC'], ['time', 'DESC']],
             include: [{ model: db.User, attributes: ['firstName', 'lastName'] }]
@@ -635,12 +635,12 @@ exports.getChartData = async (req, res) => {
             order: [['patientId', 'ASC'], ['serviceDate', 'ASC']],
             raw: true
         });
-        const auditRows = await db.AuditLog.findAll({
+        const auditRows = await db.AuditLogHistory.findAll({
             attributes: ['createdAt', 'module', 'action', 'userId'],
             where: { createdAt: { [Op.between]: [new Date(startDate + 'T00:00:00'), rangeEndTs] } },
             raw: true
         }).catch(() => []);
-        const activityRows = await db.UserActivityLog.findAll({
+        const activityRows = await db.UserActivityLogHistory.findAll({
             attributes: ['visitedAt', 'userId'],
             where: { visitedAt: { [Op.between]: [new Date(startDate + 'T00:00:00'), rangeEndTs] } },
             raw: true

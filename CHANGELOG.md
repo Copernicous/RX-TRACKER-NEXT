@@ -5,7 +5,44 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ---
 
-## [Unreleased]
+## [4.0.0-next.98] - 2026-10-27
+
+### Added
+
+- Archive download date context: whole-archive period and per-page oldest/newest
+  event dates in the application timezone. Dated filenames and manifests preserve
+  the included range, UTC timestamps and field/timezone meaning. Existing ID
+  ordering, archive contents and per-browser progress remain unchanged.
+
+- Numbered archive export pages with total/record ranges, previous/next, page
+  jump, next-pending navigation and per-browser saved download-attempt progress.
+  Clearly distinguish pending pages from download started; allow re-downloads
+  and preserve every archived row. Export filenames/manifests include page and
+  archive revision. Progress resets for changed archives and is scoped to the
+  current database/account/section; no patient payload is stored in the browser.
+
+- Verified database history archiving for audit events, completed import reports,
+  fully resolved correction groups, page activity and resolved errors. Retain the
+  newest 30 days initially, configure per-section retention and a persisted daily
+  UTC schedule, preview/manual runs, browse Active/Archived/All and download
+  checksummed gzip JSON. Automatic processing starts disabled until configured.
+  Preserve IDs, original CSVs, permissions, complete reports and analytics; protect
+  pending corrections, recent changes, unresolved errors and operational calls.
+- Audited archive-table/read-only-history-view migration with transactional
+  copy/verify/remove receipts, rollback protection and sanitizer coverage.
+
+### Fixed
+
+- Audit Log Rotate now archives eligible older rows instead of purging them and
+  rejects invalid retention. Error Log Clear Resolved now archives only eligible
+  older errors. Technical access/error logging rolls at UTC day boundaries and
+  compresses verified closed older files instead of deleting their evidence.
+  See `docs/HISTORY_ARCHIVING.md`. Automatic scheduler pauses are explicitly shown in the status panel.
+
+### Security
+
+- Update Multer to 2.5.0 and Nodemailer to 10.2.1, clearing the required high-severity dependency gate and current mail-parser advisories.
+- Keep hosted Actions disabled; compile and verify all packages locally before publication.
 
 ## [4.0.0-next.97] - 2026-10-23
 

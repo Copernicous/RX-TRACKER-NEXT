@@ -115,21 +115,11 @@ var _errStream = null;    // Error log stream
     var baseDir = runtimePaths.getWritableRoot();
     var logDir  = path2.join(baseDir, 'logs');
     if (!fs.existsSync(logDir)) fs.mkdirSync(logDir, { recursive: true });
-    // Delete log files older than LOG_RETENTION_DAYS (default 7)
-    var retainDays = parseInt(process.env.LOG_RETENTION_DAYS || '7', 10);
-    var cutoff = Date.now() - retainDays * 86400000;
-    fs.readdirSync(logDir).forEach(function(f) {
-        if (!/\.(log)$/.test(f)) return;
-        var fp = path2.join(logDir, f);
-        try { if (fs.statSync(fp).mtimeMs < cutoff) fs.unlinkSync(fp); } catch(e) {}
-    });
-    // Today's date stamp for file names
-    var d   = new Date();
-    var pad = function(n) { return String(n).padStart(2,'0'); };
-    var stamp = d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate());
-    // Open append streams for today
-    _logStream = fs.createWriteStream(path2.join(logDir, 'access-' + stamp + '.log'), { flags: 'a' });
-    _errStream = fs.createWriteStream(path2.join(logDir, 'error-'  + stamp + '.log'), { flags: 'a' });
+    var technicalLogs = require('./services/technicalLogFiles');
+    var retainDays = technicalLogs.retentionDays(process.env.LOG_RETENTION_DAYS);
+    var fileLogger = technicalLogs.createLogger(logDir, retainDays);
+    _logStream = fileLogger.access;
+    _errStream = fileLogger.error;
     // Patch console.error so errors also go to file
     var _origErr = console.error.bind(console);
     console.error = function() {
@@ -866,6 +856,7 @@ const startServer = async () => {
 
     // Load system settings only after the schema has passed read-only validation.
     await settingsService.load();
+    require('./services/historyArchiveService').startScheduler();
 
     app.listen(PORT, () => {
         console.log(`Server is running on port ${PORT}.`);

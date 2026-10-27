@@ -10,6 +10,7 @@ const fs   = require('fs');
 const crypto = require('crypto');
 const multer = require('multer');
 const errorLogController = require('../controllers/errorLogController');
+const historyArchiveController = require('../controllers/historyArchiveController');
 const sessionTracker = require('../services/sessionTracker');
 const sessionIdleService = require('../services/sessionIdleService');
 const { getWritableRoot } = require('../utils/runtimePaths');
@@ -528,6 +529,14 @@ router.get('/reports/call-center-attempts', rbac.requirePermission('reports', 'r
 router.get('/reports/call-center-supervisor', rbac.requirePermission('reports', 'read'), reportController.getCallCenterSupervisorSummary);
 
 // Audit Log â€” controlled by its own audit_log permission
+// Archive administration: current Administrator authorization on every request.
+router.get('/history-archive', rbac.requireRole(['Administrator']), historyArchiveController.status);
+router.put('/history-archive', rbac.requireRole(['Administrator']), historyArchiveController.save);
+router.post('/history-archive/preview', rbac.requireRole(['Administrator']), historyArchiveController.preview);
+router.post('/history-archive/run', rbac.requireRole(['Administrator']), historyArchiveController.run);
+router.get('/history-archive/:kind/download', rbac.requireRole(['Administrator']), historyArchiveController.download);
+router.get('/history-archive/:kind/pages', rbac.requireRole(['Administrator']), historyArchiveController.pages);
+
 router.get('/audit-logs',              rbac.requirePermission('audit_log', 'read'),  auditLogController.getAll);
 router.get('/audit-logs/users',        rbac.requirePermission('audit_log', 'read'),  auditLogController.getUsers);
 router.get('/audit-logs/modules',      rbac.requirePermission('audit_log', 'read'),  auditLogController.getModules);

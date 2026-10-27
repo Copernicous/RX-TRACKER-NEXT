@@ -1,3 +1,4 @@
+const { sourceModel } = require('../utils/historySource');
 const db = require('../models');
 const { Op } = require('sequelize');
 const { getRequestPermission } = require('../middleware/rbac');
@@ -48,12 +49,12 @@ exports.getAll = async (req, res) => {
         }
         await applyDriverHistoryVisibility(req, where);
 
-        const total = await db.AuditLog.count({ where });
+        const total = await sourceModel(db, 'AuditLog', req.query.historySource || 'active').count({ where });
 
         // exportAll=true → return every matching record (no limit)
         const queryOptions = {
             where,
-            order: [['createdAt', 'DESC']],
+            order: [['createdAt', 'DESC'], ['id', 'DESC']],
             include: [{ model: db.User, attributes: ['firstName', 'lastName', 'username'], required: false }]
         };
         if (!exportAll) {
@@ -61,7 +62,7 @@ exports.getAll = async (req, res) => {
             queryOptions.offset = parseInt(offset);
         }
 
-        const data = await db.AuditLog.findAll(queryOptions);
+        const data = await sourceModel(db, 'AuditLog', req.query.historySource || 'active').findAll(queryOptions);
         res.json({ data, total });
     } catch (err) { res.status(500).json({ error: err.message }); }
 };
@@ -71,7 +72,7 @@ exports.getUsers = async (req, res) => {
     try {
         const where = { userId: { [Op.ne]: null } };
         await applyDriverHistoryVisibility(req, where);
-        const rows = await db.AuditLog.findAll({
+        const rows = await sourceModel(db, 'AuditLog', req.query.historySource || 'active').findAll({
             attributes: [[db.sequelize.fn('DISTINCT', db.sequelize.col('userId')), 'userId']],
             where,
             raw: true
@@ -90,7 +91,7 @@ exports.getModules = async (req, res) => {
     try {
         const where = {};
         await applyDriverHistoryVisibility(req, where);
-        const rows = await db.AuditLog.findAll({
+        const rows = await sourceModel(db, 'AuditLog', req.query.historySource || 'active').findAll({
             attributes: [[db.sequelize.fn('DISTINCT', db.sequelize.col('module')), 'module']],
             where,
             raw: true
@@ -104,7 +105,7 @@ exports.getActions = async (req, res) => {
     try {
         const where = {};
         await applyDriverHistoryVisibility(req, where);
-        const rows = await db.AuditLog.findAll({
+        const rows = await sourceModel(db, 'AuditLog', req.query.historySource || 'active').findAll({
             attributes: [[db.sequelize.fn('DISTINCT', db.sequelize.col('action')), 'action']],
             where,
             raw: true
@@ -143,13 +144,10 @@ exports.bulkDelete = async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 };
 
-// POST /api/audit-logs/rotate — delete entries older than N days (Admin only)
+// POST /api/audit-logs/rotate — verified archive of eligible old entries (Admin only)
 exports.rotate = async (req, res) => {
     try {
-        const { days = 90 } = req.body;
-        const cutoff = new Date();
-        cutoff.setDate(cutoff.getDate() - parseInt(days));
-        const count = await db.AuditLog.destroy({ where: { createdAt: { [Op.lt]: cutoff }, action: { [Op.notIn]: ['Patient import report', 'Patient import correction file', 'Patient import correction revision', 'Patient import correction resolved'] } } });
-        res.status(200).json({ message: `Log rotation complete. ${count} entries older than ${days} days removed.`, count });
-    } catch (err) { res.status(500).json({ error: err.message }); }
+        const service = require('../services/historyArchiveService');
+        res.json(await service.run('audit', req.body.days === undefined ? 30 : req.body.days, req.user.id));
+    } catch (e) { res.status(e.status || 500).json({ error: e.status ? e.message : 'Archive operation failed; uncommitted transfers were rolled back.' }); }
 };

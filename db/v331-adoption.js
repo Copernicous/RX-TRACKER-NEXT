@@ -10,7 +10,7 @@ const LEGACY_MIGRATION_NAMES = manifest
   .filter((name) => name < NEXT_BASELINE_MIGRATION);
 
 async function inspectV331Anchor(db) {
-  return inspectDatabase(db, { includeMigrations: false, includeIndexes: false });
+  return inspectDatabase(db, { includeMigrations: false, includeIndexes: false, includeHistory: false });
 }
 
 async function adoptV331(db, options = {}) {

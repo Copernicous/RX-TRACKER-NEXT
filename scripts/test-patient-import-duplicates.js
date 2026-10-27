@@ -34,6 +34,7 @@ const db = {
             return rows.map((p, i) => ({ ...p, id: 101 + i, setPatientTags: async () => {} }));
         }
     },
+    AuditLogHistory: { findAll: async () => [] },
     AuditLog: { findAll: async () => [], create: async (row, options) => { audit.push({ row, options }); return { id: audit.length }; } }
 };
 for (const name of ['PatientTransportCompany', 'PharmacyTransportCompany', 'Clinic', 'WorkflowAction', 'PatientTag']) {

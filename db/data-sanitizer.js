@@ -203,6 +203,8 @@ async function sanitizeDatabase(db, options = {}) {
              "updatedAt" = NOW()
     `, transaction);
 
+    await execute(sequelize, "DELETE FROM \"SystemSettings\" WHERE \"key\" IN ('history_archive_policy_v1', 'history_archive_last_run_v1')", transaction);
+
     // Apply one unpublished offset to every date/timestamp column. This keeps
     // intervals, ordering, ring time, talk time, and cross-table date
     // relationships useful without retaining exact real-world event dates.
@@ -238,11 +240,11 @@ async function validateSanitizedDatabase(db, options = {}) {
     ['rx_profile_review_payloads', `SELECT COUNT(*)::integer AS count FROM "RXProfileSyncReviewEvents" WHERE "reason" IS NOT NULL AND "reason" <> 'Sanitized RX profile review reason'`],
     ['patient_notes', `SELECT COUNT(*)::integer AS count FROM "PatientNotes" WHERE "note" <> 'Sanitized patient note'`],
     ['medications', `SELECT COUNT(*)::integer AS count FROM "Medications" WHERE "name" !~ '^Medication [0-9]+$' OR "notes" IS NOT NULL`],
-    ['audit_payloads', `SELECT COUNT(*)::integer AS count FROM "AuditLogs" WHERE ("previousValue" IS NOT NULL AND "previousValue"::jsonb <> '{"sanitized":true}'::jsonb) OR ("newValue" IS NOT NULL AND "newValue"::jsonb <> '{"sanitized":true}'::jsonb) OR "ipAddress" IS NOT NULL`],
+    ['audit_payloads', `SELECT COUNT(*)::integer AS count FROM "AuditLogsHistory" WHERE ("previousValue" IS NOT NULL AND "previousValue"::jsonb <> '{"sanitized":true}'::jsonb) OR ("newValue" IS NOT NULL AND "newValue"::jsonb <> '{"sanitized":true}'::jsonb) OR "ipAddress" IS NOT NULL`],
     ['rx_history_payloads', `SELECT COUNT(*)::integer AS count FROM "RXHistories" WHERE "snapshot" <> '{"sanitized":true}' OR "changedFields" IS NOT NULL OR "note" IS NOT NULL`],
     ['call_attempt_snapshots', `SELECT COUNT(*)::integer AS count FROM "CallCenterCallAttempts" WHERE "dialedNumber" !~ '^20255501[0-9]{2}$' OR "sipReason" IS NOT NULL`],
-    ['error_log_payloads', `SELECT COUNT(*)::integer AS count FROM "ErrorLogs" WHERE "message" <> 'Sanitized error record' OR "stack" IS NOT NULL OR "url" IS NOT NULL OR "userAgent" IS NOT NULL OR "ipAddress" IS NOT NULL`],
-    ['activity_log_payloads', `SELECT COUNT(*)::integer AS count FROM "UserActivityLogs" WHERE "pageUrl" IS NOT NULL OR "pagePath" IS NOT NULL OR "pageTitle" IS NOT NULL OR "ipAddress" IS NOT NULL OR "userAgent" IS NOT NULL OR "referrer" IS NOT NULL`],
+    ['error_log_payloads', `SELECT COUNT(*)::integer AS count FROM "ErrorLogsHistory" WHERE "message" <> 'Sanitized error record' OR "stack" IS NOT NULL OR "url" IS NOT NULL OR "userAgent" IS NOT NULL OR "ipAddress" IS NOT NULL`],
+    ['activity_log_payloads', `SELECT COUNT(*)::integer AS count FROM "UserActivityLogsHistory" WHERE "pageUrl" IS NOT NULL OR "pagePath" IS NOT NULL OR "pageTitle" IS NOT NULL OR "ipAddress" IS NOT NULL OR "userAgent" IS NOT NULL OR "referrer" IS NOT NULL`],
     ['api_keys', 'SELECT COUNT(*)::integer AS count FROM "ApiKeys"'],
     ['softphone_accounts', 'SELECT COUNT(*)::integer AS count FROM "UserSoftphoneAccounts"'],
     ['softphone_devices', 'SELECT COUNT(*)::integer AS count FROM "SoftphoneRelayDevices"'],
@@ -341,7 +343,14 @@ async function pseudonymizeReferenceTable(sequelize, transaction, tableName, nam
 }
 
 async function execute(sequelize, sql, transaction, replacements = {}) {
-  return sequelize.query(sql, { transaction, replacements });
+  const result = await sequelize.query(sql, { transaction, replacements });
+  const match = sql.match(/UPDATE "(AuditLogs|ErrorLogs|UserActivityLogs)"/);
+  if (match) {
+    const table = match[1] + 'Archive';
+    const [exists] = await sequelize.query('SELECT to_regclass(:table) AS relation', { replacements: { table: '"' + table + '"' }, transaction });
+    if (exists[0].relation) await sequelize.query(sql.replace('UPDATE "' + match[1] + '"', 'UPDATE "' + table + '"'), { transaction, replacements });
+  }
+  return result;
 }
 
 async function shiftAllTemporalColumns(sequelize, transaction, dateShiftDays) {

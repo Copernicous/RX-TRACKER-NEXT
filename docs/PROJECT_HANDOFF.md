@@ -1,12 +1,135 @@
 # RX Tracker NEXT project handoff
 
-Last updated: 2026-10-23
+Last updated: 2026-10-27
 
 This file is the sanitized continuity record for a future administrator or
 Codex session. It intentionally contains no credentials, `.env` values,
 patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
+
+- **next.98 release candidate (2026-10-27):** Verified history archiving, numbered dated downloads and explicit server scheduler pause status. One new archive migration; initial 30-day retention and automatic-off defaults. Multer 2.5.0 / Nodemailer 10.2.1. Clean isolated release worktree excludes unrelated local edits and private test data. All repository Actions disabled, including repository-wide execution because the dynamic Dependabot workflow cannot be disabled individually. Full exact-commit local validation and downloaded draft-asset verification are required before publishing; production installation remains an operator action.
+
+- **Archive export date context added locally (2026-10-27, unreleased):** User
+  requested the time period covered by downloads. Whole-archive dates and each
+  visible page's oldest/newest event dates are now shown in the application
+  timezone. Filenames include the included date range; manifests retain exact
+  UTC bounds, field/timezone and overall archive dates. Activity uses visitedAt;
+  other sections use createdAt. Date ranges can overlap because ID ordering is
+  preserved. Progress keys/page membership, archive data and retention settings
+  are unchanged. Metadata reads only bounded ID/date rows (at most 1,250) rather
+  than archived payloads. Date/timezone boundary tests, actual-archive read-only
+  filename/manifest/range checks and 13 synthetic PostgreSQL archive scenarios
+  passed. Browser fixture using actual read-only date metadata verified the
+  import archive period September 14–October 16 and page 24's September 29 date.
+  Local server restarted on the same test copy; sign in again if prompted.
+  No new migration, archive operation or production release.
+
+- **Numbered archive download controls implemented (2026-10-27, unreleased):**
+  User requested visible progress and navigation after reviewing the ambiguous
+  next-page button. Browse downloads now provides numbered pages, totals/ranges,
+  previous/next, page jump and next-pending navigation, plus re-download controls.
+  Local browser storage preserves the selected page and download-started flags
+  scoped to database identity/account/section/revision; no patient payload or
+  credentials are stored there. Status means the browser was asked to save the
+  file, not proof of filesystem completion. Old downloads cannot be marked
+  retroactively; an archive revision change resets progress. Filenames and
+  manifests include page/total/revision. No new migration or archive operation.
+  Pure progress tests, 13 synthetic PostgreSQL archive scenarios, read-only
+  first/last-page/empty/bounds/checksum checks on actual archives and public JS
+  validation passed. A synthetic browser fixture additionally verified page jump,
+  previous/next, next-pending, download-started flags and refresh persistence
+  (page 24 of 48). Private preview: output/playwright/archive-download-pages.png.
+  Current exports: audit 151 pages, imports 48, activity 178.
+  Local server restarted on the same restored backup copy. After the user signed
+  back in, the actual authenticated browser verified 48 import export pages,
+  jumping to page 24, previous to 23 / next to 24, and restoring page 24 after
+  refresh. No archive or download operation was performed by that live check.
+  Private live proof: output/playwright/archive-download-live.png.
+  Automatic scheduler remains paused by its launch environment.
+
+- **User's manual archive operations reviewed (2026-10-27):** Read-only review
+  of the running backup test copy verified 37,564 audit events, 44,434 activity
+  rows and 48 import reports archived. Comparison to a separate original-backup
+  restore found zero missing/changed original AuditLogs (49,280), activity rows
+  (57,994) or ErrorLogs (6); business fingerprint still matches. Receipt counts,
+  cutoffs, protected records, all 48 import detail readers, eight retained CSV
+  hash checks and gzip export checks passed. Six unresolved historical errors
+  stayed active; no new ErrorLogs. Confirmed pending issues: saved automatic=true
+  is ineffective while this test launcher has scheduler=false, and status UI
+  omits that pause; export “next page” lacks numbered/completed/pending progress.
+  User's current import retention is 10 days, other sections 30. Downloads only
+  copy records; database archives remain available. See
+  `docs/ARCHIVE_TEST_REVIEW_2026-10-27.md` for scope, proof and limitations.
+  Review changed no data/settings/runtime configuration; baseline comparison
+  copy is separate and inactive. Private evidence remains ignored under output.
+
+- **Desktop October 27 backup activated locally (2026-10-27):** User requested
+  `backup_2026-10-27T06-00-01.dump` from Desktop. Restored with guarded rx-db
+  restore-copy into new `rx_history_backup_test_20261027134653` on local
+  PostgreSQL 5432, then applied audited migrations and verified 65 applied,
+  zero pending, checksums verified. Before/after business-data fingerprints
+  match; original backup SHA-256 remains
+  `a2fdcde2837c584e84f24746726fbf77d691fd080e3d122dc6fa4b3a4d0bbdc3`.
+  Aggregate restored rows: 4,957 Patients and 5,059 RXRecords (includes retained
+  inactive/deleted records). Port 3000 now runs this backup copy using a verified
+  dedicated restricted runtime role. One-use loopback health verification proved
+  the exact database/process; public health and login returned HTTP 200. Use the
+  backup's existing login credentials; none were changed. Previous preview
+  database and patient_rx_dev remain preserved, with root .env unchanged.
+  Automatic backups, archiving and outbound security alerts are suppressed in
+  this restored test process for initial review; manual archiving remains
+  available. No production change or live database replacement. Private logs,
+  fingerprints and sanitized session/restore receipts remain ignored under
+  `output/history-archive-preview/backup-20261027134653`; session.json identifies
+  the current process. No private backup contents are committed.
+
+- **Local archive testing server started (2026-10-27):** User requested a local
+  server. Current workspace runs at `http://localhost:3000` against separately
+  restored `rx_history_preview_test_20261027134229` on local PostgreSQL 5432.
+  Source `patient_rx_dev` and root `.env` were not changed. Guarded restore,
+  audited migration and schema verification passed: 65 applied, zero pending,
+  verified checksums. A dedicated restricted runtime role was configured and
+  independently verified; existing copied login credentials are preserved.
+  Login and `/api/healthz` returned HTTP 200 with database healthy. Unreleased
+  archive code is present although package version remains next.97. Automatic
+  backups and outbound security alerts are suppressed in this test process.
+  Local launcher/session receipt and private dump/logs are ignored under
+  `output/history-archive-preview`; do not commit them. No production change.
+
+- **History archiving implemented locally (2026-10-27, unreleased):** User explicitly
+  authorized extending rotation/automatic archiving to logs and imports and chose
+  30 days. New audited migration creates three archive tables and combined history
+  views; startup stays check-only. Audit events, completed import reports, fully
+  resolved correction groups, activity and resolved errors transfer in verified
+  bounded transactions with receipts. Recent/modified rows, pending corrections,
+  unresolved errors and operational calls remain active. Default automatic switch
+  is off until an Administrator enables/saves it in Audit Log; per-section days
+  start at 30, daily hour defaults to 06:00 UTC. Active/Archived/All browsing and
+  existing import downloads preserve IDs/access; complete readers include both
+  stores. Database archives remain in PostgreSQL/full dumps, so no total DB-size
+  reduction is claimed. Technical logs stream to verified gzip archives in
+  logs/archive at startup/day rollover, with separate default 30-day retention.
+  See `docs/HISTORY_ARCHIVING.md` for controls, backup, boundaries and paired
+  rollback requirements. Local integration (13 scenarios), relevant application
+  regressions, legacy adoption/migration, dump restore, sanitization, restricted
+  runtime transfer and synthetic browser review passed. Full release validation
+  stopped at the existing high Multer advisory GHSA-q7qp-rjg7-q26m; gate unchanged.
+  This supersedes archival deferral only for the implemented log/import scope.
+  No production DB/config change, push, publication, deployment or live rotation.
+
+- **Audit Log rotation review (2026-10-27):** User requested review of retention,
+  archive location and later analysis. Current Rotate permanently deletes older
+  AuditLogs; it creates no archive and offers no reload. Valid positive days
+  retain recent rows, but synthetic capture-only checks confirmed negative/zero
+  and partially numeric inputs are accepted; negative days can delete recent
+  events. Call Center and analytics dependencies also require protection before
+  old-row removal. Help's rotation-audit receipt claim is unsupported by this
+  route. See `docs/AUDIT_LOG_ROTATION_REVIEW.md` for evidence, recovery via an
+  isolated pre-deletion backup, and required archive-first behavior. X days and
+  protected archive storage remain undecided. No live data, application behavior,
+  archival job, release or deployment changed; prior archival deferral is not
+  replaced by implementation authorization from this review.
 
 - **next.97 security release published and verified (2026-10-23):** Published
   `v4.0.0-next.97` from `320dae151b51a34b31ea944ec95de9c0a84573c6`;

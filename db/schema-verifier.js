@@ -32,7 +32,8 @@ async function inspectDatabase(db, options = {}) {
   await sequelize.authenticate();
 
   const models = Object.entries(db)
-    .filter(([, model]) => model && model.rawAttributes && typeof model.getTableName === 'function')
+    .filter(([, model]) => model && model.rawAttributes && typeof model.getTableName === 'function'
+      && (options.includeHistory !== false || !model.options.historyReadModel))
     .sort(([left], [right]) => left.localeCompare(right));
 
   for (const [modelName, model] of models) {

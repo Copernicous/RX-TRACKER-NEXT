@@ -601,7 +601,7 @@ function auditObject(value) {
 
 exports.exportHistory = async (req, res) => {
     try {
-        const logs = await db.AuditLog.findAll({
+        const logs = await db.AuditLogHistory.findAll({
             where: { module: 'RX Profile Sync', action: { [Op.in]: ['Sync', 'Review', 'Reopen'] } },
             include: [{ model: db.User, attributes: ['id', 'username', 'firstName', 'lastName'], required: false }],
             order: [['createdAt', 'ASC'], ['id', 'ASC']]

@@ -235,7 +235,7 @@ function callHistoryJoinSql(sortConfig) {
             SELECT "recordId" AS "patientId",
                    COUNT(*)::integer AS "callCount",
                    MAX("createdAt") AS "lastCall"
-            FROM "AuditLogs"
+            FROM "AuditLogsHistory"
             WHERE "module" = 'Call Center'
               AND "action" = 'Called'
               AND "recordId" IS NOT NULL
@@ -386,7 +386,7 @@ async function getActivityPatientPage(req, view, paging, sortConfig, q, range, a
     const activityRows = await db.sequelize.query(
         `SELECT COUNT(*)::integer AS "logCount",
                 COUNT(DISTINCT "recordId")::integer AS "patientCount"
-         FROM "AuditLogs"
+         FROM "AuditLogsHistory"
          WHERE ${auditWhere}`,
         { type: db.Sequelize.QueryTypes.SELECT, replacements }
     );
@@ -398,7 +398,7 @@ async function getActivityPatientPage(req, view, paging, sortConfig, q, range, a
         WITH activity AS (
             SELECT "recordId" AS "patientId",
                    MAX("createdAt") AS "lastActivityAt"
-            FROM "AuditLogs"
+            FROM "AuditLogsHistory"
             WHERE ${auditWhere}
             GROUP BY "recordId"
         )
@@ -582,7 +582,7 @@ async function getCallHistoryForPatients(patientIds) {
                     COUNT(*) FILTER (WHERE a."createdAt" BETWEEN :todayFrom AND :todayTo)
                         OVER (PARTITION BY a."recordId")::integer AS "todayCount",
                     ROW_NUMBER() OVER (PARTITION BY a."recordId" ORDER BY a."createdAt" DESC, a.id DESC) AS rn
-             FROM "AuditLogs" a
+             FROM "AuditLogsHistory" a
              LEFT JOIN "Users" u ON u.id = a."userId"
              WHERE a."module" = :module
                AND a."action" = :action
@@ -1185,7 +1185,7 @@ async function getHistoryRange(query) {
     const toIso = parseDate(query && query.historyTo) || today;
 
     if (!fromIso && query && query.historyRange === 'all') {
-        const firstLog = await db.AuditLog.findOne({
+        const firstLog = await db.AuditLogHistory.findOne({
             attributes: ['createdAt'],
             where: {
                 module: MODULE_NAME,
@@ -1308,7 +1308,7 @@ async function buildHistory(query, userOnly, userId) {
     };
     if (userOnly && userId) where.userId = userId;
 
-    const logs = await db.AuditLog.findAll({
+    const logs = await db.AuditLogHistory.findAll({
         where,
         attributes: ['createdAt', 'action', 'recordId', 'userId'],
         include: [{ model: db.User, attributes: ['id', 'firstName', 'lastName', 'username'], required: false }],
@@ -1432,7 +1432,7 @@ async function metricsFor(req, userOnly, options) {
         if (selectedUserId) where.userId = selectedUserId;
     }
 
-    const logs = await db.AuditLog.findAll({
+    const logs = await db.AuditLogHistory.findAll({
         where,
         include: [{ model: db.User, attributes: ['id', 'firstName', 'lastName', 'username'], required: false }],
         order: [['createdAt', 'DESC']]
@@ -1619,7 +1619,7 @@ async function getReviewDrilldownHistory(patientIds, range, selectedUserId) {
     if (selectedUserId) noteWhere.userId = selectedUserId;
 
     const [auditLogs, notes] = await Promise.all([
-        db.AuditLog.findAll({
+        db.AuditLogHistory.findAll({
             where: auditWhere,
             attributes: ['createdAt', 'action', 'recordId', 'userId', 'newValue'],
             include: [{ model: db.User, attributes: ['id', 'firstName', 'lastName', 'username'], required: false }],
@@ -1679,7 +1679,7 @@ exports.getReviewDrilldown = async (req, res) => {
         const selectedUserId = selectedHistoryUserId(req.query || {});
         if (selectedUserId) where.userId = selectedUserId;
 
-        const logs = await db.AuditLog.findAll({
+        const logs = await db.AuditLogHistory.findAll({
             where,
             attributes: ['id', 'createdAt', 'action', 'recordId', 'userId'],
             include: [{ model: db.User, attributes: ['id', 'firstName', 'lastName', 'username'], required: false }],

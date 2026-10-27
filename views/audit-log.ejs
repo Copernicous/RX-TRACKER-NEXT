@@ -53,6 +53,43 @@
         </nav>
 
         <div class="container-fluid px-4">
+            <div class="d-flex gap-2 align-items-center mb-3">
+                <label for="historySource" class="form-label mb-0">History storage</label>
+                <select id="historySource" class="form-select form-select-sm" style="width:auto">
+                    <option value="active">Active history</option><option value="archived">Archived history</option><option value="all">All history</option>
+                </select>
+                <span class="small text-muted">Archived records remain available for review and export.</span>
+            </div>
+            <details id="historyArchivePanel" class="filter-card d-none mb-3">
+                <summary class="fw-semibold">Automatic history archiving</summary>
+                <p class="small mt-2">Keep recent history active and store eligible older records in the database archive. No archive expiry. Pending import corrections, unresolved errors and operational call records stay active. Complete reports include both stores.</p>
+                <div class="d-flex gap-3 align-items-center flex-wrap mb-3">
+                    <label><input type="checkbox" id="archiveAutomatic"> Enable daily automatic archiving</label>
+                    <label for="archiveHour">Run at hour (UTC)</label><input id="archiveHour" type="number" min="0" max="23" class="form-control form-control-sm" style="width:80px">
+                    <button type="button" id="archiveSave" class="btn btn-sm btn-primary">Save settings</button>
+                    <button type="button" id="archiveRefresh" class="btn btn-sm btn-outline-secondary">Refresh</button>
+                </div>
+                <div class="table-responsive"><table class="table table-sm"><thead><tr><th>Section</th><th>Automatic</th><th>Keep recent days</th><th>Active</th><th>Archived</th><th>Eligible</th><th>Manual archive</th></tr></thead><tbody id="archiveSections"></tbody></table></div>
+                <p class="small text-muted">Save changes before previewing. Each run moves up to 2,500 records per section. Archive storage is part of the PostgreSQL database and its full backups.</p>
+                <p id="archiveSchedulerState" class="small" role="status"></p>
+                <p id="archiveLastRun" class="small"></p><p id="archiveMessage" class="small" role="status" aria-live="polite"></p>
+                <section id="archiveDownloadBrowser" class="d-none border rounded p-3 mt-3" aria-labelledby="archiveDownloadTitle">
+                    <h6 id="archiveDownloadTitle">Archive downloads</h6>
+                    <p class="small mb-2">Downloads make copies. Every record stays stored in the archive and remains available for review.</p>
+                    <p id="archiveDownloadSummary" class="small fw-semibold" role="status" aria-live="polite"></p>
+                    <p id="archiveDownloadPeriod" class="small text-muted"></p>
+                    <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+                        <button type="button" id="archivePagePrevious" class="btn btn-sm btn-outline-secondary">Previous page</button>
+                        <label for="archivePageNumber" class="small mb-0">Page</label><input id="archivePageNumber" type="number" min="1" value="1" class="form-control form-control-sm" style="width:85px">
+                        <span id="archivePageTotal" class="small"></span><button type="button" id="archivePageGo" class="btn btn-sm btn-outline-secondary">Go</button>
+                        <button type="button" id="archivePageNext" class="btn btn-sm btn-outline-secondary">Next page</button>
+                        <button type="button" id="archiveNextPending" class="btn btn-sm btn-outline-primary">Go to next pending</button>
+                        <button type="button" id="archivePagesRefresh" class="btn btn-sm btn-outline-secondary">Refresh archive pages</button>
+                    </div>
+                    <div class="table-responsive"><table class="table table-sm"><thead><tr><th>Page</th><th>Records</th><th>Event dates</th><th>Download status in this browser</th><th>Action</th></tr></thead><tbody id="archiveDownloadPages"></tbody></table></div>
+                    <p id="archiveDownloadNotice" class="small text-muted mb-0">Progress is saved in this browser. A marked page means its download was started; check browser Downloads to confirm the file was saved. Downloads made before this update are not marked.</p>
+                </section>
+            </details>
             <ul class="nav nav-pills mb-3 gap-2" id="auditTabs">
                 <li class="nav-item">
                     <button class="nav-link active" id="auditTabBtn" type="button">
@@ -128,15 +165,15 @@
                         <i class="fas fa-trash me-1"></i>Delete Selected (<span id="selCount">0</span>)
                     </button>
                     <div class="vr"></div>
-                    <span class="small">Rotate &mdash; remove entries older than</span>
+                    <span class="small">Archive entries older than</span>
                     <select class="form-select form-select-sm" style="width:auto" id="rotateDays">
-                        <option value="30">30 days</option>
+                        <option value="30" selected>30 days</option>
                         <option value="60">60 days</option>
-                        <option value="90" selected>90 days</option>
+                        <option value="90">90 days</option>
                         <option value="180">180 days</option>
                         <option value="365">1 year</option>
                     </select>
-                    <button class="btn btn-sm btn-warning" id="rotateBtn"><i class="fas fa-rotate me-1"></i>Rotate Logs</button>
+                    <button class="btn btn-sm btn-warning" id="rotateBtn"><i class="fas fa-rotate me-1"></i>Archive Logs</button>
                 </div>
             </div>
 
@@ -379,7 +416,7 @@
                 </select>
                 <button class="btn btn-sm btn-outline-secondary" onclick="loadErrors()" title="Refresh"><i class="fas fa-sync-alt"></i></button>
                 <button class="btn btn-sm btn-success" onclick="exportErrors()" title="Export CSV"><i class="fas fa-file-csv me-1"></i>Export</button>
-                <button class="btn btn-sm btn-outline-danger" onclick="clearResolvedErrors()"><i class="fas fa-trash me-1"></i>Clear Resolved</button>
+                <button class="btn btn-sm btn-outline-danger" onclick="clearResolvedErrors()"><i class="fas fa-trash me-1"></i>Archive Older Resolved</button>
             </div>
         </div>
 
@@ -416,5 +453,7 @@
 <script src="/js/app.js"></script>
 <script src="/js/help.js"></script>
   <script src="/js/audit-log.js"></script>
+<script src="/js/archive-downloads.js"></script>
+<script src="/js/history-archive.js"></script>
 </body>
 </html>

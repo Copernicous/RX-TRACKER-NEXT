@@ -93,8 +93,8 @@ async function runBulk(records, entries) {
 }
 
 async function runExport(logs) {
-    const original = db.AuditLog.findAll;
-    db.AuditLog.findAll = async () => logs;
+    const original = db.AuditLogHistory.findAll;
+    db.AuditLogHistory.findAll = async () => logs;
     const headers = {};
     try {
         let result;
@@ -108,7 +108,7 @@ async function runExport(logs) {
         await controller.exportHistory({}, res);
         return { ...result, headers };
     } finally {
-        db.AuditLog.findAll = original;
+        db.AuditLogHistory.findAll = original;
     }
 }
 

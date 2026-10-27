@@ -1,4 +1,5 @@
 'use strict';
+const { sourceModel } = require('../utils/historySource');
 const db = require('../models');
 const { Op } = require('sequelize');
 const securityAlertService = require('../services/securityAlertService');
@@ -42,7 +43,7 @@ exports.getAll = async (req, res) => {
         if (severity) where.severity = severity;
         if (resolved !== undefined) where.resolved = resolved === 'true';
 
-        const errors = await db.ErrorLog.findAll({
+        const errors = await sourceModel(db, 'ErrorLog', req.query.historySource || 'active').findAll({
             where,
             include: [{ model: db.User, as: 'User', attributes: ['id','username','firstName','lastName'] }],
             order: [['createdAt', 'DESC']],
@@ -90,11 +91,12 @@ exports.bulkDelete = async (req, res) => {
     }
 };
 
-// DELETE /api/errors  — clear resolved
+// DELETE /api/errors — archive eligible older resolved records
 exports.clearResolved = async (req, res) => {
     try {
-        await db.ErrorLog.destroy({ where: { resolved: true } });
-        res.json({ ok: true });
+        const service = require('../services/historyArchiveService');
+        const policy = await service.policy();
+        res.json({ ok: true, ...await service.run('errors', policy.types.errors.days, req.user.id) });
     } catch (e) {
         res.status(500).json({ error: e.message });
     }

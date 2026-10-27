@@ -148,6 +148,9 @@
                         </div>
                     </div>
 
+                        <label for="importHistorySource" class="small">History storage</label>
+                        <select id="importHistorySource" class="form-select form-select-sm mb-2" style="width:auto"><option value="active">Active history</option><option value="archived">Archived history</option><option value="all">All history</option></select>
+
                     <!-- Preview Section -->
                     <% if (typeof importReviewV2 !== "undefined" && importReviewV2) { %>
                     <section id="importFileManagement" class="mt-4">
@@ -163,6 +166,7 @@
                     <details id="patientImportHistory" class="mt-4">
                         <summary class="fw-semibold">Patient Import History — download a previous report</summary>
                         <p class="small text-muted mt-2">Reports show the values captured at the time of import. Your own reports are listed; users with Audit Log access can review all reports.</p>
+                        <p class="small text-muted">Archived reports and original CSV downloads remain available. Automatic retention is managed in Audit Log.</p>
                         <button type="button" id="refreshImportHistoryBtn" class="btn btn-sm btn-outline-secondary mb-2">Refresh history</button>
                         <div id="patientImportHistoryBody" class="table-responsive"></div>
                         <div class="d-flex gap-2 align-items-center mt-2">

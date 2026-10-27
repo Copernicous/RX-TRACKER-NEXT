@@ -2458,7 +2458,7 @@ async function ccCleanupCounts(input) {
         );
         rep = {};
         counts.callEvents = await ccCount(
-            `SELECT COUNT(*)::int AS count FROM "AuditLogs" WHERE ${ccWhere(input, {
+            `SELECT COUNT(*)::int AS count FROM "AuditLogsHistory" WHERE ${ccWhere(input, {
                 prefix: 'call',
                 base: `"module" = 'Call Center' AND "action" = 'Called'`,
                 dateCol: `"createdAt"`,
@@ -2483,7 +2483,7 @@ async function ccCleanupCounts(input) {
         );
         rep = {};
         counts.noteAuditEvents = await ccCount(
-            `SELECT COUNT(*)::int AS count FROM "AuditLogs" WHERE ${ccWhere(input, {
+            `SELECT COUNT(*)::int AS count FROM "AuditLogsHistory" WHERE ${ccWhere(input, {
                 prefix: 'noteAudit',
                 base: `"module" = 'Call Center' AND "action" = 'Note Added'`,
                 dateCol: `"createdAt"`,
@@ -2497,7 +2497,7 @@ async function ccCleanupCounts(input) {
     rep = {};
     if (ccWantsTarget(input, 'service_dates')) {
         counts.serviceDateAuditEvents = await ccCount(
-            `SELECT COUNT(*)::int AS count FROM "AuditLogs" WHERE ${ccWhere(input, {
+            `SELECT COUNT(*)::int AS count FROM "AuditLogsHistory" WHERE ${ccWhere(input, {
                 prefix: 'svcAudit',
                 base: `"module" = 'Call Center' AND "action" = 'Service Date Added'`,
                 dateCol: `"createdAt"`,
@@ -2590,7 +2590,7 @@ exports.getCallCenterCleanupPreview = async (req, res) => {
                 SELECT al.id, al."createdAt", al.action, al."recordId" AS "patientId",
                        p."firstName" || ' ' || p."lastName" AS "patientName",
                        u."firstName" || ' ' || u."lastName" AS "userName", u.username
-                FROM "AuditLogs" al
+                FROM "AuditLogsHistory" al
                 LEFT JOIN "Patients" p ON p.id = al."recordId"
                 LEFT JOIN "Users" u ON u.id = al."userId"
                 WHERE ${ccWhere(input, {
@@ -2891,8 +2891,8 @@ exports.getUsers = async (req, res) => {
             SELECT u.id, u."username", u."firstName", u."lastName", u."email",
                    u."roleId", u."isActive", u."createdAt",
                    u."twoFactorEnabled", u."failedLoginCount", u."lockedUntil",
-                   (SELECT COUNT(*) FROM "AuditLogs" al WHERE al."userId" = u.id)::int AS "activityCount",
-                   (SELECT MAX("createdAt") FROM "AuditLogs" al WHERE al."userId" = u.id) AS "lastActivity"
+                   (SELECT COUNT(*) FROM "AuditLogsHistory" al WHERE al."userId" = u.id)::int AS "activityCount",
+                   (SELECT MAX("createdAt") FROM "AuditLogsHistory" al WHERE al."userId" = u.id) AS "lastActivity"
             FROM "Users" u ORDER BY u."createdAt" DESC
         `, { type: QueryTypes.SELECT });
         res.json({ users: users.map(u => ({ ...u, roleLabel: ROLE_LABELS[u.roleId] || 'Unknown' })) });
@@ -3093,7 +3093,7 @@ exports.getAuditLogs = async (req, res) => {
     const whereClause = where.join(' AND ');
     try {
         const [countRow] = await db.sequelize.query(
-            `SELECT COUNT(*) AS total FROM "AuditLogs" al WHERE ${whereClause}`,
+            `SELECT COUNT(*) AS total FROM "AuditLogsHistory" al WHERE ${whereClause}`,
             { type: QueryTypes.SELECT, replacements }
         );
         const total = parseInt(countRow.total, 10);
@@ -3102,7 +3102,7 @@ exports.getAuditLogs = async (req, res) => {
             SELECT al.id, al."action", al."module", al."recordId", al."date", al."time",
                    al."ipAddress", al."previousValue", al."newValue", al."createdAt", al."userId",
                    u."firstName", u."lastName", u."username"
-            FROM "AuditLogs" al
+            FROM "AuditLogsHistory" al
             LEFT JOIN "Users" u ON u.id = al."userId"
             WHERE ${whereClause}
             ORDER BY al."createdAt" DESC
@@ -3111,7 +3111,7 @@ exports.getAuditLogs = async (req, res) => {
 
         // Distinct action types for filter dropdown
         const actions = await db.sequelize.query(
-            `SELECT DISTINCT "action" FROM "AuditLogs" WHERE "action" IS NOT NULL ORDER BY "action"`,
+            `SELECT DISTINCT "action" FROM "AuditLogsHistory" WHERE "action" IS NOT NULL ORDER BY "action"`,
             { type: QueryTypes.SELECT }
         );
 
@@ -3551,7 +3551,7 @@ exports.getErrorLogs = async (req, res) => {
     const wc = where.join(' AND ');
     try {
         const [countRow] = await db.sequelize.query(
-            `SELECT COUNT(*) AS total FROM "ErrorLogs" el WHERE ${wc}`,
+            `SELECT COUNT(*) AS total FROM "ErrorLogsHistory" el WHERE ${wc}`,
             { type: QueryTypes.SELECT, replacements: rep }
         );
         const total = parseInt(countRow.total, 10);
@@ -3560,7 +3560,7 @@ exports.getErrorLogs = async (req, res) => {
             SELECT el.id, el."source", el."severity", el."message", el."stack",
                    el."url", el."userAgent", el."ipAddress", el."resolved", el."createdAt",
                    el."userId", u."username", u."firstName", u."lastName"
-            FROM "ErrorLogs" el
+            FROM "ErrorLogsHistory" el
             LEFT JOIN "Users" u ON u.id = el."userId"
             WHERE ${wc}
             ORDER BY el."createdAt" DESC
@@ -3577,7 +3577,7 @@ exports.getErrorLogs = async (req, res) => {
                 COUNT(*) FILTER (WHERE resolved = false)     AS unresolved,
                 COUNT(*) FILTER (WHERE source = 'frontend')  AS frontend,
                 COUNT(*) FILTER (WHERE source = 'backend')   AS backend
-            FROM "ErrorLogs"
+            FROM "ErrorLogsHistory"
         `, { type: QueryTypes.SELECT });
 
         res.json({ rows, total, page, pageSize, pages: Math.ceil(total / pageSize), stats: stats[0] });

@@ -132,10 +132,11 @@ document.addEventListener('DOMContentLoaded', async function() {
 
 // Filter dropdowns
 async function loadUserFilter() {
-    var res = await fetchWithAuth(_uAlUsers);
+    var res = await fetchWithAuth(_uAlUsers + '?historySource=' + (document.getElementById('historySource')?.value || 'active'));
     if (!res || !res.ok) return;
     var users = await res.json();
     var sel = document.getElementById('fUser');
+    while (sel.options.length > 1) sel.remove(1);
     (users || []).forEach(function(u) {
         var opt = document.createElement('option');
         opt.value = u.id;
@@ -145,10 +146,11 @@ async function loadUserFilter() {
 }
 
 async function loadModuleFilter() {
-    var res = await fetchWithAuth(_uAlModules);
+    var res = await fetchWithAuth(_uAlModules + '?historySource=' + (document.getElementById('historySource')?.value || 'active'));
     if (!res || !res.ok) return;
     var mods = await res.json();
     var sel = document.getElementById('fModule');
+    while (sel.options.length > 1) sel.remove(1);
     (mods || []).forEach(function(m) {
         var opt = document.createElement('option');
         opt.value = m; opt.textContent = m;
@@ -158,7 +160,7 @@ async function loadModuleFilter() {
 
 async function loadActionFilter() {
     var _uAlActions = '/api/audit-logs/actions';
-    var res = await fetchWithAuth(_uAlActions);
+    var res = await fetchWithAuth(_uAlActions + '?historySource=' + (document.getElementById('historySource')?.value || 'active'));
     if (!res || !res.ok) return;
     var actions = await res.json();
     if (!Array.isArray(actions) || !actions.length) return;
@@ -174,10 +176,11 @@ async function loadActionFilter() {
 
 
 async function loadActivityUserFilter() {
-    var res = await fetchWithAuth(_uPageUsers);
+    var res = await fetchWithAuth(_uPageUsers + '?historySource=' + (document.getElementById('historySource')?.value || 'active'));
     if (!res || !res.ok) return;
     var users = await res.json();
     var sel = document.getElementById('paUser');
+    while (sel.options.length > 1) sel.remove(1);
     (users || []).forEach(function(username) {
         var opt = document.createElement('option');
         opt.value = username;
@@ -187,10 +190,11 @@ async function loadActivityUserFilter() {
 }
 
 async function loadActivityRoleFilter() {
-    var res = await fetchWithAuth(_uPageRoles);
+    var res = await fetchWithAuth(_uPageRoles + '?historySource=' + (document.getElementById('historySource')?.value || 'active'));
     if (!res || !res.ok) return;
     var roles = await res.json();
     var sel = document.getElementById('paRole');
+    while (sel.options.length > 1) sel.remove(1);
     (roles || []).forEach(function(role) {
         var opt = document.createElement('option');
         opt.value = role;
@@ -200,10 +204,11 @@ async function loadActivityRoleFilter() {
 }
 
 async function loadActivityPageFilter() {
-    var res = await fetchWithAuth(_uPagePages);
+    var res = await fetchWithAuth(_uPagePages + '?historySource=' + (document.getElementById('historySource')?.value || 'active'));
     if (!res || !res.ok) return;
     var pages = await res.json();
     var sel = document.getElementById('paPage');
+    while (sel.options.length > 1) sel.remove(1);
     (pages || []).forEach(function(page) {
         var opt = document.createElement('option');
         opt.value = page.pagePath;
@@ -214,6 +219,7 @@ async function loadActivityPageFilter() {
 
 function buildActivityParams(forExport) {
     const p = new URLSearchParams();
+    p.set('historySource', document.getElementById('historySource')?.value || 'active');
     const username = document.getElementById('paUser').value;
     const role     = document.getElementById('paRole').value;
     const pagePath = document.getElementById('paPage').value;
@@ -483,6 +489,7 @@ async function exportActivity() {
 // ── Build query params ────────────────────────────────────────────────────────
 function buildParams(forExport) {
     const p = new URLSearchParams();
+    p.set('historySource', document.getElementById('historySource')?.value || 'active');
     const userId = document.getElementById('fUser').value;
     const mod    = document.getElementById('fModule').value;
     const action = document.getElementById('fAction').value;
@@ -627,12 +634,12 @@ function renderTable() {
             dataCell = '<span class="text-muted small"><i class="fas fa-trash-alt me-1"></i>Record removed</span>';
         }
 
-        const adminBtn = isAdmin
+        const adminBtn = isAdmin && (document.getElementById('historySource')?.value || 'active') === 'active'
             ? '<td><button class="btn btn-sm btn-outline-danger py-0 px-1" data-del-single="' + paEsc(log.id) + '"><i class="fas fa-trash"></i></button></td>'
             : '';
 
         return '<tr class="' + rowCls + '">'
-            + '<td><input type="checkbox" class="chk log-chk" data-id="' + paEsc(log.id) + '"></td>'
+            + '<td><input type="checkbox" class="chk log-chk" data-id="' + paEsc(log.id) + '"' + ((document.getElementById('historySource')?.value || 'active') === 'active' ? '' : ' disabled') + '></td>'
             + '<td class="text-muted">' + paEsc(log.id) + '</td>'
             + '<td><span class="fw-semibold">' + paEsc(dateStr) + '</span><br><small class="text-muted">' + paEsc(timeStr) + '</small></td>'
             + '<td>' + user + '</td>'
@@ -897,7 +904,7 @@ function toggleAll(checked) {
 function updateSelCount() {
     document.getElementById('selCount').textContent = selectedIds.size;
     const btn = document.getElementById('delSelBtn');
-    if (btn) btn.disabled = selectedIds.size === 0;
+    if (btn) btn.disabled = selectedIds.size === 0 || (document.getElementById('historySource')?.value || 'active') !== 'active';
 }
 
 // ── Admin: delete single ──────────────────────────────────────────────────────
@@ -925,7 +932,7 @@ async function deleteSelected() {
 // ── Admin: rotate ─────────────────────────────────────────────────────────────
 async function rotateLogs() {
     const days = document.getElementById('rotateDays').value;
-    if (!confirm(`Delete all entries older than ${days} days? This cannot be undone.`)) return;
+    if (!confirm(`Archive eligible entries older than ${days} days? Recent and protected records stay active. Older records remain available in Archived / All.`)) return;
     const res = await fetchWithAuth(_uAlRotate, { method: 'POST', body: JSON.stringify({ days: parseInt(days) }) });
     if (res && res.ok) { const d = await res.json(); showToast(d.message, 'success'); loadPage(); }
     else showToast('Rotation failed.', 'danger');
@@ -946,12 +953,14 @@ async function loadErrors() {
     body.innerHTML = '<tr><td colspan="9" class="text-center py-3 text-muted"><i class="fas fa-spinner fa-spin"></i></td></tr>';
     _errSelected.clear();
     errUpdateBulkBar();
+    const readOnlyHistory = (document.getElementById('historySource')?.value || 'active') !== 'active';
+    document.getElementById('errSelAll').disabled = readOnlyHistory;
 
     var src    = document.getElementById('errSrcFilter')    ? document.getElementById('errSrcFilter').value    : '';
     var sev    = document.getElementById('errSevFilter')    ? document.getElementById('errSevFilter').value    : '';
     var status = document.getElementById('errStatusFilter') ? document.getElementById('errStatusFilter').value : '';
 
-    var _uErrList = '/api/errors?limit=500'; var url = _uErrList;
+    var _uErrList = '/api/errors?limit=500&historySource=' + (document.getElementById('historySource')?.value || 'active'); var url = _uErrList;
     if (src)    url += '&source='   + src;
     if (sev)    url += '&severity=' + sev;
     if (status === 'open')     url += '&resolved=false';
@@ -984,11 +993,11 @@ async function loadErrors() {
         var status2 = e.resolved
             ? '<span class="badge bg-success">Resolved</span>'
             : '<span class="badge bg-danger">Open</span>';
-        var action = e.resolved
+        var action = readOnlyHistory ? '<span class="text-muted small">Read-only history</span>' : e.resolved
             ? '<button class="btn btn-xs btn-sm btn-outline-secondary py-0" data-unresolve="' + e.id + '" title="Mark Open"><i class="fas fa-undo"></i></button>'
             : '<button class="btn btn-xs btn-sm btn-outline-success py-0" data-resolve="' + e.id + '"><i class="fas fa-check"></i> Resolve</button>';
         return '<tr data-id="' + e.id + '">' +
-            '<td><input type="checkbox" class="form-check-input err-chk" data-id="' + e.id + '" ></td>' +
+            '<td><input type="checkbox" class="form-check-input err-chk" data-id="' + e.id + '"' + (readOnlyHistory ? ' disabled' : '') + '></td>' +
             '<td><small>' + dt + '</small></td>' +
             '<td>' + srcBadge + '</td>' +
             '<td>' + sevBadge + '</td>' +
@@ -1071,9 +1080,9 @@ async function unresolveError(id) {
 }
 
 async function clearResolvedErrors() {
-    if (!confirm('Delete all resolved error entries?')) return;
+    if (!confirm('Archive eligible older resolved errors? Recent errors stay active and archived errors remain available for review.')) return;
     const res = await fetchWithAuth(_uErrDel, { method: 'DELETE' });
-    if (res && res.ok) { showToast('Resolved errors cleared.', 'success'); loadErrors(); }
+    if (res && res.ok) { showToast('Eligible older resolved errors archived. Recent errors retained.', 'success'); loadErrors(); }
     else showToast('Failed to clear.', 'danger');
 }
 

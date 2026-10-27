@@ -250,7 +250,7 @@ async function readPageActivity(since, filters) {
             SUM(CASE WHEN COALESCE(v."statusCode", 0) = 403 THEN 1 ELSE 0 END)::int AS forbidden,
             COUNT(DISTINCT COALESCE(v."userId"::text, v."usernameSnapshot"))::int AS unique_users,
             COUNT(DISTINCT v."ipAddress")::int AS unique_ips
-        FROM "UserActivityLogs" v
+        FROM "UserActivityLogsHistory" v
         LEFT JOIN "Users" u ON u.id = v."userId"
         WHERE ${whereSql}
     `, { type: QueryTypes.SELECT, replacements });
@@ -258,7 +258,7 @@ async function readPageActivity(since, filters) {
     const topPages = await db.sequelize.query(`
         SELECT COALESCE(NULLIF(v."pageTitle", ''), NULLIF(v."pagePath", ''), '(unknown)') AS label,
                COUNT(*)::int AS value
-        FROM "UserActivityLogs" v
+        FROM "UserActivityLogsHistory" v
         LEFT JOIN "Users" u ON u.id = v."userId"
         WHERE ${whereSql}
         GROUP BY label
@@ -269,7 +269,7 @@ async function readPageActivity(since, filters) {
     const topUsers = await db.sequelize.query(`
         SELECT COALESCE(NULLIF(v."usernameSnapshot", ''), NULLIF(u."username", ''), 'User #' || v."userId", '(unknown)') AS label,
                COUNT(*)::int AS value
-        FROM "UserActivityLogs" v
+        FROM "UserActivityLogsHistory" v
         LEFT JOIN "Users" u ON u.id = v."userId"
         WHERE ${whereSql}
         GROUP BY label
@@ -280,7 +280,7 @@ async function readPageActivity(since, filters) {
     const topRoles = await db.sequelize.query(`
         SELECT COALESCE(NULLIF(v."roleSnapshot", ''), '(unknown)') AS label,
                COUNT(*)::int AS value
-        FROM "UserActivityLogs" v
+        FROM "UserActivityLogsHistory" v
         LEFT JOIN "Users" u ON u.id = v."userId"
         WHERE ${whereSql}
         GROUP BY label
@@ -291,7 +291,7 @@ async function readPageActivity(since, filters) {
     const topStatuses = await db.sequelize.query(`
         SELECT COALESCE(v."statusCode", 0)::int AS label,
                COUNT(*)::int AS value
-        FROM "UserActivityLogs" v
+        FROM "UserActivityLogsHistory" v
         LEFT JOIN "Users" u ON u.id = v."userId"
         WHERE ${whereSql}
         GROUP BY label
@@ -301,7 +301,7 @@ async function readPageActivity(since, filters) {
 
     const browserRows = await db.sequelize.query(`
         SELECT v."userAgent"
-        FROM "UserActivityLogs" v
+        FROM "UserActivityLogsHistory" v
         LEFT JOIN "Users" u ON u.id = v."userId"
         WHERE ${whereSql}
         ORDER BY v."visitedAt" DESC
@@ -314,7 +314,7 @@ async function readPageActivity(since, filters) {
     const topIps = await db.sequelize.query(`
         SELECT COALESCE(NULLIF(v."ipAddress", ''), '(unknown)') AS label,
                COUNT(*)::int AS value
-        FROM "UserActivityLogs" v
+        FROM "UserActivityLogsHistory" v
         LEFT JOIN "Users" u ON u.id = v."userId"
         WHERE ${whereSql}
         GROUP BY label
@@ -332,7 +332,7 @@ async function readPageActivity(since, filters) {
                SUM(CASE WHEN COALESCE(v."statusCode", 0) >= 500 THEN 1 ELSE 0 END)::int AS server_errors,
                SUM(CASE WHEN COALESCE(v."statusCode", 0) = 401 THEN 1 ELSE 0 END)::int AS unauthorized,
                SUM(CASE WHEN COALESCE(v."statusCode", 0) = 403 THEN 1 ELSE 0 END)::int AS forbidden
-        FROM "UserActivityLogs" v
+        FROM "UserActivityLogsHistory" v
         LEFT JOIN "Users" u ON u.id = v."userId"
         WHERE ${whereSql}
         GROUP BY bucket
@@ -345,7 +345,7 @@ async function readPageActivity(since, filters) {
                COALESCE(NULLIF(u."username", ''), v."usernameSnapshot") AS "username",
                v."pagePath", v."pageTitle", v."visitedAt", v."ipAddress",
                v."referrer", v."statusCode", v."userAgent"
-        FROM "UserActivityLogs" v
+        FROM "UserActivityLogsHistory" v
         LEFT JOIN "Users" u ON u.id = v."userId"
         WHERE ${whereSql}
         ORDER BY v."visitedAt" DESC
@@ -451,7 +451,7 @@ async function readAuditSummary(since, filters) {
     const [totalRow] = await db.sequelize.query(`
         SELECT COUNT(*)::int AS total,
                COUNT(DISTINCT al."userId")::int AS unique_users
-        FROM "AuditLogs" al
+        FROM "AuditLogsHistory" al
         LEFT JOIN "Users" u ON u.id = al."userId"
         WHERE ${whereSql}
     `, { type: QueryTypes.SELECT, replacements });
@@ -459,7 +459,7 @@ async function readAuditSummary(since, filters) {
     const topActions = await db.sequelize.query(`
         SELECT COALESCE(NULLIF(al."action", ''), '(unknown)') AS label,
                COUNT(*)::int AS value
-        FROM "AuditLogs" al
+        FROM "AuditLogsHistory" al
         LEFT JOIN "Users" u ON u.id = al."userId"
         WHERE ${whereSql}
         GROUP BY label
@@ -470,7 +470,7 @@ async function readAuditSummary(since, filters) {
     const topModules = await db.sequelize.query(`
         SELECT COALESCE(NULLIF(al."module", ''), '(unknown)') AS label,
                COUNT(*)::int AS value
-        FROM "AuditLogs" al
+        FROM "AuditLogsHistory" al
         LEFT JOIN "Users" u ON u.id = al."userId"
         WHERE ${whereSql}
         GROUP BY label
@@ -481,7 +481,7 @@ async function readAuditSummary(since, filters) {
     const recentEvents = await db.sequelize.query(`
         SELECT al.id, al."action", al."module", al."recordId", al."createdAt", al."ipAddress",
                COALESCE(NULLIF(u."username", ''), 'User #' || al."userId", '(system)') AS username
-        FROM "AuditLogs" al
+        FROM "AuditLogsHistory" al
         LEFT JOIN "Users" u ON u.id = al."userId"
         WHERE ${whereSql}
         ORDER BY al."createdAt" DESC
@@ -577,7 +577,7 @@ async function readErrorSummary(since, filters) {
                SUM(CASE WHEN el."severity"::text = 'warning' THEN 1 ELSE 0 END)::int AS warnings,
                SUM(CASE WHEN el."source"::text = 'backend' THEN 1 ELSE 0 END)::int AS backend,
                SUM(CASE WHEN el."source"::text = 'frontend' THEN 1 ELSE 0 END)::int AS frontend
-        FROM "ErrorLogs" el
+        FROM "ErrorLogsHistory" el
         LEFT JOIN "Users" u ON u.id = el."userId"
         WHERE ${whereSql}
     `, { type: QueryTypes.SELECT, replacements });
@@ -585,7 +585,7 @@ async function readErrorSummary(since, filters) {
     const topSeverities = await db.sequelize.query(`
         SELECT COALESCE(el."severity"::text, '(unknown)') AS label,
                COUNT(*)::int AS value
-        FROM "ErrorLogs" el
+        FROM "ErrorLogsHistory" el
         LEFT JOIN "Users" u ON u.id = el."userId"
         WHERE ${whereSql}
         GROUP BY label
@@ -596,7 +596,7 @@ async function readErrorSummary(since, filters) {
     const topUrls = await db.sequelize.query(`
         SELECT COALESCE(NULLIF(split_part(el."url", '?', 1), ''), '(unknown)') AS label,
                COUNT(*)::int AS value
-        FROM "ErrorLogs" el
+        FROM "ErrorLogsHistory" el
         LEFT JOIN "Users" u ON u.id = el."userId"
         WHERE ${whereSql}
         GROUP BY label
@@ -607,7 +607,7 @@ async function readErrorSummary(since, filters) {
     const recentErrors = await db.sequelize.query(`
         SELECT el.id, el."source", el."severity", el."message", el."url", el."ipAddress", el."resolved", el."createdAt",
                COALESCE(NULLIF(u."username", ''), 'User #' || el."userId", '(unknown)') AS username
-        FROM "ErrorLogs" el
+        FROM "ErrorLogsHistory" el
         LEFT JOIN "Users" u ON u.id = el."userId"
         WHERE ${whereSql}
         ORDER BY el."createdAt" DESC

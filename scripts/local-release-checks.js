@@ -18,7 +18,7 @@ const output = path.resolve(argument('--output'));
 fs.mkdirSync(output, { recursive: true });
 const lock = path.join(output, 'running.lock');
 fs.writeFileSync(lock, String(process.pid), { flag: 'wx' });
-const databases = ['base_test', 'ledger_test', 'sanitizer_test', 'v331_copy', 'restore_rehearsal', 'regression_test', 'driver_test'].map(n => 'rx_next_ci_' + n);
+const databases = ['base_test', 'ledger_test', 'sanitizer_test', 'v331_copy', 'restore_rehearsal', 'regression_test', 'driver_test', 'archive_test'].map(n => 'rx_next_ci_' + n);
 const created = [];
 const runtimeRole = 'rxnext_runtime_local_' + crypto.randomBytes(5).toString('hex');
 let roleCreated = false;
@@ -98,6 +98,7 @@ async function smokeServer(label, database, port, extra = {}, relay = false) {
         evidence.checks.push({ label: 'manual-only-hosted-workflows', passed: true });
         run('dependency-audit', process.execPath, [npmCli, 'audit', '--audit-level=high']);
         node('public-javascript', 'scripts/check-public-js.js');
+        node('archive-download-progress', 'scripts/test-archive-download-progress.js');
         node('compressed-request-security', 'scripts/test-compressed-request-security.js');
         for (const name of ['patient-delete-confirmation','backoffice-patient-identity','patient-import-duplicates','patient-create-duplicates','patient-address-update','dependency-policy','security-automation','reference-data','new-server-installer','project-control-test-copy-restore','report-view-render','delivery-log-archive','delivery-log-archive-client','routine-db-health','backup-scheduler-disable','backoffice-backup-snapshot','i18n-branding']) node(name, 'scripts/test-' + name + '.js');
         for (const name of ['Invoke-NextProduction','Invoke-ReleaseUpdate','Invoke-TestCopyRestore']) ps(name + '-self-test', 'scripts/' + name + '.ps1', ['-Action','SelfTest']);
@@ -130,6 +131,8 @@ async function smokeServer(label, database, port, extra = {}, relay = false) {
         for (const name of ['patient-import-merge','call-center-queue-reopen','call-center-phone-client','call-center-shared-state','softphone-self-setup','call-center-call-attempts','call-center-server-pagination','patient-server-pagination','patient-status-sort','report-filter-parity','dashboard-persisted-analytics','rx-pipeline-filter-parity','patient-service-date-double-update','rx-override-permissions','workflow-date-timezone','backoffice-patient-delete','configurable-service-window']) node(name, 'scripts/test-' + name + '.js', [], regression);
         for (const name of ['import-review-v2','import-review-v2-integration','import-file-management']) node(name, 'scripts/test-' + name + '.js', [], { ...regression, IMPORT_REVIEW_V2: 'true' });
         await create(databases[6], databases[0]);
+        await create(databases[7], databases[0]);
+        node('history-archive', 'scripts/test-history-archive.js', [], { DB_NAME: databases[7] });
         for (const name of ['rx-driver-tracking','pharmacy-transport-duplicates']) node(name, 'scripts/test-' + name + '.js', [], { DB_NAME: databases[6], QA_DB_NAME: databases[6] });
         await smokeServer('relay-runtime', databases[5], 3212, {}, true);
         const password = crypto.randomBytes(24).toString('hex');

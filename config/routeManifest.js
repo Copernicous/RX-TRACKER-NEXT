@@ -119,7 +119,13 @@ module.exports = {
     'GET /api/audit-logs/modules':   { category:'admin', desc:'List modules that appear in the audit log.',     perm:'audit_log: read', admin:false },
     'DELETE /api/audit-logs':        { category:'admin', desc:'Bulk delete audit log entries.',                  perm:'Administrator',   admin:true  },
     'DELETE /api/audit-logs/:id':    { category:'admin', desc:'Delete a single audit log entry.',               perm:'Administrator',   admin:true  },
-    'POST /api/audit-logs/rotate':   { category:'admin', desc:'Rotate/purge old audit log entries.',            perm:'Administrator',   admin:true  },
+    'POST /api/audit-logs/rotate':   { category:'admin', desc:'Archive eligible older audit events; retain recent history.', perm:'Administrator', admin:true },
+    'GET /api/history-archive':     { category:'admin', desc:'Read archive retention, counts and job status.', perm:'Administrator', admin:true },
+    'PUT /api/history-archive':     { category:'admin', desc:'Save archive retention and automatic schedule.', perm:'Administrator', admin:true },
+    'POST /api/history-archive/preview': { category:'admin', desc:'Preview eligible older history.', perm:'Administrator', admin:true },
+    'POST /api/history-archive/run': { category:'admin', desc:'Run a bounded verified history archive transfer.', perm:'Administrator', admin:true },
+    'GET /api/history-archive/:kind/download': { category:'admin', desc:'Download a checksummed compressed archive page.', perm:'Administrator', admin:true },
+    'GET /api/history-archive/:kind/pages': { category:'admin', desc:'Read numbered archive pages and record ranges.', perm:'Administrator', admin:true },
 
     // ── Admin — Backups ───────────────────────────────────────────────────
     'GET /api/backups/status':              { category:'admin', desc:'Get backup scheduler status and list of backup files.', perm:'Administrator', admin:true },

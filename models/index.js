@@ -68,6 +68,8 @@ Object.keys(db).forEach(modelName => {
   }
 });
 
+require('../utils/historySource').registerHistoryModels(db, sequelize);
+
 db.sequelize = sequelize;
 db.Sequelize  = Sequelize;
 

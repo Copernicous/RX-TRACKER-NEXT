@@ -270,7 +270,7 @@ function ccSortRows(rows, sort, dir) {
 }
 
 async function getCallCenterReportUsers() {
-    const auditUsers = await db.AuditLog.findAll({
+    const auditUsers = await db.AuditLogHistory.findAll({
         where: {
             module: CALL_CENTER_MODULE,
             action: { [Op.in]: [CC_CALL_ACTION, CC_NOTE_ACTION, CC_SERVICE_DATE_ACTION] },
@@ -327,7 +327,7 @@ async function getPaginatedCallCenterReport(query) {
     if (validUserId) noteWhere.userId = validUserId;
 
     const [auditLogs, notes] = await Promise.all([
-        db.AuditLog.findAll({
+        db.AuditLogHistory.findAll({
             where: auditWhere,
             attributes: ['createdAt', 'action', 'recordId', 'newValue', 'userId'],
             include: [{ model: db.User, attributes: ['id', 'firstName', 'lastName', 'username'], required: false }],
