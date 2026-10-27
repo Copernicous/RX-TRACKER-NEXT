@@ -26,6 +26,14 @@ async function main() {
     let rows = (await call(controller.list)).body.rows;
     assert(rows.some(row => row.rxId === rx.id)); assert(!rows.some(row => row.rxId === oldRx.id));
     assert.equal((await call(controller.sync, { params: { rxId: oldRx.id }, body: { fields: ['pharmacyId'] }, user })).code, 400);
+    const findRows = db.RXRecord.findAll; let pauseDuringScan = true;
+    db.RXRecord.findAll = async function(options) {
+        const result = await findRows.call(this, options);
+        if (pauseDuringScan && options.include && options.limit) { pauseDuringScan = false; await controls.save({ enabled: false, startDate: day }, user); }
+        return result;
+    };
+    try { assert.equal((await call(controller.list)).code, 409); }
+    finally { db.RXRecord.findAll = findRows; }
     await controls.save({ enabled: false, startDate: day }, user);
     const beforePatient = JSON.stringify((await db.Patient.findByPk(patient.id)).toJSON());
     const beforeRx = JSON.stringify((await db.RXRecord.findByPk(rx.id)).toJSON());

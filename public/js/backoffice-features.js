@@ -3091,7 +3091,9 @@ function sortRxProfileSyncRows() {
     renderRxProfileSyncRows();
 }
 
+var rxSyncScanGeneration = 0;
 async function loadRxProfileSync(cursor) {
+    var scanGeneration = ++rxSyncScanGeneration;
     var list = document.getElementById('rxSyncList');
     var status = document.getElementById('rxSyncStatus');
     if (!list) return;
@@ -3111,6 +3113,7 @@ async function loadRxProfileSync(cursor) {
         var showAll = document.getElementById('rxSyncShowAll').checked;
         var res = await apiFetch(rxProfileSyncQuery(rxProfileSyncCursor));
         var data = await res.json();
+        if (scanGeneration !== rxSyncScanGeneration) return;
         if (!res.ok) throw new Error(data.error || 'Scan failed');
         if (data.control) window.rxProfileSyncControl = data.control;
         if (data.paused && !window.rxSyncManualReview) status.textContent = 'Paused. Use Review candidates while paused to review / ignore without copying values.';
@@ -3291,6 +3294,7 @@ function updateRxSyncBulkSelection() {
     if (!button) return;
     var count = document.querySelectorAll('#rxSyncList [data-rx-sync-select]:checked').length;
     button.disabled = count === 0 || !window.rxProfileSyncControl?.enabled;
+    var ignore = document.getElementById('rxSyncIgnoreSelected'); if (ignore) ignore.disabled = count === 0;
     button.innerHTML = '<i class="fas fa-check-double me-1"></i>Sync checked RX' + (count ? ' (' + count + ')' : '');
 }
 

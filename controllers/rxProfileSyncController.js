@@ -7,6 +7,13 @@ const syncControl = require('../services/rxProfileSyncControl');
 exports.getControl = async (_req, res) => { try { res.json(await syncControl.get()); } catch (_e) { res.status(500).json({ error: 'Unable to load RX Profile Sync controls.' }); } };
 exports.saveControl = async (req, res) => { try { res.json(await syncControl.save(req.body, req.user)); } catch (e) { res.status(400).json({ error: e.message }); } };
 
+async function verifyScanControl(initial) {
+    const current = await syncControl.get();
+    if (current.enabled !== initial.enabled || current.startDate !== initial.startDate) {
+        const error = Error('RX Profile Sync controls changed during the scan. Refresh the scan.'); error.status = 409; throw error;
+    }
+}
+
 const SYNC_FIELDS = [
     'pharmacyId',
     'patientTransportCompanyId',
@@ -223,6 +230,7 @@ exports.list = async (req, res) => {
                 }],
                 order: [['patientId', 'ASC'], ['createdAt', 'ASC'], ['id', 'ASC']]
             });
+            await verifyScanControl(control);
             const groups = new Map();
             records.forEach(record => {
                 const rx = record.get({ plain: true });
@@ -295,6 +303,7 @@ exports.list = async (req, res) => {
                 order: [['createdAt', 'ASC'], ['id', 'ASC']],
                 limit: 250
             });
+            await verifyScanControl(control);
             if (!records.length) {
                 reachedEnd = true;
                 break;
@@ -339,11 +348,12 @@ exports.list = async (req, res) => {
             scanCursor = { id: last.id, createdAt: last.createdAt };
             reachedEnd = records.length < 250;
         }
+        await verifyScanControl(control);
         const hasMore = candidates.length > pageSize;
         const displayed = candidates.slice(0, pageSize);
         res.json({ control, paused: !control.enabled, rows: displayed.map(candidate => candidate.row), total: displayed.length, reviewStatus, includesMatchingHistory: includeMatchingHistory, hasMore, nextCursor: hasMore ? displayed[displayed.length - 1].cursor : null });
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        res.status(error.status || 500).json({ error: error.message });
     }
 };
 

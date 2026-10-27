@@ -39,7 +39,7 @@ async function digest(file, compressed = false, maxBytes = Infinity) {
 }
 async function verified(file, maxBytes = Infinity) {
     const receiptPath = file + '.gz.sha256';
-    await regular(receiptPath);
+    if ((await regular(receiptPath)).size > 1024) throw Error('Invalid archive checksum receipt.');
     const receipt = JSON.parse(await fsp.readFile(receiptPath, 'utf8'));
     const actual = await digest(file + '.gz', true, maxBytes);
     if (receipt.sha256 !== actual.sha256 || receipt.bytes !== actual.bytes) throw Error('Compressed archive checksum mismatch.');
@@ -116,7 +116,7 @@ async function inventory(kind, retention, now = new Date()) {
         const stat = await regular(file); let date = group.date;
         if (kind === 'deliveryFiles') {
             const record = JSON.parse((await read(file, 2 * 1024 * 1024)).toString('utf8'));
-            if (record.formatVersion === 2) require('../controllers/deliveryLogArchiveController')._test.assertRecordIntegrity(record);
+            if (record.formatVersion === 2) require('../controllers/deliveryLogArchiveController').assertStoredIntegrity(record);
             date = new Date(record.createdAt).getTime();
         }
         if (!Number.isFinite(date) || date >= cutoff || stat.mtimeMs >= cutoff) continue;

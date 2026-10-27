@@ -1187,6 +1187,8 @@ exports.purge = async (req, res) => {
     }
 };
 
+exports.assertStoredIntegrity = assertRecordIntegrity;
+
 exports._test = {
     MAX_ROWS,
     validateCreateRequest,

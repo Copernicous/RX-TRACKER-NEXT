@@ -11,6 +11,9 @@
     <link rel="stylesheet" href="/assets/fontawesome.all.min.css">
     <script src="/assets/chart.umd.min.js"></script>
     <style>
+        #historyArchivePanel .table { --bs-table-bg: transparent; --bs-table-color: var(--text); --bs-table-border-color: var(--border); }
+        #historyArchivePanel .form-control { background: var(--surface-2); color: var(--text); border-color: var(--border); }
+        #historyArchivePanel .text-muted { color: var(--text-muted) !important; }
         :root {
             --bg: #0a0f1e;
             --surface: #111827;
@@ -534,13 +537,13 @@
     <div id="rxsyncContent" class="schema-wrap">
         <div class="schema-card" style="padding:1rem;margin-bottom:1rem">
             <strong>RX Profile Sync controls</strong><p class="small">Off by default. Scans compare values; they never copy automatically. Pause stops routine scans and blocks Sync actions. Review/ignore only records a decision and never changes the patient or RX.</p>
-            <label><input type="checkbox" id="rxSyncEnabled"> Enable RX Profile Sync</label>
-            <label>RX created on/after (UTC) <input type="date" id="rxSyncStartDate"></label>
+            <div class="d-flex flex-wrap gap-2 align-items-center"><label><input type="checkbox" id="rxSyncEnabled"> Enable RX Profile Sync</label>
+            <label>RX created on/after (UTC) <input type="date" id="rxSyncStartDate" class="schema-search" style="margin:0;width:auto"></label>
             <button class="btn-bo btn-bo-primary" id="rxSyncControlSave" type="button">Save controls</button>
             <button class="btn-bo btn-bo-outline" id="rxSyncPause" type="button">Stop / leave off</button>
             <button class="btn-bo btn-bo-outline" id="rxSyncManualReview" type="button">Review candidates while paused</button>
             <button class="btn-bo btn-bo-outline" id="rxSyncIgnoreSelected" type="button">Mark checked reviewed / ignore</button>
-            <p id="rxSyncControlStatus" class="small" role="status"></p>
+            </div><p class="small mt-2">Review decisions apply to the compared values; later value changes can require a new review.</p><p id="rxSyncControlStatus" class="small" role="status"></p>
         </div>
         <div class="schema-card" style="padding:1rem">
             <div style="display:flex;justify-content:space-between;gap:1rem;align-items:flex-start;flex-wrap:wrap">
