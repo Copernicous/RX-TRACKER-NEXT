@@ -8,6 +8,30 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
 
+- **next.98 published and deployment-ready (2026-10-27):** Official release
+  https://github.com/Copernicous/RX-TRACKER-NEXT/releases/tag/v4.0.0-next.98
+  remains a prerelease, consistent with the NEXT version series. Tag/source
+  `289792f30e27bff1a7bb394818719094b4867c26` is on remote develop/main. All 72 exact-source
+  lifecycle checks passed, including archive safety, recent retention, sanitized
+  copies, imports, backup/restore and restricted runtime. Local CodeQL: 83
+  unchanged JavaScript findings, no introduced findings; C# zero, source unchanged.
+  Compiled server/rx-db both report Node 22.23.4; extracted package provision,
+  health, version and assets passed. Existing dependency warnings remain disclosed.
+  All five draft assets were downloaded and matched local SHA256 hashes before
+  publication; both server ZIPs also passed executable hash/version/runbook checks.
+  Server ZIP SHA256: `09dabff65c845e3b95832be94ac18fa435f583e0a72ef03e8c8fbe3d08604166`.
+  New-server ZIP is byte-identical. Softphone ZIP SHA256:
+  `d5200bef418b2afdb4df65a2f062ab9430e9e993a7a72fe2862a7315be493ba0`.
+  Sanitized evidence is published as LOCAL_VALIDATION.json and SHA256SUMS.txt;
+  private lifecycle logs/dumps remain ignored locally. Hosted Actions are disabled
+  repository-wide; no new hosted run started. Deferred staging history changes
+  remain excluded and its remote branch was preserved. Installation is pending
+  the operator: Project Control 8 then 15, preserve paired rollback and verify
+  healthy next.98 plus archive settings/history. One new audited migration creates
+  archive tables/views; installing does not archive rows. Use paired rollback
+  rather than an older binary alone against the migrated database.
+
+
 - **next.98 release candidate (2026-10-27):** Verified history archiving, numbered dated downloads and explicit server scheduler pause status. One new archive migration; initial 30-day retention and automatic-off defaults. Multer 2.5.0 / Nodemailer 10.2.1. Clean isolated release worktree excludes unrelated local edits and private test data. All repository Actions disabled, including repository-wide execution because the dynamic Dependabot workflow cannot be disabled individually. Full exact-commit local validation and downloaded draft-asset verification are required before publishing; production installation remains an operator action.
 
 - **Archive export date context added locally (2026-10-27, unreleased):** User
