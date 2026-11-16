@@ -108,6 +108,7 @@ async function smokeServer(label, database, port, extra = {}, relay = false) {
         for (const operation of ['provision','status','verify','migrate']) lifecycle('fresh-' + operation, [operation]);
         node('backup-recoverability', 'scripts/test-backup-recoverability-integration.js', [], { BACKUP_RECOVERABILITY_REAL_DB: 'true' });
         node('stage-report', 'scripts/test-rx-stage-report.js', [], { RX_STAGE_REPORT_TEST_DB_NAME: databases[0], RX_STAGE_REPORT_TEST_CONFIRM_DB_NAME: databases[0] });
+        node('service-date-validation', 'scripts/test-service-date-report.js', [], { RX_SERVICE_DATE_REPORT_TEST_DB_NAME: databases[0], RX_SERVICE_DATE_REPORT_TEST_CONFIRM_DB_NAME: databases[0] });
         ps('release-runtime-recovery', 'scripts/test-release-runtime-recovery.ps1', ['-PgBin', pgBin]);
         node('release-region-backfill', 'scripts/test-release-region-backfill.js');
         await create(databases[1], databases[0]);

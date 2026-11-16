@@ -51,6 +51,7 @@ const filesToCopy = [
     'NEW_SERVER_SETUP_RECOVERY.md',
     path.join('docs', 'HISTORY_ARCHIVING.md'),
     path.join('docs', 'RX_PROFILE_SYNC_CONTROLS.md'),
+    path.join('docs', 'SERVICE_DATE_RX_VALIDATION.md'),
     path.join('docs', 'PRODUCTION_MICROSIP_CHROME_POLICY.md'),
     path.join('docs', 'RX_SOFTPHONE_REMOTE_TESTING.md'),
     path.join('docs', 'KASM_RX_SOFTPHONE_REMOTE_DEPLOYMENT_GUIDE.md'),

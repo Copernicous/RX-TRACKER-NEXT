@@ -1,12 +1,24 @@
 # RX Tracker NEXT project handoff
 
-Last updated: 2026-10-27
+Last updated: 2026-11-16
 
 This file is the sanitized continuity record for a future administrator or
 Codex session. It intentionally contains no credentials, `.env` values,
 patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
+
+- **next.100 release preparation (2026-11-16):** User authorized versioning, push
+  and production-ready publication of Patients Service Date RX Validation.
+  Includes clinic/pharmacy multi-selection, last RX service dates, date filters,
+  pagination and complete CSV with Patients permissions. No new migration,
+  patient/RX rewrite, configured RX Action change or dashboard metric change.
+  Candidate excludes unrelated workspace instructions, audit files and private
+  test data. Exact-commit local lifecycle, CodeQL, compiled-package and downloaded
+  draft-asset checks must pass before publication. Hosted Actions remain disabled.
+  Production installation remains a separate operator action through Project
+  Control 8 then 15. See SERVICE_DATE_RX_VALIDATION.md and LOCAL_RELEASE.md.
+
 
 - **next.99 published and deployment-ready (2026-10-27):** Official release
   https://github.com/Copernicous/RX-TRACKER-NEXT/releases/tag/v4.0.0-next.99

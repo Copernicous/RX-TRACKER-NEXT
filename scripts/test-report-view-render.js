@@ -44,6 +44,7 @@ ejs.renderFile(reportView, {
     requiredIds.forEach(id => {
         assert(html.includes(`id="${id}"`), `Rendered report is missing #${id}.`);
     });
+    assert(!html.includes('id="sdrForm"'), 'Validation now belongs to Patients.');
     assert(html.includes('Default Pharmacy'), 'Patient report must expose the default-pharmacy dimension.');
     assert(html.includes('Complete History CSV'), 'Reports must expose the normalized complete Patient + RX history export.');
     assert(html.includes('table below stays compact for reference'), 'Reports must explain that history expansion applies to the export, not the screen.');
@@ -59,4 +60,20 @@ ejs.renderFile(reportView, {
         'Reports must explain that configured workflow headers remain present without completion data.'
     );
     console.log(`PASS: Reports EJS rendered with ${requiredIds.length} upgraded filter controls.`);
+});
+
+ejs.renderFile(path.resolve(__dirname, '../views/patients.ejs'), {
+    cspNonce: 'patient-validation-render',
+    serviceWindowDays: 90,
+    locals: { userPerms: null, isAdmin: true, currentUser: { role: 'Administrator' },
+        callCenterLeadDays: 10, activePage: 'patients', isStaging: true, appBuild: 'validation-render', phoneAccountSetupAllowed: false }
+}, (error, html) => {
+    if (error) throw error;
+    for (const id of ['serviceDateValidationBtn', 'serviceDateValidationModal', 'sdrForm', 'sdrBody', 'sdrExport',
+        'sdrClinic', 'sdrPharmacy', 'sdrLastRxFrom', 'sdrLastRxTo', 'sdrLastRxStatus']) {
+        assert(html.includes(`id="${id}"`), 'Patients validation is missing #' + id);
+    }
+    assert(html.includes('Last RX service date'));
+    assert(html.includes('modal-fullscreen'));
+    console.log('PASS: Patients EJS exposes validation with clinic/pharmacy and last-RX filters.');
 });

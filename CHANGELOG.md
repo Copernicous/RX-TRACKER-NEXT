@@ -5,6 +5,26 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ---
 
+## [4.0.0-next.100] - 2026-11-16
+
+### Added
+
+- Patients: Service Date RX Validation beside Export CSV opens a full-screen,
+  read-only view of every retained patient service date, defaulting to dates
+  with no non-deleted RX. Match each patient/date separately so an earlier RX
+  cannot hide a missing RX for a later service date.
+- Current assigned clinic/default pharmacy, last RX service date, searchable
+  multi-select clinic/pharmacy filters (including Not assigned), service-date
+  and last-RX-date bounds, dated/undated RX filters, patient/date totals, server
+  pagination and complete filtered CSV. Patients read/export permissions apply.
+- Local release checks cover real PostgreSQL validation queries, multi-select
+  filters, legacy dates, missing/deleted RX, pagination, CSV and permissions;
+  extracted-package checks verify the Patients view and compiled APIs/assets.
+
+No schema migration, patient/RX rewrite, configured RX Action change or dashboard
+metric change. Pending RX identifies a review case; it does not establish why
+no RX exists or whether it is overdue. Last RX date covers all non-deleted RX.
+
 ## [4.0.0-next.99] - 2026-10-27
 
 ### Added

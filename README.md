@@ -10,7 +10,13 @@ frozen 3.3.1 repository, its production database, or the RX Softphone source.
 
 ## Current status
 
-Version: `4.0.0-next.99`
+Version: `4.0.0-next.100`
+
+Version `next.100` adds Service Date RX Validation under Patients, beside Export CSV.
+Review exact missing-RX dates with multi-select clinic/pharmacy filters, last RX
+service dates, date bounds and complete CSV. The view is read-only and uses
+Patients permissions. No migration or business-data rewrite. See
+[Service Date RX Validation](docs/SERVICE_DATE_RX_VALIDATION.md).
 
 Version `next.99` brings shared archive controls and storage-aware views to
 Backoffice, preserves older delivery logs/CSV snapshots through verified gzip

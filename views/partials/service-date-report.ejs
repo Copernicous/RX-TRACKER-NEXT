@@ -1,0 +1,37 @@
+<div id="serviceDateReport">
+    <div class="glass-card p-4">
+        <p class="text-muted small">Find assigned service dates without an RX record so staff can investigate why the RX was not created. Pending RX means no non-deleted RX record exists for that date; it does not describe workflow completion or establish the reason. Includes active and inactive patients; deleted patients are excluded.</p>
+        <form id="sdrForm" class="row g-2 align-items-end mb-3">
+            <div class="col-md-4"><label class="form-label" for="sdrSearch">Patient name or ID</label><input id="sdrSearch" class="form-control" maxlength="200" type="search"></div>
+            <div class="col-md-2"><label class="form-label" for="sdrFrom">Service date from</label><input id="sdrFrom" class="form-control" type="date"></div>
+            <div class="col-md-2"><label class="form-label" for="sdrTo">Service date to</label><input id="sdrTo" class="form-control" type="date"></div>
+            <div class="col-md-2"><label class="form-label" for="sdrStatus">RX status</label><select id="sdrStatus" class="form-select"><option value="pending">Only pending RX</option><option value="all">All service dates</option><option value="exists">RX exists</option></select></div>
+            <div class="col-md-3"><label class="form-label" for="sdrClinicButton">Assigned clinic</label><input type="hidden" id="sdrClinic">
+                <div class="dropdown patient-filter-multiselect" id="sdrClinicPicker"><button id="sdrClinicButton" class="form-select text-start" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside"><span>All clinics</span></button><div class="dropdown-menu"><input class="form-control form-control-sm patient-filter-multiselect-search" type="search" placeholder="Find clinic..." aria-label="Find clinic"><button type="button" class="btn btn-sm btn-link" data-sdr-clear>Clear selection / All clinics</button><div class="patient-filter-multiselect-options"></div></div></div>
+            </div>
+            <div class="col-md-3"><label class="form-label" for="sdrPharmacyButton">Assigned pharmacy</label><input type="hidden" id="sdrPharmacy">
+                <div class="dropdown patient-filter-multiselect" id="sdrPharmacyPicker"><button id="sdrPharmacyButton" class="form-select text-start" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside"><span>All pharmacies</span></button><div class="dropdown-menu"><input class="form-control form-control-sm patient-filter-multiselect-search" type="search" placeholder="Find pharmacy..." aria-label="Find pharmacy"><button type="button" class="btn btn-sm btn-link" data-sdr-clear>Clear selection / All pharmacies</button><div class="patient-filter-multiselect-options"></div></div></div>
+            </div>
+            <div class="col-md-2"><label class="form-label" for="sdrLastRxStatus">Last RX service date</label><select id="sdrLastRxStatus" class="form-select"><option value="all">All patients</option><option value="dated">Has RX service date</option><option value="undated">No RX service date</option></select></div>
+            <div class="col-md-2"><label class="form-label" for="sdrLastRxFrom">Last RX date from</label><input id="sdrLastRxFrom" class="form-control" type="date"></div>
+            <div class="col-md-2"><label class="form-label" for="sdrLastRxTo">Last RX date to</label><input id="sdrLastRxTo" class="form-control" type="date"></div>
+            <div class="col-12"><button class="btn btn-primary" type="submit">Run validation</button> <button class="btn btn-outline-secondary" type="reset">Reset</button></div>
+        </form>
+        <div class="d-flex flex-wrap gap-3 align-items-center mb-2">
+            <span id="sdrSummary" role="status" aria-live="polite">Open validation to load service dates.</span>
+            <button id="sdrExport" class="btn btn-sm btn-outline-success ms-auto" type="button" disabled>Export filtered CSV</button>
+        </div>
+        <p class="small text-muted">Assigned clinic and pharmacy show the patient's current clinic and default pharmacy. Last RX service date is the latest service date on any non-deleted RX for that patient, across all dates. No dated RX means none has a service date. Patient totals cover the selected service-date range before the RX status filter. Dates come from retained cycles, patient date history, current patient dates and RX records; older dates never recorded cannot be recovered by this view.</p>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead><tr><th>Patient ID</th><th>Patient</th><th>Assigned clinic</th><th>Assigned pharmacy</th><th>Last RX service date</th><th>Patient status</th><th>Service date</th><th>RX records</th><th>RX status</th><th>Patient service dates in range</th><th>Patient pending dates in range</th></tr></thead>
+                <tbody id="sdrBody"></tbody>
+            </table>
+        </div>
+        <div class="d-flex gap-2 align-items-center mt-2">
+            <button id="sdrPrev" class="btn btn-sm btn-outline-primary" type="button" disabled>Previous</button>
+            <span id="sdrPage"></span>
+            <button id="sdrNext" class="btn btn-sm btn-outline-primary" type="button" disabled>Next</button>
+        </div>
+    </div>
+</div>

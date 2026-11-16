@@ -78,6 +78,7 @@ const rxController = require('../controllers/rxController');
 const rxStageReportController = require('../controllers/rxStageReportController');
 const dashboardController = require('../controllers/dashboardController');
 const reportController = require('../controllers/reportController');
+const serviceDateReportController = require('../controllers/serviceDateReportController');
 const auditLogController = require('../controllers/auditLogController');
 const userActivityLogController = require('../controllers/userActivityLogController');
 const clinicController = require('../controllers/clinicController');
@@ -456,6 +457,8 @@ router.put('/workflow-actions/:id/restore', rbac.requireRole(['Administrator']),
 // BUG-02 FIX: Static/named routes must come BEFORE generateCRUDRoutes which registers GET /patients/:id
 // Otherwise Express matches 'check-duplicate' as :id and hits patientController.getOne instead.
 router.get('/patients/check-duplicate', rbac.requirePermission('patients', 'read'), patientController.checkDuplicate);
+router.get('/patients/service-date-validation', rbac.requirePermission('patients', 'read'), serviceDateReportController.getReport);
+router.get('/patients/service-date-validation/export', rbac.requirePermission('patients', 'export'), serviceDateReportController.getReport);
 router.get('/patients/:id/timeline',    rbac.requirePermission('patients', 'read'), patientController.getTimeline);
 router.get('/patients/:id/service-date-history', rbac.requirePermission('patients', 'read'), patientController.getServiceDateHistory);
 router.put('/patients/:id/restore',     rbac.requirePermission('patients', 'edit'), auditLogger('Patients'), patientController.restore);
