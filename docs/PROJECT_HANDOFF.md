@@ -8,6 +8,30 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
 
+- **next.100 published and deployment-ready (2026-11-16):** Official prerelease
+  https://github.com/Copernicous/RX-TRACKER-NEXT/releases/tag/v4.0.0-next.100
+  uses immutable tag/source `e1876ad91357060870c609848e9dd0aa19bb5015`.
+  All 76 exact-source local lifecycle checks passed, including patient/date
+  validation, multi-selection and complete CSV, backup/restore, sanitization and
+  restricted runtime. CodeQL retained 84 baseline JavaScript findings; the
+  candidate has 85, with the introduced fixed-loopback compiled-test asset
+  read reviewed under the existing narrow test-only policy. No new unreviewed
+  high/error finding; C# zero with unchanged source. Existing dependency
+  warnings remain documented. Both compiled executables report Node 22.23.4.
+  Extracted-package tests verified Patients UI/assets, validation options/query/CSV
+  APIs and existing Backoffice controls. All five draft assets were downloaded
+  and hash-matched; embedded executable hashes, versions and guides verified.
+  Server and new-server ZIP SHA256:
+  `24bae374549227db486ce22d702c1f9ba5597146fe067e77d8b07c648144aa76`.
+  Softphone ZIP SHA256:
+  `d982bff9b8b4a13b6d2eacf6a1170c2ffb60e140b63efc459f982d86873dc613`.
+  Source/develop/main and the new tag were pushed with hosted Actions disabled;
+  no hosted build was dispatched. LOCAL_VALIDATION.json and SHA256SUMS.txt are
+  published. Private fixtures/logs/dumps remain ignored locally. No migration,
+  patient/RX rewrite, configured RX Action or dashboard metric change. Installation
+  remains a separate operator action: Project Control 8 then 15 with paired
+  rollback and external archive preservation.
+
 - **next.100 release preparation (2026-11-16):** User authorized versioning, push
   and production-ready publication of Patients Service Date RX Validation.
   Includes clinic/pharmacy multi-selection, last RX service dates, date filters,
