@@ -8,6 +8,32 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
 
+- **next.101 published and deployment-ready (2026-11-16):** Official prerelease
+  https://github.com/Copernicous/RX-TRACKER-NEXT/releases/tag/v4.0.0-next.101
+  uses immutable tag/source `66c35d92de45438e4ab6c177f2bda4e7fefbba61`.
+  All 76 exact-source local lifecycle checks passed, including report summaries,
+  sort/pagination/CSV, exact-date patient/RX drilldowns, permissions, backup/restore,
+  sanitization and restricted runtime. Browser checks verified popup Close/Escape,
+  report-state/focus preservation, medication expansion and responsive sizing.
+  The initial SQL sort scan finding blocked the first candidate; fixed ASC/DESC
+  constants passed a fresh complete validation. CodeQL retains 85 baseline JS
+  findings plus four moderate GET patient-focus-identifier findings (89 total),
+  with no new high/error findings; C# zero and unchanged source. Moderate URL-log
+  exposure and existing dependency warnings remain documented, not declared fixed.
+  Both compiled executables report Node 22.23.4. Extracted-package tests exercised
+  authenticated detail APIs, exact missing dates and medication quantities.
+  All five draft assets were downloaded and hash-matched; embedded executable
+  hashes and package/source versions passed. Server/new-server ZIP SHA256:
+  `ce0a404abf6a5b6d4b9415a28bc4868efde992976d0d08762cfb2ed92dc70f98`.
+  Softphone ZIP SHA256:
+  `cc543871e08f3d6c3df48723c993f7e9eb49016b73e6a2665f4bd56615f0d3c8`.
+  Develop/main and the new tag were pushed with hosted workflows disabled;
+  no hosted build was triggered. LOCAL_VALIDATION.json and SHA256SUMS.txt are
+  published. No migration, patient/RX rewrite or configured RX Action change.
+  Private data, credentials, evidence logs/dumps and unrelated workspace edits
+  remain local. Installation remains a separate operator action: Project Control
+  8 then 15, with paired rollback and external archive preservation.
+
 - **next.101 popup scope approved (2026-11-16):** User requested patient,
   exact-service-date RX and service-date-inventory popups before publication.
   Read-only details show arrival, RX pharmacy, medication quantities and active
