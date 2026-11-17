@@ -101,9 +101,38 @@ const db = require('../models');
         assert.equal((await run({ search: 'DELETED' })).body.total, 0);
         assert.equal((await run({ search: 'EMPTY' })).body.total, 0);
         assert.equal((await run({ search: '%_' })).body.total, 1, 'Search wildcards are literal');
+        const summary = (await run({ status: 'pending' })).body;
+        assert.equal(summary.total, 5);
+        assert.equal(summary.patients, 3);
+        assert.equal(summary.available.total, 7, 'Available totals ignore quick filters');
+        assert.equal(summary.available.covered, 2);
+        assert.equal(summary.noRxPatients, 1);
+        assert.equal(summary.historyPatients, 2);
+        assert.equal(summary.pendingOnlyPatients, 1);
+        assert.equal(summary.mixedPatients, 2, 'Coverage remains mixed when showing only pending dates');
+        assert.equal(summary.coveredOnlyPatients, 0);
+        assert.equal((await run({ patientStatus: 'active' })).body.total, 3);
+        assert.equal((await run({ patientStatus: 'inactive' })).body.total, 4);
+        assert.equal((await run({ patientId: '1' })).body.total, 2);
+        assert.equal((await run({ rxHistory: 'none' })).body.total, 1);
+        assert.equal((await run({ rxHistory: 'has' })).body.total, 6);
+        assert.equal((await run({ coverage: 'pending_only' })).body.total, 1);
+        assert.equal((await run({ coverage: 'mixed', status: 'pending' })).body.total, 4);
+        assert.equal((await run({ coverage: 'covered_only' })).body.total, 0);
+        assert.equal((await run({ search: 'XYZ', from: '2026-10-01', coverage: 'pending_only' })).body.total, 1, 'Coverage uses selected date range');
+        for (const sort of ['patientCode','patient','clinic','pharmacy','lastRxServiceDate','patientActive','serviceDate','rxCount','rxStatus','serviceDateCount','pendingDateCount']) {
+            for (const direction of ['asc','desc']) {
+                const sorted = (await run({ sort, direction })).body;
+                assert.equal(sorted.total, 7); assert.equal(sorted.rows.length, 7);
+                assert.equal(sorted.sort, sort); assert.equal(sorted.direction, direction);
+            }
+        }
+        assert.equal((await run({ sort:'rxCount', direction:'desc' })).body.rows[0].rxCount, 2);
+        assert.equal((await run({ sort:'lastRxServiceDate', direction:'desc' })).body.rows.at(-1).lastRxServiceDate, null, 'Undated RX sorts last');
         for (const query of [{ from: '2026-02-30' }, { from: '2026-10-02', to: '2026-10-01' }, { page: '-1' }, { status: 'other' }, { search: [] },
             { clinicId: '0' }, { pharmacyId: '1;DROP' }, { clinicId: [] }, { clinicId: '1,,2' }, { pharmacyId: 'none,bad' }, { lastRxStatus: 'bad' }, { lastRxFrom: '2026-02-30' },
-            { lastRxFrom: '2026-10-01', lastRxTo: '2026-09-01' }]) {
+            { lastRxFrom: '2026-10-01', lastRxTo: '2026-09-01' }, { patientStatus:'deleted' }, { rxHistory:'bad' }, { coverage:'bad' },
+            { patientId:'1 OR 1=1' }, { sort:'patient;DROP' }, { direction:'DESC NULLS FIRST' }, { page:'1.5' }, { pageSize:'5000' }, { pageSize:[] }]) {
             assert.equal((await run(query)).code, 400);
         }
         const csv = await run({ search: 'XYZ', status: 'pending' }, true);
@@ -125,6 +154,47 @@ const db = require('../models');
         assert.equal(result.body.rows.length, 50);
         const complete = await run({ search: '100%_literal' }, true);
         assert.equal(complete.text.trim().split('\r\n').length, 507, 'Export includes every batch beyond page one');
+        for (const size of [10,20,50,100,250,500,1000]) {
+            const paged = (await run({ search:'100%_literal', pageSize:String(size), page:'9999', sort:'serviceDate', direction:'asc' })).body;
+            assert.equal(paged.totalPages, Math.ceil(506 / size)); assert.equal(paged.page, paged.totalPages);
+            assert.equal(paged.rows.length, 506 - (paged.page - 1) * size);
+            assert.equal(paged.rows.at(-1).serviceDate, '2026-10-01');
+        }
+        const sortedPage = (await run({ patientId:'4', pageSize:'10', page:'2', sort:'serviceDate', direction:'asc' })).body;
+        assert.equal(sortedPage.rows[0].serviceDate, '2024-01-11', 'Sort occurs before pagination');
+        const sortedCsv = await run({ patientId:'4', sort:'serviceDate', direction:'asc', status:'pending', rxHistory:'none' }, true);
+        assert.equal(sortedCsv.text.trim().split('\r\n').length, 507);
+        assert.ok(sortedCsv.text.split('\r\n')[1].includes('2024-01-01'), 'CSV follows the selected global sort');
+        // An undated RX prevents a patient from being classified as having no RX ever.
+        await sql(`INSERT INTO "RXRecords" VALUES (6,4,null,null);`);
+        assert.equal((await run({ rxHistory:'none' })).body.total, 0);
+        assert.equal((await run({ patientId:'4', lastRxStatus:'undated', rxHistory:'has' })).body.total, 506);
+        const { noRxPatientSql } = require('../utils/patientRxPresence');
+        const liveNoRx = async () => (await db.sequelize.query(`SELECT id FROM "Patients" AS "Patient" WHERE ${noRxPatientSql} ORDER BY id`, { transaction, type:db.Sequelize.QueryTypes.SELECT })).map(row => row.id);
+        assert.deepEqual(await liveNoRx(), [5], 'Dashboard includes patients with no service dates; undated and legacy NULL-deleted RX count');
+        await sql(`UPDATE "RXRecords" SET "isDeleted"=true WHERE "patientId"=4;`);
+        assert.deepEqual(await liveNoRx(), [4,5], 'Deleted RX does not satisfy the all-history patient count');
+        const dashboardFile = path.resolve(__dirname, '../controllers/dashboardController.js');
+        const dashboardRequire = createRequire(dashboardFile);
+        const dashboard = { exports:{}, require(name) {
+            if (name === '../models') return {
+                Patient: {
+                    count: async options => options.where.val ? (assert.equal(options.where.val,noRxPatientSql), (await liveNoRx()).length) : 0,
+                    findAll: async options => { assert.equal(options.where.val,noRxPatientSql); return (await liveNoRx()).map(id => ({ id })); }
+                },
+                RXRecord:{ count:async () => 0 }, WorkflowAction:{ count:async () => 0 }, AuditLogHistory:{ findAll:async () => [] }
+            };
+            if (name === '../services/snapshotService') return { getFreshCurrentSnapshot:async () => ({ patientsWithNoRx:99999, updatedAt:'synthetic' }) };
+            return dashboardRequire(name);
+        } };
+        vm.runInNewContext(fs.readFileSync(dashboardFile,'utf8'), dashboard, { filename:dashboardFile });
+        async function dashboardRun(handler,query = {}) {
+            const res = { status(code) { this.code=code; return this; }, json(body) { this.body=body; } };
+            await handler({ query },res); assert.ok(!res.code,JSON.stringify(res.body)); return res.body;
+        }
+        assert.equal((await dashboardRun(dashboard.exports.getStats)).patientsWithNoRx, 2, 'Live card ignores poisoned snapshot totals');
+        assert.equal((await dashboardRun(dashboard.exports.getStats,{ from:'1900-01-01', to:'1900-01-02' })).patientsWithNoRx, 2, 'All-history card ignores dashboard date range');
+        assert.equal((await dashboardRun(dashboard.exports.getPatientsWithNoRx)).length, 2, 'Dashboard drilldown matches the card');
         permission = { visible: true, canExport: false };
         assert.equal((await run({}, true)).code, 403);
         assert.equal((await run()).body.canExport, false);

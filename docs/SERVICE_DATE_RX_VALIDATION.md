@@ -1,4 +1,36 @@
-# Service Date RX Validation (4.0.0-next.100)
+# Service Date RX Validation
+
+Updated in 4.0.0-next.101:
+
+- Two collapsible, clickable summary tables distinguish service dates from
+  unique patients. Available counts apply base filters (search, service/last-RX
+  dates, assignments, patient status and focused patient). In current list also
+  applies RX status, RX history and date coverage. Both count all matching pages.
+  Patients without any retained date are absent from this validation view.
+- RX history distinguishes zero non-deleted RX ever from patients with any RX,
+  including undated RX. Date coverage classifies dates in the selected range as
+  only pending, mixed, or only with RX, before quick filters. History and coverage
+  categories overlap; do not add the two classifications together.
+- Changing a filter runs validation automatically. Click summary rows/counts or
+  detail values to narrow the list. Patient names/IDs focus one patient; date
+  totals focus that patient's dates; assignment, date, status and RX cells filter
+  their matching values. Removable filter buttons and Reset broaden the list.
+  Filter fields use six aligned columns in two rows on desktop, with fewer
+  columns on smaller screens. Search, date inputs, native selects and
+  multi-select dropdown buttons share a consistent 40px height.
+- Every detail column sorts on the server across the whole matching list.
+  Pagination above the detail grid offers 10/20/50/100/250/500/1000 rows,
+  numbered pages, first/last and a page jump. CSV uses the same filters and sort
+  and exports all pages. A stale asynchronous response cannot replace newer data.
+- Dashboard **Active patients with zero RX records** is a live count of active,
+  non-deleted patients with no non-deleted RX at any date. Legacy NULL deletion
+  flags and undated RX count as existing RX. The dashboard date selector does
+  not limit this explicitly all-history card or its matching patient drilldown.
+  It includes patients with no assigned service date. It does not measure missing
+  RX for later service dates on patients with earlier RX. A separate link opens
+  pending service-date validation. Historical trends retain their snapshot scope.
+  The compact card is labeled Active patients: no RX. Its info icon reveals
+  the definition and validation link on hover, click or keyboard focus.
 
 Open **Patients > Service Date RX Validation** (beside Export CSV in Patient List).
 The full-screen validation view now lives in Patients instead of Reports.
@@ -40,7 +72,7 @@ The report is read-only with no schema migration, cycle synchronization, RX
 creation, patient update or production release. Import backups only through the
 guarded isolated test-copy workflow in `database/TEST_COPY_RESTORE.md`; production
 installation remains separate. A running source server needs a normal restart
-to load the new API routes, then refresh Reports.
+to load the updated controllers, then refresh Patients or Dashboard.
 
 Validation: `npm run test:service-date-report` executes the real report SQL
 against synthetic connection-local PostgreSQL TEMP tables with rollback and

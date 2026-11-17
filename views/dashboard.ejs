@@ -37,6 +37,15 @@
         .stat-card-clickable:hover .card-icon {
             opacity: 0.85;
         }
+        .dashboard-card-info { display:inline-block;position:relative;margin-left:.25rem; }
+        .dashboard-card-info > button { border:0;background:none;padding:0 .15rem;color:var(--text-muted);line-height:1; }
+        .dashboard-card-info > button:focus-visible { outline:2px solid var(--primary);outline-offset:3px; }
+        .dashboard-card-info-popup {
+            position:absolute;right:0;top:100%;z-index:1080;width:280px;max-width:80vw;
+            padding:.85rem;border:1px solid var(--border);border-radius:.5rem;
+            background:var(--surface);color:var(--text);box-shadow:var(--shadow-lg);
+            font-size:.8rem;line-height:1.5;cursor:default;
+        }
 
         /* â”€â”€ Date range preset buttons â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
            Plain .btn .btn-sm has no visible background â€” dark on dark in
@@ -415,7 +424,14 @@
                     <div class="glass-card p-3 d-flex align-items-center stat-card-clickable" onclick="openDrilldown('patients-no-rx')" title="Click to view list">
                         <div class="me-2 card-icon" style="font-size:2rem;color:#9b59b6"><i class="fas fa-user-slash"></i></div>
                         <div>
-                            <div class="text-muted small">Total No-RX Records</div>
+                            <div class="text-muted small">Active patients: no RX<span id="noRxCardHelp" class="dashboard-card-info" title="">
+                                <button type="button" aria-label="About the no-RX patient count" aria-expanded="false" aria-controls="noRxCardInfo"><i class="fas fa-info-circle" aria-hidden="true"></i></button>
+                                <span id="noRxCardInfo" class="dashboard-card-info-popup" hidden>
+                                    Counts active patients with zero non-deleted RX records across all dates, including patients with no service date. Undated RX records count as existing RX. Deleted patients are excluded. This live count ignores the dashboard date filter.
+                                    <span class="d-block mt-2">Patients with earlier RX can still have a later service date missing an RX.</span>
+                                    <a class="d-block mt-2" href="/patients?validation=pending">Review service dates missing RX</a>
+                                </span>
+                            </span></div>
                             <div class="fs-2 fw-bold" id="patientsWithNoRxCount">&mdash;</div>
                             <small style="color:#9b59b6"><i class="fas fa-external-link-alt me-1"></i>View list</small>
                         </div>

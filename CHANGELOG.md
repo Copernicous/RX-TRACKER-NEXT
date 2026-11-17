@@ -5,6 +5,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ---
 
+## [4.0.0-next.101] - 2026-11-16
+
+- Service Date RX Validation: clickable patient/date summary tables, automatic
+  filters, removable filter buttons, patient status/RX-history/date-coverage
+  filters, sorting across every column, top pagination up to 1,000 rows and page
+  jump. Filtered CSV follows the same global sort across all pages.
+- Dashboard: clarify the No-RX card as a live, all-history count of active
+  patients with zero non-deleted RX. Count and drilldown include legacy NULL
+  deletion flags and undated RX consistently; do not reuse a cached total.
+  Link separately to missing service-date validation. No business-data writes.
+
 ## [4.0.0-next.100] - 2026-11-16
 
 ### Added

@@ -8,6 +8,16 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
 
+- **next.101 release preparation (2026-11-16):** User authorized versioning,
+  GitHub push and a production-ready release of validation summaries/automatic
+  filters, all-column sorting, top pagination and CSV parity. The aligned
+  responsive filter grid has uniform control heights. The compact No-RX dashboard
+  card uses a live all-history count with matching drilldown and an info popup.
+  No migration, patient/RX rewrite or configured RX Action change. Exact-commit
+  local lifecycle, CodeQL, compiled-package and downloaded draft-asset checks
+  must pass before publication. Hosted workflows remain disabled. Installation
+  remains a separate operator action through Project Control 8 then 15.
+
 - **next.100 published and deployment-ready (2026-11-16):** Official prerelease
   https://github.com/Copernicous/RX-TRACKER-NEXT/releases/tag/v4.0.0-next.100
   uses immutable tag/source `e1876ad91357060870c609848e9dd0aa19bb5015`.

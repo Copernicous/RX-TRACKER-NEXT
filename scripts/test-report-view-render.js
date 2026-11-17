@@ -70,10 +70,15 @@ ejs.renderFile(path.resolve(__dirname, '../views/patients.ejs'), {
 }, (error, html) => {
     if (error) throw error;
     for (const id of ['serviceDateValidationBtn', 'serviceDateValidationModal', 'sdrForm', 'sdrBody', 'sdrExport',
-        'sdrClinic', 'sdrPharmacy', 'sdrLastRxFrom', 'sdrLastRxTo', 'sdrLastRxStatus']) {
+        'sdrClinic', 'sdrPharmacy', 'sdrLastRxFrom', 'sdrLastRxTo', 'sdrLastRxStatus', 'sdrStatsPanel', 'sdrPatientStatus',
+        'sdrRxHistory', 'sdrCoverage', 'sdrPageSize', 'sdrFirst', 'sdrLast', 'sdrPageJump', 'sdrFilterChips']) {
         assert(html.includes(`id="${id}"`), 'Patients validation is missing #' + id);
     }
     assert(html.includes('Last RX service date'));
     assert(html.includes('modal-fullscreen'));
+    assert.equal((html.match(/data-sdr-sort=/g) || []).length, 11);
+    assert(html.indexOf('id="sdrPageSize"') < html.indexOf('id="sdrBody"'), 'Pagination is above detail rows');
+    assert(html.includes('value="1000"'));
+    assert(html.includes('In current list'));
     console.log('PASS: Patients EJS exposes validation with clinic/pharmacy and last-RX filters.');
 });

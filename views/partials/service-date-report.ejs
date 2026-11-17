@@ -1,37 +1,103 @@
 <div id="serviceDateReport">
+    <style>
+        #serviceDateReport #sdrForm { display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:.75rem;margin-left:0;margin-right:0; }
+        #serviceDateReport #sdrForm > div { width:auto;min-width:0;max-width:100%;padding:0;margin-top:0; }
+        #serviceDateReport #sdrForm > .sdr-actions { grid-column:1 / -1; }
+        #serviceDateReport #sdrForm > div > .form-control,
+        #serviceDateReport #sdrForm > div > .form-select,
+        #serviceDateReport #sdrForm .patient-filter-multiselect > .form-select {
+            height:40px;min-height:40px;box-sizing:border-box;font-size:.875rem;line-height:1.25;padding:.5rem .75rem;
+        }
+        #serviceDateReport #sdrForm > div > .form-select,
+        #serviceDateReport #sdrForm .patient-filter-multiselect > .form-select { padding-right:2rem; }
+        #serviceDateReport #sdrForm .patient-filter-multiselect > .form-select span { display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
+        #serviceDateReport #sdrForm .form-label { margin-bottom:.3rem; }
+        @media(max-width:1199px) { #serviceDateReport #sdrForm { grid-template-columns:repeat(4,minmax(0,1fr)); } }
+        @media(max-width:991px) { #serviceDateReport #sdrForm { grid-template-columns:repeat(3,minmax(0,1fr)); } }
+        @media(max-width:767px) { #serviceDateReport #sdrForm { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+        @media(max-width:575px) { #serviceDateReport #sdrForm { grid-template-columns:minmax(0,1fr); } }
+        #serviceDateReport .sdr-stats-table { --bs-table-bg:transparent; --bs-table-color:var(--text,#1a202c); }
+        #serviceDateReport .sdr-stats-table tr[data-sdr-key] { cursor:pointer; }
+        #serviceDateReport .sdr-stats-table .sdr-selected > * { background:rgba(74,144,226,.16); }
+        #serviceDateReport .sdr-stat-button, #serviceDateReport .sdr-sort, #serviceDateReport .sdr-cell-filter {
+            background:none;border:0;color:inherit;font:inherit;text-align:inherit;padding:0;cursor:pointer;
+        }
+        #serviceDateReport .sdr-stat-button { width:100%; }
+        #serviceDateReport .sdr-cell-filter { text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px; }
+        #serviceDateReport .sdr-sort { white-space:nowrap; }
+        #serviceDateReport .sdr-stat-button:focus-visible, #serviceDateReport .sdr-sort:focus-visible, #serviceDateReport .sdr-cell-filter:focus-visible { outline:2px solid var(--primary,#4a90e2);outline-offset:3px; }
+        #serviceDateReport .sdr-count { text-align:right;font-variant-numeric:tabular-nums; }
+        #serviceDateReport .sdr-pagination { display:flex;gap:.65rem;align-items:center;flex-wrap:wrap; }
+        #serviceDateReport .sdr-pagination label { display:flex;gap:.4rem;align-items:center; }
+        #serviceDateReport .sdr-pagination select { width:auto; }
+        #serviceDateReport #sdrPageJump { width:5.5rem; }
+        #serviceDateReport .sdr-detail-table th { vertical-align:middle; }
+    </style>
     <div class="glass-card p-4">
         <p class="text-muted small">Find assigned service dates without an RX record so staff can investigate why the RX was not created. Pending RX means no non-deleted RX record exists for that date; it does not describe workflow completion or establish the reason. Includes active and inactive patients; deleted patients are excluded.</p>
         <form id="sdrForm" class="row g-2 align-items-end mb-3">
-            <div class="col-md-4"><label class="form-label" for="sdrSearch">Patient name or ID</label><input id="sdrSearch" class="form-control" maxlength="200" type="search"></div>
+            <div class="col-md-4 sdr-search-field"><label class="form-label" for="sdrSearch">Patient name or ID</label><input id="sdrSearch" class="form-control" maxlength="200" type="search"></div>
             <div class="col-md-2"><label class="form-label" for="sdrFrom">Service date from</label><input id="sdrFrom" class="form-control" type="date"></div>
             <div class="col-md-2"><label class="form-label" for="sdrTo">Service date to</label><input id="sdrTo" class="form-control" type="date"></div>
             <div class="col-md-2"><label class="form-label" for="sdrStatus">RX status</label><select id="sdrStatus" class="form-select"><option value="pending">Only pending RX</option><option value="all">All service dates</option><option value="exists">RX exists</option></select></div>
-            <div class="col-md-3"><label class="form-label" for="sdrClinicButton">Assigned clinic</label><input type="hidden" id="sdrClinic">
+            <div class="col-md-3 sdr-assignment-field"><label class="form-label" for="sdrClinicButton">Assigned clinic</label><input type="hidden" id="sdrClinic">
                 <div class="dropdown patient-filter-multiselect" id="sdrClinicPicker"><button id="sdrClinicButton" class="form-select text-start" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside"><span>All clinics</span></button><div class="dropdown-menu"><input class="form-control form-control-sm patient-filter-multiselect-search" type="search" placeholder="Find clinic..." aria-label="Find clinic"><button type="button" class="btn btn-sm btn-link" data-sdr-clear>Clear selection / All clinics</button><div class="patient-filter-multiselect-options"></div></div></div>
             </div>
-            <div class="col-md-3"><label class="form-label" for="sdrPharmacyButton">Assigned pharmacy</label><input type="hidden" id="sdrPharmacy">
+            <div class="col-md-3 sdr-assignment-field"><label class="form-label" for="sdrPharmacyButton">Assigned pharmacy</label><input type="hidden" id="sdrPharmacy">
                 <div class="dropdown patient-filter-multiselect" id="sdrPharmacyPicker"><button id="sdrPharmacyButton" class="form-select text-start" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside"><span>All pharmacies</span></button><div class="dropdown-menu"><input class="form-control form-control-sm patient-filter-multiselect-search" type="search" placeholder="Find pharmacy..." aria-label="Find pharmacy"><button type="button" class="btn btn-sm btn-link" data-sdr-clear>Clear selection / All pharmacies</button><div class="patient-filter-multiselect-options"></div></div></div>
             </div>
             <div class="col-md-2"><label class="form-label" for="sdrLastRxStatus">Last RX service date</label><select id="sdrLastRxStatus" class="form-select"><option value="all">All patients</option><option value="dated">Has RX service date</option><option value="undated">No RX service date</option></select></div>
             <div class="col-md-2"><label class="form-label" for="sdrLastRxFrom">Last RX date from</label><input id="sdrLastRxFrom" class="form-control" type="date"></div>
             <div class="col-md-2"><label class="form-label" for="sdrLastRxTo">Last RX date to</label><input id="sdrLastRxTo" class="form-control" type="date"></div>
-            <div class="col-12"><button class="btn btn-primary" type="submit">Run validation</button> <button class="btn btn-outline-secondary" type="reset">Reset</button></div>
+            <div class="col-md-3"><label class="form-label" for="sdrPatientStatus">Patient status</label><select id="sdrPatientStatus" class="form-select"><option value="all">All patients</option><option value="active">Active</option><option value="inactive">Inactive</option></select></div>
+            <div class="col-md-3"><label class="form-label" for="sdrRxHistory">Patient RX history</label><select id="sdrRxHistory" class="form-select"><option value="all">All RX histories</option><option value="none">No RX records at all</option><option value="has">Has RX records</option></select></div>
+            <div class="col-md-3 sdr-coverage-field"><label class="form-label" for="sdrCoverage">Date coverage</label><select id="sdrCoverage" class="form-select" title="Patient service-date coverage within the selected date range"><option value="all">All date coverage</option><option value="pending_only">Only pending dates</option><option value="mixed">Both pending and with RX</option><option value="covered_only">Only dates with RX</option></select></div>
+            <input type="hidden" id="sdrPatientId">
+            <div class="col-12 sdr-actions"><button class="btn btn-primary" type="submit">Run validation</button> <button class="btn btn-outline-secondary" type="reset">Reset</button></div>
         </form>
-        <div class="d-flex flex-wrap gap-3 align-items-center mb-2">
-            <span id="sdrSummary" role="status" aria-live="polite">Open validation to load service dates.</span>
-            <button id="sdrExport" class="btn btn-sm btn-outline-success ms-auto" type="button" disabled>Export filtered CSV</button>
+        <div id="sdrFilterChips" class="d-flex flex-wrap gap-2 mb-3" aria-label="Applied quick filters"></div>
+        <details id="sdrStatsPanel" class="mb-3" open>
+            <summary class="fw-bold mb-2">Summary tables <span class="small text-muted">(click to collapse)</span></summary>
+            <p class="small text-muted">Click a summary row or count to filter. Available covers search, dates, clinic, pharmacy, patient status and patient selection; In current list also applies RX status, RX history and date coverage. Counts cover every page. History and coverage groups are separate ways to classify the same patients.</p>
+            <div class="row g-3">
+                <% const sdrGroups = [
+                    { title:'Service dates', rows:[['All service dates','total','reset','all'],['Pending RX','pending','status','pending'],['RX exists','covered','status','exists']] },
+                    { title:'Patients with service dates in scope', rows:[['All patients in scope','patients','reset','all'],['No RX records at all','noRxPatients','rxHistory','none'],['Has RX records','historyPatients','rxHistory','has'],['Only pending dates in range','pendingOnlyPatients','coverage','pending_only'],['Both pending and with RX in range','mixedPatients','coverage','mixed'],['Only dates with RX in range','coveredOnlyPatients','coverage','covered_only']] }
+                ]; %>
+                <% sdrGroups.forEach(group => { %>
+                <div class="col-lg-6"><h6><%= group.title %></h6><table class="table table-sm table-hover sdr-stats-table">
+                    <thead><tr><th scope="col">Group</th><th scope="col" class="sdr-count">Available</th><th scope="col" class="sdr-count">In current list</th></tr></thead>
+                    <tbody><% group.rows.forEach(([label, metric, key, value]) => { %>
+                        <tr data-sdr-key="<%= key %>" data-sdr-value="<%= value %>"><th scope="row"><button type="button" class="sdr-stat-button" aria-pressed="false"><%= label %></button></th><td class="sdr-count" data-sdr-count="available.<%= metric %>">—</td><td class="sdr-count" data-sdr-count="current.<%= metric %>">—</td></tr>
+                    <% }); %></tbody>
+                </table></div>
+                <% }); %>
+            </div>
+        </details>
+        <div id="sdrSummary" class="small mb-2" role="status" aria-live="polite">Open validation to load service dates.</div>
+        <div class="sdr-pagination mb-3" aria-label="Validation pagination">
+            <label for="sdrPageSize">Rows per page<select id="sdrPageSize" class="form-select form-select-sm"><% [10,20,50,100,250,500,1000].forEach(size => { %><option value="<%= size %>" <%= size === 50 ? 'selected' : '' %>><%= size %></option><% }); %></select></label>
+            <span id="sdrRange" class="small text-muted"></span>
+            <div class="d-flex gap-1 align-items-center flex-wrap">
+                <button id="sdrFirst" class="btn btn-sm btn-outline-primary" type="button" aria-label="First page" disabled>First</button>
+                <button id="sdrPrev" class="btn btn-sm btn-outline-primary" type="button" disabled>Previous</button>
+                <span id="sdrPageButtons" class="d-flex gap-1 align-items-center"></span>
+                <button id="sdrNext" class="btn btn-sm btn-outline-primary" type="button" disabled>Next</button>
+                <button id="sdrLast" class="btn btn-sm btn-outline-primary" type="button" aria-label="Last page" disabled>Last</button>
+            </div>
+            <span id="sdrPage" class="small"></span>
+            <label for="sdrPageJump">Go to page<input id="sdrPageJump" class="form-control form-control-sm" type="number" min="1" value="1"></label>
+            <button id="sdrPageGo" class="btn btn-sm btn-outline-primary" type="button" disabled>Go</button>
+            <button id="sdrExport" class="btn btn-sm btn-outline-success ms-lg-auto" type="button" disabled>Export filtered CSV</button>
         </div>
         <p class="small text-muted">Assigned clinic and pharmacy show the patient's current clinic and default pharmacy. Last RX service date is the latest service date on any non-deleted RX for that patient, across all dates. No dated RX means none has a service date. Patient totals cover the selected service-date range before the RX status filter. Dates come from retained cycles, patient date history, current patient dates and RX records; older dates never recorded cannot be recovered by this view.</p>
         <div class="table-responsive">
-            <table class="table table-hover align-middle">
-                <thead><tr><th>Patient ID</th><th>Patient</th><th>Assigned clinic</th><th>Assigned pharmacy</th><th>Last RX service date</th><th>Patient status</th><th>Service date</th><th>RX records</th><th>RX status</th><th>Patient service dates in range</th><th>Patient pending dates in range</th></tr></thead>
+            <table class="table table-hover align-middle sdr-detail-table">
+                <thead><tr><% [['patientCode','Patient ID'],['patient','Patient'],['clinic','Assigned clinic'],['pharmacy','Assigned pharmacy'],['lastRxServiceDate','Last RX service date'],['patientActive','Patient status'],['serviceDate','Service date'],['rxCount','RX records'],['rxStatus','RX status'],['serviceDateCount','Patient service dates in range'],['pendingDateCount','Patient pending dates in range']].forEach(([key,label]) => { %>
+                    <th scope="col" aria-sort="none"><button type="button" class="sdr-sort" data-sdr-sort="<%= key %>" data-sdr-label="<%= label %>"><%= label %> <span aria-hidden="true">↕</span></button></th>
+                <% }); %></tr></thead>
                 <tbody id="sdrBody"></tbody>
             </table>
-        </div>
-        <div class="d-flex gap-2 align-items-center mt-2">
-            <button id="sdrPrev" class="btn btn-sm btn-outline-primary" type="button" disabled>Previous</button>
-            <span id="sdrPage"></span>
-            <button id="sdrNext" class="btn btn-sm btn-outline-primary" type="button" disabled>Next</button>
         </div>
     </div>
 </div>

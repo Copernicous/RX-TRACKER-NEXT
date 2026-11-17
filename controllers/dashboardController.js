@@ -8,6 +8,7 @@ const {
     materializeSnapshotHistory
 } = require('../services/snapshotService');
 const { activeRxWorkflowAggregateSql } = require('../utils/rxWorkflowAggregateSql');
+const { noRxPatientSql } = require('../utils/patientRxPresence');
 
 // Ã¢â€â‚¬Ã¢â€â‚¬ Helper: build a date-range WHERE clause from ?from= / ?to= params Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
 function buildDateRange(req) {
@@ -107,26 +108,8 @@ exports.getStats = async (req, res) => {
             include: [{ model: db.User, attributes: ['firstName', 'lastName'] }]
         });
 
-        let patientsWithNoRx;
-        if (currentSnapshot) {
-            patientsWithNoRx = Number(currentSnapshot.patientsWithNoRx || 0);
-        } else {
-            // Active patients with NO RX records
-            const patientIdsWithRx = await db.RXRecord.findAll({
-                attributes: ['patientId'],
-                where: { isDeleted: false },
-                group: ['patientId'],
-                raw: true
-            });
-            const idsWithRx = patientIdsWithRx.map(r => r.patientId);
-            patientsWithNoRx = await db.Patient.count({
-                where: {
-                    isActive: true,
-                    ...notDeleted,
-                    id: { [Op.notIn]: idsWithRx.length ? idsWithRx : [0] }
-                }
-            });
-        }
+        // Live all-history patient count, independent of the dashboard date selector.
+        const patientsWithNoRx = await db.Patient.count({ where: literal(noRxPatientSql) });
 
         res.json({
             activePatients,
@@ -167,21 +150,8 @@ exports.getInactivePatients = async (req, res) => {
 
 exports.getPatientsWithNoRx = async (req, res) => {
     try {
-        const patientIdsWithRx = await db.RXRecord.findAll({
-            attributes: ['patientId'],
-            where: { isDeleted: false },
-            group: ['patientId'],
-            raw: true
-        });
-        const idsWithRx = patientIdsWithRx.map(r => r.patientId);
-        // M3 FIX: include legacy rows where isDeleted IS NULL
-        const notDeleted = { [Op.or]: [{ isDeleted: false }, { isDeleted: null }] };
         const patients = await db.Patient.findAll({
-            where: {
-                isActive: true,
-                ...notDeleted,
-                id: { [Op.notIn]: idsWithRx.length ? idsWithRx : [0] }
-            },
+            where: literal(noRxPatientSql),
             include: [{ model: db.Clinic }, { model: db.PatientTransportCompany }, { model: db.PharmacyTransportCompany }],
             order: [['lastName', 'ASC']]
         });
@@ -402,13 +372,13 @@ async function loadPersistedDashboardChart(query) {
         dailyTrends.serviceDateChanges.push(entries);
     });
     const cardTotals = {
-        labels: ['Active', 'Inactive', 'Total RX', 'Pending', 'No RX'],
+        labels: ['Active', 'Inactive', 'Total RX', 'Pending', 'Active patients: zero RX ever (live, all dates)'],
         data: [
             snapshotNumber(current, 'activePatients'),
             snapshotNumber(current, 'inactivePatients'),
             snapshotNumber(current, 'totalRX'),
             snapshotNumber(current, 'pendingRX'),
-            snapshotNumber(current, 'patientsWithNoRx')
+            await db.Patient.count({ where: literal(noRxPatientSql) })
         ]
     };
     return {

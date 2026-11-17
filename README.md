@@ -10,7 +10,13 @@ frozen 3.3.1 repository, its production database, or the RX Softphone source.
 
 ## Current status
 
-Version: `4.0.0-next.100`
+Version: `4.0.0-next.101`
+
+Version `next.101` adds clickable validation summaries, automatic filters,
+all-column sorting, top pagination through 1,000 rows, and CSV sort parity.
+Aligned filters share equal control heights. The compact dashboard No-RX card
+shows a live all-history count of active patients with zero RX, with its exact
+definition behind an info icon. No migration or business-data rewrite.
 
 Version `next.100` adds Service Date RX Validation under Patients, beside Export CSV.
 Review exact missing-RX dates with multi-select clinic/pharmacy filters, last RX

@@ -1439,7 +1439,7 @@ function openDrilldown(type) {
         'inactive-patients': 'Inactive Patients',
         'total-rx':          'All RX Records',
         'pending-rx':        'Pending RX Records (Incomplete Workflow)',
-        'patients-no-rx':    'Active Patients with No RX Records'
+        'patients-no-rx':    'Active patients with zero RX records — all dates'
     };
     var idMap = {
         'active-patients':   'xl-patients-active',
@@ -1875,10 +1875,34 @@ function copySecret() {
     });
 })();
 
+function initNoRxCardHelp() {
+    var help = document.getElementById('noRxCardHelp');
+    if (!help) return;
+    var button = help.querySelector('button');
+    var popup = document.getElementById('noRxCardInfo');
+    var pinned = false;
+    var hovering = false;
+    function show(visible) {
+        popup.hidden = !visible;
+        button.setAttribute('aria-expanded', String(visible));
+    }
+    help.addEventListener('click', function(event) { event.stopPropagation(); });
+    button.addEventListener('click', function() { pinned = !pinned; show(pinned); });
+    help.addEventListener('mouseenter', function() { hovering = true; show(true); });
+    help.addEventListener('mouseleave', function() { hovering = false; if (!pinned && !help.contains(document.activeElement)) show(false); });
+    help.addEventListener('focusin', function() { show(true); });
+    help.addEventListener('focusout', function(event) { if (!pinned && !hovering && !help.contains(event.relatedTarget)) show(false); });
+    document.addEventListener('click', function(event) { if (!help.contains(event.target)) { pinned = false; show(false); } });
+    document.addEventListener('keydown', function(event) {
+        if (event.key === 'Escape' && !popup.hidden) { pinned = false; show(false); }
+    });
+}
+
 // =====================================================================
 // Main entry point -- DOMContentLoaded
 // =====================================================================
 document.addEventListener('DOMContentLoaded', function() {
+    initNoRxCardHelp();
     initApp();
     drilldownModal = new bootstrap.Modal(document.getElementById('drilldownModal'));
 
