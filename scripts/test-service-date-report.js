@@ -24,10 +24,18 @@ const db = require('../models');
         const sql = text => db.sequelize.query(text, { transaction });
         await sql(`SET LOCAL statement_timeout = '10s';
             CREATE TEMP TABLE "Patients" (id integer, "patientCode" text, "firstName" text, "lastName" text, "serviceDate" date, "isActive" boolean, "isDeleted" boolean) ON COMMIT DROP;
-            ALTER TABLE "Patients" ADD COLUMN "clinicId" integer, ADD COLUMN "pharmacyId" integer;
+            ALTER TABLE "Patients" ADD COLUMN "clinicId" integer, ADD COLUMN "pharmacyId" integer,
+                ADD COLUMN dob date, ADD COLUMN phone text, ADD COLUMN address text;
             CREATE TEMP TABLE "Clinics" (id integer, name text) ON COMMIT DROP;
             CREATE TEMP TABLE "Pharmacies" (id integer, name text) ON COMMIT DROP;
             CREATE TEMP TABLE "RXRecords" (id integer, "patientId" integer, "serviceDate" date, "isDeleted" boolean) ON COMMIT DROP;
+            ALTER TABLE "RXRecords" ADD COLUMN "arrivalDate" date, ADD COLUMN "pharmacyId" integer, ADD COLUMN "returnedToWarehouse" boolean;
+            CREATE TEMP TABLE "Medications" (id integer, "rxRecordId" integer, name text, quantity integer) ON COMMIT DROP;
+            CREATE TEMP TABLE "WorkflowActions" (id integer, "isActive" boolean) ON COMMIT DROP;
+            CREATE TEMP TABLE "RXWorkflowTrackings" (id integer, "rxRecordId" integer, "workflowActionId" integer) ON COMMIT DROP;
+            INSERT INTO "Medications" VALUES (1,1,'Synthetic medication',10);
+            INSERT INTO "WorkflowActions" VALUES (1,true),(2,true),(3,false);
+            INSERT INTO "RXWorkflowTrackings" VALUES (1,1,1),(2,1,1),(3,1,3),(4,1,99);
             CREATE TEMP TABLE "PatientServiceDateCycles" ("patientId" integer, "serviceDate" date) ON COMMIT DROP;
             CREATE TEMP TABLE "PatientServiceDateHistories" ("patientId" integer, "previousServiceDate" date, "newServiceDate" date) ON COMMIT DROP;
             INSERT INTO "Patients" (id,"patientCode","firstName","lastName","serviceDate","isActive","isDeleted") VALUES (1,'XYZ','=Synthetic','Patient','2026-10-01',true,false),
@@ -41,6 +49,7 @@ const db = require('../models');
             INSERT INTO "RXRecords" VALUES (1,1,'2026-09-01',false),(2,1,'2026-09-01',null),
                 (3,1,'2026-10-01',true),(4,2,'2026-05-01',false),(5,1,null,false);`);
         let permission = { visible: true, canExport: true };
+        let rxPermission = { visible: true };
         const file = path.resolve(__dirname, '../controllers/serviceDateReportController.js');
         const localRequire = createRequire(file);
         const context = { exports: {}, console, require(name) {
@@ -49,12 +58,42 @@ const db = require('../models');
                 query: (text, options) => db.sequelize.query(text, { ...options, transaction })
             } };
             if (name === '../middleware/rbac') return { getRequestPermission: async (_req, module) => {
-                assert.equal(module, 'patients', 'Validation uses Patients permissions');
-                return permission;
+                assert.ok(['patients','rx_records'].includes(module), 'Validation permissions');
+                return module === 'rx_records' ? rxPermission : permission;
             } };
             return localRequire(name);
         } };
         vm.runInNewContext(fs.readFileSync(file, 'utf8'), context, { filename: file });
+        const detailsFile = path.resolve(__dirname,'../controllers/serviceDateDetailController.js');
+        const detailsContext = { exports:{}, require:context.require };
+        vm.runInNewContext(fs.readFileSync(detailsFile,'utf8'),detailsContext,{ filename:detailsFile });
+        async function detail(query = {}, id = '1') {
+            const res = { code:200, status(code) { this.code=code; return this; }, setHeader() {}, json(body) { this.body=body; } };
+            await detailsContext.exports.getDetails({ query,params:{id} },res);
+            assert.notEqual(res.code,500,JSON.stringify(res.body)); return res;
+        }
+        const overview = await detail();
+        assert.equal(overview.body.patient.patientCode,'XYZ');
+        assert.equal(overview.body.total,3,'All-history RX includes undated and NULL deletion flags');
+        assert.equal(overview.body.rows.at(-1).serviceDate,null);
+        const exactDate = (await detail({ serviceDate:'2026-09-01' })).body;
+        assert.equal(exactDate.total,2);
+        assert.ok(exactDate.rows.every(row=>row.serviceDate==='2026-09-01'));
+        const detailedRx = exactDate.rows.find(row=>row.id===1);
+        assert.equal(detailedRx.completedSteps,1,'Duplicate, retired and orphan workflow steps are excluded');
+        assert.equal(detailedRx.totalSteps,2);
+        assert.equal(detailedRx.medications[0].name,'Synthetic medication');
+        assert.equal(detailedRx.medications[0].quantity,10);
+        assert.equal((await detail({ serviceDate:'2026-10-01' })).body.total,0,'Deleted RX cannot satisfy the selected date');
+        assert.equal((await detail({},'3')).code,404,'Deleted patients stay inaccessible');
+        assert.equal((await detail({},'999')).code,404);
+        for (const query of [{ serviceDate:'2026-02-30' },{ serviceDate:[] },{ page:'0' },{ page:'1.5' },{ page:[] }]) assert.equal((await detail(query)).code,400);
+        assert.equal((await detail({},'1;DROP')).code,400);
+        rxPermission = { visible:false };
+        const restricted = (await detail()).body;
+        assert.equal(restricted.rxAccess,false); assert.equal(restricted.rows.length,0); assert.equal(restricted.total,null);
+        assert.ok(restricted.patient.patientCode);
+        rxPermission = { visible:true };
         async function run(query = {}, exporting = false) {
             const res = { code: 200, text: '', headers: {}, status(code) { this.code = code; return this; },
                 json(body) { this.body = body; }, setHeader(key, value) { this.headers[key] = value; },
@@ -195,11 +234,16 @@ const db = require('../models');
         assert.equal((await dashboardRun(dashboard.exports.getStats)).patientsWithNoRx, 2, 'Live card ignores poisoned snapshot totals');
         assert.equal((await dashboardRun(dashboard.exports.getStats,{ from:'1900-01-01', to:'1900-01-02' })).patientsWithNoRx, 2, 'All-history card ignores dashboard date range');
         assert.equal((await dashboardRun(dashboard.exports.getPatientsWithNoRx)).length, 2, 'Dashboard drilldown matches the card');
+        await sql(`INSERT INTO "RXRecords" (id,"patientId","serviceDate","isDeleted") SELECT 100+n,1,'2026-09-01',false FROM generate_series(0,29)n;`);
+        assert.equal((await detail({ serviceDate:'2026-09-01' })).body.rows.length,25);
+        const detailPage = (await detail({ serviceDate:'2026-09-01',page:'999' })).body;
+        assert.equal(detailPage.page,2); assert.equal(detailPage.rows.length,7); assert.equal(detailPage.total,32);
         permission = { visible: true, canExport: false };
         assert.equal((await run({}, true)).code, 403);
         assert.equal((await run()).body.canExport, false);
         permission = { visible: false, canExport: true };
         assert.equal((await run()).code, 403);
+        assert.equal((await detail()).code,403);
         console.log('PASS: service-date SQL, missing RX, legacy history, filters, pagination, full CSV and permissions.');
     } finally {
         try { if (transaction) await transaction.rollback(); }

@@ -119,22 +119,22 @@ document.addEventListener('DOMContentLoaded', function () {
         });
         const body = el('sdrBody'); body.replaceChildren();
         data.rows.forEach(row => {
-            const focus = () => { set({ patientId:row.patientId }); apply(); };
+            const inspect = kind => event => root.dispatchEvent(new CustomEvent('sdr:inspect', { detail: { row, kind, trigger:event.currentTarget, filters:applied.toString() } }));
             const values = [
-                [row.patientCode,focus], [row.patient,focus],
-                [row.clinic,() => { set({ clinicId:row.clinicId || 'none' }); apply(); }],
-                [row.pharmacy,() => { set({ pharmacyId:row.pharmacyId || 'none' }); apply(); }],
-                [displayDate(row.lastRxServiceDate),() => { set({ lastRxFrom:row.lastRxServiceDate || '', lastRxTo:row.lastRxServiceDate || '', lastRxStatus:row.lastRxServiceDate ? 'dated' : 'undated' }); apply(); }],
-                [row.patientActive ? 'Active' : 'Inactive',() => { set({ patientStatus:row.patientActive ? 'active' : 'inactive' }); apply(); }],
-                [displayDate(row.serviceDate),() => { set({ from:row.serviceDate, to:row.serviceDate }); apply(); }],
-                [row.rxCount,() => quick('status',row.rxCount ? 'exists' : 'pending')],
-                [row.rxCount ? 'RX exists' : 'Pending RX',() => quick('status',row.rxCount ? 'exists' : 'pending')],
-                [row.serviceDateCount,() => { set({ patientId:row.patientId, status:'all', rxHistory:'all', coverage:'all' }); apply(); }],
-                [row.pendingDateCount,() => { set({ patientId:row.patientId, status:'pending', rxHistory:'all', coverage:'all' }); apply(); }]
+                [row.patientCode,inspect('patient')], [row.patient,inspect('patient')],
+                [row.clinic,inspect('clinic')], [row.pharmacy,inspect('pharmacy')],
+                [displayDate(row.lastRxServiceDate),inspect('lastRx')],
+                [row.patientActive ? 'Active' : 'Inactive',inspect('status')],
+                [displayDate(row.serviceDate),inspect('date')], [row.rxCount,inspect('date')],
+                [row.rxCount ? 'RX exists' : 'Pending RX',inspect('date')],
+                [row.serviceDateCount,inspect('dates')], [row.pendingDateCount,inspect('pending')]
             ];
             const tr = document.createElement('tr');
             values.forEach(([value,action],index) => {
-                const td = document.createElement('td'); td.append(button(value,action));
+                const td = document.createElement('td'), detailButton = button(value,action);
+                detailButton.title = 'Inspect details without changing the report';
+                detailButton.setAttribute('aria-label','Inspect ' + root.querySelectorAll('[data-sdr-sort]')[index].dataset.sdrLabel + ': ' + value);
+                td.append(detailButton);
                 if (index === 8 && !row.rxCount) td.className = 'fw-bold text-danger'; tr.append(td);
             }); body.append(tr);
         });
@@ -151,7 +151,7 @@ document.addEventListener('DOMContentLoaded', function () {
             const node = button(n,() => go(n),'btn btn-sm ' + (n === page ? 'btn-primary' : 'btn-outline-primary'));
             node.setAttribute('aria-label','Page ' + n); if (n === page) node.setAttribute('aria-current','page'); links.append(node);
         }
-        el('sdrSummary').textContent = 'Click a table value to narrow the list. Remove a filter below the form to broaden it.';
+        el('sdrSummary').textContent = 'Click a detail value to inspect it in a popup. Summary rows filter the report; remove a filter below the form to broaden it.';
     }
     async function load() {
         const seq = ++request; if (controller) controller.abort(); controller = new AbortController();
@@ -204,6 +204,7 @@ document.addEventListener('DOMContentLoaded', function () {
     el('sdrPageGo').addEventListener('click',jump);
     el('sdrPageJump').addEventListener('keydown',event => { if (event.key === 'Enter') { event.preventDefault(); jump(); } });
     el('sdrExport').addEventListener('click',() => { if (!busy && loaded && canExport) window.location.assign(endpoint + '/export?' + applied); });
+    root.addEventListener('sdr:filter',event => { set(event.detail); apply(); });
     el('serviceDateValidationModal').addEventListener('shown.bs.modal',apply);
     el('serviceDateValidationModal').addEventListener('hidden.bs.modal',() => {
         clearTimeout(timer); request++; if (controller) controller.abort(); busy = false; root.setAttribute('aria-busy','false');

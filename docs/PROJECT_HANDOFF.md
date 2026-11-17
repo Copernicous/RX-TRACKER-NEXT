@@ -8,6 +8,16 @@ patient data, SIP secrets, pairing secrets, or production database dumps.
 
 ## Current state
 
+- **next.101 popup scope approved (2026-11-16):** User requested patient,
+  exact-service-date RX and service-date-inventory popups before publication.
+  Read-only details show arrival, RX pharmacy, medication quantities and active
+  workflow progress with Patients/RX viewing permissions. Close/Escape preserves
+  report state, scroll and focus; explicit buttons optionally filter the report.
+  Synthetic PostgreSQL and browser checks passed. Sort direction uses fixed SQL
+  constants after the first candidate was blocked by the security scan. The
+  updated exact source requires fresh full local release validation. See
+  LOCAL_RELEASE_SECURITY_REVIEW.md for retained moderate GET identifier findings.
+
 - **next.101 release preparation (2026-11-16):** User authorized versioning,
   GitHub push and a production-ready release of validation summaries/automatic
   filters, all-column sorting, top pagination and CSV parity. The aligned

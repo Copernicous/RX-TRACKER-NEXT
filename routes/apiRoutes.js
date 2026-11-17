@@ -459,6 +459,7 @@ router.put('/workflow-actions/:id/restore', rbac.requireRole(['Administrator']),
 router.get('/patients/check-duplicate', rbac.requirePermission('patients', 'read'), patientController.checkDuplicate);
 router.get('/patients/service-date-validation', rbac.requirePermission('patients', 'read'), serviceDateReportController.getReport);
 router.get('/patients/service-date-validation/export', rbac.requirePermission('patients', 'export'), serviceDateReportController.getReport);
+router.get('/patients/service-date-validation/details/:id', rbac.requirePermission('patients', 'read'), require('../controllers/serviceDateDetailController').getDetails);
 router.get('/patients/:id/timeline',    rbac.requirePermission('patients', 'read'), patientController.getTimeline);
 router.get('/patients/:id/service-date-history', rbac.requirePermission('patients', 'read'), patientController.getServiceDateHistory);
 router.put('/patients/:id/restore',     rbac.requirePermission('patients', 'edit'), auditLogger('Patients'), patientController.restore);

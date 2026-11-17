@@ -71,7 +71,8 @@ ejs.renderFile(path.resolve(__dirname, '../views/patients.ejs'), {
     if (error) throw error;
     for (const id of ['serviceDateValidationBtn', 'serviceDateValidationModal', 'sdrForm', 'sdrBody', 'sdrExport',
         'sdrClinic', 'sdrPharmacy', 'sdrLastRxFrom', 'sdrLastRxTo', 'sdrLastRxStatus', 'sdrStatsPanel', 'sdrPatientStatus',
-        'sdrRxHistory', 'sdrCoverage', 'sdrPageSize', 'sdrFirst', 'sdrLast', 'sdrPageJump', 'sdrFilterChips']) {
+        'sdrRxHistory', 'sdrCoverage', 'sdrPageSize', 'sdrFirst', 'sdrLast', 'sdrPageJump', 'sdrFilterChips', 'sdrDetails',
+        'sdrDetailsPatient', 'sdrDetailsDate', 'sdrDetailsDates', 'sdrDetailsDone']) {
         assert(html.includes(`id="${id}"`), 'Patients validation is missing #' + id);
     }
     assert(html.includes('Last RX service date'));

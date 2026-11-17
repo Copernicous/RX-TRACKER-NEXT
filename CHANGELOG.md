@@ -11,6 +11,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
   filters, removable filter buttons, patient status/RX-history/date-coverage
   filters, sorting across every column, top pagination up to 1,000 rows and page
   jump. Filtered CSV follows the same global sort across all pages.
+- Detail-cell popups show patient information, exact-date RX, all RX history
+  and retained service dates without losing the report view. Includes missing-RX
+  explanations, RX pharmacy/arrival, workflow progress and medication quantities.
+  Patients/RX permissions apply; Close/Escape preserves report state and focus.
 - Dashboard: clarify the No-RX card as a live, all-history count of active
   patients with zero non-deleted RX. Count and drilldown include legacy NULL
   deletion flags and undated RX consistently; do not reuse a cached total.

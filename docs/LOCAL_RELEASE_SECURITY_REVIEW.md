@@ -1,5 +1,20 @@
 # next.95 local security scan evidence
 
+## next.101 query construction and focus identifiers
+
+Sort direction now selects fixed ASC/DESC SQL constants after validation; no
+request string is inserted into the ORDER BY direction. Sort expressions remain
+an explicit fixed allowlist and query values use Sequelize replacements.
+The original candidate's new high-severity scan finding blocked publication;
+the corrected exact source must pass a fresh complete release preparation.
+
+CodeQL also flags internal patient-focus identifiers in authenticated GET query
+parameters at moderate severity. URLs may be retained by browser/proxy access
+logs. No-store responses do not redact such logs; this release does not alter
+their retention. Findings remain in SARIF and the comparison manifest. The
+drilldown returns selected fields only, checks Patients and RX permissions and
+never calls cycle synchronization. No security gate or review exemption changes.
+
 The previous hosted CodeQL workflow required successful extraction/analysis;
 it did not require zero findings. Local scans preserve that evidence and add
 comparison against the prior published JavaScript source using the same tool

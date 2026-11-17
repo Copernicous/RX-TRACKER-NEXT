@@ -32,6 +32,19 @@
         #serviceDateReport .sdr-pagination select { width:auto; }
         #serviceDateReport #sdrPageJump { width:5.5rem; }
         #serviceDateReport .sdr-detail-table th { vertical-align:middle; }
+        #sdrDetails { width:min(1120px,calc(100vw - 32px));max-height:90vh;padding:0;border:1px solid var(--border);border-radius:12px;background:var(--surface);color:var(--text);box-shadow:var(--shadow-lg); }
+        #sdrDetails::backdrop { background:rgba(0,0,0,.6); }
+        #sdrDetails .sdr-dialog-header, #sdrDetails .sdr-dialog-footer { display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;padding:1rem;border-bottom:1px solid var(--border); }
+        #sdrDetails .sdr-dialog-footer { border-top:1px solid var(--border);border-bottom:0; }
+        #sdrDetails .sdr-dialog-header { position:sticky;top:0;background:var(--surface);z-index:1; }
+        #sdrDetails .sdr-dialog-body { padding:1rem; }
+        #sdrDetails .sdr-patient-facts { display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.75rem;margin-top:.75rem; }
+        #sdrDetails .sdr-patient-facts dt { font-size:.75rem;color:var(--text-muted); }
+        #sdrDetails .sdr-patient-facts dd { margin:0;overflow-wrap:anywhere; }
+        #sdrDetails .sdr-fact-selected { background:rgba(74,144,226,.12);border-radius:6px;padding:.35rem; }
+        #sdrDetails .table { --bs-table-bg:transparent;--bs-table-color:var(--text); }
+        #sdrDetailsStatus { min-height:1.5em; }
+        @media(max-width:575px) { #sdrDetails .sdr-patient-facts { grid-template-columns:minmax(0,1fr); } }
     </style>
     <div class="glass-card p-4">
         <p class="text-muted small">Find assigned service dates without an RX record so staff can investigate why the RX was not created. Pending RX means no non-deleted RX record exists for that date; it does not describe workflow completion or establish the reason. Includes active and inactive patients; deleted patients are excluded.</p>
@@ -100,4 +113,14 @@
             </table>
         </div>
     </div>
+    <dialog id="sdrDetails" aria-labelledby="sdrDetailsTitle">
+        <div class="sdr-dialog-header"><div class="me-auto"><h5 id="sdrDetailsTitle" class="mb-1">Patient details</h5><div id="sdrDetailsSubtitle" class="small text-muted"></div></div><span class="badge bg-secondary">Read only</span><button type="button" id="sdrDetailsClose" class="btn btn-sm btn-outline-secondary" aria-label="Close patient details">Close ×</button></div>
+        <div class="sdr-dialog-body">
+            <div class="d-flex gap-2 flex-wrap mb-3" aria-label="Patient detail views"><button type="button" id="sdrDetailsPatient" class="btn btn-sm btn-outline-primary">Patient &amp; all RX</button><button type="button" id="sdrDetailsDate" class="btn btn-sm btn-outline-primary">Selected service date</button><button type="button" id="sdrDetailsDates" class="btn btn-sm btn-outline-primary">Service dates in range</button></div>
+            <div id="sdrDetailsStatus" role="status" aria-live="polite"></div>
+            <div id="sdrDetailsContent"></div>
+            <div class="d-flex align-items-center gap-2 mt-3"><button type="button" id="sdrDetailsPrev" class="btn btn-sm btn-outline-primary" disabled>Previous</button><span id="sdrDetailsPage" class="small"></span><button type="button" id="sdrDetailsNext" class="btn btn-sm btn-outline-primary" disabled>Next</button><button type="button" id="sdrDetailsRetry" class="btn btn-sm btn-outline-secondary" hidden>Retry</button></div>
+        </div>
+        <div class="sdr-dialog-footer"><button type="button" id="sdrDetailsFilterPatient" class="btn btn-sm btn-outline-primary">Filter report to this patient</button><button type="button" id="sdrDetailsFilterDate" class="btn btn-sm btn-outline-primary">Filter report to this date</button><button type="button" id="sdrDetailsDone" class="btn btn-secondary ms-auto">Close and continue</button></div>
+    </dialog>
 </div>

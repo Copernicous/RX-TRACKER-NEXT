@@ -8,6 +8,10 @@ tables, automatic and removable filters, patient status/RX-history/date-coverage
 filters, sorting on every detail column, and top pagination up to 1,000 rows
 with numbered pages and page jump. CSV preserves filters and global sorting.
 The responsive filter grid has aligned columns and uniform 40px controls.
+Click detail cells for read-only patient information, exact-date RX, all RX or
+service dates in range. Close/Escape preserves filters, page and focus. RX lists
+show pharmacy, arrival, workflow progress and medication quantities with RX
+viewing permission; explicit buttons optionally filter the main report.
 
 The dashboard Active patients: no RX card counts active, non-deleted patients
 with zero non-deleted RX across all dates, including undated RX. It reads live

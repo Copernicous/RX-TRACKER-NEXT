@@ -14,6 +14,8 @@ Version: `4.0.0-next.101`
 
 Version `next.101` adds clickable validation summaries, automatic filters,
 all-column sorting, top pagination through 1,000 rows, and CSV sort parity.
+Read-only patient/date/RX popups preserve the report view while inspecting
+medications, arrival, pharmacy and workflow progress with existing permissions.
 Aligned filters share equal control heights. The compact dashboard No-RX card
 shows a live all-history count of active patients with zero RX, with its exact
 definition behind an info icon. No migration or business-data rewrite.

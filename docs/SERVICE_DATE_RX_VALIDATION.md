@@ -11,13 +11,26 @@ Updated in 4.0.0-next.101:
   including undated RX. Date coverage classifies dates in the selected range as
   only pending, mixed, or only with RX, before quick filters. History and coverage
   categories overlap; do not add the two classifications together.
-- Changing a filter runs validation automatically. Click summary rows/counts or
-  detail values to narrow the list. Patient names/IDs focus one patient; date
-  totals focus that patient's dates; assignment, date, status and RX cells filter
-  their matching values. Removable filter buttons and Reset broaden the list.
+- Changing a filter runs validation automatically. Summary rows/counts filter
+  the list. Detail values open a read-only popup: patient ID/name, clinic,
+  pharmacy and status show patient information and all RX; a service date, RX
+  count/status or last RX date shows RX for that exact date. Date totals open
+  retained dates in the report range; pending totals show only pending dates.
+  Removable filter buttons and Reset broaden the main list.
   Filter fields use six aligned columns in two rows on desktop, with fewer
   columns on smaller screens. Search, date inputs, native selects and
   multi-select dropdown buttons share a consistent 40px height.
+- Popups preserve the main filters, sort, page and scroll position. Close or
+  Escape returns focus to the selected cell; Escape closes only the popup.
+  Switch among patient/all RX, selected date and service dates in range. RX
+  lists page in batches of 25 and show arrival date, RX pharmacy, active workflow
+  progress and expandable medication names/quantities. Exact-date empty states
+  explain missing RX without treating older records as covering the date.
+  Explicit Filter report buttons optionally narrow the underlying report.
+  Patient information requires Patients read permission; RX detail additionally
+  requires RX Records read permission. Deleted patients/RX are excluded, including
+  legacy NULL deletion flags consistently. No cycle synchronization or write
+  occurs. The endpoint is `/api/patients/service-date-validation/details/:id`.
 - Every detail column sorts on the server across the whole matching list.
   Pagination above the detail grid offers 10/20/50/100/250/500/1000 rows,
   numbered pages, first/last and a page jump. CSV uses the same filters and sort

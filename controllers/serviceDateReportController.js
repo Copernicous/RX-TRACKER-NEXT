@@ -139,7 +139,8 @@ exports.getReport = async (req, res) => {
             const query = (sql, extra = {}) => db.sequelize.query(reportSql + sql, {
                 replacements: { ...replacements, ...extra }, transaction, type: db.Sequelize.QueryTypes.SELECT
             });
-            const ordered = `SELECT * FROM filtered ORDER BY ${sortColumns[filter.sort]} ${filter.direction.toUpperCase()} NULLS LAST, "patientId" ASC, "serviceDate" DESC`;
+            const sqlDirection = filter.direction === 'desc' ? 'DESC' : 'ASC';
+            const ordered = `SELECT * FROM filtered ORDER BY ${sortColumns[filter.sort]} ${sqlDirection} NULLS LAST, "patientId" ASC, "serviceDate" DESC`;
             if (exporting) {
                 csvHeaders(res, 'patient-service-dates.csv');
                 if (!await writeCsv(res, csvLine(['Patient ID', 'Patient', 'Assigned clinic', 'Assigned pharmacy', 'Last RX service date', 'Patient status', 'Service date', 'RX records', 'RX status', 'Patient service dates in range', 'Patient pending dates in range']))) return;
