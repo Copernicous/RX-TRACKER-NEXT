@@ -10,7 +10,13 @@ frozen 3.3.1 repository, its production database, or the RX Softphone source.
 
 ## Current status
 
-Version: `4.0.0-next.101`
+Version: `4.0.0-next.102`
+
+Version `next.102` embeds Node 22.23.5 and adds verified separate delivery-recovery
+companions to backups, including ledger/checksum files and the compiled renderer.
+Site ZIPs exclude nested backup history. See
+[Backup recovery coverage](docs/BACKUP_RECOVERY_COVERAGE.md) and the
+[project identity page](START-HERE-RX-TRACKER-NEXT.md).
 
 Version `next.101` adds clickable validation summaries, automatic filters,
 all-column sorting, top pagination through 1,000 rows, and CSV sort parity.

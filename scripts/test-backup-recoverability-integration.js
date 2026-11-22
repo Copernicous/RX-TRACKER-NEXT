@@ -33,6 +33,9 @@ async function main() {
         assert.strictEqual(backup.status, 'success', backup.error || backup.verificationError || 'Backup creation failed.');
         assert.ok(backup.sha256 && backup.sizeBytes > 0 && backup.mtimeMs > 0, 'Backup file identity was not recorded.');
         assert.ok(backup.fingerprint, 'Backup fingerprint was not recorded.');
+        assert.ok(backup.deliveryRecovery && backup.deliveryRecovery.sha256, 'Verified delivery recovery companion missing.');
+        assert.strictEqual(backup.deliveryRecovery.databaseDumpSha256, backup.sha256, 'Delivery companion must be bound to its database dump.');
+        assert.ok(fs.existsSync(path.join(backupService.getDbBackupDir(), backup.deliveryRecovery.filename)), 'Delivery recovery companion file missing.');
         assert.strictEqual(backup.sourceDatabaseIdentity.actualDatabaseName, databaseName);
         assert.strictEqual(
             backupService.databaseIdentitiesMatch(
@@ -52,6 +55,19 @@ async function main() {
         assert.strictEqual(validation.cleanupSucceeded, true, 'Temporary database cleanup was not verified.');
         assert.strictEqual(validation.evidencePersisted, true, 'Recoverability evidence was not persisted.');
         assert.strictEqual(validation.fingerprintVerified, true, 'Restored fingerprint was not verified.');
+
+        // A rejected filesystem snapshot must preserve the previous verified pair.
+        const deliveryDirectory = path.join(runtimeRoot, 'administration', 'delivery-log-archives');
+        fs.mkdirSync(deliveryDirectory, { recursive: true });
+        const junction = path.join(deliveryDirectory, 'unsafe-link');
+        fs.symlinkSync(backupService.getDbBackupDir(), junction, 'junction');
+        try {
+            const failedBackup = await backupService.runBackup('Lifecycle CI rejected delivery snapshot');
+            assert.strictEqual(failedBackup.status, 'failed');
+            assert.ok(failedBackup.verificationError, 'Delivery snapshot failure must be reported.');
+            assert.ok(fs.existsSync(path.join(backupService.getDbBackupDir(), backup.filename)), 'Failed backup pruned the previous dump.');
+            assert.ok(fs.existsSync(path.join(backupService.getDbBackupDir(), backup.deliveryRecovery.filename)), 'Failed backup pruned the previous delivery companion.');
+        } finally { fs.unlinkSync(junction); }
 
         const rows = await db.sequelize.query(
             `SELECT COUNT(*)::int AS "count"

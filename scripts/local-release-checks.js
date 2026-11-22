@@ -100,6 +100,8 @@ async function smokeServer(label, database, port, extra = {}, relay = false) {
         node('public-javascript', 'scripts/check-public-js.js');
         node('archive-download-progress', 'scripts/test-archive-download-progress.js');
         node('compressed-request-security', 'scripts/test-compressed-request-security.js');
+        ps('delivery-recovery-backup', 'scripts/test-delivery-recovery-backup.ps1');
+        node('backup-artifacts', 'scripts/test-backup-artifacts.js');
         for (const name of ['patient-delete-confirmation','backoffice-patient-identity','patient-import-duplicates','patient-create-duplicates','patient-address-update','dependency-policy','security-automation','reference-data','new-server-installer','project-control-test-copy-restore','report-view-render','delivery-log-archive','delivery-log-archive-client','routine-db-health','backup-scheduler-disable','backoffice-backup-snapshot','backoffice-file-archives','rx-profile-sync','i18n-branding']) node(name, 'scripts/test-' + name + '.js');
         for (const name of ['Invoke-NextProduction','Invoke-ReleaseUpdate','Invoke-TestCopyRestore']) ps(name + '-self-test', 'scripts/' + name + '.ps1', ['-Action','SelfTest']);
         ps('backup-manifest-ps51', 'scripts/test-release-backup-manifest.ps1');

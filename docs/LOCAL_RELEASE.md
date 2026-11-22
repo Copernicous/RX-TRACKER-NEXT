@@ -73,5 +73,5 @@ extends the former hosted-only test guard without permitting live databases.
 Preparation does not push or publish automatically. It leaves a concrete,
 verified set of files ready for the authorized push/upload step.
 
-Both built executables must report Node 22.23.4 through --runtime-info before
+Both built executables must report Node 22.23.5 through --runtime-info before
 packaging. Embedded versions are recorded in LOCAL_VALIDATION.json.

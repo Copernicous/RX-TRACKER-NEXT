@@ -289,6 +289,9 @@ assert.ok(
     'site ZIP must exclude the precise delivery-log archive subtree'
 );
 assert.ok(source.includes('$normalizedRel.StartsWith($normalizedExcluded + "/")'));
+assert.ok(source.includes("excludes: ['node_modules', '.git', 'logs', 'backups']"), 'site ZIP must not embed daily dump history');
+assert.ok(source.includes('deliveryRecovery = await createDeliveryRecovery'), 'daily backups must record verified delivery recovery coverage');
+assert.ok(source.includes('if (entry.status === \'success\') pruneOldBackups();'), 'failed/unverified backup must not prune the previous successful recovery pair');
 const broadExcludes = source.match(/excludes:\s*\[([^\]]+)\]/);
 assert.ok(broadExcludes && !broadExcludes[1].includes('delivery-log-archives'), 'PHI exclusion must not use a broad directory-name match');
 

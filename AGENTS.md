@@ -1,7 +1,12 @@
 # RX Tracker NEXT repository instructions
 
-This repository is the migration-managed RX Tracker NEXT project. At the start
-of every new working session, read these files before changing code:
+This repository is the migration-managed RX Tracker NEXT project.
+Read `START-HERE-RX-TRACKER-NEXT.md` at session startup. Before edits or execution,
+verify the working repository is RX-TRACKER-NEXT or its approved worktree. If a
+request names another project or milestone, clarify the intended workspace before
+acting on it; do not switch projects automatically from this workspace.
+
+At the start of every new working session, read these files before changing code:
 
 1. `docs/PROJECT_HANDOFF.md`
 2. `README.md`

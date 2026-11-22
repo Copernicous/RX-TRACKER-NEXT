@@ -5,6 +5,18 @@ Format follows [Keep a Changelog](https://keepachangelog.com).
 
 ---
 
+## [4.0.0-next.102] - 2026-11-22
+
+- Embed Node 22.23.5 in server/rx-db using pinned pkg 6.26.0 and verify both
+  actual executable runtimes before packaging.
+- Add verified, separate delivery recovery companions to daily and site backups,
+  preserving hidden ledger, compressed archives, checksums and compiled renderer.
+  Failed verification retains prior recovery sets; prune matching companions.
+- Exclude nested daily backup folders from general site ZIPs while retaining
+  precise delivery-PHI separation. Add project identity page/startup checks.
+- No migration, patient/RX rewrite or configured RX Action change. PostgreSQL
+  minor patch and production retention are controlled operational changes.
+
 ## [4.0.0-next.101] - 2026-11-16
 
 - Service Date RX Validation: clickable patient/date summary tables, automatic

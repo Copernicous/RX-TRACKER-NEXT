@@ -1,10 +1,12 @@
 'use strict';
 
 const cron      = require('node-cron');
-const { spawn, spawnSync } = require('child_process');
+const { spawn, spawnSync, execFile } = require('child_process');
 const path      = require('path');
 const fs        = require('fs');
 const crypto    = require('crypto');
+const os        = require('os');
+const { prunableCompleted, cleanupHelperPartials } = require('./backupArtifacts');
 const { getAppRoot, getWritableRoot } = require('../utils/runtimePaths');
 const securityAlertService = require('./securityAlertService');
 
@@ -150,12 +152,57 @@ function appendLog(entry) {
 }
 
 // ── pg_dump runner ────────────────────────────────────────────────────────────
+function createDeliveryRecovery(directory, stem) {
+    const recoveryDirectory = path.join(directory, 'delivery-recovery');
+    ensureDir(recoveryDirectory);
+    const filename = stem.replace(/\.(dump|zip)$/i, '') + '.delivery-recovery.zip';
+    const destination = path.join(recoveryDirectory, filename);
+    const helper = path.join(PROJECT_ROOT, 'scripts', 'Backup-DeliveryArchives.ps1');
+    const powershell = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
+    const ownerPath = destination + '.process.json';
+    return new Promise((resolve, reject) => {
+        let ownerWriteFailure = null;
+        const owner = { purpose: 'Verified delivery archive recovery companion', host: os.hostname(), executable: powershell, createdAt: new Date().toISOString(), destination, childProcesses: [], ports: [], exitPlan: 'Bounded foreground helper; close ZIP streams and remove owned partial files in finally.' };
+        const child = execFile(powershell, ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', helper,
+            '-AppRoot', PROJECT_ROOT, '-WritableRoot', WRITABLE_ROOT, '-Destination', destination,
+            '-ApplicationVersion', require('../package.json').version],
+        { windowsHide: true, timeout: 150000, maxBuffer: 1024 * 1024 }, async error => {
+            owner.exitedAt = new Date().toISOString();
+            owner.exitCode = error ? (error.code || 'failed') : 0;
+            try {
+                // execFile callback runs after child exit, including forced timeout.
+                owner.cleanedPartials = cleanupHelperPartials(recoveryDirectory, filename);
+                fs.writeFileSync(ownerPath, JSON.stringify(owner, null, 2));
+                if (ownerWriteFailure) throw ownerWriteFailure;
+                if (error) throw new Error('Delivery recovery companion failed; previous backup retained.');
+                const receipt = JSON.parse(fs.readFileSync(destination + '.sha256.json', 'utf8'));
+                const actual = await getFileIdentity(destination);
+                if (receipt.sha256.toLowerCase() !== actual.sha256 || receipt.bytes !== actual.sizeBytes) throw new Error('Delivery recovery checksum mismatch.');
+                resolve({ filename: 'delivery-recovery/' + filename, sha256: actual.sha256, sizeBytes: actual.sizeBytes, fileCount: receipt.fileCount, applicationVersion: receipt.applicationVersion });
+            } catch (failure) { reject(failure); }
+        });
+        owner.pid = child.pid;
+        // The callback persists the final exit state, including spawn failures.
+        try { fs.writeFileSync(ownerPath, JSON.stringify(owner, null, 2)); }
+        catch (error) { ownerWriteFailure = error; child.kill(); }
+    });
+}
+
+function removeDeliveryRecovery(directory, stem) {
+    const filename = stem.replace(/\.(dump|zip)$/i, '') + '.delivery-recovery.zip';
+    if (path.basename(stem) !== stem || !/^(backup_|RX_SiteBackup_)[\w-]+\.(dump|zip)$/.test(stem)) return;
+    for (const suffix of ['', '.sha256.json', '.process.json']) {
+        try { fs.unlinkSync(path.join(directory, 'delivery-recovery', filename + suffix)); }
+        catch (error) { if (error.code !== 'ENOENT') throw error; }
+    }
+}
+
 function runBackup(triggeredBy = 'Scheduled') {
     return new Promise((resolve) => {
         const dir      = getDbBackupDir();
         ensureDir(dir);
 
-        const ts       = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+        const ts       = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 23) + '-' + crypto.randomBytes(4).toString('hex');
         const filename = 'backup_' + ts + '.dump';
         const filepath = path.join(dir, filename);
 
@@ -184,6 +231,7 @@ function runBackup(triggeredBy = 'Scheduled') {
             let fingerprint = null;
             let sourceDatabaseIdentity = configuredDatabaseIdentity;
             let verificationError = null;
+            let deliveryRecovery = null;
             if (code === 0) {
                 try {
                     identity = await getFileIdentity(filepath);
@@ -193,6 +241,8 @@ function runBackup(triggeredBy = 'Scheduled') {
                         || sourceDatabaseIdentity.actualDatabaseName !== sourceDatabaseIdentity.databaseName) {
                         throw new Error('Backup source database identity could not be verified.');
                     }
+                    deliveryRecovery = await createDeliveryRecovery(dir, filename);
+                    deliveryRecovery.databaseDumpSha256 = identity.sha256;
                 } catch (error) {
                     verificationError = error && error.message ? error.message : String(error);
                 }
@@ -205,7 +255,7 @@ function runBackup(triggeredBy = 'Scheduled') {
                 filepath:    code === 0 ? filepath : null,
                 timestamp:   new Date().toISOString(),
                 triggeredBy,
-                status:      code === 0 ? 'success' : 'failed',
+                status:      code === 0 && !verificationError ? 'success' : 'failed',
                 size:        identity ? identity.sizeBytes : 0,
                 sha256:      identity ? identity.sha256 : null,
                 sizeBytes:   identity ? identity.sizeBytes : 0,
@@ -213,11 +263,12 @@ function runBackup(triggeredBy = 'Scheduled') {
                 sourceDatabaseIdentity,
                 fingerprint,
                 verificationError,
+                deliveryRecovery,
                 error:       code !== 0 ? stderr.trim() : null
             };
 
             appendLog(entry);
-            pruneOldBackups();
+            if (entry.status === 'success') pruneOldBackups();
             resolve(entry);
         });
 
@@ -249,8 +300,8 @@ function pruneOldBackups() {
             .filter(f => f.startsWith('backup_') && f.endsWith('.dump'))
             .map(f => ({ name: f, mtime: fs.statSync(path.join(dir, f)).mtimeMs }))
             .sort((a, b) => b.mtime - a.mtime);
-        files.slice(MAX_BACKUPS).forEach(f => {
-            try { fs.unlinkSync(path.join(dir, f.name)); } catch {}
+        prunableCompleted(files, readLog(), MAX_BACKUPS, 'database').forEach(f => {
+            try { fs.unlinkSync(path.join(dir, f.name)); removeDeliveryRecovery(dir, f.name); } catch {}
         });
     } catch {}
 }
@@ -274,6 +325,7 @@ function deleteBackup(filename) {
     }
     const filepath = path.join(getDbBackupDir(), filename);
     if (fs.existsSync(filepath)) fs.unlinkSync(filepath);
+    removeDeliveryRecovery(getDbBackupDir(), filename);
     const entries = readLog();
     writeLog(entries.filter(e => e.filename !== filename));
 }
@@ -446,8 +498,8 @@ function pruneOldSiteBackups() {
             .filter(f => f.startsWith('RX_SiteBackup_') && f.endsWith('.zip'))
             .map(f => ({ name: f, mtime: fs.statSync(path.join(getSiteBackupDir(), f)).mtimeMs }))
             .sort((a, b) => b.mtime - a.mtime);
-        files.slice(MAX_SITE_BACKUPS).forEach(f => {
-            try { fs.unlinkSync(path.join(getSiteBackupDir(), f.name)); } catch {}
+        prunableCompleted(files, readSiteLog(), MAX_SITE_BACKUPS, 'site').forEach(f => {
+            try { fs.unlinkSync(path.join(getSiteBackupDir(), f.name)); removeDeliveryRecovery(getSiteBackupDir(), f.name); } catch {}
         });
     } catch {}
 }
@@ -468,6 +520,7 @@ function deleteSiteBackup(filename) {
     }
     const filepath = path.join(getSiteBackupDir(), filename);
     if (fs.existsSync(filepath)) fs.unlinkSync(filepath);
+    removeDeliveryRecovery(getSiteBackupDir(), filename);
     const entries = readSiteLog();
     const synced  = entries.filter(e => e.filename !== filename);
     try { fs.writeFileSync(path.join(getSiteBackupDir(), 'site-backup.log.json'), JSON.stringify(synced, null, 2)); } catch {}
@@ -478,7 +531,7 @@ function runFullSiteBackup(triggeredBy = 'Manual') {
         const siteDir  = getSiteBackupDir();
         ensureDir(siteDir);
 
-        const ts       = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+        const ts       = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 23) + '-' + crypto.randomBytes(4).toString('hex');
         const zipName  = 'RX_SiteBackup_' + ts + '.zip';
         const zipPath  = path.join(siteDir, zipName);
         const dbDump   = path.join(siteDir, '_temp_db_' + ts + '.dump');
@@ -518,7 +571,7 @@ function runFullSiteBackup(triggeredBy = 'Manual') {
                 sourceRoot: PROJECT_ROOT,
                 destinationZip: zipPath,
                 databaseDump: dbDump,
-                excludes: ['node_modules', '.git', 'logs'],
+                excludes: ['node_modules', '.git', 'logs', 'backups'],
                 excludeRelativePaths: ['administration/delivery-log-archives']
             });
             const psContent = [
@@ -615,13 +668,19 @@ function runFullSiteBackup(triggeredBy = 'Manual') {
                 resolve(entry);
             });
 
-            ps.on('close', psCode => {
+            ps.on('close', async psCode => {
                 let size = 0;
                 try { size = fs.statSync(zipPath).size; } catch {}
                 try { if (fs.existsSync(dbDump)) fs.unlinkSync(dbDump); } catch {}
                 try { fs.unlinkSync(psFile); } catch {}
 
-                const success = psCode === 0 && psOut.includes('DONE') && size > 0;
+                let success = psCode === 0 && psOut.includes('DONE') && size > 0;
+                let deliveryRecovery = null;
+                let recoveryError = null;
+                if (success) {
+                    try { deliveryRecovery = await createDeliveryRecovery(siteDir, zipName); }
+                    catch (error) { success = false; recoveryError = error.message; }
+                }
                 const entry = {
                     id:          Date.now(),
                     filename:    success ? zipName : null,
@@ -630,7 +689,8 @@ function runFullSiteBackup(triggeredBy = 'Manual') {
                     triggeredBy,
                     status:      success ? 'success' : 'failed',
                     size,
-                    error:       !success ? (psErrOut.trim() || 'Unknown error') : null
+                    deliveryRecovery,
+                    error:       !success ? (recoveryError || psErrOut.trim() || 'Unknown error') : null
                 };
                 appendSiteLog(entry);
                 if (success) pruneOldSiteBackups();
